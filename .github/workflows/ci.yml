@@ -147,7 +147,7 @@ jobs:
           # No path specified, downloads to current directory
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.0.6
+        uses: softprops/action-gh-release@v2.2.1
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
