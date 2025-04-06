@@ -42,7 +42,7 @@ jobs:
         run: pnpm run test:cov # Fails job if tests fail or coverage < 100%
 
       - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2.3.0 # Use fixed version
+        uses: coverallsapp/github-action@v2.3.6 # Use fixed version
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: ./coverage/lcov.info # Verify path is correct
