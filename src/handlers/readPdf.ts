@@ -56,7 +56,7 @@ const parsePageRanges = (ranges: string): number[] => {
 
 // --- Zod Schemas ---
 const pageSpecifierSchema = z.union([
-  z.array(z.number().int().positive()).min(1), // Array of positive integers
+  z.array(z.number().int().min(1)).min(1), // Array of integers with minimum value 1 (pages are 1-based)
   z
     .string()
     .min(1)
@@ -183,11 +183,12 @@ const loadPdfDocument = async (
   source: { path?: string | undefined; url?: string | undefined }, // Explicitly allow undefined
   sourceDescription: string
 ): Promise<pdfjsLib.PDFDocumentProxy> => {
-  let pdfDataSource: Buffer | { url: string };
+  let pdfDataSource: Uint8Array | { url: string };
   try {
     if (source.path) {
       const safePath = resolvePath(source.path); // resolvePath handles security checks
-      pdfDataSource = await fs.readFile(safePath);
+      const buffer = await fs.readFile(safePath);
+      pdfDataSource = new Uint8Array(buffer); // Convert Buffer to Uint8Array
     } else if (source.url) {
       pdfDataSource = { url: source.url };
     } else {
@@ -253,9 +254,20 @@ const extractMetadataAndPageCount = async (
         output.info = infoData;
       }
       const metadataObj = pdfMetadata.metadata;
-      const metadataData = metadataObj.getAll() as PdfMetadata | undefined;
-      if (metadataData !== undefined) {
-        output.metadata = metadataData;
+      // Convert the metadata object to a plain object by extracting all properties
+      // Check if it has a getAll method (as used in tests)
+      if (typeof (metadataObj as unknown as { getAll?: () => unknown }).getAll === 'function') {
+        output.metadata = (metadataObj as unknown as { getAll: () => PdfMetadata }).getAll();
+      } else {
+        // For real PDF.js metadata, convert to plain object
+        const metadataRecord: PdfMetadata = {};
+        // Extract enumerable properties
+        for (const key in metadataObj) {
+          if (Object.prototype.hasOwnProperty.call(metadataObj, key)) {
+            metadataRecord[key] = (metadataObj as unknown as Record<string, unknown>)[key];
+          }
+        }
+        output.metadata = metadataRecord;
       }
     } catch (metaError: unknown) {
       console.warn(

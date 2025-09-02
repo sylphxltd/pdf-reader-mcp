@@ -424,7 +424,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     const args = { sources: [{ path: 'test.pdf', pages: [1, 0, 3] }] };
     await expect(handler(args)).rejects.toThrow(McpError);
     await expect(handler(args)).rejects.toThrow(
-      /Invalid arguments: sources.0.pages.1 \(Number must be greater than 0\)/
+      /Invalid arguments: sources.0.pages.1 \(Number must be greater than or equal to 1\)/
     );
     await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
