@@ -183,11 +183,11 @@ const loadPdfDocument = async (
   source: { path?: string | undefined; url?: string | undefined }, // Explicitly allow undefined
   sourceDescription: string
 ): Promise<pdfjsLib.PDFDocumentProxy> => {
-  let pdfDataSource: Buffer | { url: string };
+  let pdfDataSource: Uinit8Array | { url: string };
   try {
     if (source.path) {
       const safePath = resolvePath(source.path); // resolvePath handles security checks
-      pdfDataSource = await fs.readFile(safePath);
+      pdfDataSource = Uinit8Array.from(await fs.readFile(safePath));
     } else if (source.url) {
       pdfDataSource = { url: source.url };
     } else {
