@@ -1,12 +1,6 @@
-<server_id>@sylphxltd/pdf-reader-mcp</server_id>
-<server_name>PDF Reader</server_name>
-<readme>
+# PDF Reader MCP Server
+
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/sylphxltd-pdf-reader-mcp-badge.png)](https://mseep.ai/app/sylphxltd-pdf-reader-mcp)
-
-# PDF Reader MCP Server (@sylphlab/pdf-reader-mcp)
-
-<!-- Status Badges Area -->
-
 [![CI/CD Pipeline](https://github.com/sylphlab/pdf-reader-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/sylphlab/pdf-reader-mcp/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/sylphlab/pdf-reader-mcp/graph/badge.svg?token=VYRQFB40UN)](https://codecov.io/gh/sylphlab/pdf-reader-mcp)
 [![npm version](https://badge.fury.io/js/%40sylphlab%2Fpdf-reader-mcp.svg)](https://badge.fury.io/js/%40sylphlab%2Fpdf-reader-mcp)
@@ -14,41 +8,69 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![smithery badge](https://smithery.ai/badge/@sylphxltd/pdf-reader-mcp)](https://smithery.ai/server/@sylphxltd/pdf-reader-mcp)
 
-<!-- End Status Badges Area -->
-
-Empower your AI agents (like Cline) with the ability to securely read and extract information (text, metadata, page count) from PDF files within your project context using a single, flexible tool.
-
 <a href="https://glama.ai/mcp/servers/@sylphlab/pdf-reader-mcp">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@sylphlab/pdf-reader-mcp/badge" alt="PDF Reader Server MCP server" />
 </a>
 
-## Installation
+**Empower your AI agents** with the ability to securely read and extract information from PDF files using the Model Context Protocol (MCP).
 
-### Using npm (Recommended)
+## ✨ Features
 
-Install as a dependency in your MCP host environment or project:
+- 📄 **Extract text content** from PDF files (full document or specific pages)
+- 📊 **Get metadata** (author, title, creation date, etc.)
+- 🔢 **Count pages** in PDF documents
+- 🌐 **Support for both local files and URLs**
+- 🛡️ **Secure** - Confines file access to project root directory
+- ⚡ **Fast** - Powered by PDF.js with optimized performance
+- 🔄 **Batch processing** - Handle multiple PDFs in a single request
+- 📦 **Multiple deployment options** - npm, Docker, or Smithery
+
+## 🆕 Recent Updates (October 2025)
+
+- ✅ **Fixed critical bugs**: Buffer/Uint8Array compatibility for PDF.js v5.x
+- ✅ **Fixed schema validation**: Resolved `exclusiveMinimum` issue affecting Windsurf, Mistral API, and other tools
+- ✅ **Improved metadata extraction**: Robust fallback handling for PDF.js compatibility
+- ✅ **Updated dependencies**: All packages updated to latest versions
+- ✅ **Migrated to Biome**: 50x faster linting and formatting with unified tooling
+- ✅ **Added Docker support**: Easy deployment with containerization
+- ✅ **All tests passing**: 31/31 tests with comprehensive coverage
+
+## 📦 Installation
+
+### Option 1: Using Smithery (Easiest)
+
+Install automatically for Claude Desktop:
 
 ```bash
-pnpm add @sylphlab/pdf-reader-mcp # Or npm install / yarn add
+npx -y @smithery/cli install @sylphxltd/pdf-reader-mcp --client claude
 ```
 
-Configure your MCP host (e.g., `mcp_settings.json`) to use `npx`:
+### Option 2: Using npm/pnpm (Recommended)
+
+Install the package:
+
+```bash
+pnpm add @sylphlab/pdf-reader-mcp
+# or
+npm install @sylphlab/pdf-reader-mcp
+```
+
+Configure your MCP client (e.g., Claude Desktop, Cursor):
 
 ```json
 {
   "mcpServers": {
     "pdf-reader-mcp": {
       "command": "npx",
-      "args": ["@sylphlab/pdf-reader-mcp"],
-      "name": "PDF Reader (npx)"
+      "args": ["@sylphlab/pdf-reader-mcp"]
     }
   }
 }
 ```
 
-_(Ensure the host sets the correct `cwd` for the target project)_
+**Important:** Make sure your MCP client sets the correct working directory (`cwd`) to your project root.
 
-### Using Docker
+### Option 3: Using Docker
 
 Pull the image:
 
@@ -56,7 +78,7 @@ Pull the image:
 docker pull sylphlab/pdf-reader-mcp:latest
 ```
 
-Configure your MCP host to run the container, mounting your project directory to `/app`:
+Configure your MCP client:
 
 ```json
 {
@@ -68,164 +90,301 @@ Configure your MCP host to run the container, mounting your project directory to
         "-i",
         "--rm",
         "-v",
-        "/path/to/your/project:/app", // Or use "$PWD:/app", "%CD%:/app", etc.
+        "/path/to/your/project:/app",
         "sylphlab/pdf-reader-mcp:latest"
-      ],
-      "name": "PDF Reader (Docker)"
+      ]
     }
   }
 }
 ```
 
-### Local Build (For Development)
-
-1. Clone: `git clone https://github.com/sylphlab/pdf-reader-mcp.git`
-2. Install: `cd pdf-reader-mcp && pnpm install`
-3. Build: `pnpm run build`
-4. Configure MCP Host:
-   ```json
-   {
-     "mcpServers": {
-       "pdf-reader-mcp": {
-         "command": "node",
-         "args": ["/path/to/cloned/repo/pdf-reader-mcp/build/index.js"],
-         "name": "PDF Reader (Local Build)"
-       }
-     }
-   }
-   ```
-   _(Ensure the host sets the correct `cwd` for the target project)_
-
-### Installing via Smithery
-
-To install PDF Reader for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@sylphxltd/pdf-reader-mcp):
+### Option 4: Local Development Build
 
 ```bash
-npx -y @smithery/cli install @sylphxltd/pdf-reader-mcp --client claude
+git clone https://github.com/sylphlab/pdf-reader-mcp.git
+cd pdf-reader-mcp
+pnpm install
+pnpm run build
 ```
 
-## Quick Start
+Then configure your MCP client to use `node dist/index.js`.
 
-Assuming the server is running and configured in your MCP host:
+## 🚀 Quick Start
 
-**MCP Request (Get metadata and page 2 text from a local PDF):**
+Once configured, your AI agent can read PDFs using the `read_pdf` tool:
+
+### Example 1: Extract text from specific pages
 
 ```json
 {
-  "tool_name": "read_pdf",
-  "arguments": {
-    "sources": [
-      {
-        "path": "./documents/my_report.pdf",
-        "pages": [2]
-      }
-    ],
-    "include_metadata": true,
-    "include_page_count": false, // Default is true, explicitly false here
-    "include_full_text": false // Ignored because 'pages' is specified
-  }
+  "sources": [
+    {
+      "path": "documents/report.pdf",
+      "pages": [1, 2, 3]
+    }
+  ],
+  "include_metadata": true
 }
 ```
 
-**Expected Response Snippet:**
+### Example 2: Get metadata and page count only
 
 ```json
 {
-  "results": [
+  "sources": [{ "path": "documents/report.pdf" }],
+  "include_metadata": true,
+  "include_page_count": true,
+  "include_full_text": false
+}
+```
+
+### Example 3: Read from URL
+
+```json
+{
+  "sources": [
     {
-      "source": "./documents/my_report.pdf",
-      "success": true,
-      "data": {
-        "page_texts": [
-          { "page": 2, "text": "Text content from page 2..." }
-        ],
-        "info": { ... },
-        "metadata": { ... }
-        // num_pages not included as requested
-      }
+      "url": "https://example.com/document.pdf"
+    }
+  ],
+  "include_full_text": true
+}
+```
+
+### Example 4: Process multiple PDFs
+
+```json
+{
+  "sources": [
+    { "path": "doc1.pdf", "pages": "1-5" },
+    { "path": "doc2.pdf" },
+    { "url": "https://example.com/doc3.pdf" }
+  ],
+  "include_full_text": true
+}
+```
+
+## 📖 Usage Guide
+
+### Page Specification
+
+You can specify pages in multiple ways:
+
+- **Array of page numbers**: `[1, 3, 5]` (1-based indexing)
+- **Range string**: `"1-10"` (extracts pages 1 through 10)
+- **Multiple ranges**: `"1-5,10-15,20"` (commas separate ranges and individual pages)
+- **Omit for all pages**: Don't include the `pages` field to extract all pages
+
+### Working with Large PDFs
+
+For large PDF files (>20 MB), extract specific pages instead of the full document:
+
+```json
+{
+  "sources": [
+    {
+      "path": "large-document.pdf",
+      "pages": "1-10"
     }
   ]
 }
 ```
 
-## Why Choose This Project?
+This prevents hitting AI model context limits and improves performance.
 
-- **🛡️ Secure:** Confines file access strictly to the project root directory.
-- **🌐 Flexible:** Handles both local relative paths and public URLs.
-- **🧩 Consolidated:** A single `read_pdf` tool serves multiple extraction needs (full text, specific pages, metadata, page count).
-- **⚙️ Structured Output:** Returns data in a predictable JSON format, easy for agents to parse.
-- **🚀 Easy Integration:** Designed for seamless use within MCP environments via `npx` or Docker.
-- **✅ Robust:** Uses `pdfjs-dist` for reliable parsing and Zod for input validation.
+### Security: Relative Paths Only
 
-## Performance Advantages
+**Important:** The server only accepts **relative paths** for security reasons. Absolute paths are blocked to prevent unauthorized file system access.
 
-Initial benchmarks using Vitest on a sample PDF show efficient handling of various operations:
+✅ **Good**: `"path": "documents/report.pdf"`
+❌ **Bad**: `"path": "/Users/john/documents/report.pdf"`
 
-| Scenario                         | Operations per Second (hz) | Relative Speed |
-| :------------------------------- | :------------------------- | :------------- |
-| Handle Non-Existent File         | ~12,933                    | Fastest        |
-| Get Full Text                    | ~5,575                     |                |
-| Get Specific Page (Page 1)       | ~5,329                     |                |
-| Get Specific Pages (Pages 1 & 2) | ~5,242                     |                |
-| Get Metadata & Page Count        | ~4,912                     | Slowest        |
+**Solution**: Configure the `cwd` (current working directory) in your MCP client settings.
 
-_(Higher hz indicates better performance. Results may vary based on PDF complexity and environment.)_
+## 🔧 Troubleshooting
 
-See the [Performance Documentation](./docs/performance/index.md) for more details and future plans.
+### Issue: "No tools" showing up
 
-## Features
+**Solution**: Clear npm cache and reinstall:
 
-- Read full text content from PDF files.
-- Read text content from specific pages or page ranges.
-- Read PDF metadata (author, title, creation date, etc.).
-- Get the total page count of a PDF.
-- Process multiple PDF sources (local paths or URLs) in a single request.
-- Securely operates within the defined project root.
-- Provides structured JSON output via MCP.
-- Available via npm and Docker Hub.
+```bash
+npm cache clean --force
+npx @sylphlab/pdf-reader-mcp@latest
+```
 
-## Design Philosophy
+Restart your MCP client completely after updating.
 
-The server prioritizes security through context confinement, efficiency via structured data transfer, and simplicity for easy integration into AI agent workflows. It aims for minimal dependencies, relying on the robust `pdfjs-dist` library.
+### Issue: "File not found" errors
 
-See the full [Design Philosophy](./docs/design/index.md) documentation.
+**Causes**:
 
-## Comparison with Other Solutions
+1. Using absolute paths (not allowed for security)
+2. Incorrect working directory
 
-Compared to direct file access (often infeasible) or generic filesystem tools, this server offers PDF-specific parsing capabilities. Unlike external CLI tools (e.g., `pdftotext`), it provides a secure, integrated MCP interface with structured output, enhancing reliability and ease of use for AI agents.
+**Solution**: Use relative paths and configure `cwd` in your MCP client:
 
-See the full [Comparison](./docs/comparison/index.md) documentation.
+```json
+{
+  "mcpServers": {
+    "pdf-reader-mcp": {
+      "command": "npx",
+      "args": ["@sylphlab/pdf-reader-mcp"],
+      "cwd": "/path/to/your/project"
+    }
+  }
+}
+```
 
-## Future Plans (Roadmap)
+### Issue: Cursor/Claude Code compatibility
 
-- **Documentation:**
-  - Finalize all documentation sections (Guide, API, Design, Comparison).
-  - Resolve TypeDoc issue and generate API documentation.
-  - Add more examples and advanced usage patterns.
-  - Implement PWA support and mobile optimization for the docs site.
-  - Add share buttons and growth metrics to the docs site.
-- **Benchmarking:**
-  - Conduct comprehensive benchmarks with diverse PDF files (size, complexity).
-  - Measure memory usage.
-  - Compare URL vs. local file performance.
-- **Core Functionality:**
-  - Explore potential optimizations for very large PDF files.
-  - Investigate options for extracting images or annotations (longer term).
-- **Testing:**
-  - Increase test coverage towards 100% where practical.
-  - Add runtime tests once feasible.
+**Solution**: Update to the latest version (all recent compatibility issues have been fixed):
 
-## Documentation
+```bash
+npm update @sylphlab/pdf-reader-mcp@latest
+```
 
-For detailed usage, API reference, and guides, please visit the **[Full Documentation Website](https://sylphlab.github.io/pdf-reader-mcp/)** (Link to be updated upon deployment).
+Then restart your editor completely.
 
-## Community & Support
+## ⚡ Performance
 
-- **Found a bug or have a feature request?** Please open an issue on [GitHub Issues](https://github.com/sylphlab/pdf-reader-mcp/issues).
-- **Want to contribute?** We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md).
-- **Star & Watch:** If you find this project useful, please consider starring ⭐ and watching 👀 the repository on [GitHub](https://github.com/sylphlab/pdf-reader-mcp) to show your support and stay updated!
+Benchmarks on a standard PDF file:
 
-## License
+| Operation                        | Ops/sec   | Speed      |
+| :------------------------------- | :-------- | :--------- |
+| Handle Non-Existent File         | ~12,933   | Fastest    |
+| Get Full Text                    | ~5,575    |            |
+| Get Specific Page                | ~5,329    |            |
+| Get Multiple Pages               | ~5,242    |            |
+| Get Metadata & Page Count        | ~4,912    | Slowest    |
+
+_Performance varies based on PDF complexity and system resources._
+
+See [Performance Documentation](./docs/performance/index.md) for details.
+
+## 🏗️ Architecture
+
+### Tech Stack
+
+- **Runtime**: Node.js 22+
+- **PDF Processing**: PDF.js (pdfjs-dist)
+- **Validation**: Zod with JSON Schema generation
+- **Protocol**: Model Context Protocol (MCP) SDK
+- **Build**: TypeScript
+- **Testing**: Vitest with 100% coverage goal
+- **Code Quality**: Biome (linting + formatting)
+- **CI/CD**: GitHub Actions
+
+### Design Principles
+
+1. **Security First**: Strict path validation and sandboxing
+2. **Simple Interface**: Single tool handles all PDF operations
+3. **Structured Output**: Predictable JSON format for AI parsing
+4. **Performance**: Efficient caching and lazy loading
+5. **Reliability**: Comprehensive error handling and validation
+
+See [Design Philosophy](./docs/design/index.md) for more details.
+
+## 🧪 Development
+
+### Prerequisites
+
+- Node.js >= 22.0.0
+- pnpm (recommended) or npm
+
+### Setup
+
+```bash
+git clone https://github.com/sylphlab/pdf-reader-mcp.git
+cd pdf-reader-mcp
+pnpm install
+```
+
+### Available Scripts
+
+```bash
+pnpm run build        # Build TypeScript to dist/
+pnpm run watch        # Build in watch mode
+pnpm run test         # Run tests
+pnpm run test:watch   # Run tests in watch mode
+pnpm run test:cov     # Run tests with coverage
+pnpm run check        # Run Biome (lint + format check)
+pnpm run check:fix    # Fix Biome issues automatically
+pnpm run lint         # Lint with Biome
+pnpm run format       # Format with Biome
+pnpm run typecheck    # TypeScript type checking
+pnpm run benchmark    # Run performance benchmarks
+pnpm run validate     # Full validation (check + test)
+```
+
+### Testing
+
+We maintain high test coverage using Vitest:
+
+```bash
+pnpm run test         # Run all tests
+pnpm run test:cov     # Run with coverage report
+```
+
+All tests must pass before merging. Current: **31/31 tests passing** ✅
+
+### Code Quality
+
+The project uses [Biome](https://biomejs.dev/) for fast, unified linting and formatting:
+
+```bash
+pnpm run check        # Check code quality
+pnpm run check:fix    # Auto-fix issues
+```
+
+### Contributing
+
+We welcome contributions! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and ensure tests pass
+4. Run `pnpm run check:fix` to format code
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
+6. Open a Pull Request
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+
+## 📚 Documentation
+
+- **[Full Documentation](https://sylphlab.github.io/pdf-reader-mcp/)** - Complete guides and API reference
+- **[Getting Started Guide](./docs/guide/getting-started.md)** - Quick start guide
+- **[API Reference](./docs/api/README.md)** - Detailed API documentation
+- **[Design Philosophy](./docs/design/index.md)** - Architecture and design decisions
+- **[Performance](./docs/performance/index.md)** - Benchmarks and optimization
+- **[Comparison](./docs/comparison/index.md)** - How it compares to alternatives
+
+## 🗺️ Roadmap
+
+- [ ] Image extraction from PDFs
+- [ ] Annotation extraction support
+- [ ] OCR integration for scanned PDFs
+- [ ] Streaming support for very large files
+- [ ] Enhanced caching mechanisms
+- [ ] Performance optimizations for large batches
+
+## 🤝 Support & Community
+
+- **Issues**: [GitHub Issues](https://github.com/sylphlab/pdf-reader-mcp/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sylphlab/pdf-reader-mcp/discussions)
+- **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+If you find this project useful, please:
+
+- ⭐ Star the repository
+- 👀 Watch for updates
+- 🐛 Report bugs
+- 💡 Suggest features
+- 🔀 Contribute code
+
+## 📄 License
 
 This project is licensed under the [MIT License](./LICENSE).
-</readme>
+
+---
+
+**Made with ❤️ by [Sylph AI](https://sylphlab.ai)**
