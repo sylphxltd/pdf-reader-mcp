@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.0.0](https://github.com/sylphxltd/pdf-reader-mcp/compare/v0.3.24...v1.0.0) (2025-10-31)
+
+### ⚠ BREAKING CHANGES
+
+* **Package renamed from @sylphlab/pdf-reader-mcp to @sylphx/pdf-reader-mcp**
+* Docker images renamed from sylphlab/pdf-reader-mcp to sylphx/pdf-reader-mcp
+
+### Features
+
+* Migrate from ESLint/Prettier to Biome for 50x faster linting ([bde79bf](https://github.com/sylphxltd/pdf-reader-mcp/commit/bde79bf))
+* Add Docker and Smithery deployment support ([11dc08f](https://github.com/sylphxltd/pdf-reader-mcp/commit/11dc08f))
+
+### Bug Fixes
+
+* Fix Buffer to Uint8Array conversion for PDF.js v5.x compatibility ([1c7710d](https://github.com/sylphxltd/pdf-reader-mcp/commit/1c7710d))
+* Fix schema validation with exclusiveMinimum for Mistral/Windsurf compatibility ([1c7710d](https://github.com/sylphxltd/pdf-reader-mcp/commit/1c7710d))
+* Fix metadata extraction with robust .getAll() fallback ([1c7710d](https://github.com/sylphxltd/pdf-reader-mcp/commit/1c7710d))
+* Fix nested test case that was not running ([2c8e1a5](https://github.com/sylphxltd/pdf-reader-mcp/commit/2c8e1a5))
+* Update PdfSourceResult type for exactOptionalPropertyTypes compatibility ([4e0d81d](https://github.com/sylphxltd/pdf-reader-mcp/commit/4e0d81d))
+
+### Improvements
+
+* Upgrade all dependencies to latest versions ([dab3f13](https://github.com/sylphxltd/pdf-reader-mcp/commit/dab3f13))
+  - @modelcontextprotocol/sdk: 1.8.0 → 1.20.2
+  - pdfjs-dist: 5.1.91 → 5.4.296
+  - All GitHub Actions updated to latest versions
+* Rebrand from Sylphlab to Sylphx ([1b6e4d3](https://github.com/sylphxltd/pdf-reader-mcp/commit/1b6e4d3))
+* Revise README for better clarity and modern structure ([b770b27](https://github.com/sylphxltd/pdf-reader-mcp/commit/b770b27))
+
+### Migration Guide
+
+To migrate from @sylphlab/pdf-reader-mcp to @sylphx/pdf-reader-mcp:
+
+1. Uninstall old package:
+   ```bash
+   npm uninstall @sylphlab/pdf-reader-mcp
+   ```
+
+2. Install new package:
+   ```bash
+   npm install @sylphx/pdf-reader-mcp
+   ```
+
+3. Update your MCP configuration to use @sylphx/pdf-reader-mcp
+
+4. If using Docker, update image name to sylphx/pdf-reader-mcp
+
+All functionality remains the same. No code changes required.
+
 ### [0.3.24](https://github.com/sylphlab/pdf-reader-mcp/compare/v0.3.23...v0.3.24) (2025-04-07)
 
 ### Bug Fixes
