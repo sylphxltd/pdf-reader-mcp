@@ -910,4 +910,378 @@ describe('handleReadPdfFunc Integration Tests', () => {
     const imageParts = result.content.filter((c) => c.type === 'image');
     expect(imageParts.length).toBe(2); // One image per page
   });
+
+  it('should handle image extraction timeout when callback never fires', async () => {
+    const mockPage = {
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89], // OPS.paintImageXObject
+        argsArray: [['hanging_img']],
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((_name: string, _callback?: (data: unknown) => void) => {
+          // Return undefined for sync call, never call callback for async
+          return undefined;
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    // Should complete despite hanging callback (timeout after 10 seconds)
+    const result = await handler(args);
+
+    expect(result.content.length).toBeGreaterThanOrEqual(1);
+    expect(result.content[0].type).toBe('text');
+
+    // Image parts should be empty or missing since extraction timed out
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBe(0);
+  }, 15000); // Set test timeout to 15 seconds (10s timeout + buffer)
+
+  it('should extract different image formats (grayscale, rgb, rgba)', async () => {
+    const mockGrayscaleImage = {
+      width: 50,
+      height: 50,
+      data: new Uint8Array([128]),
+      kind: 1, // grayscale
+    };
+
+    const mockRGBImage = {
+      width: 100,
+      height: 100,
+      data: new Uint8Array([255, 0, 0]),
+      kind: 2, // RGB
+    };
+
+    const mockRGBAImage = {
+      width: 75,
+      height: 75,
+      data: new Uint8Array([0, 255, 0, 255]),
+      kind: 3, // RGBA
+    };
+
+    const mockPage = {
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89, 89, 89], // Three images
+        argsArray: [['img1'], ['img2'], ['img3']],
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((name: string, callback: (data: unknown) => void) => {
+          if (name === 'img1') callback(mockGrayscaleImage);
+          else if (name === 'img2') callback(mockRGBImage);
+          else if (name === 'img3') callback(mockRGBAImage);
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // Check JSON includes image info
+    const parsed = JSON.parse(result.content[0].text as string);
+    expect(parsed.results[0].data.image_info).toHaveLength(3);
+    expect(parsed.results[0].data.image_info[0].format).toBe('grayscale');
+    expect(parsed.results[0].data.image_info[1].format).toBe('rgb');
+    expect(parsed.results[0].data.image_info[2].format).toBe('rgba');
+
+    // Check image parts with correct MIME types (all images are now PNG)
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBe(3);
+    // All images should be PNG now
+    expect(imageParts[0].mimeType).toBe('image/png');
+    expect(imageParts[1].mimeType).toBe('image/png');
+    expect(imageParts[2].mimeType).toBe('image/png');
+  });
+
+  it('should skip images with missing or invalid data', async () => {
+    const mockValidImage = {
+      width: 100,
+      height: 50,
+      data: new Uint8Array([255, 0, 0]),
+      kind: 2,
+    };
+
+    const mockPage = {
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89, 89, 89, 89], // Four images
+        argsArray: [['valid_img'], ['no_data'], ['no_width'], ['invalid']],
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((name: string, callback: (data: unknown) => void) => {
+          if (name === 'valid_img') {
+            callback(mockValidImage);
+          } else if (name === 'no_data') {
+            callback({ width: 100, height: 50, kind: 2 }); // Missing data
+          } else if (name === 'no_width') {
+            callback({ data: new Uint8Array([0]), height: 50, kind: 2 }); // Missing width
+          } else if (name === 'invalid') {
+            callback(null); // Invalid data
+          }
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // Only valid image should be extracted
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBe(1);
+
+    const parsed = JSON.parse(result.content[0].text as string);
+    expect(parsed.results[0].data.image_info).toHaveLength(1);
+  });
+
+  it('should preserve Y-coordinate ordering for mixed text and images', async () => {
+    const mockImageData = {
+      width: 100,
+      height: 50,
+      data: new Uint8Array([255, 0, 0]),
+      kind: 2,
+    };
+
+    const mockPage = {
+      getTextContent: vi.fn().mockResolvedValue({
+        items: [
+          { str: 'Top text', transform: [1, 0, 0, 1, 0, 200] }, // Y=200 (top)
+          { str: 'Bottom text', transform: [1, 0, 0, 1, 0, 50] }, // Y=50 (bottom)
+        ],
+      }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89], // One image
+        argsArray: [['img1', [1, 0, 0, 1, 0, 150]]], // Y=150 (middle) - transform in args
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+          callback(mockImageData);
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // Content order should be: summary, top_text, image, bottom_text
+    // (sorted by Y-coordinate descending = top to bottom)
+    expect(result.content.length).toBe(4);
+    expect(result.content[0].type).toBe('text'); // Summary JSON
+    expect(result.content[1].type).toBe('text'); // Top text (Y=200)
+    expect(result.content[1].text).toBe('Top text');
+    expect(result.content[2].type).toBe('image'); // Image (Y=150)
+    expect(result.content[3].type).toBe('text'); // Bottom text (Y=50)
+    expect(result.content[3].text).toBe('Bottom text');
+  });
+
+  it('should extract images from commonObjs with g_ prefix', async () => {
+    const mockImageData = {
+      width: 100,
+      height: 50,
+      data: new Uint8Array([255, 0, 0]),
+      kind: 2,
+    };
+
+    const mockPage = {
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89],
+        argsArray: [['g_image1']], // Image with g_ prefix
+      }),
+      objs: {
+        get: vi.fn().mockReturnValue(undefined), // Not in objs
+      },
+      commonObjs: {
+        get: vi.fn().mockReturnValue(mockImageData), // Found in commonObjs
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // Should have extracted the image from commonObjs
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBe(1);
+    expect(mockPage.commonObjs.get).toHaveBeenCalledWith('g_image1');
+  });
+
+  it('should use sync objs.get when image is already loaded', async () => {
+    const mockImageData = {
+      width: 100,
+      height: 50,
+      data: new Uint8Array([255, 0, 0]),
+      kind: 2,
+    };
+
+    const mockPage = {
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89],
+        argsArray: [['img1']],
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((name: string, callback?: (data: unknown) => void) => {
+          // Sync call - return immediately
+          if (!callback) {
+            return mockImageData;
+          }
+          // Should not reach async callback
+          callback(mockImageData);
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // Should have extracted the image synchronously
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBe(1);
+    // Verify sync call was made (without callback parameter)
+    expect(mockPage.objs.get).toHaveBeenCalled();
+  });
+
+  it('should fallback to async when sync get returns undefined', async () => {
+    const mockImageData = {
+      width: 100,
+      height: 50,
+      data: new Uint8Array([255, 0, 0]),
+      kind: 2,
+    };
+
+    const mockPage = {
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89],
+        argsArray: [['img1']],
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((_name: string, callback?: (data: unknown) => void) => {
+          // Sync call returns undefined
+          if (!callback) {
+            return undefined;
+          }
+          // Async callback provides the data
+          callback(mockImageData);
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // Should have extracted the image via async callback
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBe(1);
+  });
 }); // End top-level describe

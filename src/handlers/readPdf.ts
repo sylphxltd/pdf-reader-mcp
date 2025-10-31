@@ -207,11 +207,11 @@ export const handleReadPdfFunc = async (
             text: item.textContent,
           });
         } else if (item.type === 'image' && item.imageData) {
-          // Add image content part
+          // Add image content part (all images are now encoded as PNG)
           content.push({
             type: 'image',
             data: item.imageData.data,
-            mimeType: item.imageData.format === 'rgba' ? 'image/png' : 'image/jpeg',
+            mimeType: 'image/png',
           });
         }
       }
