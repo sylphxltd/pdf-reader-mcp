@@ -1,3 +1,6 @@
+<server_id>@sylphxltd/pdf-reader-mcp</server_id>
+<server_name>PDF Reader</server_name>
+<readme>
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/sylphxltd-pdf-reader-mcp-badge.png)](https://mseep.ai/app/sylphxltd-pdf-reader-mcp)
 
 # PDF Reader MCP Server (@sylphlab/pdf-reader-mcp)
@@ -9,6 +12,7 @@
 [![npm version](https://badge.fury.io/js/%40sylphlab%2Fpdf-reader-mcp.svg)](https://badge.fury.io/js/%40sylphlab%2Fpdf-reader-mcp)
 [![Docker Pulls](https://img.shields.io/docker/pulls/sylphlab/pdf-reader-mcp.svg)](https://hub.docker.com/r/sylphlab/pdf-reader-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![smithery badge](https://smithery.ai/badge/@sylphxltd/pdf-reader-mcp)](https://smithery.ai/server/@sylphxltd/pdf-reader-mcp)
 
 <!-- End Status Badges Area -->
 
@@ -91,6 +95,14 @@ Configure your MCP host to run the container, mounting your project directory to
    }
    ```
    _(Ensure the host sets the correct `cwd` for the target project)_
+
+### Installing via Smithery
+
+To install PDF Reader for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@sylphxltd/pdf-reader-mcp):
+
+```bash
+npx -y @smithery/cli install @sylphxltd/pdf-reader-mcp --client claude
+```
 
 ## Quick Start
 
@@ -216,3 +228,4 @@ For detailed usage, API reference, and guides, please visit the **[Full Document
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
+</readme>
