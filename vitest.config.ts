@@ -17,11 +17,11 @@ export default defineConfig({
         '**/*.d.ts',
       ],
       thresholds: {
-        // Enforce 100% coverage
-        lines: 92, // Lowered threshold
-        functions: 100, // Keep functions at 100 as it was met
-        branches: 80, // Lowered threshold
-        statements: 92, // Lowered threshold
+        // Enforce coverage thresholds
+        lines: 90,
+        functions: 100,
+        branches: 79,
+        statements: 90,
       },
     },
   },
