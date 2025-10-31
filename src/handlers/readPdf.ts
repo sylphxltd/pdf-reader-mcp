@@ -140,7 +140,7 @@ interface PdfResultData {
 interface PdfSourceResult {
   source: string;
   success: boolean;
-  data?: PdfResultData;
+  data?: PdfResultData | undefined;
   error?: string;
 }
 
