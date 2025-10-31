@@ -4,7 +4,6 @@
 [![CI/CD Pipeline](https://github.com/sylphlab/pdf-reader-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/sylphlab/pdf-reader-mcp/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/sylphlab/pdf-reader-mcp/graph/badge.svg?token=VYRQFB40UN)](https://codecov.io/gh/sylphlab/pdf-reader-mcp)
 [![npm version](https://badge.fury.io/js/%40sylphlab%2Fpdf-reader-mcp.svg)](https://badge.fury.io/js/%40sylphlab%2Fpdf-reader-mcp)
-[![Docker Pulls](https://img.shields.io/docker/pulls/sylphlab/pdf-reader-mcp.svg)](https://hub.docker.com/r/sylphlab/pdf-reader-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![smithery badge](https://smithery.ai/badge/@sylphxltd/pdf-reader-mcp)](https://smithery.ai/server/@sylphxltd/pdf-reader-mcp)
 
@@ -23,7 +22,7 @@
 - 🛡️ **Secure** - Confines file access to project root directory
 - ⚡ **Fast** - Powered by PDF.js with optimized performance
 - 🔄 **Batch processing** - Handle multiple PDFs in a single request
-- 📦 **Multiple deployment options** - npm, Docker, or Smithery
+- 📦 **Multiple deployment options** - npm or Smithery
 
 ## 🆕 Recent Updates (October 2025)
 
@@ -32,7 +31,6 @@
 - ✅ **Improved metadata extraction**: Robust fallback handling for PDF.js compatibility
 - ✅ **Updated dependencies**: All packages updated to latest versions
 - ✅ **Migrated to Biome**: 50x faster linting and formatting with unified tooling
-- ✅ **Added Docker support**: Easy deployment with containerization
 - ✅ **All tests passing**: 31/31 tests with comprehensive coverage
 
 ## 📦 Installation
@@ -70,35 +68,7 @@ Configure your MCP client (e.g., Claude Desktop, Cursor):
 
 **Important:** Make sure your MCP client sets the correct working directory (`cwd`) to your project root.
 
-### Option 3: Using Docker
-
-Pull the image:
-
-```bash
-docker pull sylphx/pdf-reader-mcp:latest
-```
-
-Configure your MCP client:
-
-```json
-{
-  "mcpServers": {
-    "pdf-reader-mcp": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-v",
-        "/path/to/your/project:/app",
-        "sylphx/pdf-reader-mcp:latest"
-      ]
-    }
-  }
-}
-```
-
-### Option 4: Local Development Build
+### Option 3: Local Development Build
 
 ```bash
 git clone https://github.com/sylphlab/pdf-reader-mcp.git
