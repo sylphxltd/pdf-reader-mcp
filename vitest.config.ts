@@ -14,14 +14,15 @@ export default defineConfig({
         // Exclude index/types or other non-testable files if needed
         'src/index.ts',
         'src/handlers/index.ts', // Usually just exports
+        'src/types/**/*.ts', // Type-only files have no executable code
         '**/*.d.ts',
       ],
       thresholds: {
-        // Enforce coverage thresholds
-        lines: 90,
+        // High coverage thresholds after refactoring
+        lines: 98,
         functions: 100,
-        branches: 79,
-        statements: 90,
+        branches: 93,
+        statements: 98,
       },
     },
   },

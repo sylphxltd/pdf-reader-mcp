@@ -748,4 +748,29 @@ describe('handleReadPdfFunc Integration Tests', () => {
     );
     await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
+
+  it('should handle non-Error exceptions during processing', async () => {
+    // Mock to throw non-Error at processSingleSource level
+    // We need to throw something that's not Error or McpError
+    mockGetDocument.mockReset();
+    mockGetDocument.mockImplementation(() => {
+      throw { custom: 'object error' }; // Non-Error, non-McpError
+    });
+
+    const args = { sources: [{ path: 'test.pdf' }] };
+    const result = await handler(args);
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (result.content?.[0]) {
+      const parsedResult = JSON.parse(result.content[0].text) as ExpectedResultType;
+      expect(parsedResult.results[0]).toBeDefined();
+      if (parsedResult.results[0]) {
+        expect(parsedResult.results[0].success).toBe(false);
+        expect(parsedResult.results[0].error).toContain('Unknown error');
+        expect(parsedResult.results[0].error).toContain('custom');
+      }
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
 }); // End top-level describe
