@@ -2,10 +2,7 @@
 import { z } from 'zod';
 // Schema for page specification (array of numbers or range string)
 export const pageSpecifierSchema = z.union([
-    z
-        .array(z.number().int().min(1))
-        .min(1)
-        .describe('Array of page numbers (1-based)'),
+    z.array(z.number().int().min(1)).min(1).describe('Array of page numbers (1-based)'),
     z
         .string()
         .min(1)

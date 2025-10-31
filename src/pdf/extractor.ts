@@ -52,32 +52,43 @@ export const extractMetadataAndPageCount = async (
 };
 
 /**
- * Extract text from specified pages
+ * Extract text from a single page
+ */
+const extractSinglePageText = async (
+  pdfDocument: pdfjsLib.PDFDocumentProxy,
+  pageNum: number,
+  sourceDescription: string
+): Promise<ExtractedPageText> => {
+  try {
+    const page = await pdfDocument.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: unknown) => (item as { str: string }).str)
+      .join('');
+
+    return { page: pageNum, text: pageText };
+  } catch (pageError: unknown) {
+    const message = pageError instanceof Error ? pageError.message : String(pageError);
+    console.warn(
+      `[PDF Reader MCP] Error getting text content for page ${String(pageNum)} in ${sourceDescription}: ${message}`
+    );
+
+    return { page: pageNum, text: `Error processing page: ${message}` };
+  }
+};
+
+/**
+ * Extract text from specified pages (parallel processing for performance)
  */
 export const extractPageTexts = async (
   pdfDocument: pdfjsLib.PDFDocumentProxy,
   pagesToProcess: number[],
   sourceDescription: string
 ): Promise<ExtractedPageText[]> => {
-  const extractedPageTexts: ExtractedPageText[] = [];
-
-  for (const pageNum of pagesToProcess) {
-    let pageText = '';
-
-    try {
-      const page = await pdfDocument.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      pageText = textContent.items.map((item: unknown) => (item as { str: string }).str).join('');
-    } catch (pageError: unknown) {
-      const message = pageError instanceof Error ? pageError.message : String(pageError);
-      console.warn(
-        `[PDF Reader MCP] Error getting text content for page ${String(pageNum)} in ${sourceDescription}: ${message}`
-      );
-      pageText = `Error processing page: ${message}`;
-    }
-
-    extractedPageTexts.push({ page: pageNum, text: pageText });
-  }
+  // Process all pages in parallel for better performance
+  const extractedPageTexts = await Promise.all(
+    pagesToProcess.map((pageNum) => extractSinglePageText(pdfDocument, pageNum, sourceDescription))
+  );
 
   return extractedPageTexts.sort((a, b) => a.page - b.page);
 };

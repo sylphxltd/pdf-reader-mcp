@@ -37,24 +37,29 @@ export const extractMetadataAndPageCount = async (pdfDocument, includeMetadata, 
     return output;
 };
 /**
- * Extract text from specified pages
+ * Extract text from a single page
+ */
+const extractSinglePageText = async (pdfDocument, pageNum, sourceDescription) => {
+    try {
+        const page = await pdfDocument.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+            .map((item) => item.str)
+            .join('');
+        return { page: pageNum, text: pageText };
+    }
+    catch (pageError) {
+        const message = pageError instanceof Error ? pageError.message : String(pageError);
+        console.warn(`[PDF Reader MCP] Error getting text content for page ${String(pageNum)} in ${sourceDescription}: ${message}`);
+        return { page: pageNum, text: `Error processing page: ${message}` };
+    }
+};
+/**
+ * Extract text from specified pages (parallel processing for performance)
  */
 export const extractPageTexts = async (pdfDocument, pagesToProcess, sourceDescription) => {
-    const extractedPageTexts = [];
-    for (const pageNum of pagesToProcess) {
-        let pageText = '';
-        try {
-            const page = await pdfDocument.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            pageText = textContent.items.map((item) => item.str).join('');
-        }
-        catch (pageError) {
-            const message = pageError instanceof Error ? pageError.message : String(pageError);
-            console.warn(`[PDF Reader MCP] Error getting text content for page ${String(pageNum)} in ${sourceDescription}: ${message}`);
-            pageText = `Error processing page: ${message}`;
-        }
-        extractedPageTexts.push({ page: pageNum, text: pageText });
-    }
+    // Process all pages in parallel for better performance
+    const extractedPageTexts = await Promise.all(pagesToProcess.map((pageNum) => extractSinglePageText(pdfDocument, pageNum, sourceDescription)));
     return extractedPageTexts.sort((a, b) => a.page - b.page);
 };
 /**
