@@ -2,7 +2,12 @@
 
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { buildWarnings, extractMetadataAndPageCount, extractPageTexts } from '../pdf/extractor.js';
+import {
+  buildWarnings,
+  extractImages,
+  extractMetadataAndPageCount,
+  extractPageTexts,
+} from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
 import type { ReadPdfArgs } from '../schemas/readPdf.js';
@@ -15,7 +20,12 @@ import type { ToolDefinition } from './index.js';
  */
 const processSingleSource = async (
   source: PdfSource,
-  options: { includeFullText: boolean; includeMetadata: boolean; includePageCount: boolean }
+  options: {
+    includeFullText: boolean;
+    includeMetadata: boolean;
+    includePageCount: boolean;
+    includeImages: boolean;
+  }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
   let individualResult: PdfSourceResult = { source: sourceDescription, success: false };
@@ -68,6 +78,14 @@ const processSingleSource = async (
       }
     }
 
+    // Extract images if needed
+    if (options.includeImages && pagesToProcess.length > 0) {
+      const extractedImages = await extractImages(pdfDocument, pagesToProcess);
+      if (extractedImages.length > 0) {
+        output.images = extractedImages;
+      }
+    }
+
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error: unknown) {
     let errorMessage = `Failed to process PDF from ${sourceDescription}.`;
@@ -110,7 +128,8 @@ export const handleReadPdfFunc = async (
     throw new McpError(ErrorCode.InvalidParams, `Argument validation failed: ${message}`);
   }
 
-  const { sources, include_full_text, include_metadata, include_page_count } = parsedArgs;
+  const { sources, include_full_text, include_metadata, include_page_count, include_images } =
+    parsedArgs;
 
   // Process all sources concurrently
   const results = await Promise.all(
@@ -119,6 +138,7 @@ export const handleReadPdfFunc = async (
         includeFullText: include_full_text,
         includeMetadata: include_metadata,
         includePageCount: include_page_count,
+        includeImages: include_images,
       })
     )
   );
@@ -137,7 +157,7 @@ export const handleReadPdfFunc = async (
 export const readPdfToolDefinition: ToolDefinition = {
   name: 'read_pdf',
   description:
-    'Reads content/metadata from one or more PDFs (local/URL). Each source can specify pages to extract.',
+    'Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.',
   schema: readPdfArgsSchema,
   handler: handleReadPdfFunc,
 };

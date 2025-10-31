@@ -1,7 +1,7 @@
 // PDF reading handler - orchestrates PDF processing workflow
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { buildWarnings, extractMetadataAndPageCount, extractPageTexts } from '../pdf/extractor.js';
+import { buildWarnings, extractImages, extractMetadataAndPageCount, extractPageTexts, } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
@@ -40,6 +40,13 @@ const processSingleSource = async (source, options) => {
                 output.full_text = extractedPageTexts.map((p) => p.text).join('\n\n');
             }
         }
+        // Extract images if needed
+        if (options.includeImages && pagesToProcess.length > 0) {
+            const extractedImages = await extractImages(pdfDocument, pagesToProcess);
+            if (extractedImages.length > 0) {
+                output.images = extractedImages;
+            }
+        }
         individualResult = { ...individualResult, data: output, success: true };
     }
     catch (error) {
@@ -74,12 +81,13 @@ export const handleReadPdfFunc = async (args) => {
         const message = error instanceof Error ? error.message : String(error);
         throw new McpError(ErrorCode.InvalidParams, `Argument validation failed: ${message}`);
     }
-    const { sources, include_full_text, include_metadata, include_page_count } = parsedArgs;
+    const { sources, include_full_text, include_metadata, include_page_count, include_images } = parsedArgs;
     // Process all sources concurrently
     const results = await Promise.all(sources.map((source) => processSingleSource(source, {
         includeFullText: include_full_text,
         includeMetadata: include_metadata,
         includePageCount: include_page_count,
+        includeImages: include_images,
     })));
     return {
         content: [
@@ -93,7 +101,7 @@ export const handleReadPdfFunc = async (args) => {
 // Export the tool definition
 export const readPdfToolDefinition = {
     name: 'read_pdf',
-    description: 'Reads content/metadata from one or more PDFs (local/URL). Each source can specify pages to extract.',
+    description: 'Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.',
     schema: readPdfArgsSchema,
     handler: handleReadPdfFunc,
 };

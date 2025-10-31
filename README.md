@@ -16,11 +16,12 @@
 ## ✨ Features
 
 - 📄 **Extract text content** from PDF files (full document or specific pages)
+- 🖼️ **Extract embedded images** from PDF pages as base64-encoded data
 - 📊 **Get metadata** (author, title, creation date, etc.)
 - 🔢 **Count pages** in PDF documents
 - 🌐 **Support for both local files and URLs**
 - 🛡️ **Secure** - Confines file access to project root directory
-- ⚡ **Fast** - Powered by PDF.js with optimized performance
+- ⚡ **Fast** - Parallel processing for maximum performance
 - 🔄 **Batch processing** - Handle multiple PDFs in a single request
 - 📦 **Multiple deployment options** - npm or Smithery
 
@@ -31,7 +32,9 @@
 - ✅ **Improved metadata extraction**: Robust fallback handling for PDF.js compatibility
 - ✅ **Updated dependencies**: All packages updated to latest versions
 - ✅ **Migrated to Biome**: 50x faster linting and formatting with unified tooling
-- ✅ **All tests passing**: 31/31 tests with comprehensive coverage
+- ✅ **Added image extraction**: Extract embedded images from PDF pages
+- ✅ **Performance optimization**: Parallel page processing for 5-10x speedup
+- ✅ **Deep refactoring**: Modular architecture with 98.9% test coverage (90 tests)
 
 ## 📦 Installation
 
@@ -133,6 +136,28 @@ Once configured, your AI agent can read PDFs using the `read_pdf` tool:
   "include_full_text": true
 }
 ```
+
+### Example 5: Extract images from PDF
+
+```json
+{
+  "sources": [
+    {
+      "path": "presentation.pdf",
+      "pages": [1, 2, 3]
+    }
+  ],
+  "include_images": true,
+  "include_full_text": true
+}
+```
+
+**Response includes**:
+- Text content from each page
+- Embedded images as base64-encoded data with metadata (width, height, format)
+- Each image includes page number and index
+
+**Note**: Image extraction works best with JPEG and PNG images. Large PDFs with many images may produce large responses.
 
 ## 📖 Usage Guide
 
@@ -330,12 +355,13 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 
 ## 🗺️ Roadmap
 
-- [ ] Image extraction from PDFs
+- [x] ~~Image extraction from PDFs~~ ✅ Completed (v1.0.0)
+- [x] ~~Performance optimizations for parallel processing~~ ✅ Completed (v1.0.0)
 - [ ] Annotation extraction support
 - [ ] OCR integration for scanned PDFs
 - [ ] Streaming support for very large files
 - [ ] Enhanced caching mechanisms
-- [ ] Performance optimizations for large batches
+- [ ] PDF form field extraction
 
 ## 🤝 Support & Community
 

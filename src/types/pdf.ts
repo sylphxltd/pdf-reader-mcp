@@ -15,12 +15,22 @@ export interface ExtractedPageText {
   text: string;
 }
 
+export interface ExtractedImage {
+  page: number;
+  index: number;
+  width: number;
+  height: number;
+  format: string;
+  data: string; // base64 encoded image data
+}
+
 export interface PdfResultData {
   info?: PdfInfo;
   metadata?: PdfMetadata;
   num_pages?: number;
   full_text?: string;
   page_texts?: ExtractedPageText[];
+  images?: ExtractedImage[];
   warnings?: string[];
 }
 
@@ -41,4 +51,5 @@ export interface ReadPdfOptions {
   include_full_text: boolean;
   include_metadata: boolean;
   include_page_count: boolean;
+  include_images: boolean;
 }

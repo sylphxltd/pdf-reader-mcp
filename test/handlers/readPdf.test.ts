@@ -17,6 +17,10 @@ const mockReadFile = vi.fn();
 vi.doMock('pdfjs-dist/legacy/build/pdf.mjs', () => {
   return {
     getDocument: mockGetDocument,
+    OPS: {
+      paintImageXObject: 89,
+      paintXObject: 92,
+    },
   };
 });
 vi.doMock('node:fs/promises', () => {
@@ -768,6 +772,57 @@ describe('handleReadPdfFunc Integration Tests', () => {
         expect(parsedResult.results[0].success).toBe(false);
         expect(parsedResult.results[0].error).toContain('Unknown error');
         expect(parsedResult.results[0].error).toContain('custom');
+      }
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
+
+  it('should extract images when include_images is true', async () => {
+    const mockImageData = {
+      width: 100,
+      height: 50,
+      data: new Uint8Array([255, 0, 0]),
+      kind: 2,
+    };
+
+    const mockPage = {
+      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test' }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89], // OPS.paintImageXObject value
+        argsArray: [['img1']],
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+          callback(mockImageData);
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (result.content?.[0]) {
+      const parsedResult = JSON.parse(result.content[0].text) as ExpectedResultType;
+      expect(parsedResult.results[0]).toBeDefined();
+      if (parsedResult.results[0]?.data) {
+        expect(parsedResult.results[0].data.images).toBeDefined();
+        expect(parsedResult.results[0].data.images?.length).toBeGreaterThan(0);
       }
     } else {
       expect.fail('result.content[0] was undefined');

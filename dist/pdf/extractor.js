@@ -1,4 +1,5 @@
 // PDF text and metadata extraction utilities
+import { OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 /**
  * Extract metadata and page count from a PDF document
  */
@@ -61,6 +62,83 @@ export const extractPageTexts = async (pdfDocument, pagesToProcess, sourceDescri
     // Process all pages in parallel for better performance
     const extractedPageTexts = await Promise.all(pagesToProcess.map((pageNum) => extractSinglePageText(pdfDocument, pageNum, sourceDescription)));
     return extractedPageTexts.sort((a, b) => a.page - b.page);
+};
+/**
+ * Extract images from a single page
+ */
+const extractImagesFromPage = async (page, pageNum) => {
+    const images = [];
+    try {
+        const operatorList = await page.getOperatorList();
+        // Find all image painting operations
+        const imageIndices = [];
+        for (let i = 0; i < operatorList.fnArray.length; i++) {
+            const op = operatorList.fnArray[i];
+            if (op === OPS.paintImageXObject || op === OPS.paintXObject) {
+                imageIndices.push(i);
+            }
+        }
+        // Extract each image using Promise-based approach
+        const imagePromises = imageIndices.map((imgIndex, arrayIndex) => new Promise((resolve) => {
+            const argsArray = operatorList.argsArray[imgIndex];
+            if (!argsArray || argsArray.length === 0) {
+                resolve(null);
+                return;
+            }
+            const imageName = argsArray[0];
+            // Use callback-based get() as images may not be resolved yet
+            page.objs.get(imageName, (imageData) => {
+                if (!imageData || typeof imageData !== 'object') {
+                    resolve(null);
+                    return;
+                }
+                const img = imageData;
+                if (!img.data || !img.width || !img.height) {
+                    resolve(null);
+                    return;
+                }
+                // Determine image format based on kind
+                // kind === 1 = grayscale, 2 = RGB, 3 = RGBA
+                const format = img.kind === 1 ? 'grayscale' : img.kind === 3 ? 'rgba' : 'rgb';
+                // Convert Uint8Array to base64
+                const base64 = Buffer.from(img.data).toString('base64');
+                resolve({
+                    page: pageNum,
+                    index: arrayIndex,
+                    width: img.width,
+                    height: img.height,
+                    format,
+                    data: base64,
+                });
+            });
+        }));
+        const resolvedImages = await Promise.all(imagePromises);
+        images.push(...resolvedImages.filter((img) => img !== null));
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[PDF Reader MCP] Error extracting images from page ${String(pageNum)}: ${message}`);
+    }
+    return images;
+};
+/**
+ * Extract images from specified pages
+ */
+export const extractImages = async (pdfDocument, pagesToProcess) => {
+    const allImages = [];
+    // Process pages sequentially to avoid overwhelming PDF.js
+    for (const pageNum of pagesToProcess) {
+        try {
+            const page = await pdfDocument.getPage(pageNum);
+            const pageImages = await extractImagesFromPage(page, pageNum);
+            allImages.push(...pageImages);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn(`[PDF Reader MCP] Error getting page ${String(pageNum)} for image extraction: ${message}`);
+        }
+    }
+    return allImages;
 };
 /**
  * Build warnings array for invalid page numbers

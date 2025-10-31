@@ -46,5 +46,10 @@ export const readPdfArgsSchema = z
         .optional()
         .default(true)
         .describe('Include the total number of pages for each PDF.'),
+    include_images: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe('Extract and include embedded images from the PDF pages as base64-encoded data.'),
 })
     .strict();

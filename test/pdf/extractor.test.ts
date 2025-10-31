@@ -1,7 +1,9 @@
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildWarnings,
+  extractImages,
   extractMetadataAndPageCount,
   extractPageTexts,
 } from '../../src/pdf/extractor.js';
@@ -212,4 +214,228 @@ describe('extractor', () => {
       expect(warnings).toEqual(['Requested page numbers 20 exceed total pages (10).']);
     });
   });
+
+  describe('extractImages', () => {
+    it('should extract images from PDF pages', async () => {
+      const mockImageData = {
+        width: 100,
+        height: 50,
+        data: new Uint8Array([255, 0, 0, 255]), // Red pixel RGBA
+        kind: 3, // RGBA
+      };
+
+      const mockPage = {
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [OPS.paintImageXObject, OPS.paintXObject],
+          argsArray: [['img1'], ['img2']],
+        }),
+        objs: {
+          get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+            callback(mockImageData);
+          }),
+        },
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractImages(mockDocument, [1]);
+
+      expect(result.length).toBe(2);
+      expect(result[0]).toMatchObject({
+        page: 1,
+        index: 0,
+        width: 100,
+        height: 50,
+        format: 'rgba',
+      });
+      expect(result[0].data).toBeDefined();
+      expect(result[0].data.length).toBeGreaterThan(0);
+    });
+
+    it('should handle pages with no images', async () => {
+      const mockPage = {
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+        objs: { get: vi.fn() },
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractImages(mockDocument, [1]);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle image extraction errors gracefully', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const mockDocument = {
+        getPage: vi.fn().mockRejectedValue(new Error('Page error')),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractImages(mockDocument, [1]);
+
+      expect(result).toEqual([]);
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error getting page 1 for image extraction')
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should skip images with invalid data', async () => {
+      const mockPage = {
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [OPS.paintImageXObject],
+          argsArray: [['img1']],
+        }),
+        objs: {
+          get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+            callback(null); // Invalid image data
+          }),
+        },
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractImages(mockDocument, [1]);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle different image formats', async () => {
+      const mockGrayscaleImage = {
+        width: 50,
+        height: 50,
+        data: new Uint8Array([128]),
+        kind: 1, // Grayscale
+      };
+
+      const mockPage = {
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [OPS.paintImageXObject],
+          argsArray: [['img1']],
+        }),
+        objs: {
+          get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+            callback(mockGrayscaleImage);
+          }),
+        },
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractImages(mockDocument, [1]);
+
+      expect(result[0].format).toBe('grayscale');
+    });
+
+    it('should extract images from multiple pages', async () => {
+      const mockImageData = {
+        width: 100,
+        height: 100,
+        data: new Uint8Array([255, 255, 255]),
+        kind: 2, // RGB
+      };
+
+      const mockPage = {
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [OPS.paintImageXObject],
+          argsArray: [['img1']],
+        }),
+        objs: {
+          get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+            callback(mockImageData);
+          }),
+        },
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractImages(mockDocument, [1, 2]);
+
+      expect(result.length).toBe(2);
+      expect(result[0].page).toBe(1);
+      expect(result[1].page).toBe(2);
+    });
+  });
+});
+
+it('should skip images with empty argsArray', async () => {
+  const mockPage = {
+    getOperatorList: vi.fn().mockResolvedValue({
+      fnArray: [OPS.paintImageXObject],
+      argsArray: [[]], // Empty args
+    }),
+    objs: { get: vi.fn() },
+  };
+
+  const mockDocument = {
+    getPage: vi.fn().mockResolvedValue(mockPage),
+  } as unknown as pdfjsLib.PDFDocumentProxy;
+
+  const result = await extractImages(mockDocument, [1]);
+
+  expect(result).toEqual([]);
+  expect(mockPage.objs.get).not.toHaveBeenCalled();
+});
+
+it('should skip images missing required properties', async () => {
+  const mockIncompleteImage = {
+    width: 100,
+    // Missing height and data
+  };
+
+  const mockPage = {
+    getOperatorList: vi.fn().mockResolvedValue({
+      fnArray: [OPS.paintImageXObject],
+      argsArray: [['img1']],
+    }),
+    objs: {
+      get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+        callback(mockIncompleteImage);
+      }),
+    },
+  };
+
+  const mockDocument = {
+    getPage: vi.fn().mockResolvedValue(mockPage),
+  } as unknown as pdfjsLib.PDFDocumentProxy;
+
+  const result = await extractImages(mockDocument, [1]);
+
+  expect(result).toEqual([]);
+});
+
+it('should handle getOperatorList errors', async () => {
+  const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+  const mockPage = {
+    getOperatorList: vi.fn().mockRejectedValue(new Error('Operator list error')),
+  };
+
+  const mockDocument = {
+    getPage: vi.fn().mockResolvedValue(mockPage),
+  } as unknown as pdfjsLib.PDFDocumentProxy;
+
+  const result = await extractImages(mockDocument, [1]);
+
+  expect(result).toEqual([]);
+  expect(consoleWarnSpy).toHaveBeenCalledWith(
+    expect.stringContaining('Error extracting images from page 1')
+  );
+
+  consoleWarnSpy.mockRestore();
 });
