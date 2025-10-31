@@ -46,11 +46,13 @@
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:cov": "vitest run --coverage --reporter=junit --outputFile=test-report.junit.xml",
-    "lint": "eslint . --ext .ts,.tsx,.js,.cjs --cache",
-    "lint:fix": "eslint . --ext .ts,.tsx,.js,.cjs --fix --cache",
-    "format": "prettier --write . --cache",
-    "check-format": "prettier --check . --cache",
-    "validate": "npm run check-format && npm run lint && npm run test",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "format": "biome format --write .",
+    "check-format": "biome format .",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "validate": "npm run check && npm run test",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
@@ -71,24 +73,18 @@
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.2",
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
-    "@eslint/js": "^9.38.0",
     "@types/glob": "^8.1.0",
     "@types/node": "^24.0.7",
-    "@typescript-eslint/eslint-plugin": "^8.46.2",
-    "@typescript-eslint/parser": "^8.46.2",
     "@vitest/coverage-v8": "^3.1.1",
-    "eslint": "^9.38.0",
-    "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.6",
-    "prettier": "^3.5.3",
     "standard-version": "^9.5.0",
     "typedoc": "^0.28.2",
     "typedoc-plugin-markdown": "^4.9.0",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.46.2",
     "vitepress": "^1.6.3",
     "vitest": "^3.1.1",
     "vue": "^3.5.13"
@@ -99,12 +95,8 @@
     ]
   },
   "lint-staged": {
-    "*.{ts,tsx,js,cjs}": [
-      "eslint --fix --cache",
-      "prettier --write --cache"
-    ],
-    "*.{json,md,yaml,yml}": [
-      "prettier --write --cache"
+    "*.{ts,tsx,js,cjs,json}": [
+      "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
     ]
   }
 }

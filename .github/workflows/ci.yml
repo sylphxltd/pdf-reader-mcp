@@ -32,11 +32,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check Formatting
-        run: pnpm run check-format # Fails job if check fails
-
-      - name: Lint Code
-        run: pnpm run lint # Fails job if lint fails
+      - name: Check Code Quality (Biome)
+        run: pnpm run check # Runs Biome check (format + lint)
 
       - name: Run Tests and Check Coverage
         run: pnpm run test:cov # Fails job if tests fail or coverage < 100%

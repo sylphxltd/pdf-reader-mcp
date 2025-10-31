@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { resolvePath } from '../../src/utils/pathUtils.js';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as pathUtils from '../../src/utils/pathUtils.js'; // Import the module itself for spying
+import { resolvePath } from '../../src/utils/pathUtils.js';
 
 // Define a type for the expected structure after JSON.parse
 interface ExpectedResultType {
@@ -601,7 +601,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
       if (
         typeof source === 'object' &&
         source !== null &&
-        Object.prototype.hasOwnProperty.call(source, 'url') &&
+        Object.hasOwn(source, 'url') &&
         typeof (source as { url?: unknown }).url === 'string' &&
         (source as { url: string }).url === testUrl
       ) {

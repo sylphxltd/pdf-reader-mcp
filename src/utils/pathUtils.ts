@@ -1,6 +1,7 @@
-import path from 'path';
 // Removed unused import: import { fileURLToPath } from 'url';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+
+import path from 'node:path';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
 // Use the server's current working directory as the project root.
 // This relies on the process launching the server to set the CWD correctly.

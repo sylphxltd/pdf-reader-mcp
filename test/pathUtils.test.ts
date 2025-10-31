@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'; // Removed beforeEach, vi
-import path from 'path';
-import { resolvePath, PROJECT_ROOT } from '../src/utils/pathUtils.js'; // Add .js extension
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import path from 'node:path';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { describe, expect, it } from 'vitest'; // Removed beforeEach, vi
+import { PROJECT_ROOT, resolvePath } from '../src/utils/pathUtils.js'; // Add .js extension
 
 // Mock PROJECT_ROOT for consistent testing if needed, or use the actual one
 // For this test, using the actual PROJECT_ROOT derived from process.cwd() is likely fine,

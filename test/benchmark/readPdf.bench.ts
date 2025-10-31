@@ -1,7 +1,7 @@
-import { describe, bench, vi as _vi } from 'vitest'; // Prefix unused import
-import { handleReadPdfFunc } from '../../src/handlers/readPdf.js'; // Adjust path as needed
-import path from 'node:path';
 import fs from 'node:fs/promises';
+import path from 'node:path';
+import { bench, describe } from 'vitest'; // Prefix unused import
+import { handleReadPdfFunc } from '../../src/handlers/readPdf.js'; // Adjust path as needed
 
 // Mock the project root - Vitest runs from the project root by default
 const PROJECT_ROOT = process.cwd();

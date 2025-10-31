@@ -1,8 +1,8 @@
-import { z } from 'zod';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import fs from 'node:fs/promises';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { z } from 'zod';
 import { resolvePath } from '../utils/pathUtils.js';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import type { ToolDefinition } from './index.js';
 
 // Helper to parse page range strings (e.g., "1-3,5,7-")
@@ -18,7 +18,7 @@ const parseRangePart = (part: string, pages: Set<number>): void => {
     const start = parseInt(startStr, 10);
     const end = endStr === '' || endStr === undefined ? Infinity : parseInt(endStr, 10);
 
-    if (isNaN(start) || isNaN(end) || start <= 0 || start > end) {
+    if (Number.isNaN(start) || Number.isNaN(end) || start <= 0 || start > end) {
       throw new Error(`Invalid page range values: ${trimmedPart}`);
     }
 
@@ -34,7 +34,7 @@ const parseRangePart = (part: string, pages: Set<number>): void => {
     }
   } else {
     const page = parseInt(trimmedPart, 10);
-    if (isNaN(page) || page <= 0) {
+    if (Number.isNaN(page) || page <= 0) {
       throw new Error(`Invalid page number: ${trimmedPart}`);
     }
     pages.add(page);
@@ -56,7 +56,9 @@ const parsePageRanges = (ranges: string): number[] => {
 
 // --- Zod Schemas ---
 const pageSpecifierSchema = z.union([
-  z.array(z.number().int().min(1)).min(1), // Array of integers with minimum value 1 (pages are 1-based)
+  z
+    .array(z.number().int().min(1))
+    .min(1), // Array of integers with minimum value 1 (pages are 1-based)
   z
     .string()
     .min(1)
@@ -263,7 +265,7 @@ const extractMetadataAndPageCount = async (
         const metadataRecord: PdfMetadata = {};
         // Extract enumerable properties
         for (const key in metadataObj) {
-          if (Object.prototype.hasOwnProperty.call(metadataObj, key)) {
+          if (Object.hasOwn(metadataObj, key)) {
             metadataRecord[key] = (metadataObj as unknown as Record<string, unknown>)[key];
           }
         }
@@ -399,7 +401,7 @@ const processSingleSource = async (
     }
     individualResult.error = errorMessage;
     individualResult.success = false;
-    delete individualResult.data; // Ensure no data on error
+    individualResult.data = undefined; // Ensure no data on error
   }
   return individualResult;
 };
