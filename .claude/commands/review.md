@@ -13,18 +13,21 @@ $ARGUMENTS
 Review the code above (or at the specified location) and provide feedback on:
 
 1. **Code Quality**
+
    - Readability and maintainability
    - Code organization and structure
    - Naming conventions
    - Comments and documentation
 
 2. **Security**
+
    - Potential vulnerabilities
    - Input validation
    - Authentication/authorization issues
    - Data exposure risks
 
 3. **Performance**
+
    - Algorithmic efficiency
    - Resource usage
    - Potential bottlenecks

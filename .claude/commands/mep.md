@@ -7,6 +7,7 @@ description: Convert verbose prompt to MEP (Minimal Effective Prompt)
 ## Context
 
 User's original prompt:
+
 ```
 $ARGUMENTS
 ```
@@ -16,7 +17,9 @@ $ARGUMENTS
 Analyze the user's prompt above and refactor it into a **Minimal Effective Prompt (MEP)** that:
 
 ### Remove Unnecessary Context
+
 ❌ Remove information that AI already knows:
+
 - Current date/time (AI has access via hooks)
 - System information (platform, CPU, memory - provided automatically)
 - Project structure (AI can search codebase)
@@ -25,7 +28,9 @@ Analyze the user's prompt above and refactor it into a **Minimal Effective Promp
 - Existing code patterns (AI can search codebase)
 
 ### Keep Essential Information
+
 ✅ Keep only what AI cannot infer:
+
 - Specific business requirements
 - User preferences or constraints
 - Domain-specific knowledge
@@ -35,14 +40,17 @@ Analyze the user's prompt above and refactor it into a **Minimal Effective Promp
 ### Apply MEP Principles
 
 1. **Be Specific About What, Not How**
+
    - ❌ "Create a React component with useState hook, useEffect for data fetching, proper error handling..."
    - ✅ "Add user profile page with real-time data"
 
 2. **Trust AI's Knowledge**
+
    - ❌ "Using TypeScript with proper types, following our code style..."
    - ✅ "Add user authentication" (AI will use TypeScript, follow existing patterns)
 
 3. **Focus on Intent**
+
    - ❌ "I need a function that takes an array and returns unique values using Set..."
    - ✅ "Remove duplicate items from the list"
 

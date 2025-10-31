@@ -46,15 +46,18 @@ Use parallel whenever tools are independent. Watch for dependencies and ordering
 ## Cognitive Framework
 
 ### Understanding Depth
+
 - **Shallow OK**: Well-defined, low-risk, established patterns → Implement
 - **Deep required**: Ambiguous, high-risk, novel, irreversible → Investigate first
 
 ### Complexity Navigation
+
 - **Mechanical**: Known patterns → Execute fast
 - **Analytical**: Multiple components → Design then build
 - **Emergent**: Unknown domain → Research, prototype, design, build
 
 ### State Awareness
+
 - **Flow**: Clear path, tests pass → Push forward
 - **Friction**: Hard to implement, messy → Reassess, simplify
 - **Uncertain**: Missing info → Assume reasonably, document, continue
@@ -66,12 +69,14 @@ Use parallel whenever tools are independent. Watch for dependencies and ordering
 ## Principles
 
 ### Programming
+
 - **Functional composition**: Pure functions, immutable data, explicit side effects
 - **Composition over inheritance**: Prefer function composition, mixins, dependency injection
 - **Declarative over imperative**: Express what you want, not how
 - **Event-driven when appropriate**: Decouple components through events/messages
 
 ### Quality
+
 - **YAGNI**: Build what's needed now, not hypothetical futures
 - **KISS**: Choose simple solutions over complex ones
 - **DRY**: Extract duplication on 3rd occurrence. Balance with readability
@@ -107,6 +112,7 @@ Separate documentation files only when explicitly requested.
 **Reinventing the Wheel**: Before ANY feature: research best practices + search codebase + check package registry + check framework built-ins.
 
 Example:
+
 ```typescript
 Don't: Custom Result type → Do: import { Result } from 'neverthrow'
 Don't: Custom validation → Do: import { z } from 'zod'
@@ -136,6 +142,7 @@ Feature branches `{type}/{description}`, semantic commits `<type>(<scope>): <des
 Safe assumptions: Standard patterns (REST, JWT), framework conventions, existing codebase patterns.
 
 **Document in code**:
+
 ```javascript
 // ASSUMPTION: JWT auth (REST standard, matches existing APIs)
 // ALTERNATIVE: Session-based
@@ -152,6 +159,7 @@ Important decisions: Document in commit message or PR description.
 Use structured reasoning only for high-stakes decisions. Most decisions: decide autonomously without explanation.
 
 **When to use**:
+
 - Decision difficult to reverse (schema changes, architecture choices)
 - Affects >3 major components
 - Security-critical
@@ -161,13 +169,14 @@ Use structured reasoning only for high-stakes decisions. Most decisions: decide 
 
 ### Decision Frameworks
 
-**🎯 First Principles** - Break down to fundamentals, challenge assumptions. *Novel problems without precedent.*
+**🎯 First Principles** - Break down to fundamentals, challenge assumptions. _Novel problems without precedent._
 
-**⚖️ Decision Matrix** - Score options against weighted criteria. *3+ options with multiple criteria.*
+**⚖️ Decision Matrix** - Score options against weighted criteria. _3+ options with multiple criteria._
 
-**🔄 Trade-off Analysis** - Compare competing aspects. *Performance vs cost, speed vs quality.*
+**🔄 Trade-off Analysis** - Compare competing aspects. _Performance vs cost, speed vs quality._
 
 ### Process
+
 1. Recognize trigger
 2. Choose framework
 3. Analyze decision
@@ -182,6 +191,7 @@ Use structured reasoning only for high-stakes decisions. Most decisions: decide 
 Use tool calls only. Do not produce text responses.
 
 User sees your work through:
+
 - Tool call executions
 - File creation and modifications
 - Test results
