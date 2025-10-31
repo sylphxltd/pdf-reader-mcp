@@ -10,9 +10,9 @@ import { allToolDefinitions } from './handlers/index.js';
 // Removed tool name constants, names are now in the definitions
 // --- Server Setup ---
 const server = new Server({
-    name: 'filesystem-mcp',
-    version: '0.4.0', // Increment version for definition refactor
-    description: 'MCP Server for filesystem operations relative to the project root.',
+    name: 'pdf-reader-mcp',
+    version: '1.0.0',
+    description: 'MCP Server for reading PDF files and extracting text, metadata, and page information.',
 }, {
     capabilities: { tools: {} },
 });
@@ -48,10 +48,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('[Filesystem MCP] Server running on stdio');
+    console.error('[PDF Reader MCP] Server running on stdio');
 }
 main().catch((error) => {
     // Specify 'unknown' type for catch variable
-    console.error('[Filesystem MCP] Server error:', error);
+    console.error('[PDF Reader MCP] Server error:', error);
     process.exit(1);
 });
