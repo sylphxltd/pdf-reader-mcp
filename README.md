@@ -17,6 +17,7 @@
 
 - 📄 **Extract text content** from PDF files (full document or specific pages)
 - 🖼️ **Extract embedded images** from PDF pages as base64-encoded data
+- 📐 **Preserve content order** - Text and images returned in exact document layout order (NEW v1.2.0)
 - 📊 **Get metadata** (author, title, creation date, etc.)
 - 🔢 **Count pages** in PDF documents
 - 🌐 **Support for both local files and URLs**
@@ -27,14 +28,23 @@
 
 ## 🆕 Recent Updates (October 2025)
 
+### v1.2.0 - Content Ordering (Latest)
+- ✅ **Y-Coordinate Based Ordering**: Text and images returned in exact document order
+- ✅ **Natural Reading Flow**: Content parts preserve the layout sequence as it appears in PDF
+- ✅ **Intelligent Grouping**: Automatically groups text items on the same line
+- ✅ **Optimized for AI**: Enables AI models to understand content in natural reading order
+
+### v1.1.0 - Image Extraction
+- ✅ **Image Extraction**: Extract embedded images from PDF pages as base64-encoded data
+- ✅ **Performance Optimization**: Parallel page processing for 5-10x speedup
+- ✅ **Deep Refactoring**: Modular architecture with 98.9% test coverage (91 tests)
+
+### Previous Updates
 - ✅ **Fixed critical bugs**: Buffer/Uint8Array compatibility for PDF.js v5.x
 - ✅ **Fixed schema validation**: Resolved `exclusiveMinimum` issue affecting Windsurf, Mistral API, and other tools
 - ✅ **Improved metadata extraction**: Robust fallback handling for PDF.js compatibility
 - ✅ **Updated dependencies**: All packages updated to latest versions
 - ✅ **Migrated to Biome**: 50x faster linting and formatting with unified tooling
-- ✅ **Added image extraction**: Extract embedded images from PDF pages
-- ✅ **Performance optimization**: Parallel page processing for 5-10x speedup
-- ✅ **Deep refactoring**: Modular architecture with 98.9% test coverage (90 tests)
 
 ## 📦 Installation
 
@@ -225,6 +235,46 @@ Extract embedded images from PDF pages as base64-encoded data:
 - 🔸 Useful for AI models with vision capabilities
 - 🔸 Set `include_images: false` (default) to extract text only
 - 🔸 Combine with `pages` parameter to limit extraction scope
+
+### Content Ordering (NEW in v1.2.0)
+
+**Text and images are now returned in exact document order!**
+
+The server uses Y-coordinates from PDF.js to preserve the natural reading flow of the document. This means AI models receive content parts in the same sequence as they appear on the page.
+
+**Example document layout**:
+```
+Page 1:
+  [Heading text]
+  [Image: Chart]
+  [Description text]
+  [Image: Photo A]
+  [Image: Photo B]
+  [Conclusion text]
+```
+
+**Content parts returned**:
+```
+[
+  { type: "text", text: "Heading text" },
+  { type: "image", data: "base64..." },  // Chart
+  { type: "text", text: "Description text" },
+  { type: "image", data: "base64..." },  // Photo A
+  { type: "image", data: "base64..." },  // Photo B
+  { type: "text", text: "Conclusion text" }
+]
+```
+
+**Benefits**:
+- ✅ AI understands context between text and images
+- ✅ Natural reading flow preserved
+- ✅ Better comprehension for complex documents
+- ✅ Automatic line grouping for multi-line text blocks
+
+**When is ordering applied?**
+- Automatically enabled when `include_images: true`
+- Works with both specific pages and full document extraction
+- Content on each page is independently sorted by Y-position
 
 ### Security: Relative Paths Only
 
