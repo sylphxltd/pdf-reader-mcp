@@ -164,7 +164,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5.5.1
         with:
-          images: sylphlab/pdf-reader-mcp
+          images: sylphx/pdf-reader-mcp
           # Use version from the build-archive job output
           tags: |
             type=semver,pattern={{version}},value=${{ needs.build-archive.outputs.version }}

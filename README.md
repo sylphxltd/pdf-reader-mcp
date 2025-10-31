@@ -50,9 +50,9 @@ npx -y @smithery/cli install @sylphxltd/pdf-reader-mcp --client claude
 Install the package:
 
 ```bash
-pnpm add @sylphlab/pdf-reader-mcp
+pnpm add @sylphx/pdf-reader-mcp
 # or
-npm install @sylphlab/pdf-reader-mcp
+npm install @sylphx/pdf-reader-mcp
 ```
 
 Configure your MCP client (e.g., Claude Desktop, Cursor):
@@ -62,7 +62,7 @@ Configure your MCP client (e.g., Claude Desktop, Cursor):
   "mcpServers": {
     "pdf-reader-mcp": {
       "command": "npx",
-      "args": ["@sylphlab/pdf-reader-mcp"]
+      "args": ["@sylphx/pdf-reader-mcp"]
     }
   }
 }
@@ -75,7 +75,7 @@ Configure your MCP client (e.g., Claude Desktop, Cursor):
 Pull the image:
 
 ```bash
-docker pull sylphlab/pdf-reader-mcp:latest
+docker pull sylphx/pdf-reader-mcp:latest
 ```
 
 Configure your MCP client:
@@ -91,7 +91,7 @@ Configure your MCP client:
         "--rm",
         "-v",
         "/path/to/your/project:/app",
-        "sylphlab/pdf-reader-mcp:latest"
+        "sylphx/pdf-reader-mcp:latest"
       ]
     }
   }
@@ -209,7 +209,7 @@ This prevents hitting AI model context limits and improves performance.
 
 ```bash
 npm cache clean --force
-npx @sylphlab/pdf-reader-mcp@latest
+npx @sylphx/pdf-reader-mcp@latest
 ```
 
 Restart your MCP client completely after updating.
@@ -228,7 +228,7 @@ Restart your MCP client completely after updating.
   "mcpServers": {
     "pdf-reader-mcp": {
       "command": "npx",
-      "args": ["@sylphlab/pdf-reader-mcp"],
+      "args": ["@sylphx/pdf-reader-mcp"],
       "cwd": "/path/to/your/project"
     }
   }
@@ -240,7 +240,7 @@ Restart your MCP client completely after updating.
 **Solution**: Update to the latest version (all recent compatibility issues have been fixed):
 
 ```bash
-npm update @sylphlab/pdf-reader-mcp@latest
+npm update @sylphx/pdf-reader-mcp@latest
 ```
 
 Then restart your editor completely.
@@ -387,4 +387,4 @@ This project is licensed under the [MIT License](./LICENSE).
 
 ---
 
-**Made with ❤️ by [Sylph AI](https://sylphlab.ai)**
+**Made with ❤️ by [Sylphx](https://sylphx.com)**

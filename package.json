@@ -1,5 +1,5 @@
 {
-  "name": "@sylphlab/pdf-reader-mcp",
+  "name": "@sylphx/pdf-reader-mcp",
   "version": "0.3.24",
   "description": "An MCP server providing tools to read PDF files.",
   "type": "module",
@@ -25,7 +25,7 @@
     "url": "https://github.com/sylphlab/pdf-reader-mcp/issues"
   },
   "homepage": "https://github.com/sylphlab/pdf-reader-mcp#readme",
-  "author": "Sylph AI <contact@sylphlab.ai> (https://sylphlab.ai)",
+  "author": "Sylphx <contact@sylphx.com> (https://sylphx.com)",
   "license": "MIT",
   "keywords": [
     "mcp",
