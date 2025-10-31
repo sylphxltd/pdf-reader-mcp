@@ -89,14 +89,66 @@ export const handleReadPdfFunc = async (args) => {
         includePageCount: include_page_count,
         includeImages: include_images,
     })));
-    return {
-        content: [
-            {
+    // Build content parts preserving page order
+    const content = [];
+    // Add metadata/summary as first text part
+    const summaryData = results.map((result) => ({
+        source: result.source,
+        success: result.success,
+        num_pages: result.data?.num_pages,
+        info: result.data?.info,
+        metadata: result.data?.metadata,
+        warnings: result.data?.warnings,
+        error: result.error,
+    }));
+    content.push({
+        type: 'text',
+        text: JSON.stringify({ summary: summaryData }, null, 2),
+    });
+    // Add page content in order: text then images for each page
+    for (const result of results) {
+        if (!result.success || !result.data)
+            continue;
+        // Handle page_texts (specific pages requested)
+        if (result.data.page_texts) {
+            for (const pageText of result.data.page_texts) {
+                // Add text for this page
+                content.push({
+                    type: 'text',
+                    text: `[Page ${pageText.page} from ${result.source}]\n${pageText.text}`,
+                });
+                // Add images for this page (if any)
+                if (result.data.images) {
+                    const pageImages = result.data.images.filter((img) => img.page === pageText.page);
+                    for (const image of pageImages) {
+                        content.push({
+                            type: 'image',
+                            data: image.data,
+                            mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
+                        });
+                    }
+                }
+            }
+        }
+        // Handle full_text (all pages)
+        if (result.data.full_text) {
+            content.push({
                 type: 'text',
-                text: JSON.stringify({ results }, null, 2),
-            },
-        ],
-    };
+                text: `[Full text from ${result.source}]\n${result.data.full_text}`,
+            });
+            // Add all images at the end for full text mode
+            if (result.data.images) {
+                for (const image of result.data.images) {
+                    content.push({
+                        type: 'image',
+                        data: image.data,
+                        mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
+                    });
+                }
+            }
+        }
+    }
+    return { content };
 };
 // Export the tool definition
 export const readPdfToolDefinition = {

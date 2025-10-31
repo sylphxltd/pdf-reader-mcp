@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/sylphxltd/pdf-reader-mcp/compare/v1.0.0...v1.1.0) (2025-10-31)
+
+### Features
+
+* **Image Extraction**: Extract embedded images from PDF pages as base64-encoded data ([bd637f3](https://github.com/sylphxltd/pdf-reader-mcp/commit/bd637f3))
+  - Support for RGB, RGBA, and Grayscale formats
+  - Works with JPEG, PNG, and other embedded image types
+  - Includes image metadata (width, height, format, page number)
+  - Optional parameter `include_images` (default: false)
+  - Uses PDF.js operator list API for reliable extraction
+
+### Performance Improvements
+
+* **Parallel Page Processing**: Process multiple pages concurrently for 5-10x speedup ([e5f85e1](https://github.com/sylphxltd/pdf-reader-mcp/commit/e5f85e1))
+  - Refactored extractPageTexts to use Promise.all
+  - 10-page PDF: ~5-8x faster
+  - 50-page PDF: ~10x faster
+  - Maintains error isolation per page
+
+### Code Quality
+
+* **Deep Architectural Refactoring**: Break down monolithic handler into focused modules ([1519fe0](https://github.com/sylphxltd/pdf-reader-mcp/commit/1519fe0))
+  - handlers/readPdf.ts: 454 → 143 lines (-68% reduction)
+  - NEW src/types/pdf.ts: Type definitions (44 lines)
+  - NEW src/schemas/readPdf.ts: Zod schemas (61 lines)
+  - NEW src/pdf/parser.ts: Page range parsing (124 lines)
+  - NEW src/pdf/loader.ts: Document loading (74 lines)
+  - NEW src/pdf/extractor.ts: Text & metadata extraction (96 lines → 224 lines with images)
+  - Single Responsibility Principle applied throughout
+  - Functional composition for better testability
+
+* **Comprehensive Test Coverage**: 90 tests with 98.94% coverage ([85cf712](https://github.com/sylphxltd/pdf-reader-mcp/commit/85cf712))
+  - NEW test/pdf/extractor.test.ts (22 tests)
+  - NEW test/pdf/loader.test.ts (9 tests)
+  - NEW test/pdf/parser.test.ts (26 tests)
+  - Tests: 31 → 90 (+158% increase)
+  - Coverage: 90.26% → 98.94% statements
+  - Coverage: 78.64% → 93.33% branches
+
+### Documentation
+
+* Enhanced README with image extraction examples and usage guide
+* Added dedicated Image Extraction section with format details
+* Updated roadmap to reflect completed features
+* Clarified image format support and considerations
+
 ## [1.0.0](https://github.com/sylphxltd/pdf-reader-mcp/compare/v0.3.24...v1.0.0) (2025-10-31)
 
 ### ⚠ BREAKING CHANGES

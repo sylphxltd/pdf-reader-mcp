@@ -111,7 +111,9 @@ const processSingleSource = async (
  */
 export const handleReadPdfFunc = async (
   args: unknown
-): Promise<{ content: { type: string; text: string }[] }> => {
+): Promise<{
+  content: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+}> => {
   let parsedArgs: ReadPdfArgs;
 
   try {
@@ -143,14 +145,76 @@ export const handleReadPdfFunc = async (
     )
   );
 
-  return {
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify({ results }, null, 2),
-      },
-    ],
-  };
+  // Build content parts - start with structured JSON for backward compatibility
+  const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [];
+
+  // Strip image data from JSON to keep it manageable
+  const resultsForJson = results.map((result) => {
+    if (result.data?.images) {
+      const { images, ...dataWithoutImages } = result.data;
+      // Include image count and metadata in JSON, but not the base64 data
+      const imageInfo = images.map((img) => ({
+        page: img.page,
+        index: img.index,
+        width: img.width,
+        height: img.height,
+        format: img.format,
+      }));
+      return { ...result, data: { ...dataWithoutImages, image_info: imageInfo } };
+    }
+    return result;
+  });
+
+  // First content part: Structured JSON results
+  content.push({
+    type: 'text',
+    text: JSON.stringify({ results: resultsForJson }, null, 2),
+  });
+
+  // Add page content in order: text then images for each page
+  if (include_images) {
+    for (const result of results) {
+      if (!result.success || !result.data) continue;
+
+      // Handle page_texts (specific pages requested)
+      if (result.data.page_texts) {
+        for (const pageText of result.data.page_texts) {
+          // Add images for this page (if any) right after page text
+          if (result.data.images) {
+            const pageImages = result.data.images.filter((img) => img.page === pageText.page);
+            for (const image of pageImages) {
+              content.push({
+                type: 'image',
+                data: image.data,
+                mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
+              });
+            }
+          }
+        }
+      }
+
+      // Handle full_text mode - add all images by page order
+      if (result.data.full_text && result.data.images) {
+        // Group images by page and add in order
+        const pageNumbers = [...new Set(result.data.images.map((img) => img.page))].sort(
+          (a, b) => a - b
+        );
+
+        for (const pageNum of pageNumbers) {
+          const pageImages = result.data.images.filter((img) => img.page === pageNum);
+          for (const image of pageImages) {
+            content.push({
+              type: 'image',
+              data: image.data,
+              mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return { content };
 };
 
 // Export the tool definition

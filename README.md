@@ -187,6 +187,45 @@ For large PDF files (>20 MB), extract specific pages instead of the full documen
 
 This prevents hitting AI model context limits and improves performance.
 
+### Image Extraction
+
+Extract embedded images from PDF pages as base64-encoded data:
+
+```json
+{
+  "sources": [{ "path": "document.pdf" }],
+  "include_images": true
+}
+```
+
+**Image data format**:
+```json
+{
+  "images": [
+    {
+      "page": 1,
+      "index": 0,
+      "width": 800,
+      "height": 600,
+      "format": "rgb",
+      "data": "base64-encoded-image-data..."
+    }
+  ]
+}
+```
+
+**Supported formats**:
+- ✅ **RGB** - Standard color images (most common)
+- ✅ **RGBA** - Images with transparency
+- ✅ **Grayscale** - Black and white images
+- ✅ Works with JPEG, PNG, and other embedded formats
+
+**Important considerations**:
+- 🔸 Image extraction increases response size significantly
+- 🔸 Useful for AI models with vision capabilities
+- 🔸 Set `include_images: false` (default) to extract text only
+- 🔸 Combine with `pages` parameter to limit extraction scope
+
 ### Security: Relative Paths Only
 
 **Important:** The server only accepts **relative paths** for security reasons. Absolute paths are blocked to prevent unauthorized file system access.

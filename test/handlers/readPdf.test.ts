@@ -778,7 +778,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
-  it('should extract images when include_images is true', async () => {
+  it('should extract images when include_images is true with full text', async () => {
     const mockImageData = {
       width: 100,
       height: 50,
@@ -816,16 +816,66 @@ describe('handleReadPdfFunc Integration Tests', () => {
 
     const result = await handler(args);
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (result.content?.[0]) {
-      const parsedResult = JSON.parse(result.content[0].text) as ExpectedResultType;
-      expect(parsedResult.results[0]).toBeDefined();
-      if (parsedResult.results[0]?.data) {
-        expect(parsedResult.results[0].data.images).toBeDefined();
-        expect(parsedResult.results[0].data.images?.length).toBeGreaterThan(0);
-      }
-    } else {
-      expect.fail('result.content[0] was undefined');
-    }
+    // Should have content parts: summary text + images
+    expect(result.content.length).toBeGreaterThanOrEqual(2);
+
+    // First part should be summary
+    expect(result.content[0].type).toBe('text');
+    expect(result.content[0].text).toBeDefined();
+
+    // Check JSON format includes image_info
+    const parsed = JSON.parse(result.content[0].text as string);
+    expect(parsed.results[0].data.image_info).toBeDefined();
+
+    // Should have image parts
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBeGreaterThan(0);
+    expect(imageParts[0].data).toBeDefined();
+    expect(imageParts[0].mimeType).toBeDefined();
+  });
+
+  it('should extract images with page_texts preserving order', async () => {
+    const mockImageData = {
+      width: 50,
+      height: 50,
+      data: new Uint8Array([128, 128, 128]),
+      kind: 1,
+    };
+
+    const mockPage = {
+      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'Page text' }] }),
+      getOperatorList: vi.fn().mockResolvedValue({
+        fnArray: [89],
+        argsArray: [['img1']],
+      }),
+      objs: {
+        get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
+          callback(mockImageData);
+        }),
+      },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 2,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf', pages: [1, 2] }],
+      include_images: true,
+    };
+
+    const result = await handler(args);
+
+    // Should have: summary + (page1_images + page2_images)
+    expect(result.content.length).toBeGreaterThan(1);
+
+    // Check image parts exist
+    const imageParts = result.content.filter((c) => c.type === 'image');
+    expect(imageParts.length).toBe(2); // One image per page
   });
 }); // End top-level describe

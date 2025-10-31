@@ -7,9 +7,11 @@ import { readPdfToolDefinition } from './readPdf.js';
 export interface ToolDefinition {
   name: string;
   description: string;
-  schema: z.ZodType<unknown>; // Use Zod schema type with unknown
-  // Define the specific return type expected by the SDK for tool handlers
-  handler: (args: unknown) => Promise<{ content: { type: string; text: string }[] }>;
+  schema: z.ZodType<unknown>;
+  // Handler can return text or image content parts
+  handler: (args: unknown) => Promise<{
+    content: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+  }>;
 }
 
 // Aggregate only the consolidated PDF tool definition

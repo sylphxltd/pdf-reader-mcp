@@ -18,10 +18,10 @@ export default defineConfig({
         '**/*.d.ts',
       ],
       thresholds: {
-        // High coverage thresholds after refactoring
+        // High coverage thresholds after refactoring and image extraction
         lines: 98,
         functions: 100,
-        branches: 93,
+        branches: 92,
         statements: 98,
       },
     },

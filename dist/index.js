@@ -11,8 +11,8 @@ import { allToolDefinitions } from './handlers/index.js';
 // --- Server Setup ---
 const server = new Server({
     name: 'pdf-reader-mcp',
-    version: '1.0.0',
-    description: 'MCP Server for reading PDF files and extracting text, metadata, and page information.',
+    version: '1.1.0',
+    description: 'MCP Server for reading PDF files and extracting text, metadata, images, and page information.',
 }, {
     capabilities: { tools: {} },
 });
