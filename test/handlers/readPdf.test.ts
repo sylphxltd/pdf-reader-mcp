@@ -586,51 +586,49 @@ describe('handleReadPdfFunc Integration Tests', () => {
       expect(JSON.parse(result.content[0].text) as ExpectedResultType).toEqual(expectedData);
     } else {
       expect.fail('result.content[0] was undefined');
-
-      it('should return error if pdfjs fails to load document from URL', async () => {
-        const testUrl = 'http://example.com/bad-url.pdf';
-        const loadError = new Error('Mock URL PDF loading failed');
-        const failingLoadingTask = { promise: Promise.reject(loadError) };
-        // Ensure getDocument is mocked specifically for this URL
-        mockGetDocument.mockReset(); // Reset previous mocks if necessary
-        // Explicitly type source as unknown and use stricter type guards/assertions
-        mockGetDocument.mockImplementation((source: unknown) => {
-          if (
-            typeof source === 'object' &&
-            source !== null &&
-            Object.prototype.hasOwnProperty.call(source, 'url') && // Use safer check
-            typeof (source as { url?: unknown }).url === 'string' && // Assert type for check
-            (source as { url: string }).url === testUrl // Assert type for comparison
-          ) {
-            return failingLoadingTask;
-          }
-          // Fallback for other potential calls in the test suite
-          const mockDocumentAPI = { numPages: 1, getMetadata: vi.fn(), getPage: vi.fn() };
-          return { promise: Promise.resolve(mockDocumentAPI) };
-        });
-
-        const args = { sources: [{ url: testUrl }] };
-        const result = await handler(args);
-
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (result.content?.[0]) {
-          const parsedResult = JSON.parse(result.content[0].text) as ExpectedResultType;
-          expect(parsedResult.results[0]).toBeDefined();
-          if (parsedResult.results[0]) {
-            expect(parsedResult.results[0].source).toBe(testUrl); // Check source description (line 168)
-            expect(parsedResult.results[0].success).toBe(false);
-            expect(parsedResult.results[0].error).toBe(
-              `MCP error -32600: Failed to load PDF document. Reason: ${loadError.message}`
-            );
-          }
-        } else {
-          expect.fail('result.content[0] was undefined');
-        }
-      });
     }
   });
 
   // --- Additional Coverage Tests ---
+
+  it('should return error if pdfjs fails to load document from URL', async () => {
+    const testUrl = 'http://example.com/bad-url.pdf';
+    const loadError = new Error('Mock URL PDF loading failed');
+    const failingLoadingTask = { promise: Promise.reject(loadError) };
+    // Ensure getDocument is mocked specifically for this URL
+    mockGetDocument.mockReset();
+    mockGetDocument.mockImplementation((source: unknown) => {
+      if (
+        typeof source === 'object' &&
+        source !== null &&
+        Object.prototype.hasOwnProperty.call(source, 'url') &&
+        typeof (source as { url?: unknown }).url === 'string' &&
+        (source as { url: string }).url === testUrl
+      ) {
+        return failingLoadingTask;
+      }
+      const mockDocumentAPI = { numPages: 1, getMetadata: vi.fn(), getPage: vi.fn() };
+      return { promise: Promise.resolve(mockDocumentAPI) };
+    });
+
+    const args = { sources: [{ url: testUrl }] };
+    const result = await handler(args);
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (result.content?.[0]) {
+      const parsedResult = JSON.parse(result.content[0].text) as ExpectedResultType;
+      expect(parsedResult.results[0]).toBeDefined();
+      if (parsedResult.results[0]) {
+        expect(parsedResult.results[0].source).toBe(testUrl);
+        expect(parsedResult.results[0].success).toBe(false);
+        expect(parsedResult.results[0].error).toBe(
+          `MCP error -32600: Failed to load PDF document from ${testUrl}. Reason: ${loadError.message}`
+        );
+      }
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
 
   it('should not include page count when include_page_count is false', async () => {
     const args = {
