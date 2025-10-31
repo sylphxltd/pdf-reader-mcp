@@ -39,14 +39,17 @@ jobs:
         run: pnpm run test:cov # Fails job if tests fail or coverage < 100%
 
       - name: Upload coverage to Codecov
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: codecov/codecov-action@v4.5.0 # Use Codecov action with fixed version
         with:
           token: ${{ secrets.CODECOV_TOKEN }} # Use Codecov token
           files: ./coverage/lcov.info # Specify LCOV file path
-          fail_ci_if_error: true # Optional: fail CI if upload error
+          fail_ci_if_error: false # Don't fail CI if upload error
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
