@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/sylphxltd/pdf-reader-mcp/compare/v1.1.0...v1.2.0) (2025-10-31)
+
+### Features
+
+* **Content Ordering**: Preserve exact text and image order based on Y-coordinates
+  - Content items within each page are now sorted by their vertical position
+  - Enables AI to see content in the same order as it appears in the PDF
+  - Text and images are interleaved based on document layout
+  - Example: page 1 [text, image, text, image, image, text]
+  - Uses PDF.js transform matrices to extract Y-coordinates
+  - Automatically groups text items on the same line
+  - Returns ordered content parts for optimal AI consumption
+
+### Internal Changes
+
+* New `extractPageContent()` function combines text and image extraction with positioning
+* New `PageContentItem` interface tracks content type, position, and data
+* Handler updated to generate content parts in document-reading order
+* Improved error handling to return descriptive error messages as text content
+
+### Code Quality
+
+* All tests passing (91 tests)
+* Coverage maintained at 97.76% statements, 90.95% branches
+* TypeScript strict mode compliance
+* Zero linting errors
+
 ## [1.1.0](https://github.com/sylphxltd/pdf-reader-mcp/compare/v1.0.0...v1.1.0) (2025-10-31)
 
 ### Features

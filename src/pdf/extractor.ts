@@ -5,6 +5,7 @@ import { OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   ExtractedImage,
   ExtractedPageText,
+  PageContentItem,
   PdfInfo,
   PdfMetadata,
   PdfResultData,
@@ -220,4 +221,149 @@ export const buildWarnings = (invalidPages: number[], totalPages: number): strin
   return [
     `Requested page numbers ${invalidPages.join(', ')} exceed total pages (${String(totalPages)}).`,
   ];
+};
+
+/**
+ * Extract all content (text and images) from a single page with Y-coordinate ordering
+ */
+export const extractPageContent = async (
+  pdfDocument: pdfjsLib.PDFDocumentProxy,
+  pageNum: number,
+  includeImages: boolean,
+  sourceDescription: string
+): Promise<PageContentItem[]> => {
+  const contentItems: PageContentItem[] = [];
+
+  try {
+    const page = await pdfDocument.getPage(pageNum);
+
+    // Extract text content with Y-coordinates
+    const textContent = await page.getTextContent();
+
+    // Group text items by Y-coordinate (items on same line have similar Y values)
+    const textByY = new Map<number, string[]>();
+
+    for (const item of textContent.items) {
+      const textItem = item as { str: string; transform: number[] };
+      // transform[5] is the Y coordinate
+      const yCoord = textItem.transform[5];
+      if (yCoord === undefined) continue;
+      const y = Math.round(yCoord);
+
+      if (!textByY.has(y)) {
+        textByY.set(y, []);
+      }
+      textByY.get(y)?.push(textItem.str);
+    }
+
+    // Convert grouped text to content items
+    for (const [y, textParts] of textByY.entries()) {
+      const textContent = textParts.join('');
+      if (textContent.trim()) {
+        contentItems.push({
+          type: 'text',
+          yPosition: y,
+          textContent,
+        });
+      }
+    }
+
+    // Extract images with Y-coordinates if requested
+    if (includeImages) {
+      const operatorList = await page.getOperatorList();
+
+      // Find all image painting operations
+      const imageIndices: number[] = [];
+      for (let i = 0; i < operatorList.fnArray.length; i++) {
+        const op = operatorList.fnArray[i];
+        if (op === OPS.paintImageXObject || op === OPS.paintXObject) {
+          imageIndices.push(i);
+        }
+      }
+
+      // Extract each image with its Y-coordinate
+      const imagePromises = imageIndices.map(
+        (imgIndex, arrayIndex) =>
+          new Promise<PageContentItem | null>((resolve) => {
+            const argsArray = operatorList.argsArray[imgIndex];
+            if (!argsArray || argsArray.length === 0) {
+              resolve(null);
+              return;
+            }
+
+            const imageName = argsArray[0] as string;
+
+            // Get transform matrix from the args (if available)
+            // The transform is typically in argsArray[1] for some ops
+            let yPosition = 0;
+            if (argsArray.length > 1 && Array.isArray(argsArray[1])) {
+              const transform = argsArray[1] as number[];
+              // transform[5] is the Y coordinate
+              const yCoord = transform[5];
+              if (yCoord !== undefined) {
+                yPosition = Math.round(yCoord);
+              }
+            }
+
+            // Use callback-based get() as images may not be resolved yet
+            page.objs.get(imageName, (imageData: unknown) => {
+              if (!imageData || typeof imageData !== 'object') {
+                resolve(null);
+                return;
+              }
+
+              const img = imageData as {
+                width?: number;
+                height?: number;
+                data?: Uint8Array;
+                kind?: number;
+              };
+
+              if (!img.data || !img.width || !img.height) {
+                resolve(null);
+                return;
+              }
+
+              // Determine image format based on kind
+              const format = img.kind === 1 ? 'grayscale' : img.kind === 3 ? 'rgba' : 'rgb';
+
+              // Convert Uint8Array to base64
+              const base64 = Buffer.from(img.data).toString('base64');
+
+              resolve({
+                type: 'image',
+                yPosition,
+                imageData: {
+                  page: pageNum,
+                  index: arrayIndex,
+                  width: img.width,
+                  height: img.height,
+                  format,
+                  data: base64,
+                },
+              });
+            });
+          })
+      );
+
+      const resolvedImages = await Promise.all(imagePromises);
+      contentItems.push(...resolvedImages.filter((item): item is PageContentItem => item !== null));
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[PDF Reader MCP] Error extracting page content for page ${String(pageNum)} in ${sourceDescription}: ${message}`
+    );
+    // Return error message as text content
+    return [
+      {
+        type: 'text',
+        yPosition: 0,
+        textContent: `Error processing page: ${message}`,
+      },
+    ];
+  }
+
+  // Sort by Y-position (descending = top to bottom in PDF coordinates)
+  return contentItems.sort((a, b) => b.yPosition - a.yPosition);
 };

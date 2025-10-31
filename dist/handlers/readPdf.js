@@ -1,7 +1,7 @@
 // PDF reading handler - orchestrates PDF processing workflow
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { buildWarnings, extractImages, extractMetadataAndPageCount, extractPageTexts, } from '../pdf/extractor.js';
+import { buildWarnings, extractMetadataAndPageCount, extractPageContent, } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
@@ -28,9 +28,23 @@ const processSingleSource = async (source, options) => {
         if (warnings.length > 0) {
             output.warnings = warnings;
         }
-        // Extract text if needed
+        // Extract content with ordering preserved
         if (pagesToProcess.length > 0) {
-            const extractedPageTexts = await extractPageTexts(pdfDocument, pagesToProcess, sourceDescription);
+            // Use new extractPageContent to preserve Y-coordinate ordering
+            const pageContents = await Promise.all(pagesToProcess.map((pageNum) => extractPageContent(pdfDocument, pageNum, options.includeImages, sourceDescription)));
+            // Store page contents for ordered retrieval
+            output.page_contents = pageContents.map((items, idx) => ({
+                page: pagesToProcess[idx],
+                items,
+            }));
+            // For backward compatibility, also provide text-only outputs
+            const extractedPageTexts = pageContents.map((items, idx) => ({
+                page: pagesToProcess[idx],
+                text: items
+                    .filter((item) => item.type === 'text')
+                    .map((item) => item.textContent)
+                    .join(''),
+            }));
             if (targetPages) {
                 // Specific pages requested
                 output.page_texts = extractedPageTexts;
@@ -39,12 +53,15 @@ const processSingleSource = async (source, options) => {
                 // Full text requested
                 output.full_text = extractedPageTexts.map((p) => p.text).join('\n\n');
             }
-        }
-        // Extract images if needed
-        if (options.includeImages && pagesToProcess.length > 0) {
-            const extractedImages = await extractImages(pdfDocument, pagesToProcess);
-            if (extractedImages.length > 0) {
-                output.images = extractedImages;
+            // Extract image metadata for JSON response
+            if (options.includeImages) {
+                const extractedImages = pageContents
+                    .flatMap((items) => items.filter((item) => item.type === 'image' && item.imageData))
+                    .map((item) => item.imageData)
+                    .filter((img) => img !== undefined);
+                if (extractedImages.length > 0) {
+                    output.images = extractedImages;
+                }
             }
         }
         individualResult = { ...individualResult, data: output, success: true };
@@ -89,60 +106,52 @@ export const handleReadPdfFunc = async (args) => {
         includePageCount: include_page_count,
         includeImages: include_images,
     })));
-    // Build content parts preserving page order
+    // Build content parts - start with structured JSON for backward compatibility
     const content = [];
-    // Add metadata/summary as first text part
-    const summaryData = results.map((result) => ({
-        source: result.source,
-        success: result.success,
-        num_pages: result.data?.num_pages,
-        info: result.data?.info,
-        metadata: result.data?.metadata,
-        warnings: result.data?.warnings,
-        error: result.error,
-    }));
+    // Strip image data and page_contents from JSON to keep it manageable
+    const resultsForJson = results.map((result) => {
+        if (result.data) {
+            const { images, page_contents, ...dataWithoutBinaryContent } = result.data;
+            // Include image count and metadata in JSON, but not the base64 data
+            if (images) {
+                const imageInfo = images.map((img) => ({
+                    page: img.page,
+                    index: img.index,
+                    width: img.width,
+                    height: img.height,
+                    format: img.format,
+                }));
+                return { ...result, data: { ...dataWithoutBinaryContent, image_info: imageInfo } };
+            }
+            return { ...result, data: dataWithoutBinaryContent };
+        }
+        return result;
+    });
+    // First content part: Structured JSON results
     content.push({
         type: 'text',
-        text: JSON.stringify({ summary: summaryData }, null, 2),
+        text: JSON.stringify({ results: resultsForJson }, null, 2),
     });
-    // Add page content in order: text then images for each page
+    // Add page content in exact Y-coordinate order
     for (const result of results) {
-        if (!result.success || !result.data)
+        if (!result.success || !result.data?.page_contents)
             continue;
-        // Handle page_texts (specific pages requested)
-        if (result.data.page_texts) {
-            for (const pageText of result.data.page_texts) {
-                // Add text for this page
-                content.push({
-                    type: 'text',
-                    text: `[Page ${pageText.page} from ${result.source}]\n${pageText.text}`,
-                });
-                // Add images for this page (if any)
-                if (result.data.images) {
-                    const pageImages = result.data.images.filter((img) => img.page === pageText.page);
-                    for (const image of pageImages) {
-                        content.push({
-                            type: 'image',
-                            data: image.data,
-                            mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
-                        });
-                    }
+        // Process each page's content items in order
+        for (const pageContent of result.data.page_contents) {
+            for (const item of pageContent.items) {
+                if (item.type === 'text' && item.textContent) {
+                    // Add text content part
+                    content.push({
+                        type: 'text',
+                        text: item.textContent,
+                    });
                 }
-            }
-        }
-        // Handle full_text (all pages)
-        if (result.data.full_text) {
-            content.push({
-                type: 'text',
-                text: `[Full text from ${result.source}]\n${result.data.full_text}`,
-            });
-            // Add all images at the end for full text mode
-            if (result.data.images) {
-                for (const image of result.data.images) {
+                else if (item.type === 'image' && item.imageData) {
+                    // Add image content part
                     content.push({
                         type: 'image',
-                        data: image.data,
-                        mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
+                        data: item.imageData.data,
+                        mimeType: item.imageData.format === 'rgba' ? 'image/png' : 'image/jpeg',
                     });
                 }
             }

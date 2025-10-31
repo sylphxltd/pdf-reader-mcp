@@ -84,9 +84,21 @@ describe('handleReadPdfFunc Integration Tests', () => {
     mockGetPage.mockImplementation((pageNum: number) => {
       if (pageNum > 0 && pageNum <= mockDocumentAPI.numPages) {
         return {
-          getTextContent: vi
-            .fn()
-            .mockResolvedValueOnce({ items: [{ str: `Mock page text ${String(pageNum)}` }] }),
+          getTextContent: vi.fn().mockResolvedValueOnce({
+            items: [
+              {
+                str: `Mock page text ${String(pageNum)}`,
+                transform: [1, 0, 0, 1, 0, 100 + pageNum * 10],
+              },
+            ],
+          }),
+          getOperatorList: vi.fn().mockResolvedValue({
+            fnArray: [],
+            argsArray: [],
+          }),
+          objs: {
+            get: vi.fn(),
+          },
         };
       }
       throw new Error(`Mock getPage error: Invalid page number ${String(pageNum)}`);
@@ -262,11 +274,19 @@ describe('handleReadPdfFunc Integration Tests', () => {
       // Removed unnecessary async
       if (pageNum === 1)
         return {
-          getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'URL Mock page text 1' }] }),
+          getTextContent: vi.fn().mockResolvedValue({
+            items: [{ str: 'URL Mock page text 1', transform: [1, 0, 0, 1, 0, 200] }],
+          }),
+          getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+          objs: { get: vi.fn() },
         };
       if (pageNum === 2)
         return {
-          getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'URL Mock page text 2' }] }),
+          getTextContent: vi.fn().mockResolvedValue({
+            items: [{ str: 'URL Mock page text 2', transform: [1, 0, 0, 1, 0, 210] }],
+          }),
+          getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+          objs: { get: vi.fn() },
         };
       throw new Error(`Mock getPage error: Invalid page number ${String(pageNum)}`);
     });
@@ -550,12 +570,20 @@ describe('handleReadPdfFunc Integration Tests', () => {
     mockGetPage.mockImplementation((pageNum: number) => {
       if (pageNum === 1)
         return {
-          getTextContent: vi.fn().mockResolvedValueOnce({ items: [{ str: `Mock page text 1` }] }),
+          getTextContent: vi.fn().mockResolvedValueOnce({
+            items: [{ str: `Mock page text 1`, transform: [1, 0, 0, 1, 0, 100] }],
+          }),
+          getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+          objs: { get: vi.fn() },
         };
       if (pageNum === 2) throw new Error('Failed to get page 2');
       if (pageNum === 3)
         return {
-          getTextContent: vi.fn().mockResolvedValueOnce({ items: [{ str: `Mock page text 3` }] }),
+          getTextContent: vi.fn().mockResolvedValueOnce({
+            items: [{ str: `Mock page text 3`, transform: [1, 0, 0, 1, 0, 120] }],
+          }),
+          getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+          objs: { get: vi.fn() },
         };
       throw new Error(`Mock getPage error: Invalid page number ${String(pageNum)}`);
     });
@@ -787,10 +815,12 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test' }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89], // OPS.paintImageXObject value
-        argsArray: [['img1']],
+        argsArray: [['img1', [1, 0, 0, 1, 0, 50]]],
       }),
       objs: {
         get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {
@@ -843,10 +873,12 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'Page text' }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'Page text', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89],
-        argsArray: [['img1']],
+        argsArray: [['img1', [1, 0, 0, 1, 0, 50]]],
       }),
       objs: {
         get: vi.fn().mockImplementation((_name: string, callback: (data: unknown) => void) => {

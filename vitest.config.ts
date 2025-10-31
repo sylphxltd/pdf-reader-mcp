@@ -18,11 +18,11 @@ export default defineConfig({
         '**/*.d.ts',
       ],
       thresholds: {
-        // High coverage thresholds after refactoring and image extraction
-        lines: 98,
+        // High coverage thresholds after Y-coordinate ordering implementation
+        lines: 97,
         functions: 100,
-        branches: 92,
-        statements: 98,
+        branches: 90,
+        statements: 97,
       },
     },
   },

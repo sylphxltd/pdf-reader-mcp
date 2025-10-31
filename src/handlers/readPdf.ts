@@ -4,15 +4,14 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import {
   buildWarnings,
-  extractImages,
   extractMetadataAndPageCount,
-  extractPageTexts,
+  extractPageContent,
 } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
 import type { ReadPdfArgs } from '../schemas/readPdf.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
-import type { PdfResultData, PdfSource, PdfSourceResult } from '../types/pdf.js';
+import type { ExtractedImage, PdfResultData, PdfSource, PdfSourceResult } from '../types/pdf.js';
 import type { ToolDefinition } from './index.js';
 
 /**
@@ -61,13 +60,29 @@ const processSingleSource = async (
       output.warnings = warnings;
     }
 
-    // Extract text if needed
+    // Extract content with ordering preserved
     if (pagesToProcess.length > 0) {
-      const extractedPageTexts = await extractPageTexts(
-        pdfDocument,
-        pagesToProcess,
-        sourceDescription
+      // Use new extractPageContent to preserve Y-coordinate ordering
+      const pageContents = await Promise.all(
+        pagesToProcess.map((pageNum) =>
+          extractPageContent(pdfDocument, pageNum, options.includeImages, sourceDescription)
+        )
       );
+
+      // Store page contents for ordered retrieval
+      output.page_contents = pageContents.map((items, idx) => ({
+        page: pagesToProcess[idx] as number,
+        items,
+      }));
+
+      // For backward compatibility, also provide text-only outputs
+      const extractedPageTexts = pageContents.map((items, idx) => ({
+        page: pagesToProcess[idx] as number,
+        text: items
+          .filter((item) => item.type === 'text')
+          .map((item) => item.textContent)
+          .join(''),
+      }));
 
       if (targetPages) {
         // Specific pages requested
@@ -76,13 +91,17 @@ const processSingleSource = async (
         // Full text requested
         output.full_text = extractedPageTexts.map((p) => p.text).join('\n\n');
       }
-    }
 
-    // Extract images if needed
-    if (options.includeImages && pagesToProcess.length > 0) {
-      const extractedImages = await extractImages(pdfDocument, pagesToProcess);
-      if (extractedImages.length > 0) {
-        output.images = extractedImages;
+      // Extract image metadata for JSON response
+      if (options.includeImages) {
+        const extractedImages = pageContents
+          .flatMap((items) => items.filter((item) => item.type === 'image' && item.imageData))
+          .map((item) => item.imageData)
+          .filter((img): img is ExtractedImage => img !== undefined);
+
+        if (extractedImages.length > 0) {
+          output.images = extractedImages;
+        }
       }
     }
 
@@ -148,19 +167,22 @@ export const handleReadPdfFunc = async (
   // Build content parts - start with structured JSON for backward compatibility
   const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [];
 
-  // Strip image data from JSON to keep it manageable
+  // Strip image data and page_contents from JSON to keep it manageable
   const resultsForJson = results.map((result) => {
-    if (result.data?.images) {
-      const { images, ...dataWithoutImages } = result.data;
+    if (result.data) {
+      const { images, page_contents, ...dataWithoutBinaryContent } = result.data;
       // Include image count and metadata in JSON, but not the base64 data
-      const imageInfo = images.map((img) => ({
-        page: img.page,
-        index: img.index,
-        width: img.width,
-        height: img.height,
-        format: img.format,
-      }));
-      return { ...result, data: { ...dataWithoutImages, image_info: imageInfo } };
+      if (images) {
+        const imageInfo = images.map((img) => ({
+          page: img.page,
+          index: img.index,
+          width: img.width,
+          height: img.height,
+          format: img.format,
+        }));
+        return { ...result, data: { ...dataWithoutBinaryContent, image_info: imageInfo } };
+      }
+      return { ...result, data: dataWithoutBinaryContent };
     }
     return result;
   });
@@ -171,44 +193,26 @@ export const handleReadPdfFunc = async (
     text: JSON.stringify({ results: resultsForJson }, null, 2),
   });
 
-  // Add page content in order: text then images for each page
-  if (include_images) {
-    for (const result of results) {
-      if (!result.success || !result.data) continue;
+  // Add page content in exact Y-coordinate order
+  for (const result of results) {
+    if (!result.success || !result.data?.page_contents) continue;
 
-      // Handle page_texts (specific pages requested)
-      if (result.data.page_texts) {
-        for (const pageText of result.data.page_texts) {
-          // Add images for this page (if any) right after page text
-          if (result.data.images) {
-            const pageImages = result.data.images.filter((img) => img.page === pageText.page);
-            for (const image of pageImages) {
-              content.push({
-                type: 'image',
-                data: image.data,
-                mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
-              });
-            }
-          }
-        }
-      }
-
-      // Handle full_text mode - add all images by page order
-      if (result.data.full_text && result.data.images) {
-        // Group images by page and add in order
-        const pageNumbers = [...new Set(result.data.images.map((img) => img.page))].sort(
-          (a, b) => a - b
-        );
-
-        for (const pageNum of pageNumbers) {
-          const pageImages = result.data.images.filter((img) => img.page === pageNum);
-          for (const image of pageImages) {
-            content.push({
-              type: 'image',
-              data: image.data,
-              mimeType: image.format === 'rgba' ? 'image/png' : 'image/jpeg',
-            });
-          }
+    // Process each page's content items in order
+    for (const pageContent of result.data.page_contents) {
+      for (const item of pageContent.items) {
+        if (item.type === 'text' && item.textContent) {
+          // Add text content part
+          content.push({
+            type: 'text',
+            text: item.textContent,
+          });
+        } else if (item.type === 'image' && item.imageData) {
+          // Add image content part
+          content.push({
+            type: 'image',
+            data: item.imageData.data,
+            mimeType: item.imageData.format === 'rgba' ? 'image/png' : 'image/jpeg',
+          });
         }
       }
     }

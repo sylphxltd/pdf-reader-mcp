@@ -24,12 +24,21 @@ export interface ExtractedImage {
   data: string; // base64 encoded image data
 }
 
+// Content item with position for ordering
+export interface PageContentItem {
+  type: 'text' | 'image';
+  yPosition: number;
+  textContent?: string;
+  imageData?: ExtractedImage;
+}
+
 export interface PdfResultData {
   info?: PdfInfo;
   metadata?: PdfMetadata;
   num_pages?: number;
   full_text?: string;
   page_texts?: ExtractedPageText[];
+  page_contents?: Array<{ page: number; items: PageContentItem[] }>;
   images?: ExtractedImage[];
   warnings?: string[];
 }
