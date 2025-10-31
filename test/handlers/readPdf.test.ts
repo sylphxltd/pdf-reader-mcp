@@ -117,7 +117,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     expect(mockReadFile).toHaveBeenCalledWith(resolvePath('test.pdf'));
-    expect(mockGetDocument).toHaveBeenCalledWith(Buffer.from('mock pdf content'));
+    expect(mockGetDocument).toHaveBeenCalledWith(new Uint8Array(Buffer.from('mock pdf content')));
     expect(mockGetMetadata).toHaveBeenCalled();
     expect(mockGetPage).toHaveBeenCalledTimes(3);
 
@@ -159,7 +159,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(mockGetPage).toHaveBeenCalledWith(1);
     expect(mockGetPage).toHaveBeenCalledWith(3);
     expect(mockReadFile).toHaveBeenCalledWith(resolvePath('test.pdf'));
-    expect(mockGetDocument).toHaveBeenCalledWith(Buffer.from('mock pdf content'));
+    expect(mockGetDocument).toHaveBeenCalledWith(new Uint8Array(Buffer.from('mock pdf content')));
     expect(mockGetMetadata).not.toHaveBeenCalled();
 
     // Add check for content existence and access safely
@@ -324,7 +324,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(mockReadFile).toHaveBeenCalledOnce();
     expect(mockReadFile).toHaveBeenCalledWith(resolvePath('local.pdf'));
     expect(mockGetDocument).toHaveBeenCalledTimes(2);
-    expect(mockGetDocument).toHaveBeenCalledWith(Buffer.from('mock pdf content'));
+    expect(mockGetDocument).toHaveBeenCalledWith(new Uint8Array(Buffer.from('mock pdf content')));
     expect(mockGetDocument).toHaveBeenCalledWith({ url: urlSource });
     expect(mockGetPage).toHaveBeenCalledTimes(1); // Should be called once for local.pdf page 1
     expect(secondMockGetPage).toHaveBeenCalledTimes(2);
@@ -424,7 +424,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     const args = { sources: [{ path: 'test.pdf', pages: [1, 0, 3] }] };
     await expect(handler(args)).rejects.toThrow(McpError);
     await expect(handler(args)).rejects.toThrow(
-      /Invalid arguments: sources.0.pages.1 \(Number must be greater than 0\)/
+      /Invalid arguments: sources.0.pages.1 \(Number must be greater than or equal to 1\)/
     );
     await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
