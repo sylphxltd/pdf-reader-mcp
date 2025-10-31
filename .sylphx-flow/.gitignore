@@ -1,0 +1,22 @@
+# Sylphx Flow Runtime Files
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+
+# Search cache and indexes
+search-cache/
+*.hnsw
+*.meta.json
+
+# Temporary files
+*.tmp
+*.log
+*.lock
+*.pid
+
+# MCP server artifacts
+cache/
+sessions/
+coordination/
