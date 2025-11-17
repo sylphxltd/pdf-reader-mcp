@@ -7,7 +7,9 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 // This relies on the process launching the server to set the CWD correctly.
 export const PROJECT_ROOT = process.cwd();
 
-console.info(`[Filesystem MCP - pathUtils] Project Root determined from CWD: ${PROJECT_ROOT}`); // Use info instead of log
+// Removed console.info to prevent stderr pollution during MCP initialization
+// This was causing handshake failures with some MCP clients (e.g., Codex)
+// Debug logging can be enabled via DEBUG_MCP environment variable in index.ts
 
 /**
  * Resolves a user-provided path, accepting both absolute and relative paths.

@@ -70,7 +70,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('[PDF Reader MCP] Server running on stdio');
+
+  // Only log startup message in debug mode to prevent stderr pollution
+  // This prevents handshake failures with MCP clients that expect clean stdio
+  if (process.env.DEBUG_MCP) {
+    console.error('[PDF Reader MCP] Server running on stdio');
+    console.error('[PDF Reader MCP] Project root:', process.cwd());
+  }
 }
 
 main().catch((error: unknown) => {
