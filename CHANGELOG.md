@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.5.0 (2025-11-27)
+
+### ✨ Features
+
+- migrate documentation from VitePress to Leaf ([dd1d9ee](https://github.com/SylphxAI/pdf-reader-mcp/commit/dd1d9ee9a3250a3de9f9e297535c3bbe8a8f6527))
+
+### 🐛 Bug Fixes
+
+- **security:** override js-yaml to fix vulnerability ([ce7acc8](https://github.com/SylphxAI/pdf-reader-mcp/commit/ce7acc808b2c174eea03c4ecc3de3699994d8133))
+- **ci:** allow bun install without frozen-lockfile for Dependabot PRs ([af10706](https://github.com/SylphxAI/pdf-reader-mcp/commit/af107067d7dcb1851c82d97c6a6896275985e263))
+- upgrade to SDK 1.0.0 and Zod 4 for proper JSON Schema support ([e9e21d5](https://github.com/SylphxAI/pdf-reader-mcp/commit/e9e21d57edcc2f3ec7e9c96fd9d6e5c062ab1fd0))
+- improve image extraction timeout handling ([c9e6f55](https://github.com/SylphxAI/pdf-reader-mcp/commit/c9e6f55c90230f2eb2ccc8148470b130bf80f9c1))
+- critical security and performance improvements ([19c7451](https://github.com/SylphxAI/pdf-reader-mcp/commit/19c74518fd4f39f2115a0aef9d64733bb26f60df))
+
+### ♻️ Refactoring
+
+- migrate from @modelcontextprotocol/sdk to @sylphx/mcp-server-sdk ([98efbbb](https://github.com/SylphxAI/pdf-reader-mcp/commit/98efbbb1a304b6aa9e30dead35f0fa6379939546))
+- add structured logging system ([a337d93](https://github.com/SylphxAI/pdf-reader-mcp/commit/a337d93c35abe16b102632a3e9871a6f3a94bdc1))
+- deduplicate image extraction logic ([2e6ef33](https://github.com/SylphxAI/pdf-reader-mcp/commit/2e6ef33577b7dbf902f88d4ecd4f33e2d1386b89))
+- implement proper PDF document resource cleanup ([7893cf6](https://github.com/SylphxAI/pdf-reader-mcp/commit/7893cf63b07f0013b4f89a7dab91df4e7a1988c3))
+
+### 📚 Documentation
+
+- add installation guides for VS Code, Claude Code, Cursor, Windsurf, Cline, Warp ([28a3bf1](https://github.com/SylphxAI/pdf-reader-mcp/commit/28a3bf1ae0d02abfedbbd9e371952a974c3aae08))
+
+### 🔧 Chores
+
+- **release:** @sylphx/pdf-reader-mcp@1.4.0 (#227) ([b3c1a58](https://github.com/SylphxAI/pdf-reader-mcp/commit/b3c1a583ca40d4ad1962b822fb36e9d2b842223e))
+- upgrade @sylphx/doctor to v1.23.3 and @sylphx/bump to v0.10.2 ([ff6849e](https://github.com/SylphxAI/pdf-reader-mcp/commit/ff6849e7a49596da449baa7b5e14f9ecaeedf4af))
+- upgrade @sylphx/doctor to v1.23.2 ([9ab92cf](https://github.com/SylphxAI/pdf-reader-mcp/commit/9ab92cf15e43aed336c771140d2675aa1c96ef65))
+- migrate tooling to @sylphx ecosystem ([fc2471f](https://github.com/SylphxAI/pdf-reader-mcp/commit/fc2471ff61dcac287ec6d27f7038fdaaa088a727))
+- upgrade all packages to latest versions ([8b6730b](https://github.com/SylphxAI/pdf-reader-mcp/commit/8b6730bd86fcb8d992200574bce66946bec00886))
+- cleanup unused files and folders ([8834d09](https://github.com/SylphxAI/pdf-reader-mcp/commit/8834d09e1000ff57bae530a5ed069cc3b50a7866))
+- migrate from Vitest to Bun test runner ([7382d1b](https://github.com/SylphxAI/pdf-reader-mcp/commit/7382d1b037805d0f47271676d71bd65721f50d8e))
+- adjust coverage thresholds after adding defensive code ([3780190](https://github.com/SylphxAI/pdf-reader-mcp/commit/3780190625d2b5a04a3f3d9a42f17998132de672))
+
 ## 1.4.0 (2025-11-27)
 
 ### ✨ Features
