@@ -88,7 +88,7 @@
     "@sylphx/leaf": "^1.0.0",
     "@sylphx/leaf-theme-default": "^1.0.0",
     "@sylphx/tsconfig": "^0.3.0",
-    "@types/glob": "^8.1.0",
+    "@types/glob": "^9.0.0",
     "@types/node": "^24.10.1",
     "@types/pngjs": "^6.0.5",
     "bunup": "^0.16.10",
