@@ -73,7 +73,7 @@
   },
   "dependencies": {
     "@sylphx/mcp-server-sdk": "1.2.0",
-    "glob": "^11.1.0",
+    "glob": "^13.0.0",
     "pdfjs-dist": "^5.4.394",
     "pngjs": "^7.0.0",
     "zod": "4.2.0-canary.20251124T022609",
