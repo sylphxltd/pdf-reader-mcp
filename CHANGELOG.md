@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.3 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- remove unnecessary path access restrictions ([9615b2d](https://github.com/SylphxAI/pdf-reader-mcp/commit/9615b2d6f2517b44d64bbeaded6f614e1533a4c7))
+
+### 🔧 Chores
+
+- update lockfile for glob 13.0.0 ([4a26173](https://github.com/SylphxAI/pdf-reader-mcp/commit/4a261738c758dc0048fa421c5491e86f64971c81))
+- **deps:** bump glob from 11.1.0 to 13.0.0 (#225) ([a19cfac](https://github.com/SylphxAI/pdf-reader-mcp/commit/a19cface62597b572846bdde8353f04c108869f9))
+
 ## 2.0.2 (2025-11-27)
 
 ### 🐛 Bug Fixes
