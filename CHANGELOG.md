@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.4 (2025-12-01)
+
+### 🐛 Bug Fixes
+
+- use bunx for leaf commands in scripts ([1ef81fd](https://github.com/SylphxAI/pdf-reader-mcp/commit/1ef81fdcf5ec87ef449aa1db9ee5c5a99fc4e75e))
+- update vercel config for leaf docs ([5f57838](https://github.com/SylphxAI/pdf-reader-mcp/commit/5f57838075b6712012fad2b2170685bc32a10237))
+
+### 📚 Documentation
+
+- overhaul documentation ([4a89f85](https://github.com/SylphxAI/pdf-reader-mcp/commit/4a89f85e8b843b93bfc538c2964b86133f4ab5d3))
+
+### 🔧 Chores
+
+- update dependencies and fix doctor issues ([e3fc487](https://github.com/SylphxAI/pdf-reader-mcp/commit/e3fc4872ff35dd1083c65d37005b5b9224518e74))
+- update @sylphx/doctor to 1.26.0 ([8082da0](https://github.com/SylphxAI/pdf-reader-mcp/commit/8082da055bc0bbb862bc9513f45ab9d44aa7ad4a))
+- migrate biome config to 2.3.8 ([1318b94](https://github.com/SylphxAI/pdf-reader-mcp/commit/1318b94aa8ab78a90a6bf29b703e458f9fcb60f6))
+
 ## 2.0.3 (2025-11-30)
 
 ### 🐛 Bug Fixes
