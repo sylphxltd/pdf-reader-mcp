@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.0.6 (2025-12-03)
+
+### 🐛 Bug Fixes
+
+- use local doctor in lefthook ([c59e9cb](https://github.com/SylphxAI/pdf-reader-mcp/commit/c59e9cbf06039fb104719376e487433f0b80c877))
+- update mcp-server-sdk to 1.3.0 ([817a7a2](https://github.com/SylphxAI/pdf-reader-mcp/commit/817a7a2f295abffc2d7737a70a2da43dd12a0862))
+- use bunx for leaf commands in scripts ([1ef81fd](https://github.com/SylphxAI/pdf-reader-mcp/commit/1ef81fdcf5ec87ef449aa1db9ee5c5a99fc4e75e))
+- update vercel config for leaf docs ([5f57838](https://github.com/SylphxAI/pdf-reader-mcp/commit/5f57838075b6712012fad2b2170685bc32a10237))
+
+### 📚 Documentation
+
+- overhaul documentation ([4a89f85](https://github.com/SylphxAI/pdf-reader-mcp/commit/4a89f85e8b843b93bfc538c2964b86133f4ab5d3))
+
+### 🔧 Chores
+
+- trigger release PR ([d0d1a2e](https://github.com/SylphxAI/pdf-reader-mcp/commit/d0d1a2e70cf76327ee6f5329099469d3567ee2b1))
+- test bump action fix ([fa4995a](https://github.com/SylphxAI/pdf-reader-mcp/commit/fa4995ae46ae02aa3ce4aee2265de1608eeaf2e8))
+- update doctor and lefthook ([07c5f44](https://github.com/SylphxAI/pdf-reader-mcp/commit/07c5f44aef014d05bb9bdfd63a3319c300f7d383))
+- trigger release workflow ([f00660f](https://github.com/SylphxAI/pdf-reader-mcp/commit/f00660f1256dab6c0bfac8dc2eb21d71ea5aa36a))
+- update dependencies and fix doctor issues ([e3fc487](https://github.com/SylphxAI/pdf-reader-mcp/commit/e3fc4872ff35dd1083c65d37005b5b9224518e74))
+- update @sylphx/doctor to 1.26.0 ([8082da0](https://github.com/SylphxAI/pdf-reader-mcp/commit/8082da055bc0bbb862bc9513f45ab9d44aa7ad4a))
+- migrate biome config to 2.3.8 ([1318b94](https://github.com/SylphxAI/pdf-reader-mcp/commit/1318b94aa8ab78a90a6bf29b703e458f9fcb60f6))
+
 ## 2.0.5 (2025-12-03)
 
 ### 🐛 Bug Fixes
