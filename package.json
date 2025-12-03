@@ -83,7 +83,7 @@
     "@biomejs/biome": "^2.3.8",
     "@solidjs/router": "^0.15.4",
     "@sylphx/biome-config": "^0.4.1",
-    "@sylphx/bump": "^0.12.1",
+    "@sylphx/bump": "^1.6.1",
     "@sylphx/doctor": "^1.32.1",
     "@sylphx/leaf": "^1.0.0",
     "@sylphx/leaf-theme-default": "^1.0.0",
