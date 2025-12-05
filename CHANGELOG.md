@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.8 (2025-12-05)
+
+### 🐛 Bug Fixes
+
+- **build:** rebuild dist for Vex migration ([ab5d501](https://github.com/SylphxAI/pdf-reader-mcp/commit/ab5d501a1dd1a1c6a5281bf06a1e645d1bb6e47e))
+
+### ♻️ Refactoring
+
+- **schema:** migrate from Zod to Vex ([efc2dce](https://github.com/SylphxAI/pdf-reader-mcp/commit/efc2dce4c57512c442d1e4185e7bb4234406ce82))
+
+### 🔧 Chores
+
+- **deps:** upgrade @sylphx/mcp-server-sdk to ^2.1.0 ([64b6381](https://github.com/SylphxAI/pdf-reader-mcp/commit/64b63815adbcbbe80e6bc5a302ab42ff90b0fdc1))
+
 ## 2.0.7 (2025-12-03)
 
 ### 🐛 Bug Fixes
