@@ -53,7 +53,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v4.4.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: coverage-report
           path: coverage/
