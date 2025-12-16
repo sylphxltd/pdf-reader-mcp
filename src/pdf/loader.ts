@@ -1,6 +1,7 @@
 // PDF document loading utilities
 
 import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { ErrorCode, PdfError } from '../utils/errors.js';
@@ -8,6 +9,11 @@ import { createLogger } from '../utils/logger.js';
 import { resolvePath } from '../utils/pathUtils.js';
 
 const logger = createLogger('Loader');
+
+// Resolve CMap path relative to pdfjs-dist package location
+// This ensures CMap files are found regardless of the current working directory
+const require = createRequire(import.meta.url);
+const CMAP_URL = require.resolve('pdfjs-dist/package.json').replace('package.json', 'cmaps/');
 
 // Maximum PDF file size: 100MB
 // Prevents memory exhaustion from loading extremely large files
@@ -74,7 +80,14 @@ export const loadPdfDocument = async (
     );
   }
 
-  const loadingTask = getDocument(pdfDataSource);
+  const documentParams =
+    pdfDataSource instanceof Uint8Array ? { data: pdfDataSource } : pdfDataSource;
+
+  const loadingTask = getDocument({
+    ...documentParams,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true,
+  });
 
   try {
     return await loadingTask.promise;
