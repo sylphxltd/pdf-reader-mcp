@@ -49,6 +49,8 @@ describe('loader', () => {
 
       expect(result).toBe(mockDocument);
       expect(pdfjsLib.getDocument).toHaveBeenCalledWith({
+        cMapUrl: expect.stringContaining('pdfjs-dist') && expect.stringContaining('cmaps'),
+        cMapPacked: true,
         url: 'https://example.com/test.pdf',
       });
     });
