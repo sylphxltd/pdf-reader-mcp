@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0 (2025-12-17)
+
+### ✨ Features
+
+- add CMap support for Japanese/CJK PDF text extraction (#251) ([8ba4453](https://github.com/SylphxAI/pdf-reader-mcp/commit/8ba4453282e1583e9dfc003f731f32dff98da86e))
+
 ## 2.0.8 (2025-12-05)
 
 ### 🐛 Bug Fixes
