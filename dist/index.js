@@ -316,6 +316,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
 
 // src/pdf/loader.ts
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 // src/utils/errors.ts
@@ -341,6 +342,8 @@ var resolvePath = (userPath) => {
 
 // src/pdf/loader.ts
 var logger3 = createLogger("Loader");
+var require2 = createRequire(import.meta.url);
+var CMAP_URL = require2.resolve("pdfjs-dist/package.json").replace("package.json", "cmaps/");
 var MAX_PDF_SIZE = 100 * 1024 * 1024;
 var loadPdfDocument = async (source, sourceDescription) => {
   let pdfDataSource;
@@ -370,7 +373,12 @@ var loadPdfDocument = async (source, sourceDescription) => {
     }
     throw new PdfError(errorCode, `Failed to prepare PDF source ${sourceDescription}. Reason: ${message}`, { cause: err instanceof Error ? err : undefined });
   }
-  const loadingTask = getDocument(pdfDataSource);
+  const documentParams = pdfDataSource instanceof Uint8Array ? { data: pdfDataSource } : pdfDataSource;
+  const loadingTask = getDocument({
+    ...documentParams,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true
+  });
   try {
     return await loadingTask.promise;
   } catch (err) {

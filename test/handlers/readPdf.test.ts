@@ -158,7 +158,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     expect(mockReadFile).toHaveBeenCalledWith(resolvePath('test.pdf'));
-    expect(mockGetDocument).toHaveBeenCalledWith(new Uint8Array(Buffer.from('mock pdf content')));
+    expect(mockGetDocument).toHaveBeenCalledWith({
+      data: new Uint8Array(Buffer.from('mock pdf content')),
+      cMapUrl: expect.stringContaining('cmaps'),
+      cMapPacked: true,
+    });
     expect(mockGetMetadata).toHaveBeenCalled();
     expect(mockGetPage).toHaveBeenCalledTimes(3);
 
@@ -200,7 +204,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(mockGetPage).toHaveBeenCalledWith(1);
     expect(mockGetPage).toHaveBeenCalledWith(3);
     expect(mockReadFile).toHaveBeenCalledWith(resolvePath('test.pdf'));
-    expect(mockGetDocument).toHaveBeenCalledWith(new Uint8Array(Buffer.from('mock pdf content')));
+    expect(mockGetDocument).toHaveBeenCalledWith({
+      data: new Uint8Array(Buffer.from('mock pdf content')),
+      cMapUrl: expect.stringContaining('cmaps'),
+      cMapPacked: true,
+    });
     expect(mockGetMetadata).not.toHaveBeenCalled();
 
     // Add check for content existence and access safely
@@ -271,7 +279,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
       ],
     };
     expect(mockReadFile).not.toHaveBeenCalled();
-    expect(mockGetDocument).toHaveBeenCalledWith({ url: testUrl });
+    expect(mockGetDocument).toHaveBeenCalledWith({
+      url: testUrl,
+      cMapUrl: expect.stringContaining('cmaps'),
+      cMapPacked: true,
+    });
     expect(mockGetMetadata).toHaveBeenCalled();
     expect(mockGetPage).not.toHaveBeenCalled();
     // Add check for content existence and access safely
@@ -330,19 +342,21 @@ describe('handleReadPdfFunc Integration Tests', () => {
     // Reset getDocument mock before setting implementation
     mockGetDocument.mockReset();
     // Mock getDocument based on input source
-    mockGetDocument.mockImplementation((source: Buffer | { url: string }) => {
-      // Check if source is not a Buffer and has the matching url property
-      if (typeof source === 'object' && !Buffer.isBuffer(source) && source.url === urlSource) {
-        return secondLoadingTaskAPI;
+    mockGetDocument.mockImplementation(
+      (source: { data?: Uint8Array; url?: string; cMapUrl?: string; cMapPacked?: boolean }) => {
+        // Check if source has the matching url property
+        if (source.url === urlSource) {
+          return secondLoadingTaskAPI;
+        }
+        // Default mock for path-based source (local.pdf)
+        const defaultMockDocumentAPI = {
+          numPages: 3,
+          getMetadata: mockGetMetadata, // Use original metadata mock
+          getPage: mockGetPage, // Use original page mock
+        };
+        return { promise: Promise.resolve(defaultMockDocumentAPI) };
       }
-      // Default mock for path-based source (local.pdf)
-      const defaultMockDocumentAPI = {
-        numPages: 3,
-        getMetadata: mockGetMetadata, // Use original metadata mock
-        getPage: mockGetPage, // Use original page mock
-      };
-      return { promise: Promise.resolve(defaultMockDocumentAPI) };
-    });
+    );
 
     const result = await handler(args);
     const expectedData = {
@@ -373,8 +387,16 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(mockReadFile).toHaveBeenCalledOnce();
     expect(mockReadFile).toHaveBeenCalledWith(resolvePath('local.pdf'));
     expect(mockGetDocument).toHaveBeenCalledTimes(2);
-    expect(mockGetDocument).toHaveBeenCalledWith(new Uint8Array(Buffer.from('mock pdf content')));
-    expect(mockGetDocument).toHaveBeenCalledWith({ url: urlSource });
+    expect(mockGetDocument).toHaveBeenCalledWith({
+      data: new Uint8Array(Buffer.from('mock pdf content')),
+      cMapUrl: expect.stringContaining('cmaps'),
+      cMapPacked: true,
+    });
+    expect(mockGetDocument).toHaveBeenCalledWith({
+      url: urlSource,
+      cMapUrl: expect.stringContaining('cmaps'),
+      cMapPacked: true,
+    });
     expect(mockGetPage).toHaveBeenCalledTimes(1); // Should be called once for local.pdf page 1
     expect(secondMockGetPage).toHaveBeenCalledTimes(2);
     // Add check for content existence and access safely
