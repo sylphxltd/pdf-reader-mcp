@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.2.0 (2025-12-17)
+
+### ✨ Features
+
+- **docs:** migrate to VitePress with modern sleek design ([ed1d152](https://github.com/SylphxAI/pdf-reader-mcp/commit/ed1d1527355821d109667d6d9b796db8e1a4cd1e))
+
+### 🐛 Bug Fixes
+
+- **vercel:** use npx for vitepress build command ([7b62920](https://github.com/SylphxAI/pdf-reader-mcp/commit/7b629209133850d2058695e55913b01ef93d6842))
+- **docs:** rebuild docs with proper leaf configuration ([8ebeca1](https://github.com/SylphxAI/pdf-reader-mcp/commit/8ebeca1123f0ef90fcc08f25e746eb69bb7da8f7))
+- **docs:** commit pre-built docs for Vercel deployment ([18874f7](https://github.com/SylphxAI/pdf-reader-mcp/commit/18874f7147945c4cdf07f28009f62a23c8ef62fc))
+
+### 🔧 Chores
+
+- update docs URL to pdf-reader-mcp.sylphx.com ([0c131c0](https://github.com/SylphxAI/pdf-reader-mcp/commit/0c131c08e3a2477281af904eef29cce05114f655))
+
 ## 2.1.0 (2025-12-17)
 
 ### ✨ Features
