@@ -829,12 +829,11 @@ Special thanks to the open source community ❤️
 This project uses the following [@sylphx](https://github.com/SylphxAI) packages:
 
 - [@sylphx/mcp-server-sdk](https://github.com/SylphxAI/mcp-server-sdk) - MCP server framework
+- [@sylphx/vex](https://github.com/SylphxAI/vex) - Schema validation
 - [@sylphx/biome-config](https://github.com/SylphxAI/biome-config) - Biome configuration
 - [@sylphx/tsconfig](https://github.com/SylphxAI/tsconfig) - TypeScript configuration
 - [@sylphx/bump](https://github.com/SylphxAI/bump) - Version management
 - [@sylphx/doctor](https://github.com/SylphxAI/doctor) - Project health checker
-- [@sylphx/leaf](https://github.com/SylphxAI/leaf) - Documentation framework
-- [@sylphx/leaf-theme-default](https://github.com/SylphxAI/leaf-theme-default) - Documentation theme
 
 ---
 
