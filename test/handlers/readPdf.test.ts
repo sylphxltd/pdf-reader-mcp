@@ -1038,15 +1038,19 @@ describe('handleReadPdfFunc Integration Tests', () => {
 
     const result = await handler(args);
 
-    // Content order should be: summary, top_text, image, bottom_text
-    // (sorted by Y-coordinate descending = top to bottom)
-    expect(result.content.length).toBe(4);
+    // Content parts: 1) summary JSON, 2) consolidated page text, 3) image
+    // Text is now consolidated per page to prevent overwhelming MCP clients
+    expect(result.content.length).toBe(3);
     expect(result.content[0].type).toBe('text'); // Summary JSON
-    expect(result.content[1].type).toBe('text'); // Top text (Y=200)
-    expect(result.content[1].text).toBe('Top text');
-    expect(result.content[2].type).toBe('image'); // Image (Y=150)
-    expect(result.content[3].type).toBe('text'); // Bottom text (Y=50)
-    expect(result.content[3].text).toBe('Bottom text');
+    expect(result.content[1].type).toBe('text'); // Consolidated page text (Y-ordered: top first)
+    // Text items are sorted by Y-coordinate descending (200 > 50), so "Top text" comes before "Bottom text"
+    expect(result.content[1].text).toContain('[Page 1]');
+    expect(result.content[1].text).toContain('Top text');
+    expect(result.content[1].text).toContain('Bottom text');
+    // Verify Y-ordering: Top text (Y=200) should appear before Bottom text (Y=50)
+    const textContent = result.content[1].text as string;
+    expect(textContent.indexOf('Top text')).toBeLessThan(textContent.indexOf('Bottom text'));
+    expect(result.content[2].type).toBe('image'); // Image
   });
 
   it('should extract images from commonObjs with g_ prefix', async () => {

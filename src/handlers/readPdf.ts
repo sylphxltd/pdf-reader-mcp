@@ -64,17 +64,30 @@ const processSingleSource = async (
 
     // Extract content with ordering preserved
     if (pagesToProcess.length > 0) {
-      // Use new extractPageContent to preserve Y-coordinate ordering
-      const pageContents = await Promise.all(
-        pagesToProcess.map((pageNum) =>
-          extractPageContent(
-            pdfDocument as pdfjsLib.PDFDocumentProxy,
-            pageNum,
-            options.includeImages,
-            sourceDescription
+      // Process pages in batches to prevent memory exhaustion on large PDFs
+      // This prevents the event loop from being blocked and keeps memory usage reasonable
+      const MAX_CONCURRENT_PAGES = 5;
+      const pageContents: Awaited<ReturnType<typeof extractPageContent>>[] = [];
+
+      for (let i = 0; i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
+        const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
+        const batchResults = await Promise.all(
+          batch.map((pageNum) =>
+            extractPageContent(
+              pdfDocument as pdfjsLib.PDFDocumentProxy,
+              pageNum,
+              options.includeImages,
+              sourceDescription
+            )
           )
-        )
-      );
+        );
+        pageContents.push(...batchResults);
+
+        // Yield to the event loop between batches to prevent UI blocking
+        if (i + MAX_CONCURRENT_PAGES < pagesToProcess.length) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+      }
 
       // Store page contents for ordered retrieval
       output.page_contents = pageContents.map((items, idx) => ({
@@ -203,20 +216,33 @@ export const readPdf = tool()
     // First content part: Structured JSON results
     content.push(text(JSON.stringify({ results: resultsForJson }, null, 2)));
 
-    // Add page content in exact Y-coordinate order
+    // Add page content - consolidate text per page to reduce content part count
+    // This prevents overwhelming the MCP client with thousands of small text fragments
     for (const result of results) {
       if (!result.success || !result.data?.page_contents) continue;
 
       // Process each page's content items in order
       for (const pageContent of result.data.page_contents) {
+        // Consolidate all text items for this page into a single content part
+        const pageTextParts: string[] = [];
+        const pageImages: ExtractedImage[] = [];
+
         for (const item of pageContent.items) {
           if (item.type === 'text' && item.textContent) {
-            // Add text content part
-            content.push(text(item.textContent));
+            pageTextParts.push(item.textContent);
           } else if (item.type === 'image' && item.imageData) {
-            // Add image content part (all images are now encoded as PNG)
-            content.push(image(item.imageData.data, 'image/png'));
+            pageImages.push(item.imageData);
           }
+        }
+
+        // Add consolidated text for the page (preserves Y-coordinate order from sorting)
+        if (pageTextParts.length > 0) {
+          content.push(text(`[Page ${pageContent.page}]\n${pageTextParts.join('\n')}`));
+        }
+
+        // Add images for the page
+        for (const img of pageImages) {
+          content.push(image(img.data, 'image/png'));
         }
       }
     }

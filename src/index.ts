@@ -5,7 +5,7 @@ import { readPdf } from './handlers/readPdf.js';
 
 const server = createServer({
   name: 'pdf-reader-mcp',
-  version: '1.3.0',
+  version: '2.1.0',
   instructions:
     'MCP Server for reading PDF files and extracting text, metadata, images, and page information.',
   tools: { read_pdf: readPdf },
