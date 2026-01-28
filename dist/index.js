@@ -509,7 +509,16 @@ var processSingleSource = async (source, options) => {
       output.warnings = warnings;
     }
     if (pagesToProcess.length > 0) {
-      const pageContents = await Promise.all(pagesToProcess.map((pageNum) => extractPageContent(pdfDocument, pageNum, options.includeImages, sourceDescription)));
+      const MAX_CONCURRENT_PAGES = 5;
+      const pageContents = [];
+      for (let i = 0;i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
+        const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
+        const batchResults = await Promise.all(batch.map((pageNum) => extractPageContent(pdfDocument, pageNum, options.includeImages, sourceDescription)));
+        pageContents.push(...batchResults);
+        if (i + MAX_CONCURRENT_PAGES < pagesToProcess.length) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+      }
       output.page_contents = pageContents.map((items, idx) => ({
         page: pagesToProcess[idx],
         items
@@ -598,12 +607,22 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     if (!result.success || !result.data?.page_contents)
       continue;
     for (const pageContent of result.data.page_contents) {
+      const pageTextParts = [];
+      const pageImages = [];
       for (const item of pageContent.items) {
         if (item.type === "text" && item.textContent) {
-          content.push(text(item.textContent));
+          pageTextParts.push(item.textContent);
         } else if (item.type === "image" && item.imageData) {
-          content.push(image(item.imageData.data, "image/png"));
+          pageImages.push(item.imageData);
         }
+      }
+      if (pageTextParts.length > 0) {
+        content.push(text(`[Page ${pageContent.page}]
+${pageTextParts.join(`
+`)}`));
+      }
+      for (const img of pageImages) {
+        content.push(image(img.data, "image/png"));
       }
     }
   }
@@ -613,7 +632,7 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
 // src/index.ts
 var server = createServer({
   name: "pdf-reader-mcp",
-  version: "1.3.0",
+  version: "2.1.0",
   instructions: "MCP Server for reading PDF files and extracting text, metadata, images, and page information.",
   tools: { read_pdf: readPdf },
   transport: stdio()

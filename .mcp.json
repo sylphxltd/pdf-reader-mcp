@@ -1,15 +1,5 @@
 {
   "mcpServers": {
-    "sylphx-flow": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "github:SylphxAI/flow", "mcp", "start", "--disable-memory"],
-      "env": {
-        "OPENAI_API_KEY": "",
-        "OPENAI_BASE_URL": "https://api.openai.com/v1",
-        "EMBEDDING_MODEL": "text-embedding-3-small"
-      }
-    },
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
@@ -17,6 +7,11 @@
     "grep": {
       "type": "http",
       "url": "https://mcp.grep.app"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
     }
   }
 }
