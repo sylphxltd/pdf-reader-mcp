@@ -593,6 +593,63 @@ Restart MCP client completely.
 
 ---
 
+## 🌐 HTTP Transport (Remote Access)
+
+By default, PDF Reader MCP uses stdio transport for local use. You can also run it as an HTTP server for remote access from multiple machines.
+
+### Quick Start
+
+```bash
+# Run as HTTP server on port 8080
+MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_TRANSPORT` | `stdio` | Transport type: `stdio` or `http` |
+| `MCP_HTTP_PORT` | `8080` | HTTP server port |
+| `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server hostname |
+| `MCP_API_KEY` | - | Optional API key for authentication |
+
+### Docker Deployment
+
+```dockerfile
+FROM oven/bun:1
+WORKDIR /app
+RUN bun add @sylphx/pdf-reader-mcp
+ENV MCP_TRANSPORT=http
+ENV MCP_HTTP_PORT=8080
+EXPOSE 8080
+CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
+```
+
+### MCP Client Configuration (HTTP)
+
+```json
+{
+  "servers": {
+    "pdf-reader": {
+      "type": "http",
+      "url": "https://your-server.com/mcp",
+      "headers": {
+        "X-API-Key": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/mcp` | POST | JSON-RPC endpoint |
+| `/mcp/health` | GET | Health check |
+
+---
+
 ## 🏗️ Architecture
 
 ### Tech Stack

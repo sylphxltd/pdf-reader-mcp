@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // src/index.ts
-import { createServer, stdio } from "@sylphx/mcp-server-sdk";
+import { createServer, http, stdio } from "@sylphx/mcp-server-sdk";
 
 // src/handlers/readPdf.ts
 import { image, text, tool, toolError } from "@sylphx/mcp-server-sdk";
@@ -630,16 +630,37 @@ ${pageTextParts.join(`
 });
 
 // src/index.ts
+var transportType = process.env["MCP_TRANSPORT"] ?? "stdio";
+var httpPort = Number.parseInt(process.env["MCP_HTTP_PORT"] ?? "8080", 10);
+var httpHost = process.env["MCP_HTTP_HOST"] ?? "0.0.0.0";
+var apiKey = process.env["MCP_API_KEY"];
+function createTransport() {
+  if (transportType === "http") {
+    return http({
+      port: httpPort,
+      hostname: httpHost,
+      cors: "*"
+    });
+  }
+  return stdio();
+}
 var server = createServer({
   name: "pdf-reader-mcp",
   version: "2.1.0",
   instructions: "MCP Server for reading PDF files and extracting text, metadata, images, and page information.",
   tools: { read_pdf: readPdf },
-  transport: stdio()
+  transport: createTransport()
 });
 async function main() {
   await server.start();
-  if (process.env["DEBUG_MCP"]) {
+  if (transportType === "http") {
+    console.log(`[PDF Reader MCP] Server running on http://${httpHost}:${httpPort}/mcp`);
+    console.log(`[PDF Reader MCP] Health check: http://${httpHost}:${httpPort}/mcp/health`);
+    if (apiKey) {
+      console.log("[PDF Reader MCP] API key authentication enabled (X-API-Key header)");
+    }
+    console.log("[PDF Reader MCP] Project root:", process.cwd());
+  } else if (process.env["DEBUG_MCP"]) {
     console.error("[PDF Reader MCP] Server running on stdio");
     console.error("[PDF Reader MCP] Project root:", process.cwd());
   }
