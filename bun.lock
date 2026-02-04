@@ -7,7 +7,7 @@
       "dependencies": {
         "@sylphx/mcp-server-sdk": "^2.1.0",
         "@sylphx/vex": "^0.1.11",
-        "glob": "^13.0.1",
+        "glob": "^13.0.0",
         "pdfjs-dist": "^5.4.449",
         "pngjs": "^7.0.0",
       },
@@ -22,7 +22,7 @@
         "@types/pngjs": "^6.0.5",
         "bunup": "0.16.10",
         "lefthook": "^2.0.7",
-        "typedoc": "^0.28.16",
+        "typedoc": "^0.28.15",
         "typedoc-plugin-markdown": "^4.9.0",
         "typescript": "^5.9.3",
         "vitepress": "^1.6.4",
