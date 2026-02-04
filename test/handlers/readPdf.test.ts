@@ -1207,4 +1207,147 @@ describe('handleReadPdfFunc Integration Tests', () => {
     await expect(handler(args)).rejects.toThrow(PdfError);
     await expect(handler(args)).rejects.toThrow('Regular error message');
   });
+
+  // --- Table Extraction Tests ---
+
+  it('should extract tables when include_tables is true', async () => {
+    const mockPage = {
+      getTextContent: vi.fn().mockResolvedValue({
+        items: [
+          // Table header row
+          { str: 'Name', transform: [1, 0, 0, 1, 50, 700], width: 30 },
+          { str: 'Age', transform: [1, 0, 0, 1, 150, 700], width: 20 },
+          { str: 'City', transform: [1, 0, 0, 1, 250, 700], width: 25 },
+          // Table data row 1
+          { str: 'Alice', transform: [1, 0, 0, 1, 50, 680], width: 35 },
+          { str: '30', transform: [1, 0, 0, 1, 150, 680], width: 15 },
+          { str: 'NYC', transform: [1, 0, 0, 1, 250, 680], width: 20 },
+          // Table data row 2
+          { str: 'Bob', transform: [1, 0, 0, 1, 50, 660], width: 20 },
+          { str: '25', transform: [1, 0, 0, 1, 150, 660], width: 15 },
+          { str: 'LA', transform: [1, 0, 0, 1, 250, 660], width: 15 },
+        ],
+      }),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_tables: true,
+    };
+
+    const result = await handler(args);
+
+    // Should have JSON content
+    expect(result.content[0]?.type).toBe('text');
+    const parsed = JSON.parse(result.content[0].text as string);
+
+    // Check for table_info in JSON (metadata only)
+    if (parsed.results[0]?.data?.table_info) {
+      expect(parsed.results[0].data.table_info[0]).toHaveProperty('page');
+      expect(parsed.results[0].data.table_info[0]).toHaveProperty('rowCount');
+      expect(parsed.results[0].data.table_info[0]).toHaveProperty('colCount');
+      expect(parsed.results[0].data.table_info[0]).toHaveProperty('confidence');
+    }
+
+    // Check for markdown tables in content
+    const markdownContent = result.content.find((c) => c.type === 'text' && c.text.includes('## Extracted Tables'));
+    if (markdownContent) {
+      expect(markdownContent.text).toContain('|');
+      expect(markdownContent.text).toContain('---');
+    }
+  });
+
+  it('should not extract tables when include_tables is false', async () => {
+    const mockPage = {
+      getTextContent: vi.fn().mockResolvedValue({
+        items: [
+          { str: 'Col1', transform: [1, 0, 0, 1, 50, 700], width: 25 },
+          { str: 'Col2', transform: [1, 0, 0, 1, 150, 700], width: 25 },
+          { str: 'A', transform: [1, 0, 0, 1, 50, 680], width: 10 },
+          { str: 'B', transform: [1, 0, 0, 1, 150, 680], width: 10 },
+        ],
+      }),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_tables: false,
+    };
+
+    const result = await handler(args);
+
+    // Should have JSON content
+    const parsed = JSON.parse(result.content[0].text as string);
+
+    // Should NOT have table_info
+    expect(parsed.results[0]?.data?.table_info).toBeUndefined();
+
+    // Should NOT have markdown tables
+    const markdownContent = result.content.find((c) => c.type === 'text' && c.text.includes('## Extracted Tables'));
+    expect(markdownContent).toBeUndefined();
+  });
+
+  it('should handle pages with no tables gracefully', async () => {
+    const mockPage = {
+      getTextContent: vi.fn().mockResolvedValue({
+        items: [
+          // Non-tabular content
+          { str: 'This is just a paragraph of text without any tables.', transform: [1, 0, 0, 1, 50, 700], width: 300 },
+        ],
+      }),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    };
+
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue({ info: {}, metadata: {} }),
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      }),
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      include_full_text: true,
+      include_tables: true,
+    };
+
+    const result = await handler(args);
+
+    // Should have JSON content
+    const parsed = JSON.parse(result.content[0].text as string);
+
+    // Should NOT have table_info since no tables detected
+    expect(parsed.results[0]?.data?.table_info).toBeUndefined();
+
+    // Should NOT have markdown tables section
+    const markdownContent = result.content.find((c) => c.type === 'text' && c.text.includes('## Extracted Tables'));
+    expect(markdownContent).toBeUndefined();
+  });
 }); // End top-level describe

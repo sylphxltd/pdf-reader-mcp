@@ -47,6 +47,13 @@ export const readPdfArgsSchema = object({
       description('Extract and include embedded images from the PDF pages as base64-encoded data.')
     )
   ),
+  include_tables: optional(
+    bool(
+      description(
+        'Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures.'
+      )
+    )
+  ),
 });
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;

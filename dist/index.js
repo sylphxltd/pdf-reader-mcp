@@ -462,6 +462,280 @@ var determinePagesToProcess = (targetPages, totalPages, includeFullText) => {
   return { pagesToProcess: [], invalidPages: [] };
 };
 
+// src/pdf/tableExtractor.ts
+var logger5 = createLogger("TableExtractor");
+var Y_TOLERANCE = 5;
+var COLUMN_GAP_THRESHOLD = 15;
+var MIN_ROWS = 2;
+var MIN_COLS = 2;
+var MIN_ROW_ITEMS = 2;
+var extractTextItemsWithPositions = async (page) => {
+  const textContent = await page.getTextContent();
+  const items = [];
+  for (const item of textContent.items) {
+    const textItem = item;
+    if (!textItem.str.trim())
+      continue;
+    if (!textItem.transform || textItem.transform.length < 6)
+      continue;
+    const x = textItem.transform[4];
+    const y = textItem.transform[5];
+    if (x === undefined || y === undefined)
+      continue;
+    items.push({
+      text: textItem.str,
+      x,
+      y,
+      width: textItem.width ?? textItem.str.length * 6
+    });
+  }
+  return items;
+};
+var clusterByY = (items, tolerance = Y_TOLERANCE) => {
+  if (items.length === 0)
+    return [];
+  const sorted = [...items].sort((a, b) => b.y - a.y);
+  const firstItem = sorted[0];
+  if (!firstItem)
+    return [];
+  const rows = [];
+  let currentRow = { y: firstItem.y, items: [firstItem] };
+  for (let i = 1;i < sorted.length; i++) {
+    const item = sorted[i];
+    if (!item)
+      continue;
+    const yDiff = Math.abs(currentRow.y - item.y);
+    if (yDiff <= tolerance) {
+      currentRow.items.push(item);
+    } else {
+      rows.push(currentRow);
+      currentRow = { y: item.y, items: [item] };
+    }
+  }
+  rows.push(currentRow);
+  for (const row of rows) {
+    row.items.sort((a, b) => a.x - b.x);
+  }
+  return rows;
+};
+var detectColumnBoundaries = (rows, gapThreshold = COLUMN_GAP_THRESHOLD) => {
+  if (rows.length === 0)
+    return [];
+  const allXPositions = [];
+  for (const row of rows) {
+    for (const item of row.items) {
+      allXPositions.push(item.x);
+    }
+  }
+  if (allXPositions.length === 0)
+    return [];
+  allXPositions.sort((a, b) => a - b);
+  const firstX = allXPositions[0];
+  if (firstX === undefined)
+    return [];
+  const boundaries = [firstX];
+  for (let i = 1;i < allXPositions.length; i++) {
+    const current = allXPositions[i];
+    const previous = allXPositions[i - 1];
+    if (current === undefined || previous === undefined)
+      continue;
+    const gap = current - previous;
+    if (gap >= gapThreshold) {
+      boundaries.push(current);
+    }
+  }
+  return boundaries;
+};
+var assignToColumns = (row, columnBoundaries, tolerance = COLUMN_GAP_THRESHOLD / 2) => {
+  const cells = new Array(columnBoundaries.length).fill("");
+  for (const item of row.items) {
+    let colIndex = 0;
+    for (let i = columnBoundaries.length - 1;i >= 0; i--) {
+      const boundary = columnBoundaries[i];
+      if (boundary !== undefined && item.x >= boundary - tolerance) {
+        colIndex = i;
+        break;
+      }
+    }
+    const current = cells[colIndex];
+    cells[colIndex] = current ? `${current} ${item.text}` : item.text;
+  }
+  return cells;
+};
+var calculateConfidence = (rows, columnBoundaries) => {
+  if (rows.length < MIN_ROWS || columnBoundaries.length < MIN_COLS) {
+    return 0;
+  }
+  let score = 0;
+  let checks = 0;
+  for (const row of rows) {
+    const itemsPerColumn = new Set;
+    for (const item of row.items) {
+      for (let i = columnBoundaries.length - 1;i >= 0; i--) {
+        const boundary = columnBoundaries[i];
+        if (boundary !== undefined && item.x >= boundary - COLUMN_GAP_THRESHOLD / 2) {
+          itemsPerColumn.add(i);
+          break;
+        }
+      }
+    }
+    score += itemsPerColumn.size / columnBoundaries.length;
+    checks++;
+  }
+  if (rows.length >= 2) {
+    const spacings = [];
+    for (let i = 1;i < rows.length; i++) {
+      const prevRow = rows[i - 1];
+      const currRow = rows[i];
+      if (prevRow && currRow) {
+        spacings.push(Math.abs(prevRow.y - currRow.y));
+      }
+    }
+    if (spacings.length > 0) {
+      const avgSpacing = spacings.reduce((a, b) => a + b, 0) / spacings.length;
+      const variance = spacings.reduce((sum, s) => sum + (s - avgSpacing) ** 2, 0) / spacings.length;
+      const stdDev = Math.sqrt(variance);
+      const regularityScore = avgSpacing > 0 ? Math.max(0, 1 - stdDev / avgSpacing) : 0;
+      score += regularityScore;
+      checks++;
+    }
+  }
+  return checks > 0 ? Math.min(1, score / checks) : 0;
+};
+var identifyTableRegions = (rows) => {
+  const regions = [];
+  const candidateRows = rows.filter((row) => row.items.length >= MIN_ROW_ITEMS);
+  if (candidateRows.length < MIN_ROWS) {
+    return regions;
+  }
+  const columnBoundaries = detectColumnBoundaries(candidateRows);
+  if (columnBoundaries.length < MIN_COLS) {
+    return regions;
+  }
+  let currentRegion = [];
+  for (const row of candidateRows) {
+    const alignedItems = row.items.filter((item) => {
+      return columnBoundaries.some((boundary) => Math.abs(item.x - boundary) < COLUMN_GAP_THRESHOLD);
+    });
+    if (alignedItems.length >= MIN_COLS - 1) {
+      currentRegion.push(row);
+    } else if (currentRegion.length >= MIN_ROWS) {
+      const firstRow = currentRegion[0];
+      const lastRow = currentRegion[currentRegion.length - 1];
+      if (firstRow && lastRow) {
+        regions.push({
+          rows: currentRegion,
+          columnBoundaries,
+          startY: firstRow.y,
+          endY: lastRow.y
+        });
+      }
+      currentRegion = [];
+    } else {
+      currentRegion = [];
+    }
+  }
+  if (currentRegion.length >= MIN_ROWS) {
+    const firstRow = currentRegion[0];
+    const lastRow = currentRegion[currentRegion.length - 1];
+    if (firstRow && lastRow) {
+      regions.push({
+        rows: currentRegion,
+        columnBoundaries,
+        startY: firstRow.y,
+        endY: lastRow.y
+      });
+    }
+  }
+  return regions;
+};
+var extractTablesFromPage = async (page, pageNum) => {
+  const tables = [];
+  try {
+    const textItems = await extractTextItemsWithPositions(page);
+    if (textItems.length === 0) {
+      return tables;
+    }
+    const rows = clusterByY(textItems);
+    const tableRegions = identifyTableRegions(rows);
+    for (let tableIndex = 0;tableIndex < tableRegions.length; tableIndex++) {
+      const region = tableRegions[tableIndex];
+      if (!region)
+        continue;
+      const tableRows = [];
+      for (const row of region.rows) {
+        const cells = assignToColumns(row, region.columnBoundaries);
+        tableRows.push(cells);
+      }
+      const confidence = calculateConfidence(region.rows, region.columnBoundaries);
+      if (confidence >= 0.3) {
+        tables.push({
+          page: pageNum,
+          tableIndex,
+          rows: tableRows,
+          rowCount: tableRows.length,
+          colCount: region.columnBoundaries.length,
+          confidence: Math.round(confidence * 100) / 100
+        });
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger5.warn("Error extracting tables from page", { pageNum, error: message });
+  }
+  return tables;
+};
+var extractTables = async (pdfDocument, pagesToProcess) => {
+  const allTables = [];
+  for (const pageNum of pagesToProcess) {
+    try {
+      const page = await pdfDocument.getPage(pageNum);
+      const pageTables = await extractTablesFromPage(page, pageNum);
+      allTables.push(...pageTables);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger5.warn("Error getting page for table extraction", { pageNum, error: message });
+    }
+  }
+  return allTables;
+};
+var tableToMarkdown = (table) => {
+  if (table.rows.length === 0)
+    return "";
+  const lines = [];
+  const headerRow = table.rows[0];
+  if (!headerRow)
+    return "";
+  lines.push(`| ${headerRow.map((cell) => cell.trim() || " ").join(" | ")} |`);
+  lines.push(`| ${headerRow.map(() => "---").join(" | ")} |`);
+  for (let i = 1;i < table.rows.length; i++) {
+    const row = table.rows[i];
+    if (!row)
+      continue;
+    const paddedRow = [...row];
+    while (paddedRow.length < headerRow.length) {
+      paddedRow.push("");
+    }
+    lines.push(`| ${paddedRow.map((cell) => cell.trim() || " ").join(" | ")} |`);
+  }
+  return lines.join(`
+`);
+};
+var tablesToMarkdown = (tables) => {
+  if (tables.length === 0)
+    return "";
+  const sections = ["## Extracted Tables", ""];
+  for (const table of tables) {
+    sections.push(`### Page ${table.page}, Table ${table.tableIndex + 1}`);
+    sections.push(`*Confidence: ${(table.confidence * 100).toFixed(0)}%*`);
+    sections.push("");
+    sections.push(tableToMarkdown(table));
+    sections.push("");
+  }
+  return sections.join(`
+`);
+};
+
 // src/schemas/readPdf.ts
 import {
   array,
@@ -487,11 +761,12 @@ var readPdfArgsSchema = object({
   include_full_text: optional(bool(description("Include the full text content of each PDF (only if 'pages' is not specified for that source)."))),
   include_metadata: optional(bool(description("Include metadata and info objects for each PDF."))),
   include_page_count: optional(bool(description("Include the total number of pages for each PDF."))),
-  include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data.")))
+  include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
+  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures.")))
 });
 
 // src/handlers/readPdf.ts
-var logger5 = createLogger("ReadPdf");
+var logger6 = createLogger("ReadPdf");
 var processSingleSource = async (source, options) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
   let individualResult = { source: sourceDescription, success: false };
@@ -540,6 +815,12 @@ var processSingleSource = async (source, options) => {
           output.images = extractedImages;
         }
       }
+      if (options.includeTables) {
+        const extractedTables = await extractTables(pdfDocument, pagesToProcess);
+        if (extractedTables.length > 0) {
+          output.tables = extractedTables;
+        }
+      }
     }
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error) {
@@ -558,21 +839,29 @@ var processSingleSource = async (source, options) => {
         await pdfDocument.destroy();
       } catch (destroyError) {
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger5.warn("Error destroying PDF document", { sourceDescription, error: message });
+        logger6.warn("Error destroying PDF document", { sourceDescription, error: message });
       }
     }
   }
   return individualResult;
 };
 var readPdf = tool().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
-  const { sources, include_full_text, include_metadata, include_page_count, include_images } = input;
+  const {
+    sources,
+    include_full_text,
+    include_metadata,
+    include_page_count,
+    include_images,
+    include_tables
+  } = input;
   const MAX_CONCURRENT_SOURCES = 3;
   const results = [];
   const options = {
     includeFullText: include_full_text ?? false,
     includeMetadata: include_metadata ?? true,
     includePageCount: include_page_count ?? true,
-    includeImages: include_images ?? false
+    includeImages: include_images ?? false,
+    includeTables: include_tables ?? false
   };
   for (let i = 0;i < sources.length; i += MAX_CONCURRENT_SOURCES) {
     const batch = sources.slice(i, i + MAX_CONCURRENT_SOURCES);
@@ -587,18 +876,27 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
   const content = [];
   const resultsForJson = results.map((result) => {
     if (result.data) {
-      const { images, page_contents, ...dataWithoutBinaryContent } = result.data;
+      const { images, page_contents, tables, ...dataWithoutBinaryContent } = result.data;
+      const processedData = { ...dataWithoutBinaryContent };
       if (images) {
-        const imageInfo = images.map((img) => ({
+        processedData["image_info"] = images.map((img) => ({
           page: img.page,
           index: img.index,
           width: img.width,
           height: img.height,
           format: img.format
         }));
-        return { ...result, data: { ...dataWithoutBinaryContent, image_info: imageInfo } };
       }
-      return { ...result, data: dataWithoutBinaryContent };
+      if (tables && tables.length > 0) {
+        processedData["table_info"] = tables.map((tbl) => ({
+          page: tbl.page,
+          tableIndex: tbl.tableIndex,
+          rowCount: tbl.rowCount,
+          colCount: tbl.colCount,
+          confidence: tbl.confidence
+        }));
+      }
+      return { ...result, data: processedData };
     }
     return result;
   });
@@ -624,6 +922,18 @@ ${pageTextParts.join(`
       for (const img of pageImages) {
         content.push(image(img.data, "image/png"));
       }
+    }
+  }
+  if (options.includeTables) {
+    const allTables = [];
+    for (const result of results) {
+      if (result.success && result.data?.tables) {
+        allTables.push(...result.data.tables);
+      }
+    }
+    if (allTables.length > 0) {
+      const markdownTables = tablesToMarkdown(allTables);
+      content.push(text(markdownTables));
     }
   }
   return content;

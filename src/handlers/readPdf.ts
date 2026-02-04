@@ -9,8 +9,15 @@ import {
 } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
+import { extractTables, tablesToMarkdown } from '../pdf/tableExtractor.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
-import type { ExtractedImage, PdfResultData, PdfSource, PdfSourceResult } from '../types/pdf.js';
+import type {
+  ExtractedImage,
+  ExtractedTable,
+  PdfResultData,
+  PdfSource,
+  PdfSourceResult,
+} from '../types/pdf.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('ReadPdf');
@@ -25,6 +32,7 @@ const processSingleSource = async (
     includeMetadata: boolean;
     includePageCount: boolean;
     includeImages: boolean;
+    includeTables: boolean;
   }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
@@ -123,6 +131,18 @@ const processSingleSource = async (
           output.images = extractedImages;
         }
       }
+
+      // Extract tables if requested
+      if (options.includeTables) {
+        const extractedTables = await extractTables(
+          pdfDocument as pdfjsLib.PDFDocumentProxy,
+          pagesToProcess
+        );
+
+        if (extractedTables.length > 0) {
+          output.tables = extractedTables;
+        }
+      }
     }
 
     individualResult = { ...individualResult, data: output, success: true };
@@ -161,8 +181,14 @@ export const readPdf = tool()
   )
   .input(readPdfArgsSchema)
   .handler(async ({ input }) => {
-    const { sources, include_full_text, include_metadata, include_page_count, include_images } =
-      input;
+    const {
+      sources,
+      include_full_text,
+      include_metadata,
+      include_page_count,
+      include_images,
+      include_tables,
+    } = input;
 
     // Process sources with concurrency limit to prevent memory exhaustion
     // Processing large PDFs concurrently can consume significant memory
@@ -173,6 +199,7 @@ export const readPdf = tool()
       includeMetadata: include_metadata ?? true,
       includePageCount: include_page_count ?? true,
       includeImages: include_images ?? false,
+      includeTables: include_tables ?? false,
     };
 
     for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {
@@ -193,22 +220,37 @@ export const readPdf = tool()
     // Build content parts - start with structured JSON for backward compatibility
     const content: Array<ReturnType<typeof text> | ReturnType<typeof image>> = [];
 
-    // Strip image data and page_contents from JSON to keep it manageable
+    // Strip image data, page_contents, and full table rows from JSON to keep it manageable
     const resultsForJson = results.map((result) => {
       if (result.data) {
-        const { images, page_contents, ...dataWithoutBinaryContent } = result.data;
+        const { images, page_contents, tables, ...dataWithoutBinaryContent } = result.data;
+
+        // Use Record type to allow adding image_info and table_info properties
+        const processedData: Record<string, unknown> = { ...dataWithoutBinaryContent };
+
         // Include image count and metadata in JSON, but not the base64 data
         if (images) {
-          const imageInfo = images.map((img) => ({
+          processedData['image_info'] = images.map((img) => ({
             page: img.page,
             index: img.index,
             width: img.width,
             height: img.height,
             format: img.format,
           }));
-          return { ...result, data: { ...dataWithoutBinaryContent, image_info: imageInfo } };
         }
-        return { ...result, data: dataWithoutBinaryContent };
+
+        // Include table metadata in JSON, but not the full row data (that goes to markdown)
+        if (tables && tables.length > 0) {
+          processedData['table_info'] = tables.map((tbl) => ({
+            page: tbl.page,
+            tableIndex: tbl.tableIndex,
+            rowCount: tbl.rowCount,
+            colCount: tbl.colCount,
+            confidence: tbl.confidence,
+          }));
+        }
+
+        return { ...result, data: processedData };
       }
       return result;
     });
@@ -244,6 +286,21 @@ export const readPdf = tool()
         for (const img of pageImages) {
           content.push(image(img.data, 'image/png'));
         }
+      }
+    }
+
+    // Add markdown tables at the end if tables were extracted
+    if (options.includeTables) {
+      const allTables: ExtractedTable[] = [];
+      for (const result of results) {
+        if (result.success && result.data?.tables) {
+          allTables.push(...result.data.tables);
+        }
+      }
+
+      if (allTables.length > 0) {
+        const markdownTables = tablesToMarkdown(allTables);
+        content.push(text(markdownTables));
       }
     }
 

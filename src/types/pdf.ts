@@ -1,5 +1,20 @@
 // PDF-related TypeScript type definitions
 
+export interface TableCell {
+  text: string;
+  rowIndex: number;
+  colIndex: number;
+}
+
+export interface ExtractedTable {
+  page: number;
+  tableIndex: number;
+  rows: string[][]; // 2D array [row][col]
+  rowCount: number;
+  colCount: number;
+  confidence: number; // 0-1 detection confidence
+}
+
 export interface PdfInfo {
   PDFFormatVersion?: string;
   IsLinearized?: boolean;
@@ -40,6 +55,7 @@ export interface PdfResultData {
   page_texts?: ExtractedPageText[];
   page_contents?: Array<{ page: number; items: PageContentItem[] }>;
   images?: ExtractedImage[];
+  tables?: ExtractedTable[];
   warnings?: string[];
 }
 
@@ -61,4 +77,5 @@ export interface ReadPdfOptions {
   include_metadata: boolean;
   include_page_count: boolean;
   include_images: boolean;
+  include_tables: boolean;
 }
