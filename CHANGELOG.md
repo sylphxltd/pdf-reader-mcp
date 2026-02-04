@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.0 (2026-02-04)
+
+### ✨ Features
+
+- add table extraction support (closes #259) ([3f72992](https://github.com/SylphxAI/pdf-reader-mcp/commit/3f72992cce9c4ea3f491ccaae79a6216d2318cf5))
+
+### 🐛 Bug Fixes
+
+- **deps:** update glob to fix brace-expansion vulnerability ([945e66c](https://github.com/SylphxAI/pdf-reader-mcp/commit/945e66c91916ed6d66e5642e50f125a0fb0f1d33))
+
 ## 2.2.0 (2026-01-28)
 
 ### ✨ Features
