@@ -28,8 +28,7 @@ var IMAGE_FORMATS = {
 };
 
 // src/pdf/extractor.ts
-import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { PNG } from "pngjs";
+import { OPS as OPS2 } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 // src/utils/errorUtils.ts
 var extractErrorMessage = (error) => {
@@ -113,8 +112,8 @@ var createLogger = (component, minLevel) => {
 };
 var logger = new Logger("", 2 /* WARN */);
 
-// src/pdf/extractor.ts
-var logger2 = createLogger("Extractor");
+// src/pdf/images/imagePngEncoder.ts
+import { PNG } from "pngjs";
 var encodePixelsToPNG = (pixelData, width, height, channels) => {
   const png = new PNG({ width, height });
   if (channels === 4) {
@@ -162,6 +161,10 @@ var processImageData = (imageData, pageNum, arrayIndex) => {
     data: pngBase64
   };
 };
+
+// src/pdf/images/imageExtractor.ts
+import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
+var logger2 = createLogger("ImageExtractor");
 var retrieveImageData = async (page, imageName, pageNum) => {
   if (imageName.startsWith("g_")) {
     try {
@@ -219,6 +222,9 @@ var retrieveImageData = async (page, imageName, pageNum) => {
     }
   });
 };
+
+// src/pdf/extractor.ts
+var logger3 = createLogger("Extractor");
 var extractMetadataAndPageCount = async (pdfDocument, includeMetadata, includePageCount) => {
   const output = {};
   if (includePageCount) {
@@ -245,7 +251,7 @@ var extractMetadataAndPageCount = async (pdfDocument, includeMetadata, includePa
       }
     } catch (metaError) {
       const message = metaError instanceof Error ? metaError.message : String(metaError);
-      logger2.warn("Error extracting metadata", { error: message });
+      logger3.warn("Error extracting metadata", { error: message });
     }
   }
   return output;
@@ -290,7 +296,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
       const imageIndices = [];
       for (let i = 0;i < operatorList.fnArray.length; i++) {
         const op = operatorList.fnArray[i];
-        if (op === OPS.paintImageXObject || op === OPS.paintXObject) {
+        if (op === OPS2.paintImageXObject || op === OPS2.paintXObject) {
           imageIndices.push(i);
         }
       }
@@ -325,7 +331,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
     }
   } catch (error) {
     const message = extractErrorMessage(error);
-    logger2.warn("Error extracting page content", {
+    logger3.warn("Error extracting page content", {
       pageNum,
       sourceDescription,
       error: message
@@ -368,7 +374,7 @@ var resolvePath = (userPath) => {
 };
 
 // src/pdf/loader.ts
-var logger3 = createLogger("Loader");
+var logger4 = createLogger("Loader");
 var require2 = createRequire(import.meta.url);
 var CMAP_URL = require2.resolve("pdfjs-dist/package.json").replace("package.json", "cmaps/");
 var loadPdfDocument = async (source, sourceDescription) => {
@@ -409,13 +415,13 @@ var loadPdfDocument = async (source, sourceDescription) => {
     return await loadingTask.promise;
   } catch (err) {
     const message = extractErrorMessage(err);
-    logger3.error("PDF.js loading error", { sourceDescription, error: message });
+    logger4.error("PDF.js loading error", { sourceDescription, error: message });
     throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${sourceDescription}. Reason: ${message || "Unknown loading error"}`, { cause: err instanceof Error ? err : undefined });
   }
 };
 
 // src/pdf/parser.ts
-var logger4 = createLogger("Parser");
+var logger5 = createLogger("Parser");
 var parseRangePart = (part, pages) => {
   const trimmedPart = part.trim();
   if (trimmedPart.includes("-")) {
@@ -432,7 +438,7 @@ var parseRangePart = (part, pages) => {
       pages.add(i);
     }
     if (end === Infinity && practicalEnd === start + MAX_RANGE_SIZE) {
-      logger4.warn("Open-ended range truncated", { start, practicalEnd });
+      logger5.warn("Open-ended range truncated", { start, practicalEnd });
     }
   } else {
     const page = parseInt(trimmedPart, 10);
@@ -488,7 +494,7 @@ var determinePagesToProcess = (targetPages, totalPages, includeFullText) => {
 };
 
 // src/pdf/tableExtractor.ts
-var logger5 = createLogger("TableExtractor");
+var logger6 = createLogger("TableExtractor");
 var Y_TOLERANCE = 5;
 var COLUMN_GAP_THRESHOLD = 15;
 var MIN_ROWS = 2;
@@ -706,7 +712,7 @@ var extractTablesFromPage = async (page, pageNum) => {
     }
   } catch (error) {
     const message = extractErrorMessage(error);
-    logger5.warn("Error extracting tables from page", { pageNum, error: message });
+    logger6.warn("Error extracting tables from page", { pageNum, error: message });
   }
   return tables;
 };
@@ -719,7 +725,7 @@ var extractTables = async (pdfDocument, pagesToProcess) => {
       allTables.push(...pageTables);
     } catch (error) {
       const message = extractErrorMessage(error);
-      logger5.warn("Error getting page for table extraction", { pageNum, error: message });
+      logger6.warn("Error getting page for table extraction", { pageNum, error: message });
     }
   }
   return allTables;
@@ -791,7 +797,7 @@ var readPdfArgsSchema = object({
 });
 
 // src/handlers/readPdf.ts
-var logger6 = createLogger("ReadPdf");
+var logger7 = createLogger("ReadPdf");
 var processSingleSource = async (source, options) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
   let individualResult = { source: sourceDescription, success: false };
@@ -858,7 +864,7 @@ var processSingleSource = async (source, options) => {
         await pdfDocument.destroy();
       } catch (destroyError) {
         const message = extractErrorMessage(destroyError);
-        logger6.warn("Error destroying PDF document", { sourceDescription, error: message });
+        logger7.warn("Error destroying PDF document", { sourceDescription, error: message });
       }
     }
   }
