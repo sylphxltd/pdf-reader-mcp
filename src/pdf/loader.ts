@@ -4,7 +4,9 @@ import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { MAX_PDF_SIZE } from '../constants/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
+import { extractErrorMessage } from '../utils/errorUtils.js';
 import { createLogger } from '../utils/logger.js';
 import { resolvePath } from '../utils/pathUtils.js';
 
@@ -14,10 +16,6 @@ const logger = createLogger('Loader');
 // This ensures CMap files are found regardless of the current working directory
 const require = createRequire(import.meta.url);
 const CMAP_URL = require.resolve('pdfjs-dist/package.json').replace('package.json', 'cmaps/');
-
-// Maximum PDF file size: 100MB
-// Prevents memory exhaustion from loading extremely large files
-const MAX_PDF_SIZE = 100 * 1024 * 1024;
 
 /**
  * Load a PDF document from a local file path or URL
@@ -58,7 +56,7 @@ export const loadPdfDocument = async (
       throw err;
     }
 
-    const message = err instanceof Error ? err.message : String(err);
+    const message = extractErrorMessage(err);
     const errorCode = ErrorCode.InvalidRequest;
 
     if (
@@ -92,7 +90,7 @@ export const loadPdfDocument = async (
   try {
     return await loadingTask.promise;
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = extractErrorMessage(err);
     logger.error('PDF.js loading error', { sourceDescription, error: message });
     throw new PdfError(
       ErrorCode.InvalidRequest,

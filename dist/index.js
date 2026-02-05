@@ -6,9 +6,35 @@ import { createServer, http, stdio } from "@sylphx/mcp-server-sdk";
 // src/handlers/readPdf.ts
 import { image, text, tool, toolError } from "@sylphx/mcp-server-sdk";
 
+// src/constants/pdf.ts
+var MAX_CONCURRENT_PAGES = 5;
+var MAX_CONCURRENT_SOURCES = 3;
+var MAX_PDF_SIZE = 100 * 1024 * 1024;
+var MAX_RANGE_SIZE = 1e4;
+var ImageKind = {
+  GRAYSCALE: 1,
+  RGB: 2,
+  RGBA: 3
+};
+var IMAGE_CHANNELS = {
+  [ImageKind.GRAYSCALE]: 1,
+  [ImageKind.RGB]: 3,
+  [ImageKind.RGBA]: 4
+};
+var IMAGE_FORMATS = {
+  [ImageKind.GRAYSCALE]: "grayscale",
+  [ImageKind.RGB]: "rgb",
+  [ImageKind.RGBA]: "rgba"
+};
+
 // src/pdf/extractor.ts
 import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { PNG } from "pngjs";
+
+// src/utils/errorUtils.ts
+var extractErrorMessage = (error) => {
+  return error instanceof Error ? error.message : String(error);
+};
 
 // src/utils/logger.ts
 class Logger {
@@ -123,8 +149,9 @@ var processImageData = (imageData, pageNum, arrayIndex) => {
   if (!img.data || !img.width || !img.height) {
     return null;
   }
-  const channels = img.kind === 1 ? 1 : img.kind === 3 ? 4 : 3;
-  const format = img.kind === 1 ? "grayscale" : img.kind === 3 ? "rgba" : "rgb";
+  const kind = img.kind ?? ImageKind.RGB;
+  const channels = IMAGE_CHANNELS[kind] ?? 3;
+  const format = IMAGE_FORMATS[kind] ?? "rgb";
   const pngBase64 = encodePixelsToPNG(img.data, img.width, img.height, channels);
   return {
     page: pageNum,
@@ -143,7 +170,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
         return imageData;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = extractErrorMessage(error);
       logger2.warn("Error getting image from commonObjs", { imageName, error: message });
     }
   }
@@ -153,7 +180,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
       return imageData;
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     logger2.warn("Sync image get failed, trying async", { imageName, error: message });
   }
   return new Promise((resolve) => {
@@ -185,7 +212,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
       if (!resolved) {
         resolved = true;
         cleanup();
-        const message = error instanceof Error ? error.message : String(error);
+        const message = extractErrorMessage(error);
         logger2.warn("Error in async image get", { imageName, error: message });
         resolve(null);
       }
@@ -297,7 +324,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
       contentItems.push(...validImages);
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     logger2.warn("Error extracting page content", {
       pageNum,
       sourceDescription,
@@ -344,7 +371,6 @@ var resolvePath = (userPath) => {
 var logger3 = createLogger("Loader");
 var require2 = createRequire(import.meta.url);
 var CMAP_URL = require2.resolve("pdfjs-dist/package.json").replace("package.json", "cmaps/");
-var MAX_PDF_SIZE = 100 * 1024 * 1024;
 var loadPdfDocument = async (source, sourceDescription) => {
   let pdfDataSource;
   try {
@@ -364,7 +390,7 @@ var loadPdfDocument = async (source, sourceDescription) => {
     if (err instanceof PdfError) {
       throw err;
     }
-    const message = err instanceof Error ? err.message : String(err);
+    const message = extractErrorMessage(err);
     const errorCode = -32600 /* InvalidRequest */;
     if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT" && source.path) {
       throw new PdfError(errorCode, `File not found at '${source.path}'.`, {
@@ -382,7 +408,7 @@ var loadPdfDocument = async (source, sourceDescription) => {
   try {
     return await loadingTask.promise;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = extractErrorMessage(err);
     logger3.error("PDF.js loading error", { sourceDescription, error: message });
     throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${sourceDescription}. Reason: ${message || "Unknown loading error"}`, { cause: err instanceof Error ? err : undefined });
   }
@@ -390,7 +416,6 @@ var loadPdfDocument = async (source, sourceDescription) => {
 
 // src/pdf/parser.ts
 var logger4 = createLogger("Parser");
-var MAX_RANGE_SIZE = 1e4;
 var parseRangePart = (part, pages) => {
   const trimmedPart = part.trim();
   if (trimmedPart.includes("-")) {
@@ -445,7 +470,7 @@ var getTargetPages = (sourcePages, sourceDescription) => {
     }
     return uniquePages;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     throw new PdfError(-32602 /* InvalidParams */, `Invalid page specification for source ${sourceDescription}: ${message}`);
   }
 };
@@ -680,7 +705,7 @@ var extractTablesFromPage = async (page, pageNum) => {
       }
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     logger5.warn("Error extracting tables from page", { pageNum, error: message });
   }
   return tables;
@@ -693,7 +718,7 @@ var extractTables = async (pdfDocument, pagesToProcess) => {
       const pageTables = await extractTablesFromPage(page, pageNum);
       allTables.push(...pageTables);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = extractErrorMessage(error);
       logger5.warn("Error getting page for table extraction", { pageNum, error: message });
     }
   }
@@ -784,7 +809,6 @@ var processSingleSource = async (source, options) => {
       output.warnings = warnings;
     }
     if (pagesToProcess.length > 0) {
-      const MAX_CONCURRENT_PAGES = 5;
       const pageContents = [];
       for (let i = 0;i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
         const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
@@ -824,12 +848,7 @@ var processSingleSource = async (source, options) => {
     }
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error) {
-    let errorMessage = `Failed to process PDF from ${sourceDescription}.`;
-    if (error instanceof Error) {
-      errorMessage += ` Reason: ${error.message}`;
-    } else {
-      errorMessage += ` Unknown error: ${JSON.stringify(error)}`;
-    }
+    const errorMessage = `Failed to process PDF from ${sourceDescription}. Reason: ${extractErrorMessage(error)}`;
     individualResult.error = errorMessage;
     individualResult.success = false;
     individualResult.data = undefined;
@@ -838,7 +857,7 @@ var processSingleSource = async (source, options) => {
       try {
         await pdfDocument.destroy();
       } catch (destroyError) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
+        const message = extractErrorMessage(destroyError);
         logger6.warn("Error destroying PDF document", { sourceDescription, error: message });
       }
     }
@@ -854,7 +873,6 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     include_images,
     include_tables
   } = input;
-  const MAX_CONCURRENT_SOURCES = 3;
   const results = [];
   const options = {
     includeFullText: include_full_text ?? false,

@@ -2,6 +2,7 @@
 
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { ExtractedTable } from '../types/pdf.js';
+import { extractErrorMessage } from '../utils/errorUtils.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('TableExtractor');
@@ -367,7 +368,7 @@ export const extractTablesFromPage = async (
       }
     }
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     logger.warn('Error extracting tables from page', { pageNum, error: message });
   }
 
@@ -389,7 +390,7 @@ export const extractTables = async (
       const pageTables = await extractTablesFromPage(page, pageNum);
       allTables.push(...pageTables);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = extractErrorMessage(error);
       logger.warn('Error getting page for table extraction', { pageNum, error: message });
     }
   }

@@ -2,6 +2,7 @@
 
 import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { MAX_CONCURRENT_PAGES, MAX_CONCURRENT_SOURCES } from '../constants/pdf.js';
 import {
   buildWarnings,
   extractMetadataAndPageCount,
@@ -18,6 +19,7 @@ import type {
   PdfSource,
   PdfSourceResult,
 } from '../types/pdf.js';
+import { extractErrorMessage } from '../utils/errorUtils.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('ReadPdf');
@@ -74,7 +76,6 @@ const processSingleSource = async (
     if (pagesToProcess.length > 0) {
       // Process pages in batches to prevent memory exhaustion on large PDFs
       // This prevents the event loop from being blocked and keeps memory usage reasonable
-      const MAX_CONCURRENT_PAGES = 5;
       const pageContents: Awaited<ReturnType<typeof extractPageContent>>[] = [];
 
       for (let i = 0; i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
@@ -147,13 +148,7 @@ const processSingleSource = async (
 
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error: unknown) {
-    let errorMessage = `Failed to process PDF from ${sourceDescription}.`;
-
-    if (error instanceof Error) {
-      errorMessage += ` Reason: ${error.message}`;
-    } else {
-      errorMessage += ` Unknown error: ${JSON.stringify(error)}`;
-    }
+    const errorMessage = `Failed to process PDF from ${sourceDescription}. Reason: ${extractErrorMessage(error)}`;
 
     individualResult.error = errorMessage;
     individualResult.success = false;
@@ -165,7 +160,7 @@ const processSingleSource = async (
         await pdfDocument.destroy();
       } catch (destroyError: unknown) {
         // Log cleanup errors but don't fail the operation
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
+        const message = extractErrorMessage(destroyError);
         logger.warn('Error destroying PDF document', { sourceDescription, error: message });
       }
     }
@@ -192,7 +187,6 @@ export const readPdf = tool()
 
     // Process sources with concurrency limit to prevent memory exhaustion
     // Processing large PDFs concurrently can consume significant memory
-    const MAX_CONCURRENT_SOURCES = 3;
     const results: PdfSourceResult[] = [];
     const options = {
       includeFullText: include_full_text ?? false,

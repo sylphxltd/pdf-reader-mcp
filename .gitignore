@@ -11,3 +11,4 @@ docs/.vitepress/dist
 # Test Reports
 test-report.junit.xml
 .vercel
+package-lock.json

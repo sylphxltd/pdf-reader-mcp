@@ -1,10 +1,11 @@
 // Page range parsing utilities
 
+import { MAX_RANGE_SIZE } from '../constants/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
+import { extractErrorMessage } from '../utils/errorUtils.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('Parser');
-const MAX_RANGE_SIZE = 10000; // Prevent infinite loops for open ranges
 
 /**
  * Parse a single range part (e.g., "1-3", "5", "7-")
@@ -95,7 +96,7 @@ export const getTargetPages = (
 
     return uniquePages;
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     throw new PdfError(
       ErrorCode.InvalidParams,
       `Invalid page specification for source ${sourceDescription}: ${message}`

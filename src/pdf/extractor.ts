@@ -3,6 +3,7 @@
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PNG } from 'pngjs';
+import { IMAGE_CHANNELS, IMAGE_FORMATS, ImageKind } from '../constants/pdf.js';
 import type {
   ExtractedImage,
   ExtractedPageText,
@@ -11,6 +12,7 @@ import type {
   PdfMetadata,
   PdfResultData,
 } from '../types/pdf.js';
+import { extractErrorMessage } from '../utils/errorUtils.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('Extractor');
@@ -80,10 +82,11 @@ const processImageData = (
     return null;
   }
 
-  // Determine number of channels based on kind
-  // kind === 1 = grayscale (1 channel), 2 = RGB (3 channels), 3 = RGBA (4 channels)
-  const channels = img.kind === 1 ? 1 : img.kind === 3 ? 4 : 3;
-  const format = img.kind === 1 ? 'grayscale' : img.kind === 3 ? 'rgba' : 'rgb';
+  // Determine number of channels and format based on kind
+  // ImageKind: GRAYSCALE=1, RGB=2, RGBA=3
+  const kind = (img.kind ?? ImageKind.RGB) as number;
+  const channels = IMAGE_CHANNELS[kind as keyof typeof IMAGE_CHANNELS] ?? 3;
+  const format = IMAGE_FORMATS[kind as keyof typeof IMAGE_FORMATS] ?? 'rgb';
 
   // Encode raw pixel data to PNG format
   const pngBase64 = encodePixelsToPNG(img.data, img.width, img.height, channels);
@@ -115,7 +118,7 @@ const retrieveImageData = async (
         return imageData;
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = extractErrorMessage(error);
       logger.warn('Error getting image from commonObjs', { imageName, error: message });
     }
   }
@@ -127,7 +130,7 @@ const retrieveImageData = async (
       return imageData;
     }
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     logger.warn('Sync image get failed, trying async', { imageName, error: message });
   }
 
@@ -166,7 +169,7 @@ const retrieveImageData = async (
       if (!resolved) {
         resolved = true;
         cleanup();
-        const message = error instanceof Error ? error.message : String(error);
+        const message = extractErrorMessage(error);
         logger.warn('Error in async image get', { imageName, error: message });
         resolve(null);
       }
@@ -238,7 +241,7 @@ const extractSinglePageText = async (
 
     return { page: pageNum, text: pageText };
   } catch (pageError: unknown) {
-    const message = pageError instanceof Error ? pageError.message : String(pageError);
+    const message = extractErrorMessage(pageError);
     logger.warn('Error getting text content for page', {
       pageNum,
       sourceDescription,
@@ -302,7 +305,7 @@ const extractImagesFromPage = async (
     const resolvedImages = await Promise.all(imagePromises);
     images.push(...resolvedImages.filter((img): img is ExtractedImage => img !== null));
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     logger.warn('Error extracting images from page', { pageNum, error: message });
   }
 
@@ -325,7 +328,7 @@ export const extractImages = async (
       const pageImages = await extractImagesFromPage(page, pageNum);
       allImages.push(...pageImages);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = extractErrorMessage(error);
       logger.warn('Error getting page for image extraction', { pageNum, error: message });
     }
   }
@@ -443,7 +446,7 @@ export const extractPageContent = async (
       contentItems.push(...validImages);
     }
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = extractErrorMessage(error);
     logger.warn('Error extracting page content', {
       pageNum,
       sourceDescription,
