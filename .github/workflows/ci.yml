@@ -11,7 +11,7 @@ on:
 jobs:
   validate:
     name: Validate Code Quality
-    runs-on: [self-hosted, linux, x64]
+    runs-on: sylphx-linux-standard
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
