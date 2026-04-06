@@ -8,10 +8,12 @@ import { readPdf } from './handlers/readPdf.js';
 // MCP_HTTP_PORT: HTTP port (default: 8080)
 // MCP_HTTP_HOST: HTTP hostname (default: '0.0.0.0')
 // MCP_API_KEY: Optional API key for authentication (X-API-Key header)
+// MCP_CORS_ORIGIN: CORS allowed origin (e.g. 'https://myapp.example.com'). Not set by default (no cross-origin access).
 const transportType = process.env['MCP_TRANSPORT'] ?? 'stdio';
 const httpPort = Number.parseInt(process.env['MCP_HTTP_PORT'] ?? '8080', 10);
 const httpHost = process.env['MCP_HTTP_HOST'] ?? '0.0.0.0';
 const apiKey = process.env['MCP_API_KEY'];
+const corsOrigin = process.env['MCP_CORS_ORIGIN'];
 
 /**
  * Create the appropriate transport based on configuration
@@ -21,7 +23,7 @@ function createTransport() {
     return http({
       port: httpPort,
       hostname: httpHost,
-      cors: '*', // Allow cross-origin requests for remote access
+      ...(corsOrigin ? { cors: corsOrigin } : {}),
     });
   }
   return stdio();
@@ -45,6 +47,9 @@ async function main(): Promise<void> {
     console.log(`[PDF Reader MCP] Health check: http://${httpHost}:${httpPort}/mcp/health`);
     if (apiKey) {
       console.log('[PDF Reader MCP] API key authentication enabled (X-API-Key header)');
+    }
+    if (corsOrigin) {
+      console.log(`[PDF Reader MCP] CORS allowed origin: ${corsOrigin}`);
     }
     console.log('[PDF Reader MCP] Project root:', process.cwd());
   } else if (process.env['DEBUG_MCP']) {
