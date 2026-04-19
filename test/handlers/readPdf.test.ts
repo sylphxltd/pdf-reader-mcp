@@ -1,3 +1,4 @@
+import * as realFsPromises from 'node:fs/promises';
 import { type Schema, safeParse } from '@sylphx/vex';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorCode, PdfError } from '../../src/utils/errors.js';
@@ -23,8 +24,23 @@ vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
   },
 }));
 
+// The mock must expose every named export the transitive import graph
+// touches, not just the ones this test uses. Gust-server (pulled in via
+// @sylphx/mcp-server-sdk) does `import { readFile, stat } from "node:fs/promises"`;
+// if `stat` is missing when bun resolves that import, loading this test in
+// isolation — or in any order where gust-server hasn't been pre-evaluated
+// — blows up with `SyntaxError: Export named 'stat' not found in module
+// 'node:fs/promises'`. That manifests as a flaky CI failure when bun test
+// happens to process this file before one that loads fs/promises for real.
+//
+// The safe pattern: forward every real export through the mock, then
+// override only the functions we actually need to intercept. `realFsPromises`
+// is captured at module top so the mock factory (which bun hoists) can
+// reference it as a closure value.
 vi.mock('node:fs/promises', () => ({
+  ...realFsPromises,
   default: {
+    ...realFsPromises,
     readFile: mockReadFile,
   },
   readFile: mockReadFile,
