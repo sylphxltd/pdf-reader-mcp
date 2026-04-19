@@ -51,8 +51,65 @@ describe('loader', () => {
       expect(pdfjsLib.getDocument).toHaveBeenCalledWith({
         cMapUrl: expect.stringContaining('pdfjs-dist') && expect.stringContaining('cmaps'),
         cMapPacked: true,
+        standardFontDataUrl: expect.stringContaining('pdfjs-dist') && expect.stringContaining('standard_fonts'),
+        wasmUrl: expect.stringContaining('pdfjs-dist') && expect.stringContaining('wasm'),
+        iccUrl: expect.stringContaining('pdfjs-dist') && expect.stringContaining('iccs'),
         url: 'https://example.com/test.pdf',
       });
+    });
+
+    // Regression test for https://github.com/SylphxAI/pdf-reader-mcp/issues/271
+    // pdfjs-dist requires absolute filesystem URLs for CMaps, standard fonts,
+    // WASM decoders (OpenJPEG/QCMS), and ICC profiles. Missing any of them
+    // breaks decoding — most visibly, a missing `wasmUrl` produces the
+    // "Cannot find package 'nullopenjpeg_nowasm_fallback.js'" error because
+    // pdfjs concatenates `null` with the fallback filename.
+    it('should provide all pdfjs-dist resource URLs with trailing slashes to fix image decoding (issue #271)', async () => {
+      const mockBuffer = Buffer.from('fake pdf content');
+      const mockDocument = { numPages: 1 };
+
+      pdfjsLib.getDocument.mockClear();
+      pathUtils.resolvePath.mockReturnValue('/safe/path/test.pdf');
+      fs.readFile.mockResolvedValue(mockBuffer);
+      pdfjsLib.getDocument.mockReturnValue({
+        promise: Promise.resolve(mockDocument as unknown as pdfjsLib.PDFDocumentProxy),
+      } as pdfjsLib.PDFDocumentLoadingTask);
+
+      await loadPdfDocument({ path: 'test.pdf' }, 'test.pdf');
+
+      expect(pdfjsLib.getDocument).toHaveBeenCalledTimes(1);
+      const options = pdfjsLib.getDocument.mock.calls[0]?.[0] as {
+        cMapUrl: string;
+        cMapPacked: boolean;
+        standardFontDataUrl: string;
+        wasmUrl: string;
+        iccUrl: string;
+      };
+
+      // All four URLs must be defined strings — an undefined `wasmUrl` is
+      // what causes the `nullopenjpeg_nowasm_fallback.js` failure.
+      expect(typeof options.cMapUrl).toBe('string');
+      expect(typeof options.standardFontDataUrl).toBe('string');
+      expect(typeof options.wasmUrl).toBe('string');
+      expect(typeof options.iccUrl).toBe('string');
+
+      // All URLs must point inside the installed pdfjs-dist package so they
+      // work regardless of the consumer's cwd (e.g. when run via npx).
+      expect(options.cMapUrl).toContain('pdfjs-dist');
+      expect(options.standardFontDataUrl).toContain('pdfjs-dist');
+      expect(options.wasmUrl).toContain('pdfjs-dist');
+      expect(options.iccUrl).toContain('pdfjs-dist');
+
+      // pdfjs-dist concatenates filenames directly onto these URLs, so each
+      // one MUST end with a trailing slash. Without it, `${wasmUrl}openjpeg.wasm`
+      // produces a malformed path and image decoding silently fails.
+      expect(options.cMapUrl.endsWith('/')).toBe(true);
+      expect(options.standardFontDataUrl.endsWith('/')).toBe(true);
+      expect(options.wasmUrl.endsWith('/')).toBe(true);
+      expect(options.iccUrl.endsWith('/')).toBe(true);
+
+      // cMapPacked stays true — the bundled CMaps are binary-packed.
+      expect(options.cMapPacked).toBe(true);
     });
 
     it('should throw PdfError when neither path nor url provided', async () => {

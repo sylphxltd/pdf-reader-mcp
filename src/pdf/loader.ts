@@ -10,10 +10,29 @@ import { resolvePath } from '../utils/pathUtils.js';
 
 const logger = createLogger('Loader');
 
-// Resolve CMap path relative to pdfjs-dist package location
-// This ensures CMap files are found regardless of the current working directory
+// Resolve pdfjs-dist resource paths relative to the installed package.
+//
+// pdfjs-dist ships data files (CMaps, standard fonts, WASM decoders, ICC
+// profiles) alongside its code. In Node.js these are loaded from the local
+// filesystem, so each URL must be an absolute path to the directory — with a
+// trailing slash — regardless of the current working directory.
+//
+// Why all four URLs matter:
+//   - cMapUrl:            predefined Adobe CMaps for CJK/special encodings
+//   - standardFontDataUrl: PDF standard fonts (Helvetica, Times, etc.)
+//   - wasmUrl:            OpenJPEG (JPEG 2000) + QCMS (color management) WASM
+//   - iccUrl:             ICC color profiles
+//
+// If any URL is omitted, pdfjs-dist logs "Ensure that the `<name>` API
+// parameter is provided" and — worse — some code paths concatenate `null`
+// with the filename (e.g. `nullopenjpeg_nowasm_fallback.js`), producing an
+// ERR_MODULE_NOT_FOUND that breaks image decoding entirely (issue #271).
 const require = createRequire(import.meta.url);
-const CMAP_URL = require.resolve('pdfjs-dist/package.json').replace('package.json', 'cmaps/');
+const PDFJS_ROOT = require.resolve('pdfjs-dist/package.json').replace('package.json', '');
+const CMAP_URL = `${PDFJS_ROOT}cmaps/`;
+const STANDARD_FONT_DATA_URL = `${PDFJS_ROOT}standard_fonts/`;
+const WASM_URL = `${PDFJS_ROOT}wasm/`;
+const ICC_URL = `${PDFJS_ROOT}iccs/`;
 
 // Maximum PDF file size: 100MB
 // Prevents memory exhaustion from loading extremely large files
@@ -87,6 +106,9 @@ export const loadPdfDocument = async (
     ...documentParams,
     cMapUrl: CMAP_URL,
     cMapPacked: true,
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+    wasmUrl: WASM_URL,
+    iccUrl: ICC_URL,
   });
 
   try {

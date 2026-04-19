@@ -162,6 +162,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
       data: new Uint8Array(Buffer.from('mock pdf content')),
       cMapUrl: expect.stringContaining('cmaps'),
       cMapPacked: true,
+      standardFontDataUrl: expect.stringContaining('standard_fonts'),
+      wasmUrl: expect.stringContaining('wasm'),
+      iccUrl: expect.stringContaining('iccs'),
     });
     expect(mockGetMetadata).toHaveBeenCalled();
     expect(mockGetPage).toHaveBeenCalledTimes(3);
@@ -208,6 +211,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
       data: new Uint8Array(Buffer.from('mock pdf content')),
       cMapUrl: expect.stringContaining('cmaps'),
       cMapPacked: true,
+      standardFontDataUrl: expect.stringContaining('standard_fonts'),
+      wasmUrl: expect.stringContaining('wasm'),
+      iccUrl: expect.stringContaining('iccs'),
     });
     expect(mockGetMetadata).not.toHaveBeenCalled();
 
@@ -283,6 +289,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
       url: testUrl,
       cMapUrl: expect.stringContaining('cmaps'),
       cMapPacked: true,
+      standardFontDataUrl: expect.stringContaining('standard_fonts'),
+      wasmUrl: expect.stringContaining('wasm'),
+      iccUrl: expect.stringContaining('iccs'),
     });
     expect(mockGetMetadata).toHaveBeenCalled();
     expect(mockGetPage).not.toHaveBeenCalled();
@@ -391,11 +400,17 @@ describe('handleReadPdfFunc Integration Tests', () => {
       data: new Uint8Array(Buffer.from('mock pdf content')),
       cMapUrl: expect.stringContaining('cmaps'),
       cMapPacked: true,
+      standardFontDataUrl: expect.stringContaining('standard_fonts'),
+      wasmUrl: expect.stringContaining('wasm'),
+      iccUrl: expect.stringContaining('iccs'),
     });
     expect(mockGetDocument).toHaveBeenCalledWith({
       url: urlSource,
       cMapUrl: expect.stringContaining('cmaps'),
       cMapPacked: true,
+      standardFontDataUrl: expect.stringContaining('standard_fonts'),
+      wasmUrl: expect.stringContaining('wasm'),
+      iccUrl: expect.stringContaining('iccs'),
     });
     expect(mockGetPage).toHaveBeenCalledTimes(1); // Should be called once for local.pdf page 1
     expect(secondMockGetPage).toHaveBeenCalledTimes(2);
