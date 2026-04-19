@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.3.1 (2026-04-19)
+
+### 🐛 Bug Fixes
+
+- **test:** forward all fs/promises exports through mock to unblock CI release ([f594561](https://github.com/SylphxAI/pdf-reader-mcp/commit/f594561530489018479800cbebc2390151443b49))
+- provide all pdfjs-dist resource URLs to restore image decoding (closes #271) ([42baf54](https://github.com/SylphxAI/pdf-reader-mcp/commit/42baf545781903cb4cc2114fd304e924eaaba4c2))
+
+### 👷 CI
+
+- migrate to flat runner labels [self-hosted, sylphx, {platform}, {size}] ([e8d3edd](https://github.com/SylphxAI/pdf-reader-mcp/commit/e8d3edddd02e2a167a12c4aae9e053f5b9b054a9))
+- migrate runs-on to ARC v2 runner labels ([d5bc801](https://github.com/SylphxAI/pdf-reader-mcp/commit/d5bc801c930bb3f0215aa4737c03c6f4599c272b))
+- migrate all GitHub workflows to use self-hosted runner (#264) ([cfe334a](https://github.com/SylphxAI/pdf-reader-mcp/commit/cfe334acd767fb011646271b7fbea19637051670))
+
+### 🔧 Chores
+
+- **deps:** update deps and override vulnerable transitive packages ([c472ee7](https://github.com/SylphxAI/pdf-reader-mcp/commit/c472ee73d319c40db0ffe822f7ce9ba0c1ce4888))
+- add sylphx.json for Platform build config ([b393d46](https://github.com/SylphxAI/pdf-reader-mcp/commit/b393d46b6e40020e0b39ccc82701e85df114d337))
+
 ## 2.3.0 (2026-02-04)
 
 ### ✨ Features

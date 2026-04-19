@@ -343,7 +343,11 @@ var resolvePath = (userPath) => {
 // src/pdf/loader.ts
 var logger3 = createLogger("Loader");
 var require2 = createRequire(import.meta.url);
-var CMAP_URL = require2.resolve("pdfjs-dist/package.json").replace("package.json", "cmaps/");
+var PDFJS_ROOT = require2.resolve("pdfjs-dist/package.json").replace("package.json", "");
+var CMAP_URL = `${PDFJS_ROOT}cmaps/`;
+var STANDARD_FONT_DATA_URL = `${PDFJS_ROOT}standard_fonts/`;
+var WASM_URL = `${PDFJS_ROOT}wasm/`;
+var ICC_URL = `${PDFJS_ROOT}iccs/`;
 var MAX_PDF_SIZE = 100 * 1024 * 1024;
 var loadPdfDocument = async (source, sourceDescription) => {
   let pdfDataSource;
@@ -377,7 +381,10 @@ var loadPdfDocument = async (source, sourceDescription) => {
   const loadingTask = getDocument({
     ...documentParams,
     cMapUrl: CMAP_URL,
-    cMapPacked: true
+    cMapPacked: true,
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+    wasmUrl: WASM_URL,
+    iccUrl: ICC_URL
   });
   try {
     return await loadingTask.promise;
