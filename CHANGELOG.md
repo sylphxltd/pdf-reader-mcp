@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.0 (2026-05-03)
+
+### ✨ Features
+
+- add filesystem and HTTP access restrictions (closes #274) ([78e26df](https://github.com/SylphxAI/pdf-reader-mcp/commit/78e26df032415df2caaca7ae8c39a38c3bcd92ed))
+
 ## 2.3.1 (2026-04-19)
 
 ### 🐛 Bug Fixes
