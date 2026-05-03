@@ -319,6 +319,88 @@ import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
+// src/utils/config.ts
+import path from "node:path";
+var splitList = (value, separators) => value.split(separators).map((s) => s.trim()).filter((s) => s.length > 0);
+var parseDirs = (values) => values.map((dir) => path.resolve(path.normalize(dir)));
+var parseBool = (value, fallback) => {
+  if (value === undefined)
+    return fallback;
+  const v = value.trim().toLowerCase();
+  if (v === "false" || v === "0" || v === "no" || v === "off")
+    return false;
+  if (v === "true" || v === "1" || v === "yes" || v === "on")
+    return true;
+  return fallback;
+};
+var parseCliFlags = (argv) => {
+  const dirs = [];
+  const hosts = [];
+  let noHttp = false;
+  for (const arg of argv) {
+    if (arg.startsWith("--allow-dir=")) {
+      dirs.push(arg.slice("--allow-dir=".length));
+    } else if (arg.startsWith("--allow-host=")) {
+      hosts.push(arg.slice("--allow-host=".length).toLowerCase());
+    } else if (arg === "--no-http") {
+      noHttp = true;
+    }
+  }
+  return { dirs, hosts, noHttp };
+};
+var envList = (raw, separators, transform = (v) => v) => raw ? splitList(raw, separators).map(transform) : [];
+var readSecurityConfig = (argv = process.argv.slice(2), env = process.env) => {
+  const cli = parseCliFlags(argv);
+  const envDirs = envList(env["MCP_PDF_ALLOWED_DIRS"], /[:,]/);
+  const envHosts = envList(env["MCP_PDF_ALLOWED_HOSTS"], /,/, (h) => h.toLowerCase());
+  const mergedDirs = [...cli.dirs, ...envDirs];
+  const mergedHosts = [...cli.hosts, ...envHosts];
+  return {
+    allowedDirs: mergedDirs.length > 0 ? parseDirs(mergedDirs) : null,
+    allowHttp: cli.noHttp ? false : parseBool(env["MCP_PDF_ALLOW_HTTP"], true),
+    allowedHosts: mergedHosts.length > 0 ? mergedHosts : null
+  };
+};
+var cached = null;
+var getSecurityConfig = () => {
+  if (cached === null) {
+    cached = readSecurityConfig();
+  }
+  return cached;
+};
+var isPathAllowed = (absPath, allowedDirs) => {
+  if (allowedDirs === null)
+    return true;
+  if (allowedDirs.length === 0)
+    return false;
+  const normalized = path.resolve(absPath);
+  return allowedDirs.some((dir) => {
+    const rel = path.relative(dir, normalized);
+    if (rel === "")
+      return true;
+    if (rel.startsWith(".."))
+      return false;
+    if (path.isAbsolute(rel))
+      return false;
+    return true;
+  });
+};
+var isUrlAllowed = (urlString, config) => {
+  if (!config.allowHttp)
+    return false;
+  let parsed;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    return false;
+  if (config.allowedHosts === null)
+    return true;
+  return config.allowedHosts.includes(parsed.hostname.toLowerCase());
+};
+
 // src/utils/errors.ts
 class PdfError extends Error {
   code;
@@ -330,14 +412,19 @@ class PdfError extends Error {
 }
 
 // src/utils/pathUtils.ts
-import path from "node:path";
+import path2 from "node:path";
 var PROJECT_ROOT = process.cwd();
 var resolvePath = (userPath) => {
   if (typeof userPath !== "string") {
     throw new PdfError(-32602 /* InvalidParams */, "Path must be a string.");
   }
-  const normalizedUserPath = path.normalize(userPath);
-  return path.isAbsolute(normalizedUserPath) ? normalizedUserPath : path.resolve(PROJECT_ROOT, normalizedUserPath);
+  const normalizedUserPath = path2.normalize(userPath);
+  const resolved = path2.isAbsolute(normalizedUserPath) ? normalizedUserPath : path2.resolve(PROJECT_ROOT, normalizedUserPath);
+  const { allowedDirs } = getSecurityConfig();
+  if (!isPathAllowed(resolved, allowedDirs)) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: path '${userPath}' is outside the allowed directories.`);
+  }
+  return resolved;
 };
 
 // src/pdf/loader.ts
@@ -360,6 +447,11 @@ var loadPdfDocument = async (source, sourceDescription) => {
       }
       pdfDataSource = new Uint8Array(buffer);
     } else if (source.url) {
+      const config = getSecurityConfig();
+      if (!isUrlAllowed(source.url, config)) {
+        const reason = config.allowHttp ? `host is not in the allowed list` : `HTTP access is disabled`;
+        throw new PdfError(-32600 /* InvalidRequest */, `Access denied: URL '${source.url}' rejected (${reason}).`);
+      }
       pdfDataSource = { url: source.url };
     } else {
       throw new PdfError(-32602 /* InvalidParams */, `Source ${sourceDescription} missing 'path' or 'url'.`);

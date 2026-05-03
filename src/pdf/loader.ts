@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getSecurityConfig, isUrlAllowed } from '../utils/config.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 import { resolvePath } from '../utils/pathUtils.js';
@@ -65,6 +66,19 @@ export const loadPdfDocument = async (
 
       pdfDataSource = new Uint8Array(buffer);
     } else if (source.url) {
+      // Enforce HTTP access policy (issue #274). The check runs before any
+      // network call so URL fetches are rejected without DNS or socket
+      // activity when the operator has disabled HTTP or restricted hosts.
+      const config = getSecurityConfig();
+      if (!isUrlAllowed(source.url, config)) {
+        const reason = config.allowHttp
+          ? `host is not in the allowed list`
+          : `HTTP access is disabled`;
+        throw new PdfError(
+          ErrorCode.InvalidRequest,
+          `Access denied: URL '${source.url}' rejected (${reason}).`
+        );
+      }
       pdfDataSource = { url: source.url };
     } else {
       throw new PdfError(

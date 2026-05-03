@@ -171,6 +171,10 @@ Add to Cline's MCP settings:
 1. Go to **Settings** → **AI** → **Manage MCP Servers** → **Add**
 2. Command: `npx`, Args: `@sylphx/pdf-reader-mcp`
 
+### Ontheia
+
+Add the server in **Settings** → **MCP Servers** → **Add Server** with command `npx` and args `@sylphx/pdf-reader-mcp`. See [Ontheia's compatible MCP servers](https://docs.ontheia.ai/getting-started/03_compatible-mcp-servers/) for the full list.
+
 ### Smithery (One-click)
 
 ```bash
@@ -535,6 +539,55 @@ Response Order:
 ```
 
 </details>
+
+---
+
+## 🔒 Security & Sandboxing
+
+By default the server can read any local file the host process can access and fetch any HTTP(S) URL. When running outside a sandbox you should restrict it to a specific working set.
+
+### Restricting filesystem access
+
+Use `--allow-dir` (repeatable) or the `MCP_PDF_ALLOWED_DIRS` env var (`:` or `,` separated). Once set, all `path` sources must resolve inside one of the allowed directories — relative paths, absolute paths, and `..` traversal are all checked after resolution.
+
+```bash
+# CLI flags
+npx @sylphx/pdf-reader-mcp --allow-dir=/srv/pdfs --allow-dir=/data/reports
+
+# Environment
+MCP_PDF_ALLOWED_DIRS="/srv/pdfs:/data/reports" npx @sylphx/pdf-reader-mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp", "--allow-dir=/srv/pdfs"]
+    }
+  }
+}
+```
+
+### Disabling or restricting HTTP
+
+```bash
+# Block all URL sources
+npx @sylphx/pdf-reader-mcp --no-http
+MCP_PDF_ALLOW_HTTP=false npx @sylphx/pdf-reader-mcp
+
+# Allowlist hosts (everything else rejected)
+npx @sylphx/pdf-reader-mcp --allow-host=cdn.example.com --allow-host=files.internal
+MCP_PDF_ALLOWED_HOSTS="cdn.example.com,files.internal" npx @sylphx/pdf-reader-mcp
+```
+
+| Setting | CLI flag | Environment variable | Default |
+|---------|----------|----------------------|---------|
+| Filesystem allowlist | `--allow-dir=<path>` (repeatable) | `MCP_PDF_ALLOWED_DIRS` (`:` or `,` separated) | unrestricted |
+| Disable HTTP | `--no-http` | `MCP_PDF_ALLOW_HTTP=false` | enabled |
+| HTTP host allowlist | `--allow-host=<host>` (repeatable) | `MCP_PDF_ALLOWED_HOSTS` (`,` separated) | any host |
+
+Denied requests fail fast with an `Access denied` error before any disk read or network call.
 
 ---
 
