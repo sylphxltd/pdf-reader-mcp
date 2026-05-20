@@ -1043,12 +1043,13 @@ var transportType = process.env["MCP_TRANSPORT"] ?? "stdio";
 var httpPort = Number.parseInt(process.env["MCP_HTTP_PORT"] ?? "8080", 10);
 var httpHost = process.env["MCP_HTTP_HOST"] ?? "0.0.0.0";
 var apiKey = process.env["MCP_API_KEY"];
+var corsOrigin = process.env["MCP_CORS_ORIGIN"];
 function createTransport() {
   if (transportType === "http") {
     return http({
       port: httpPort,
       hostname: httpHost,
-      cors: "*"
+      ...corsOrigin ? { cors: corsOrigin } : {}
     });
   }
   return stdio();
@@ -1067,6 +1068,9 @@ async function main() {
     console.log(`[PDF Reader MCP] Health check: http://${httpHost}:${httpPort}/mcp/health`);
     if (apiKey) {
       console.log("[PDF Reader MCP] API key authentication enabled (X-API-Key header)");
+    }
+    if (corsOrigin) {
+      console.log(`[PDF Reader MCP] CORS allowed origin: ${corsOrigin}`);
     }
     console.log("[PDF Reader MCP] Project root:", process.cwd());
   } else if (process.env["DEBUG_MCP"]) {

@@ -150,7 +150,7 @@ describe('MCP Server HTTP Transport Integration', () => {
     }
   });
 
-  it('should handle CORS preflight requests', async () => {
+  it('should not return wildcard CORS headers by default', async () => {
     const response = await fetch(BASE_URL, {
       method: 'OPTIONS',
       headers: {
@@ -159,9 +159,9 @@ describe('MCP Server HTTP Transport Integration', () => {
       },
     });
 
-    // Should allow cross-origin requests
+    // Without MCP_CORS_ORIGIN, no CORS wildcard should be set
     const corsHeader = response.headers.get('Access-Control-Allow-Origin');
-    expect(corsHeader).toBe('*');
+    expect(corsHeader).not.toBe('*');
   });
 
   it('should reject invalid JSON-RPC requests', async () => {
