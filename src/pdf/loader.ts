@@ -4,7 +4,12 @@ import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { getSecurityConfig, isUrlAllowed } from '../utils/config.js';
+import {
+  assertUrlNotPrivate,
+  getSecurityConfig,
+  isUrlAllowed,
+  type SecurityConfig,
+} from '../utils/config.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 import { resolvePath } from '../utils/pathUtils.js';
@@ -39,6 +44,202 @@ const ICC_URL = `${PDFJS_ROOT}iccs/`;
 // Prevents memory exhaustion from loading extremely large files
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
 
+// Per-request timeout for URL fetches. Bounds how long a slow or hostile
+// server can keep the event loop tied up (SSS-08).
+const URL_FETCH_TIMEOUT_MS = 30_000;
+
+// Maximum redirect hops we will follow when fetching a URL. Each hop is
+// re-validated against the SSRF policy.
+const MAX_REDIRECTS = 5;
+
+const formatBytes = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(0)}MB`;
+
+const sanitizeSourceDescription = (description: string): string =>
+  description.length > 200 ? `${description.slice(0, 197)}...` : description;
+
+/**
+ * Read a local PDF file into memory, refusing oversized files before they are
+ * fully buffered (SSS-08). `fs.stat` runs first so a multi-gigabyte file is
+ * rejected without ever touching the page cache.
+ */
+const loadLocalFile = async (userPath: string): Promise<Uint8Array> => {
+  const safePath = resolvePath(userPath);
+
+  let stats: Awaited<ReturnType<typeof fs.stat>>;
+  try {
+    stats = await fs.stat(safePath);
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'code' in err && err.code === 'ENOENT') {
+      throw new PdfError(ErrorCode.InvalidRequest, `File not found at '${userPath}'.`, {
+        cause: err instanceof Error ? err : undefined,
+      });
+    }
+    throw new PdfError(ErrorCode.InvalidRequest, `Failed to access file at '${userPath}'.`, {
+      cause: err instanceof Error ? err : undefined,
+    });
+  }
+
+  if (!stats.isFile()) {
+    throw new PdfError(ErrorCode.InvalidRequest, `Path '${userPath}' is not a regular file.`);
+  }
+
+  if (stats.size > MAX_PDF_SIZE) {
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      `PDF file exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}. File size: ${formatBytes(stats.size)}.`
+    );
+  }
+
+  const buffer = await fs.readFile(safePath);
+  return new Uint8Array(buffer);
+};
+
+/**
+ * Validate one URL hop against the configured policy plus SSRF guard
+ * (SSS-07). Returns silently when the URL is acceptable; throws PdfError on
+ * any policy/SSRF violation.
+ */
+const validateUrlHop = async (urlString: string, config: SecurityConfig): Promise<void> => {
+  if (!isUrlAllowed(urlString, config)) {
+    const reason = config.allowHttp
+      ? 'host is not in the allowed list or scheme is not http(s)'
+      : 'HTTP access is disabled';
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      `Access denied: URL '${urlString}' rejected (${reason}).`
+    );
+  }
+
+  if (!config.allowPrivateIps) {
+    let hostname: string;
+    try {
+      hostname = new URL(urlString).hostname;
+    } catch {
+      throw new PdfError(ErrorCode.InvalidRequest, `Invalid URL: '${urlString}'.`);
+    }
+    try {
+      await assertUrlNotPrivate(hostname);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'SSRF check failed';
+      throw new PdfError(ErrorCode.InvalidRequest, `Access denied: ${reason}`);
+    }
+  }
+};
+
+/**
+ * Fetch a PDF from `url` with SSRF protection, redirect re-validation, an
+ * overall timeout, and a streaming size cap (SSS-07 + SSS-08). Returns the
+ * full body as a Uint8Array so we can hand it to PDF.js as `data:` and keep
+ * resource limits enforced at the application layer.
+ */
+const fetchUrlBody = async (url: string, config: SecurityConfig): Promise<Uint8Array> => {
+  let currentUrl = url;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
+
+  try {
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      await validateUrlHop(currentUrl, config);
+
+      const response = await fetch(currentUrl, {
+        redirect: 'manual',
+        signal: controller.signal,
+      });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) {
+          throw new PdfError(
+            ErrorCode.InvalidRequest,
+            `URL fetch failed: redirect without Location header.`
+          );
+        }
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new PdfError(
+          ErrorCode.InvalidRequest,
+          `URL fetch failed with HTTP ${String(response.status)}.`
+        );
+      }
+
+      const contentLengthHeader = response.headers.get('content-length');
+      if (contentLengthHeader !== null) {
+        const declared = Number.parseInt(contentLengthHeader, 10);
+        if (Number.isFinite(declared) && declared > MAX_PDF_SIZE) {
+          throw new PdfError(
+            ErrorCode.InvalidRequest,
+            `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} (Content-Length: ${formatBytes(declared)}).`
+          );
+        }
+      }
+
+      if (!response.body) {
+        // No streaming body (some implementations); fall back to arrayBuffer
+        // but still apply the size cap.
+        const ab = await response.arrayBuffer();
+        if (ab.byteLength > MAX_PDF_SIZE) {
+          throw new PdfError(
+            ErrorCode.InvalidRequest,
+            `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}.`
+          );
+        }
+        return new Uint8Array(ab);
+      }
+
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          total += value.byteLength;
+          if (total > MAX_PDF_SIZE) {
+            await reader.cancel().catch(() => {});
+            throw new PdfError(
+              ErrorCode.InvalidRequest,
+              `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} during streaming.`
+            );
+          }
+          chunks.push(value);
+        }
+      }
+
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return combined;
+    }
+
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      `URL fetch failed: exceeded redirect limit (${String(MAX_REDIRECTS)}).`
+    );
+  } catch (err: unknown) {
+    if (err instanceof PdfError) throw err;
+    if (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
+      throw new PdfError(
+        ErrorCode.InvalidRequest,
+        `URL fetch timed out after ${String(URL_FETCH_TIMEOUT_MS / 1000)}s.`,
+        { cause: err }
+      );
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn('URL fetch failed', { url, error: message });
+    throw new PdfError(ErrorCode.InvalidRequest, `URL fetch failed for '${url}'.`, {
+      cause: err instanceof Error ? err : undefined,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 /**
  * Load a PDF document from a local file path or URL
  * @param source - Object containing either path or url
@@ -49,75 +250,38 @@ export const loadPdfDocument = async (
   source: { path?: string | undefined; url?: string | undefined },
   sourceDescription: string
 ): Promise<pdfjsLib.PDFDocumentProxy> => {
-  let pdfDataSource: Uint8Array | { url: string };
+  const safeSource = sanitizeSourceDescription(sourceDescription);
+  let pdfData: Uint8Array;
 
   try {
     if (source.path) {
-      const safePath = resolvePath(source.path);
-      const buffer = await fs.readFile(safePath);
-
-      // Security: Check file size to prevent memory exhaustion
-      if (buffer.length > MAX_PDF_SIZE) {
-        throw new PdfError(
-          ErrorCode.InvalidRequest,
-          `PDF file exceeds maximum size of ${MAX_PDF_SIZE} bytes (${(MAX_PDF_SIZE / 1024 / 1024).toFixed(0)}MB). File size: ${buffer.length} bytes.`
-        );
-      }
-
-      pdfDataSource = new Uint8Array(buffer);
+      pdfData = await loadLocalFile(source.path);
     } else if (source.url) {
-      // Enforce HTTP access policy (issue #274). The check runs before any
-      // network call so URL fetches are rejected without DNS or socket
-      // activity when the operator has disabled HTTP or restricted hosts.
       const config = getSecurityConfig();
-      if (!isUrlAllowed(source.url, config)) {
-        const reason = config.allowHttp
-          ? `host is not in the allowed list`
-          : `HTTP access is disabled`;
-        throw new PdfError(
-          ErrorCode.InvalidRequest,
-          `Access denied: URL '${source.url}' rejected (${reason}).`
-        );
-      }
-      pdfDataSource = { url: source.url };
+      pdfData = await fetchUrlBody(source.url, config);
     } else {
-      throw new PdfError(
-        ErrorCode.InvalidParams,
-        `Source ${sourceDescription} missing 'path' or 'url'.`
-      );
+      throw new PdfError(ErrorCode.InvalidParams, `Source ${safeSource} missing 'path' or 'url'.`);
     }
   } catch (err: unknown) {
     if (err instanceof PdfError) {
       throw err;
     }
 
+    // Non-PdfError exceptions are logged with full detail but only surface a
+    // generic message to callers — raw filesystem/library messages can leak
+    // internal paths back to the LLM (SSS-02).
     const message = err instanceof Error ? err.message : String(err);
-    const errorCode = ErrorCode.InvalidRequest;
-
-    if (
-      typeof err === 'object' &&
-      err !== null &&
-      'code' in err &&
-      err.code === 'ENOENT' &&
-      source.path
-    ) {
-      throw new PdfError(errorCode, `File not found at '${source.path}'.`, {
-        cause: err instanceof Error ? err : undefined,
-      });
-    }
-
-    throw new PdfError(
-      errorCode,
-      `Failed to prepare PDF source ${sourceDescription}. Reason: ${message}`,
-      { cause: err instanceof Error ? err : undefined }
-    );
+    logger.error('Unexpected error preparing PDF source', {
+      sourceDescription: safeSource,
+      error: message,
+    });
+    throw new PdfError(ErrorCode.InvalidRequest, `Failed to prepare PDF source ${safeSource}.`, {
+      cause: err instanceof Error ? err : undefined,
+    });
   }
 
-  const documentParams =
-    pdfDataSource instanceof Uint8Array ? { data: pdfDataSource } : pdfDataSource;
-
   const loadingTask = getDocument({
-    ...documentParams,
+    data: pdfData,
     cMapUrl: CMAP_URL,
     cMapPacked: true,
     standardFontDataUrl: STANDARD_FONT_DATA_URL,
@@ -129,10 +293,10 @@ export const loadPdfDocument = async (
     return await loadingTask.promise;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error('PDF.js loading error', { sourceDescription, error: message });
+    logger.error('PDF.js loading error', { sourceDescription: safeSource, error: message });
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      `Failed to load PDF document from ${sourceDescription}. Reason: ${message || 'Unknown loading error'}`,
+      `Failed to load PDF document from ${safeSource}.`,
       { cause: err instanceof Error ? err : undefined }
     );
   }
