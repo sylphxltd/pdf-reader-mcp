@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.1 (2026-05-20)
+
+### 🐛 Bug Fixes
+
+- **security:** patch SSS-02/03/07/08 findings (closes #279) (#280) ([b77f9f5](https://github.com/SylphxAI/pdf-reader-mcp/commit/b77f9f57b8cd68d600f92382f738d30e4439244b))
+- remove wildcard CORS default in HTTP transport mode (CWE-942) (#278) ([4e265dd](https://github.com/SylphxAI/pdf-reader-mcp/commit/4e265dd46bf847a445d7472b76d6d5896bd7ac1c))
+
+### 🔧 Chores
+
+- migrate sylphx.json to sylphx.toml (#281) ([82833db](https://github.com/SylphxAI/pdf-reader-mcp/commit/82833db9a6fb3a78cedb1c6062540a4046be80b3))
+
 ## 2.4.0 (2026-05-03)
 
 ### ✨ Features
