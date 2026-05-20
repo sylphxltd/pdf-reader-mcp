@@ -1,0 +1,16 @@
+version = "1"
+
+[project]
+name = "@sylphx/pdf-reader-mcp"
+slug = "pdf-reader-mcp"
+org = "sylphx"
+
+[build]
+strategy = "auto"
+context = "docs"
+
+[[services]]
+name = "web"
+type = "web"
+port = 80
+watch_paths = ["docs/**"]
