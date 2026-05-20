@@ -238,6 +238,9 @@ const extractSinglePageText = async (
 
     return { page: pageNum, text: pageText };
   } catch (pageError: unknown) {
+    // SSS-02: do not propagate raw PDF.js error text into page content — it
+    // can carry absolute paths or module internals back to the LLM. The
+    // detailed message is kept in logs for operators.
     const message = pageError instanceof Error ? pageError.message : String(pageError);
     logger.warn('Error getting text content for page', {
       pageNum,
@@ -245,7 +248,7 @@ const extractSinglePageText = async (
       error: message,
     });
 
-    return { page: pageNum, text: `Error processing page: ${message}` };
+    return { page: pageNum, text: `[Error processing page ${String(pageNum)}]` };
   }
 };
 
@@ -443,18 +446,19 @@ export const extractPageContent = async (
       contentItems.push(...validImages);
     }
   } catch (error: unknown) {
+    // SSS-02: log raw error internally but only return a sanitized marker so
+    // the LLM never sees PDF.js / Node internals via page content.
     const message = error instanceof Error ? error.message : String(error);
     logger.warn('Error extracting page content', {
       pageNum,
       sourceDescription,
       error: message,
     });
-    // Return error message as text content
     return [
       {
         type: 'text',
         yPosition: 0,
-        textContent: `Error processing page: ${message}`,
+        textContent: `[Error processing page ${String(pageNum)}]`,
       },
     ];
   }

@@ -153,26 +153,27 @@ describe('extractor', () => {
       ]);
     });
 
-    it('should handle page extraction errors gracefully', async () => {
+    it('should handle page extraction errors gracefully with a sanitized marker (SSS-02)', async () => {
       const mockDocument = {
-        getPage: vi.fn().mockRejectedValue(new Error('Failed to get page')),
+        getPage: vi.fn().mockRejectedValue(new Error('Failed to get page /private/leak')),
       } as unknown as pdfjsLib.PDFDocumentProxy;
 
       const result = await extractPageTexts(mockDocument, [1], 'test.pdf');
 
-      expect(result).toEqual([{ page: 1, text: 'Error processing page: Failed to get page' }]);
-      // Logger outputs message first, then structured JSON
+      // The page-text payload returned to the LLM must carry only the
+      // sanitized marker — the raw error text stays in logs.
+      expect(result).toEqual([{ page: 1, text: '[Error processing page 1]' }]);
       expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error getting text content for page'));
     });
 
-    it('should handle non-Error page exceptions', async () => {
+    it('should handle non-Error page exceptions with a sanitized marker (SSS-02)', async () => {
       const mockDocument = {
         getPage: vi.fn().mockRejectedValue('String error'),
       } as unknown as pdfjsLib.PDFDocumentProxy;
 
       const result = await extractPageTexts(mockDocument, [1], 'test.pdf');
 
-      expect(result).toEqual([{ page: 1, text: 'Error processing page: String error' }]);
+      expect(result).toEqual([{ page: 1, text: '[Error processing page 1]' }]);
       expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('String error'));
     });
 

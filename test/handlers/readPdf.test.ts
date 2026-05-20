@@ -1,6 +1,6 @@
 import * as realFsPromises from 'node:fs/promises';
 import { type Schema, safeParse } from '@sylphx/vex';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorCode, PdfError } from '../../src/utils/errors.js';
 import * as pathUtils from '../../src/utils/pathUtils.js'; // Import the module itself for spying
 import { resolvePath } from '../../src/utils/pathUtils.js';
@@ -15,6 +15,14 @@ const mockGetMetadata = vi.fn();
 const mockGetPage = vi.fn();
 const mockGetDocument = vi.fn();
 const mockReadFile = vi.fn();
+const mockStat = vi.fn();
+
+const fakeStats = (size: number) =>
+  ({
+    size,
+    isFile: () => true,
+    isDirectory: () => false,
+  }) as unknown as Awaited<ReturnType<typeof realFsPromises.stat>>;
 
 vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
   getDocument: mockGetDocument,
@@ -42,8 +50,10 @@ vi.mock('node:fs/promises', () => ({
   default: {
     ...realFsPromises,
     readFile: mockReadFile,
+    stat: mockStat,
   },
   readFile: mockReadFile,
+  stat: mockStat,
 }));
 
 // Dynamically import the handler *once* after mocks are defined
@@ -90,6 +100,8 @@ beforeAll(async () => {
   };
 });
 
+let originalFetch: typeof globalThis.fetch;
+
 // Renamed describe block as it now only tests the handler
 describe('handleReadPdfFunc Integration Tests', () => {
   beforeEach(() => {
@@ -98,6 +110,18 @@ describe('handleReadPdfFunc Integration Tests', () => {
     vi.spyOn(pathUtils, 'resolvePath').mockImplementation((p) => p); // Simple mock for resolvePath
 
     mockReadFile.mockResolvedValue(Buffer.from('mock pdf content'));
+    mockStat.mockResolvedValue(fakeStats(Buffer.from('mock pdf content').length));
+
+    // Default fetch mock returns a small body so URL sources resolve. Tests
+    // that need different behavior override this per-case.
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      const body = new TextEncoder().encode('mock pdf content');
+      return new Response(body, {
+        status: 200,
+        headers: { 'content-length': String(body.byteLength) },
+      });
+    }) as typeof globalThis.fetch;
 
     const mockDocumentAPI = {
       numPages: 3,
@@ -144,6 +168,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
       }
       throw new Error(`Mock getPage error: Invalid page number ${String(pageNum)}`);
     });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
   });
 
   // Removed unit tests for parsePageRanges
@@ -301,14 +329,19 @@ describe('handleReadPdfFunc Integration Tests', () => {
       ],
     };
     expect(mockReadFile).not.toHaveBeenCalled();
-    expect(mockGetDocument).toHaveBeenCalledWith({
-      url: testUrl,
-      cMapUrl: expect.stringContaining('cmaps'),
-      cMapPacked: true,
-      standardFontDataUrl: expect.stringContaining('standard_fonts'),
-      wasmUrl: expect.stringContaining('wasm'),
-      iccUrl: expect.stringContaining('iccs'),
-    });
+    // The loader fetches the URL itself now and hands the body to pdfjs as
+    // `data:` so application-level size and SSRF guards apply (SSS-07/08).
+    expect(mockGetDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.any(Uint8Array),
+        cMapUrl: expect.stringContaining('cmaps'),
+        cMapPacked: true,
+        standardFontDataUrl: expect.stringContaining('standard_fonts'),
+        wasmUrl: expect.stringContaining('wasm'),
+        iccUrl: expect.stringContaining('iccs'),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(testUrl, expect.objectContaining({ redirect: 'manual' }));
     expect(mockGetMetadata).toHaveBeenCalled();
     expect(mockGetPage).not.toHaveBeenCalled();
     // Add check for content existence and access safely
@@ -364,24 +397,31 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
     const secondLoadingTaskAPI = { promise: Promise.resolve(secondMockDocumentAPI) };
 
-    // Reset getDocument mock before setting implementation
+    // Tag the URL source by routing fetch responses to a distinct body, then
+    // pick the document API based on that body (since both inputs reach pdfjs
+    // as `data:` now).
+    const URL_BODY_TAG = 'URL_BODY_MARKER';
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      const body = new TextEncoder().encode(URL_BODY_TAG);
+      return new Response(body, {
+        status: 200,
+        headers: { 'content-length': String(body.byteLength) },
+      });
+    }) as typeof globalThis.fetch;
+
     mockGetDocument.mockReset();
-    // Mock getDocument based on input source
-    mockGetDocument.mockImplementation(
-      (source: { data?: Uint8Array; url?: string; cMapUrl?: string; cMapPacked?: boolean }) => {
-        // Check if source has the matching url property
-        if (source.url === urlSource) {
-          return secondLoadingTaskAPI;
-        }
-        // Default mock for path-based source (local.pdf)
-        const defaultMockDocumentAPI = {
-          numPages: 3,
-          getMetadata: mockGetMetadata, // Use original metadata mock
-          getPage: mockGetPage, // Use original page mock
-        };
-        return { promise: Promise.resolve(defaultMockDocumentAPI) };
+    mockGetDocument.mockImplementation((source: { data?: Uint8Array }) => {
+      if (source.data) {
+        const text = new TextDecoder().decode(source.data);
+        if (text === URL_BODY_TAG) return secondLoadingTaskAPI;
       }
-    );
+      const defaultMockDocumentAPI = {
+        numPages: 3,
+        getMetadata: mockGetMetadata,
+        getPage: mockGetPage,
+      };
+      return { promise: Promise.resolve(defaultMockDocumentAPI) };
+    });
 
     const result = await handler(args);
     const expectedData = {
@@ -412,22 +452,17 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(mockReadFile).toHaveBeenCalledOnce();
     expect(mockReadFile).toHaveBeenCalledWith(resolvePath('local.pdf'));
     expect(mockGetDocument).toHaveBeenCalledTimes(2);
-    expect(mockGetDocument).toHaveBeenCalledWith({
-      data: new Uint8Array(Buffer.from('mock pdf content')),
-      cMapUrl: expect.stringContaining('cmaps'),
-      cMapPacked: true,
-      standardFontDataUrl: expect.stringContaining('standard_fonts'),
-      wasmUrl: expect.stringContaining('wasm'),
-      iccUrl: expect.stringContaining('iccs'),
-    });
-    expect(mockGetDocument).toHaveBeenCalledWith({
-      url: urlSource,
-      cMapUrl: expect.stringContaining('cmaps'),
-      cMapPacked: true,
-      standardFontDataUrl: expect.stringContaining('standard_fonts'),
-      wasmUrl: expect.stringContaining('wasm'),
-      iccUrl: expect.stringContaining('iccs'),
-    });
+    expect(mockGetDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: new Uint8Array(Buffer.from('mock pdf content')),
+        cMapUrl: expect.stringContaining('cmaps'),
+        cMapPacked: true,
+        standardFontDataUrl: expect.stringContaining('standard_fonts'),
+        wasmUrl: expect.stringContaining('wasm'),
+        iccUrl: expect.stringContaining('iccs'),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(urlSource, expect.objectContaining({ redirect: 'manual' }));
     expect(mockGetPage).toHaveBeenCalledTimes(1); // Should be called once for local.pdf page 1
     expect(secondMockGetPage).toHaveBeenCalledTimes(2);
     // Add check for content existence and access safely
@@ -446,21 +481,22 @@ describe('handleReadPdfFunc Integration Tests', () => {
   it('should throw error if local file not found', async () => {
     const error = new Error('Mock ENOENT') as NodeJS.ErrnoException;
     error.code = 'ENOENT';
-    mockReadFile.mockRejectedValue(error);
+    mockStat.mockRejectedValue(error);
     const args = { sources: [{ path: 'nonexistent.pdf' }] };
     // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
     await expect(handler(args)).rejects.toThrow("File not found at 'nonexistent.pdf'");
   });
 
-  it('should throw error if pdfjs fails to load document', async () => {
-    const loadError = new Error('Mock PDF loading failed');
+  it('should throw a sanitized error if pdfjs fails to load (SSS-02)', async () => {
+    const loadError = new Error('Mock PDF loading failed /private/etc/leak.bin');
     const failingLoadingTask = { promise: Promise.reject(loadError) };
     mockGetDocument.mockReturnValue(failingLoadingTask);
     const args = { sources: [{ path: 'bad.pdf' }] };
-    // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
-    await expect(handler(args)).rejects.toThrow('Mock PDF loading failed');
+    await expect(handler(args)).rejects.toThrow(/Failed to load PDF document from bad\.pdf/);
+    // The raw PDF.js message must not surface to the LLM.
+    await expect(handler(args)).rejects.not.toThrow(/private\/etc\/leak/);
   });
 
   it('should throw PdfError for invalid input arguments (Vex error)', async () => {
@@ -497,36 +533,36 @@ describe('handleReadPdfFunc Integration Tests', () => {
     await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
 
-  // Test case for resolvePath failure within the catch block
-  it('should throw error if resolvePath fails', async () => {
-    const resolveError = new Error('Mock resolvePath failed');
+  // Test case for resolvePath failure within the catch block — PdfError
+  // messages from resolvePath are intentionally curated and DO surface.
+  it('should propagate PdfError from resolvePath', async () => {
+    const resolveError = new PdfError(ErrorCode.InvalidRequest, 'Path validation failed');
     vi.spyOn(pathUtils, 'resolvePath').mockImplementation(() => {
       throw resolveError;
     });
     const args = { sources: [{ path: 'some/path' }] };
-    // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
-    await expect(handler(args)).rejects.toThrow('Mock resolvePath failed');
+    await expect(handler(args)).rejects.toThrow('Path validation failed');
   });
 
-  // Test case for the final catch block with a generic error
-  it('should throw error when generic errors during processing', async () => {
-    const genericError = new Error('Something unexpected happened');
-    mockReadFile.mockRejectedValue(genericError); // Simulate error after path resolution
+  // Test case for the final catch block: generic Errors from libs must NOT
+  // leak their message to the LLM (SSS-02).
+  it('should sanitize generic errors during processing (SSS-02)', async () => {
+    const genericError = new Error('Internal /etc/passwd reference leaks here');
+    mockStat.mockRejectedValue(Object.assign(genericError, { code: 'EACCES' }));
     const args = { sources: [{ path: 'generic/error/path' }] };
-    // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
-    await expect(handler(args)).rejects.toThrow('Something unexpected happened');
+    await expect(handler(args)).rejects.toThrow(/Failed to access file/);
+    await expect(handler(args)).rejects.not.toThrow(/etc\/passwd/);
   });
 
-  // Test case for the final catch block with a non-Error object
-  it('should throw error with non-Error exceptions during processing', async () => {
+  // Non-Error rejections from fs.stat also surface as sanitized PdfErrors.
+  it('should sanitize non-Error exceptions during processing (SSS-02)', async () => {
     const nonError = { message: 'Just an object', code: 'UNEXPECTED' };
-    mockReadFile.mockRejectedValue(nonError); // Simulate error after path resolution
+    mockStat.mockRejectedValue(nonError);
     const args = { sources: [{ path: 'non/error/path' }] };
-    // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
-    await expect(handler(args)).rejects.toThrow('non/error/path');
+    await expect(handler(args)).rejects.toThrow(/Failed to access file at 'non\/error\/path'/);
   });
 
   it('should include warnings for requested pages exceeding total pages', async () => {
@@ -600,7 +636,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
             num_pages: 3,
             page_texts: [
               { page: 1, text: 'Mock page text 1' },
-              { page: 2, text: 'Error processing page: Failed to get page 2' },
+              // SSS-02: sanitized marker — raw PDF.js text never reaches the
+              // LLM via page content.
+              { page: 2, text: '[Error processing page 2]' },
               { page: 3, text: 'Mock page text 3' },
             ],
           },
@@ -621,30 +659,17 @@ describe('handleReadPdfFunc Integration Tests', () => {
 
   // --- Additional Coverage Tests ---
 
-  it('should throw error if pdfjs fails to load document from URL', async () => {
+  it('should throw a sanitized error if pdfjs fails to load from URL (SSS-02)', async () => {
     const testUrl = 'http://example.com/bad-url.pdf';
-    const loadError = new Error('Mock URL PDF loading failed');
-    const failingLoadingTask = { promise: Promise.reject(loadError) };
-    // Ensure getDocument is mocked specifically for this URL
     mockGetDocument.mockReset();
-    mockGetDocument.mockImplementation((source: unknown) => {
-      if (
-        typeof source === 'object' &&
-        source !== null &&
-        Object.hasOwn(source, 'url') &&
-        typeof (source as { url?: unknown }).url === 'string' &&
-        (source as { url: string }).url === testUrl
-      ) {
-        return failingLoadingTask;
-      }
-      const mockDocumentAPI = { numPages: 1, getMetadata: vi.fn(), getPage: vi.fn() };
-      return { promise: Promise.resolve(mockDocumentAPI) };
-    });
+    mockGetDocument.mockImplementation(() => ({
+      promise: Promise.reject(new Error('Mock URL PDF loading failed /home/runner/secret')),
+    }));
 
     const args = { sources: [{ url: testUrl }] };
-    // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
-    await expect(handler(args)).rejects.toThrow('Mock URL PDF loading failed');
+    await expect(handler(args)).rejects.toThrow(`Failed to load PDF document from ${testUrl}.`);
+    await expect(handler(args)).rejects.not.toThrow(/home\/runner\/secret/);
   });
 
   it('should not include page count when include_page_count is false', async () => {
@@ -671,7 +696,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(mockGetMetadata).not.toHaveBeenCalled(); // Because include_metadata is false
   });
 
-  it('should handle ENOENT error where resolvePath also fails in catch block', async () => {
+  it('should handle ENOENT detected by fs.stat (SSS-08 pre-check)', async () => {
     const enoentError = new Error('Mock ENOENT') as NodeJS.ErrnoException;
     enoentError.code = 'ENOENT';
     const targetPath = 'enoent/and/resolve/fails.pdf';
@@ -679,15 +704,16 @@ describe('handleReadPdfFunc Integration Tests', () => {
     // Mock resolvePath to return path as-is
     vi.spyOn(pathUtils, 'resolvePath').mockImplementation((p) => p);
 
-    mockReadFile.mockRejectedValue(enoentError);
+    mockStat.mockRejectedValue(enoentError);
 
     const args = { sources: [{ path: targetPath }] };
-    // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
     await expect(handler(args)).rejects.toThrow(`File not found at '${targetPath}'`);
 
-    // Ensure readFile was called with the path that resolvePath returned
-    expect(mockReadFile).toHaveBeenCalledWith(targetPath);
+    // The size pre-check runs first; readFile must not be invoked when stat
+    // fails (the whole point of SSS-08's mitigation).
+    expect(mockStat).toHaveBeenCalledWith(targetPath);
+    expect(mockReadFile).not.toHaveBeenCalled();
   });
 
   // --- Additional Error Coverage Tests ---
@@ -1227,16 +1253,17 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(imageParts.length).toBe(1);
   });
 
-  it('should handle Error (not PdfError) during processing', async () => {
-    // Mock getDocument to throw a regular Error (not PdfError)
+  it('should handle Error (not PdfError) during processing with sanitized message (SSS-02)', async () => {
     mockGetDocument.mockReturnValue({
-      promise: Promise.reject(new Error('Regular error message')),
+      promise: Promise.reject(new Error('Regular error message /var/host/leak')),
     });
 
     const args = { sources: [{ path: 'error.pdf' }] };
-    // When all sources fail, handler now throws toolError
     await expect(handler(args)).rejects.toThrow(PdfError);
-    await expect(handler(args)).rejects.toThrow('Regular error message');
+    // The wrapping PdfError mentions the source description (safe — user input)
+    // but NOT the raw error message (could carry filesystem internals).
+    await expect(handler(args)).rejects.toThrow(/Failed to load PDF document from error\.pdf/);
+    await expect(handler(args)).rejects.not.toThrow(/var\/host\/leak/);
   });
 
   // --- Table Extraction Tests ---

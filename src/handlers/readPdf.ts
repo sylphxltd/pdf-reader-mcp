@@ -18,6 +18,7 @@ import type {
   PdfSource,
   PdfSourceResult,
 } from '../types/pdf.js';
+import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('ReadPdf');
@@ -147,12 +148,20 @@ const processSingleSource = async (
 
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error: unknown) {
-    let errorMessage = `Failed to process PDF from ${sourceDescription}.`;
-
-    if (error instanceof Error) {
-      errorMessage += ` Reason: ${error.message}`;
+    // SSS-02: PdfError messages are curated and safe to surface; anything
+    // else gets logged with full detail but returned as a generic string so
+    // raw PDF.js / Node messages cannot leak filesystem or module paths back
+    // through the response to the LLM.
+    let errorMessage: string;
+    if (error instanceof PdfError) {
+      errorMessage = error.message;
     } else {
-      errorMessage += ` Unknown error: ${JSON.stringify(error)}`;
+      const detail = error instanceof Error ? error.message : String(error);
+      logger.error('Unexpected error processing PDF source', {
+        sourceDescription,
+        error: detail,
+      });
+      errorMessage = `Failed to process PDF from ${sourceDescription}.`;
     }
 
     individualResult.error = errorMessage;
