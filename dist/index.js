@@ -307,7 +307,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
       {
         type: "text",
         yPosition: 0,
-        textContent: `Error processing page: ${message}`
+        textContent: `[Error processing page ${String(pageNum)}]`
       }
     ];
   }
@@ -315,14 +315,30 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
 };
 
 // src/pdf/loader.ts
-import fs from "node:fs/promises";
+import fs3 from "node:fs/promises";
 import { createRequire } from "node:module";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 // src/utils/config.ts
+import dns from "node:dns";
+import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 var splitList = (value, separators) => value.split(separators).map((s) => s.trim()).filter((s) => s.length > 0);
-var parseDirs = (values) => values.map((dir) => path.resolve(path.normalize(dir)));
+var canonicalizeDir = (p) => {
+  try {
+    return fs.realpathSync(p);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      const parent = path.dirname(p);
+      if (parent === p)
+        return p;
+      return path.join(canonicalizeDir(parent), path.basename(p));
+    }
+    throw err;
+  }
+};
+var parseDirs = (values) => values.map((dir) => canonicalizeDir(path.resolve(path.normalize(dir))));
 var parseBool = (value, fallback) => {
   if (value === undefined)
     return fallback;
@@ -337,6 +353,7 @@ var parseCliFlags = (argv) => {
   const dirs = [];
   const hosts = [];
   let noHttp = false;
+  let allowPrivateIps = false;
   for (const arg of argv) {
     if (arg.startsWith("--allow-dir=")) {
       dirs.push(arg.slice("--allow-dir=".length));
@@ -344,9 +361,11 @@ var parseCliFlags = (argv) => {
       hosts.push(arg.slice("--allow-host=".length).toLowerCase());
     } else if (arg === "--no-http") {
       noHttp = true;
+    } else if (arg === "--allow-private-ips") {
+      allowPrivateIps = true;
     }
   }
-  return { dirs, hosts, noHttp };
+  return { dirs, hosts, noHttp, allowPrivateIps };
 };
 var envList = (raw, separators, transform = (v) => v) => raw ? splitList(raw, separators).map(transform) : [];
 var readSecurityConfig = (argv = process.argv.slice(2), env = process.env) => {
@@ -358,7 +377,8 @@ var readSecurityConfig = (argv = process.argv.slice(2), env = process.env) => {
   return {
     allowedDirs: mergedDirs.length > 0 ? parseDirs(mergedDirs) : null,
     allowHttp: cli.noHttp ? false : parseBool(env["MCP_PDF_ALLOW_HTTP"], true),
-    allowedHosts: mergedHosts.length > 0 ? mergedHosts : null
+    allowedHosts: mergedHosts.length > 0 ? mergedHosts : null,
+    allowPrivateIps: cli.allowPrivateIps || parseBool(env["MCP_PDF_ALLOW_PRIVATE_IPS"], false)
   };
 };
 var cached = null;
@@ -400,6 +420,70 @@ var isUrlAllowed = (urlString, config) => {
     return true;
   return config.allowedHosts.includes(parsed.hostname.toLowerCase());
 };
+var PRIVATE_IPV4_PREDICATES = [
+  (a) => a === 10,
+  (a, b) => a === 172 && b >= 16 && b <= 31,
+  (a, b) => a === 192 && b === 168,
+  (a) => a === 127,
+  (a, b) => a === 169 && b === 254,
+  (a) => a === 0,
+  (a, b) => a === 100 && b >= 64 && b <= 127,
+  (a) => a >= 224
+];
+var isPrivateIpv4 = (ip) => {
+  const parts = ip.split(".").map((s) => Number.parseInt(s, 10));
+  const a = parts[0];
+  const b = parts[1];
+  if (a === undefined || b === undefined)
+    return true;
+  return PRIVATE_IPV4_PREDICATES.some((pred) => pred(a, b));
+};
+var isPrivateIpv6 = (ip) => {
+  const lower = ip.toLowerCase();
+  if (lower === "::1" || lower === "::")
+    return true;
+  if (lower.startsWith("fc") || lower.startsWith("fd"))
+    return true;
+  if (lower.startsWith("fe80"))
+    return true;
+  if (lower.startsWith("ff"))
+    return true;
+  if (lower.startsWith("::ffff:")) {
+    const tail = lower.slice("::ffff:".length);
+    if (net.isIPv4(tail))
+      return isPrivateIpv4(tail);
+  }
+  return false;
+};
+var isPrivateIp = (ip) => {
+  if (net.isIPv4(ip))
+    return isPrivateIpv4(ip);
+  if (net.isIPv6(ip))
+    return isPrivateIpv6(ip);
+  return true;
+};
+var assertUrlNotPrivate = async (hostname) => {
+  if (net.isIP(hostname)) {
+    if (isPrivateIp(hostname)) {
+      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
+    }
+    return;
+  }
+  let addresses;
+  try {
+    addresses = await dns.promises.lookup(hostname, { all: true });
+  } catch {
+    throw new Error(`URL host '${hostname}' could not be resolved.`);
+  }
+  if (addresses.length === 0) {
+    throw new Error(`URL host '${hostname}' resolved to no addresses.`);
+  }
+  for (const { address } of addresses) {
+    if (isPrivateIp(address)) {
+      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
+    }
+  }
+};
 
 // src/utils/errors.ts
 class PdfError extends Error {
@@ -412,19 +496,34 @@ class PdfError extends Error {
 }
 
 // src/utils/pathUtils.ts
+import fs2 from "node:fs";
 import path2 from "node:path";
 var PROJECT_ROOT = process.cwd();
+var canonicalize = (p) => {
+  try {
+    return fs2.realpathSync(p);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      const parent = path2.dirname(p);
+      if (parent === p)
+        return p;
+      return path2.join(canonicalize(parent), path2.basename(p));
+    }
+    throw err;
+  }
+};
 var resolvePath = (userPath) => {
   if (typeof userPath !== "string") {
     throw new PdfError(-32602 /* InvalidParams */, "Path must be a string.");
   }
   const normalizedUserPath = path2.normalize(userPath);
   const resolved = path2.isAbsolute(normalizedUserPath) ? normalizedUserPath : path2.resolve(PROJECT_ROOT, normalizedUserPath);
+  const canonical = canonicalize(resolved);
   const { allowedDirs } = getSecurityConfig();
-  if (!isPathAllowed(resolved, allowedDirs)) {
+  if (!isPathAllowed(canonical, allowedDirs)) {
     throw new PdfError(-32600 /* InvalidRequest */, `Access denied: path '${userPath}' is outside the allowed directories.`);
   }
-  return resolved;
+  return canonical;
 };
 
 // src/pdf/loader.ts
@@ -436,42 +535,157 @@ var STANDARD_FONT_DATA_URL = `${PDFJS_ROOT}standard_fonts/`;
 var WASM_URL = `${PDFJS_ROOT}wasm/`;
 var ICC_URL = `${PDFJS_ROOT}iccs/`;
 var MAX_PDF_SIZE = 100 * 1024 * 1024;
+var URL_FETCH_TIMEOUT_MS = 30000;
+var MAX_REDIRECTS = 5;
+var formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(0)}MB`;
+var sanitizeSourceDescription = (description) => description.length > 200 ? `${description.slice(0, 197)}...` : description;
+var loadLocalFile = async (userPath) => {
+  const safePath = resolvePath(userPath);
+  let stats;
+  try {
+    stats = await fs3.stat(safePath);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT") {
+      throw new PdfError(-32600 /* InvalidRequest */, `File not found at '${userPath}'.`, {
+        cause: err instanceof Error ? err : undefined
+      });
+    }
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to access file at '${userPath}'.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  }
+  if (!stats.isFile()) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Path '${userPath}' is not a regular file.`);
+  }
+  if (stats.size > MAX_PDF_SIZE) {
+    throw new PdfError(-32600 /* InvalidRequest */, `PDF file exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}. File size: ${formatBytes(stats.size)}.`);
+  }
+  const buffer = await fs3.readFile(safePath);
+  return new Uint8Array(buffer);
+};
+var validateUrlHop = async (urlString, config) => {
+  if (!isUrlAllowed(urlString, config)) {
+    const reason = config.allowHttp ? "host is not in the allowed list or scheme is not http(s)" : "HTTP access is disabled";
+    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: URL '${urlString}' rejected (${reason}).`);
+  }
+  if (!config.allowPrivateIps) {
+    let hostname;
+    try {
+      hostname = new URL(urlString).hostname;
+    } catch {
+      throw new PdfError(-32600 /* InvalidRequest */, `Invalid URL: '${urlString}'.`);
+    }
+    try {
+      await assertUrlNotPrivate(hostname);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "SSRF check failed";
+      throw new PdfError(-32600 /* InvalidRequest */, `Access denied: ${reason}`);
+    }
+  }
+};
+var fetchUrlBody = async (url, config) => {
+  let currentUrl = url;
+  const controller = new AbortController;
+  const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
+  try {
+    for (let hop = 0;hop <= MAX_REDIRECTS; hop++) {
+      await validateUrlHop(currentUrl, config);
+      const response = await fetch(currentUrl, {
+        redirect: "manual",
+        signal: controller.signal
+      });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) {
+          throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: redirect without Location header.`);
+        }
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+      if (!response.ok) {
+        throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed with HTTP ${String(response.status)}.`);
+      }
+      const contentLengthHeader = response.headers.get("content-length");
+      if (contentLengthHeader !== null) {
+        const declared = Number.parseInt(contentLengthHeader, 10);
+        if (Number.isFinite(declared) && declared > MAX_PDF_SIZE) {
+          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} (Content-Length: ${formatBytes(declared)}).`);
+        }
+      }
+      if (!response.body) {
+        const ab = await response.arrayBuffer();
+        if (ab.byteLength > MAX_PDF_SIZE) {
+          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}.`);
+        }
+        return new Uint8Array(ab);
+      }
+      const reader = response.body.getReader();
+      const chunks = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        if (value) {
+          total += value.byteLength;
+          if (total > MAX_PDF_SIZE) {
+            await reader.cancel().catch(() => {});
+            throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} during streaming.`);
+          }
+          chunks.push(value);
+        }
+      }
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return combined;
+    }
+    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: exceeded redirect limit (${String(MAX_REDIRECTS)}).`);
+  } catch (err) {
+    if (err instanceof PdfError)
+      throw err;
+    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
+      throw new PdfError(-32600 /* InvalidRequest */, `URL fetch timed out after ${String(URL_FETCH_TIMEOUT_MS / 1000)}s.`, { cause: err });
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    logger3.warn("URL fetch failed", { url, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed for '${url}'.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 var loadPdfDocument = async (source, sourceDescription) => {
-  let pdfDataSource;
+  const safeSource = sanitizeSourceDescription(sourceDescription);
+  let pdfData;
   try {
     if (source.path) {
-      const safePath = resolvePath(source.path);
-      const buffer = await fs.readFile(safePath);
-      if (buffer.length > MAX_PDF_SIZE) {
-        throw new PdfError(-32600 /* InvalidRequest */, `PDF file exceeds maximum size of ${MAX_PDF_SIZE} bytes (${(MAX_PDF_SIZE / 1024 / 1024).toFixed(0)}MB). File size: ${buffer.length} bytes.`);
-      }
-      pdfDataSource = new Uint8Array(buffer);
+      pdfData = await loadLocalFile(source.path);
     } else if (source.url) {
       const config = getSecurityConfig();
-      if (!isUrlAllowed(source.url, config)) {
-        const reason = config.allowHttp ? `host is not in the allowed list` : `HTTP access is disabled`;
-        throw new PdfError(-32600 /* InvalidRequest */, `Access denied: URL '${source.url}' rejected (${reason}).`);
-      }
-      pdfDataSource = { url: source.url };
+      pdfData = await fetchUrlBody(source.url, config);
     } else {
-      throw new PdfError(-32602 /* InvalidParams */, `Source ${sourceDescription} missing 'path' or 'url'.`);
+      throw new PdfError(-32602 /* InvalidParams */, `Source ${safeSource} missing 'path' or 'url'.`);
     }
   } catch (err) {
     if (err instanceof PdfError) {
       throw err;
     }
     const message = err instanceof Error ? err.message : String(err);
-    const errorCode = -32600 /* InvalidRequest */;
-    if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT" && source.path) {
-      throw new PdfError(errorCode, `File not found at '${source.path}'.`, {
-        cause: err instanceof Error ? err : undefined
-      });
-    }
-    throw new PdfError(errorCode, `Failed to prepare PDF source ${sourceDescription}. Reason: ${message}`, { cause: err instanceof Error ? err : undefined });
+    logger3.error("Unexpected error preparing PDF source", {
+      sourceDescription: safeSource,
+      error: message
+    });
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to prepare PDF source ${safeSource}.`, {
+      cause: err instanceof Error ? err : undefined
+    });
   }
-  const documentParams = pdfDataSource instanceof Uint8Array ? { data: pdfDataSource } : pdfDataSource;
   const loadingTask = getDocument({
-    ...documentParams,
+    data: pdfData,
     cMapUrl: CMAP_URL,
     cMapPacked: true,
     standardFontDataUrl: STANDARD_FONT_DATA_URL,
@@ -482,8 +696,8 @@ var loadPdfDocument = async (source, sourceDescription) => {
     return await loadingTask.promise;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger3.error("PDF.js loading error", { sourceDescription, error: message });
-    throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${sourceDescription}. Reason: ${message || "Unknown loading error"}`, { cause: err instanceof Error ? err : undefined });
+    logger3.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${safeSource}.`, { cause: err instanceof Error ? err : undefined });
   }
 };
 
@@ -923,11 +1137,16 @@ var processSingleSource = async (source, options) => {
     }
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error) {
-    let errorMessage = `Failed to process PDF from ${sourceDescription}.`;
-    if (error instanceof Error) {
-      errorMessage += ` Reason: ${error.message}`;
+    let errorMessage;
+    if (error instanceof PdfError) {
+      errorMessage = error.message;
     } else {
-      errorMessage += ` Unknown error: ${JSON.stringify(error)}`;
+      const detail = error instanceof Error ? error.message : String(error);
+      logger6.error("Unexpected error processing PDF source", {
+        sourceDescription,
+        error: detail
+      });
+      errorMessage = `Failed to process PDF from ${sourceDescription}.`;
     }
     individualResult.error = errorMessage;
     individualResult.success = false;
