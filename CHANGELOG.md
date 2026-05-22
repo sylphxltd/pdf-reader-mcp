@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.4.2 (2026-05-22)
+
+### 🐛 Bug Fixes
+
+- **ci:** regenerate bun.lock after typescript 6 + bunup bumps ([1172f44](https://github.com/SylphxAI/pdf-reader-mcp/commit/1172f447641651a946a99c0fac888e86c6598fa2))
+
+### 👷 CI
+
+- fix self-hosted runner label and drop unused Vercel config (#284) ([f370b48](https://github.com/SylphxAI/pdf-reader-mcp/commit/f370b48ebf243c27590f1a643c30e244a4535bba))
+
+### 🔧 Chores
+
+- remove project-scoped AI settings (#283) ([3dc2d0c](https://github.com/SylphxAI/pdf-reader-mcp/commit/3dc2d0ca7d9ff60e7366f0353d1acfbf6296c4d7))
+
 ## 2.4.1 (2026-05-20)
 
 ### 🐛 Bug Fixes
