@@ -21,7 +21,12 @@ const sendMessage = (proc: ChildProcess, message: object): void => {
   proc.stdin?.write(`${json}\n`);
 };
 
-const readResponse = (proc: ChildProcess, timeout = 5000): Promise<unknown> => {
+// Generous per-request timeout: the server spawns a fresh `bun dist/index.js`
+// whose module graph eagerly imports pdfjs-dist (worker + wasm + cmaps). On a
+// cold, loaded CI runner that first import can take several seconds, so 5s was
+// flaky. This is a test-harness tolerance, not a product latency budget — a
+// long-running MCP server pays the import cost once at startup.
+const readResponse = (proc: ChildProcess, timeout = 15000): Promise<unknown> => {
   return new Promise((resolve, reject) => {
     let buffer = '';
     const timer = setTimeout(() => {
@@ -65,8 +70,11 @@ describe('MCP Server Integration', () => {
       env: { ...process.env, NODE_ENV: 'test' },
     });
 
-    // Wait a bit for server to start
-    await new Promise((r) => setTimeout(r, 500));
+    // Wait for the server to boot. The module graph eagerly imports
+    // pdfjs-dist, so cold startup on a loaded CI runner can exceed a few
+    // hundred ms — give it headroom before the first request to avoid a
+    // race where `initialize` is sent before stdin is wired up.
+    await new Promise((r) => setTimeout(r, 2500));
   });
 
   afterAll(() => {
