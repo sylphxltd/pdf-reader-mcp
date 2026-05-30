@@ -168,10 +168,14 @@ const processSingleSource = async (
     individualResult.success = false;
     individualResult.data = undefined;
   } finally {
-    // Clean up PDF document resources
-    if (pdfDocument && typeof pdfDocument.destroy === 'function') {
+    // Clean up PDF document resources. pdfjs v6 moved teardown off the
+    // document proxy: PDFDocumentProxy.destroy() is gone, so we destroy the
+    // owning loadingTask (aborts network + terminates the worker). Guarded so
+    // a future API shift can't throw inside finally.
+    const loadingTask = pdfDocument?.loadingTask;
+    if (loadingTask && typeof loadingTask.destroy === 'function') {
       try {
-        await pdfDocument.destroy();
+        await loadingTask.destroy();
       } catch (destroyError: unknown) {
         // Log cleanup errors but don't fail the operation
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);

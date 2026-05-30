@@ -1152,9 +1152,10 @@ var processSingleSource = async (source, options) => {
     individualResult.success = false;
     individualResult.data = undefined;
   } finally {
-    if (pdfDocument && typeof pdfDocument.destroy === "function") {
+    const loadingTask = pdfDocument?.loadingTask;
+    if (loadingTask && typeof loadingTask.destroy === "function") {
       try {
-        await pdfDocument.destroy();
+        await loadingTask.destroy();
       } catch (destroyError) {
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
         logger6.warn("Error destroying PDF document", { sourceDescription, error: message });
