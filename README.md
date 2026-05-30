@@ -8,10 +8,10 @@
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI/CD)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/SylphxAI/pdf-reader-mcp?style=flat-square)](https://codecov.io/gh/SylphxAI/pdf-reader-mcp)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**5-10x faster parallel processing** • **Y-coordinate content ordering** • **94%+ test coverage** • **103 tests passing**
+**5-10x faster parallel processing** • **Y-coordinate content ordering** • **94%+ test coverage** • **173 tests passing**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -62,7 +62,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🖼️ **Smart Ordering** - Y-coordinate based content preserves document layout
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
-- 📚 **Battle-tested** - 103 tests, 94%+ coverage, 98%+ function coverage
+- 📚 **Battle-tested** - 173 tests, 94%+ coverage, 98%+ function coverage
 - 🎨 **Simple API** - Single tool handles all operations elegantly
 
 ---
@@ -324,7 +324,7 @@ npm install -g @sylphx/pdf-reader-mcp
 **Other Improvements:**
 - 🐛 Fixed Zod validation error handling
 - 📦 Updated all dependencies to latest versions
-- ✅ 103 tests passing, 94%+ coverage maintained
+- ✅ 173 tests passing, 94%+ coverage maintained
 
 <details>
 <summary><strong>📋 View Full Changelog</strong></summary>
@@ -710,10 +710,10 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 |:----------|:-----------|
 | **Runtime** | Node.js 22+ ESM |
 | **PDF Engine** | PDF.js (Mozilla) |
-| **Validation** | Zod + JSON Schema |
+| **Validation** | Vex + JSON Schema |
 | **Protocol** | MCP SDK |
 | **Language** | TypeScript (strict) |
-| **Testing** | Vitest (103 tests) |
+| **Testing** | Bun test (173 tests) |
 | **Quality** | Biome (50x faster) |
 | **CI/CD** | GitHub Actions |
 
@@ -738,27 +738,27 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 
 **Prerequisites:**
 - Node.js >= 22.0.0
-- pnpm (recommended) or npm
+- Bun (this repo uses `bun@1.3.1`)
 
 **Setup:**
 ```bash
 git clone https://github.com/SylphxAI/pdf-reader-mcp.git
 cd pdf-reader-mcp
-pnpm install && pnpm build
+bun install && bun run build
 ```
 
 **Scripts:**
 ```bash
-pnpm run build       # Build TypeScript
-pnpm run test        # Run 103 tests
-pnpm run test:cov    # Coverage (94%+)
-pnpm run check       # Lint + format
-pnpm run check:fix   # Auto-fix
-pnpm run benchmark   # Performance tests
+bun run build        # Build with bunup
+bun test             # Run 173 tests
+bun run test:cov     # Coverage (94%+)
+bun run check        # Lint + format
+bun run check:fix    # Auto-fix
+bun run benchmark    # Performance tests
 ```
 
 **Quality:**
-- ✅ 103 tests
+- ✅ 173 tests
 - ✅ 94%+ coverage
 - ✅ 98%+ function coverage
 - ✅ Zero lint errors
@@ -774,8 +774,8 @@ pnpm run benchmark   # Performance tests
 **Quick Start:**
 1. Fork repository
 2. Create branch: `git checkout -b feature/awesome`
-3. Make changes: `pnpm test`
-4. Format: `pnpm run check:fix`
+3. Make changes: `bun test`
+4. Format: `bun run check:fix`
 5. Commit: Use [Conventional Commits](https://www.conventionalcommits.org/)
 6. Open PR
 
