@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "An MCP server providing tools to read PDF files.",
   "type": "module",
   "bin": {

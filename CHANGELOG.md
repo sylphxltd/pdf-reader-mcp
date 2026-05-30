@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.4.3 (2026-05-30)
+
+### 🐛 Bug Fixes
+
+- require node >=22.13.0 to match pdfjs-dist v6 (#289) ([a0730b9](https://github.com/SylphxAI/pdf-reader-mcp/commit/a0730b9c4b63e6737cb2faa58dde612efa0e4344))
+
+### 📚 Documentation
+
+- **readme:** correct stale claims to match current stack (#288) ([941fcd8](https://github.com/SylphxAI/pdf-reader-mcp/commit/941fcd85d8b132a5e66e90eb58c99a236b459f01))
+
+### 🔧 Chores
+
+- **deps:** upgrade to latest, drop dead glob dep, pdfjs-dist v6 (#287) ([de2d340](https://github.com/SylphxAI/pdf-reader-mcp/commit/de2d3407ece5cae21a9ede62964e362686be592b))
+
 ## 2.4.2 (2026-05-22)
 
 ### 🐛 Bug Fixes
