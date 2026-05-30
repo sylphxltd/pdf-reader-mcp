@@ -737,7 +737,7 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 <br/>
 
 **Prerequisites:**
-- Node.js >= 22.0.0
+- Node.js >= 22.13.0 (required by pdfjs-dist v6)
 - Bun (this repo uses `bun@1.3.1`)
 
 **Setup:**
