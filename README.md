@@ -1046,7 +1046,6 @@ This project uses the following [@sylphx](https://github.com/SylphxAI) packages:
 - [@sylphx/vex](https://github.com/SylphxAI/vex) - Schema validation
 - [@sylphx/biome-config](https://github.com/SylphxAI/biome-config) - Biome configuration
 - [@sylphx/tsconfig](https://github.com/SylphxAI/tsconfig) - TypeScript configuration
-- [@sylphx/bump](https://github.com/SylphxAI/bump) - Version management
 - [@sylphx/doctor](https://github.com/SylphxAI/doctor) - Project health checker
 
 ---
