@@ -4,7 +4,7 @@ layout: home
 hero:
   name: PDF Reader MCP
   text: Extract PDF Content for AI Agents
-  tagline: A high-performance MCP server for reading text, metadata, images, and page information from PDF files.
+  tagline: A high-performance MCP server for structured, local-first PDF extraction.
   image:
     src: /logo.svg
     alt: PDF Reader MCP Logo
@@ -18,15 +18,18 @@ hero:
 
 features:
   - icon: "\U0001F4C4"
-    title: Full PDF Extraction
-    details: Extract text, metadata, page counts, and embedded images from any PDF file or URL.
+    title: Structured PDF Extraction
+    details: Extract text, metadata, tables, images, Markdown, HTML, and agent-ready elements from PDF files or URLs.
   - icon: "\u26A1"
     title: High Performance
-    details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing and batch operations.
+    details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing, batch operations, and column-aware ordering.
   - icon: "\U0001F50C"
     title: Easy Integration
     details: Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. One command to install.
   - icon: "\U0001F5BC\uFE0F"
-    title: Image Support
-    details: Extract embedded images as base64-encoded PNG data for AI vision analysis.
+    title: Agent-Ready Context
+    details: Return stable element IDs, semantic hints, citation-ready semantic/table chunks, structure trees, page geometry, provenance, and best-effort coordinates.
+  - icon: "\U0001F6E1\uFE0F"
+    title: Content Safety Signals
+    details: Surface deterministic findings for prompt-injection patterns, tiny text, and off-page text before agents use PDF content.
 ---
