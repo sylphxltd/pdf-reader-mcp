@@ -17,8 +17,10 @@
 - [x] Outline, annotation, structure tree, page label, permission, form field, attachment metadata, and page geometry outputs
 - [x] Deterministic content safety findings via `include_safety_findings`
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
+- [x] Release workflow migrated from the internal BUMP workflow to Changesets release PRs
 
 ## In Progress
+- [ ] Publish the PDF Intelligence vNext release through the Changesets version PR flow
 - [ ] Expand fixture coverage for layout, chunking, document signals, and structured output
 
 ## Planned
