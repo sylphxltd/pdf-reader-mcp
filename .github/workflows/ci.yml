@@ -21,7 +21,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.1'
+          bun-version: '1.3.12'
 
       - name: Install dependencies
         run: |
@@ -34,6 +34,9 @@ jobs:
 
       - name: Check Code Quality (Biome)
         run: bun run check
+
+      - name: Build package
+        run: bun run build
 
       - name: Run Tests and Check Coverage
         run: bun run test:cov
