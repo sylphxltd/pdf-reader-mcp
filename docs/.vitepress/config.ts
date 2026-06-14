@@ -7,6 +7,12 @@ export default defineConfig({
   appearance: 'dark',
   lastUpdated: true,
 
+  vite: {
+    build: {
+      target: 'esnext',
+    },
+  },
+
   head: [
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'PDF Reader MCP - Extract PDF Content for AI' }],
