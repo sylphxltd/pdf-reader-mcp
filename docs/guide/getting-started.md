@@ -70,6 +70,124 @@ Or use page ranges:
 }
 ```
 
+### Get Structured Elements
+
+Use `include_elements` when an agent needs stable page references, provenance,
+and best-effort coordinates instead of plain text alone.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-3"
+  }],
+  "include_elements": true,
+  "include_semantic_hints": true,
+  "include_full_text": false,
+  "include_metadata": true,
+  "include_page_count": true,
+  "include_images": false
+}
+```
+
+### Get Markdown
+
+Use `include_markdown` when a workflow needs clean page-aware context for RAG,
+summarization, or note generation.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_markdown": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true,
+  "include_images": false
+}
+```
+
+### Get HTML
+
+Use `include_html` when a workflow needs escaped page-aware HTML for preview,
+export, or downstream conversion.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_html": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+### Get Citation-Ready Chunks
+
+Use `include_chunks` when an agent needs retrieval chunks with source
+references. Enable `include_semantic_hints` to split chunks on deterministic
+heading boundaries, and enable `include_tables` when table chunks should be
+available.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_chunks": true,
+  "include_semantic_hints": true,
+  "include_tables": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+### Get Document Signals
+
+Use the document-signal flags when an agent needs PDF structure beyond page
+text.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_outline": true,
+  "include_annotations": true,
+  "include_page_labels": true,
+  "include_page_geometry": true,
+  "include_permissions": true,
+  "include_structure_tree": true,
+  "include_form_fields": true,
+  "include_attachments": true
+}
+```
+
+### Inspect Content Safety
+
+Use `include_safety_findings` when an agent will use PDF text as context and
+needs deterministic warnings for common prompt-injection patterns, tiny text,
+or off-page text.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_safety_findings": true,
+  "include_full_text": false
+}
+```
+
 ## Multiple Sources
 
 Process multiple PDFs in a single request:
@@ -108,13 +226,161 @@ Process multiple PDFs in a single request:
           { "page": 1, "text": "Page 1 content..." },
           { "page": 2, "text": "Page 2 content..." }
         ],
-        "images": [
+        "markdown": "## Page 1\n\nPage 1 content...",
+        "html": "<section data-page=\"1\">\n<h2>Page 1</h2>\n<p>Page 1 content...</p>\n</section>",
+        "page_geometry": [
+          {
+            "page": 1,
+            "width": 612,
+            "height": 792,
+            "rotation": 0,
+            "user_unit": 1,
+            "view_box": {
+              "left": 0,
+              "bottom": 0,
+              "right": 612,
+              "top": 792
+            }
+          }
+        ],
+        "image_info": [
           {
             "page": 1,
             "index": 0,
             "width": 800,
             "height": 600,
-            "data": "data:image/png;base64,..."
+            "format": "rgb"
+          }
+        ],
+        "table_info": [
+          {
+            "page": 1,
+            "tableIndex": 0,
+            "rowCount": 2,
+            "colCount": 2,
+            "cellCount": 4,
+            "bounding_box": {
+              "left": 72,
+              "bottom": 640,
+              "right": 420,
+              "top": 700
+            },
+            "confidence": 0.85
+          }
+        ],
+        "elements": [
+          {
+            "id": "p1-text-1",
+            "type": "text",
+            "page": 1,
+            "content": "Page 1 content...",
+            "bounding_box": {
+              "left": 72,
+              "bottom": 720,
+              "right": 240,
+              "top": 732
+            },
+            "provenance": {
+              "engine": "pdfjs",
+              "source": "text-content"
+            },
+            "semantic_hint": {
+              "role": "paragraph",
+              "confidence": 0.5,
+              "signals": ["default-text"]
+            }
+          },
+          {
+            "id": "p1-table-1",
+            "type": "table",
+            "page": 1,
+            "bounding_box": {
+              "left": 72,
+              "bottom": 640,
+              "right": 420,
+              "top": 700
+            },
+            "table": {
+              "rows": [["Name", "Total"], ["Ada", "$100"]],
+              "cells": [
+                {
+                  "text": "Name",
+                  "rowIndex": 0,
+                  "colIndex": 0,
+                  "bounding_box": {
+                    "left": 72,
+                    "bottom": 680,
+                    "right": 120,
+                    "top": 700
+                  }
+                }
+              ],
+              "rowCount": 2,
+              "colCount": 2,
+              "confidence": 0.85
+            },
+            "confidence": 0.85,
+            "provenance": {
+              "engine": "pdfjs",
+              "source": "table-detector"
+            }
+          }
+        ],
+        "chunks": [
+          {
+            "id": "p1-chunk-1",
+            "page_start": 1,
+            "page_end": 1,
+            "text": "Page 1 content...",
+            "element_ids": ["p1-text-1"],
+            "strategy": "page",
+            "bounding_boxes": [
+              {
+                "left": 72,
+                "bottom": 720,
+                "right": 240,
+                "top": 732
+              }
+            ]
+          }
+        ],
+        "structure_trees": [
+          {
+            "page": 1,
+            "tree": {
+              "role": "Root",
+              "children": [
+                {
+                  "role": "H1",
+                  "children": [{ "type": "content", "id": "p1-text-1" }]
+                }
+              ]
+            }
+          }
+        ],
+        "form_fields": [
+          {
+            "name": "customer_name",
+            "type": "text",
+            "value": "Ada Lovelace",
+            "page": 1
+          }
+        ],
+        "attachments": [
+          {
+            "name": "source_csv",
+            "filename": "source.csv",
+            "size_bytes": 1024
+          }
+        ],
+        "safety_findings": [
+          {
+            "type": "prompt_injection_pattern",
+            "severity": "high",
+            "page": 1,
+            "element_id": "p1-text-3",
+            "message": "Text matches a common prompt-injection instruction pattern.",
+            "snippet": "Ignore previous instructions..."
           }
         ]
       }

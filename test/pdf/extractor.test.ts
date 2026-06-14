@@ -5,7 +5,10 @@ import {
   buildWarnings,
   extractImages,
   extractMetadataAndPageCount,
+  extractPageContent,
+  extractPageGeometry,
   extractPageTexts,
+  extractStructureTrees,
 } from '../../src/pdf/extractor.js';
 
 describe('extractor', () => {
@@ -55,6 +58,29 @@ describe('extractor', () => {
         Title: 'Direct Title',
         CreationDate: '2025-01-01',
       });
+    });
+
+    it('should ignore missing PDF.js metadata object without logging a warning', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const mockMetadata = {
+        info: { PDFFormatVersion: '1.7', Title: 'No XMP Metadata' },
+        metadata: null,
+      };
+
+      const mockDocument = {
+        numPages: 1,
+        getMetadata: vi.fn().mockResolvedValue(mockMetadata),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractMetadataAndPageCount(mockDocument, true, true);
+
+      expect(result).toEqual({
+        info: { PDFFormatVersion: '1.7', Title: 'No XMP Metadata' },
+        num_pages: 1,
+      });
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+      consoleWarnSpy.mockRestore();
     });
 
     it('should handle metadata extraction errors gracefully', async () => {
@@ -153,7 +179,7 @@ describe('extractor', () => {
       ]);
     });
 
-    it('should handle page extraction errors gracefully with a sanitized marker (SSS-02)', async () => {
+    it('should handle page extraction errors gracefully with a sanitized placeholder (SSS-02)', async () => {
       const mockDocument = {
         getPage: vi.fn().mockRejectedValue(new Error('Failed to get page /private/leak')),
       } as unknown as pdfjsLib.PDFDocumentProxy;
@@ -161,12 +187,12 @@ describe('extractor', () => {
       const result = await extractPageTexts(mockDocument, [1], 'test.pdf');
 
       // The page-text payload returned to the LLM must carry only the
-      // sanitized marker — the raw error text stays in logs.
+      // sanitized placeholder — the raw error text stays in logs.
       expect(result).toEqual([{ page: 1, text: '[Error processing page 1]' }]);
       expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error getting text content for page'));
     });
 
-    it('should handle non-Error page exceptions with a sanitized marker (SSS-02)', async () => {
+    it('should handle non-Error page exceptions with a sanitized placeholder (SSS-02)', async () => {
       const mockDocument = {
         getPage: vi.fn().mockRejectedValue('String error'),
       } as unknown as pdfjsLib.PDFDocumentProxy;
@@ -191,6 +217,107 @@ describe('extractor', () => {
       const result = await extractPageTexts(mockDocument, [3, 1, 2], 'test.pdf');
 
       expect(result.map((r) => r.page)).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('extractPageContent', () => {
+    it('should preserve two-column reading order without merging distant same-line text', async () => {
+      const mockPage = {
+        getTextContent: vi.fn().mockResolvedValue({
+          items: [
+            { str: 'Title', transform: [1, 0, 0, 12, 50, 760], width: 500, height: 12 },
+            { str: 'Left 1', transform: [1, 0, 0, 10, 50, 700], width: 50, height: 10 },
+            { str: 'Right 1', transform: [1, 0, 0, 10, 300, 700], width: 55, height: 10 },
+            { str: 'Left 2', transform: [1, 0, 0, 10, 50, 680], width: 50, height: 10 },
+            { str: 'Right 2', transform: [1, 0, 0, 10, 300, 680], width: 55, height: 10 },
+          ],
+        }),
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageContent(mockDocument, 1, false, 'two-column.pdf');
+
+      expect(result.map((item) => item.textContent)).toEqual(['Title', 'Left 1', 'Left 2', 'Right 1', 'Right 2']);
+      expect(result[1]?.bounding_box).toEqual({ left: 50, bottom: 700, right: 100, top: 710 });
+    });
+  });
+
+  describe('extractPageGeometry', () => {
+    it('should extract viewport geometry and PDF view box for selected pages', async () => {
+      const mockPage = {
+        view: [0, 0, 612, 792],
+        rotate: 90,
+        userUnit: 1.5,
+        getViewport: vi.fn().mockReturnValue({ width: 792, height: 612 }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageGeometry(mockDocument, [3]);
+
+      expect(mockDocument.getPage).toHaveBeenCalledWith(3);
+      expect(mockPage.getViewport).toHaveBeenCalledWith({ scale: 1 });
+      expect(result).toEqual([
+        {
+          page: 3,
+          width: 792,
+          height: 612,
+          rotation: 90,
+          user_unit: 1.5,
+          view_box: { left: 0, bottom: 0, right: 612, top: 792 },
+        },
+      ]);
+    });
+  });
+
+  describe('extractStructureTrees', () => {
+    it('should extract sanitized tagged PDF structure trees for selected pages', async () => {
+      const mockPage = {
+        getStructTree: vi.fn().mockResolvedValue({
+          role: 'Root',
+          children: [
+            {
+              role: 'H1',
+              children: [{ type: 'content', id: 'p1-text-1' }],
+            },
+            { type: 'object', id: 'p1-image-1' },
+            { type: '', id: '' },
+          ],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractStructureTrees(mockDocument, [1]);
+
+      expect(mockDocument.getPage).toHaveBeenCalledWith(1);
+      expect(mockPage.getStructTree).toHaveBeenCalled();
+      expect(result).toEqual([
+        {
+          page: 1,
+          tree: {
+            role: 'Root',
+            children: [
+              {
+                role: 'H1',
+                children: [{ type: 'content', id: 'p1-text-1' }],
+              },
+              { type: 'object', id: 'p1-image-1' },
+            ],
+          },
+        },
+      ]);
     });
   });
 

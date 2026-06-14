@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**5-10x faster parallel processing** • **Y-coordinate content ordering** • **94%+ test coverage** • **173 tests passing**
+**5-10x faster parallel processing** • **Structured element output** • **Semantic citation chunks** • **CI-backed quality**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **enterprise-grade PDF processing capabilities**. Extract text, images, and metadata with unmatched performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Extract text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -38,10 +38,14 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 ```typescript
 // PDF Reader MCP
 - 5-10x faster parallel processing ⚡
-- Y-coordinate based ordering 📐
+- Structured element output for agent workflows 🧩
+- Markdown rendering for RAG and summarization 📝
+- Citation-ready semantic/table/page chunks 🔗
+- Outlines, annotations, structure trees, forms, attachments, labels, and permission signals 🗂️
+- Column-aware reading order 📐
 - Flexible path support (absolute/relative) 🎯
 - Per-page error resilience 🛡️
-- 94%+ test coverage ✅
+- CI-backed quality ✅
 ```
 
 **Result: Production-ready PDF processing that scales.**
@@ -60,9 +64,13 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 ### Developer Experience
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
-- 🖼️ **Smart Ordering** - Y-coordinate based content preserves document layout
+- 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
+- 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
+- 🔗 **Citation Chunks** - Optional page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
+- 🗂️ **Document Signals** - Optional outlines, page labels, annotations, structure trees, forms, attachments, permissions, and mark info
+- 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
-- 📚 **Battle-tested** - 173 tests, 94%+ coverage, 98%+ function coverage
+- 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
 - 🎨 **Simple API** - Single tool handles all operations elegantly
 
 ---
@@ -211,7 +219,7 @@ npm install -g @sylphx/pdf-reader-mcp
 - ✅ Full text content extracted
 - ✅ PDF metadata (author, title, dates)
 - ✅ Total page count
-- ✅ Structural sharing - unchanged parts preserved
+- ✅ Structured JSON summary for agent workflows
 
 ### Extract Specific Pages
 
@@ -224,6 +232,96 @@ npm install -g @sylphx/pdf-reader-mcp
   "include_full_text": true
 }
 ```
+
+### Structured Elements for Agents
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-3"
+  }],
+  "include_elements": true,
+  "include_metadata": true,
+  "include_page_count": true
+}
+```
+
+**Response includes:**
+- Stable element IDs such as `p1-text-1`
+- Page numbers and provenance for each element
+- Best-effort bounding boxes when coordinates are available
+- Text, image metadata, and table elements without embedding image bytes in the JSON summary
+- Table elements include best-effort table and cell bounding boxes when coordinates are available
+
+### Markdown for RAG and Summaries
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-5"
+  }],
+  "include_markdown": true,
+  "include_full_text": false
+}
+```
+
+**Response includes:**
+- Page-aware Markdown sections
+- Text blocks in extraction order
+- Image placeholders with dimensions when images are requested
+- Extracted tables appended as Markdown when `include_tables` is enabled
+
+### Citation-Ready Chunks
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-5"
+  }],
+  "include_chunks": true,
+  "include_semantic_hints": true,
+  "include_tables": true,
+  "include_full_text": false
+}
+```
+
+**Response includes:**
+- Stable chunk IDs such as `p1-chunk-1`
+- Page ranges for each chunk
+- Chunk strategies such as `page`, `semantic`, `size`, and `table`
+- Semantic headings when heading boundaries are available
+- Element IDs that map back to structured elements
+- Best-effort bounding boxes for source highlighting
+
+### Outlines, Forms, Attachments, and Document Signals
+
+```json
+{
+  "sources": [{
+    "path": "documents/spec.pdf",
+    "pages": "1-5"
+  }],
+  "include_outline": true,
+  "include_annotations": true,
+  "include_page_labels": true,
+  "include_permissions": true,
+  "include_structure_tree": true,
+  "include_form_fields": true,
+  "include_attachments": true
+}
+```
+
+**Response includes, when available:**
+- Bookmark/outline trees
+- Page labels such as roman numerals or section labels
+- Link and note annotation summaries with bounding boxes
+- Tagged PDF structure trees for selected pages when available
+- Form field summaries with values, field types, and bounding boxes when available
+- Embedded attachment metadata without returning attachment bytes
+- Permission labels and marking signals
 
 ### Absolute Paths (v1.3.0+)
 
@@ -261,7 +359,7 @@ npm install -g @sylphx/pdf-reader-mcp
 ```
 
 **Response includes:**
-- Text and images in **exact document order** (Y-coordinate sorted)
+- Text and images in **Y-coordinate reading order**
 - Base64-encoded images with metadata (width, height, format)
 - Natural reading flow preserved for AI comprehension
 
@@ -287,7 +385,11 @@ npm install -g @sylphx/pdf-reader-mcp
 ### Core Capabilities
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
-- ✅ **Content Ordering** - Y-coordinate based layout preservation for natural reading flow
+- ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
+- ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
+- ✅ **Citation Chunks** - Page, semantic, size, and table chunks with source references for downstream retrieval
+- ✅ **Document Signals** - Outlines, annotations, structure trees, forms, attachments, page labels, permissions, and mark info when exposed by the PDF
+- ✅ **Content Ordering** - Column-aware layout preservation for natural reading flow
 - ✅ **Metadata Extraction** - Author, title, creation date, and custom properties
 - ✅ **Page Counting** - Fast enumeration without loading full content
 - ✅ **Dual Sources** - Local files (absolute or relative paths) and HTTP/HTTPS URLs
@@ -304,9 +406,37 @@ npm install -g @sylphx/pdf-reader-mcp
 
 ---
 
-## 🆕 What's New in v1.3.0
+## 🆕 Latest Improvements
 
-### 🎉 Absolute Paths Now Supported!
+### Agent-Ready Structured Output
+
+`include_elements` adds structured document elements to the JSON response while keeping the existing text, metadata, image, and table outputs backward compatible.
+
+```json
+{
+  "sources": [{ "path": "report.pdf" }],
+  "include_elements": true,
+  "include_semantic_hints": true
+}
+```
+
+Elements include stable IDs, page numbers, provenance, and best-effort bounding boxes where available. Image bytes stay out of the JSON summary so MCP clients can keep context payloads manageable.
+
+`include_semantic_hints` adds deterministic heading/list/paragraph hints to text elements, with confidence and signals, without claiming a full semantic parser.
+
+`include_markdown` adds page-aware Markdown for workflows that need clean text context without manually rebuilding sections from raw page text.
+
+`include_html` adds an escaped HTML rendering for previews, export workflows, and downstream conversion.
+
+The extraction pipeline also separates distant same-line text into independent segments before ordering, which improves multi-column PDFs without requiring any extra configuration.
+
+`include_chunks` adds citation-ready chunks with stable IDs, strategy labels, element references, and best-effort bounding boxes for downstream retrieval and citation workflows. When `include_semantic_hints` is also enabled, chunks split on deterministic heading boundaries; table chunks are emitted when table extraction is requested.
+
+`include_outline`, `include_annotations`, `include_page_labels`, `include_page_geometry`, `include_permissions`, `include_structure_tree`, `include_form_fields`, and `include_attachments` expose additional document signals without changing the default lightweight response shape.
+
+`include_safety_findings` adds deterministic findings for common prompt-injection patterns, tiny text, and off-page text so agents can inspect risky document content before using it as instructions.
+
+### Absolute Paths Supported
 
 ```json
 // ✅ Windows
@@ -322,9 +452,9 @@ npm install -g @sylphx/pdf-reader-mcp
 ```
 
 **Other Improvements:**
-- 🐛 Fixed Zod validation error handling
-- 📦 Updated all dependencies to latest versions
-- ✅ 173 tests passing, 94%+ coverage maintained
+- 🛡️ Filesystem and HTTP access restrictions for safer deployments
+- 📊 Table extraction with Markdown output
+- 📦 Updated parser resources for CMaps, fonts, WASM decoders, and color profiles
 
 <details>
 <summary><strong>📋 View Full Changelog</strong></summary>
@@ -339,7 +469,7 @@ npm install -g @sylphx/pdf-reader-mcp
 **v1.1.0 - Image Extraction & Performance**
 - Base64-encoded image extraction
 - 10x speedup with parallel processing
-- Comprehensive test coverage (94%+)
+- Comprehensive test coverage
 
 [View Full Changelog →](./CHANGELOG.md)
 
@@ -362,6 +492,21 @@ The single tool that handles all PDF operations.
 | `include_metadata` | boolean | Extract PDF metadata | `true` |
 | `include_page_count` | boolean | Include total page count | `true` |
 | `include_images` | boolean | Extract embedded images | `false` |
+| `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, and best-effort geometry | `false` |
+| `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
+| `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph hints on text elements | `false` |
+| `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
+| `include_html` | boolean | Include escaped page-aware HTML for preview/export workflows | `false` |
+| `include_chunks` | boolean | Include page, semantic, size, and table chunks with source references | `false` |
+| `include_outline` | boolean | Include PDF outline/bookmarks when available | `false` |
+| `include_annotations` | boolean | Include safe annotation summaries for selected pages | `false` |
+| `include_page_labels` | boolean | Include PDF page labels when available | `false` |
+| `include_page_geometry` | boolean | Include page viewport geometry and PDF view boxes | `false` |
+| `include_permissions` | boolean | Include permission labels and mark info when available | `false` |
+| `include_structure_tree` | boolean | Include tagged PDF structure trees for selected pages when available | `false` |
+| `include_form_fields` | boolean | Include PDF form field summaries when available | `false` |
+| `include_attachments` | boolean | Include embedded attachment metadata without attachment bytes | `false` |
+| `include_safety_findings` | boolean | Include deterministic content safety findings for agent workflows | `false` |
 
 #### Source Object
 
@@ -405,16 +550,27 @@ The single tool that handles all PDF operations.
 }
 ```
 
+**Structured elements:**
+```json
+{
+  "sources": [{ "path": "report.pdf", "pages": "1-3" }],
+  "include_elements": true,
+  "include_metadata": true
+}
+```
+
+Elements are designed for agent workflows that need stable page references, provenance, and best-effort coordinates for citation-ready downstream processing.
+
 ---
 
 ## 🔧 Advanced Usage
 
 <details>
-<summary><strong>📐 Y-Coordinate Content Ordering</strong></summary>
+<summary><strong>📐 Column-Aware Content Ordering</strong></summary>
 
 <br/>
 
-Content is returned in natural reading order based on Y-coordinates:
+Content is returned in natural reading order using Y-coordinates plus lightweight column segmentation:
 
 ```
 Document Layout:
@@ -441,6 +597,7 @@ Response Order:
 - Natural document comprehension
 - Perfect for vision-enabled models
 - Automatic multi-line text grouping
+- Better ordering for common two-column PDFs
 
 </details>
 
@@ -713,7 +870,7 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 | **Validation** | Vex + JSON Schema |
 | **Protocol** | MCP SDK |
 | **Language** | TypeScript (strict) |
-| **Testing** | Bun test (173 tests) |
+| **Testing** | Bun test suite |
 | **Quality** | Biome (50x faster) |
 | **CI/CD** | GitHub Actions |
 
@@ -723,7 +880,7 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 - 🎯 **Simple Interface** - One tool, all operations
 - ⚡ **Performance** - Parallel processing, efficient memory
 - 🛡️ **Reliability** - Per-page isolation, detailed errors
-- 🧪 **Quality** - 94%+ coverage, strict TypeScript
+- 🧪 **Quality** - Automated tests, strict TypeScript, and CI validation
 - 📝 **Type Safety** - No `any` types, strict mode
 - 🔄 **Backward Compatible** - Smooth upgrades always
 
@@ -750,17 +907,17 @@ bun install && bun run build
 **Scripts:**
 ```bash
 bun run build        # Build with bunup
-bun test             # Run 173 tests
-bun run test:cov     # Coverage (94%+)
+bun test             # Run the test suite
+bun run test:cov     # Run coverage
 bun run check        # Lint + format
 bun run check:fix    # Auto-fix
 bun run benchmark    # Performance tests
 ```
 
 **Quality:**
-- ✅ 173 tests
-- ✅ 94%+ coverage
-- ✅ 98%+ function coverage
+- ✅ Automated tests
+- ✅ Coverage reporting
+- ✅ Strict TypeScript
 - ✅ Zero lint errors
 - ✅ Strict TypeScript
 
@@ -810,16 +967,21 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] 5-10x parallel speedup (v1.1.0)
 - [x] Y-coordinate ordering (v1.2.0)
 - [x] Absolute paths (v1.3.0)
-- [x] 94%+ test coverage (v1.3.0)
+- [x] Table extraction
+- [x] Structured element output
+- [x] Markdown rendering
+- [x] Citation-ready page, semantic, size, and table chunks
+- [x] Outlines, annotations, structure trees, form fields, attachment metadata, page labels, and permission signals
+- [x] Column-aware ordering for common multi-column PDFs
+- [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
+- [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
 - [ ] OCR for scanned PDFs
-- [ ] Annotation extraction
-- [ ] Form field extraction
-- [ ] Table detection
+- [ ] Richer semantic layout detection
+- [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming
 - [ ] Advanced caching
-- [ ] PDF generation
 
 Vote at [Discussions](https://github.com/SylphxAI/pdf-reader-mcp/discussions)
 
@@ -832,7 +994,7 @@ Vote at [Discussions](https://github.com/SylphxAI/pdf-reader-mcp/discussions)
 - [Glama](https://glama.ai/mcp/servers/@sylphx/pdf-reader-mcp) - AI marketplace
 - [MseeP.ai](https://mseep.ai/app/SylphxAI-pdf-reader-mcp) - Security validated
 
-**Trusted worldwide** • **Enterprise adoption** • **Battle-tested**
+**Local-first** • **Agent-ready** • **Battle-tested**
 
 ---
 
@@ -858,7 +1020,7 @@ Vote at [Discussions](https://github.com/SylphxAI/pdf-reader-mcp/discussions)
 ![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp)
 ![Contributors](https://img.shields.io/github/contributors/SylphxAI/pdf-reader-mcp)
 
-**103 Tests** • **94%+ Coverage** • **Production Ready**
+**CI-backed quality** • **Structured extraction** • **Production ready**
 
 ---
 

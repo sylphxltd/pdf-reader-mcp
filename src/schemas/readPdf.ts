@@ -54,6 +54,92 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_elements: optional(
+    bool(
+      description(
+        'Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes.'
+      )
+    )
+  ),
+  include_semantic_hints: optional(
+    bool(
+      description(
+        'Include deterministic semantic hints on text elements, such as heading, list item, or paragraph.'
+      )
+    )
+  ),
+  include_markdown: optional(
+    bool(
+      description(
+        'Include a Markdown rendering of extracted pages for RAG, summarization, and agent context.'
+      )
+    )
+  ),
+  include_html: optional(
+    bool(
+      description(
+        'Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion.'
+      )
+    )
+  ),
+  include_chunks: optional(
+    bool(
+      description(
+        'Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes.'
+      )
+    )
+  ),
+  include_outline: optional(
+    bool(description('Include document outline/bookmark entries when the PDF exposes them.'))
+  ),
+  include_annotations: optional(
+    bool(
+      description(
+        'Include page annotations such as links, notes, and form-related annotations with safe summary fields.'
+      )
+    )
+  ),
+  include_page_labels: optional(
+    bool(
+      description(
+        'Include PDF page labels when available, such as roman numerals or section labels.'
+      )
+    )
+  ),
+  include_page_geometry: optional(
+    bool(
+      description(
+        'Include page viewport geometry such as width, height, rotation, user unit, and view box.'
+      )
+    )
+  ),
+  include_permissions: optional(
+    bool(description('Include PDF permission and marking signals when exposed by the parser.'))
+  ),
+  include_form_fields: optional(
+    bool(description('Include PDF form field summaries when AcroForm fields are exposed.'))
+  ),
+  include_attachments: optional(
+    bool(
+      description(
+        'Include embedded attachment metadata such as filename and size. Attachment bytes are not returned.'
+      )
+    )
+  ),
+  include_structure_tree: optional(
+    bool(
+      description(
+        'Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them.'
+      )
+    )
+  ),
+  include_safety_findings: optional(
+    bool(
+      description(
+        'Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text.'
+      )
+    )
+  ),
 });
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;

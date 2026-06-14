@@ -4,15 +4,89 @@ export interface TableCell {
   text: string;
   rowIndex: number;
   colIndex: number;
+  bounding_box?: BoundingBox | undefined;
 }
 
 export interface ExtractedTable {
   page: number;
   tableIndex: number;
   rows: string[][]; // 2D array [row][col]
+  cells?: TableCell[] | undefined;
+  bounding_box?: BoundingBox | undefined;
   rowCount: number;
   colCount: number;
   confidence: number; // 0-1 detection confidence
+}
+
+export interface PdfOutlineItem {
+  title: string;
+  bold?: boolean | undefined;
+  italic?: boolean | undefined;
+  color?: number[] | undefined;
+  url?: string | undefined;
+  dest?: unknown;
+  items?: PdfOutlineItem[] | undefined;
+}
+
+export interface PdfAnnotation {
+  page: number;
+  id?: string | undefined;
+  subtype?: string | undefined;
+  contents?: string | undefined;
+  title?: string | undefined;
+  url?: string | undefined;
+  dest?: unknown;
+  bounding_box?: BoundingBox | undefined;
+}
+
+export interface PdfPageAnnotations {
+  page: number;
+  annotations: PdfAnnotation[];
+}
+
+export interface PdfFormField {
+  name: string;
+  type?: string | undefined;
+  value?: unknown;
+  default_value?: unknown;
+  page?: number | undefined;
+  id?: string | undefined;
+  editable?: boolean | undefined;
+  required?: boolean | undefined;
+  bounding_box?: BoundingBox | undefined;
+}
+
+export interface PdfAttachment {
+  name: string;
+  filename?: string | undefined;
+  description?: string | undefined;
+  size_bytes?: number | undefined;
+}
+
+export interface PdfPageGeometry {
+  page: number;
+  width: number;
+  height: number;
+  rotation: number;
+  user_unit?: number | undefined;
+  view_box?: BoundingBox | undefined;
+}
+
+export interface PdfStructureTreeContent {
+  type: string;
+  id?: string | undefined;
+}
+
+export type PdfStructureTreeChild = PdfStructureTreeNode | PdfStructureTreeContent;
+
+export interface PdfStructureTreeNode {
+  role: string;
+  children?: PdfStructureTreeChild[] | undefined;
+}
+
+export interface PdfPageStructureTree {
+  page: number;
+  tree: PdfStructureTreeNode;
 }
 
 export interface PdfInfo {
@@ -37,12 +111,90 @@ export interface ExtractedImage {
   height: number;
   format: string;
   data: string; // base64 encoded image data
+  bounding_box?: BoundingBox | undefined;
+}
+
+export interface BoundingBox {
+  left: number;
+  bottom: number;
+  right: number;
+  top: number;
+}
+
+export interface PdfElementProvenance {
+  engine: 'pdfjs';
+  source: 'text-content' | 'image-xobject' | 'table-detector';
+}
+
+export type PdfTextSemanticRole = 'heading' | 'list_item' | 'paragraph';
+
+export interface PdfTextSemanticHint {
+  role: PdfTextSemanticRole;
+  confidence: number;
+  signals: string[];
+  level?: number | undefined;
+}
+
+export interface BasePdfElement {
+  id: string;
+  type: 'text' | 'image' | 'table';
+  page: number;
+  bounding_box?: BoundingBox | undefined;
+  confidence?: number | undefined;
+  provenance: PdfElementProvenance;
+}
+
+export interface PdfTextElement extends BasePdfElement {
+  type: 'text';
+  content: string;
+  semantic_hint?: PdfTextSemanticHint | undefined;
+}
+
+export interface PdfImageElement extends BasePdfElement {
+  type: 'image';
+  image: Omit<ExtractedImage, 'data'>;
+}
+
+export interface PdfTableElement extends BasePdfElement {
+  type: 'table';
+  table: Omit<ExtractedTable, 'page' | 'tableIndex'>;
+}
+
+export type PdfDocumentElement = PdfTextElement | PdfImageElement | PdfTableElement;
+
+export interface PdfChunk {
+  id: string;
+  page_start: number;
+  page_end: number;
+  text: string;
+  element_ids: string[];
+  strategy?: 'page' | 'semantic' | 'size' | 'table' | undefined;
+  heading?: string | undefined;
+  bounding_boxes?: BoundingBox[] | undefined;
+}
+
+export type PdfSafetyFindingType = 'prompt_injection_pattern' | 'off_page_text' | 'tiny_text';
+
+export type PdfSafetySeverity = 'low' | 'medium' | 'high';
+
+export interface PdfSafetyFinding {
+  type: PdfSafetyFindingType;
+  severity: PdfSafetySeverity;
+  page: number;
+  message: string;
+  element_id?: string | undefined;
+  snippet?: string | undefined;
+  bounding_box?: BoundingBox | undefined;
 }
 
 // Content item with position for ordering
 export interface PageContentItem {
   type: 'text' | 'image';
   yPosition: number;
+  xPosition?: number | undefined;
+  width?: number | undefined;
+  height?: number | undefined;
+  bounding_box?: BoundingBox | undefined;
   textContent?: string;
   imageData?: ExtractedImage;
 }
@@ -51,9 +203,23 @@ export interface PdfResultData {
   info?: PdfInfo;
   metadata?: PdfMetadata;
   num_pages?: number;
+  page_labels?: string[];
+  page_geometry?: PdfPageGeometry[];
+  permissions?: string[];
+  mark_info?: Record<string, unknown>;
+  outline?: PdfOutlineItem[];
+  annotations?: PdfPageAnnotations[];
+  form_fields?: PdfFormField[];
+  attachments?: PdfAttachment[];
+  structure_trees?: PdfPageStructureTree[];
   full_text?: string;
+  markdown?: string;
+  html?: string;
   page_texts?: ExtractedPageText[];
   page_contents?: Array<{ page: number; items: PageContentItem[] }>;
+  elements?: PdfDocumentElement[];
+  chunks?: PdfChunk[];
+  safety_findings?: PdfSafetyFinding[];
   images?: ExtractedImage[];
   tables?: ExtractedTable[];
   warnings?: string[];
@@ -78,4 +244,18 @@ export interface ReadPdfOptions {
   include_page_count: boolean;
   include_images: boolean;
   include_tables: boolean;
+  include_elements: boolean;
+  include_semantic_hints: boolean;
+  include_markdown: boolean;
+  include_html: boolean;
+  include_chunks: boolean;
+  include_outline: boolean;
+  include_annotations: boolean;
+  include_page_labels: boolean;
+  include_page_geometry: boolean;
+  include_permissions: boolean;
+  include_form_fields: boolean;
+  include_attachments: boolean;
+  include_structure_tree: boolean;
+  include_safety_findings: boolean;
 }

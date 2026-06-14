@@ -28,8 +28,22 @@ describe('tableExtractor', () => {
       const result = await extractTextItemsWithPositions(mockPage);
 
       expect(result).toHaveLength(4);
-      expect(result[0]).toEqual({ text: 'Header1', x: 50, y: 700, width: 40 });
-      expect(result[1]).toEqual({ text: 'Header2', x: 150, y: 700, width: 40 });
+      expect(result[0]).toMatchObject({
+        text: 'Header1',
+        x: 50,
+        y: 700,
+        width: 40,
+        height: 1,
+        bounding_box: { left: 50, bottom: 700, right: 90, top: 701 },
+      });
+      expect(result[1]).toMatchObject({
+        text: 'Header2',
+        x: 150,
+        y: 700,
+        width: 40,
+        height: 1,
+        bounding_box: { left: 150, bottom: 700, right: 190, top: 701 },
+      });
     });
 
     it('should skip empty text items', async () => {
@@ -213,6 +227,18 @@ describe('tableExtractor', () => {
         expect(result[0]?.rowCount).toBeGreaterThanOrEqual(2);
         expect(result[0]?.colCount).toBeGreaterThanOrEqual(2);
         expect(result[0]?.confidence).toBeGreaterThan(0);
+        expect(result[0]?.bounding_box).toEqual({
+          left: 50,
+          bottom: 660,
+          right: 275,
+          top: 701,
+        });
+        expect(result[0]?.cells).toContainEqual({
+          text: 'Alice',
+          rowIndex: 1,
+          colIndex: 0,
+          bounding_box: { left: 50, bottom: 680, right: 80, top: 681 },
+        });
       }
     });
 

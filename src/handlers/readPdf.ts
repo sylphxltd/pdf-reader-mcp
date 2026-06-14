@@ -3,9 +3,20 @@
 import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
+  buildCitationChunks,
+  buildSafetyFindings,
+  buildStructuredElements,
+  renderHtmlFromPageContents,
+  renderMarkdownFromPageContents,
+} from '../pdf/documentModel.js';
+import {
   buildWarnings,
+  extractAnnotations,
+  extractDocumentStructure,
   extractMetadataAndPageCount,
   extractPageContent,
+  extractPageGeometry,
+  extractStructureTrees,
 } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
@@ -14,6 +25,7 @@ import { readPdfArgsSchema } from '../schemas/readPdf.js';
 import type {
   ExtractedImage,
   ExtractedTable,
+  PdfPageGeometry,
   PdfResultData,
   PdfSource,
   PdfSourceResult,
@@ -34,6 +46,20 @@ const processSingleSource = async (
     includePageCount: boolean;
     includeImages: boolean;
     includeTables: boolean;
+    includeElements: boolean;
+    includeSemanticHints: boolean;
+    includeMarkdown: boolean;
+    includeHtml: boolean;
+    includeChunks: boolean;
+    includeOutline: boolean;
+    includeAnnotations: boolean;
+    includePageLabels: boolean;
+    includePageGeometry: boolean;
+    includePermissions: boolean;
+    includeFormFields: boolean;
+    includeAttachments: boolean;
+    includeStructureTree: boolean;
+    includeSafetyFindings: boolean;
   }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
@@ -58,11 +84,37 @@ const processSingleSource = async (
 
     const output: PdfResultData = { ...metadataOutput };
 
+    const structureOutput = await extractDocumentStructure(pdfDocument, {
+      includeOutline: options.includeOutline,
+      includePageLabels: options.includePageLabels,
+      includePermissions: options.includePermissions,
+      includeFormFields: options.includeFormFields,
+      includeAttachments: options.includeAttachments,
+    });
+    Object.assign(output, structureOutput);
+
     // Determine pages to process
+    const explicitPageContent =
+      options.includeFullText ||
+      options.includeElements ||
+      options.includeSemanticHints ||
+      options.includeMarkdown ||
+      options.includeHtml ||
+      options.includeChunks ||
+      options.includeImages ||
+      options.includeSafetyFindings;
+    const pageScopedMetadata =
+      options.includeTables ||
+      options.includeAnnotations ||
+      options.includePageGeometry ||
+      options.includeStructureTree;
+    const includeSelectedPageText =
+      targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
+    const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
     const { pagesToProcess, invalidPages } = determinePagesToProcess(
       targetPages,
       totalPages,
-      options.includeFullText
+      shouldSelectPages
     );
 
     // Add warnings for invalid pages
@@ -73,63 +125,78 @@ const processSingleSource = async (
 
     // Extract content with ordering preserved
     if (pagesToProcess.length > 0) {
-      // Process pages in batches to prevent memory exhaustion on large PDFs
-      // This prevents the event loop from being blocked and keeps memory usage reasonable
-      const MAX_CONCURRENT_PAGES = 5;
-      const pageContents: Awaited<ReturnType<typeof extractPageContent>>[] = [];
+      const needsPageContent = explicitPageContent || includeSelectedPageText;
 
-      for (let i = 0; i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
-        const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
-        const batchResults = await Promise.all(
-          batch.map((pageNum) =>
-            extractPageContent(
-              pdfDocument as pdfjsLib.PDFDocumentProxy,
-              pageNum,
-              options.includeImages,
-              sourceDescription
-            )
-          )
+      let pageGeometry: PdfPageGeometry[] | undefined;
+      if (options.includePageGeometry || options.includeSafetyFindings) {
+        pageGeometry = await extractPageGeometry(
+          pdfDocument as pdfjsLib.PDFDocumentProxy,
+          pagesToProcess
         );
-        pageContents.push(...batchResults);
-
-        // Yield to the event loop between batches to prevent UI blocking
-        if (i + MAX_CONCURRENT_PAGES < pagesToProcess.length) {
-          await new Promise((resolve) => setImmediate(resolve));
+        if (pageGeometry.length > 0 && options.includePageGeometry) {
+          output.page_geometry = pageGeometry;
         }
       }
 
-      // Store page contents for ordered retrieval
-      output.page_contents = pageContents.map((items, idx) => ({
-        page: pagesToProcess[idx] as number,
-        items,
-      }));
+      if (needsPageContent) {
+        // Process pages in batches to prevent memory exhaustion on large PDFs
+        // This prevents the event loop from being blocked and keeps memory usage reasonable
+        const MAX_CONCURRENT_PAGES = 5;
+        const pageContents: Awaited<ReturnType<typeof extractPageContent>>[] = [];
 
-      // For backward compatibility, also provide text-only outputs
-      const extractedPageTexts = pageContents.map((items, idx) => ({
-        page: pagesToProcess[idx] as number,
-        text: items
-          .filter((item) => item.type === 'text')
-          .map((item) => item.textContent)
-          .join(''),
-      }));
+        for (let i = 0; i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
+          const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
+          const batchResults = await Promise.all(
+            batch.map((pageNum) =>
+              extractPageContent(
+                pdfDocument as pdfjsLib.PDFDocumentProxy,
+                pageNum,
+                options.includeImages,
+                sourceDescription
+              )
+            )
+          );
+          pageContents.push(...batchResults);
 
-      if (targetPages) {
-        // Specific pages requested
-        output.page_texts = extractedPageTexts;
-      } else {
-        // Full text requested
-        output.full_text = extractedPageTexts.map((p) => p.text).join('\n\n');
-      }
+          // Yield to the event loop between batches to prevent UI blocking
+          if (i + MAX_CONCURRENT_PAGES < pagesToProcess.length) {
+            await new Promise((resolve) => setImmediate(resolve));
+          }
+        }
 
-      // Extract image metadata for JSON response
-      if (options.includeImages) {
-        const extractedImages = pageContents
-          .flatMap((items) => items.filter((item) => item.type === 'image' && item.imageData))
-          .map((item) => item.imageData)
-          .filter((img): img is ExtractedImage => img !== undefined);
+        // Store page contents for ordered retrieval
+        output.page_contents = pageContents.map((items, idx) => ({
+          page: pagesToProcess[idx] as number,
+          items,
+        }));
 
-        if (extractedImages.length > 0) {
-          output.images = extractedImages;
+        // For backward compatibility, also provide text-only outputs
+        const extractedPageTexts = pageContents.map((items, idx) => ({
+          page: pagesToProcess[idx] as number,
+          text: items
+            .filter((item) => item.type === 'text')
+            .map((item) => item.textContent)
+            .join(''),
+        }));
+
+        if (targetPages) {
+          // Specific pages requested
+          output.page_texts = extractedPageTexts;
+        } else if (options.includeFullText) {
+          // Full text requested
+          output.full_text = extractedPageTexts.map((p) => p.text).join('\n\n');
+        }
+
+        // Extract image metadata for JSON response
+        if (options.includeImages) {
+          const extractedImages = pageContents
+            .flatMap((items) => items.filter((item) => item.type === 'image' && item.imageData))
+            .map((item) => item.imageData)
+            .filter((img): img is ExtractedImage => img !== undefined);
+
+          if (extractedImages.length > 0) {
+            output.images = extractedImages;
+          }
         }
       }
 
@@ -142,6 +209,59 @@ const processSingleSource = async (
 
         if (extractedTables.length > 0) {
           output.tables = extractedTables;
+        }
+      }
+
+      const buildElementsForOutput = () =>
+        buildStructuredElements(
+          output.page_contents ?? [],
+          output.tables,
+          options.includeSemanticHints
+        );
+
+      if ((options.includeElements || options.includeSemanticHints) && output.page_contents) {
+        output.elements = buildElementsForOutput();
+      }
+
+      if (options.includeMarkdown && output.page_contents) {
+        output.markdown = renderMarkdownFromPageContents(output.page_contents, output.tables);
+      }
+
+      if (options.includeHtml && output.page_contents) {
+        output.html = renderHtmlFromPageContents(output.page_contents, output.tables);
+      }
+
+      if (options.includeChunks && output.page_contents) {
+        const chunkElements = output.elements ?? buildElementsForOutput();
+        output.chunks = buildCitationChunks(chunkElements, {
+          useSemanticBoundaries: options.includeSemanticHints,
+        });
+      }
+
+      if (options.includeSafetyFindings && output.page_contents) {
+        const safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
+        if (safetyFindings.length > 0) {
+          output.safety_findings = safetyFindings;
+        }
+      }
+
+      if (options.includeAnnotations) {
+        const annotations = await extractAnnotations(
+          pdfDocument as pdfjsLib.PDFDocumentProxy,
+          pagesToProcess
+        );
+        if (annotations.length > 0) {
+          output.annotations = annotations;
+        }
+      }
+
+      if (options.includeStructureTree) {
+        const structureTrees = await extractStructureTrees(
+          pdfDocument as pdfjsLib.PDFDocumentProxy,
+          pagesToProcess
+        );
+        if (structureTrees.length > 0) {
+          output.structure_trees = structureTrees;
         }
       }
     }
@@ -201,6 +321,20 @@ export const readPdf = tool()
       include_page_count,
       include_images,
       include_tables,
+      include_elements,
+      include_semantic_hints,
+      include_markdown,
+      include_html,
+      include_chunks,
+      include_outline,
+      include_annotations,
+      include_page_labels,
+      include_page_geometry,
+      include_permissions,
+      include_form_fields,
+      include_attachments,
+      include_structure_tree,
+      include_safety_findings,
     } = input;
 
     // Process sources with concurrency limit to prevent memory exhaustion
@@ -213,6 +347,20 @@ export const readPdf = tool()
       includePageCount: include_page_count ?? true,
       includeImages: include_images ?? false,
       includeTables: include_tables ?? false,
+      includeElements: include_elements ?? false,
+      includeSemanticHints: include_semantic_hints ?? false,
+      includeMarkdown: include_markdown ?? false,
+      includeHtml: include_html ?? false,
+      includeChunks: include_chunks ?? false,
+      includeOutline: include_outline ?? false,
+      includeAnnotations: include_annotations ?? false,
+      includePageLabels: include_page_labels ?? false,
+      includePageGeometry: include_page_geometry ?? false,
+      includePermissions: include_permissions ?? false,
+      includeFormFields: include_form_fields ?? false,
+      includeAttachments: include_attachments ?? false,
+      includeStructureTree: include_structure_tree ?? false,
+      includeSafetyFindings: include_safety_findings ?? false,
     };
 
     for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {
@@ -259,6 +407,8 @@ export const readPdf = tool()
             tableIndex: tbl.tableIndex,
             rowCount: tbl.rowCount,
             colCount: tbl.colCount,
+            cellCount: tbl.cells?.length ?? tbl.rowCount * tbl.colCount,
+            bounding_box: tbl.bounding_box,
             confidence: tbl.confidence,
           }));
         }

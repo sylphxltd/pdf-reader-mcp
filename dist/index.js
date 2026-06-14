@@ -6,10 +6,6 @@ import { createServer, http, stdio } from "@sylphx/mcp-server-sdk";
 // src/handlers/readPdf.ts
 import { image, text, tool, toolError } from "@sylphx/mcp-server-sdk";
 
-// src/pdf/extractor.ts
-import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { PNG } from "pngjs";
-
 // src/utils/logger.ts
 class Logger {
   prefix;
@@ -87,8 +83,904 @@ var createLogger = (component, minLevel) => {
 };
 var logger = new Logger("", 2 /* WARN */);
 
+// src/pdf/tableExtractor.ts
+var logger2 = createLogger("TableExtractor");
+var Y_TOLERANCE = 5;
+var COLUMN_GAP_THRESHOLD = 15;
+var MIN_ROWS = 2;
+var MIN_COLS = 2;
+var MIN_ROW_ITEMS = 2;
+var buildBoundingBox = (x, y, width, height) => {
+  if (![x, y, width].every(Number.isFinite) || height === undefined || !Number.isFinite(height)) {
+    return;
+  }
+  return {
+    left: x,
+    bottom: y,
+    right: x + Math.max(0, width),
+    top: y + Math.max(0, height)
+  };
+};
+var mergeBoundingBoxes = (boxes) => {
+  if (boxes.length === 0)
+    return;
+  return {
+    left: Math.min(...boxes.map((box) => box.left)),
+    bottom: Math.min(...boxes.map((box) => box.bottom)),
+    right: Math.max(...boxes.map((box) => box.right)),
+    top: Math.max(...boxes.map((box) => box.top))
+  };
+};
+var extractTextItemsWithPositions = async (page) => {
+  const textContent = await page.getTextContent();
+  const items = [];
+  for (const item of textContent.items) {
+    const textItem = item;
+    if (!textItem.str.trim())
+      continue;
+    if (!textItem.transform || textItem.transform.length < 6)
+      continue;
+    const x = textItem.transform[4];
+    const y = textItem.transform[5];
+    if (x === undefined || y === undefined)
+      continue;
+    const height = textItem.height ?? Math.abs(textItem.transform[3] ?? 0);
+    items.push({
+      text: textItem.str,
+      x,
+      y,
+      width: textItem.width ?? textItem.str.length * 6,
+      ...height > 0 ? { height } : {},
+      ...height > 0 ? {
+        bounding_box: buildBoundingBox(x, y, textItem.width ?? textItem.str.length * 6, height)
+      } : {}
+    });
+  }
+  return items;
+};
+var clusterByY = (items, tolerance = Y_TOLERANCE) => {
+  if (items.length === 0)
+    return [];
+  const sorted = [...items].sort((a, b) => b.y - a.y);
+  const firstItem = sorted[0];
+  if (!firstItem)
+    return [];
+  const rows = [];
+  let currentRow = { y: firstItem.y, items: [firstItem] };
+  for (let i = 1;i < sorted.length; i++) {
+    const item = sorted[i];
+    if (!item)
+      continue;
+    const yDiff = Math.abs(currentRow.y - item.y);
+    if (yDiff <= tolerance) {
+      currentRow.items.push(item);
+    } else {
+      rows.push(currentRow);
+      currentRow = { y: item.y, items: [item] };
+    }
+  }
+  rows.push(currentRow);
+  for (const row of rows) {
+    row.items.sort((a, b) => a.x - b.x);
+  }
+  return rows;
+};
+var detectColumnBoundaries = (rows, gapThreshold = COLUMN_GAP_THRESHOLD) => {
+  if (rows.length === 0)
+    return [];
+  const allXPositions = [];
+  for (const row of rows) {
+    for (const item of row.items) {
+      allXPositions.push(item.x);
+    }
+  }
+  if (allXPositions.length === 0)
+    return [];
+  allXPositions.sort((a, b) => a - b);
+  const firstX = allXPositions[0];
+  if (firstX === undefined)
+    return [];
+  const boundaries = [firstX];
+  for (let i = 1;i < allXPositions.length; i++) {
+    const current = allXPositions[i];
+    const previous = allXPositions[i - 1];
+    if (current === undefined || previous === undefined)
+      continue;
+    const gap = current - previous;
+    if (gap >= gapThreshold) {
+      boundaries.push(current);
+    }
+  }
+  return boundaries;
+};
+var columnIndexForItem = (item, columnBoundaries, tolerance = COLUMN_GAP_THRESHOLD / 2) => {
+  for (let i = columnBoundaries.length - 1;i >= 0; i--) {
+    const boundary = columnBoundaries[i];
+    if (boundary !== undefined && item.x >= boundary - tolerance) {
+      return i;
+    }
+  }
+  return 0;
+};
+var assignToTableCells = (row, rowIndex, columnBoundaries) => {
+  const accumulators = Array.from({ length: columnBoundaries.length }, () => ({ textParts: [], boundingBoxes: [] }));
+  for (const item of row.items) {
+    const colIndex = columnIndexForItem(item, columnBoundaries);
+    const accumulator = accumulators[colIndex];
+    if (!accumulator)
+      continue;
+    accumulator.textParts.push(item.text);
+    if (item.bounding_box) {
+      accumulator.boundingBoxes.push(item.bounding_box);
+    }
+  }
+  const cells = accumulators.map((accumulator, colIndex) => {
+    const boundingBox = mergeBoundingBoxes(accumulator.boundingBoxes);
+    return {
+      text: accumulator.textParts.join(" "),
+      rowIndex,
+      colIndex,
+      ...boundingBox ? { bounding_box: boundingBox } : {}
+    };
+  });
+  return {
+    rowValues: cells.map((cell) => cell.text),
+    cells
+  };
+};
+var calculateConfidence = (rows, columnBoundaries) => {
+  if (rows.length < MIN_ROWS || columnBoundaries.length < MIN_COLS) {
+    return 0;
+  }
+  let score = 0;
+  let checks = 0;
+  for (const row of rows) {
+    const itemsPerColumn = new Set;
+    for (const item of row.items) {
+      for (let i = columnBoundaries.length - 1;i >= 0; i--) {
+        const boundary = columnBoundaries[i];
+        if (boundary !== undefined && item.x >= boundary - COLUMN_GAP_THRESHOLD / 2) {
+          itemsPerColumn.add(i);
+          break;
+        }
+      }
+    }
+    score += itemsPerColumn.size / columnBoundaries.length;
+    checks++;
+  }
+  if (rows.length >= 2) {
+    const spacings = [];
+    for (let i = 1;i < rows.length; i++) {
+      const prevRow = rows[i - 1];
+      const currRow = rows[i];
+      if (prevRow && currRow) {
+        spacings.push(Math.abs(prevRow.y - currRow.y));
+      }
+    }
+    if (spacings.length > 0) {
+      const avgSpacing = spacings.reduce((a, b) => a + b, 0) / spacings.length;
+      const variance = spacings.reduce((sum, s) => sum + (s - avgSpacing) ** 2, 0) / spacings.length;
+      const stdDev = Math.sqrt(variance);
+      const regularityScore = avgSpacing > 0 ? Math.max(0, 1 - stdDev / avgSpacing) : 0;
+      score += regularityScore;
+      checks++;
+    }
+  }
+  return checks > 0 ? Math.min(1, score / checks) : 0;
+};
+var identifyTableRegions = (rows) => {
+  const regions = [];
+  const candidateRows = rows.filter((row) => row.items.length >= MIN_ROW_ITEMS);
+  if (candidateRows.length < MIN_ROWS) {
+    return regions;
+  }
+  const columnBoundaries = detectColumnBoundaries(candidateRows);
+  if (columnBoundaries.length < MIN_COLS) {
+    return regions;
+  }
+  let currentRegion = [];
+  for (const row of candidateRows) {
+    const alignedItems = row.items.filter((item) => {
+      return columnBoundaries.some((boundary) => Math.abs(item.x - boundary) < COLUMN_GAP_THRESHOLD);
+    });
+    if (alignedItems.length >= MIN_COLS - 1) {
+      currentRegion.push(row);
+    } else if (currentRegion.length >= MIN_ROWS) {
+      const firstRow = currentRegion[0];
+      const lastRow = currentRegion[currentRegion.length - 1];
+      if (firstRow && lastRow) {
+        regions.push({
+          rows: currentRegion,
+          columnBoundaries,
+          startY: firstRow.y,
+          endY: lastRow.y
+        });
+      }
+      currentRegion = [];
+    } else {
+      currentRegion = [];
+    }
+  }
+  if (currentRegion.length >= MIN_ROWS) {
+    const firstRow = currentRegion[0];
+    const lastRow = currentRegion[currentRegion.length - 1];
+    if (firstRow && lastRow) {
+      regions.push({
+        rows: currentRegion,
+        columnBoundaries,
+        startY: firstRow.y,
+        endY: lastRow.y
+      });
+    }
+  }
+  return regions;
+};
+var extractTablesFromPage = async (page, pageNum) => {
+  const tables = [];
+  try {
+    const textItems = await extractTextItemsWithPositions(page);
+    if (textItems.length === 0) {
+      return tables;
+    }
+    const rows = clusterByY(textItems);
+    const tableRegions = identifyTableRegions(rows);
+    for (let tableIndex = 0;tableIndex < tableRegions.length; tableIndex++) {
+      const region = tableRegions[tableIndex];
+      if (!region)
+        continue;
+      const tableRows = [];
+      const tableCells = [];
+      for (let rowIndex = 0;rowIndex < region.rows.length; rowIndex++) {
+        const row = region.rows[rowIndex];
+        if (!row)
+          continue;
+        const assigned = assignToTableCells(row, rowIndex, region.columnBoundaries);
+        tableRows.push(assigned.rowValues);
+        tableCells.push(...assigned.cells);
+      }
+      const confidence = calculateConfidence(region.rows, region.columnBoundaries);
+      const tableBoundingBox = mergeBoundingBoxes(tableCells.map((cell) => cell.bounding_box).filter((box) => box !== undefined));
+      if (confidence >= 0.3) {
+        tables.push({
+          page: pageNum,
+          tableIndex,
+          rows: tableRows,
+          cells: tableCells,
+          ...tableBoundingBox ? { bounding_box: tableBoundingBox } : {},
+          rowCount: tableRows.length,
+          colCount: region.columnBoundaries.length,
+          confidence: Math.round(confidence * 100) / 100
+        });
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger2.warn("Error extracting tables from page", { pageNum, error: message });
+  }
+  return tables;
+};
+var extractTables = async (pdfDocument, pagesToProcess) => {
+  const allTables = [];
+  for (const pageNum of pagesToProcess) {
+    try {
+      const page = await pdfDocument.getPage(pageNum);
+      const pageTables = await extractTablesFromPage(page, pageNum);
+      allTables.push(...pageTables);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger2.warn("Error getting page for table extraction", { pageNum, error: message });
+    }
+  }
+  return allTables;
+};
+var tableToMarkdown = (table) => {
+  if (table.rows.length === 0)
+    return "";
+  const lines = [];
+  const headerRow = table.rows[0];
+  if (!headerRow)
+    return "";
+  lines.push(`| ${headerRow.map((cell) => cell.trim() || " ").join(" | ")} |`);
+  lines.push(`| ${headerRow.map(() => "---").join(" | ")} |`);
+  for (let i = 1;i < table.rows.length; i++) {
+    const row = table.rows[i];
+    if (!row)
+      continue;
+    const paddedRow = [...row];
+    while (paddedRow.length < headerRow.length) {
+      paddedRow.push("");
+    }
+    lines.push(`| ${paddedRow.map((cell) => cell.trim() || " ").join(" | ")} |`);
+  }
+  return lines.join(`
+`);
+};
+var tablesToMarkdown = (tables) => {
+  if (tables.length === 0)
+    return "";
+  const sections = ["## Extracted Tables", ""];
+  for (const table of tables) {
+    sections.push(`### Page ${table.page}, Table ${table.tableIndex + 1}`);
+    sections.push(`*Confidence: ${(table.confidence * 100).toFixed(0)}%*`);
+    sections.push("");
+    sections.push(tableToMarkdown(table));
+    sections.push("");
+  }
+  return sections.join(`
+`);
+};
+
+// src/pdf/documentModel.ts
+var DEFAULT_CHUNK_MAX_CHARS = 1800;
+var buildElementId = (page, type, index) => `p${String(page)}-${type}-${String(index)}`;
+var imageElementMetadata = (imageData) => {
+  const { data: _data, ...metadata } = imageData;
+  return metadata;
+};
+var buildPageTextStats = (items) => {
+  const heights = items.filter((item) => item.type === "text" && item.textContent?.trim() && item.height).map((item) => item.height).sort((a, b) => a - b);
+  if (heights.length === 0) {
+    return { maxHeight: 0, medianHeight: 0, textItemCount: 0 };
+  }
+  const midpoint = Math.floor(heights.length / 2);
+  const medianHeight = heights.length % 2 === 0 ? ((heights[midpoint - 1] ?? 0) + (heights[midpoint] ?? 0)) / 2 : heights[midpoint] ?? 0;
+  return {
+    maxHeight: heights.at(-1) ?? 0,
+    medianHeight,
+    textItemCount: heights.length
+  };
+};
+var buildSemanticHint = (item, stats) => {
+  if (item.type !== "text" || !item.textContent?.trim())
+    return;
+  const textContent = item.textContent.trim();
+  if (/^([-*]\s+|\d+[.)]\s+)/.test(textContent)) {
+    return {
+      role: "list_item",
+      confidence: 0.92,
+      signals: ["list-prefix"]
+    };
+  }
+  const height = item.height ?? 0;
+  const isShortLine = textContent.length <= 120;
+  const endsLikeSentence = /[.!?]$/.test(textContent);
+  const isLargeText = stats.textItemCount > 1 && height > 0 && stats.medianHeight > 0 && height >= stats.medianHeight * 1.3 && height >= stats.maxHeight * 0.8;
+  if (isLargeText && isShortLine && !endsLikeSentence) {
+    const ratio = height / stats.medianHeight;
+    const level = ratio >= 1.8 ? 1 : ratio >= 1.55 ? 2 : 3;
+    return {
+      role: "heading",
+      level,
+      confidence: 0.78,
+      signals: ["larger-text", "short-line"]
+    };
+  }
+  return {
+    role: "paragraph",
+    confidence: 0.5,
+    signals: ["default-text"]
+  };
+};
+var contentItemToElement = (item, page, index, semanticHint) => {
+  if (item.type === "text" && item.textContent?.trim()) {
+    return {
+      id: buildElementId(page, "text", index),
+      type: "text",
+      page,
+      content: item.textContent,
+      bounding_box: item.bounding_box,
+      provenance: {
+        engine: "pdfjs",
+        source: "text-content"
+      },
+      ...semanticHint ? { semantic_hint: semanticHint } : {}
+    };
+  }
+  if (item.type === "image" && item.imageData) {
+    return {
+      id: buildElementId(page, "image", index),
+      type: "image",
+      page,
+      image: imageElementMetadata(item.imageData),
+      bounding_box: item.bounding_box,
+      provenance: {
+        engine: "pdfjs",
+        source: "image-xobject"
+      }
+    };
+  }
+  return;
+};
+var buildStructuredElements = (pageContents, tables, includeSemanticHints) => {
+  const elements = [];
+  const tablesByPage = new Map;
+  for (const table of tables ?? []) {
+    const pageTables = tablesByPage.get(table.page) ?? [];
+    pageTables.push(table);
+    tablesByPage.set(table.page, pageTables);
+  }
+  const appendTableElement = (table) => {
+    elements.push({
+      id: buildElementId(table.page, "table", table.tableIndex + 1),
+      type: "table",
+      page: table.page,
+      table: {
+        rows: table.rows,
+        ...table.cells ? { cells: table.cells } : {},
+        ...table.bounding_box ? { bounding_box: table.bounding_box } : {},
+        rowCount: table.rowCount,
+        colCount: table.colCount,
+        confidence: table.confidence
+      },
+      bounding_box: table.bounding_box,
+      confidence: table.confidence,
+      provenance: {
+        engine: "pdfjs",
+        source: "table-detector"
+      }
+    });
+  };
+  for (const pageContent of pageContents) {
+    const stats = includeSemanticHints ? buildPageTextStats(pageContent.items) : undefined;
+    let elementIndex = 1;
+    for (const item of pageContent.items) {
+      const semanticHint = stats ? buildSemanticHint(item, stats) : undefined;
+      const element = contentItemToElement(item, pageContent.page, elementIndex, semanticHint);
+      if (element) {
+        elements.push(element);
+        elementIndex++;
+      }
+    }
+    const pageTables = tablesByPage.get(pageContent.page);
+    if (pageTables) {
+      for (const table of pageTables.sort((a, b) => a.tableIndex - b.tableIndex)) {
+        appendTableElement(table);
+      }
+      tablesByPage.delete(pageContent.page);
+    }
+  }
+  const remainingTables = Array.from(tablesByPage.values()).flat().sort((a, b) => a.page - b.page || a.tableIndex - b.tableIndex);
+  for (const table of remainingTables) {
+    appendTableElement(table);
+  }
+  return elements;
+};
+var renderMarkdownFromPageContents = (pageContents, tables) => {
+  const sections = [];
+  for (const pageContent of pageContents) {
+    const pageLines = [`## Page ${String(pageContent.page)}`, ""];
+    for (const item of pageContent.items) {
+      if (item.type === "text" && item.textContent?.trim()) {
+        pageLines.push(item.textContent.trim(), "");
+      } else if (item.type === "image" && item.imageData) {
+        pageLines.push(`[Image ${String(item.imageData.index + 1)}: ${String(item.imageData.width)}x${String(item.imageData.height)} ${item.imageData.format}]`, "");
+      }
+    }
+    sections.push(pageLines.join(`
+`).trimEnd());
+  }
+  if (tables && tables.length > 0) {
+    sections.push(tablesToMarkdown(tables));
+  }
+  return sections.join(`
+
+`).trim();
+};
+var escapeHtml = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+var renderTablesToHtml = (tables) => {
+  if (!tables || tables.length === 0)
+    return [];
+  return tables.map((table) => {
+    const rows = table.rows.map((row) => {
+      const cells = row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("");
+      return `<tr>${cells}</tr>`;
+    }).join(`
+`);
+    return [
+      `<table data-page="${String(table.page)}" data-table-index="${String(table.tableIndex)}">`,
+      "<tbody>",
+      rows,
+      "</tbody>",
+      "</table>"
+    ].join(`
+`);
+  });
+};
+var renderHtmlFromPageContents = (pageContents, tables) => {
+  const sections = pageContents.map((pageContent) => {
+    const body = [
+      `<section data-page="${String(pageContent.page)}">`,
+      `<h2>Page ${String(pageContent.page)}</h2>`
+    ];
+    for (const item of pageContent.items) {
+      if (item.type === "text" && item.textContent?.trim()) {
+        body.push(`<p>${escapeHtml(item.textContent.trim())}</p>`);
+      } else if (item.type === "image" && item.imageData) {
+        body.push([
+          `<figure data-image-index="${String(item.imageData.index)}">`,
+          `<figcaption>Image ${String(item.imageData.index + 1)}: ${String(item.imageData.width)}x${String(item.imageData.height)} ${escapeHtml(item.imageData.format)}</figcaption>`,
+          "</figure>"
+        ].join(`
+`));
+      }
+    }
+    body.push("</section>");
+    return body.join(`
+`);
+  });
+  return [...sections, ...renderTablesToHtml(tables)].join(`
+
+`).trim();
+};
+var elementText = (element) => {
+  if (element.type === "text")
+    return element.content.trim();
+  if (element.type === "table") {
+    const tableText = element.table.rows.map((row) => row.join(" | ")).join(`
+`).trim();
+    return tableText.length > 0 ? tableText : undefined;
+  }
+  return;
+};
+var elementRole = (element) => element.type === "text" ? element.semantic_hint?.role : undefined;
+var chunkTextLength = (draft) => draft.textParts.reduce((sum, part) => sum + part.length + 1, 0);
+var createChunkDraft = (element, strategy, heading) => ({
+  pageStart: element.page,
+  pageEnd: element.page,
+  textParts: [],
+  elementIds: [],
+  boundingBoxes: [],
+  strategy,
+  heading
+});
+var addElementToChunk = (draft, element, textValue) => {
+  draft.pageEnd = Math.max(draft.pageEnd, element.page);
+  draft.textParts.push(textValue);
+  draft.elementIds.push(element.id);
+  if (element.bounding_box) {
+    draft.boundingBoxes.push(element.bounding_box);
+  }
+};
+var finalizeChunk = (draft, index) => {
+  const textValue = draft.textParts.join(`
+`).trim();
+  if (!textValue)
+    return;
+  return {
+    id: draft.pageStart === draft.pageEnd ? `p${String(draft.pageStart)}-chunk-${String(index)}` : `p${String(draft.pageStart)}-p${String(draft.pageEnd)}-chunk-${String(index)}`,
+    page_start: draft.pageStart,
+    page_end: draft.pageEnd,
+    text: textValue,
+    element_ids: draft.elementIds,
+    strategy: draft.strategy,
+    ...draft.heading ? { heading: draft.heading } : {},
+    ...draft.boundingBoxes.length > 0 ? { bounding_boxes: draft.boundingBoxes } : {}
+  };
+};
+var buildCitationChunks = (elements, options) => {
+  const maxChars = options.maxChars ?? DEFAULT_CHUNK_MAX_CHARS;
+  const chunks = [];
+  let current;
+  const pushCurrent = () => {
+    if (!current)
+      return;
+    const chunk = finalizeChunk(current, chunks.length + 1);
+    if (chunk)
+      chunks.push(chunk);
+    current = undefined;
+  };
+  for (const element of elements) {
+    const textValue = elementText(element);
+    if (!textValue)
+      continue;
+    const role = elementRole(element);
+    const shouldStartSemanticChunk = options.useSemanticBoundaries && role === "heading";
+    const shouldStartTableChunk = element.type === "table";
+    const exceedsSize = current !== undefined && current.elementIds.length > 0 && chunkTextLength(current) + textValue.length > maxChars;
+    const crossesPage = current !== undefined && current.pageEnd !== element.page;
+    if (shouldStartSemanticChunk || shouldStartTableChunk || exceedsSize || crossesPage) {
+      pushCurrent();
+    }
+    if (!current) {
+      const strategy = shouldStartSemanticChunk ? "semantic" : exceedsSize ? "size" : "page";
+      const heading = shouldStartSemanticChunk && element.type === "text" ? element.content.trim() : undefined;
+      current = createChunkDraft(element, strategy, heading);
+    }
+    if (element.type === "table" && current.elementIds.length === 0) {
+      current.strategy = "table";
+    }
+    addElementToChunk(current, element, textValue);
+    if (element.type === "table") {
+      pushCurrent();
+    }
+  }
+  pushCurrent();
+  return chunks;
+};
+var PROMPT_INJECTION_PATTERNS = [
+  /\bignore (all )?(previous|prior|above) instructions\b/i,
+  /\bdisregard (previous|prior|above) instructions\b/i,
+  /\bsystem prompt\b/i,
+  /\bdeveloper (message|instruction)s?\b/i,
+  /\bdo not (follow|obey) .*instructions\b/i
+];
+var snippetFromText = (value) => {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
+};
+var isOutsideViewBox = (box, viewBox) => {
+  if (!box || !viewBox)
+    return false;
+  const tolerance = 1;
+  return box.right < viewBox.left - tolerance || box.left > viewBox.right + tolerance || box.top < viewBox.bottom - tolerance || box.bottom > viewBox.top + tolerance;
+};
+var buildSafetyFindings = (pageContents, pageGeometry) => {
+  const findings = [];
+  const geometryByPage = new Map(pageGeometry?.map((geometry) => [geometry.page, geometry]));
+  for (const pageContent of pageContents) {
+    let elementIndex = 1;
+    const geometry = geometryByPage.get(pageContent.page);
+    for (const item of pageContent.items) {
+      const element = contentItemToElement(item, pageContent.page, elementIndex);
+      if (!element) {
+        continue;
+      }
+      if (element.type === "text") {
+        const textContent = element.content.trim();
+        const snippet = snippetFromText(textContent);
+        if (PROMPT_INJECTION_PATTERNS.some((pattern) => pattern.test(textContent))) {
+          findings.push({
+            type: "prompt_injection_pattern",
+            severity: "high",
+            page: pageContent.page,
+            element_id: element.id,
+            message: "Text matches a common prompt-injection instruction pattern.",
+            snippet,
+            ...element.bounding_box ? { bounding_box: element.bounding_box } : {}
+          });
+        }
+        if (item.height !== undefined && item.height > 0 && item.height < 2) {
+          findings.push({
+            type: "tiny_text",
+            severity: "medium",
+            page: pageContent.page,
+            element_id: element.id,
+            message: "Text is unusually small and may be hidden, decorative, or extraction noise.",
+            snippet,
+            ...element.bounding_box ? { bounding_box: element.bounding_box } : {}
+          });
+        }
+        if (isOutsideViewBox(element.bounding_box, geometry?.view_box)) {
+          findings.push({
+            type: "off_page_text",
+            severity: "medium",
+            page: pageContent.page,
+            element_id: element.id,
+            message: "Text bounding box falls outside the PDF page view box.",
+            snippet,
+            ...element.bounding_box ? { bounding_box: element.bounding_box } : {}
+          });
+        }
+      }
+      elementIndex++;
+    }
+  }
+  return findings;
+};
+
 // src/pdf/extractor.ts
-var logger2 = createLogger("Extractor");
+import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { PNG } from "pngjs";
+var logger3 = createLogger("Extractor");
+var TEXT_SEGMENT_GAP_THRESHOLD = 48;
+var COLUMN_CUT_MIN_GAP = 48;
+var COLUMN_CUT_MIN_WIDTH_RATIO = 0.12;
+var SPANNING_WIDTH_RATIO = 0.72;
+var mergeBoundingBoxes2 = (boxes) => {
+  const validBoxes = boxes.filter((box) => box !== undefined);
+  if (validBoxes.length === 0)
+    return;
+  return {
+    left: Math.min(...validBoxes.map((box) => box.left)),
+    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
+    right: Math.max(...validBoxes.map((box) => box.right)),
+    top: Math.max(...validBoxes.map((box) => box.top))
+  };
+};
+var buildBoundingBox2 = (x, y, width, height) => {
+  if (x === undefined || y === undefined || width === undefined || height === undefined) {
+    return;
+  }
+  if (![x, y, width, height].every(Number.isFinite)) {
+    return;
+  }
+  return {
+    left: x,
+    bottom: y,
+    right: x + Math.max(0, width),
+    top: y + Math.max(0, height)
+  };
+};
+var buildRectBoundingBox = (rect) => {
+  if (!rect || rect.length < 4)
+    return;
+  const [x1, y1, x2, y2] = rect;
+  if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined || ![x1, y1, x2, y2].every(Number.isFinite)) {
+    return;
+  }
+  return {
+    left: Math.min(x1, x2),
+    bottom: Math.min(y1, y2),
+    right: Math.max(x1, x2),
+    top: Math.max(y1, y2)
+  };
+};
+var finiteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+var textFromAnnotationField = (direct, objectValue) => {
+  const value = direct ?? objectValue?.str;
+  return value && value.trim().length > 0 ? value : undefined;
+};
+var sanitizeOutlineItems = (items) => items.map((item) => {
+  const title = item.title?.trim();
+  if (!title)
+    return;
+  const children = item.items ? sanitizeOutlineItems(item.items) : undefined;
+  return {
+    title,
+    ...item.bold !== undefined ? { bold: item.bold } : {},
+    ...item.italic !== undefined ? { italic: item.italic } : {},
+    ...item.color ? { color: Array.from(item.color) } : {},
+    ...item.url ? { url: item.url } : {},
+    ...item.dest !== undefined ? { dest: item.dest } : {},
+    ...children && children.length > 0 ? { items: children } : {}
+  };
+}).filter((item) => item !== undefined);
+var PDF_PERMISSION_LABELS = new Map([
+  [4, "print"],
+  [8, "modify"],
+  [16, "copy"],
+  [32, "annotate"],
+  [256, "fill_forms"],
+  [512, "copy_for_accessibility"],
+  [1024, "assemble"],
+  [2048, "print_high_quality"]
+]);
+var permissionLabels = (permissions) => permissions.map((permission) => PDF_PERMISSION_LABELS.get(permission) ?? `unknown:${String(permission)}`);
+var attachmentSize = (content) => {
+  if (!content)
+    return;
+  if ("byteLength" in content && typeof content.byteLength === "number") {
+    return content.byteLength;
+  }
+  if ("length" in content && typeof content.length === "number") {
+    return content.length;
+  }
+  return;
+};
+var textSegmentToContentItem = (y, segment) => {
+  const textContent = segment.map((part) => part.text).join("");
+  if (!textContent.trim())
+    return null;
+  const boundingBox = mergeBoundingBoxes2(segment.map((part) => part.bounding_box));
+  const xPosition = boundingBox?.left ?? segment[0]?.x;
+  const width = boundingBox !== undefined ? boundingBox.right - boundingBox.left : segment.reduce((sum, part) => sum + part.width, 0);
+  const height = boundingBox !== undefined ? boundingBox.top - boundingBox.bottom : Math.max(...segment.map((part) => part.height), 0);
+  return {
+    type: "text",
+    yPosition: y,
+    xPosition,
+    width,
+    height,
+    bounding_box: boundingBox,
+    textContent
+  };
+};
+var splitTextPartsIntoSegments = (parts) => {
+  const sortedParts = [...parts].sort((a, b) => a.x - b.x);
+  const segments = [];
+  let currentSegment = [];
+  let previousRight;
+  for (const part of sortedParts) {
+    if (previousRight !== undefined && part.x - previousRight > TEXT_SEGMENT_GAP_THRESHOLD) {
+      if (currentSegment.length > 0) {
+        segments.push(currentSegment);
+      }
+      currentSegment = [];
+    }
+    currentSegment.push(part);
+    previousRight = Math.max(previousRight ?? part.x, part.x + part.width);
+  }
+  if (currentSegment.length > 0) {
+    segments.push(currentSegment);
+  }
+  return segments;
+};
+var sortByYThenX = (items) => [...items].sort((a, b) => b.yPosition - a.yPosition || (a.xPosition ?? 0) - (b.xPosition ?? 0));
+var findVerticalColumnCut = (items) => {
+  const boxedItems = items.filter((item) => item.bounding_box !== undefined);
+  if (boxedItems.length < 4)
+    return;
+  const left = Math.min(...boxedItems.map((item) => item.bounding_box?.left ?? 0));
+  const right = Math.max(...boxedItems.map((item) => item.bounding_box?.right ?? 0));
+  const pageWidth = right - left;
+  if (pageWidth <= 0)
+    return;
+  const narrowItems = boxedItems.filter((item) => {
+    const box = item.bounding_box;
+    if (!box)
+      return false;
+    return box.right - box.left < pageWidth * SPANNING_WIDTH_RATIO;
+  });
+  if (narrowItems.length < 4)
+    return;
+  const sorted = [...narrowItems].sort((a, b) => (a.bounding_box?.left ?? 0) - (b.bounding_box?.left ?? 0));
+  let currentRight = sorted[0]?.bounding_box?.right;
+  if (currentRight === undefined)
+    return;
+  let largestGap = 0;
+  let cutPosition;
+  for (let i = 1;i < sorted.length; i++) {
+    const box = sorted[i]?.bounding_box;
+    if (!box)
+      continue;
+    if (box.left > currentRight) {
+      const gap = box.left - currentRight;
+      if (gap > largestGap) {
+        largestGap = gap;
+        cutPosition = (box.left + currentRight) / 2;
+      }
+    }
+    currentRight = Math.max(currentRight, box.right);
+  }
+  if (cutPosition === undefined)
+    return;
+  const minGap = Math.max(COLUMN_CUT_MIN_GAP, pageWidth * COLUMN_CUT_MIN_WIDTH_RATIO);
+  if (largestGap < minGap)
+    return;
+  const leftCount = narrowItems.filter((item) => {
+    const box = item.bounding_box;
+    if (!box)
+      return false;
+    return (box.left + box.right) / 2 < cutPosition;
+  }).length;
+  const rightCount = narrowItems.length - leftCount;
+  return leftCount >= 2 && rightCount >= 2 ? cutPosition : undefined;
+};
+var sortPageContentItems = (items) => {
+  const cutPosition = findVerticalColumnCut(items);
+  if (cutPosition === undefined)
+    return sortByYThenX(items);
+  const leftColumn = [];
+  const rightColumn = [];
+  const spanning = [];
+  for (const item of items) {
+    const box = item.bounding_box;
+    if (!box) {
+      spanning.push(item);
+      continue;
+    }
+    if (box.left < cutPosition && box.right > cutPosition) {
+      spanning.push(item);
+      continue;
+    }
+    const center = (box.left + box.right) / 2;
+    if (center < cutPosition) {
+      leftColumn.push(item);
+    } else {
+      rightColumn.push(item);
+    }
+  }
+  const columnItems = [...leftColumn, ...rightColumn].filter((item) => item.bounding_box);
+  const highestColumnTop = columnItems.length > 0 ? Math.max(...columnItems.map((item) => item.bounding_box?.top ?? item.yPosition)) : Number.POSITIVE_INFINITY;
+  const topSpanning = spanning.filter((item) => (item.bounding_box?.top ?? item.yPosition) >= highestColumnTop);
+  const remainingSpanning = spanning.filter((item) => (item.bounding_box?.top ?? item.yPosition) < highestColumnTop);
+  return [
+    ...sortByYThenX(topSpanning),
+    ...sortByYThenX(leftColumn),
+    ...sortByYThenX(rightColumn),
+    ...sortByYThenX(remainingSpanning)
+  ];
+};
 var encodePixelsToPNG = (pixelData, width, height, channels) => {
   const png = new PNG({ width, height });
   if (channels === 4) {
@@ -144,7 +1036,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error getting image from commonObjs", { imageName, error: message });
+      logger3.warn("Error getting image from commonObjs", { imageName, error: message });
     }
   }
   try {
@@ -154,7 +1046,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger2.warn("Sync image get failed, trying async", { imageName, error: message });
+    logger3.warn("Sync image get failed, trying async", { imageName, error: message });
   }
   return new Promise((resolve) => {
     let resolved = false;
@@ -169,7 +1061,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
       if (!resolved) {
         resolved = true;
         cleanup();
-        logger2.warn("Image extraction timeout", { imageName, pageNum });
+        logger3.warn("Image extraction timeout", { imageName, pageNum });
         resolve(null);
       }
     }, 1e4);
@@ -186,7 +1078,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
         resolved = true;
         cleanup();
         const message = error instanceof Error ? error.message : String(error);
-        logger2.warn("Error in async image get", { imageName, error: message });
+        logger3.warn("Error in async image get", { imageName, error: message });
         resolve(null);
       }
     }
@@ -205,9 +1097,9 @@ var extractMetadataAndPageCount = async (pdfDocument, includeMetadata, includePa
         output.info = infoData;
       }
       const metadataObj = pdfMetadata.metadata;
-      if (typeof metadataObj.getAll === "function") {
+      if (metadataObj && typeof metadataObj.getAll === "function") {
         output.metadata = metadataObj.getAll();
-      } else {
+      } else if (metadataObj && typeof metadataObj === "object") {
         const metadataRecord = {};
         for (const key in metadataObj) {
           if (Object.hasOwn(metadataObj, key)) {
@@ -218,10 +1110,232 @@ var extractMetadataAndPageCount = async (pdfDocument, includeMetadata, includePa
       }
     } catch (metaError) {
       const message = metaError instanceof Error ? metaError.message : String(metaError);
-      logger2.warn("Error extracting metadata", { error: message });
+      logger3.warn("Error extracting metadata", { error: message });
     }
   }
   return output;
+};
+var extractDocumentStructure = async (pdfDocument, options) => {
+  const documentWithStructure = pdfDocument;
+  const output = {};
+  if (options.includeOutline && typeof documentWithStructure.getOutline === "function") {
+    try {
+      const outline = await documentWithStructure.getOutline();
+      if (outline && outline.length > 0) {
+        output.outline = sanitizeOutlineItems(outline);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting outline", { error: message });
+    }
+  }
+  if (options.includePageLabels && typeof documentWithStructure.getPageLabels === "function") {
+    try {
+      const pageLabels = await documentWithStructure.getPageLabels();
+      if (pageLabels && pageLabels.length > 0) {
+        output.page_labels = pageLabels;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting page labels", { error: message });
+    }
+  }
+  if (options.includePermissions && typeof documentWithStructure.getPermissions === "function") {
+    try {
+      const permissions = await documentWithStructure.getPermissions();
+      if (permissions && permissions.length > 0) {
+        output.permissions = permissionLabels(permissions);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting permissions", { error: message });
+    }
+  }
+  if (options.includePermissions && typeof documentWithStructure.getMarkInfo === "function") {
+    try {
+      const markInfo = await documentWithStructure.getMarkInfo();
+      if (markInfo && Object.keys(markInfo).length > 0) {
+        output.mark_info = markInfo;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting mark info", { error: message });
+    }
+  }
+  if (options.includeFormFields && typeof documentWithStructure.getFieldObjects === "function") {
+    try {
+      const fieldObjects = await documentWithStructure.getFieldObjects();
+      if (fieldObjects) {
+        const fields = Object.entries(fieldObjects).flatMap(([name, fieldOrFields]) => {
+          const fieldList = Array.isArray(fieldOrFields) ? fieldOrFields : [fieldOrFields];
+          return fieldList.map((field) => normalizeFormField(name, field));
+        }).filter((field) => field !== undefined);
+        if (fields.length > 0) {
+          output.form_fields = fields;
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting form fields", { error: message });
+    }
+  }
+  if (options.includeAttachments && typeof documentWithStructure.getAttachments === "function") {
+    try {
+      const attachments = await documentWithStructure.getAttachments();
+      if (attachments) {
+        const attachmentSummaries = Object.entries(attachments).map(([name, attachment]) => {
+          const size = attachmentSize(attachment.content);
+          return {
+            name,
+            ...attachment.filename ? { filename: attachment.filename } : {},
+            ...attachment.description ? { description: attachment.description } : {},
+            ...size !== undefined ? { size_bytes: size } : {}
+          };
+        });
+        if (attachmentSummaries.length > 0) {
+          output.attachments = attachmentSummaries;
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting attachments", { error: message });
+    }
+  }
+  return output;
+};
+var normalizeFormField = (fallbackName, field) => {
+  const name = (field.name ?? field.fieldName ?? fallbackName).trim();
+  if (!name)
+    return;
+  const page = field.page !== undefined ? field.page : field.pageIndex !== undefined ? field.pageIndex + 1 : undefined;
+  const fieldType = field.type ?? field.fieldType;
+  const boundingBox = buildRectBoundingBox(field.rect);
+  return {
+    name,
+    ...fieldType ? { type: fieldType } : {},
+    ...field.value !== undefined ? { value: field.value } : {},
+    ...field.defaultValue !== undefined ? { default_value: field.defaultValue } : {},
+    ...page !== undefined ? { page } : {},
+    ...field.id ? { id: field.id } : {},
+    ...field.editable !== undefined ? { editable: field.editable } : {},
+    ...field.required !== undefined ? { required: field.required } : {},
+    ...boundingBox ? { bounding_box: boundingBox } : {}
+  };
+};
+var normalizeAnnotation = (annotation, pageNum) => {
+  const contents = textFromAnnotationField(annotation.contents, annotation.contentsObj);
+  const title = textFromAnnotationField(annotation.title, annotation.titleObj);
+  const boundingBox = buildRectBoundingBox(annotation.rect);
+  const subtype = annotation.subtype?.trim();
+  const url = annotation.url ?? annotation.unsafeUrl;
+  if (!annotation.id && !subtype && !contents && !title && !url && annotation.dest === undefined) {
+    return;
+  }
+  return {
+    page: pageNum,
+    ...annotation.id ? { id: annotation.id } : {},
+    ...subtype ? { subtype } : {},
+    ...contents ? { contents } : {},
+    ...title ? { title } : {},
+    ...url ? { url } : {},
+    ...annotation.dest !== undefined ? { dest: annotation.dest } : {},
+    ...boundingBox ? { bounding_box: boundingBox } : {}
+  };
+};
+var isRecord = (value) => typeof value === "object" && value !== null;
+var normalizeStructureTreeContent = (rawContent) => {
+  const type = typeof rawContent.type === "string" ? rawContent.type.trim() : "";
+  const id = typeof rawContent.id === "string" ? rawContent.id.trim() : "";
+  if (!type && !id)
+    return;
+  return {
+    type: type || "content",
+    ...id ? { id } : {}
+  };
+};
+var normalizeStructureTreeChild = (rawChild) => {
+  if (!isRecord(rawChild))
+    return;
+  if ("role" in rawChild || "children" in rawChild) {
+    return normalizeStructureTreeNode(rawChild);
+  }
+  return normalizeStructureTreeContent(rawChild);
+};
+var normalizeStructureTreeNode = (rawNode) => {
+  const role = typeof rawNode.role === "string" && rawNode.role.trim() ? rawNode.role.trim() : "Unknown";
+  const children = Array.isArray(rawNode.children) ? rawNode.children.map((child) => normalizeStructureTreeChild(child)).filter((child) => child !== undefined) : [];
+  return {
+    role,
+    ...children.length > 0 ? { children } : {}
+  };
+};
+var extractAnnotations = async (pdfDocument, pagesToProcess) => {
+  const pageAnnotations = [];
+  for (const pageNum of pagesToProcess) {
+    try {
+      const page = await pdfDocument.getPage(pageNum);
+      if (typeof page.getAnnotations !== "function")
+        continue;
+      const annotations = await page.getAnnotations({ intent: "display" });
+      const normalized = annotations.map((annotation) => normalizeAnnotation(annotation, pageNum)).filter((annotation) => annotation !== undefined);
+      if (normalized.length > 0) {
+        pageAnnotations.push({ page: pageNum, annotations: normalized });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting annotations from page", { pageNum, error: message });
+    }
+  }
+  return pageAnnotations;
+};
+var extractStructureTrees = async (pdfDocument, pagesToProcess) => {
+  const pageStructureTrees = [];
+  for (const pageNum of pagesToProcess) {
+    try {
+      const page = await pdfDocument.getPage(pageNum);
+      if (typeof page.getStructTree !== "function")
+        continue;
+      const rawTree = await page.getStructTree();
+      if (!rawTree)
+        continue;
+      pageStructureTrees.push({
+        page: pageNum,
+        tree: normalizeStructureTreeNode(rawTree)
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting structure tree", { pageNum, error: message });
+    }
+  }
+  return pageStructureTrees;
+};
+var extractPageGeometry = async (pdfDocument, pagesToProcess) => {
+  const pageGeometry = [];
+  for (const pageNum of pagesToProcess) {
+    try {
+      const page = await pdfDocument.getPage(pageNum);
+      const viewBox = buildRectBoundingBox(page.view);
+      const viewport = page.getViewport({ scale: 1 });
+      const width = finiteNumber(viewport.width) ? viewport.width : viewBox ? viewBox.right - viewBox.left : undefined;
+      const height = finiteNumber(viewport.height) ? viewport.height : viewBox ? viewBox.top - viewBox.bottom : undefined;
+      if (!finiteNumber(width) || !finiteNumber(height)) {
+        logger3.warn("Skipping page geometry with invalid dimensions", { pageNum });
+        continue;
+      }
+      pageGeometry.push({
+        page: pageNum,
+        width,
+        height,
+        rotation: finiteNumber(page.rotate) ? page.rotate : 0,
+        ...finiteNumber(page.userUnit) ? { user_unit: page.userUnit } : {},
+        ...viewBox ? { view_box: viewBox } : {}
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger3.warn("Error extracting page geometry", { pageNum, error: message });
+    }
+  }
+  return pageGeometry;
 };
 var buildWarnings = (invalidPages, totalPages) => {
   if (invalidPages.length === 0) {
@@ -239,23 +1353,31 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
     const textByY = new Map;
     for (const item of textContent.items) {
       const textItem = item;
-      const yCoord = textItem.transform[5];
+      const xCoord = textItem.transform?.[4];
+      const yCoord = textItem.transform?.[5];
       if (yCoord === undefined)
         continue;
       const y = Math.round(yCoord);
+      const width = textItem.width ?? textItem.str.length * 6;
+      const height = textItem.height ?? Math.abs(textItem.transform?.[3] ?? 0);
+      const boundingBox = buildBoundingBox2(xCoord, yCoord, width, height);
       if (!textByY.has(y)) {
         textByY.set(y, []);
       }
-      textByY.get(y)?.push(textItem.str);
+      textByY.get(y)?.push({
+        text: textItem.str,
+        x: xCoord ?? 0,
+        width,
+        height,
+        bounding_box: boundingBox
+      });
     }
     for (const [y, textParts] of textByY.entries()) {
-      const textContent2 = textParts.join("");
-      if (textContent2.trim()) {
-        contentItems.push({
-          type: "text",
-          yPosition: y,
-          textContent: textContent2
-        });
+      for (const segment of splitTextPartsIntoSegments(textParts)) {
+        const contentItem = textSegmentToContentItem(y, segment);
+        if (contentItem) {
+          contentItems.push(contentItem);
+        }
       }
     }
     if (includeImages) {
@@ -273,10 +1395,15 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
           return null;
         }
         const imageName = argsArray[0];
-        let yPosition = 0;
+        let xPosition;
+        let yPosition;
         if (argsArray.length > 1 && Array.isArray(argsArray[1])) {
           const transform = argsArray[1];
+          const xCoord = transform[4];
           const yCoord = transform[5];
+          if (xCoord !== undefined) {
+            xPosition = Math.round(xCoord);
+          }
           if (yCoord !== undefined) {
             yPosition = Math.round(yCoord);
           }
@@ -284,9 +1411,15 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
         const imageData = await retrieveImageData(page, imageName, pageNum);
         const extractedImage = processImageData(imageData, pageNum, arrayIndex);
         if (extractedImage) {
+          const imageBox = buildBoundingBox2(xPosition, yPosition, extractedImage.width, extractedImage.height);
+          extractedImage.bounding_box = imageBox;
           return {
             type: "image",
-            yPosition,
+            yPosition: imageBox?.top ?? yPosition ?? 0,
+            xPosition,
+            width: extractedImage.width,
+            height: extractedImage.height,
+            bounding_box: imageBox,
             imageData: extractedImage
           };
         }
@@ -298,7 +1431,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger2.warn("Error extracting page content", {
+    logger3.warn("Error extracting page content", {
       pageNum,
       sourceDescription,
       error: message
@@ -311,7 +1444,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
       }
     ];
   }
-  return contentItems.sort((a, b) => b.yPosition - a.yPosition);
+  return sortPageContentItems(contentItems);
 };
 
 // src/pdf/loader.ts
@@ -527,7 +1660,7 @@ var resolvePath = (userPath) => {
 };
 
 // src/pdf/loader.ts
-var logger3 = createLogger("Loader");
+var logger4 = createLogger("Loader");
 var require2 = createRequire(import.meta.url);
 var PDFJS_ROOT = require2.resolve("pdfjs-dist/package.json").replace("package.json", "");
 var CMAP_URL = `${PDFJS_ROOT}cmaps/`;
@@ -651,7 +1784,7 @@ var fetchUrlBody = async (url, config) => {
       throw new PdfError(-32600 /* InvalidRequest */, `URL fetch timed out after ${String(URL_FETCH_TIMEOUT_MS / 1000)}s.`, { cause: err });
     }
     const message = err instanceof Error ? err.message : String(err);
-    logger3.warn("URL fetch failed", { url, error: message });
+    logger4.warn("URL fetch failed", { url, error: message });
     throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed for '${url}'.`, {
       cause: err instanceof Error ? err : undefined
     });
@@ -676,7 +1809,7 @@ var loadPdfDocument = async (source, sourceDescription) => {
       throw err;
     }
     const message = err instanceof Error ? err.message : String(err);
-    logger3.error("Unexpected error preparing PDF source", {
+    logger4.error("Unexpected error preparing PDF source", {
       sourceDescription: safeSource,
       error: message
     });
@@ -696,13 +1829,13 @@ var loadPdfDocument = async (source, sourceDescription) => {
     return await loadingTask.promise;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger3.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
+    logger4.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
     throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${safeSource}.`, { cause: err instanceof Error ? err : undefined });
   }
 };
 
 // src/pdf/parser.ts
-var logger4 = createLogger("Parser");
+var logger5 = createLogger("Parser");
 var MAX_RANGE_SIZE = 1e4;
 var parseRangePart = (part, pages) => {
   const trimmedPart = part.trim();
@@ -720,7 +1853,7 @@ var parseRangePart = (part, pages) => {
       pages.add(i);
     }
     if (end === Infinity && practicalEnd === start + MAX_RANGE_SIZE) {
-      logger4.warn("Open-ended range truncated", { start, practicalEnd });
+      logger5.warn("Open-ended range truncated", { start, practicalEnd });
     }
   } else {
     const page = parseInt(trimmedPart, 10);
@@ -775,280 +1908,6 @@ var determinePagesToProcess = (targetPages, totalPages, includeFullText) => {
   return { pagesToProcess: [], invalidPages: [] };
 };
 
-// src/pdf/tableExtractor.ts
-var logger5 = createLogger("TableExtractor");
-var Y_TOLERANCE = 5;
-var COLUMN_GAP_THRESHOLD = 15;
-var MIN_ROWS = 2;
-var MIN_COLS = 2;
-var MIN_ROW_ITEMS = 2;
-var extractTextItemsWithPositions = async (page) => {
-  const textContent = await page.getTextContent();
-  const items = [];
-  for (const item of textContent.items) {
-    const textItem = item;
-    if (!textItem.str.trim())
-      continue;
-    if (!textItem.transform || textItem.transform.length < 6)
-      continue;
-    const x = textItem.transform[4];
-    const y = textItem.transform[5];
-    if (x === undefined || y === undefined)
-      continue;
-    items.push({
-      text: textItem.str,
-      x,
-      y,
-      width: textItem.width ?? textItem.str.length * 6
-    });
-  }
-  return items;
-};
-var clusterByY = (items, tolerance = Y_TOLERANCE) => {
-  if (items.length === 0)
-    return [];
-  const sorted = [...items].sort((a, b) => b.y - a.y);
-  const firstItem = sorted[0];
-  if (!firstItem)
-    return [];
-  const rows = [];
-  let currentRow = { y: firstItem.y, items: [firstItem] };
-  for (let i = 1;i < sorted.length; i++) {
-    const item = sorted[i];
-    if (!item)
-      continue;
-    const yDiff = Math.abs(currentRow.y - item.y);
-    if (yDiff <= tolerance) {
-      currentRow.items.push(item);
-    } else {
-      rows.push(currentRow);
-      currentRow = { y: item.y, items: [item] };
-    }
-  }
-  rows.push(currentRow);
-  for (const row of rows) {
-    row.items.sort((a, b) => a.x - b.x);
-  }
-  return rows;
-};
-var detectColumnBoundaries = (rows, gapThreshold = COLUMN_GAP_THRESHOLD) => {
-  if (rows.length === 0)
-    return [];
-  const allXPositions = [];
-  for (const row of rows) {
-    for (const item of row.items) {
-      allXPositions.push(item.x);
-    }
-  }
-  if (allXPositions.length === 0)
-    return [];
-  allXPositions.sort((a, b) => a - b);
-  const firstX = allXPositions[0];
-  if (firstX === undefined)
-    return [];
-  const boundaries = [firstX];
-  for (let i = 1;i < allXPositions.length; i++) {
-    const current = allXPositions[i];
-    const previous = allXPositions[i - 1];
-    if (current === undefined || previous === undefined)
-      continue;
-    const gap = current - previous;
-    if (gap >= gapThreshold) {
-      boundaries.push(current);
-    }
-  }
-  return boundaries;
-};
-var assignToColumns = (row, columnBoundaries, tolerance = COLUMN_GAP_THRESHOLD / 2) => {
-  const cells = new Array(columnBoundaries.length).fill("");
-  for (const item of row.items) {
-    let colIndex = 0;
-    for (let i = columnBoundaries.length - 1;i >= 0; i--) {
-      const boundary = columnBoundaries[i];
-      if (boundary !== undefined && item.x >= boundary - tolerance) {
-        colIndex = i;
-        break;
-      }
-    }
-    const current = cells[colIndex];
-    cells[colIndex] = current ? `${current} ${item.text}` : item.text;
-  }
-  return cells;
-};
-var calculateConfidence = (rows, columnBoundaries) => {
-  if (rows.length < MIN_ROWS || columnBoundaries.length < MIN_COLS) {
-    return 0;
-  }
-  let score = 0;
-  let checks = 0;
-  for (const row of rows) {
-    const itemsPerColumn = new Set;
-    for (const item of row.items) {
-      for (let i = columnBoundaries.length - 1;i >= 0; i--) {
-        const boundary = columnBoundaries[i];
-        if (boundary !== undefined && item.x >= boundary - COLUMN_GAP_THRESHOLD / 2) {
-          itemsPerColumn.add(i);
-          break;
-        }
-      }
-    }
-    score += itemsPerColumn.size / columnBoundaries.length;
-    checks++;
-  }
-  if (rows.length >= 2) {
-    const spacings = [];
-    for (let i = 1;i < rows.length; i++) {
-      const prevRow = rows[i - 1];
-      const currRow = rows[i];
-      if (prevRow && currRow) {
-        spacings.push(Math.abs(prevRow.y - currRow.y));
-      }
-    }
-    if (spacings.length > 0) {
-      const avgSpacing = spacings.reduce((a, b) => a + b, 0) / spacings.length;
-      const variance = spacings.reduce((sum, s) => sum + (s - avgSpacing) ** 2, 0) / spacings.length;
-      const stdDev = Math.sqrt(variance);
-      const regularityScore = avgSpacing > 0 ? Math.max(0, 1 - stdDev / avgSpacing) : 0;
-      score += regularityScore;
-      checks++;
-    }
-  }
-  return checks > 0 ? Math.min(1, score / checks) : 0;
-};
-var identifyTableRegions = (rows) => {
-  const regions = [];
-  const candidateRows = rows.filter((row) => row.items.length >= MIN_ROW_ITEMS);
-  if (candidateRows.length < MIN_ROWS) {
-    return regions;
-  }
-  const columnBoundaries = detectColumnBoundaries(candidateRows);
-  if (columnBoundaries.length < MIN_COLS) {
-    return regions;
-  }
-  let currentRegion = [];
-  for (const row of candidateRows) {
-    const alignedItems = row.items.filter((item) => {
-      return columnBoundaries.some((boundary) => Math.abs(item.x - boundary) < COLUMN_GAP_THRESHOLD);
-    });
-    if (alignedItems.length >= MIN_COLS - 1) {
-      currentRegion.push(row);
-    } else if (currentRegion.length >= MIN_ROWS) {
-      const firstRow = currentRegion[0];
-      const lastRow = currentRegion[currentRegion.length - 1];
-      if (firstRow && lastRow) {
-        regions.push({
-          rows: currentRegion,
-          columnBoundaries,
-          startY: firstRow.y,
-          endY: lastRow.y
-        });
-      }
-      currentRegion = [];
-    } else {
-      currentRegion = [];
-    }
-  }
-  if (currentRegion.length >= MIN_ROWS) {
-    const firstRow = currentRegion[0];
-    const lastRow = currentRegion[currentRegion.length - 1];
-    if (firstRow && lastRow) {
-      regions.push({
-        rows: currentRegion,
-        columnBoundaries,
-        startY: firstRow.y,
-        endY: lastRow.y
-      });
-    }
-  }
-  return regions;
-};
-var extractTablesFromPage = async (page, pageNum) => {
-  const tables = [];
-  try {
-    const textItems = await extractTextItemsWithPositions(page);
-    if (textItems.length === 0) {
-      return tables;
-    }
-    const rows = clusterByY(textItems);
-    const tableRegions = identifyTableRegions(rows);
-    for (let tableIndex = 0;tableIndex < tableRegions.length; tableIndex++) {
-      const region = tableRegions[tableIndex];
-      if (!region)
-        continue;
-      const tableRows = [];
-      for (const row of region.rows) {
-        const cells = assignToColumns(row, region.columnBoundaries);
-        tableRows.push(cells);
-      }
-      const confidence = calculateConfidence(region.rows, region.columnBoundaries);
-      if (confidence >= 0.3) {
-        tables.push({
-          page: pageNum,
-          tableIndex,
-          rows: tableRows,
-          rowCount: tableRows.length,
-          colCount: region.columnBoundaries.length,
-          confidence: Math.round(confidence * 100) / 100
-        });
-      }
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger5.warn("Error extracting tables from page", { pageNum, error: message });
-  }
-  return tables;
-};
-var extractTables = async (pdfDocument, pagesToProcess) => {
-  const allTables = [];
-  for (const pageNum of pagesToProcess) {
-    try {
-      const page = await pdfDocument.getPage(pageNum);
-      const pageTables = await extractTablesFromPage(page, pageNum);
-      allTables.push(...pageTables);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger5.warn("Error getting page for table extraction", { pageNum, error: message });
-    }
-  }
-  return allTables;
-};
-var tableToMarkdown = (table) => {
-  if (table.rows.length === 0)
-    return "";
-  const lines = [];
-  const headerRow = table.rows[0];
-  if (!headerRow)
-    return "";
-  lines.push(`| ${headerRow.map((cell) => cell.trim() || " ").join(" | ")} |`);
-  lines.push(`| ${headerRow.map(() => "---").join(" | ")} |`);
-  for (let i = 1;i < table.rows.length; i++) {
-    const row = table.rows[i];
-    if (!row)
-      continue;
-    const paddedRow = [...row];
-    while (paddedRow.length < headerRow.length) {
-      paddedRow.push("");
-    }
-    lines.push(`| ${paddedRow.map((cell) => cell.trim() || " ").join(" | ")} |`);
-  }
-  return lines.join(`
-`);
-};
-var tablesToMarkdown = (tables) => {
-  if (tables.length === 0)
-    return "";
-  const sections = ["## Extracted Tables", ""];
-  for (const table of tables) {
-    sections.push(`### Page ${table.page}, Table ${table.tableIndex + 1}`);
-    sections.push(`*Confidence: ${(table.confidence * 100).toFixed(0)}%*`);
-    sections.push("");
-    sections.push(tableToMarkdown(table));
-    sections.push("");
-  }
-  return sections.join(`
-`);
-};
-
 // src/schemas/readPdf.ts
 import {
   array,
@@ -1075,7 +1934,21 @@ var readPdfArgsSchema = object({
   include_metadata: optional(bool(description("Include metadata and info objects for each PDF."))),
   include_page_count: optional(bool(description("Include the total number of pages for each PDF."))),
   include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
-  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures.")))
+  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures."))),
+  include_elements: optional(bool(description("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
+  include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, or paragraph."))),
+  include_markdown: optional(bool(description("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
+  include_html: optional(bool(description("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
+  include_chunks: optional(bool(description("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
+  include_outline: optional(bool(description("Include document outline/bookmark entries when the PDF exposes them."))),
+  include_annotations: optional(bool(description("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
+  include_page_labels: optional(bool(description("Include PDF page labels when available, such as roman numerals or section labels."))),
+  include_page_geometry: optional(bool(description("Include page viewport geometry such as width, height, rotation, user unit, and view box."))),
+  include_permissions: optional(bool(description("Include PDF permission and marking signals when exposed by the parser."))),
+  include_form_fields: optional(bool(description("Include PDF form field summaries when AcroForm fields are exposed."))),
+  include_attachments: optional(bool(description("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
+  include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
+  include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text.")))
 });
 
 // src/handlers/readPdf.ts
@@ -1091,47 +1964,103 @@ var processSingleSource = async (source, options) => {
     const totalPages = pdfDocument.numPages;
     const metadataOutput = await extractMetadataAndPageCount(pdfDocument, options.includeMetadata, options.includePageCount);
     const output = { ...metadataOutput };
-    const { pagesToProcess, invalidPages } = determinePagesToProcess(targetPages, totalPages, options.includeFullText);
+    const structureOutput = await extractDocumentStructure(pdfDocument, {
+      includeOutline: options.includeOutline,
+      includePageLabels: options.includePageLabels,
+      includePermissions: options.includePermissions,
+      includeFormFields: options.includeFormFields,
+      includeAttachments: options.includeAttachments
+    });
+    Object.assign(output, structureOutput);
+    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings;
+    const pageScopedMetadata = options.includeTables || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
+    const includeSelectedPageText = targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
+    const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
+    const { pagesToProcess, invalidPages } = determinePagesToProcess(targetPages, totalPages, shouldSelectPages);
     const warnings = buildWarnings(invalidPages, totalPages);
     if (warnings.length > 0) {
       output.warnings = warnings;
     }
     if (pagesToProcess.length > 0) {
-      const MAX_CONCURRENT_PAGES = 5;
-      const pageContents = [];
-      for (let i = 0;i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
-        const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
-        const batchResults = await Promise.all(batch.map((pageNum) => extractPageContent(pdfDocument, pageNum, options.includeImages, sourceDescription)));
-        pageContents.push(...batchResults);
-        if (i + MAX_CONCURRENT_PAGES < pagesToProcess.length) {
-          await new Promise((resolve) => setImmediate(resolve));
+      const needsPageContent = explicitPageContent || includeSelectedPageText;
+      let pageGeometry;
+      if (options.includePageGeometry || options.includeSafetyFindings) {
+        pageGeometry = await extractPageGeometry(pdfDocument, pagesToProcess);
+        if (pageGeometry.length > 0 && options.includePageGeometry) {
+          output.page_geometry = pageGeometry;
         }
       }
-      output.page_contents = pageContents.map((items, idx) => ({
-        page: pagesToProcess[idx],
-        items
-      }));
-      const extractedPageTexts = pageContents.map((items, idx) => ({
-        page: pagesToProcess[idx],
-        text: items.filter((item) => item.type === "text").map((item) => item.textContent).join("")
-      }));
-      if (targetPages) {
-        output.page_texts = extractedPageTexts;
-      } else {
-        output.full_text = extractedPageTexts.map((p) => p.text).join(`
+      if (needsPageContent) {
+        const MAX_CONCURRENT_PAGES = 5;
+        const pageContents = [];
+        for (let i = 0;i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
+          const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
+          const batchResults = await Promise.all(batch.map((pageNum) => extractPageContent(pdfDocument, pageNum, options.includeImages, sourceDescription)));
+          pageContents.push(...batchResults);
+          if (i + MAX_CONCURRENT_PAGES < pagesToProcess.length) {
+            await new Promise((resolve) => setImmediate(resolve));
+          }
+        }
+        output.page_contents = pageContents.map((items, idx) => ({
+          page: pagesToProcess[idx],
+          items
+        }));
+        const extractedPageTexts = pageContents.map((items, idx) => ({
+          page: pagesToProcess[idx],
+          text: items.filter((item) => item.type === "text").map((item) => item.textContent).join("")
+        }));
+        if (targetPages) {
+          output.page_texts = extractedPageTexts;
+        } else if (options.includeFullText) {
+          output.full_text = extractedPageTexts.map((p) => p.text).join(`
 
 `);
-      }
-      if (options.includeImages) {
-        const extractedImages = pageContents.flatMap((items) => items.filter((item) => item.type === "image" && item.imageData)).map((item) => item.imageData).filter((img) => img !== undefined);
-        if (extractedImages.length > 0) {
-          output.images = extractedImages;
+        }
+        if (options.includeImages) {
+          const extractedImages = pageContents.flatMap((items) => items.filter((item) => item.type === "image" && item.imageData)).map((item) => item.imageData).filter((img) => img !== undefined);
+          if (extractedImages.length > 0) {
+            output.images = extractedImages;
+          }
         }
       }
       if (options.includeTables) {
         const extractedTables = await extractTables(pdfDocument, pagesToProcess);
         if (extractedTables.length > 0) {
           output.tables = extractedTables;
+        }
+      }
+      const buildElementsForOutput = () => buildStructuredElements(output.page_contents ?? [], output.tables, options.includeSemanticHints);
+      if ((options.includeElements || options.includeSemanticHints) && output.page_contents) {
+        output.elements = buildElementsForOutput();
+      }
+      if (options.includeMarkdown && output.page_contents) {
+        output.markdown = renderMarkdownFromPageContents(output.page_contents, output.tables);
+      }
+      if (options.includeHtml && output.page_contents) {
+        output.html = renderHtmlFromPageContents(output.page_contents, output.tables);
+      }
+      if (options.includeChunks && output.page_contents) {
+        const chunkElements = output.elements ?? buildElementsForOutput();
+        output.chunks = buildCitationChunks(chunkElements, {
+          useSemanticBoundaries: options.includeSemanticHints
+        });
+      }
+      if (options.includeSafetyFindings && output.page_contents) {
+        const safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
+        if (safetyFindings.length > 0) {
+          output.safety_findings = safetyFindings;
+        }
+      }
+      if (options.includeAnnotations) {
+        const annotations = await extractAnnotations(pdfDocument, pagesToProcess);
+        if (annotations.length > 0) {
+          output.annotations = annotations;
+        }
+      }
+      if (options.includeStructureTree) {
+        const structureTrees = await extractStructureTrees(pdfDocument, pagesToProcess);
+        if (structureTrees.length > 0) {
+          output.structure_trees = structureTrees;
         }
       }
     }
@@ -1171,7 +2100,21 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     include_metadata,
     include_page_count,
     include_images,
-    include_tables
+    include_tables,
+    include_elements,
+    include_semantic_hints,
+    include_markdown,
+    include_html,
+    include_chunks,
+    include_outline,
+    include_annotations,
+    include_page_labels,
+    include_page_geometry,
+    include_permissions,
+    include_form_fields,
+    include_attachments,
+    include_structure_tree,
+    include_safety_findings
   } = input;
   const MAX_CONCURRENT_SOURCES = 3;
   const results = [];
@@ -1180,7 +2123,21 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     includeMetadata: include_metadata ?? true,
     includePageCount: include_page_count ?? true,
     includeImages: include_images ?? false,
-    includeTables: include_tables ?? false
+    includeTables: include_tables ?? false,
+    includeElements: include_elements ?? false,
+    includeSemanticHints: include_semantic_hints ?? false,
+    includeMarkdown: include_markdown ?? false,
+    includeHtml: include_html ?? false,
+    includeChunks: include_chunks ?? false,
+    includeOutline: include_outline ?? false,
+    includeAnnotations: include_annotations ?? false,
+    includePageLabels: include_page_labels ?? false,
+    includePageGeometry: include_page_geometry ?? false,
+    includePermissions: include_permissions ?? false,
+    includeFormFields: include_form_fields ?? false,
+    includeAttachments: include_attachments ?? false,
+    includeStructureTree: include_structure_tree ?? false,
+    includeSafetyFindings: include_safety_findings ?? false
   };
   for (let i = 0;i < sources.length; i += MAX_CONCURRENT_SOURCES) {
     const batch = sources.slice(i, i + MAX_CONCURRENT_SOURCES);
@@ -1212,6 +2169,8 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
           tableIndex: tbl.tableIndex,
           rowCount: tbl.rowCount,
           colCount: tbl.colCount,
+          cellCount: tbl.cells?.length ?? tbl.rowCount * tbl.colCount,
+          bounding_box: tbl.bounding_box,
           confidence: tbl.confidence
         }));
       }

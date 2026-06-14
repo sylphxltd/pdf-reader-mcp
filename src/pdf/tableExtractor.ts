@@ -1,7 +1,7 @@
 // Table extraction from PDF using spatial clustering of text coordinates
 
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { ExtractedTable } from '../types/pdf.js';
+import type { BoundingBox, ExtractedTable, TableCell } from '../types/pdf.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('TableExtractor');
@@ -21,6 +21,8 @@ export interface TextItemWithPosition {
   x: number;
   y: number;
   width: number;
+  height?: number | undefined;
+  bounding_box?: BoundingBox | undefined;
 }
 
 /**
@@ -41,6 +43,40 @@ interface TableRegion {
   endY: number;
 }
 
+interface AssignedCellAccumulator {
+  textParts: string[];
+  boundingBoxes: BoundingBox[];
+}
+
+const buildBoundingBox = (
+  x: number,
+  y: number,
+  width: number,
+  height: number | undefined
+): BoundingBox | undefined => {
+  if (![x, y, width].every(Number.isFinite) || height === undefined || !Number.isFinite(height)) {
+    return undefined;
+  }
+
+  return {
+    left: x,
+    bottom: y,
+    right: x + Math.max(0, width),
+    top: y + Math.max(0, height),
+  };
+};
+
+const mergeBoundingBoxes = (boxes: BoundingBox[]): BoundingBox | undefined => {
+  if (boxes.length === 0) return undefined;
+
+  return {
+    left: Math.min(...boxes.map((box) => box.left)),
+    bottom: Math.min(...boxes.map((box) => box.bottom)),
+    right: Math.max(...boxes.map((box) => box.right)),
+    top: Math.max(...boxes.map((box) => box.top)),
+  };
+};
+
 /**
  * Extract text items with X/Y positions from a PDF page
  */
@@ -55,6 +91,7 @@ export const extractTextItemsWithPositions = async (
       str: string;
       transform?: number[];
       width?: number;
+      height?: number;
     };
 
     // Skip empty text items
@@ -69,11 +106,19 @@ export const extractTextItemsWithPositions = async (
 
     if (x === undefined || y === undefined) continue;
 
+    const height = textItem.height ?? Math.abs(textItem.transform[3] ?? 0);
+
     items.push({
       text: textItem.str,
       x,
       y,
       width: textItem.width ?? textItem.str.length * 6, // Estimate width if not provided
+      ...(height > 0 ? { height } : {}),
+      ...(height > 0
+        ? {
+            bounding_box: buildBoundingBox(x, y, textItem.width ?? textItem.str.length * 6, height),
+          }
+        : {}),
     });
   }
 
@@ -167,33 +212,56 @@ export const detectColumnBoundaries = (
   return boundaries;
 };
 
-/**
- * Assign text items to columns based on their X position
- */
-const assignToColumns = (
-  row: TextRow,
+const columnIndexForItem = (
+  item: TextItemWithPosition,
   columnBoundaries: number[],
   tolerance: number = COLUMN_GAP_THRESHOLD / 2
-): string[] => {
-  const cells: string[] = new Array(columnBoundaries.length).fill('');
-
-  for (const item of row.items) {
-    // Find which column this item belongs to
-    let colIndex = 0;
-    for (let i = columnBoundaries.length - 1; i >= 0; i--) {
-      const boundary = columnBoundaries[i];
-      if (boundary !== undefined && item.x >= boundary - tolerance) {
-        colIndex = i;
-        break;
-      }
+): number => {
+  for (let i = columnBoundaries.length - 1; i >= 0; i--) {
+    const boundary = columnBoundaries[i];
+    if (boundary !== undefined && item.x >= boundary - tolerance) {
+      return i;
     }
-
-    // Append text to the cell (with space if already has content)
-    const current = cells[colIndex];
-    cells[colIndex] = current ? `${current} ${item.text}` : item.text;
   }
 
-  return cells;
+  return 0;
+};
+
+const assignToTableCells = (
+  row: TextRow,
+  rowIndex: number,
+  columnBoundaries: number[]
+): { rowValues: string[]; cells: TableCell[] } => {
+  const accumulators: AssignedCellAccumulator[] = Array.from(
+    { length: columnBoundaries.length },
+    () => ({ textParts: [], boundingBoxes: [] })
+  );
+
+  for (const item of row.items) {
+    const colIndex = columnIndexForItem(item, columnBoundaries);
+    const accumulator = accumulators[colIndex];
+    if (!accumulator) continue;
+
+    accumulator.textParts.push(item.text);
+    if (item.bounding_box) {
+      accumulator.boundingBoxes.push(item.bounding_box);
+    }
+  }
+
+  const cells = accumulators.map((accumulator, colIndex): TableCell => {
+    const boundingBox = mergeBoundingBoxes(accumulator.boundingBoxes);
+    return {
+      text: accumulator.textParts.join(' '),
+      rowIndex,
+      colIndex,
+      ...(boundingBox ? { bounding_box: boundingBox } : {}),
+    };
+  });
+
+  return {
+    rowValues: cells.map((cell) => cell.text),
+    cells,
+  };
 };
 
 /**
@@ -346,13 +414,22 @@ export const extractTablesFromPage = async (
       if (!region) continue;
 
       const tableRows: string[][] = [];
+      const tableCells: TableCell[] = [];
 
-      for (const row of region.rows) {
-        const cells = assignToColumns(row, region.columnBoundaries);
-        tableRows.push(cells);
+      for (let rowIndex = 0; rowIndex < region.rows.length; rowIndex++) {
+        const row = region.rows[rowIndex];
+        if (!row) continue;
+        const assigned = assignToTableCells(row, rowIndex, region.columnBoundaries);
+        tableRows.push(assigned.rowValues);
+        tableCells.push(...assigned.cells);
       }
 
       const confidence = calculateConfidence(region.rows, region.columnBoundaries);
+      const tableBoundingBox = mergeBoundingBoxes(
+        tableCells
+          .map((cell) => cell.bounding_box)
+          .filter((box): box is BoundingBox => box !== undefined)
+      );
 
       // Only include tables with reasonable confidence
       if (confidence >= 0.3) {
@@ -360,6 +437,8 @@ export const extractTablesFromPage = async (
           page: pageNum,
           tableIndex,
           rows: tableRows,
+          cells: tableCells,
+          ...(tableBoundingBox ? { bounding_box: tableBoundingBox } : {}),
           rowCount: tableRows.length,
           colCount: region.columnBoundaries.length,
           confidence: Math.round(confidence * 100) / 100,
