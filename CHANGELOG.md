@@ -1,23 +1,10 @@
 # Changelog
 
-## Unreleased
+## 2.5.0
 
-### Features
+### Minor Changes
 
-- add optional structured element output for agent workflows via `include_elements`
-- add optional deterministic semantic hints via `include_semantic_hints`
-- add optional page-aware Markdown rendering via `include_markdown`
-- add optional escaped HTML rendering via `include_html`
-- add optional citation-ready page, semantic, size, and table chunks via `include_chunks`
-- add best-effort table and table-cell bounding boxes for structured table output
-- add optional outline, annotation, structure tree, page label, permission, form field, attachment metadata, and page geometry signals
-- add optional deterministic content safety findings via `include_safety_findings`
-- improve reading order for common multi-column layouts by segmenting distant same-line text before ordering
-- add quality eval coverage for semantic chunks, table ordering, renderers, and safety findings
-
-### Documentation
-
-- document PDF Intelligence vNext direction and update public positioning around structured, local-first extraction
+- [#296](https://github.com/SylphxAI/pdf-reader-mcp/pull/296) [`3d6e015`](https://github.com/SylphxAI/pdf-reader-mcp/commit/3d6e015cbeb70e480af1f9e2cf9d2dd92ce8a55c) Thanks [@shtse8](https://github.com/shtse8)! - Add agent-ready PDF intelligence outputs with structured elements, semantic hints, Markdown and HTML renderers, citation chunks, richer table geometry, tagged structure trees, document signals, safety findings, quality evals, and public documentation.
 
 ## 2.4.3 (2026-05-30)
 
