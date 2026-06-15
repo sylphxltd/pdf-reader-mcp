@@ -52,6 +52,7 @@ Each successful source may include:
       "table_structure",
       "semantic_hints",
       "citation_chunks",
+      "visual_enrichment",
       "layout_diagnostics",
       "content_safety",
       "page_geometry"
@@ -69,11 +70,31 @@ Each successful source may include:
         "ocr_confidence": 0.91,
         "ocr_source_render_evidence_id": "page-1-render-scale-2",
         "image_count": 0,
-        "table_count": 1
+        "table_count": 1,
+        "visual_enrichment_indexes": [0],
+        "visual_enrichment_count": 1
       }
     ],
     "elements": [],
     "chunks": [],
+    "visual_enrichments": [
+      {
+        "id": "visual-p1-table-1",
+        "target_element_id": "p1-table-1",
+        "target_element_type": "table",
+        "region_id": "p1-table-1",
+        "kind": "table",
+        "page": 1,
+        "provider": "command",
+        "source_crop_evidence_id": "page-1-p1-table-1-crop-scale-2",
+        "source_bounding_box": {
+          "left": 40,
+          "bottom": 570,
+          "right": 240,
+          "top": 602
+        }
+      }
+    ],
     "layout_diagnostics": [],
     "safety_findings": [],
     "routing": {
@@ -91,6 +112,8 @@ Each successful source may include:
       "ocr_text_chars": 128,
       "image_element_count": 0,
       "table_element_count": 0,
+      "visual_enrichment_count": 1,
+      "visual_enrichment_kind_counts": { "table": 1 },
       "chunk_count": 0,
       "safety_finding_count": 0
     }
@@ -106,6 +129,10 @@ Each successful source may include:
   `document_map.chunks`.
 - `document_map.pages[*].safety_finding_indexes` must reference array indexes
   in `document_map.safety_findings`.
+- `document_map.pages[*].visual_enrichment_indexes` must reference array
+  indexes in `document_map.visual_enrichments`.
+- `document_map.visual_enrichments[*].target_element_id` must reference the
+  table or image element whose crop was analyzed.
 - `document_map.layers` must be derived from actual emitted layers, not user
   flags. `ocr_text_layer` is present only when OCR pages were returned.
 - Top-level legacy outputs remain opt-in. `include_document_map` may build
@@ -113,6 +140,9 @@ Each successful source may include:
   and tables for the map without forcing top-level `elements`, `chunks`,
   `safety_findings`, `layout_diagnostics`, or `page_geometry`.
 - JSON output must not include embedded image bytes.
+- Visual enrichment is opt-in and provider-backed. If the provider is not
+  configured or fails, `read_pdf` records a warning instead of failing the
+  whole document read.
 - Every map is deterministic for the same PDF bytes, selected pages, and parser
   version.
 
@@ -128,6 +158,9 @@ Each successful source may include:
   health checks and explicit enablement. `include_ocr_text_layer` is the
   explicit opt-in for OCR fusion and must keep OCR text separate from
   selectable text.
+- `include_visual_enrichments` is the explicit opt-in for visual-region
+  provider fusion. It must respect `max_visual_enrichments`, avoid embedding
+  crop image bytes in JSON, and attach crop evidence IDs to the document twin.
 
 ## v3 Capability Batch
 
@@ -141,14 +174,18 @@ Required before publishing the next package release:
   text layers without embedding image bytes in JSON summaries.
 - `read_pdf` can opt into OCR text layer fusion for sparse/scanned pages and
   link applied OCR pages into the document map.
+- `read_pdf` can opt into visual enrichment fusion for bounded table/image
+  regions and link provider-backed table, formula, chart, figure, diagram, or
+  image evidence into the document map and AST.
 - `search_pdf` provides bounded evidence retrieval with snippets, offsets,
   optional character-derived or text-item bounding boxes, and provenance before
   heavier workflows.
 - Quality eval proves the map links pages, elements, chunks, safety findings,
   layout diagnostics, and geometry.
 - Handler tests prove the map does not force top-level legacy outputs.
-- Public docs describe shipped configured OCR accurately and keep built-in OCR
-  model, VLM, formula, chart, and PDF/UA capabilities in roadmap language only.
+- Public docs describe shipped configured OCR and configured visual enrichment
+  accurately, and keep built-in OCR model, bundled VLM, and PDF/UA generation
+  capabilities in roadmap language only.
 
 Next slices for the same v3 track:
 
@@ -170,6 +207,10 @@ Next slices for the same v3 track:
 - The map includes table elements when deterministic table extraction finds
   tables.
 - The map links OCR pages when `include_ocr_text_layer` returns OCR evidence.
+- The map links visual enrichment evidence when `include_visual_enrichments`
+  returns provider-backed region analysis.
+- The AST attaches visual enrichment evidence to semantic nodes without
+  duplicating table elements.
 - The first JSON content part omits `page_contents` and image bytes.
 - Existing `read_pdf` calls without `include_document_map` remain unchanged.
 - `inspect_pdf` recommends the document map for agentic digital-text and mixed

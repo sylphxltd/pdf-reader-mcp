@@ -23,6 +23,7 @@ const mockGetAttachments = vi.fn();
 const mockReadFile = vi.fn();
 const mockStat = vi.fn();
 const mockOcrPdfSourcePages = vi.fn();
+const mockBuildVisualEnrichmentsForSource = vi.fn();
 
 const fakeStats = (size: number) =>
   ({
@@ -51,6 +52,11 @@ vi.mock('node:fs/promises', () => ({
   },
   readFile: mockReadFile,
   stat: mockStat,
+}));
+
+vi.mock('../../src/pdf/visualEnrichment.js', () => ({
+  DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS: 8,
+  buildVisualEnrichmentsForSource: mockBuildVisualEnrichmentsForSource,
 }));
 
 // Dynamically import the handler *once* after mocks are defined
@@ -1115,6 +1121,181 @@ describe('handleReadPdfFunc Integration Tests', () => {
         'Rendered page 1 for OCR without embedding image bytes in JSON.'
       );
       expect(result.content[1]?.text).toBe('[Page 1 OCR]\nOCR recovered page text');
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
+
+  it('should include visual enrichments and fuse them into the document twin', async () => {
+    const getTextContent = vi.fn().mockResolvedValue({
+      items: [
+        {
+          str: 'Metric',
+          transform: [1, 0, 0, 10, 40, 720],
+          width: 50,
+          height: 10,
+        },
+        {
+          str: 'Value',
+          transform: [1, 0, 0, 10, 180, 720],
+          width: 50,
+          height: 10,
+        },
+        {
+          str: 'Revenue growth',
+          transform: [1, 0, 0, 10, 40, 700],
+          width: 110,
+          height: 10,
+        },
+        {
+          str: '24%',
+          transform: [1, 0, 0, 10, 240, 700],
+          width: 40,
+          height: 10,
+        },
+      ],
+    });
+
+    mockGetPage.mockResolvedValue({
+      getTextContent,
+      getViewport: vi.fn().mockReturnValue({ width: 612, height: 792 }),
+      getAnnotations: vi.fn(),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    });
+    mockBuildVisualEnrichmentsForSource.mockResolvedValue({
+      visualEnrichments: [
+        {
+          id: 'visual-p1-table-1',
+          target_element_id: 'p1-table-1',
+          target_element_type: 'table',
+          region_id: 'p1-table-1',
+          page: 1,
+          kind: 'table',
+          description: 'Provider verified the visual table grid.',
+          markdown: '| Metric | Value |\\n| --- | --- |\\n| Revenue growth | 24% |',
+          confidence: 0.93,
+          table: {
+            rows: [
+              ['Metric', 'Value'],
+              ['Revenue growth', '24%'],
+            ],
+            row_count: 2,
+            column_count: 2,
+            confidence: 0.91,
+          },
+          provider: 'command',
+          source_crop_evidence_id: 'page-1-p1-table-1-crop-scale-2',
+          source_bounding_box: { left: 40, bottom: 700, right: 220, top: 730 },
+          crop_pixels: { left: 80, top: 124, width: 360, height: 60 },
+          scale: 2,
+          provenance: {
+            engine: 'external-command',
+            source: 'region-analysis-provider',
+          },
+        },
+      ],
+      warnings: ['Visual provider used mock table recognizer.'],
+    });
+
+    const result = await handler({
+      sources: [{ path: 'test.pdf', pages: [1] }],
+      include_document_map: true,
+      include_document_ast: true,
+      include_visual_enrichments: true,
+      max_visual_enrichments: 3,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    });
+
+    expect(mockBuildVisualEnrichmentsForSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: { path: 'test.pdf', pages: [1] },
+        sourceDescription: 'test.pdf',
+        maxVisualEnrichments: 3,
+        elements: expect.arrayContaining([
+          expect.objectContaining({ id: 'p1-table-1', type: 'table' }),
+        ]),
+      })
+    );
+
+    if (result.content?.[0]) {
+      const parsed = JSON.parse(result.content[0].text) as {
+        results: Array<{
+          data?: {
+            elements?: unknown;
+            chunks?: unknown;
+            table_info?: unknown;
+            visual_enrichments?: Array<{
+              id: string;
+              target_element_id: string;
+              kind: string;
+              source_crop_evidence_id: string;
+            }>;
+            document_map?: {
+              layers: string[];
+              pages: Array<{
+                visual_enrichment_indexes: number[];
+                visual_enrichment_count: number;
+              }>;
+              visual_enrichments: Array<{ id: string; target_element_id: string }>;
+              summary: {
+                visual_enrichment_count: number;
+                visual_enrichment_kind_counts: Record<string, number>;
+              };
+            };
+            document_ast?: {
+              root: {
+                visual_enrichment_ids?: string[];
+                children?: unknown[];
+              };
+              summary: {
+                table_count: number;
+                visual_enrichment_count: number;
+                visual_enrichment_kind_counts: Record<string, number>;
+              };
+            };
+            warnings?: string[];
+          };
+        }>;
+      };
+
+      const data = parsed.results[0]?.data;
+      expect(data?.elements).toBeUndefined();
+      expect(data?.chunks).toBeUndefined();
+      expect(data?.table_info).toBeUndefined();
+      expect(data?.visual_enrichments?.[0]).toMatchObject({
+        id: 'visual-p1-table-1',
+        target_element_id: 'p1-table-1',
+        kind: 'table',
+        source_crop_evidence_id: 'page-1-p1-table-1-crop-scale-2',
+      });
+      expect(data?.document_map).toMatchObject({
+        layers: expect.arrayContaining(['visual_enrichment', 'table_structure']),
+        pages: [
+          expect.objectContaining({
+            visual_enrichment_indexes: [0],
+            visual_enrichment_count: 1,
+          }),
+        ],
+        summary: {
+          visual_enrichment_count: 1,
+          visual_enrichment_kind_counts: { table: 1 },
+        },
+      });
+      expect(data?.document_map?.visual_enrichments[0]).toMatchObject({
+        id: 'visual-p1-table-1',
+        target_element_id: 'p1-table-1',
+      });
+      expect(data?.document_ast?.summary).toMatchObject({
+        table_count: 1,
+        visual_enrichment_count: 1,
+        visual_enrichment_kind_counts: { table: 1 },
+      });
+      expect(data?.document_ast?.root.visual_enrichment_ids).toContain('visual-p1-table-1');
+      expect(JSON.stringify(data?.document_ast?.root)).toContain('page-1-p1-table-1-crop-scale-2');
+      expect(data?.warnings).toContain('Visual provider used mock table recognizer.');
     } else {
       expect.fail('result.content[0] was undefined');
     }

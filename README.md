@@ -351,6 +351,7 @@ instead of separate page, element, chunk, layout, and safety outputs.
 - Semantic elements and citation chunks derived from the same stable IDs
 - Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
 - Safety findings linked back to page and element evidence
+- Optional visual enrichment indexes when `include_visual_enrichments` is enabled, linking provider-backed table, formula, chart, figure, and image analysis back to crop evidence
 - No embedded image bytes inside the JSON document map
 
 ### Document AST
@@ -370,9 +371,10 @@ than reconstructing document structure from flat text items.
 ```
 
 **Response includes:**
-- A `document_ast` root with page, section, paragraph, list item, table, and image nodes
-- Node-level `element_ids`, `chunk_ids`, bounding boxes, confidence, and semantic roles where available
+- A `document_ast` root with page, section, paragraph, list item, table, image, chart, formula, figure, and diagram nodes where available
+- Node-level `element_ids`, `chunk_ids`, visual enrichment IDs, bounding boxes, confidence, and semantic roles where available
 - Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
+- Optional visual enrichment payloads with provider, crop evidence ID, source bounding box, normalized table/formula/chart fields, and confidence
 - No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
 
 ### Text Layer
@@ -752,6 +754,19 @@ separate response fields.
 The map is performance-bounded: it reuses the same extraction path, keeps image
 bytes out of JSON, and provides page-level routing signals such as
 low-confidence pages and pages that likely need OCR.
+
+### Visual Enrichment Fusion
+
+`include_visual_enrichments` sends bounded table and image regions to the
+configured visual-region provider, then fuses normalized table, formula, chart,
+figure, diagram, and image descriptions back into the same document twin. Each
+enrichment keeps its source crop evidence ID, source bounding box, provider,
+confidence, and provenance so agents can cite or inspect the original page
+region instead of trusting detached summaries.
+
+The provider is configured by environment variables and is never selected by
+the request. If no provider is configured, `read_pdf` returns a warning instead
+of failing the whole document read.
 
 ### Accessibility Report
 
@@ -1144,7 +1159,9 @@ tables, and document signals.
 | `include_images` | boolean | Extract embedded images | `false` |
 | `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
-| `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, table, and image nodes linked to element/chunk evidence | `false` |
+| `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, table, image, and visual enrichment nodes linked to element/chunk evidence | `false` |
+| `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table/image regions and fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
+| `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, and external links | `false` |
 | `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |

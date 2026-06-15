@@ -173,8 +173,11 @@ PDF instead of separate page, element, chunk, layout, and safety outputs.
 ```
 
 The map links pages to element IDs, chunk IDs, safety finding indexes, layout
-diagnostics, routing signals, and page geometry. Image bytes are not embedded
-inside the JSON map.
+diagnostics, routing signals, page geometry, and optional visual enrichment
+indexes. Enable `include_visual_enrichments` when a configured visual-region
+provider should analyze bounded table/image crops and fuse table, formula,
+chart, figure, diagram, or image evidence into the same document twin. Image
+bytes are not embedded inside the JSON map.
 
 ### Render Page Evidence
 

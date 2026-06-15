@@ -178,10 +178,18 @@ signals, and page geometry without embedding image bytes in JSON. It does more
 work than metadata-only extraction, but it prevents agents from rebuilding the
 same references themselves.
 
+Add `include_visual_enrichments` only when the configured visual-region
+provider is needed. It renders and crops bounded table/image regions, sends
+those crops to the provider, and fuses table, formula, chart, figure, diagram,
+or image evidence back into the document twin. Keep `max_visual_enrichments`
+small for interactive workflows.
+
 ```json
 {
   "sources": [{ "path": "doc.pdf", "pages": "1-5" }],
   "include_document_map": true,
+  "include_visual_enrichments": true,
+  "max_visual_enrichments": 8,
   "include_full_text": false
 }
 ```

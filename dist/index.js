@@ -3024,6 +3024,12 @@ var defaultInspectionProviderReadiness = () => ({
   analyze_regions: "ready"
 });
 var providerReady = (readiness) => readiness === "ready";
+var enableVisualEnrichmentFusion = (target, providerReadiness) => {
+  if (!providerReady(providerReadiness.analyze_regions))
+    return;
+  target["include_visual_enrichments"] = true;
+  target["max_visual_enrichments"] = 8;
+};
 var providerRequiredInputs = (inputs, providerName, readiness) => providerReady(readiness) ? inputs : [...inputs, `configured ${providerName} provider`];
 var buildRegionSourceTemplate = (source) => ({
   ...source.path ? { path: source.path } : {},
@@ -3181,10 +3187,11 @@ var buildInspectionRecommendation = (source, profile, documentSignals, pageSigna
       include_layout_diagnostics: true,
       include_ocr_text_layer: true
     });
+    enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: "scanned_pdf_triage",
       needs_ocr: true,
-      reason: "Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer or ocr_pages with a configured OCR provider for text extraction.",
+      reason: "Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer for text extraction and include_visual_enrichments when a visual-region provider is ready.",
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(source, profile, readPdfArguments, pageSignals, providerReadiness)
     };
@@ -3200,10 +3207,11 @@ var buildInspectionRecommendation = (source, profile, documentSignals, pageSigna
       include_markdown: true,
       include_tables: true
     });
+    enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: "mixed_pdf_review",
       needs_ocr: true,
-      reason: "Some sampled pages look text-based while others look image-only; use read_pdf with include_ocr_text_layer for a single provenance-aware document map, or ocr_pages for a dedicated OCR pass.",
+      reason: "Some sampled pages look text-based while others look image-only; use read_pdf with OCR and visual enrichment fusion for one provenance-aware document map when providers are ready.",
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(source, profile, readPdfArguments, pageSignals, providerReadiness)
     };
@@ -3218,10 +3226,11 @@ var buildInspectionRecommendation = (source, profile, documentSignals, pageSigna
       include_markdown: true,
       include_tables: true
     });
+    enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: "agentic_rag",
       needs_ocr: false,
-      reason: "Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.",
+      reason: "Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, safety findings, and visual enrichment fusion are the highest-value next read_pdf options when providers are ready.",
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(source, profile, readPdfArguments, pageSignals, providerReadiness)
     };
@@ -3358,6 +3367,8 @@ var readPdfArgsSchema = object({
   include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
   include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
   include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence."))),
+  include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image regions and fuse normalized table, formula, chart, figure, or image descriptions into the PDF document twin with crop evidence."))),
+  max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
   include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing."))),
   include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
 });
@@ -3721,14 +3732,58 @@ var chunksByElementId = (chunks) => {
   }
   return index;
 };
-var nodeForElement = (element, chunkIndex) => {
+var visualEnrichmentType = (kind) => {
+  if (kind === "figure" || kind === "chart" || kind === "formula" || kind === "diagram") {
+    return kind;
+  }
+  return;
+};
+var visualText = (enrichment) => enrichment.markdown ?? enrichment.text ?? enrichment.description ?? enrichment.formula?.latex ?? enrichment.formula?.text ?? enrichment.chart?.summary;
+var visualEnrichmentsByTargetElementId = (enrichments) => {
+  const index = new Map;
+  for (const enrichment of enrichments) {
+    if (!index.has(enrichment.target_element_id)) {
+      index.set(enrichment.target_element_id, enrichment);
+    }
+  }
+  return index;
+};
+var visualEnrichmentsByPage = (enrichments) => {
+  const index = new Map;
+  for (const enrichment of enrichments) {
+    const values = index.get(enrichment.page) ?? [];
+    values.push(enrichment);
+    index.set(enrichment.page, values);
+  }
+  return index;
+};
+var nodeForVisualEnrichment = (enrichment) => {
+  const visualType = visualEnrichmentType(enrichment.kind) ?? "visual_region";
+  return {
+    id: enrichment.id,
+    type: visualType,
+    page_start: enrichment.page,
+    page_end: enrichment.page,
+    element_ids: [enrichment.target_element_id],
+    visual_enrichment_ids: [enrichment.id],
+    bounding_boxes: [enrichment.source_bounding_box],
+    ...enrichment.confidence !== undefined ? { confidence: enrichment.confidence } : {},
+    ...visualText(enrichment) ? { text: visualText(enrichment) } : {},
+    ...enrichment.formula ? { formula: enrichment.formula } : {},
+    ...enrichment.chart ? { chart: enrichment.chart } : {},
+    visual_enrichment: enrichment
+  };
+};
+var nodeForElement = (element, chunkIndex, visualEnrichment) => {
   const base = {
     page_start: element.page,
     page_end: element.page,
     element_ids: [element.id],
+    ...visualEnrichment ? { visual_enrichment_ids: [visualEnrichment.id] } : {},
     ...chunkIndex.get(element.id) ? { chunk_ids: chunkIndex.get(element.id) } : {},
     ...element.bounding_box ? { bounding_boxes: [element.bounding_box] } : {},
-    ...element.confidence !== undefined ? { confidence: element.confidence } : {}
+    ...visualEnrichment?.confidence !== undefined || element.confidence !== undefined ? { confidence: visualEnrichment?.confidence ?? element.confidence } : {},
+    ...visualEnrichment ? { visual_enrichment: visualEnrichment } : {}
   };
   if (element.type === "text") {
     const role = element.semantic_hint?.role ?? "paragraph";
@@ -3760,16 +3815,20 @@ var nodeForElement = (element, chunkIndex) => {
       }
     };
   }
+  const visualType = visualEnrichment ? visualEnrichmentType(visualEnrichment.kind) : undefined;
   return {
     ...base,
     id: element.id,
-    type: "image",
+    type: visualType ?? "image",
+    ...visualEnrichment && visualText(visualEnrichment) ? { text: visualText(visualEnrichment) } : {},
     image: {
       index: element.image.index,
       width: element.image.width,
       height: element.image.height,
       format: element.image.format
-    }
+    },
+    ...visualEnrichment?.formula ? { formula: visualEnrichment.formula } : {},
+    ...visualEnrichment?.chart ? { chart: visualEnrichment.chart } : {}
   };
 };
 var appendToPageTree = (pageNode, sectionStack, node) => {
@@ -3796,6 +3855,14 @@ var aggregateNode = (node, depth) => {
   const childStats = children.map((child) => aggregateNode(child, depth + 1));
   const childElementIds = children.flatMap((child) => child.element_ids);
   node.element_ids = unique([...node.element_ids, ...childElementIds]);
+  const childVisualEnrichmentIds = children.flatMap((child) => child.visual_enrichment_ids ?? []);
+  const visualEnrichmentIds = unique([
+    ...node.visual_enrichment_ids ?? [],
+    ...childVisualEnrichmentIds
+  ]);
+  if (visualEnrichmentIds.length > 0) {
+    node.visual_enrichment_ids = visualEnrichmentIds;
+  }
   const childChunkIds = children.flatMap((child) => child.chunk_ids ?? []);
   const chunkIds = unique([...node.chunk_ids ?? [], ...childChunkIds]);
   if (chunkIds.length > 0) {
@@ -3817,6 +3884,12 @@ var aggregateNode = (node, depth) => {
     listItemCount: stats.listItemCount + child.listItemCount,
     tableCount: stats.tableCount + child.tableCount,
     imageCount: stats.imageCount + child.imageCount,
+    figureCount: stats.figureCount + child.figureCount,
+    chartCount: stats.chartCount + child.chartCount,
+    formulaCount: stats.formulaCount + child.formulaCount,
+    diagramCount: stats.diagramCount + child.diagramCount,
+    visualEnrichmentCount: stats.visualEnrichmentCount + child.visualEnrichmentCount,
+    visualEnrichmentKindCounts: mergeVisualKindCounts(stats.visualEnrichmentKindCounts, child.visualEnrichmentKindCounts),
     maxDepth: Math.max(stats.maxDepth, child.maxDepth)
   }), {
     nodeCount: 1,
@@ -3824,9 +3897,22 @@ var aggregateNode = (node, depth) => {
     paragraphCount: node.type === "paragraph" ? 1 : 0,
     listItemCount: node.type === "list_item" ? 1 : 0,
     tableCount: node.type === "table" ? 1 : 0,
-    imageCount: node.type === "image" ? 1 : 0,
+    imageCount: node.image !== undefined ? 1 : 0,
+    figureCount: node.type === "figure" ? 1 : 0,
+    chartCount: node.type === "chart" ? 1 : 0,
+    formulaCount: node.type === "formula" ? 1 : 0,
+    diagramCount: node.type === "diagram" ? 1 : 0,
+    visualEnrichmentCount: node.visual_enrichment ? 1 : 0,
+    visualEnrichmentKindCounts: node.visual_enrichment ? { [node.visual_enrichment.kind]: 1 } : {},
     maxDepth: depth
   });
+};
+var mergeVisualKindCounts = (left, right) => {
+  const merged = { ...left };
+  for (const [kind, count] of Object.entries(right)) {
+    merged[kind] = (merged[kind] ?? 0) + count;
+  }
+  return merged;
 };
 var uniqueBoundingBoxes = (boxes) => {
   const seen = new Set;
@@ -3842,8 +3928,11 @@ var uniqueBoundingBoxes = (boxes) => {
 };
 var buildDocumentAst = (input) => {
   const selectedPages = [...new Set(input.selectedPages)].sort((a, b) => a - b);
+  const visualEnrichments = input.visualEnrichments ?? [];
   const range = pageRangeForElements(input.elements);
   const chunkIndex = chunksByElementId(input.chunks);
+  const visualByTargetElementId = visualEnrichmentsByTargetElementId(visualEnrichments);
+  const visualByPage = visualEnrichmentsByPage(visualEnrichments);
   const root = {
     id: "document",
     type: "document",
@@ -3860,6 +3949,7 @@ var buildDocumentAst = (input) => {
   }
   for (const page of selectedPages) {
     const pageElements = elementsByPage.get(page) ?? [];
+    const pageElementIds = new Set(pageElements.map((element) => element.id));
     const pageNode = {
       id: `p${page}`,
       type: "page",
@@ -3870,7 +3960,12 @@ var buildDocumentAst = (input) => {
     };
     const sectionStack = [];
     for (const element of pageElements) {
-      appendToPageTree(pageNode, sectionStack, nodeForElement(element, chunkIndex));
+      appendToPageTree(pageNode, sectionStack, nodeForElement(element, chunkIndex, visualByTargetElementId.get(element.id)));
+    }
+    for (const enrichment of visualByPage.get(page) ?? []) {
+      if (pageElementIds.has(enrichment.target_element_id))
+        continue;
+      appendToPageTree(pageNode, sectionStack, nodeForVisualEnrichment(enrichment));
     }
     root.children?.push(pageNode);
   }
@@ -3892,6 +3987,12 @@ var buildDocumentAst = (input) => {
       list_item_count: stats.listItemCount,
       table_count: stats.tableCount,
       image_count: stats.imageCount,
+      figure_count: stats.figureCount,
+      chart_count: stats.chartCount,
+      formula_count: stats.formulaCount,
+      diagram_count: stats.diagramCount,
+      visual_enrichment_count: stats.visualEnrichmentCount,
+      visual_enrichment_kind_counts: stats.visualEnrichmentKindCounts,
       max_depth: stats.maxDepth
     },
     ...warnings.length > 0 ? { warnings } : {}
@@ -3917,7 +4018,7 @@ var pagesForChunk = (chunk) => {
   }
   return pages;
 };
-var buildLayers = (elements, chunks, layoutDiagnostics, safetyFindings, ocrTextLayer, pageGeometry) => {
+var buildLayers = (elements, chunks, visualEnrichments, layoutDiagnostics, safetyFindings, ocrTextLayer, pageGeometry) => {
   const layers = new Set;
   if (elements.some((element) => element.type === "text"))
     layers.add("selectable_text");
@@ -3927,6 +4028,8 @@ var buildLayers = (elements, chunks, layoutDiagnostics, safetyFindings, ocrTextL
     layers.add("image_metadata");
   if (elements.some((element) => element.type === "table"))
     layers.add("table_structure");
+  if (visualEnrichments.length > 0)
+    layers.add("visual_enrichment");
   if (elements.some((element) => element.type === "text" && element.semantic_hint !== undefined)) {
     layers.add("semantic_hints");
   }
@@ -3961,6 +4064,13 @@ var pageWarnings = (layout, safetyFindingIndexes, tableWarnings) => {
   }
   return warnings.length > 0 ? warnings : undefined;
 };
+var countVisualEnrichmentKinds = (visualEnrichments) => {
+  const counts = {};
+  for (const enrichment of visualEnrichments) {
+    counts[enrichment.kind] = (counts[enrichment.kind] ?? 0) + 1;
+  }
+  return counts;
+};
 var buildDocumentMap = (input) => {
   const elementsByPage = new Map;
   for (const element of input.elements) {
@@ -3980,6 +4090,11 @@ var buildDocumentMap = (input) => {
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
   });
+  const visualEnrichments = input.visualEnrichments ?? [];
+  const visualEnrichmentIndexesByPage = new Map;
+  visualEnrichments.forEach((enrichment, index) => {
+    pushToMap(visualEnrichmentIndexesByPage, enrichment.page, index);
+  });
   const selectedPages = input.selectedPages.length > 0 ? [...new Set(input.selectedPages)].sort((a, b) => a - b) : [...new Set(input.pageContents.map((pageContent) => pageContent.page))].sort((a, b) => a - b);
   const pages = selectedPages.map((page) => {
     const pageContent = pageContentByPage.get(page);
@@ -3988,6 +4103,7 @@ var buildDocumentMap = (input) => {
     const layout = layoutByPage.get(page);
     const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
+    const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === "image").length;
     const tableElements = elements.filter((element) => element.type === "table");
@@ -4001,6 +4117,7 @@ var buildDocumentMap = (input) => {
       element_ids: elements.map((element) => element.id),
       chunk_ids: chunks.map((chunk) => chunk.id),
       safety_finding_indexes: safetyFindingIndexes,
+      visual_enrichment_indexes: visualEnrichmentIndexes,
       text_chars: textChars,
       text_item_count: textItemCount,
       ...ocrPage ? {
@@ -4011,6 +4128,7 @@ var buildDocumentMap = (input) => {
       } : {},
       image_count: imageCount,
       table_count: tableCount,
+      visual_enrichment_count: visualEnrichmentIndexes.length,
       ...warnings ? { warnings } : {}
     };
   });
@@ -4027,10 +4145,11 @@ var buildDocumentMap = (input) => {
   return {
     version: DOCUMENT_MAP_VERSION,
     profile: "agent_document_map",
-    layers: buildLayers(input.elements, input.chunks, input.layoutDiagnostics, input.safetyFindings, input.ocrTextLayer, input.pageGeometry),
+    layers: buildLayers(input.elements, input.chunks, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.ocrTextLayer, input.pageGeometry),
     pages,
     elements: input.elements,
     chunks: input.chunks,
+    visual_enrichments: visualEnrichments,
     layout_diagnostics: input.layoutDiagnostics,
     safety_findings: input.safetyFindings,
     routing: {
@@ -4049,6 +4168,8 @@ var buildDocumentMap = (input) => {
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
       table_element_count: tableElementCount,
+      visual_enrichment_count: visualEnrichments.length,
+      visual_enrichment_kind_counts: countVisualEnrichmentKinds(visualEnrichments),
       chunk_count: input.chunks.length,
       safety_finding_count: input.safetyFindings.length,
       ...averageLayoutConfidence !== undefined ? { average_layout_confidence: averageLayoutConfidence } : {},
@@ -5493,6 +5614,80 @@ var buildTrustReport = (input) => {
   };
 };
 
+// src/pdf/visualEnrichment.ts
+var DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS = 8;
+var visualTargetElement = (element) => (element.type === "image" || element.type === "table") && element.bounding_box !== undefined;
+var selectVisualEnrichmentCandidates = (elements, maxVisualEnrichments) => {
+  const candidates = [];
+  for (const element of elements) {
+    if (!visualTargetElement(element))
+      continue;
+    candidates.push({
+      element,
+      region: {
+        id: element.id,
+        page: element.page,
+        bounding_box: element.bounding_box
+      }
+    });
+    if (candidates.length >= maxVisualEnrichments)
+      break;
+  }
+  return candidates;
+};
+var buildVisualEnrichmentsForSource = async (input) => {
+  const providerStatus = getRegionAnalysisProviderStatus();
+  if (providerStatus.readiness !== "ready") {
+    return {
+      visualEnrichments: [],
+      warnings: [
+        `Visual enrichment skipped: analyze_regions provider is ${providerStatus.readiness}.`,
+        ...providerStatus.warnings ?? []
+      ]
+    };
+  }
+  const candidates = selectVisualEnrichmentCandidates(input.elements, Math.max(1, input.maxVisualEnrichments));
+  if (candidates.length === 0) {
+    return {
+      visualEnrichments: [],
+      warnings: [
+        "Visual enrichment requested, but no table or image elements with bounding boxes were available."
+      ]
+    };
+  }
+  const candidatesByRegionId = new Map(candidates.map((candidate) => [candidate.region.id, candidate]));
+  const options = {
+    ...defaultAnalyzeRegionsOptions(),
+    max_regions: Math.max(1, input.maxVisualEnrichments)
+  };
+  try {
+    const analyzed = await analyzePdfRegionsFromSource({
+      path: input.source.path,
+      url: input.source.url,
+      regions: candidates.map((candidate) => candidate.region)
+    }, options);
+    return {
+      visualEnrichments: analyzed.analyses.map((analysis) => {
+        const candidate = candidatesByRegionId.get(analysis.region_id);
+        const targetElement = candidate?.element;
+        return {
+          id: `visual-${analysis.region_id}`,
+          target_element_id: targetElement?.id ?? analysis.region_id,
+          target_element_type: targetElement?.type ?? "image",
+          ...analysis
+        };
+      }),
+      warnings: analyzed.warnings
+    };
+  } catch (error) {
+    const message = error instanceof PdfError ? error.message : String(error);
+    return {
+      visualEnrichments: [],
+      warnings: [`Visual enrichment unavailable for ${input.sourceDescription}: ${message}`]
+    };
+  }
+};
+
 // src/handlers/readPdf.ts
 var logger14 = createLogger("ReadPdf");
 var appendOutputWarnings = (output, warnings) => {
@@ -5540,8 +5735,8 @@ var processSingleSource = async (source, options) => {
     if (options.includeAttachments && structureOutput.attachments) {
       output.attachments = structureOutput.attachments;
     }
-    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeTextLayer || options.includeOcrTextLayer || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport;
-    const pageScopedMetadata = options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
+    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeTextLayer || options.includeOcrTextLayer || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap || options.includeDocumentAst || options.includeVisualEnrichments || options.includeTrustReport || options.includeAccessibilityReport;
+    const pageScopedMetadata = options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeVisualEnrichments || options.includeTrustReport || options.includeAccessibilityReport || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
     const includeSelectedPageText = targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
     const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
     const { pagesToProcess, invalidPages } = determinePagesToProcess(targetPages, totalPages, shouldSelectPages);
@@ -5563,7 +5758,7 @@ var processSingleSource = async (source, options) => {
         const pageContents = [];
         for (let i = 0;i < pagesToProcess.length; i += MAX_CONCURRENT_PAGES) {
           const batch = pagesToProcess.slice(i, i + MAX_CONCURRENT_PAGES);
-          const batchResults = await Promise.all(batch.map((pageNum) => extractPageContent(pdfDocument, pageNum, options.includeImages, sourceDescription)));
+          const batchResults = await Promise.all(batch.map((pageNum) => extractPageContent(pdfDocument, pageNum, options.includeImages || options.includeVisualEnrichments, sourceDescription)));
           pageContents.push(...batchResults);
           if (i + MAX_CONCURRENT_PAGES < pagesToProcess.length) {
             await new Promise((resolve) => setImmediate(resolve));
@@ -5591,7 +5786,7 @@ var processSingleSource = async (source, options) => {
           }
         }
       }
-      if (options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport) {
+      if (options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeVisualEnrichments || options.includeTrustReport) {
         const extractedTables = output.page_contents ? extractTablesFromPageContents(output.page_contents) : await extractTables(pdfDocument, pagesToProcess);
         if (extractedTables.length > 0) {
           output.tables = extractedTables;
@@ -5635,6 +5830,21 @@ var processSingleSource = async (source, options) => {
         layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
         output.layout_diagnostics = layoutDiagnostics;
       }
+      let visualEnrichments;
+      if (options.includeVisualEnrichments && output.page_contents) {
+        const visualElements = buildElementsForOutput(true);
+        const enriched = await buildVisualEnrichmentsForSource({
+          source,
+          sourceDescription,
+          elements: visualElements,
+          maxVisualEnrichments: options.maxVisualEnrichments
+        });
+        visualEnrichments = enriched.visualEnrichments;
+        if (visualEnrichments.length > 0) {
+          output.visual_enrichments = visualEnrichments;
+        }
+        appendOutputWarnings(output, enriched.warnings);
+      }
       let ocrTextLayer;
       if (options.includeOcrTextLayer && output.page_contents) {
         layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
@@ -5677,6 +5887,7 @@ var processSingleSource = async (source, options) => {
           chunks,
           layoutDiagnostics,
           safetyFindings,
+          visualEnrichments,
           ocrTextLayer,
           pageGeometry,
           warnings: output.warnings
@@ -5689,6 +5900,7 @@ var processSingleSource = async (source, options) => {
           selectedPages: pagesToProcess,
           elements: astElements,
           chunks,
+          visualEnrichments,
           warnings: output.warnings
         });
       }
@@ -5788,6 +6000,8 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     include_layout_diagnostics,
     include_document_map,
     include_document_ast,
+    include_visual_enrichments,
+    max_visual_enrichments,
     include_trust_report,
     include_accessibility_report
   } = input;
@@ -5818,6 +6032,8 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     includeLayoutDiagnostics: include_layout_diagnostics ?? false,
     includeDocumentMap: include_document_map ?? false,
     includeDocumentAst: include_document_ast ?? false,
+    includeVisualEnrichments: include_visual_enrichments ?? false,
+    maxVisualEnrichments: max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
     includeTrustReport: include_trust_report ?? false,
     includeAccessibilityReport: include_accessibility_report ?? false
   };
@@ -5881,8 +6097,10 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
 ${pageTextParts.join(`
 `)}`));
       }
-      for (const img of pageImages2) {
-        content.push(image(img.data, "image/png"));
+      if (options.includeImages) {
+        for (const img of pageImages2) {
+          content.push(image(img.data, "image/png"));
+        }
       }
     }
   }

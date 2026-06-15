@@ -263,6 +263,7 @@ export type PdfDocumentMapLayer =
   | 'ocr_text_layer'
   | 'image_metadata'
   | 'table_structure'
+  | 'visual_enrichment'
   | 'semantic_hints'
   | 'citation_chunks'
   | 'layout_diagnostics'
@@ -276,6 +277,7 @@ export interface PdfDocumentMapPage {
   element_ids: string[];
   chunk_ids: string[];
   safety_finding_indexes: number[];
+  visual_enrichment_indexes: number[];
   text_chars: number;
   text_item_count: number;
   ocr_text_chars?: number | undefined;
@@ -284,6 +286,7 @@ export interface PdfDocumentMapPage {
   ocr_source_render_evidence_id?: string | undefined;
   image_count: number;
   table_count: number;
+  visual_enrichment_count: number;
   warnings?: string[] | undefined;
 }
 
@@ -304,6 +307,8 @@ export interface PdfDocumentMapSummary {
   ocr_text_chars: number;
   image_element_count: number;
   table_element_count: number;
+  visual_enrichment_count: number;
+  visual_enrichment_kind_counts: Partial<Record<PdfRegionAnalysisKind, number>>;
   chunk_count: number;
   safety_finding_count: number;
   average_layout_confidence?: number | undefined;
@@ -317,6 +322,7 @@ export interface PdfDocumentMap {
   pages: PdfDocumentMapPage[];
   elements: PdfDocumentElement[];
   chunks: PdfChunk[];
+  visual_enrichments: PdfVisualEnrichment[];
   layout_diagnostics: PdfPageLayoutDiagnostics[];
   safety_findings: PdfSafetyFinding[];
   routing: PdfDocumentMapRouting;
@@ -333,7 +339,12 @@ export type PdfDocumentAstNodeType =
   | 'paragraph'
   | 'list_item'
   | 'table'
-  | 'image';
+  | 'image'
+  | 'figure'
+  | 'chart'
+  | 'formula'
+  | 'diagram'
+  | 'visual_region';
 
 export interface PdfDocumentAstTable {
   rows: string[][];
@@ -357,6 +368,7 @@ export interface PdfDocumentAstNode {
   page_start: number;
   page_end: number;
   element_ids: string[];
+  visual_enrichment_ids?: string[] | undefined;
   chunk_ids?: string[] | undefined;
   bounding_boxes?: BoundingBox[] | undefined;
   title?: string | undefined;
@@ -366,6 +378,9 @@ export interface PdfDocumentAstNode {
   semantic_role?: PdfTextSemanticRole | undefined;
   table?: PdfDocumentAstTable | undefined;
   image?: PdfDocumentAstImage | undefined;
+  formula?: PdfRegionAnalysisFormula | undefined;
+  chart?: PdfRegionAnalysisChart | undefined;
+  visual_enrichment?: PdfVisualEnrichment | undefined;
   children?: PdfDocumentAstNode[] | undefined;
 }
 
@@ -378,6 +393,12 @@ export interface PdfDocumentAstSummary {
   list_item_count: number;
   table_count: number;
   image_count: number;
+  figure_count: number;
+  chart_count: number;
+  formula_count: number;
+  diagram_count: number;
+  visual_enrichment_count: number;
+  visual_enrichment_kind_counts: Partial<Record<PdfRegionAnalysisKind, number>>;
   max_depth: number;
 }
 
@@ -652,6 +673,7 @@ export interface PdfResultData {
   ocr_text_layer?: PdfOcrTextLayer;
   safety_findings?: PdfSafetyFinding[];
   layout_diagnostics?: PdfPageLayoutDiagnostics[];
+  visual_enrichments?: PdfVisualEnrichment[];
   document_map?: PdfDocumentMap;
   document_ast?: PdfDocumentAst;
   trust_report?: PdfTrustReport;
@@ -838,6 +860,8 @@ export interface ReadPdfOptions {
   include_layout_diagnostics: boolean;
   include_document_map: boolean;
   include_document_ast: boolean;
+  include_visual_enrichments: boolean;
+  max_visual_enrichments: number;
   include_trust_report: boolean;
   include_accessibility_report: boolean;
 }
@@ -1057,6 +1081,12 @@ export interface PdfRegionAnalysisData {
     source: 'region-analysis-provider';
   };
   warnings?: string[] | undefined;
+}
+
+export interface PdfVisualEnrichment extends PdfRegionAnalysisData {
+  id: string;
+  target_element_id: string;
+  target_element_type: 'image' | 'table';
 }
 
 export interface PdfRegionAnalysisSourceResult {

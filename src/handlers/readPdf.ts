@@ -32,6 +32,10 @@ import {
 } from '../pdf/tableExtractor.js';
 import { buildTextLayer } from '../pdf/textLayer.js';
 import { buildTrustReport } from '../pdf/trustReport.js';
+import {
+  buildVisualEnrichmentsForSource,
+  DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
+} from '../pdf/visualEnrichment.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
 import type {
   ExtractedImage,
@@ -47,6 +51,7 @@ import type {
   PdfSafetyFinding,
   PdfSource,
   PdfSourceResult,
+  PdfVisualEnrichment,
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
@@ -99,6 +104,8 @@ const processSingleSource = async (
     includeLayoutDiagnostics: boolean;
     includeDocumentMap: boolean;
     includeDocumentAst: boolean;
+    includeVisualEnrichments: boolean;
+    maxVisualEnrichments: number;
     includeTrustReport: boolean;
     includeAccessibilityReport: boolean;
   }
@@ -164,12 +171,14 @@ const processSingleSource = async (
       options.includeLayoutDiagnostics ||
       options.includeDocumentMap ||
       options.includeDocumentAst ||
+      options.includeVisualEnrichments ||
       options.includeTrustReport ||
       options.includeAccessibilityReport;
     const pageScopedMetadata =
       options.includeTables ||
       options.includeDocumentMap ||
       options.includeDocumentAst ||
+      options.includeVisualEnrichments ||
       options.includeTrustReport ||
       options.includeAccessibilityReport ||
       options.includeAnnotations ||
@@ -223,7 +232,7 @@ const processSingleSource = async (
               extractPageContent(
                 pdfDocument as pdfjsLib.PDFDocumentProxy,
                 pageNum,
-                options.includeImages,
+                options.includeImages || options.includeVisualEnrichments,
                 sourceDescription
               )
             )
@@ -277,6 +286,7 @@ const processSingleSource = async (
         options.includeTables ||
         options.includeDocumentMap ||
         options.includeDocumentAst ||
+        options.includeVisualEnrichments ||
         options.includeTrustReport
       ) {
         const extractedTables = output.page_contents
@@ -339,6 +349,22 @@ const processSingleSource = async (
         output.layout_diagnostics = layoutDiagnostics;
       }
 
+      let visualEnrichments: PdfVisualEnrichment[] | undefined;
+      if (options.includeVisualEnrichments && output.page_contents) {
+        const visualElements = buildElementsForOutput(true);
+        const enriched = await buildVisualEnrichmentsForSource({
+          source,
+          sourceDescription,
+          elements: visualElements,
+          maxVisualEnrichments: options.maxVisualEnrichments,
+        });
+        visualEnrichments = enriched.visualEnrichments;
+        if (visualEnrichments.length > 0) {
+          output.visual_enrichments = visualEnrichments;
+        }
+        appendOutputWarnings(output, enriched.warnings);
+      }
+
       let ocrTextLayer: PdfOcrTextLayer | undefined;
       if (options.includeOcrTextLayer && output.page_contents) {
         layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
@@ -390,6 +416,7 @@ const processSingleSource = async (
           chunks,
           layoutDiagnostics,
           safetyFindings,
+          visualEnrichments,
           ocrTextLayer,
           pageGeometry,
           warnings: output.warnings,
@@ -403,6 +430,7 @@ const processSingleSource = async (
           selectedPages: pagesToProcess,
           elements: astElements,
           chunks,
+          visualEnrichments,
           warnings: output.warnings,
         });
       }
@@ -535,6 +563,8 @@ export const readPdf = tool()
       include_layout_diagnostics,
       include_document_map,
       include_document_ast,
+      include_visual_enrichments,
+      max_visual_enrichments,
       include_trust_report,
       include_accessibility_report,
     } = input;
@@ -568,6 +598,8 @@ export const readPdf = tool()
       includeLayoutDiagnostics: include_layout_diagnostics ?? false,
       includeDocumentMap: include_document_map ?? false,
       includeDocumentAst: include_document_ast ?? false,
+      includeVisualEnrichments: include_visual_enrichments ?? false,
+      maxVisualEnrichments: max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
       includeTrustReport: include_trust_report ?? false,
       includeAccessibilityReport: include_accessibility_report ?? false,
     };
@@ -657,8 +689,10 @@ export const readPdf = tool()
         }
 
         // Add images for the page
-        for (const img of pageImages) {
-          content.push(image(img.data, 'image/png'));
+        if (options.includeImages) {
+          for (const img of pageImages) {
+            content.push(image(img.data, 'image/png'));
+          }
         }
       }
     }

@@ -47,6 +47,7 @@ import type {
   PdfPageGeometry,
   PdfPageRenderData,
   PdfRegionCropData,
+  PdfVisualEnrichment,
   SearchPdfOptions,
 } from '../src/types/pdf.js';
 
@@ -201,6 +202,37 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
     useSemanticBoundaries: true,
     maxChars: 140,
   });
+  const visualEnrichments: PdfVisualEnrichment[] = [
+    {
+      id: 'visual-p1-table-1',
+      target_element_id: 'p1-table-1',
+      target_element_type: 'table',
+      region_id: 'p1-table-1',
+      page: 1,
+      kind: 'table',
+      description: 'Visual table recognizer verified the grid and extracted cell evidence.',
+      markdown: '| Metric | Value |\n| --- | --- |\n| Revenue growth | 24% |',
+      confidence: 0.93,
+      table: {
+        rows: [
+          ['Metric', 'Value'],
+          ['Revenue growth', '24%'],
+        ],
+        row_count: 2,
+        column_count: 2,
+        confidence: 0.91,
+      },
+      provider: 'command',
+      source_crop_evidence_id: 'page-1-p1-table-1-crop-scale-2',
+      source_bounding_box: { left: 40, bottom: 570, right: 240, top: 602 },
+      crop_pixels: { left: 80, top: 380, width: 400, height: 64 },
+      scale: 2,
+      provenance: {
+        engine: 'external-command',
+        source: 'region-analysis-provider',
+      },
+    },
+  ];
   const safetyFindings = buildSafetyFindings(qualityCase.pageContents, qualityCase.pageGeometry);
   const layoutDiagnostics = buildLayoutDiagnostics(qualityCase.pageContents);
   const documentMap = buildDocumentMap({
@@ -211,9 +243,10 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
     chunks,
     layoutDiagnostics,
     safetyFindings,
+    visualEnrichments,
     pageGeometry: qualityCase.pageGeometry,
   });
-  const documentAst = buildDocumentAst({ selectedPages, elements, chunks });
+  const documentAst = buildDocumentAst({ selectedPages, elements, chunks, visualEnrichments });
   const accessibilityReport = buildAccessibilityReport({
     selectedPages,
     elements,
@@ -364,6 +397,16 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         documentMap.summary.safety_finding_count === 3,
     },
     {
+      name: 'document map fuses visual enrichment evidence by page and kind',
+      pass:
+        documentMap.layers.includes('visual_enrichment') &&
+        documentMap.visual_enrichments[0]?.id === 'visual-p1-table-1' &&
+        JSON.stringify(documentMap.pages[0]?.visual_enrichment_indexes) === JSON.stringify([0]) &&
+        documentMap.pages[0]?.visual_enrichment_count === 1 &&
+        documentMap.summary.visual_enrichment_count === 1 &&
+        documentMap.summary.visual_enrichment_kind_counts.table === 1,
+    },
+    {
       name: 'document AST exposes sections, paragraphs, lists, and tables',
       pass:
         documentAst.profile === 'document_ast' &&
@@ -373,6 +416,14 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         documentAst.summary.table_count === 1 &&
         documentAst.root.element_ids.includes('p1-table-1') &&
         documentAst.root.chunk_ids !== undefined,
+    },
+    {
+      name: 'document AST attaches visual enrichment evidence to semantic nodes',
+      pass:
+        documentAst.summary.visual_enrichment_count === 1 &&
+        documentAst.summary.visual_enrichment_kind_counts.table === 1 &&
+        documentAst.root.visual_enrichment_ids?.includes('visual-p1-table-1') === true &&
+        JSON.stringify(documentAst.root).includes('page-1-p1-table-1-crop-scale-2'),
     },
     {
       name: 'accessibility report rewards tagged structure with no issues',

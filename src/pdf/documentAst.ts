@@ -5,6 +5,8 @@ import type {
   PdfDocumentAstNode,
   PdfDocumentAstNodeType,
   PdfDocumentElement,
+  PdfRegionAnalysisKind,
+  PdfVisualEnrichment,
 } from '../types/pdf.js';
 
 const DOCUMENT_AST_VERSION = '2026-06-15' as const;
@@ -13,6 +15,7 @@ interface BuildDocumentAstInput {
   selectedPages: number[];
   elements: PdfDocumentElement[];
   chunks: PdfChunk[];
+  visualEnrichments?: PdfVisualEnrichment[] | undefined;
   warnings?: string[] | undefined;
 }
 
@@ -23,6 +26,12 @@ interface AstStats {
   listItemCount: number;
   tableCount: number;
   imageCount: number;
+  figureCount: number;
+  chartCount: number;
+  formulaCount: number;
+  diagramCount: number;
+  visualEnrichmentCount: number;
+  visualEnrichmentKindCounts: Partial<Record<PdfRegionAnalysisKind, number>>;
   maxDepth: number;
 }
 
@@ -51,17 +60,85 @@ const chunksByElementId = (chunks: PdfChunk[]): Map<string, string[]> => {
   return index;
 };
 
+const visualEnrichmentType = (kind: PdfRegionAnalysisKind): PdfDocumentAstNodeType | undefined => {
+  if (kind === 'figure' || kind === 'chart' || kind === 'formula' || kind === 'diagram') {
+    return kind;
+  }
+
+  return undefined;
+};
+
+const visualText = (enrichment: PdfVisualEnrichment): string | undefined =>
+  enrichment.markdown ??
+  enrichment.text ??
+  enrichment.description ??
+  enrichment.formula?.latex ??
+  enrichment.formula?.text ??
+  enrichment.chart?.summary;
+
+const visualEnrichmentsByTargetElementId = (
+  enrichments: PdfVisualEnrichment[]
+): Map<string, PdfVisualEnrichment> => {
+  const index = new Map<string, PdfVisualEnrichment>();
+
+  for (const enrichment of enrichments) {
+    if (!index.has(enrichment.target_element_id)) {
+      index.set(enrichment.target_element_id, enrichment);
+    }
+  }
+
+  return index;
+};
+
+const visualEnrichmentsByPage = (
+  enrichments: PdfVisualEnrichment[]
+): Map<number, PdfVisualEnrichment[]> => {
+  const index = new Map<number, PdfVisualEnrichment[]>();
+
+  for (const enrichment of enrichments) {
+    const values = index.get(enrichment.page) ?? [];
+    values.push(enrichment);
+    index.set(enrichment.page, values);
+  }
+
+  return index;
+};
+
+const nodeForVisualEnrichment = (enrichment: PdfVisualEnrichment): PdfDocumentAstNode => {
+  const visualType = visualEnrichmentType(enrichment.kind) ?? 'visual_region';
+
+  return {
+    id: enrichment.id,
+    type: visualType,
+    page_start: enrichment.page,
+    page_end: enrichment.page,
+    element_ids: [enrichment.target_element_id],
+    visual_enrichment_ids: [enrichment.id],
+    bounding_boxes: [enrichment.source_bounding_box],
+    ...(enrichment.confidence !== undefined ? { confidence: enrichment.confidence } : {}),
+    ...(visualText(enrichment) ? { text: visualText(enrichment) } : {}),
+    ...(enrichment.formula ? { formula: enrichment.formula } : {}),
+    ...(enrichment.chart ? { chart: enrichment.chart } : {}),
+    visual_enrichment: enrichment,
+  };
+};
+
 const nodeForElement = (
   element: PdfDocumentElement,
-  chunkIndex: Map<string, string[]>
+  chunkIndex: Map<string, string[]>,
+  visualEnrichment?: PdfVisualEnrichment | undefined
 ): PdfDocumentAstNode => {
   const base = {
     page_start: element.page,
     page_end: element.page,
     element_ids: [element.id],
+    ...(visualEnrichment ? { visual_enrichment_ids: [visualEnrichment.id] } : {}),
     ...(chunkIndex.get(element.id) ? { chunk_ids: chunkIndex.get(element.id) } : {}),
     ...(element.bounding_box ? { bounding_boxes: [element.bounding_box] } : {}),
-    ...(element.confidence !== undefined ? { confidence: element.confidence } : {}),
+    ...(visualEnrichment?.confidence !== undefined || element.confidence !== undefined
+      ? { confidence: visualEnrichment?.confidence ?? element.confidence }
+      : {}),
+    ...(visualEnrichment ? { visual_enrichment: visualEnrichment } : {}),
   };
 
   if (element.type === 'text') {
@@ -99,16 +176,23 @@ const nodeForElement = (
     };
   }
 
+  const visualType = visualEnrichment ? visualEnrichmentType(visualEnrichment.kind) : undefined;
+
   return {
     ...base,
     id: element.id,
-    type: 'image',
+    type: visualType ?? 'image',
+    ...(visualEnrichment && visualText(visualEnrichment)
+      ? { text: visualText(visualEnrichment) }
+      : {}),
     image: {
       index: element.image.index,
       width: element.image.width,
       height: element.image.height,
       format: element.image.format,
     },
+    ...(visualEnrichment?.formula ? { formula: visualEnrichment.formula } : {}),
+    ...(visualEnrichment?.chart ? { chart: visualEnrichment.chart } : {}),
   };
 };
 
@@ -144,6 +228,15 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
   const childElementIds = children.flatMap((child) => child.element_ids);
   node.element_ids = unique([...node.element_ids, ...childElementIds]);
 
+  const childVisualEnrichmentIds = children.flatMap((child) => child.visual_enrichment_ids ?? []);
+  const visualEnrichmentIds = unique([
+    ...(node.visual_enrichment_ids ?? []),
+    ...childVisualEnrichmentIds,
+  ]);
+  if (visualEnrichmentIds.length > 0) {
+    node.visual_enrichment_ids = visualEnrichmentIds;
+  }
+
   const childChunkIds = children.flatMap((child) => child.chunk_ids ?? []);
   const chunkIds = unique([...(node.chunk_ids ?? []), ...childChunkIds]);
   if (chunkIds.length > 0) {
@@ -169,6 +262,15 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       listItemCount: stats.listItemCount + child.listItemCount,
       tableCount: stats.tableCount + child.tableCount,
       imageCount: stats.imageCount + child.imageCount,
+      figureCount: stats.figureCount + child.figureCount,
+      chartCount: stats.chartCount + child.chartCount,
+      formulaCount: stats.formulaCount + child.formulaCount,
+      diagramCount: stats.diagramCount + child.diagramCount,
+      visualEnrichmentCount: stats.visualEnrichmentCount + child.visualEnrichmentCount,
+      visualEnrichmentKindCounts: mergeVisualKindCounts(
+        stats.visualEnrichmentKindCounts,
+        child.visualEnrichmentKindCounts
+      ),
       maxDepth: Math.max(stats.maxDepth, child.maxDepth),
     }),
     {
@@ -177,10 +279,31 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       paragraphCount: node.type === 'paragraph' ? 1 : 0,
       listItemCount: node.type === 'list_item' ? 1 : 0,
       tableCount: node.type === 'table' ? 1 : 0,
-      imageCount: node.type === 'image' ? 1 : 0,
+      imageCount: node.image !== undefined ? 1 : 0,
+      figureCount: node.type === 'figure' ? 1 : 0,
+      chartCount: node.type === 'chart' ? 1 : 0,
+      formulaCount: node.type === 'formula' ? 1 : 0,
+      diagramCount: node.type === 'diagram' ? 1 : 0,
+      visualEnrichmentCount: node.visual_enrichment ? 1 : 0,
+      visualEnrichmentKindCounts: node.visual_enrichment
+        ? { [node.visual_enrichment.kind]: 1 }
+        : {},
       maxDepth: depth,
     }
   );
+};
+
+const mergeVisualKindCounts = (
+  left: Partial<Record<PdfRegionAnalysisKind, number>>,
+  right: Partial<Record<PdfRegionAnalysisKind, number>>
+): Partial<Record<PdfRegionAnalysisKind, number>> => {
+  const merged: Partial<Record<PdfRegionAnalysisKind, number>> = { ...left };
+
+  for (const [kind, count] of Object.entries(right) as Array<[PdfRegionAnalysisKind, number]>) {
+    merged[kind] = (merged[kind] ?? 0) + count;
+  }
+
+  return merged;
 };
 
 const uniqueBoundingBoxes = (boxes: BoundingBox[]): BoundingBox[] => {
@@ -199,8 +322,11 @@ const uniqueBoundingBoxes = (boxes: BoundingBox[]): BoundingBox[] => {
 
 export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst => {
   const selectedPages = [...new Set(input.selectedPages)].sort((a, b) => a - b);
+  const visualEnrichments = input.visualEnrichments ?? [];
   const range = pageRangeForElements(input.elements);
   const chunkIndex = chunksByElementId(input.chunks);
+  const visualByTargetElementId = visualEnrichmentsByTargetElementId(visualEnrichments);
+  const visualByPage = visualEnrichmentsByPage(visualEnrichments);
 
   const root: PdfDocumentAstNode = {
     id: 'document',
@@ -220,6 +346,7 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
 
   for (const page of selectedPages) {
     const pageElements = elementsByPage.get(page) ?? [];
+    const pageElementIds = new Set(pageElements.map((element) => element.id));
     const pageNode: PdfDocumentAstNode = {
       id: `p${page}`,
       type: 'page',
@@ -231,7 +358,16 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
     const sectionStack: PdfDocumentAstNode[] = [];
 
     for (const element of pageElements) {
-      appendToPageTree(pageNode, sectionStack, nodeForElement(element, chunkIndex));
+      appendToPageTree(
+        pageNode,
+        sectionStack,
+        nodeForElement(element, chunkIndex, visualByTargetElementId.get(element.id))
+      );
+    }
+
+    for (const enrichment of visualByPage.get(page) ?? []) {
+      if (pageElementIds.has(enrichment.target_element_id)) continue;
+      appendToPageTree(pageNode, sectionStack, nodeForVisualEnrichment(enrichment));
     }
 
     root.children?.push(pageNode);
@@ -260,6 +396,12 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
       list_item_count: stats.listItemCount,
       table_count: stats.tableCount,
       image_count: stats.imageCount,
+      figure_count: stats.figureCount,
+      chart_count: stats.chartCount,
+      formula_count: stats.formulaCount,
+      diagram_count: stats.diagramCount,
+      visual_enrichment_count: stats.visualEnrichmentCount,
+      visual_enrichment_kind_counts: stats.visualEnrichmentKindCounts,
       max_depth: stats.maxDepth,
     },
     ...(warnings.length > 0 ? { warnings } : {}),

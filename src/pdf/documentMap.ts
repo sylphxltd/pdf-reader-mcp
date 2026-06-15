@@ -9,6 +9,7 @@ import type {
   PdfPageGeometry,
   PdfPageLayoutDiagnostics,
   PdfSafetyFinding,
+  PdfVisualEnrichment,
 } from '../types/pdf.js';
 
 const DOCUMENT_MAP_VERSION = '2026-06-15' as const;
@@ -22,6 +23,7 @@ interface BuildDocumentMapInput {
   chunks: PdfChunk[];
   layoutDiagnostics: PdfPageLayoutDiagnostics[];
   safetyFindings: PdfSafetyFinding[];
+  visualEnrichments?: PdfVisualEnrichment[] | undefined;
   ocrTextLayer?: PdfOcrTextLayer | undefined;
   pageGeometry?: PdfPageGeometry[] | undefined;
   warnings?: string[] | undefined;
@@ -50,6 +52,7 @@ const pagesForChunk = (chunk: PdfChunk): number[] => {
 const buildLayers = (
   elements: PdfDocumentElement[],
   chunks: PdfChunk[],
+  visualEnrichments: PdfVisualEnrichment[],
   layoutDiagnostics: PdfPageLayoutDiagnostics[],
   safetyFindings: PdfSafetyFinding[],
   ocrTextLayer: PdfOcrTextLayer | undefined,
@@ -61,6 +64,7 @@ const buildLayers = (
   if ((ocrTextLayer?.pages.length ?? 0) > 0) layers.add('ocr_text_layer');
   if (elements.some((element) => element.type === 'image')) layers.add('image_metadata');
   if (elements.some((element) => element.type === 'table')) layers.add('table_structure');
+  if (visualEnrichments.length > 0) layers.add('visual_enrichment');
   if (elements.some((element) => element.type === 'text' && element.semantic_hint !== undefined)) {
     layers.add('semantic_hints');
   }
@@ -101,6 +105,18 @@ const pageWarnings = (
   return warnings.length > 0 ? warnings : undefined;
 };
 
+const countVisualEnrichmentKinds = (
+  visualEnrichments: PdfVisualEnrichment[]
+): Record<string, number> => {
+  const counts: Record<string, number> = {};
+
+  for (const enrichment of visualEnrichments) {
+    counts[enrichment.kind] = (counts[enrichment.kind] ?? 0) + 1;
+  }
+
+  return counts;
+};
+
 export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap => {
   const elementsByPage = new Map<number, PdfDocumentElement[]>();
   for (const element of input.elements) {
@@ -124,6 +140,11 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
   });
+  const visualEnrichments = input.visualEnrichments ?? [];
+  const visualEnrichmentIndexesByPage = new Map<number, number[]>();
+  visualEnrichments.forEach((enrichment, index) => {
+    pushToMap(visualEnrichmentIndexesByPage, enrichment.page, index);
+  });
 
   const selectedPages =
     input.selectedPages.length > 0
@@ -139,6 +160,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const layout = layoutByPage.get(page);
     const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
+    const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === 'image').length;
     const tableElements = elements.filter((element) => element.type === 'table');
@@ -157,6 +179,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       element_ids: elements.map((element) => element.id),
       chunk_ids: chunks.map((chunk) => chunk.id),
       safety_finding_indexes: safetyFindingIndexes,
+      visual_enrichment_indexes: visualEnrichmentIndexes,
       text_chars: textChars,
       text_item_count: textItemCount,
       ...(ocrPage
@@ -169,6 +192,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
         : {}),
       image_count: imageCount,
       table_count: tableCount,
+      visual_enrichment_count: visualEnrichmentIndexes.length,
       ...(warnings ? { warnings } : {}),
     };
   });
@@ -209,6 +233,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     layers: buildLayers(
       input.elements,
       input.chunks,
+      visualEnrichments,
       input.layoutDiagnostics,
       input.safetyFindings,
       input.ocrTextLayer,
@@ -217,6 +242,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     pages,
     elements: input.elements,
     chunks: input.chunks,
+    visual_enrichments: visualEnrichments,
     layout_diagnostics: input.layoutDiagnostics,
     safety_findings: input.safetyFindings,
     routing: {
@@ -235,6 +261,8 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
       table_element_count: tableElementCount,
+      visual_enrichment_count: visualEnrichments.length,
+      visual_enrichment_kind_counts: countVisualEnrichmentKinds(visualEnrichments),
       chunk_count: input.chunks.length,
       safety_finding_count: input.safetyFindings.length,
       ...(averageLayoutConfidence !== undefined

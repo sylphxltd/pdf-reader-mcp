@@ -176,6 +176,16 @@ const defaultInspectionProviderReadiness = (): InspectionProviderReadiness => ({
 
 const providerReady = (readiness: PdfOptionalProviderReadiness): boolean => readiness === 'ready';
 
+const enableVisualEnrichmentFusion = (
+  target: Record<string, unknown>,
+  providerReadiness: InspectionProviderReadiness
+) => {
+  if (!providerReady(providerReadiness.analyze_regions)) return;
+
+  target['include_visual_enrichments'] = true;
+  target['max_visual_enrichments'] = 8;
+};
+
 const providerRequiredInputs = (
   inputs: string[],
   providerName: 'OCR' | 'analyze_regions',
@@ -441,11 +451,12 @@ export const buildInspectionRecommendation = (
       include_layout_diagnostics: true,
       include_ocr_text_layer: true,
     });
+    enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: 'scanned_pdf_triage',
       needs_ocr: true,
       reason:
-        'Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer or ocr_pages with a configured OCR provider for text extraction.',
+        'Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer for text extraction and include_visual_enrichments when a visual-region provider is ready.',
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(
         source,
@@ -468,11 +479,12 @@ export const buildInspectionRecommendation = (
       include_markdown: true,
       include_tables: true,
     });
+    enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: 'mixed_pdf_review',
       needs_ocr: true,
       reason:
-        'Some sampled pages look text-based while others look image-only; use read_pdf with include_ocr_text_layer for a single provenance-aware document map, or ocr_pages for a dedicated OCR pass.',
+        'Some sampled pages look text-based while others look image-only; use read_pdf with OCR and visual enrichment fusion for one provenance-aware document map when providers are ready.',
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(
         source,
@@ -494,11 +506,12 @@ export const buildInspectionRecommendation = (
       include_markdown: true,
       include_tables: true,
     });
+    enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: 'agentic_rag',
       needs_ocr: false,
       reason:
-        'Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.',
+        'Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, safety findings, and visual enrichment fusion are the highest-value next read_pdf options when providers are ready.',
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(
         source,

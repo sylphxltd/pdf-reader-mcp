@@ -82,6 +82,8 @@ describe('inspector', () => {
           include_document_map: true,
           include_layout_diagnostics: true,
           include_ocr_text_layer: true,
+          include_visual_enrichments: true,
+          max_visual_enrichments: 8,
         },
         next_tools: [
           {
@@ -92,6 +94,8 @@ describe('inspector', () => {
             arguments: {
               include_document_map: true,
               include_ocr_text_layer: true,
+              include_visual_enrichments: true,
+              max_visual_enrichments: 8,
             },
           },
           {
@@ -163,6 +167,8 @@ describe('inspector', () => {
           include_semantic_hints: true,
           include_safety_findings: true,
           include_tables: true,
+          include_visual_enrichments: true,
+          max_visual_enrichments: 8,
           include_outline: true,
           include_structure_tree: true,
         },
@@ -199,6 +205,31 @@ describe('inspector', () => {
             priority: 5,
             ready: true,
           },
+        ],
+      });
+    });
+
+    it('does not enable visual enrichment fusion when the visual provider is unavailable', () => {
+      const recommendation = buildInspectionRecommendation(
+        { path: 'report.pdf' },
+        'digital_text',
+        documentSignals(),
+        [signal(1, 500)],
+        { ocr_pages: 'ready', analyze_regions: 'not_configured' }
+      );
+
+      expect(recommendation.read_pdf_arguments).not.toHaveProperty('include_visual_enrichments');
+      expect(recommendation.read_pdf_arguments).not.toHaveProperty('max_visual_enrichments');
+      expect(recommendation.next_tools[0]?.arguments).not.toHaveProperty(
+        'include_visual_enrichments'
+      );
+      expect(recommendation.next_tools[3]).toMatchObject({
+        tool: 'analyze_regions',
+        ready: false,
+        required_inputs: [
+          'page number',
+          'PDF-coordinate bounding box',
+          'configured analyze_regions provider',
         ],
       });
     });
