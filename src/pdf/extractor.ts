@@ -80,6 +80,7 @@ interface RawFormField {
   fieldType?: string;
   value?: unknown;
   defaultValue?: unknown;
+  // PDF.js exposes both `page` and `pageIndex` as zero-based page indexes.
   page?: number;
   pageIndex?: number;
   editable?: boolean;
@@ -889,6 +890,9 @@ export const extractDocumentStructure = async (
   return output;
 };
 
+const normalizeZeroBasedPageIndex = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value + 1 : undefined;
+
 const normalizeFormField = (
   fallbackName: string,
   field: RawFormField
@@ -897,10 +901,10 @@ const normalizeFormField = (
   if (!name) return undefined;
 
   const page =
-    field.page !== undefined
-      ? field.page
-      : field.pageIndex !== undefined
-        ? field.pageIndex + 1
+    field.pageIndex !== undefined
+      ? normalizeZeroBasedPageIndex(field.pageIndex)
+      : field.page !== undefined
+        ? normalizeZeroBasedPageIndex(field.page)
         : undefined;
   const fieldType = field.type ?? field.fieldType;
   const boundingBox = buildRectBoundingBox(field.rect);

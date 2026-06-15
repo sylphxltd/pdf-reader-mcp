@@ -64,9 +64,10 @@ themselves.
      formulas, charts, figures, hidden text, annotations, forms, attachments,
      and tagged PDFs.
    - `bun run benchmark:quality` is the deterministic contract-quality gate for
-     Agent Document Twin semantics, inspection tool routing, recursive reading
-     order, OCR normalization, a runtime-generated scanned-PDF OCR pipeline
-     fixture, visual-region command/HTTP normalization, and search evidence.
+     Agent Document Twin semantics, inspection tool routing, real PDF document
+     signals, recursive reading order, OCR normalization, a runtime-generated
+     scanned-PDF OCR pipeline fixture, visual-region command/HTTP
+     normalization, and search evidence.
    - `bun run benchmark:providers` is the installed-provider smoke benchmark
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers; skipped providers are explicit and can be made

@@ -3,6 +3,7 @@ import { OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildWarnings,
+  extractDocumentStructure,
   extractImages,
   extractMetadataAndPageCount,
   extractPageContent,
@@ -142,6 +143,44 @@ describe('extractor', () => {
       const result = await extractMetadataAndPageCount(mockDocument, false, false);
 
       expect(result.num_pages).toBeUndefined();
+    });
+  });
+
+  describe('extractDocumentStructure', () => {
+    it('normalizes real PDF.js zero-based form field page indexes to public 1-based pages', async () => {
+      const mockDocument = {
+        getFieldObjects: vi.fn().mockResolvedValue({
+          customer_name: [
+            {
+              id: 'field-1',
+              name: 'customer_name',
+              type: 'text',
+              value: 'Ada Lovelace',
+              page: 0,
+              rect: [20, 30, 220, 50],
+            },
+          ],
+        }),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractDocumentStructure(mockDocument, {
+        includeOutline: false,
+        includePageLabels: false,
+        includePermissions: false,
+        includeFormFields: true,
+        includeAttachments: false,
+      });
+
+      expect(result.form_fields).toEqual([
+        {
+          name: 'customer_name',
+          type: 'text',
+          value: 'Ada Lovelace',
+          page: 1,
+          id: 'field-1',
+          bounding_box: { left: 20, bottom: 30, right: 220, top: 50 },
+        },
+      ]);
     });
   });
 

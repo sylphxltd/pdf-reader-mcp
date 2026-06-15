@@ -2158,11 +2158,12 @@ var extractDocumentStructure = async (pdfDocument, options) => {
   }
   return output;
 };
+var normalizeZeroBasedPageIndex = (value) => typeof value === "number" && Number.isInteger(value) && value >= 0 ? value + 1 : undefined;
 var normalizeFormField = (fallbackName, field) => {
   const name = (field.name ?? field.fieldName ?? fallbackName).trim();
   if (!name)
     return;
-  const page = field.page !== undefined ? field.page : field.pageIndex !== undefined ? field.pageIndex + 1 : undefined;
+  const page = field.pageIndex !== undefined ? normalizeZeroBasedPageIndex(field.pageIndex) : field.page !== undefined ? normalizeZeroBasedPageIndex(field.page) : undefined;
   const fieldType = field.type ?? field.fieldType;
   const boundingBox = buildRectBoundingBox(field.rect);
   return {

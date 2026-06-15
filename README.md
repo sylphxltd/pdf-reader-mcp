@@ -1665,7 +1665,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, reading order, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, reading order, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
+- [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, and accessibility report fusion
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box and configured visual-region smoke checks
 - [x] Filesystem and HTTP access restrictions
 

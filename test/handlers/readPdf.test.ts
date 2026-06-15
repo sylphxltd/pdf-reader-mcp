@@ -1356,7 +1356,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
         id: 'field-1',
         name: 'field1',
         fieldType: 'Tx',
-        page: 1,
+        page: 0,
         required: true,
       },
     });

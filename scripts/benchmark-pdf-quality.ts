@@ -641,6 +641,119 @@ const serializePdf = (objects: string[]): string => {
   return body;
 };
 
+const pdfStream = (content: string): string =>
+  `<< /Length ${String(byteLength(content))} >>\nstream\n${content}endstream`;
+
+const writeDocumentSignalsPdfFixture = async (directory: string): Promise<string> => {
+  const pageOneContent = [
+    '/H1 <</MCID 0>> BDC',
+    'BT',
+    '/F1 18 Tf',
+    '72 720 Td',
+    '(Document Signals) Tj',
+    'ET',
+    'EMC',
+    '/P <</MCID 1>> BDC',
+    'BT',
+    '/F1 12 Tf',
+    '72 680 Td',
+    '(Open the reference link.) Tj',
+    'ET',
+    'EMC',
+    'BT',
+    '/F1 12 Tf',
+    '72 630 Td',
+    '(Customer name:) Tj',
+    'ET',
+    '',
+  ].join('\n');
+  const pageTwoContent = ['BT', '/F1 18 Tf', '72 720 Td', '(Second Page) Tj', 'ET', ''].join('\n');
+  const embeddedCsv = 'name,value\nalpha,1\n';
+  const pdf = serializePdf([
+    [
+      '<< /Type /Catalog',
+      '/Pages 2 0 R',
+      '/Outlines 8 0 R',
+      '/PageLabels << /Nums [0 << /S /r >> 1 << /S /D /St 1 >>] >>',
+      '/MarkInfo << /Marked true /Suspects false >>',
+      '/Names << /EmbeddedFiles << /Names [(source.csv) 12 0 R] >> >>',
+      '/AcroForm << /Fields [13 0 R] /NeedAppearances true >>',
+      '/StructTreeRoot 14 0 R',
+      '>>',
+    ].join('\n'),
+    '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+    [
+      '<< /Type /Page',
+      '/Parent 2 0 R',
+      '/MediaBox [0 0 612 792]',
+      '/StructParents 0',
+      '/Resources << /Font << /F1 5 0 R >> >>',
+      '/Contents 6 0 R',
+      '/Annots [10 0 R 13 0 R]',
+      '>>',
+    ].join(' '),
+    [
+      '<< /Type /Page',
+      '/Parent 2 0 R',
+      '/MediaBox [0 0 612 792]',
+      '/Resources << /Font << /F1 5 0 R >> >>',
+      '/Contents 7 0 R',
+      '>>',
+    ].join(' '),
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    pdfStream(pageOneContent),
+    pdfStream(pageTwoContent),
+    '<< /Type /Outlines /First 9 0 R /Last 9 0 R /Count 1 >>',
+    '<< /Title (Document Signals) /Parent 8 0 R /Dest [3 0 R /XYZ 72 720 null] >>',
+    [
+      '<< /Type /Annot',
+      '/Subtype /Link',
+      '/Rect [72 685 220 710]',
+      '/Contents (Reference Link)',
+      '/A << /S /URI /URI (https://example.com/signal) >>',
+      '>>',
+    ].join(' '),
+    [
+      '<< /Type /EmbeddedFile',
+      '/Subtype /text#2Fcsv',
+      `/Length ${String(byteLength(embeddedCsv))}`,
+      '>>',
+      'stream',
+      embeddedCsv,
+      'endstream',
+    ].join('\n'),
+    [
+      '<< /Type /Filespec',
+      '/F (source.csv)',
+      '/UF (source.csv)',
+      '/Desc (Source data)',
+      '/EF << /F 11 0 R /UF 11 0 R >>',
+      '>>',
+    ].join(' '),
+    [
+      '<< /Type /Annot',
+      '/Subtype /Widget',
+      '/FT /Tx',
+      '/T (customer_name)',
+      '/V (Ada Lovelace)',
+      '/DV ()',
+      '/Rect [72 635 260 660]',
+      '/P 3 0 R',
+      '/F 4',
+      '>>',
+    ].join(' '),
+    '<< /Type /StructTreeRoot /K 15 0 R /ParentTree 18 0 R /ParentTreeNextKey 1 >>',
+    '<< /Type /StructElem /S /Document /P 14 0 R /K [16 0 R 17 0 R] >>',
+    '<< /Type /StructElem /S /H1 /P 15 0 R /Pg 3 0 R /K 0 >>',
+    '<< /Type /StructElem /S /P /P 15 0 R /Pg 3 0 R /K 1 >>',
+    '<< /Nums [0 [16 0 R 17 0 R]] >>',
+  ]);
+  const fixturePath = path.join(directory, 'document-signals.pdf');
+  await fs.writeFile(fixturePath, pdf);
+
+  return fixturePath;
+};
+
 const writeScannedImagePdfFixture = async (directory: string): Promise<string> => {
   const contentStream = 'q\n160 0 0 160 20 20 cm\n/Im1 Do\nQ\n';
   const imageData = 'FF000000FF000000FFFF00>';
@@ -708,6 +821,158 @@ const firstReadPdfData = (payload: Record<string, unknown>): Record<string, unkn
   }
 
   return data as Record<string, unknown>;
+};
+
+const containsStructureRole = (value: unknown, role: string): boolean => {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as { role?: unknown; children?: unknown };
+  if (record.role === role) return true;
+
+  return Array.isArray(record.children)
+    ? record.children.some((child) => containsStructureRole(child, role))
+    : false;
+};
+
+const evaluateDocumentSignalsFixture = async (): Promise<QualityAssertion[]> => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-signals-'));
+
+  try {
+    const fixturePath = await writeDocumentSignalsPdfFixture(tempDir);
+    const payload = await parseReadPdfResult({
+      sources: [{ path: fixturePath, pages: [1] }],
+      include_metadata: false,
+      include_page_count: true,
+      include_full_text: false,
+      include_outline: true,
+      include_page_labels: true,
+      include_permissions: true,
+      include_annotations: true,
+      include_page_geometry: true,
+      include_structure_tree: true,
+      include_form_fields: true,
+      include_attachments: true,
+      include_accessibility_report: true,
+    });
+    const data = firstReadPdfData(payload);
+    const outline = data.outline as Array<{ title?: string }> | undefined;
+    const annotations = data.annotations as
+      | Array<{
+          page?: number;
+          annotations?: Array<{
+            subtype?: string;
+            contents?: string;
+            url?: string;
+            bounding_box?: BoundingBox;
+          }>;
+        }>
+      | undefined;
+    const pageOneAnnotations = annotations?.find((entry) => entry.page === 1)?.annotations ?? [];
+    const linkAnnotation = pageOneAnnotations.find((annotation) => annotation.subtype === 'Link');
+    const widgetAnnotation = pageOneAnnotations.find(
+      (annotation) => annotation.subtype === 'Widget'
+    );
+    const formFields = data.form_fields as
+      | Array<{
+          name?: string;
+          type?: string;
+          value?: unknown;
+          page?: number;
+          bounding_box?: BoundingBox;
+        }>
+      | undefined;
+    const attachments = data.attachments as
+      | Array<{ name?: string; filename?: string; description?: string; size_bytes?: number }>
+      | undefined;
+    const pageGeometry = data.page_geometry as
+      | Array<{ page?: number; width?: number; height?: number; rotation?: number }>
+      | undefined;
+    const structureTrees = data.structure_trees as
+      | Array<{ page?: number; tree?: unknown }>
+      | undefined;
+    const accessibilityReport = data.accessibility_report as
+      | {
+          profile?: string;
+          tagged?: boolean;
+          score?: number;
+          summary?: {
+            tagged_page_count?: number;
+            heading_count?: number;
+            link_count?: number;
+            form_field_count?: number;
+            issue_count?: number;
+          };
+        }
+      | undefined;
+
+    return [
+      {
+        name: 'real document-signal PDF exposes outline, labels, mark info, and geometry',
+        pass:
+          data.num_pages === 2 &&
+          outline?.[0]?.title === 'Document Signals' &&
+          JSON.stringify(data.page_labels) === JSON.stringify(['i', '1']) &&
+          (data.mark_info as { Marked?: boolean; Suspects?: boolean } | undefined)?.Marked ===
+            true &&
+          (data.mark_info as { Marked?: boolean; Suspects?: boolean } | undefined)?.Suspects ===
+            false &&
+          pageGeometry?.[0]?.page === 1 &&
+          pageGeometry[0]?.width === 612 &&
+          pageGeometry[0]?.height === 792 &&
+          pageGeometry[0]?.rotation === 0,
+      },
+      {
+        name: 'real document-signal PDF normalizes link and widget annotation evidence',
+        pass:
+          linkAnnotation?.contents === 'Reference Link' &&
+          linkAnnotation.url === 'https://example.com/signal' &&
+          JSON.stringify(linkAnnotation.bounding_box) ===
+            JSON.stringify({ left: 72, bottom: 685, right: 220, top: 710 }) &&
+          widgetAnnotation?.subtype === 'Widget' &&
+          JSON.stringify(widgetAnnotation.bounding_box) ===
+            JSON.stringify({ left: 72, bottom: 635, right: 260, top: 660 }),
+      },
+      {
+        name: 'real document-signal PDF normalizes AcroForm fields to public 1-based pages',
+        pass:
+          formFields?.[0]?.name === 'customer_name' &&
+          formFields[0]?.type === 'text' &&
+          formFields[0]?.value === 'Ada Lovelace' &&
+          formFields[0]?.page === 1 &&
+          JSON.stringify(formFields[0]?.bounding_box) ===
+            JSON.stringify({ left: 72, bottom: 635, right: 260, top: 660 }),
+      },
+      {
+        name: 'real document-signal PDF exposes embedded attachment metadata only',
+        pass:
+          attachments?.[0]?.name === 'source.csv' &&
+          attachments[0]?.filename === 'source.csv' &&
+          attachments[0]?.description === 'Source data' &&
+          attachments[0]?.size_bytes === 19,
+      },
+      {
+        name: 'real document-signal PDF exposes tagged structure roles from PDF.js',
+        pass:
+          structureTrees?.[0]?.page === 1 &&
+          containsStructureRole(structureTrees[0]?.tree, 'Document') &&
+          containsStructureRole(structureTrees[0]?.tree, 'H1') &&
+          containsStructureRole(structureTrees[0]?.tree, 'P'),
+      },
+      {
+        name: 'real document-signal PDF feeds accessibility report with tag, link, and form evidence',
+        pass:
+          accessibilityReport?.profile === 'pdf_accessibility_report' &&
+          accessibilityReport.tagged === true &&
+          accessibilityReport.score === 100 &&
+          accessibilityReport.summary?.tagged_page_count === 1 &&
+          accessibilityReport.summary.heading_count === 1 &&
+          accessibilityReport.summary.link_count === 1 &&
+          accessibilityReport.summary.form_field_count === 1 &&
+          accessibilityReport.summary.issue_count === 0,
+      },
+    ];
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
 };
 
 const evaluateScannedPdfFixturePipeline = async (): Promise<QualityAssertion[]> => {
@@ -1071,6 +1336,7 @@ const evaluateAiSafetyOverlap = (): QualityAssertion[] => {
 const main = async () => {
   const results = [
     await runCase('agent_document_twin_semantic_quality', evaluateAgentDocumentTwin),
+    await runCase('document_signal_fixture_quality', evaluateDocumentSignalsFixture),
     await runCase('recursive_reading_order_quality', evaluateRecursiveReadingOrder),
     await runCase('ocr_text_layer_quality', evaluateOcrTextLayer),
     await runCase('scanned_pdf_fixture_pipeline_quality', evaluateScannedPdfFixturePipeline),
@@ -1085,7 +1351,7 @@ const main = async () => {
     profile: 'pdf_quality_benchmark',
     generated_at: new Date().toISOString(),
     fixture_scope:
-      'deterministic in-repository synthetic cases, runtime-generated scanned PDF fixture, and local mock providers',
+      'deterministic in-repository synthetic cases, runtime-generated document-signal and scanned PDF fixtures, and local mock providers',
     passed,
     total,
     score: total === 0 ? 0 : round(passed / total),
