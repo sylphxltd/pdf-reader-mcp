@@ -533,8 +533,13 @@ export interface PdfTrustReportSummary {
   high_signal_count: number;
   medium_signal_count: number;
   low_signal_count: number;
+  signal_type_counts: Partial<Record<PdfTrustSignalType, number>>;
+  safety_finding_type_counts: Partial<Record<PdfSafetyFindingType, number>>;
   page_count: number;
   pages_with_signals: number;
+  high_risk_page_count: number;
+  medium_risk_page_count: number;
+  low_risk_page_count: number;
 }
 
 export interface PdfTrustReport {

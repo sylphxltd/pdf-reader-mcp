@@ -430,7 +430,9 @@ Use `include_trust_report` when an agent needs one risk summary before using
 PDF content as instructions, evidence, or retrieval context. The report
 consolidates content safety, layout uncertainty, sparse/scanned-page, table
 quality, hidden-text, external-link, and unsafe-link signals without forcing those raw
-outputs into the top-level response.
+outputs into the top-level response. Summary counters group signals by type,
+safety findings by finding type, severities, and page-risk buckets so agents can
+route high-risk PDFs without scanning every signal first.
 
 ```json
 {

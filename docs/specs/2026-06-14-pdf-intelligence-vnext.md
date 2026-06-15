@@ -154,8 +154,9 @@ Candidate engines:
    - Add `include_document_ast` as a semantic tree over the same element and
      chunk IDs for page/section/paragraph/list/caption/header/footer/table/image
      traversal with continued section context and caption-to-evidence links.
-   - Add `include_trust_report` for consolidated content safety, layout,
-     sparse-page, table quality, external-link, and unsafe-link routing
+   - Add `include_trust_report` for consolidated content safety,
+     visual-spoofing, tiny/off-page text, layout, sparse-page, table quality,
+     external-link, unsafe-link, category-count, and page-risk routing
      signals.
    - Add `include_accessibility_report` for deterministic tagged-PDF coverage,
      tag-to-visible-content coverage, structure tree, heading, image, form,

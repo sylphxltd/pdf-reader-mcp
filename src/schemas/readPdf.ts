@@ -197,7 +197,7 @@ export const readPdfArgsSchema = object({
   include_trust_report: optional(
     bool(
       description(
-        'Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, external-link, and unsafe-link signals for agent routing.'
+        'Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, category-count, and page-risk signals for agent routing.'
       )
     )
   ),

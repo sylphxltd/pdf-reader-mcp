@@ -1932,6 +1932,34 @@ const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
     elements: [],
     annotations: unsafeAnnotations,
   });
+  const scopedTrustReport = buildTrustReport({
+    selectedPages: [1],
+    safetyFindings: [
+      ...findings,
+      {
+        type: 'hidden_text',
+        severity: 'high',
+        page: 2,
+        message: 'Hidden text on an unselected page.',
+      },
+    ],
+    layoutDiagnostics: [],
+    elements: [],
+    annotations: [
+      ...unsafeAnnotations,
+      {
+        page: 2,
+        annotations: [
+          {
+            id: 'unsafe-link-2',
+            page: 2,
+            subtype: 'Link',
+            url: 'javascript:alert(2)',
+          },
+        ],
+      },
+    ],
+  });
   const unsafeLinkSignal = trustReport.signals.find(
     (signal) => signal.type === 'unsafe_external_link'
   );
@@ -1963,6 +1991,27 @@ const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
         unsafeLinkSignal.annotation_id === 'unsafe-link-1' &&
         unsafeLinkSignal.evidence?.['url'] === 'javascript:alert(1)' &&
         trustReport.summary.high_signal_count === 3,
+    },
+    {
+      name: 'trust report summarizes safety and signal type counts',
+      pass:
+        trustReport.summary.signal_type_counts.content_safety === 2 &&
+        trustReport.summary.signal_type_counts.unsafe_external_link === 1 &&
+        trustReport.summary.safety_finding_type_counts.overlapping_text === 1 &&
+        trustReport.summary.safety_finding_type_counts.hidden_text === 1 &&
+        trustReport.summary.high_risk_page_count === 1,
+    },
+    {
+      name: 'trust report scopes category counts to selected pages',
+      pass:
+        scopedTrustReport.summary.signal_count === trustReport.summary.signal_count &&
+        scopedTrustReport.summary.signal_type_counts.unsafe_external_link === 1 &&
+        scopedTrustReport.summary.safety_finding_type_counts.hidden_text === 1 &&
+        scopedTrustReport.signals.every((signal) => signal.page === undefined || signal.page === 1),
+    },
+    {
+      name: 'trust report gives visual-spoofing verification guidance',
+      pass: trustReport.guidance.some((guidance) => guidance.includes('overlapping text')),
     },
     {
       name: 'trust report gives unsafe-link routing guidance',

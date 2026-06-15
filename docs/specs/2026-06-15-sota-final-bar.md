@@ -62,6 +62,9 @@ themselves.
 7. AI-safety trust reporting
    - Detect hidden, tiny, off-page, overlapping, visually spoofed, unsafe-link,
      and prompt-injection-like content with page evidence and routing guidance.
+   - Summarize selected-page-scoped trust evidence by signal type, safety
+     finding type, severity, and page-risk bucket so agents can route high-risk
+     PDFs without scanning every raw signal first.
 
 8. Reproducible proof
    - Public benchmark commands must measure speed and quality, not just runtime.
@@ -76,8 +79,9 @@ themselves.
      normalization, a runtime-generated scanned-PDF OCR pipeline fixture,
      OCR-derived table extraction from scanned-page word boxes,
      caption-derived visual candidate routing, visual-region command/HTTP
-     normalization, search evidence, and AI-safety trust-report hidden-text
-     and unsafe-link routing.
+     normalization, search evidence, and AI-safety trust-report
+     selected-page-scoped category summaries, visual-spoofing guidance,
+     hidden-text routing, and unsafe-link routing.
    - `bun run benchmark:providers` is the installed-provider benchmark
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers. It reports an `ocr-text-layer` profile for OCR

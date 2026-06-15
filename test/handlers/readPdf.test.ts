@@ -2004,6 +2004,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 signal_count: number;
                 high_signal_count: number;
                 low_signal_count: number;
+                signal_type_counts: Record<string, number>;
+                safety_finding_type_counts: Record<string, number>;
+                high_risk_page_count: number;
+                medium_risk_page_count: number;
+                low_risk_page_count: number;
               };
               signals: Array<{ type: string; severity: string; page?: number }>;
               guidance: string[];
@@ -2024,6 +2029,16 @@ describe('handleReadPdfFunc Integration Tests', () => {
           signal_count: 2,
           high_signal_count: 1,
           low_signal_count: 1,
+          signal_type_counts: {
+            content_safety: 1,
+            external_link: 1,
+          },
+          safety_finding_type_counts: {
+            prompt_injection_pattern: 1,
+          },
+          high_risk_page_count: 0,
+          medium_risk_page_count: 1,
+          low_risk_page_count: 0,
         },
       });
       expect(trustReport?.signals).toEqual(

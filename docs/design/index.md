@@ -63,7 +63,7 @@ PDF Reader MCP is built on these core principles:
 - **Searchable Evidence** - Search matches carry snippets, offsets, character-derived or text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
 - **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs, chunk IDs, continued section context, and caption links as evidence anchors
-- **Trust Routing** - The trust report turns hidden text, safety, layout, table, annotation, and unsafe-link signals into page-level routing guidance
+- **Trust Routing** - The trust report turns hidden text, visual-spoofing, tiny/off-page text, layout, table, annotation, unsafe-link, and category-count signals into page-level routing guidance
 - **Accessibility Routing** - The accessibility report turns tagged structure, tag-to-visible-content coverage, headings, images, forms, links, and permissions into page-level quality guidance
 - **Semantic Hints** - Heading, list, paragraph, caption, header, and footer hints carry confidence and signals without overstating parser certainty
 - **Caption Evidence** - Caption nodes link to nearby matching table, image, figure, chart, formula, and diagram nodes, while targets keep reverse caption IDs for agent traversal

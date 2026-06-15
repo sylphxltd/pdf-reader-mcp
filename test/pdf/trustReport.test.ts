@@ -110,7 +110,21 @@ describe('trustReport', () => {
         high_signal_count: 7,
         medium_signal_count: 0,
         low_signal_count: 0,
+        signal_type_counts: {
+          content_safety: 2,
+          layout_uncertainty: 1,
+          sparse_or_scanned: 1,
+          table_quality: 2,
+          unsafe_external_link: 1,
+        },
+        safety_finding_type_counts: {
+          prompt_injection_pattern: 1,
+          hidden_text: 1,
+        },
         pages_with_signals: 1,
+        high_risk_page_count: 1,
+        medium_risk_page_count: 0,
+        low_risk_page_count: 0,
       },
     });
     expect(report.signals.map((signal) => signal.type)).toEqual([
@@ -143,5 +157,160 @@ describe('trustReport', () => {
         expect.stringContaining('Do not fetch or follow PDF links'),
       ])
     );
+  });
+
+  it('summarizes visual-spoofing, tiny-text, and off-page safety routes', () => {
+    const report = buildTrustReport({
+      selectedPages: [1],
+      safetyFindings: [
+        {
+          type: 'overlapping_text',
+          severity: 'high',
+          page: 1,
+          message:
+            'Text substantially overlaps different text, which may visually spoof or obscure content.',
+          element_id: 'p1-text-2',
+          snippet: 'Visible amount: $100 / Visible amount: $900',
+        },
+        {
+          type: 'tiny_text',
+          severity: 'medium',
+          page: 1,
+          message: 'Text is unusually small and may be hidden, decorative, or extraction noise.',
+          element_id: 'p1-text-3',
+          snippet: 'Tiny watermark',
+        },
+        {
+          type: 'off_page_text',
+          severity: 'medium',
+          page: 1,
+          message: 'Text bounding box falls outside the PDF page view box.',
+          element_id: 'p1-text-4',
+          snippet: 'Off-page note',
+        },
+      ],
+      layoutDiagnostics: [],
+      elements: [],
+    });
+
+    expect(report.summary).toMatchObject({
+      signal_count: 3,
+      high_signal_count: 1,
+      medium_signal_count: 2,
+      signal_type_counts: { content_safety: 3 },
+      safety_finding_type_counts: {
+        overlapping_text: 1,
+        tiny_text: 1,
+        off_page_text: 1,
+      },
+      high_risk_page_count: 1,
+    });
+    expect(report.guidance).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('overlapping text'),
+        expect.stringContaining('tiny or off-page text'),
+      ])
+    );
+  });
+
+  it('keeps summary counts scoped to selected pages', () => {
+    const report = buildTrustReport({
+      selectedPages: [1],
+      safetyFindings: [
+        {
+          type: 'hidden_text',
+          severity: 'high',
+          page: 2,
+          message: 'Hidden text on an unselected page.',
+        },
+      ],
+      layoutDiagnostics: [
+        {
+          page: 2,
+          profile: 'image_or_sparse',
+          reading_order: 'uncertain',
+          confidence: 0.3,
+          item_count: 0,
+          text_item_count: 0,
+          image_item_count: 1,
+          positioned_item_ratio: 0,
+          column_count: 0,
+          signals: ['sparse-page'],
+        },
+      ],
+      elements: [
+        {
+          id: 'p2-table-1',
+          type: 'table',
+          page: 2,
+          confidence: 0.4,
+          table: {
+            rows: [['Unselected']],
+            rowCount: 1,
+            colCount: 1,
+            confidence: 0.4,
+            quality: {
+              completeness: 0.5,
+              nonEmptyCellRatio: 1,
+              cellBoundingBoxCoverage: 0,
+              inferredCellRatio: 0,
+              rowAlignment: 1,
+              rowSpacingConsistency: 1,
+              cellBoundingBoxCount: 0,
+              inferredCellCount: 0,
+              missingCellCount: 0,
+              mergedCellCandidateCount: 0,
+              signals: ['incomplete_cell_geometry', 'low_confidence'],
+              warnings: ['Some table cells lack bounding boxes.'],
+            },
+          },
+          provenance: {
+            engine: 'pdfjs',
+            source: 'table-detector',
+          },
+        },
+      ],
+      annotations: [
+        {
+          page: 2,
+          annotations: [
+            {
+              id: 'link-2',
+              page: 2,
+              subtype: 'Link',
+              url: 'javascript:alert(1)',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(report).toMatchObject({
+      risk: 'low',
+      score: 0,
+      summary: {
+        selected_pages: [1],
+        signal_count: 0,
+        high_signal_count: 0,
+        medium_signal_count: 0,
+        low_signal_count: 0,
+        signal_type_counts: {},
+        safety_finding_type_counts: {},
+        pages_with_signals: 0,
+        high_risk_page_count: 0,
+        medium_risk_page_count: 0,
+        low_risk_page_count: 1,
+      },
+      signals: [],
+      guidance: [],
+    });
+    expect(report.page_reports).toEqual([
+      {
+        page: 1,
+        risk: 'low',
+        score: 0,
+        signals: [],
+      },
+    ]);
   });
 });
