@@ -720,6 +720,184 @@ describe('tableExtractor', () => {
       expect(result[1]?.quality?.signals).toContain('multi_page_continuation_candidate');
     });
 
+    it('should link page-edge geometry continuation candidates without repeated headers', () => {
+      const result = extractTablesFromPageContents([
+        {
+          page: 1,
+          items: [
+            {
+              type: 'text',
+              textContent: 'Name',
+              xPosition: 50,
+              yPosition: 700,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 700, right: 80, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Age',
+              xPosition: 150,
+              yPosition: 700,
+              width: 20,
+              height: 10,
+              bounding_box: { left: 150, bottom: 700, right: 170, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Alice',
+              xPosition: 50,
+              yPosition: 100,
+              width: 40,
+              height: 10,
+              bounding_box: { left: 50, bottom: 100, right: 90, top: 110 },
+            },
+            {
+              type: 'text',
+              textContent: '30',
+              xPosition: 150,
+              yPosition: 100,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 100, right: 165, top: 110 },
+            },
+            {
+              type: 'text',
+              textContent: 'Bob',
+              xPosition: 50,
+              yPosition: 80,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 80, right: 80, top: 90 },
+            },
+            {
+              type: 'text',
+              textContent: '25',
+              xPosition: 150,
+              yPosition: 80,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 80, right: 165, top: 90 },
+            },
+          ],
+        },
+        {
+          page: 2,
+          items: [
+            {
+              type: 'text',
+              textContent: 'Carol',
+              xPosition: 50,
+              yPosition: 720,
+              width: 38,
+              height: 10,
+              bounding_box: { left: 50, bottom: 720, right: 88, top: 730 },
+            },
+            {
+              type: 'text',
+              textContent: '27',
+              xPosition: 150,
+              yPosition: 720,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 720, right: 165, top: 730 },
+            },
+            {
+              type: 'text',
+              textContent: 'Dana',
+              xPosition: 50,
+              yPosition: 700,
+              width: 35,
+              height: 10,
+              bounding_box: { left: 50, bottom: 700, right: 85, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: '29',
+              xPosition: 150,
+              yPosition: 700,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 700, right: 165, top: 710 },
+            },
+          ],
+        },
+      ]);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.continuation).toMatchObject({
+        role: 'starts',
+        nextTableId: 'p2-table-1',
+        confidence: 0.95,
+        signals: [
+          'same_column_count',
+          'column_geometry_match',
+          'page_edge_continuation_candidate',
+          'non_repeated_header_candidate',
+        ],
+      });
+      expect(result[1]?.continuation).toMatchObject({
+        role: 'ends',
+        previousTableId: 'p1-table-1',
+        confidence: 0.95,
+      });
+      expect(result[0]?.quality?.signals).toContain('multi_page_continuation_candidate');
+      expect(result[1]?.quality?.signals).toContain('multi_page_continuation_candidate');
+    });
+
+    it('should not link non-repeated continuation candidates without page-edge evidence', () => {
+      const pageItems = (page: number, firstName: string, secondName: string) => ({
+        page,
+        items: [
+          {
+            type: 'text' as const,
+            textContent: firstName,
+            xPosition: 50,
+            yPosition: 700,
+            width: 40,
+            height: 10,
+            bounding_box: { left: 50, bottom: 700, right: 90, top: 710 },
+          },
+          {
+            type: 'text' as const,
+            textContent: '30',
+            xPosition: 150,
+            yPosition: 700,
+            width: 15,
+            height: 10,
+            bounding_box: { left: 150, bottom: 700, right: 165, top: 710 },
+          },
+          {
+            type: 'text' as const,
+            textContent: secondName,
+            xPosition: 50,
+            yPosition: 680,
+            width: 40,
+            height: 10,
+            bounding_box: { left: 50, bottom: 680, right: 90, top: 690 },
+          },
+          {
+            type: 'text' as const,
+            textContent: '25',
+            xPosition: 150,
+            yPosition: 680,
+            width: 15,
+            height: 10,
+            bounding_box: { left: 150, bottom: 680, right: 165, top: 690 },
+          },
+        ],
+      });
+
+      const result = extractTablesFromPageContents([
+        pageItems(1, 'Alice', 'Bob'),
+        pageItems(2, 'Carol', 'Dana'),
+      ]);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.continuation).toBeUndefined();
+      expect(result[1]?.continuation).toBeUndefined();
+    });
+
     it('should return empty array for page with no text', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({ items: [] }),

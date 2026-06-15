@@ -25,7 +25,7 @@ PDF Reader MCP is built on these core principles:
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - **Semantic Hints** - Optional deterministic heading, list, paragraph, caption, header, and footer hints on text elements
 - **Table Geometry** - Optional table elements include row data, cell metadata, confidence, and best-effort coordinates
-- **Table Quality** - Optional table diagnostics expose completeness, missing cells, inferred merged-cell candidates, and repeated-header continuation candidates
+- **Table Quality** - Optional table diagnostics expose completeness, missing cells, inferred merged-cell candidates, and repeated-header or page-edge geometry continuation candidates
 - **Markdown Rendering** - Page-aware Markdown for RAG, summarization, and agent context
 - **HTML Rendering** - Escaped page-aware HTML for preview, export, and conversion workflows
 - **Citation Chunks** - Page, semantic, size, and table chunks with element IDs and best-effort bounding boxes

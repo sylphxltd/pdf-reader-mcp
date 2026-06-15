@@ -55,3 +55,5 @@ publishing.
 Add provider benchmark quality metrics with thresholds, scores, expected
 evidence, and observed evidence for OCR and visual full-fidelity certification
 profiles.
+Link page-edge table continuation candidates when adjacent pages keep matching
+column geometry without repeating the header row.

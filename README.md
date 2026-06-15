@@ -89,7 +89,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, selected-page counters, redacted evidence snippets, layout uncertainty, sparse pages, table warnings, external links, unsafe link schemes, and document-map risk routing
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
-- 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
+- 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header or page-edge geometry continuation candidates
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
 - 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
 - 🔗 **Citation Chunks** - Optional page, semantic, size, and table chunks with element IDs and best-effort bounding boxes

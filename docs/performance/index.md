@@ -84,7 +84,7 @@ evidence before making engine-specific accuracy claims.
 | `ocr_table_extraction_quality` | Runtime-generated scanned PDF through render, OCR word-box normalization, OCR-derived table extraction, document-map table fusion, and document AST table provenance |
 | `visual_region_analysis_quality` | Local command and HTTP visual-region provider normalization for table cells/spans/boxes, formula fields, chart axes/series, figure and image-description evidence, confidence, warnings, and crop evidence |
 | `search_evidence_quality` | Selectable text search with character-derived boxes and OCR search with word-level boxes plus render provenance |
-| `table_evidence_quality` | Deterministic table cell bounding-box coverage, inferred-cell ratios, and weak-geometry routing warnings |
+| `table_evidence_quality` | Deterministic table cell bounding-box coverage, inferred-cell ratios, weak-geometry routing warnings, and page-edge continuation candidates |
 | `ai_safety_trust_report_quality` | Hidden or near-invisible text geometry, overlapping text detection for visual-spoofing or obscured-content risk, selected-page-scoped trust-report signal/safety category counts, page-risk counts, redacted trust-evidence snippets, visual-spoofing guidance, and unsafe-link scheme routing |
 
 This benchmark uses in-repository synthetic cases, runtime-generated

@@ -2176,8 +2176,33 @@ const evaluateTableEvidenceQuality = (): QualityAssertion[] => {
       ],
     },
   ]);
+  const pageEdgeContinuationTables = extractTablesFromPageContents([
+    {
+      page: 1,
+      items: [
+        textItem('Name', 40, 700, 42, 10),
+        textItem('Age', 160, 700, 28, 10),
+        textItem('Alice', 40, 100, 38, 10),
+        textItem('30', 160, 100, 18, 10),
+        textItem('Bob', 40, 80, 30, 10),
+        textItem('25', 160, 80, 18, 10),
+      ],
+    },
+    {
+      page: 2,
+      items: [
+        textItem('Carol', 40, 720, 42, 10),
+        textItem('27', 160, 720, 18, 10),
+        textItem('Dana', 40, 700, 36, 10),
+        textItem('29', 160, 700, 18, 10),
+      ],
+    },
+  ]);
   const completeQuality = completeTables[0]?.quality;
   const sparseQuality = sparseTables[0]?.quality;
+  const pageEdgeStartContinuation = pageEdgeContinuationTables[0]?.continuation;
+  const pageEdgeEndContinuation = pageEdgeContinuationTables[1]?.continuation;
+  const pageEdgeStartQuality = pageEdgeContinuationTables[0]?.quality;
 
   return [
     {
@@ -2204,6 +2229,17 @@ const evaluateTableEvidenceQuality = (): QualityAssertion[] => {
         sparseQuality?.warnings?.some((warning) => warning.includes('lack bounding boxes')) ===
           true &&
         sparseTables[0]?.cells?.some((cell) => cell.inferred === true) === true,
+    },
+    {
+      name: 'table quality links page-edge continuation without repeated headers',
+      pass:
+        pageEdgeStartContinuation?.nextTableId === 'p2-table-1' &&
+        pageEdgeStartContinuation.signals.includes('non_repeated_header_candidate') &&
+        pageEdgeStartContinuation.signals.includes(
+          'page_edge_continuation_candidate'
+        ) &&
+        pageEdgeEndContinuation?.previousTableId === 'p1-table-1' &&
+        pageEdgeStartQuality?.signals.includes('multi_page_continuation_candidate') === true,
     },
   ];
 };

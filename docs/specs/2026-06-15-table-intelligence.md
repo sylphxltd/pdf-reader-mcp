@@ -27,7 +27,8 @@ When `include_tables` is enabled, each extracted table may include:
   incomplete-geometry, low-confidence, or continuation-candidate tables.
 - `provenance.source`, which is `selectable_text` for PDF text-coordinate
   extraction or `ocr_text_layer` for OCR word-box extraction.
-- `continuation` candidates linking repeated-header tables on adjacent pages.
+- `continuation` candidates linking repeated-header or page-edge
+  geometry-compatible tables on adjacent pages.
 
 The existing `rows`, Markdown rendering, table chunks, and document map element
 IDs remain backward compatible.
@@ -36,9 +37,9 @@ IDs remain backward compatible.
 
 This is a deterministic coordinate model for selectable PDF text and OCR word
 boxes. It does not claim to perform full visual table structure recognition,
-non-repeated continuation recovery, or ML-grade row/column span reconstruction.
-Those belong behind an optional visual table provider that can enrich the same
-table contract later.
+complete logical table merging for every multi-page layout, or ML-grade
+row/column span reconstruction. Those belong behind an optional visual table
+provider that can enrich the same table contract later.
 
 ## Agent Workflow
 
@@ -65,5 +66,7 @@ Agents should use table quality signals as routing metadata:
 - Wide text boxes crossing column boundaries expose merged-cell candidate
   signals.
 - Repeated headers on adjacent pages expose continuation candidates.
+- Page-edge tables with matching column geometry can expose continuation
+  candidates even when the next page does not repeat the header row.
 - `read_pdf` table summaries and the agent document map preserve the new
   quality metadata.

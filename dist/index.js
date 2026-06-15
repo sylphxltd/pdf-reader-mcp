@@ -4772,6 +4772,10 @@ var COLUMN_GAP_THRESHOLD = 15;
 var MIN_ROWS = 2;
 var MIN_COLS = 2;
 var MIN_ROW_ITEMS = 2;
+var PAGE_EDGE_CONTINUATION_BOTTOM_Y = 120;
+var PAGE_EDGE_CONTINUATION_TOP_Y = 500;
+var COLUMN_GEOMETRY_TOLERANCE = 24;
+var CONTINUATION_MIN_GEOMETRY_SIMILARITY = 0.8;
 var tableId = (table) => `p${table.page}-table-${table.tableIndex + 1}`;
 var tableKey = (page, tableIndex) => `${page}:${tableIndex}`;
 var tableKeyFromId = (id) => {
@@ -5137,6 +5141,54 @@ var headerSimilarity = (left, right) => {
   }
   return shared / Math.max(leftHeader.size, rightHeader.size);
 };
+var columnGeometryAnchors = (table) => {
+  const anchors = [];
+  for (let colIndex = 0;colIndex < table.colCount; colIndex++) {
+    const lefts = table.cells?.filter((cell) => cell.colIndex === colIndex && cell.inferred !== true && cell.bounding_box !== undefined).map((cell) => cell.bounding_box?.left).filter((left) => left !== undefined) ?? [];
+    if (lefts.length === 0)
+      return;
+    anchors.push(Math.min(...lefts));
+  }
+  return anchors;
+};
+var columnGeometrySimilarity = (left, right) => {
+  if (left.colCount !== right.colCount)
+    return 0;
+  const leftAnchors = columnGeometryAnchors(left);
+  const rightAnchors = columnGeometryAnchors(right);
+  if (!leftAnchors || !rightAnchors || leftAnchors.length !== rightAnchors.length)
+    return 0;
+  const scores = leftAnchors.map((anchor, index) => {
+    const rightAnchor = rightAnchors[index];
+    if (rightAnchor === undefined)
+      return 0;
+    return Math.max(0, 1 - Math.abs(anchor - rightAnchor) / COLUMN_GEOMETRY_TOLERANCE);
+  });
+  return scores.length > 0 ? roundRatio4(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
+};
+var isPageEdgeContinuationCandidate = (current, next) => current.bounding_box !== undefined && next.bounding_box !== undefined && current.bounding_box.bottom <= PAGE_EDGE_CONTINUATION_BOTTOM_Y && next.bounding_box.top >= PAGE_EDGE_CONTINUATION_TOP_Y;
+var tableContinuationEvidence = (current, next) => {
+  const similarity = headerSimilarity(current, next);
+  if (similarity >= 0.6) {
+    return {
+      confidence: roundRatio4(0.55 + similarity * 0.4),
+      signals: ["same_column_count", "repeated_header_candidate"]
+    };
+  }
+  const geometrySimilarity = columnGeometrySimilarity(current, next);
+  if (geometrySimilarity < CONTINUATION_MIN_GEOMETRY_SIMILARITY || !isPageEdgeContinuationCandidate(current, next)) {
+    return;
+  }
+  return {
+    confidence: roundRatio4(Math.min(0.95, 0.58 + geometrySimilarity * 0.25 + 0.12)),
+    signals: [
+      "same_column_count",
+      "column_geometry_match",
+      "page_edge_continuation_candidate",
+      "non_repeated_header_candidate"
+    ]
+  };
+};
 var addQualitySignal = (table, signal) => {
   if (!table.quality || table.quality.signals.includes(signal))
     return;
@@ -5154,27 +5206,25 @@ var linkTableContinuationCandidates = (tables) => {
       continue;
     if (next.page !== current.page + 1 || current.colCount !== next.colCount)
       continue;
-    const similarity = headerSimilarity(current, next);
-    if (similarity < 0.6)
+    const evidence = tableContinuationEvidence(current, next);
+    if (!evidence)
       continue;
     const groupId = `table-continuation-${tableId(current)}-${tableId(next)}`;
-    const confidence = roundRatio4(0.55 + similarity * 0.4);
-    const signals = ["same_column_count", "repeated_header_candidate"];
     current.continuation = {
       groupId,
       role: current.continuation?.previousTableId ? "continues" : "starts",
       ...current.continuation?.previousTableId ? { previousTableId: current.continuation.previousTableId } : {},
       nextTableId: tableId(next),
-      confidence,
-      signals
+      confidence: evidence.confidence,
+      signals: evidence.signals
     };
     next.continuation = {
       groupId,
       role: next.continuation?.nextTableId ? "continues" : "ends",
       previousTableId: tableId(current),
       ...next.continuation?.nextTableId ? { nextTableId: next.continuation.nextTableId } : {},
-      confidence,
-      signals
+      confidence: evidence.confidence,
+      signals: evidence.signals
     };
     addQualitySignal(current, "multi_page_continuation_candidate");
     addQualitySignal(next, "multi_page_continuation_candidate");

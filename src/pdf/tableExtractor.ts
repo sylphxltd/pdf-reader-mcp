@@ -22,6 +22,10 @@ const COLUMN_GAP_THRESHOLD = 15; // Minimum gap between columns
 const MIN_ROWS = 2; // Minimum rows to consider as a table
 const MIN_COLS = 2; // Minimum columns to consider as a table
 const MIN_ROW_ITEMS = 2; // Minimum items per row to consider for table detection
+const PAGE_EDGE_CONTINUATION_BOTTOM_Y = 120;
+const PAGE_EDGE_CONTINUATION_TOP_Y = 500;
+const COLUMN_GEOMETRY_TOLERANCE = 24;
+const CONTINUATION_MIN_GEOMETRY_SIMILARITY = 0.8;
 
 /**
  * Text item with position extracted from PDF
@@ -612,6 +616,80 @@ const headerSimilarity = (left: ExtractedTable, right: ExtractedTable): number =
   return shared / Math.max(leftHeader.size, rightHeader.size);
 };
 
+const columnGeometryAnchors = (table: ExtractedTable): number[] | undefined => {
+  const anchors: number[] = [];
+  for (let colIndex = 0; colIndex < table.colCount; colIndex++) {
+    const lefts =
+      table.cells
+        ?.filter(
+          (cell) =>
+            cell.colIndex === colIndex && cell.inferred !== true && cell.bounding_box !== undefined
+        )
+        .map((cell) => cell.bounding_box?.left)
+        .filter((left): left is number => left !== undefined) ?? [];
+
+    if (lefts.length === 0) return undefined;
+    anchors.push(Math.min(...lefts));
+  }
+
+  return anchors;
+};
+
+const columnGeometrySimilarity = (left: ExtractedTable, right: ExtractedTable): number => {
+  if (left.colCount !== right.colCount) return 0;
+
+  const leftAnchors = columnGeometryAnchors(left);
+  const rightAnchors = columnGeometryAnchors(right);
+  if (!leftAnchors || !rightAnchors || leftAnchors.length !== rightAnchors.length) return 0;
+
+  const scores = leftAnchors.map((anchor, index) => {
+    const rightAnchor = rightAnchors[index];
+    if (rightAnchor === undefined) return 0;
+    return Math.max(0, 1 - Math.abs(anchor - rightAnchor) / COLUMN_GEOMETRY_TOLERANCE);
+  });
+
+  return scores.length > 0
+    ? roundRatio(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+    : 0;
+};
+
+const isPageEdgeContinuationCandidate = (current: ExtractedTable, next: ExtractedTable): boolean =>
+  current.bounding_box !== undefined &&
+  next.bounding_box !== undefined &&
+  current.bounding_box.bottom <= PAGE_EDGE_CONTINUATION_BOTTOM_Y &&
+  next.bounding_box.top >= PAGE_EDGE_CONTINUATION_TOP_Y;
+
+const tableContinuationEvidence = (
+  current: ExtractedTable,
+  next: ExtractedTable
+): { confidence: number; signals: string[] } | undefined => {
+  const similarity = headerSimilarity(current, next);
+  if (similarity >= 0.6) {
+    return {
+      confidence: roundRatio(0.55 + similarity * 0.4),
+      signals: ['same_column_count', 'repeated_header_candidate'],
+    };
+  }
+
+  const geometrySimilarity = columnGeometrySimilarity(current, next);
+  if (
+    geometrySimilarity < CONTINUATION_MIN_GEOMETRY_SIMILARITY ||
+    !isPageEdgeContinuationCandidate(current, next)
+  ) {
+    return undefined;
+  }
+
+  return {
+    confidence: roundRatio(Math.min(0.95, 0.58 + geometrySimilarity * 0.25 + 0.12)),
+    signals: [
+      'same_column_count',
+      'column_geometry_match',
+      'page_edge_continuation_candidate',
+      'non_repeated_header_candidate',
+    ],
+  };
+};
+
 const addQualitySignal = (table: ExtractedTable, signal: TableQualitySignal): void => {
   if (!table.quality || table.quality.signals.includes(signal)) return;
 
@@ -631,12 +709,10 @@ const linkTableContinuationCandidates = (tables: ExtractedTable[]): ExtractedTab
 
     if (next.page !== current.page + 1 || current.colCount !== next.colCount) continue;
 
-    const similarity = headerSimilarity(current, next);
-    if (similarity < 0.6) continue;
+    const evidence = tableContinuationEvidence(current, next);
+    if (!evidence) continue;
 
     const groupId = `table-continuation-${tableId(current)}-${tableId(next)}`;
-    const confidence = roundRatio(0.55 + similarity * 0.4);
-    const signals = ['same_column_count', 'repeated_header_candidate'];
 
     current.continuation = {
       groupId,
@@ -645,16 +721,16 @@ const linkTableContinuationCandidates = (tables: ExtractedTable[]): ExtractedTab
         ? { previousTableId: current.continuation.previousTableId }
         : {}),
       nextTableId: tableId(next),
-      confidence,
-      signals,
+      confidence: evidence.confidence,
+      signals: evidence.signals,
     };
     next.continuation = {
       groupId,
       role: next.continuation?.nextTableId ? 'continues' : 'ends',
       previousTableId: tableId(current),
       ...(next.continuation?.nextTableId ? { nextTableId: next.continuation.nextTableId } : {}),
-      confidence,
-      signals,
+      confidence: evidence.confidence,
+      signals: evidence.signals,
     };
 
     addQualitySignal(current, 'multi_page_continuation_candidate');
