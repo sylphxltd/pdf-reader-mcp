@@ -623,6 +623,23 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         accessibilityReport.summary.issue_count === 0,
     },
     {
+      name: 'accessibility report exposes routeable issue and page-grade summaries',
+      pass:
+        accessibilityReport.summary.document_issue_count === 0 &&
+        accessibilityReport.summary.page_issue_count === 0 &&
+        accessibilityReport.summary.issue_severity_counts.high === 0 &&
+        accessibilityReport.summary.issue_severity_counts.medium === 0 &&
+        accessibilityReport.summary.issue_severity_counts.low === 0 &&
+        Object.values(accessibilityReport.summary.issue_type_counts).every((count) => count === 0) &&
+        accessibilityReport.summary.page_grade_counts.good === 2 &&
+        accessibilityReport.summary.page_grade_counts.partial === 0 &&
+        accessibilityReport.summary.page_grade_counts.weak === 0 &&
+        accessibilityReport.summary.pages_with_issues_count === 0 &&
+        accessibilityReport.summary.pages_with_high_issues_count === 0 &&
+        accessibilityReport.summary.pages_with_medium_issues_count === 0 &&
+        accessibilityReport.summary.pages_with_low_issues_count === 0,
+    },
+    {
       name: 'text layer preserves run, line, word, and character evidence',
       pass:
         textLayer.profile === 'pdf_text_layer' &&
@@ -1236,6 +1253,15 @@ const evaluateDocumentSignalsFixture = async (): Promise<QualityAssertion[]> => 
             link_count?: number;
             form_field_count?: number;
             issue_count?: number;
+            document_issue_count?: number;
+            page_issue_count?: number;
+            issue_severity_counts?: Record<string, number>;
+            issue_type_counts?: Record<string, number>;
+            page_grade_counts?: Record<string, number>;
+            pages_with_issues_count?: number;
+            pages_with_high_issues_count?: number;
+            pages_with_medium_issues_count?: number;
+            pages_with_low_issues_count?: number;
           };
         }
       | undefined;
@@ -1307,6 +1333,25 @@ const evaluateDocumentSignalsFixture = async (): Promise<QualityAssertion[]> => 
           accessibilityReport.summary.link_count === 1 &&
           accessibilityReport.summary.form_field_count === 1 &&
           accessibilityReport.summary.issue_count === 0,
+      },
+      {
+        name: 'real document-signal PDF accessibility summary is routeable without raw structure output',
+        pass:
+          accessibilityReport?.summary?.document_issue_count === 0 &&
+          accessibilityReport.summary.page_issue_count === 0 &&
+          accessibilityReport.summary.issue_severity_counts?.high === 0 &&
+          accessibilityReport.summary.issue_severity_counts.medium === 0 &&
+          accessibilityReport.summary.issue_severity_counts.low === 0 &&
+          Object.values(accessibilityReport.summary.issue_type_counts ?? {}).every(
+            (count) => count === 0
+          ) &&
+          accessibilityReport.summary.page_grade_counts?.good === 1 &&
+          accessibilityReport.summary.page_grade_counts.partial === 0 &&
+          accessibilityReport.summary.page_grade_counts.weak === 0 &&
+          accessibilityReport.summary.pages_with_issues_count === 0 &&
+          accessibilityReport.summary.pages_with_high_issues_count === 0 &&
+          accessibilityReport.summary.pages_with_medium_issues_count === 0 &&
+          accessibilityReport.summary.pages_with_low_issues_count === 0,
       },
     ];
   } finally {

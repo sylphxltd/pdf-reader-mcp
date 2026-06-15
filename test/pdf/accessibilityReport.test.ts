@@ -95,9 +95,38 @@ describe('accessibilityReport', () => {
         link_count: 1,
         form_field_count: 1,
         issue_count: 8,
+        document_issue_count: 3,
+        page_issue_count: 5,
         high_issue_count: 3,
         medium_issue_count: 4,
         low_issue_count: 1,
+        issue_severity_counts: {
+          high: 3,
+          medium: 4,
+          low: 1,
+        },
+        issue_type_counts: {
+          mark_info_missing: 0,
+          untagged_pdf: 1,
+          suspect_tags: 1,
+          structure_tree_missing: 0,
+          untagged_page: 1,
+          heading_structure: 0,
+          tagged_content_mismatch: 1,
+          image_alt_text: 1,
+          form_field_label: 1,
+          link_label: 1,
+          accessibility_permission: 1,
+        },
+        page_grade_counts: {
+          good: 0,
+          partial: 1,
+          weak: 1,
+        },
+        pages_with_issues_count: 2,
+        pages_with_high_issues_count: 0,
+        pages_with_medium_issues_count: 2,
+        pages_with_low_issues_count: 1,
       },
     });
     expect(report.issues.map((issue) => issue.type)).toEqual([
@@ -121,11 +150,23 @@ describe('accessibilityReport', () => {
       image_count: 2,
       link_count: 1,
       form_field_count: 1,
+      issue_count: 4,
+      high_issue_count: 0,
+      medium_issue_count: 3,
+      low_issue_count: 1,
+      issue_type_counts: expect.objectContaining({
+        tagged_content_mismatch: 1,
+        image_alt_text: 1,
+        form_field_label: 1,
+        link_label: 1,
+      }),
     });
     expect(report.page_reports[1]).toMatchObject({
       page: 2,
       tagged: false,
       grade: 'partial',
+      issue_count: 1,
+      medium_issue_count: 1,
       issues: [expect.objectContaining({ type: 'untagged_page', severity: 'medium' })],
     });
     expect(report.guidance).toEqual(

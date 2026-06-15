@@ -2140,9 +2140,18 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 form_field_count: number;
                 link_count: number;
                 issue_count: number;
+                document_issue_count: number;
+                page_issue_count: number;
                 high_issue_count: number;
                 medium_issue_count: number;
                 low_issue_count: number;
+                issue_severity_counts: Record<string, number>;
+                issue_type_counts: Record<string, number>;
+                page_grade_counts: Record<string, number>;
+                pages_with_issues_count: number;
+                pages_with_high_issues_count: number;
+                pages_with_medium_issues_count: number;
+                pages_with_low_issues_count: number;
               };
               issues: Array<{ type: string; severity: string; page?: number }>;
               guidance: string[];
@@ -2171,9 +2180,30 @@ describe('handleReadPdfFunc Integration Tests', () => {
           form_field_count: 1,
           link_count: 1,
           issue_count: 3,
+          document_issue_count: 1,
+          page_issue_count: 2,
           high_issue_count: 1,
           medium_issue_count: 1,
           low_issue_count: 1,
+          issue_severity_counts: {
+            high: 1,
+            medium: 1,
+            low: 1,
+          },
+          issue_type_counts: expect.objectContaining({
+            accessibility_permission: 1,
+            form_field_label: 1,
+            link_label: 1,
+          }),
+          page_grade_counts: {
+            good: 0,
+            partial: 1,
+            weak: 0,
+          },
+          pages_with_issues_count: 1,
+          pages_with_high_issues_count: 0,
+          pages_with_medium_issues_count: 1,
+          pages_with_low_issues_count: 1,
         },
       });
       expect(report?.issues).toEqual(

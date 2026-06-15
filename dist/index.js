@@ -3423,7 +3423,7 @@ var readPdfArgsSchema = object({
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
   include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, selected-page category-count, page-risk, and redacted evidence signals for agent routing."))),
-  include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
+  include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, accessibility permissions, issue type/severity summaries, and page-grade routing.")))
 });
 
 // src/schemas/inspectPdf.ts
@@ -3526,6 +3526,29 @@ var ocrPages = tool().description("Runs selected rendered PDF pages through a co
 
 // src/pdf/accessibilityReport.ts
 var ACCESSIBILITY_REPORT_VERSION = "2026-06-15";
+var ACCESSIBILITY_ISSUE_TYPES = [
+  "mark_info_missing",
+  "untagged_pdf",
+  "suspect_tags",
+  "structure_tree_missing",
+  "untagged_page",
+  "heading_structure",
+  "tagged_content_mismatch",
+  "image_alt_text",
+  "form_field_label",
+  "link_label",
+  "accessibility_permission"
+];
+var ACCESSIBILITY_ISSUE_SEVERITIES = [
+  "high",
+  "medium",
+  "low"
+];
+var ACCESSIBILITY_GRADES = [
+  "good",
+  "partial",
+  "weak"
+];
 var EMPTY_STRUCTURE_ROLE_STATS = {
   roleCount: 0,
   contentCount: 0,
@@ -3539,6 +3562,25 @@ var issueScore = (severity) => {
   if (severity === "medium")
     return 18;
   return 8;
+};
+var emptyCountRecord = (keys) => Object.fromEntries(keys.map((key) => [key, 0]));
+var issueTypeCounts = (issues) => {
+  const counts = emptyCountRecord(ACCESSIBILITY_ISSUE_TYPES);
+  for (const issue of issues)
+    counts[issue.type]++;
+  return counts;
+};
+var issueSeverityCounts = (issues) => {
+  const counts = emptyCountRecord(ACCESSIBILITY_ISSUE_SEVERITIES);
+  for (const issue of issues)
+    counts[issue.severity]++;
+  return counts;
+};
+var pageGradeCounts = (pageReports) => {
+  const counts = emptyCountRecord(ACCESSIBILITY_GRADES);
+  for (const pageReport of pageReports)
+    counts[pageReport.grade]++;
+  return counts;
 };
 var clampScore = (score) => Math.max(0, Math.min(100, Math.round(score)));
 var gradeFromScore = (score) => {
@@ -3765,6 +3807,7 @@ var buildAccessibilityReport = (input) => {
     const signals = pageAccessibilitySignals(input, page);
     const issues2 = buildPageIssues(input, signals);
     const score2 = clampScore(100 - issues2.reduce((sum, issue) => sum + issueScore(issue.severity), 0));
+    const severityCounts = issueSeverityCounts(issues2);
     return {
       page,
       tagged: signals.roleStats.roleCount > 0,
@@ -3780,14 +3823,18 @@ var buildAccessibilityReport = (input) => {
       image_count: signals.images.length,
       link_count: signals.links.length,
       form_field_count: signals.fields.length,
+      issue_count: issues2.length,
+      high_issue_count: severityCounts.high,
+      medium_issue_count: severityCounts.medium,
+      low_issue_count: severityCounts.low,
+      issue_type_counts: issueTypeCounts(issues2),
       issues: issues2
     };
   });
   const issues = [...documentIssues, ...pageReports.flatMap((pageReport) => pageReport.issues)];
   const score = clampScore(100 - issues.reduce((sum, issue) => sum + issueScore(issue.severity), 0));
-  const highIssueCount = issues.filter((issue) => issue.severity === "high").length;
-  const mediumIssueCount = issues.filter((issue) => issue.severity === "medium").length;
-  const lowIssueCount = issues.filter((issue) => issue.severity === "low").length;
+  const issueCountsBySeverity = issueSeverityCounts(issues);
+  const pageReportsWithIssues = pageReports.filter((pageReport) => pageReport.issue_count > 0);
   const taggedPageCount = pageReports.filter((pageReport) => pageReport.tagged).length;
   const averageTagContentCoverage = pageReports.length === 0 ? 0 : roundRatio2(pageReports.reduce((sum, pageReport) => sum + pageReport.tag_content_coverage, 0) / pageReports.length);
   return {
@@ -3813,9 +3860,18 @@ var buildAccessibilityReport = (input) => {
       link_count: pageReports.reduce((sum, pageReport) => sum + pageReport.link_count, 0),
       form_field_count: pageReports.reduce((sum, pageReport) => sum + pageReport.form_field_count, 0),
       issue_count: issues.length,
-      high_issue_count: highIssueCount,
-      medium_issue_count: mediumIssueCount,
-      low_issue_count: lowIssueCount
+      document_issue_count: documentIssues.length,
+      page_issue_count: issues.length - documentIssues.length,
+      high_issue_count: issueCountsBySeverity.high,
+      medium_issue_count: issueCountsBySeverity.medium,
+      low_issue_count: issueCountsBySeverity.low,
+      issue_severity_counts: issueCountsBySeverity,
+      issue_type_counts: issueTypeCounts(issues),
+      page_grade_counts: pageGradeCounts(pageReports),
+      pages_with_issues_count: pageReportsWithIssues.length,
+      pages_with_high_issues_count: pageReportsWithIssues.filter((pageReport) => pageReport.high_issue_count > 0).length,
+      pages_with_medium_issues_count: pageReportsWithIssues.filter((pageReport) => pageReport.medium_issue_count > 0).length,
+      pages_with_low_issues_count: pageReportsWithIssues.filter((pageReport) => pageReport.low_issue_count > 0).length
     },
     page_reports: pageReports,
     issues,

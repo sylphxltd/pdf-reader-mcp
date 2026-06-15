@@ -19,7 +19,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **Page count** - Total number of pages
 - **Embedded images** - Extract images as base64-encoded PNG data
 - **Agent document maps** - Link pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, routing signals, and geometry
-- **Accessibility reports** - Summarize tagged-PDF coverage, tag-to-visible-content coverage, heading roles, images, forms, links, and accessibility permissions
+- **Accessibility reports** - Summarize tagged-PDF coverage, tag-to-visible-content coverage, heading roles, images, forms, links, accessibility permissions, issue summaries, and page-grade routing
 - **Citation chunks** - Return stable source references for retrieval workflows
 - **Safety signals** - Surface deterministic findings before agents trust PDF text
 
@@ -64,7 +64,7 @@ Run selected rendered pages through a configured local OCR command when scanned 
 `read_pdf` can also opt into OCR text layer fusion with `include_ocr_text_layer`, keeping external OCR text separate from selectable PDF text while linking it into the agent document map. When `include_tables` is enabled, OCR word boxes can also produce OCR-derived table structure for scanned pages.
 
 ### Accessibility Report
-Use `include_accessibility_report` when an agent needs page-level accessibility routing for tagged structure, tag-to-visible-content coverage, headings, image alt-text verifiability, form labels, link labels, and copy-based accessibility permissions.
+Use `include_accessibility_report` when an agent needs page-level accessibility routing for tagged structure, tag-to-visible-content coverage, headings, image alt-text verifiability, form labels, link labels, copy-based accessibility permissions, issue summaries, and page-grade buckets.
 
 ## Supported Clients
 

@@ -692,6 +692,11 @@ export interface PdfAccessibilityPageReport {
   image_count: number;
   link_count: number;
   form_field_count: number;
+  issue_count: number;
+  high_issue_count: number;
+  medium_issue_count: number;
+  low_issue_count: number;
+  issue_type_counts: Record<PdfAccessibilityIssueType, number>;
   issues: PdfAccessibilityIssue[];
 }
 
@@ -711,9 +716,18 @@ export interface PdfAccessibilityReportSummary {
   link_count: number;
   form_field_count: number;
   issue_count: number;
+  document_issue_count: number;
+  page_issue_count: number;
   high_issue_count: number;
   medium_issue_count: number;
   low_issue_count: number;
+  issue_severity_counts: Record<PdfAccessibilityIssueSeverity, number>;
+  issue_type_counts: Record<PdfAccessibilityIssueType, number>;
+  page_grade_counts: Record<PdfAccessibilityGrade, number>;
+  pages_with_issues_count: number;
+  pages_with_high_issues_count: number;
+  pages_with_medium_issues_count: number;
+  pages_with_low_issues_count: number;
 }
 
 export interface PdfAccessibilityReport {

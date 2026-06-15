@@ -61,9 +61,38 @@ The response includes `accessibility_report`:
     "link_count": 0,
     "form_field_count": 0,
     "issue_count": 0,
+    "document_issue_count": 0,
+    "page_issue_count": 0,
     "high_issue_count": 0,
     "medium_issue_count": 0,
-    "low_issue_count": 0
+    "low_issue_count": 0,
+    "issue_severity_counts": {
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "issue_type_counts": {
+      "mark_info_missing": 0,
+      "untagged_pdf": 0,
+      "suspect_tags": 0,
+      "structure_tree_missing": 0,
+      "untagged_page": 0,
+      "heading_structure": 0,
+      "tagged_content_mismatch": 0,
+      "image_alt_text": 0,
+      "form_field_label": 0,
+      "link_label": 0,
+      "accessibility_permission": 0
+    },
+    "page_grade_counts": {
+      "good": 1,
+      "partial": 0,
+      "weak": 0
+    },
+    "pages_with_issues_count": 0,
+    "pages_with_high_issues_count": 0,
+    "pages_with_medium_issues_count": 0,
+    "pages_with_low_issues_count": 0
   },
   "page_reports": [{
     "page": 1,
@@ -80,6 +109,23 @@ The response includes `accessibility_report`:
     "image_count": 0,
     "link_count": 0,
     "form_field_count": 0,
+    "issue_count": 0,
+    "high_issue_count": 0,
+    "medium_issue_count": 0,
+    "low_issue_count": 0,
+    "issue_type_counts": {
+      "mark_info_missing": 0,
+      "untagged_pdf": 0,
+      "suspect_tags": 0,
+      "structure_tree_missing": 0,
+      "untagged_page": 0,
+      "heading_structure": 0,
+      "tagged_content_mismatch": 0,
+      "image_alt_text": 0,
+      "form_field_label": 0,
+      "link_label": 0,
+      "accessibility_permission": 0
+    },
     "issues": []
   }],
   "issues": [],
@@ -117,6 +163,9 @@ The report emits structured issues:
 - `accessibility_permission`
 
 Each issue carries severity, message, optional page, and optional evidence.
+The summary also exposes document-vs-page issue totals, severity totals, issue
+type totals, page-grade totals, and counts for pages that need follow-up, so
+agents can route risky pages without scanning the full issue array first.
 
 ## Scoring
 
@@ -144,4 +193,4 @@ Grades:
   form, link, permission, and mark-info signals.
 - Handler integration tests cover the public flag and response-shape isolation.
 - Quality evals include a tagged structure case with content-reference coverage
-  that must score `good`.
+  that must score `good` and expose routeable issue and page-grade summaries.

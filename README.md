@@ -453,6 +453,7 @@ for navigation, form filling, summarization, or assisted reading workflows.
 **Response includes:**
 - Document and page-level accessibility scores and grades
 - Tagged-page coverage, structure role counts, tag-to-visible-content coverage, heading counts, image counts, link counts, and form field counts
+- Document-vs-page issue totals, issue type counts, severity counts, page grade counts, and counts for pages that need follow-up
 - Issues for missing mark info, untagged pages, suspect tags, image alt-text verifiability, weak form labels, weak link labels, and missing `copy_for_accessibility`
 - Guidance for when agents should verify semantics with source files, rendering, or region crops
 - No forced top-level permissions, mark info, annotations, form fields, or structure trees unless those options are requested
@@ -798,9 +799,10 @@ the same regions to `extract_regions` or a later `analyze_regions` call.
 `include_accessibility_report` returns a deterministic report for tagged-PDF
 coverage, page structure trees, tag-to-visible-content coverage, heading roles,
 image alt-text verifiability, form field labels, link labels, mark info, and
-`copy_for_accessibility` permissions. It gives agents routing guidance without
-claiming PDF/UA certification or forcing raw structure outputs into top-level
-JSON.
+`copy_for_accessibility` permissions. Summary fields include issue type,
+severity, document-vs-page issue, page grade, and affected-page counts, giving
+agents routing guidance without claiming PDF/UA certification or forcing raw
+structure outputs into top-level JSON.
 
 ### Configured OCR Text Layer
 
@@ -1195,7 +1197,7 @@ tables, and document signals.
 | `include_visual_enrichments` | boolean | Select bounded table, image, and caption-derived visual-region candidates, expose their routing plan, and run the configured visual-region provider when available to fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned pages, table quality, external links, unsafe link schemes, category counts, and routing guidance | `false` |
-| `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
+| `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, accessibility permissions, issue summaries, and page-grade routing | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph/caption/header/footer hints on text elements | `false` |
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
@@ -1716,9 +1718,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, and search evidence
-- [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion
-- [x] Tag-to-visible-content coverage in the accessibility report without forcing raw structure-tree output
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, and search evidence
+- [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
+- [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures
 - [x] Deterministic semantic hints and AST nodes for captions, headers, and footers, with page-edge safeguards for off-page text

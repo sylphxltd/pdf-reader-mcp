@@ -56,7 +56,9 @@ themselves.
 
 6. Tagged-PDF and accessibility intelligence
    - Read structure trees when available, correlate tags with visible content,
-     surface accessibility risks, and avoid claiming certification unless a
+     surface accessibility risks, summarize issue types, severities,
+     document-vs-page issue totals, page-grade buckets, and affected-page
+     counts for agent routing, and avoid claiming certification unless a
      dedicated validator proves it.
 
 7. AI-safety trust reporting
@@ -78,7 +80,8 @@ themselves.
      Agent Document Twin semantics, inspection tool routing, real PDF document
      signals, real PDF reading order, text-layer evidence and metadata coverage in the
      document map, accessibility tag-to-visible-content coverage,
-     table cell evidence coverage, caption-to-evidence links, OCR
+     accessibility issue/page-grade summaries, table cell evidence coverage,
+     caption-to-evidence links, OCR
      normalization, a runtime-generated scanned-PDF OCR pipeline fixture,
      OCR-derived table extraction from scanned-page word boxes,
      caption-derived visual candidate routing, visual-region command/HTTP

@@ -463,6 +463,25 @@ const evaluateCase = (qualityCase: QualityCase) => {
         accessibilityReport.summary.issue_count === 0,
     },
     {
+      name: 'accessibility report exposes routeable issue and page-grade summaries',
+      pass:
+        accessibilityReport.summary.document_issue_count === 0 &&
+        accessibilityReport.summary.page_issue_count === 0 &&
+        accessibilityReport.summary.issue_severity_counts.high === 0 &&
+        accessibilityReport.summary.issue_severity_counts.medium === 0 &&
+        accessibilityReport.summary.issue_severity_counts.low === 0 &&
+        Object.values(accessibilityReport.summary.issue_type_counts).every(
+          (count) => count === 0
+        ) &&
+        accessibilityReport.summary.page_grade_counts.good === 2 &&
+        accessibilityReport.summary.page_grade_counts.partial === 0 &&
+        accessibilityReport.summary.page_grade_counts.weak === 0 &&
+        accessibilityReport.summary.pages_with_issues_count === 0 &&
+        accessibilityReport.summary.pages_with_high_issues_count === 0 &&
+        accessibilityReport.summary.pages_with_medium_issues_count === 0 &&
+        accessibilityReport.summary.pages_with_low_issues_count === 0,
+    },
+    {
       name: 'text layer preserves run, line, word, and character evidence',
       pass:
         textLayer.profile === 'pdf_text_layer' &&
@@ -509,8 +528,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 15,
-        total: 15,
+        passed: 16,
+        total: 16,
         score: 1,
       });
     });

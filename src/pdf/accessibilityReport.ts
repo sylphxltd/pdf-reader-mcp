@@ -2,6 +2,7 @@ import type {
   PdfAccessibilityGrade,
   PdfAccessibilityIssue,
   PdfAccessibilityIssueSeverity,
+  PdfAccessibilityIssueType,
   PdfAccessibilityPageReport,
   PdfAccessibilityReport,
   PdfAnnotation,
@@ -15,6 +16,32 @@ import type {
 } from '../types/pdf.js';
 
 const ACCESSIBILITY_REPORT_VERSION = '2026-06-15' as const;
+
+const ACCESSIBILITY_ISSUE_TYPES = [
+  'mark_info_missing',
+  'untagged_pdf',
+  'suspect_tags',
+  'structure_tree_missing',
+  'untagged_page',
+  'heading_structure',
+  'tagged_content_mismatch',
+  'image_alt_text',
+  'form_field_label',
+  'link_label',
+  'accessibility_permission',
+] as const satisfies readonly PdfAccessibilityIssueType[];
+
+const ACCESSIBILITY_ISSUE_SEVERITIES = [
+  'high',
+  'medium',
+  'low',
+] as const satisfies readonly PdfAccessibilityIssueSeverity[];
+
+const ACCESSIBILITY_GRADES = [
+  'good',
+  'partial',
+  'weak',
+] as const satisfies readonly PdfAccessibilityGrade[];
 
 interface BuildAccessibilityReportInput {
   selectedPages: number[];
@@ -58,6 +85,33 @@ const issueScore = (severity: PdfAccessibilityIssueSeverity): number => {
   if (severity === 'high') return 35;
   if (severity === 'medium') return 18;
   return 8;
+};
+
+const emptyCountRecord = <Key extends string>(keys: readonly Key[]): Record<Key, number> =>
+  Object.fromEntries(keys.map((key) => [key, 0])) as Record<Key, number>;
+
+const issueTypeCounts = (
+  issues: PdfAccessibilityIssue[]
+): Record<PdfAccessibilityIssueType, number> => {
+  const counts = emptyCountRecord(ACCESSIBILITY_ISSUE_TYPES);
+  for (const issue of issues) counts[issue.type]++;
+  return counts;
+};
+
+const issueSeverityCounts = (
+  issues: PdfAccessibilityIssue[]
+): Record<PdfAccessibilityIssueSeverity, number> => {
+  const counts = emptyCountRecord(ACCESSIBILITY_ISSUE_SEVERITIES);
+  for (const issue of issues) counts[issue.severity]++;
+  return counts;
+};
+
+const pageGradeCounts = (
+  pageReports: PdfAccessibilityPageReport[]
+): Record<PdfAccessibilityGrade, number> => {
+  const counts = emptyCountRecord(ACCESSIBILITY_GRADES);
+  for (const pageReport of pageReports) counts[pageReport.grade]++;
+  return counts;
 };
 
 const clampScore = (score: number): number => Math.max(0, Math.min(100, Math.round(score)));
@@ -378,6 +432,7 @@ export const buildAccessibilityReport = (
     const score = clampScore(
       100 - issues.reduce((sum, issue) => sum + issueScore(issue.severity), 0)
     );
+    const severityCounts = issueSeverityCounts(issues);
 
     return {
       page,
@@ -394,6 +449,11 @@ export const buildAccessibilityReport = (
       image_count: signals.images.length,
       link_count: signals.links.length,
       form_field_count: signals.fields.length,
+      issue_count: issues.length,
+      high_issue_count: severityCounts.high,
+      medium_issue_count: severityCounts.medium,
+      low_issue_count: severityCounts.low,
+      issue_type_counts: issueTypeCounts(issues),
       issues,
     };
   });
@@ -402,9 +462,8 @@ export const buildAccessibilityReport = (
   const score = clampScore(
     100 - issues.reduce((sum, issue) => sum + issueScore(issue.severity), 0)
   );
-  const highIssueCount = issues.filter((issue) => issue.severity === 'high').length;
-  const mediumIssueCount = issues.filter((issue) => issue.severity === 'medium').length;
-  const lowIssueCount = issues.filter((issue) => issue.severity === 'low').length;
+  const issueCountsBySeverity = issueSeverityCounts(issues);
+  const pageReportsWithIssues = pageReports.filter((pageReport) => pageReport.issue_count > 0);
   const taggedPageCount = pageReports.filter((pageReport) => pageReport.tagged).length;
   const averageTagContentCoverage =
     pageReports.length === 0
@@ -452,9 +511,24 @@ export const buildAccessibilityReport = (
         0
       ),
       issue_count: issues.length,
-      high_issue_count: highIssueCount,
-      medium_issue_count: mediumIssueCount,
-      low_issue_count: lowIssueCount,
+      document_issue_count: documentIssues.length,
+      page_issue_count: issues.length - documentIssues.length,
+      high_issue_count: issueCountsBySeverity.high,
+      medium_issue_count: issueCountsBySeverity.medium,
+      low_issue_count: issueCountsBySeverity.low,
+      issue_severity_counts: issueCountsBySeverity,
+      issue_type_counts: issueTypeCounts(issues),
+      page_grade_counts: pageGradeCounts(pageReports),
+      pages_with_issues_count: pageReportsWithIssues.length,
+      pages_with_high_issues_count: pageReportsWithIssues.filter(
+        (pageReport) => pageReport.high_issue_count > 0
+      ).length,
+      pages_with_medium_issues_count: pageReportsWithIssues.filter(
+        (pageReport) => pageReport.medium_issue_count > 0
+      ).length,
+      pages_with_low_issues_count: pageReportsWithIssues.filter(
+        (pageReport) => pageReport.low_issue_count > 0
+      ).length,
     },
     page_reports: pageReports,
     issues,
