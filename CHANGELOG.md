@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.2
+
+### Patch Changes
+
+- [#303](https://github.com/SylphxAI/pdf-reader-mcp/pull/303) [`575f887`](https://github.com/SylphxAI/pdf-reader-mcp/commit/575f887ce5dbe27f2760f132ae20e2442fe73e73) Thanks [@shtse8](https://github.com/shtse8)! - Refresh CI coverage upload handling so release validation skips missing optional reports cleanly and uses the supported Codecov action path for test-result uploads.
+
 ## 2.5.1
 
 ### Patch Changes
