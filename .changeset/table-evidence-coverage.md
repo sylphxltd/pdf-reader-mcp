@@ -52,3 +52,6 @@ both complete.
 Add a package smoke gate and release preflight so the packed package must
 include the executable runtime artifact and matching package contract before
 publishing.
+Add provider benchmark quality metrics with thresholds, scores, expected
+evidence, and observed evidence for OCR and visual full-fidelity certification
+profiles.

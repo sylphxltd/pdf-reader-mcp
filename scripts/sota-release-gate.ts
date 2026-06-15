@@ -228,6 +228,54 @@ export const buildSotaReleaseGateReport = async (
     { strict: artifacts.provider?.strict }
   );
 
+  const providerResults = getArray(artifacts.provider, 'results');
+  const providerResultsMissingQuality = providerResults.filter((result) => {
+    const quality = isRecord(result.quality) ? result.quality : undefined;
+    const metrics = getArray(quality, 'metrics');
+    return (
+      quality === undefined ||
+      getNumber(quality, 'metric_count') === undefined ||
+      getNumber(quality, 'metric_count') !== metrics.length ||
+      metrics.length === 0
+    );
+  });
+  addCheck(
+    checks,
+    'provider:quality-metrics-present',
+    providerResults.length > 0 && providerResultsMissingQuality.length === 0,
+    'provider benchmark results include machine-readable quality metrics',
+    {
+      missing_quality_for: providerResultsMissingQuality.map((result) => ({
+        provider: result.provider,
+        status: result.status,
+      })),
+    }
+  );
+
+  const providerResultsWithFailingQuality = providerResults.filter((result) => {
+    const quality = isRecord(result.quality) ? result.quality : undefined;
+    const metrics = getArray(quality, 'metrics');
+    return (
+      result.status !== 'passed' ||
+      getNumber(quality, 'score') !== 1 ||
+      getNumber(quality, 'passed_metric_count') !== getNumber(quality, 'metric_count') ||
+      metrics.some((metric) => metric.status !== 'passed')
+    );
+  });
+  addCheck(
+    checks,
+    'provider:quality-metrics-passing',
+    providerResults.length > 0 && providerResultsWithFailingQuality.length === 0,
+    'provider quality metrics pass for every installed provider certification result',
+    {
+      failing_quality_for: providerResultsWithFailingQuality.map((result) => ({
+        provider: result.provider,
+        status: result.status,
+        quality_score: isRecord(result.quality) ? result.quality.score : undefined,
+      })),
+    }
+  );
+
   const summary = summarizeChecks(checks);
   return {
     profile: 'pdf_sota_release_gate',

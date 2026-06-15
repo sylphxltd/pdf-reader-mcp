@@ -54,7 +54,8 @@ The release gate writes `pdf_sota_release_gate.json` when artifact output is
 enabled. It exits non-zero until deterministic quality coverage is complete,
 all quality areas that require installed-provider evidence are certified by
 `benchmark:providers`, and the provider benchmark artifact was produced with
-strict provider requirements enabled.
+strict provider requirements enabled. It also requires provider quality metrics
+to be present and passing for installed-provider certification results.
 
 ## Quality Benchmark
 
@@ -114,7 +115,8 @@ provenance, table cell boxes, formula formats, chart axes or series, figure
 descriptions, and image-description text.
 
 The JSON report includes `certification_profiles`, safe `provider_status`
-metadata, per-provider `certification` summaries,
+metadata, per-provider `certification` summaries, per-provider `quality`
+metrics with thresholds, scores, expected evidence, and observed evidence,
 `final_bar_provider_evidence_summary`, and `final_bar_provider_evidence` so
 release environments can distinguish installed provider smoke checks, missing
 optional engines, and provider-backed final-bar evidence.

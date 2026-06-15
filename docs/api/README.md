@@ -159,9 +159,9 @@ provider certification before publishing can proceed.
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider
 capabilities. Its JSON report also emits
-`final_bar_provider_evidence_summary` and `final_bar_provider_evidence`, mapping
-provider certification profiles to the SOTA final-bar capabilities that require
-installed-provider evidence.
+per-provider `quality` metrics, `final_bar_provider_evidence_summary`, and
+`final_bar_provider_evidence`, mapping provider certification profiles to the
+SOTA final-bar capabilities that require installed-provider evidence.
 
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar

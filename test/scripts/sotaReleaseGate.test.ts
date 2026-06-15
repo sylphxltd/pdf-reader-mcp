@@ -51,6 +51,48 @@ const writeProviderArtifact = (
   writeArtifact(artifactDir, 'pdf_provider_benchmark.json', {
     profile: 'pdf_provider_benchmark',
     strict,
+    results: [
+      {
+        provider: 'tesseract-tsv',
+        status: status === 'certified' ? 'passed' : 'skipped',
+        quality:
+          status === 'certified'
+            ? {
+                profile: 'ocr-text-layer',
+                fixture_count: 1,
+                metric_count: 1,
+                passed_metric_count: 1,
+                score: 1,
+                metrics: [
+                  {
+                    id: 'ocr_token_recall',
+                    capability: 'tesseract-tsv provider returns expected OCR tokens',
+                    status: 'passed',
+                    score: 1,
+                    threshold: 1,
+                    expected: { tokens: ['HELLO', 'WORLD'] },
+                    observed: { matched_tokens: ['HELLO', 'WORLD'] },
+                  },
+                ],
+              }
+            : {
+                profile: 'ocr-text-layer',
+                fixture_count: 1,
+                metric_count: 1,
+                passed_metric_count: 0,
+                score: 0,
+                metrics: [
+                  {
+                    id: 'ocr_token_recall',
+                    capability: 'tesseract-tsv provider returns expected OCR tokens',
+                    status: 'skipped',
+                    expected: { tokens: ['HELLO', 'WORLD'] },
+                    observed: {},
+                  },
+                ],
+              },
+      },
+    ],
     final_bar_provider_evidence: [{ id: 'scanned_pdf_pipeline', status }],
   });
 };
@@ -96,6 +138,9 @@ describe('SOTA release gate', () => {
       expect(
         report.checks.find((check) => check.id === 'provider:required-final-bar-evidence')?.status
       ).toBe('failed');
+      expect(
+        report.checks.find((check) => check.id === 'provider:quality-metrics-passing')?.status
+      ).toBe('failed');
     });
   });
 
@@ -110,6 +155,72 @@ describe('SOTA release gate', () => {
       expect(report.checks.find((check) => check.id === 'artifact:provider')?.status).toBe(
         'failed'
       );
+    });
+  });
+
+  test('fails when certified provider evidence has no quality metrics', async () => {
+    await withTempDir(async (tempDir) => {
+      writeValidPerformanceArtifact(tempDir);
+      writeValidQualityArtifact(tempDir);
+      writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
+        profile: 'pdf_provider_benchmark',
+        strict: true,
+        results: [{ provider: 'tesseract-tsv', status: 'passed' }],
+        final_bar_provider_evidence: [{ id: 'scanned_pdf_pipeline', status: 'certified' }],
+      });
+
+      const report = await buildSotaReleaseGateReport(tempDir);
+
+      expect(report.status).toBe('failed');
+      expect(
+        report.checks.find((check) => check.id === 'provider:quality-metrics-present')?.status
+      ).toBe('failed');
+    });
+  });
+
+  test('fails when certified provider quality metrics do not pass', async () => {
+    await withTempDir(async (tempDir) => {
+      writeValidPerformanceArtifact(tempDir);
+      writeValidQualityArtifact(tempDir);
+      writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
+        profile: 'pdf_provider_benchmark',
+        strict: true,
+        results: [
+          {
+            provider: 'tesseract-tsv',
+            status: 'passed',
+            quality: {
+              profile: 'ocr-text-layer',
+              fixture_count: 1,
+              metric_count: 1,
+              passed_metric_count: 0,
+              score: 0.5,
+              metrics: [
+                {
+                  id: 'ocr_token_recall',
+                  capability: 'tesseract-tsv provider returns expected OCR tokens',
+                  status: 'failed',
+                  score: 0.5,
+                  threshold: 1,
+                  expected: { tokens: ['HELLO', 'WORLD'] },
+                  observed: { matched_tokens: ['HELLO'] },
+                },
+              ],
+            },
+          },
+        ],
+        final_bar_provider_evidence: [{ id: 'scanned_pdf_pipeline', status: 'certified' }],
+      });
+
+      const report = await buildSotaReleaseGateReport(tempDir);
+
+      expect(report.status).toBe('failed');
+      expect(
+        report.checks.find((check) => check.id === 'provider:quality-metrics-present')?.status
+      ).toBe('passed');
+      expect(
+        report.checks.find((check) => check.id === 'provider:quality-metrics-passing')?.status
+      ).toBe('failed');
     });
   });
 });

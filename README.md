@@ -1670,6 +1670,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Machine-readable SOTA final-bar coverage matrix in `benchmark:quality`
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
+- ✅ Provider quality metrics with thresholds, scores, expected evidence, and observed evidence
 - ✅ JSON benchmark artifact output for release evidence
 - ✅ SOTA release gate over benchmark artifacts
 - ✅ Package tarball smoke check for published runtime integrity
@@ -1746,6 +1747,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures, with machine-readable final-bar provider evidence summaries
+- [x] Provider quality metrics for OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Deterministic semantic hints and AST nodes for captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes

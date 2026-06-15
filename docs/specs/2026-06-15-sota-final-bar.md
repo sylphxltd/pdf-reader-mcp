@@ -107,7 +107,8 @@ themselves.
      release gates can distinguish a missing optional engine from a failed
      engine. Skipped providers are explicit and can be made blocking with
      `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`. Its JSON report includes
-     `final_bar_provider_evidence_summary` and
+     per-provider `quality` metrics with thresholds, scores, expected evidence,
+     observed evidence, `final_bar_provider_evidence_summary`, and
      `final_bar_provider_evidence`, mapping installed-provider certification
      profiles to the final-bar capabilities that still require provider-backed
      evidence.
@@ -121,7 +122,9 @@ themselves.
      reads those artifacts and must pass before a SOTA release can be treated
      as complete. It fails if deterministic final-bar coverage is incomplete,
      if any quality area still needs provider-backed evidence, or if the
-     provider artifact was not produced with strict provider requirements.
+     provider artifact was not produced with strict provider requirements. It
+     also fails when provider quality metrics are missing or not passing for an
+     installed-provider certification result.
 
 9. Public contract integrity
    - README, docs, changelog, release notes, and package metadata may describe

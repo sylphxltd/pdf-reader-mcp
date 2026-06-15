@@ -49,6 +49,28 @@ interface ProviderBenchmarkResult {
     passed_capability_count: number;
     capabilities: Record<string, 'passed' | 'failed' | 'skipped'>;
   };
+  quality?: ProviderBenchmarkQuality | undefined;
+}
+
+type ProviderBenchmarkQualityMetricStatus = 'passed' | 'failed' | 'skipped';
+
+interface ProviderBenchmarkQualityMetric {
+  id: string;
+  capability: string;
+  status: ProviderBenchmarkQualityMetricStatus;
+  score?: number | undefined;
+  threshold?: number | undefined;
+  expected: Record<string, unknown>;
+  observed: Record<string, unknown>;
+}
+
+interface ProviderBenchmarkQuality {
+  profile: 'ocr-text-layer' | 'visual-full-fidelity';
+  fixture_count: number;
+  metric_count: number;
+  passed_metric_count: number;
+  score: number;
+  metrics: ProviderBenchmarkQualityMetric[];
 }
 
 type FinalBarProviderEvidenceStatus =
@@ -250,8 +272,129 @@ const VISUAL_PROVIDER_FIXTURES = [
   kind: Exclude<PdfRegionAnalysisKind, 'unknown'>;
   region: PdfRegionRequest;
 }>;
+const TESSERACT_TSV_QUALITY_METRICS = [
+  {
+    id: 'ocr_token_recall',
+    capability: TESSERACT_TSV_CAPABILITIES[0],
+    expected: { tokens: EXPECTED_TOKENS },
+  },
+  {
+    id: 'ocr_word_box_coverage',
+    capability: TESSERACT_TSV_CAPABILITIES[1],
+    expected: { min_word_boxes: EXPECTED_TOKENS.length },
+  },
+  {
+    id: 'ocr_document_map_fusion',
+    capability: TESSERACT_TSV_CAPABILITIES[2],
+    expected: {
+      layer: 'ocr_text_layer',
+      ocr_applied_page: 1,
+      source_render_evidence_id: 'page-1-render-scale-2',
+    },
+  },
+] as const;
+const VISUAL_REGION_QUALITY_METRICS = [
+  {
+    id: 'visual_fixture_coverage',
+    capability: VISUAL_REGION_CAPABILITIES[0],
+    expected: { fixture_ids: VISUAL_PROVIDER_FIXTURES.map((fixture) => fixture.id) },
+  },
+  {
+    id: 'visual_crop_provenance_coverage',
+    capability: VISUAL_REGION_CAPABILITIES[1],
+    expected: { source: 'region-analysis-provider', crop_evidence_id_per_result: true },
+  },
+  {
+    id: 'visual_table_cell_box_coverage',
+    capability: VISUAL_REGION_CAPABILITIES[2],
+    expected: { region_id: 'cert-table', min_cell_boxes: 4 },
+  },
+  {
+    id: 'visual_formula_format_coverage',
+    capability: VISUAL_REGION_CAPABILITIES[3],
+    expected: { region_id: 'cert-formula', min_formula_formats: 2 },
+  },
+  {
+    id: 'visual_chart_data_coverage',
+    capability: VISUAL_REGION_CAPABILITIES[4],
+    expected: { region_id: 'cert-chart', x_axis: true, y_axis: true, series_or_points: true },
+  },
+  {
+    id: 'visual_figure_text_coverage',
+    capability: VISUAL_REGION_CAPABILITIES[5],
+    expected: { region_id: 'cert-figure', terms: ['pipeline', 'Pipeline figure'] },
+  },
+  {
+    id: 'visual_image_description_coverage',
+    capability: VISUAL_REGION_CAPABILITIES[6],
+    expected: { region_id: 'cert-image', terms: ['office image', 'Office image'] },
+  },
+] as const;
 
 const round = (value: number): number => Math.round(value * 100) / 100;
+
+const ratioScore = (numerator: number, denominator: number): number =>
+  denominator > 0 ? round(Math.min(1, Math.max(0, numerator / denominator))) : 0;
+
+const booleanScore = (value: boolean): number => (value ? 1 : 0);
+
+const buildQualityMetric = ({
+  id,
+  capability,
+  score,
+  threshold = 1,
+  expected,
+  observed,
+}: {
+  id: string;
+  capability: string;
+  score: number;
+  threshold?: number;
+  expected: Record<string, unknown>;
+  observed: Record<string, unknown>;
+}): ProviderBenchmarkQualityMetric => ({
+  id,
+  capability,
+  status: score >= threshold ? 'passed' : 'failed',
+  score: round(score),
+  threshold,
+  expected,
+  observed,
+});
+
+const buildSkippedQualityMetric = (
+  id: string,
+  capability: string,
+  expected: Record<string, unknown>
+): ProviderBenchmarkQualityMetric => ({
+  id,
+  capability,
+  status: 'skipped',
+  expected,
+  observed: {},
+});
+
+const buildQualitySummary = (
+  profile: ProviderBenchmarkQuality['profile'],
+  fixtureCount: number,
+  metrics: ProviderBenchmarkQualityMetric[]
+): ProviderBenchmarkQuality => {
+  const scoredMetrics = metrics.filter((metric) => typeof metric.score === 'number');
+  return {
+    profile,
+    fixture_count: fixtureCount,
+    metric_count: metrics.length,
+    passed_metric_count: metrics.filter((metric) => metric.status === 'passed').length,
+    score:
+      scoredMetrics.length > 0
+        ? round(
+            scoredMetrics.reduce((sum, metric) => sum + (metric.score ?? 0), 0) /
+              scoredMetrics.length
+          )
+        : 0,
+    metrics,
+  };
+};
 
 const byteLength = (value: string): number => Buffer.byteLength(value, 'utf8');
 
@@ -481,31 +624,66 @@ const extractTesseractTsvEvidence = (
   };
 };
 
+export const buildTesseractTsvQuality = ({
+  ocrTextLayer,
+  documentMap,
+  page,
+  normalizedText,
+}: ReturnType<typeof extractTesseractTsvEvidence>): ProviderBenchmarkQuality => {
+  const matchedTokens = EXPECTED_TOKENS.filter((token) => normalizedText.includes(token));
+  const wordsWithBoundingBoxes =
+    page?.words?.filter((word) => word.bounding_box !== undefined).length ??
+    ocrTextLayer?.summary?.words_with_bounding_boxes ??
+    0;
+  const documentMapFused =
+    documentMap?.layers?.includes('ocr_text_layer') === true &&
+    documentMap.routing?.ocr_applied_pages?.includes(1) === true &&
+    page?.source_render_evidence_id === 'page-1-render-scale-2';
+
+  return buildQualitySummary('ocr-text-layer', 1, [
+    buildQualityMetric({
+      id: TESSERACT_TSV_QUALITY_METRICS[0].id,
+      capability: TESSERACT_TSV_QUALITY_METRICS[0].capability,
+      score: ratioScore(matchedTokens.length, EXPECTED_TOKENS.length),
+      expected: TESSERACT_TSV_QUALITY_METRICS[0].expected,
+      observed: { matched_tokens: matchedTokens, normalized_text: normalizedText },
+    }),
+    buildQualityMetric({
+      id: TESSERACT_TSV_QUALITY_METRICS[1].id,
+      capability: TESSERACT_TSV_QUALITY_METRICS[1].capability,
+      score: ratioScore(wordsWithBoundingBoxes, EXPECTED_TOKENS.length),
+      expected: TESSERACT_TSV_QUALITY_METRICS[1].expected,
+      observed: {
+        words_with_bounding_boxes: wordsWithBoundingBoxes,
+        summary_words_with_bounding_boxes: ocrTextLayer?.summary?.words_with_bounding_boxes,
+      },
+    }),
+    buildQualityMetric({
+      id: TESSERACT_TSV_QUALITY_METRICS[2].id,
+      capability: TESSERACT_TSV_QUALITY_METRICS[2].capability,
+      score: booleanScore(documentMapFused),
+      expected: TESSERACT_TSV_QUALITY_METRICS[2].expected,
+      observed: {
+        layers: documentMap?.layers ?? [],
+        ocr_applied_pages: documentMap?.routing?.ocr_applied_pages ?? [],
+        source_render_evidence_id: page?.source_render_evidence_id,
+      },
+    }),
+  ]);
+};
+
 const evaluateTesseractTsvEvidence = ({
   ocrTextLayer,
   documentMap,
   page,
   normalizedText,
-}: ReturnType<typeof extractTesseractTsvEvidence>): Array<{ name: string; pass: boolean }> => [
-  {
-    name: TESSERACT_TSV_CAPABILITIES[0],
-    pass: EXPECTED_TOKENS.every((token) => normalizedText.includes(token)),
-  },
-  {
-    name: TESSERACT_TSV_CAPABILITIES[1],
-    pass:
-      (ocrTextLayer?.summary?.words_with_bounding_boxes ?? 0) >= EXPECTED_TOKENS.length &&
-      (page?.words?.filter((word) => word.bounding_box !== undefined).length ?? 0) >=
-        EXPECTED_TOKENS.length,
-  },
-  {
-    name: TESSERACT_TSV_CAPABILITIES[2],
-    pass:
-      documentMap?.layers?.includes('ocr_text_layer') === true &&
-      documentMap.routing?.ocr_applied_pages?.includes(1) === true &&
-      page?.source_render_evidence_id === 'page-1-render-scale-2',
-  },
-];
+}: ReturnType<typeof extractTesseractTsvEvidence>): Array<{ name: string; pass: boolean }> =>
+  buildTesseractTsvQuality({ ocrTextLayer, documentMap, page, normalizedText }).metrics.map(
+    (metric) => ({
+      name: metric.capability,
+      pass: metric.status === 'passed',
+    })
+  );
 
 const buildProviderMetrics = (
   ocrTextLayer: OcrTextLayerBenchmarkView | undefined
@@ -524,82 +702,121 @@ const countFormulaFormats = (result: PdfRegionAnalysisData): number =>
     result.formula?.text,
   ].filter((value) => typeof value === 'string' && value.trim().length > 0).length;
 
+const includesAllTerms = (value: string | undefined, terms: string[]): string[] => {
+  const normalized = normalizeText(value ?? '');
+  return terms.filter((term) => normalized.includes(normalizeText(term).trim()));
+};
+
+export const buildRegionAnalysisQuality = (
+  results: PdfRegionAnalysisData[]
+): ProviderBenchmarkQuality => {
+  const matchedFixtureIds = VISUAL_PROVIDER_FIXTURES.filter((fixture) =>
+    results.some((result) => result.region_id === fixture.id)
+  ).map((fixture) => fixture.id);
+  const cropProvenanceMatches = results.filter(
+    (result) =>
+      result.source_crop_evidence_id ===
+        `page-1-${result.region_id}-crop-scale-${String(result.scale)}` &&
+      result.provenance.source === 'region-analysis-provider' &&
+      result.source_bounding_box.left > 0
+  );
+  const tableResult = results.find((result) => result.region_id === 'cert-table');
+  const tableCellBoxCount =
+    tableResult?.table?.cells?.filter((cell) => cell.bounding_box !== undefined).length ?? 0;
+  const formulaResult = results.find((result) => result.region_id === 'cert-formula');
+  const formulaFormatCount = formulaResult ? countFormulaFormats(formulaResult) : 0;
+  const chartResult = results.find((result) => result.region_id === 'cert-chart');
+  const chartComponents = [
+    chartResult?.chart?.x_axis !== undefined,
+    chartResult?.chart?.y_axis !== undefined,
+    (chartResult?.chart?.series?.length ?? 0) > 0 ||
+      (chartResult?.chart?.data_points?.length ?? 0) >= 3,
+  ].filter(Boolean).length;
+  const figureResult = results.find((result) => result.region_id === 'cert-figure');
+  const figureMatchedTerms = includesAllTerms(
+    `${figureResult?.description ?? ''} ${figureResult?.text ?? ''}`,
+    ['pipeline', 'Pipeline figure']
+  );
+  const imageResult = results.find((result) => result.region_id === 'cert-image');
+  const imageMatchedTerms = includesAllTerms(
+    `${imageResult?.description ?? ''} ${imageResult?.text ?? ''}`,
+    ['office image', 'Office image']
+  );
+
+  return buildQualitySummary('visual-full-fidelity', VISUAL_PROVIDER_FIXTURES.length, [
+    buildQualityMetric({
+      id: VISUAL_REGION_QUALITY_METRICS[0].id,
+      capability: VISUAL_REGION_QUALITY_METRICS[0].capability,
+      score: ratioScore(matchedFixtureIds.length, VISUAL_PROVIDER_FIXTURES.length),
+      expected: VISUAL_REGION_QUALITY_METRICS[0].expected,
+      observed: { matched_fixture_ids: matchedFixtureIds },
+    }),
+    buildQualityMetric({
+      id: VISUAL_REGION_QUALITY_METRICS[1].id,
+      capability: VISUAL_REGION_QUALITY_METRICS[1].capability,
+      score: ratioScore(cropProvenanceMatches.length, Math.max(1, results.length)),
+      expected: VISUAL_REGION_QUALITY_METRICS[1].expected,
+      observed: {
+        analyzed_regions: results.length,
+        provenance_matches: cropProvenanceMatches.length,
+      },
+    }),
+    buildQualityMetric({
+      id: VISUAL_REGION_QUALITY_METRICS[2].id,
+      capability: VISUAL_REGION_QUALITY_METRICS[2].capability,
+      score: ratioScore(tableCellBoxCount, 4),
+      expected: VISUAL_REGION_QUALITY_METRICS[2].expected,
+      observed: {
+        kind: tableResult?.kind,
+        row_count: tableResult?.table?.row_count,
+        column_count: tableResult?.table?.column_count,
+        cell_boxes: tableCellBoxCount,
+      },
+    }),
+    buildQualityMetric({
+      id: VISUAL_REGION_QUALITY_METRICS[3].id,
+      capability: VISUAL_REGION_QUALITY_METRICS[3].capability,
+      score: ratioScore(formulaFormatCount, 2),
+      expected: VISUAL_REGION_QUALITY_METRICS[3].expected,
+      observed: { kind: formulaResult?.kind, formula_formats: formulaFormatCount },
+    }),
+    buildQualityMetric({
+      id: VISUAL_REGION_QUALITY_METRICS[4].id,
+      capability: VISUAL_REGION_QUALITY_METRICS[4].capability,
+      score: ratioScore(chartComponents, 3),
+      expected: VISUAL_REGION_QUALITY_METRICS[4].expected,
+      observed: {
+        kind: chartResult?.kind,
+        x_axis: chartResult?.chart?.x_axis !== undefined,
+        y_axis: chartResult?.chart?.y_axis !== undefined,
+        series_count: chartResult?.chart?.series?.length ?? 0,
+        data_point_count: chartResult?.chart?.data_points?.length ?? 0,
+      },
+    }),
+    buildQualityMetric({
+      id: VISUAL_REGION_QUALITY_METRICS[5].id,
+      capability: VISUAL_REGION_QUALITY_METRICS[5].capability,
+      score: ratioScore(figureMatchedTerms.length, 2),
+      expected: VISUAL_REGION_QUALITY_METRICS[5].expected,
+      observed: { kind: figureResult?.kind, matched_terms: figureMatchedTerms },
+    }),
+    buildQualityMetric({
+      id: VISUAL_REGION_QUALITY_METRICS[6].id,
+      capability: VISUAL_REGION_QUALITY_METRICS[6].capability,
+      score: ratioScore(imageMatchedTerms.length, 2),
+      expected: VISUAL_REGION_QUALITY_METRICS[6].expected,
+      observed: { kind: imageResult?.kind, matched_terms: imageMatchedTerms },
+    }),
+  ]);
+};
+
 const evaluateRegionAnalysisEvidence = (
   results: PdfRegionAnalysisData[]
-): Array<{ name: string; pass: boolean }> => [
-  {
-    name: VISUAL_REGION_CAPABILITIES[0],
-    pass: VISUAL_PROVIDER_FIXTURES.every((fixture) =>
-      results.some((result) => result.region_id === fixture.id)
-    ),
-  },
-  {
-    name: VISUAL_REGION_CAPABILITIES[1],
-    pass: results.every(
-      (result) =>
-        result.source_crop_evidence_id ===
-          `page-1-${result.region_id}-crop-scale-${String(result.scale)}` &&
-        result.provenance.source === 'region-analysis-provider' &&
-        result.source_bounding_box.left > 0
-    ),
-  },
-  {
-    name: VISUAL_REGION_CAPABILITIES[2],
-    pass: results.some(
-      (result) =>
-        result.region_id === 'cert-table' &&
-        result.kind === 'table' &&
-        (result.table?.row_count ?? 0) >= 2 &&
-        (result.table?.column_count ?? 0) >= 2 &&
-        (result.table?.cells?.filter((cell) => cell.bounding_box !== undefined).length ?? 0) >= 4
-    ),
-  },
-  {
-    name: VISUAL_REGION_CAPABILITIES[3],
-    pass: results.some(
-      (result) =>
-        result.region_id === 'cert-formula' &&
-        result.kind === 'formula' &&
-        countFormulaFormats(result) >= 2
-    ),
-  },
-  {
-    name: VISUAL_REGION_CAPABILITIES[4],
-    pass: results.some(
-      (result) =>
-        result.region_id === 'cert-chart' &&
-        result.kind === 'chart' &&
-        ((result.chart?.series?.length ?? 0) > 0 ||
-          (result.chart?.data_points?.length ?? 0) >= 3) &&
-        result.chart?.x_axis !== undefined &&
-        result.chart.y_axis !== undefined
-    ),
-  },
-  {
-    name: VISUAL_REGION_CAPABILITIES[5],
-    pass: results.some(
-      (result) =>
-        result.region_id === 'cert-figure' &&
-        result.kind === 'figure' &&
-        typeof result.description === 'string' &&
-        result.description.includes('pipeline') &&
-        typeof result.text === 'string' &&
-        result.text.includes('Pipeline figure')
-    ),
-  },
-  {
-    name: VISUAL_REGION_CAPABILITIES[6],
-    pass: results.some(
-      (result) =>
-        result.region_id === 'cert-image' &&
-        result.kind === 'image' &&
-        typeof result.description === 'string' &&
-        result.description.includes('office image') &&
-        typeof result.text === 'string' &&
-        result.text.includes('Office image')
-    ),
-  },
-];
+): Array<{ name: string; pass: boolean }> =>
+  buildRegionAnalysisQuality(results).metrics.map((metric) => ({
+    name: metric.capability,
+    pass: metric.status === 'passed',
+  }));
 
 const buildRegionAnalysisMetrics = (
   results: PdfRegionAnalysisData[]
@@ -655,6 +872,17 @@ const buildSkippedCertificationSummary = (
     capabilityNames.map((name) => [name, 'skipped'])
   ) as Record<string, 'passed' | 'failed' | 'skipped'>,
 });
+
+const buildSkippedQualitySummary = (
+  profile: ProviderBenchmarkQuality['profile'],
+  fixtureCount: number,
+  metrics: Array<{ id: string; capability: string; expected: Record<string, unknown> }>
+): ProviderBenchmarkQuality =>
+  buildQualitySummary(
+    profile,
+    fixtureCount,
+    metrics.map((metric) => buildSkippedQualityMetric(metric.id, metric.capability, metric.expected))
+  );
 
 const buildFinalBarProviderEvidence = (
   results: ProviderBenchmarkResult[]
@@ -750,6 +978,7 @@ const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
         1,
         TESSERACT_TSV_CAPABILITIES
       ),
+      quality: buildSkippedQualitySummary('ocr-text-layer', 1, TESSERACT_TSV_QUALITY_METRICS),
     };
   }
 
@@ -776,6 +1005,7 @@ const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
     const data = firstResultData(payload);
     const evidence = extractTesseractTsvEvidence(data);
     const assertions = evaluateTesseractTsvEvidence(evidence);
+    const quality = buildTesseractTsvQuality(evidence);
 
     return {
       provider: 'tesseract-tsv',
@@ -787,6 +1017,7 @@ const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
       },
       metrics: buildProviderMetrics(evidence.ocrTextLayer),
       certification: buildCertificationSummary('ocr-text-layer', 1, assertions),
+      quality,
     };
   } catch (error: unknown) {
     return {
@@ -819,6 +1050,11 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
         VISUAL_PROVIDER_FIXTURES.length,
         VISUAL_REGION_CAPABILITIES
       ),
+      quality: buildSkippedQualitySummary(
+        'visual-full-fidelity',
+        VISUAL_PROVIDER_FIXTURES.length,
+        VISUAL_REGION_QUALITY_METRICS
+      ),
     };
   }
 
@@ -850,6 +1086,7 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
       }
     );
     const assertions = evaluateRegionAnalysisEvidence(analyzed.analyses);
+    const quality = buildRegionAnalysisQuality(analyzed.analyses);
     return {
       provider: 'region-analysis',
       status: assertions.every((assertion) => assertion.pass) ? 'passed' : 'failed',
@@ -864,6 +1101,7 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
         VISUAL_PROVIDER_FIXTURES.length,
         assertions
       ),
+      quality,
     };
   } catch (error: unknown) {
     return {
@@ -877,7 +1115,7 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
   }
 };
 
-const main = async () => {
+export const main = async () => {
   const results = [await runTesseractTsvBenchmark(), await runRegionAnalysisProviderBenchmark()];
   const finalBarProviderEvidence = buildFinalBarProviderEvidence(results);
   const report: ProviderBenchmarkReport = {
@@ -908,6 +1146,7 @@ const main = async () => {
       formula_formats: result.metrics?.formula_formats ?? '-',
       figures: result.metrics?.figure_count ?? '-',
       image_descriptions: result.metrics?.image_description_count ?? '-',
+      quality_score: result.quality ? `${String(result.quality.score)}` : '-',
       passed_capabilities: result.certification
         ? `${String(result.certification.passed_capability_count)}/${String(result.certification.capability_count)}`
         : '-',
@@ -926,4 +1165,6 @@ const main = async () => {
   }
 };
 
-await main();
+if (import.meta.main) {
+  await main();
+}
