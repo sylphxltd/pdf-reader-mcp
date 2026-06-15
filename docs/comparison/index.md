@@ -7,6 +7,7 @@
 | Text Extraction | ✅ | ✅ | ✅ | ❌ |
 | Metadata | ✅ | ✅ | ✅ | ❌ |
 | Image Extraction | ✅ | ⚠️ | ✅ | ❌ |
+| Page Rendering Evidence | ✅ | ⚠️ | ✅ | ❌ |
 | Page Ranges | ✅ | ⚠️ | ✅ | ❌ |
 | Batch Processing | ✅ | ❌ | ✅ | ❌ |
 | URL Support | ✅ | ❌ | ✅ | ❌ |
@@ -64,6 +65,7 @@
 - No API keys needed
 - Batch processing
 - Image extraction
+- Page rendering evidence with bounded PNG image parts
 - URL support
 - Structured JSON output
 - Agent document maps with linked pages, elements, chunks, layout confidence, safety findings, routing signals, and geometry
@@ -79,5 +81,6 @@
 - You want simple MCP integration
 - You need to process multiple PDFs
 - You need image extraction
+- You need page images for visual verification or OCR routing
 - You want structured, parseable output
 - You want agents to navigate PDF evidence through stable references

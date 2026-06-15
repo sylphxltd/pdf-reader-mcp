@@ -18,12 +18,13 @@ neutral capability names and avoids public comparison language.
 
 | Capability | Status | Notes |
 |---|---:|---|
-| MCP-native PDF tools | Shipped | `inspect_pdf` and `read_pdf` with stdio/http transport. |
+| MCP-native PDF tools | Shipped | `inspect_pdf`, `render_page`, and `read_pdf` with stdio/http transport. |
 | Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, and recommends `read_pdf` options. |
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
 | Metadata and page count | Shipped | Existing `include_metadata`, `include_page_count`. |
 | Text extraction | Shipped | Full text and selected pages. |
 | Image extraction | Shipped | MCP image parts plus JSON metadata. |
+| Visual page rendering | Shipped | `render_page`; selected pages render as bounded PNG MCP image parts with evidence metadata and provenance. |
 | Table extraction | Shipped | Spatial clustering with rows, confidence, and best-effort cell geometry. |
 | Structured element output | Shipped | `include_elements`. |
 | Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry in one agent-ready contract. |
@@ -63,10 +64,12 @@ neutral capability names and avoids public comparison language.
    annotations, forms, hidden/off-page text, scanned PDFs.
 3. Harden the agent document map as the SSOT for pages, elements, chunks,
    layout, safety, page geometry, and optional engine enrichment.
-4. Add deterministic semantic model: headings, paragraphs, lists, captions,
+4. Add region crop evidence on top of page rendering for bbox-grounded visual
+   snippets.
+5. Add deterministic semantic model: headings, paragraphs, lists, captions,
    richer tables.
-5. Add optional advanced engines behind provider interfaces.
-6. Add OCR/formula/chart/tagged-PDF capabilities only through optional engines
+6. Add optional advanced engines behind provider interfaces.
+7. Add OCR/formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 
 ## Public Messaging Rule

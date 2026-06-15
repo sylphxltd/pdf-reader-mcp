@@ -105,7 +105,22 @@ same references themselves.
 }
 ```
 
-### 7. Use Structured Elements When You Need References
+### 7. Render Pages With Explicit Bounds
+
+`render_page` returns PNG page evidence as MCP image parts. Rendering is more
+expensive than text extraction, so select pages, keep scale practical, and rely
+on the default pixel budget unless a workflow truly needs higher resolution.
+
+```json
+{
+  "sources": [{ "path": "doc.pdf", "pages": "1-2" }],
+  "scale": 2,
+  "max_pages": 2,
+  "max_pixels_per_page": 16000000
+}
+```
+
+### 8. Use Structured Elements When You Need References
 
 `include_elements` adds page-level element metadata for agent workflows. It is
 worth enabling when you need stable IDs, provenance, or best-effort coordinates,
@@ -119,7 +134,7 @@ but plain text remains the leanest response shape.
 }
 ```
 
-### 8. Add Semantic Hints Only When They Help
+### 9. Add Semantic Hints Only When They Help
 
 `include_semantic_hints` adds deterministic heading, list, and paragraph hints
 to text elements. It returns elements even when `include_elements` is omitted.
@@ -132,7 +147,7 @@ to text elements. It returns elements even when `include_elements` is omitted.
 }
 ```
 
-### 9. Use Markdown When You Need Ready-to-Use Context
+### 10. Use Markdown When You Need Ready-to-Use Context
 
 `include_markdown` creates page-aware Markdown in the JSON response. It is
 more convenient than rebuilding sections from `page_texts`, but it still
@@ -146,7 +161,7 @@ requires page extraction.
 }
 ```
 
-### 10. Use Chunks When You Need Source References
+### 11. Use Chunks When You Need Source References
 
 `include_chunks` creates citation-ready chunks with element IDs, strategy
 labels, and best-effort bounding boxes. It can split on semantic heading
@@ -163,7 +178,7 @@ citations, but it does more work than metadata-only or page-count requests.
 }
 ```
 
-### 11. Use HTML Only When Needed
+### 12. Use HTML Only When Needed
 
 `include_html` creates escaped page-aware HTML. It is useful for preview and
 export workflows, but plain text or Markdown are usually leaner for agent-only
@@ -177,7 +192,7 @@ context.
 }
 ```
 
-### 12. Use Layout Diagnostics For Routing
+### 13. Use Layout Diagnostics For Routing
 
 `include_layout_diagnostics` returns page layout profiles, reading-order
 confidence, column signals, and warnings. It uses already extracted content

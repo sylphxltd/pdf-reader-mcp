@@ -1,8 +1,9 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides two tools:
+Once installed, the PDF Reader MCP server provides three tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
+- `render_page` renders selected PDF pages as bounded visual evidence images.
 - `read_pdf` extracts PDF content, an agent document map, structure,
   citations, tables, images, layout confidence, and signals.
 
@@ -139,6 +140,29 @@ PDF instead of separate page, element, chunk, layout, and safety outputs.
 The map links pages to element IDs, chunk IDs, safety finding indexes, layout
 diagnostics, routing signals, and page geometry. Image bytes are not embedded
 inside the JSON map.
+
+### Render Page Evidence
+
+Use `render_page` when an agent needs to inspect the original page image,
+verify visual layout, or prepare OCR routing for sparse/scanned pages.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-2"
+  }],
+  "scale": 2,
+  "max_pages": 2
+}
+```
+
+The response starts with JSON metadata for each rendered page, including page
+number, dimensions, pixel count, byte length, evidence ID, and provenance. PNG
+data is returned as MCP image content parts and referenced by
+`image_content_index`. By default the tool renders the first page only when no
+page range is provided, caps each source at 5 pages, and rejects pages above a
+16MP render budget.
 
 ### Get Markdown
 

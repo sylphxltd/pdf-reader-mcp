@@ -7,6 +7,7 @@ PDF Reader MCP is a Model Context Protocol (MCP) server that enables AI agents t
 AI agents often need to access information from PDF documents - reports, invoices, research papers, manuals, and more. This server provides tools to inspect and extract:
 
 - **PDF profiles** - Detect text-rich, low-text, mixed, or scanned/image-like PDFs before extraction
+- **Visual page evidence** - Render selected pages as bounded PNG MCP image parts with provenance
 - **Full text content** - Get all text from a PDF
 - **Page-specific text** - Extract text from specific pages or page ranges
 - **Metadata** - Author, title, creation date, and other document properties
@@ -25,13 +26,16 @@ Process PDFs from local files or URLs in a single request. Mix and match sources
 Send multiple PDF sources in one request. The server processes them concurrently for optimal performance.
 
 ### Flexible Extraction
-Choose exactly what data you need - full text, specific pages, metadata only, an agent document map, or everything including images.
+Choose exactly what data you need - visual page evidence, full text, specific pages, metadata only, an agent document map, or everything including images.
 
 ### Agent-Native Inspection
 Use `inspect_pdf` to sample a PDF, identify extraction risks, and get recommended `read_pdf` arguments before spending context or runtime on heavier extraction.
 
 ### Image Extraction
 Extract embedded images from PDFs for AI vision analysis. Images are returned as base64-encoded PNG data.
+
+### Page Rendering
+Render selected pages as visual evidence for layout inspection, OCR routing, and agent verification. Rendered PNGs are returned as MCP image parts while JSON carries only metadata and provenance.
 
 ## Supported Clients
 

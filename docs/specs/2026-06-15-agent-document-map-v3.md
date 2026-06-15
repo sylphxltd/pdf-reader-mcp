@@ -133,7 +133,7 @@ Required before publishing the next package release:
 
 Next slices for the same v3 track:
 
-- Page render/crop evidence API for visual grounding.
+- Region crop evidence API for bbox-grounded visual snippets.
 - Optional OCR provider interface for scanned pages.
 - Optional layout/table/formula/chart provider interfaces.
 - Benchmark harness with accuracy and latency reported separately.

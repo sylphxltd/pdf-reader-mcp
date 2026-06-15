@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **Agent document map** • **Layout confidence** • **Semantic citation chunks**
+**PDF inspection** • **Agent document map** • **Visual evidence** • **Semantic citation chunks**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, render page-level visual evidence, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -38,6 +38,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 ```typescript
 // PDF Reader MCP
 - Preflight PDF inspection for agent extraction planning 🔎
+- Bounded page rendering for visual evidence and OCR routing 🖼️
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Structured element output for agent workflows 🧩
@@ -68,6 +69,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
+- 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
@@ -77,7 +79,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - `inspect_pdf` plans extraction, `read_pdf` performs extraction
+- 🎨 **Simple API** - `inspect_pdf` plans extraction, `render_page` returns visual evidence, `read_pdf` performs extraction
 
 ---
 
@@ -305,6 +307,28 @@ instead of separate page, element, chunk, layout, and safety outputs.
 - Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
 - Safety findings linked back to page and element evidence
 - No embedded image bytes inside the JSON document map
+
+### Render Page Evidence
+
+Use `render_page` when an agent needs to inspect the original page image,
+prepare OCR routing, or verify visual layout without stuffing base64 into JSON.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-2"
+  }],
+  "scale": 2,
+  "max_pages": 2
+}
+```
+
+**Response includes:**
+- A JSON summary with page number, render scale, pixel count, byte length, evidence ID, and provenance
+- PNG pages as MCP image content parts when `include_image` is true
+- Bounded defaults: first page by default, `max_pages` default 5, and `max_pixels_per_page` default 16MP
+- No rendered page base64 duplicated inside the first JSON content part
 
 ### Markdown for RAG and Summaries
 
@@ -588,6 +612,36 @@ PDF handling, or OCR-capable workflows.
 | `page_signals` | Text chars, text items, token estimate, image paint operations, and scan/low-text flags |
 | `document_signals` | Outline, labels, permissions, forms, attachments, and structure-tree availability |
 | `recommendation` | Suggested workflow, OCR need, reason, and ready-to-use `read_pdf` arguments |
+
+### `render_page` Tool
+
+Render selected pages as PNG visual evidence. This gives agents a page image
+they can inspect or route to OCR/vision workflows while keeping binary content
+out of the JSON summary.
+
+#### Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `sources` | Array | List of PDF sources to render | Required |
+| `scale` | number | Render scale relative to PDF points, from 0.25 to 4 | `2` |
+| `max_pages` | number | Maximum pages to render per source, capped at 20 | `5` |
+| `max_pixels_per_page` | number | Maximum rendered pixels per page, capped at 64MP | `16000000` |
+| `include_image` | boolean | Return PNG pages as MCP image parts | `true` |
+
+#### Example
+
+```json
+{
+  "sources": [{ "path": "report.pdf", "pages": "1-2" }],
+  "scale": 2,
+  "max_pages": 2
+}
+```
+
+The first content part is JSON metadata with `profile: "page_render_evidence"`.
+Rendered PNG data is returned as subsequent MCP image parts and referenced by
+`image_content_index`.
 
 ### `read_pdf` Tool
 

@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { createServer, http, stdio } from '@sylphx/mcp-server-sdk';
 import { inspectPdf } from './handlers/inspectPdf.js';
 import { readPdf } from './handlers/readPdf.js';
+import { renderPage } from './handlers/renderPage.js';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json') as { version: string };
@@ -38,8 +39,8 @@ const server = createServer({
   name: 'pdf-reader-mcp',
   version: packageJson.version,
   instructions:
-    'MCP Server for inspecting PDF files and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.',
-  tools: { inspect_pdf: inspectPdf, read_pdf: readPdf },
+    'MCP Server for inspecting PDF files, rendering visual page evidence, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.',
+  tools: { inspect_pdf: inspectPdf, read_pdf: readPdf, render_page: renderPage },
   transport: createTransport(),
 });
 

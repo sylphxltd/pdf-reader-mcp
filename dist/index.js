@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // src/index.ts
-import { createRequire as createRequire2 } from "node:module";
+import { createRequire as createRequire3 } from "node:module";
 import { createServer, http, stdio } from "@sylphx/mcp-server-sdk";
 
 // src/handlers/inspectPdf.ts
@@ -2862,9 +2862,249 @@ ${pageTextParts.join(`
   return content;
 });
 
-// src/index.ts
+// src/handlers/renderPage.ts
+import { image as image2, text as text3, tool as tool3, toolError as toolError3 } from "@sylphx/mcp-server-sdk";
+
+// src/pdf/renderer.ts
+import { createRequire as createRequire2 } from "node:module";
+import { pathToFileURL } from "node:url";
+var DEFAULT_RENDER_SCALE = 2;
+var DEFAULT_MAX_RENDER_PAGES = 5;
+var DEFAULT_MAX_RENDER_PIXELS = 16000000;
+var logger8 = createLogger("Renderer");
 var require3 = createRequire2(import.meta.url);
-var packageJson = require3("../package.json");
+var requireFromPdfjs = createRequire2(require3.resolve("pdfjs-dist/package.json"));
+var loadCanvasModule = async () => {
+  try {
+    const canvasEntry = requireFromPdfjs.resolve("@napi-rs/canvas");
+    const imported = await import(pathToFileURL(canvasEntry).href);
+    const canvasModule = "createCanvas" in imported ? imported : imported.default;
+    if (!canvasModule || typeof canvasModule.createCanvas !== "function") {
+      throw new Error("Canvas backend does not expose createCanvas.");
+    }
+    return canvasModule;
+  } catch (error) {
+    throw new PdfError(-32600 /* InvalidRequest */, "Page rendering requires the optional pdfjs native canvas backend. Install with optional dependencies enabled, or use inspect_pdf/read_pdf without visual rendering.", { cause: error instanceof Error ? error : undefined });
+  }
+};
+var formatPixels = (pixels) => `${(pixels / 1e6).toFixed(1)}MP`;
+var finitePositiveNumber = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
+var resolvePagesToRender = (targetPages, totalPages, maxPages) => {
+  const requestedPages = targetPages && targetPages.length > 0 ? [...new Set(targetPages)].sort((a, b) => a - b) : totalPages > 0 ? [1] : [];
+  const validPages = requestedPages.filter((page) => page <= totalPages);
+  const invalidPages = requestedPages.filter((page) => page > totalPages);
+  const pagesToRender = validPages.slice(0, maxPages);
+  const truncatedPages = validPages.slice(maxPages);
+  return { pagesToRender, invalidPages, truncatedPages };
+};
+var buildRenderWarnings = (invalidPages, truncatedPages, totalPages, maxPages) => {
+  const warnings = [];
+  if (invalidPages.length > 0) {
+    warnings.push(`Requested pages ${invalidPages.join(", ")} exceed document page count ${String(totalPages)}.`);
+  }
+  if (truncatedPages.length > 0) {
+    warnings.push(`Rendered first ${String(maxPages)} selected pages; skipped ${truncatedPages.join(", ")} due to max_pages.`);
+  }
+  return warnings;
+};
+var assertRenderableDimensions = (width, height, maxPixels, pageNumber, scale) => {
+  if (!finitePositiveNumber(width) || !finitePositiveNumber(height)) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Page ${String(pageNumber)} has invalid render dimensions.`);
+  }
+  const pixelCount = width * height;
+  if (pixelCount > maxPixels) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Page ${String(pageNumber)} would render ${formatPixels(pixelCount)} at scale ${String(scale)}, exceeding max_pixels_per_page ${formatPixels(maxPixels)}. Lower scale or raise max_pixels_per_page.`);
+  }
+};
+var renderPdfPage = async (pdfDocument, pageNumber, options) => {
+  const canvasModule = await loadCanvasModule();
+  const page = await pdfDocument.getPage(pageNumber);
+  const viewport = page.getViewport({ scale: options.scale });
+  const width = Math.ceil(viewport.width);
+  const height = Math.ceil(viewport.height);
+  assertRenderableDimensions(width, height, options.max_pixels_per_page, pageNumber, options.scale);
+  const canvas = canvasModule.createCanvas(width, height);
+  const canvasContext = canvas.getContext("2d");
+  await page.render({ canvasContext, viewport }).promise;
+  const buffer = canvas.toBuffer("image/png");
+  const pixelCount = width * height;
+  return {
+    page: pageNumber,
+    evidence_id: `page-${String(pageNumber)}-render-scale-${String(options.scale)}`,
+    width,
+    height,
+    scale: options.scale,
+    pixel_count: pixelCount,
+    byte_length: buffer.byteLength,
+    format: "png",
+    mime_type: "image/png",
+    rotation: page.rotate ?? viewport.rotation ?? 0,
+    provenance: {
+      engine: "pdfjs",
+      renderer: "@napi-rs/canvas",
+      source: "page-render"
+    },
+    data: buffer.toString("base64")
+  };
+};
+var renderPdfSourcePages = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  let pdfDocument = null;
+  try {
+    const targetPages = getTargetPages(source.pages, sourceDescription);
+    const { pages: _pages, ...loadArgs } = source;
+    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    const totalPages = pdfDocument.numPages;
+    const { pagesToRender, invalidPages, truncatedPages } = resolvePagesToRender(targetPages, totalPages, options.max_pages);
+    if (pagesToRender.length === 0) {
+      throw new PdfError(-32600 /* InvalidRequest */, `No valid pages to render for source ${sourceDescription}.`);
+    }
+    const warnings = buildRenderWarnings(invalidPages, truncatedPages, totalPages, options.max_pages);
+    const pages = [];
+    for (const pageNumber of pagesToRender) {
+      pages.push(await renderPdfPage(pdfDocument, pageNumber, {
+        scale: options.scale,
+        max_pixels_per_page: options.max_pixels_per_page
+      }));
+    }
+    return { source: sourceDescription, numPages: totalPages, pages, warnings };
+  } finally {
+    const loadingTask = pdfDocument?.loadingTask;
+    if (loadingTask && typeof loadingTask.destroy === "function") {
+      try {
+        await loadingTask.destroy();
+      } catch (destroyError) {
+        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
+        logger8.warn("Error destroying rendered PDF document", {
+          sourceDescription,
+          error: message
+        });
+      }
+    }
+  }
+};
+
+// src/schemas/renderPage.ts
+import {
+  array as array3,
+  bool as bool3,
+  description as description3,
+  gte as gte3,
+  int as int3,
+  lte as lte2,
+  num as num3,
+  object as object3,
+  optional as optional3
+} from "@sylphx/vex";
+var renderPageArgsSchema = object3({
+  sources: array3(pdfSourceSchema),
+  scale: optional3(num3(gte3(0.25), lte2(4), description3("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
+  max_pages: optional3(num3(int3, gte3(1), lte2(20), description3("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
+  max_pixels_per_page: optional3(num3(int3, gte3(1e4), lte2(64000000), description3("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
+  include_image: optional3(bool3(description3("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
+});
+
+// src/handlers/renderPage.ts
+var logger9 = createLogger("RenderPage");
+var buildRenderOptions = (input) => ({
+  scale: input.scale ?? DEFAULT_RENDER_SCALE,
+  max_pages: input.max_pages ?? DEFAULT_MAX_RENDER_PAGES,
+  max_pixels_per_page: input.max_pixels_per_page ?? DEFAULT_MAX_RENDER_PIXELS,
+  include_image: input.include_image ?? true
+});
+var summarizeRenderedPage = (page, imageContentIndex) => {
+  const { data: _data, ...summary } = page;
+  return {
+    ...summary,
+    ...imageContentIndex !== undefined ? { image_content_index: imageContentIndex } : {}
+  };
+};
+var renderSourceForTool = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  try {
+    const rendered = await renderPdfSourcePages(source, options);
+    return {
+      result: {
+        source: rendered.source,
+        success: true,
+        num_pages: rendered.numPages,
+        rendered_pages: [],
+        ...rendered.warnings.length > 0 ? { warnings: rendered.warnings } : {}
+      },
+      pages: rendered.pages
+    };
+  } catch (error) {
+    let errorMessage;
+    if (error instanceof PdfError) {
+      errorMessage = error.message;
+    } else {
+      const detail = error instanceof Error ? error.message : String(error);
+      logger9.error("Unexpected error rendering PDF source", {
+        sourceDescription,
+        error: detail
+      });
+      errorMessage = `Failed to render PDF pages from ${sourceDescription}.`;
+    }
+    return {
+      result: {
+        source: sourceDescription,
+        success: false,
+        error: errorMessage
+      },
+      pages: []
+    };
+  }
+};
+var attachRenderSummaries = (outputs, includeImage) => {
+  let nextImageContentIndex = 1;
+  return outputs.map(({ result, pages }) => {
+    if (!result.success)
+      return result;
+    return {
+      ...result,
+      rendered_pages: pages.map((page) => {
+        const imageContentIndex = includeImage ? nextImageContentIndex++ : undefined;
+        return summarizeRenderedPage(page, imageContentIndex);
+      })
+    };
+  });
+};
+var buildRenderContent = (outputs, results, options) => {
+  const content = [
+    text3(JSON.stringify({
+      profile: "page_render_evidence",
+      render_options: options,
+      results
+    }, null, 2))
+  ];
+  if (!options.include_image)
+    return content;
+  for (const output of outputs) {
+    if (!output.result.success)
+      continue;
+    for (const page of output.pages) {
+      content.push(image2(page.data, page.mime_type));
+    }
+  }
+  return content;
+};
+var renderPage = tool3().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
+  const options = buildRenderOptions(input);
+  const outputs = [];
+  for (const source of input.sources) {
+    outputs.push(await renderSourceForTool(source, options));
+  }
+  const results = attachRenderSummaries(outputs, options.include_image);
+  if (results.every((result) => !result.success)) {
+    const errorMessages = results.map((result) => result.error).join("; ");
+    return toolError3(`All PDF sources failed to render: ${errorMessages}`);
+  }
+  return buildRenderContent(outputs, results, options);
+});
+
+// src/index.ts
+var require4 = createRequire3(import.meta.url);
+var packageJson = require4("../package.json");
 var transportType = process.env["MCP_TRANSPORT"] ?? "stdio";
 var httpPort = Number.parseInt(process.env["MCP_HTTP_PORT"] ?? "8080", 10);
 var httpHost = process.env["MCP_HTTP_HOST"] ?? "0.0.0.0";
@@ -2883,8 +3123,8 @@ function createTransport() {
 var server = createServer({
   name: "pdf-reader-mcp",
   version: packageJson.version,
-  instructions: "MCP Server for inspecting PDF files and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
-  tools: { inspect_pdf: inspectPdf, read_pdf: readPdf },
+  instructions: "MCP Server for inspecting PDF files, rendering visual page evidence, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
+  tools: { inspect_pdf: inspectPdf, read_pdf: readPdf, render_page: renderPage },
   transport: createTransport()
 });
 async function main() {

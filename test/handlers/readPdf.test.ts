@@ -175,6 +175,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
               },
             ],
           }),
+          getViewport: vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 }),
+          render: vi.fn().mockReturnValue({ promise: Promise.resolve() }),
+          view: [0, 0, 612, 792],
+          rotate: 0,
+          userUnit: 1,
           getOperatorList: vi.fn().mockResolvedValue({
             fnArray: [],
             argsArray: [],
