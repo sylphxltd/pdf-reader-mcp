@@ -546,7 +546,9 @@ fixture with separate table, formula, chart, figure, and image-description
 regions, sends those crops through `analyze_regions`, and reports a
 `visual-full-fidelity` certification profile covering crop provenance, table
 cell boxes, formula formats, chart axes or series, figure descriptions, and
-image-description text.
+image-description text. Its JSON report also includes a final-bar provider
+evidence matrix that separates certified installed-provider evidence from
+capabilities that still require provider benchmark runs.
 
 ### OCR Selected Pages
 
@@ -1663,6 +1665,7 @@ bun run benchmark:all # Performance + quality + provider benchmarks
 - ✅ Reproducible quality benchmark
 - ✅ Machine-readable SOTA final-bar coverage matrix in `benchmark:quality`
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
+- ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 
 </details>
 
@@ -1732,7 +1735,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
-- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures, with machine-readable final-bar provider evidence summaries
 - [x] Deterministic semantic hints and AST nodes for captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes

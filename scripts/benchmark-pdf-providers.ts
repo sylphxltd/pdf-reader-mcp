@@ -50,6 +50,29 @@ interface ProviderBenchmarkResult {
   };
 }
 
+type FinalBarProviderEvidenceStatus =
+  | 'certified'
+  | 'provider_benchmark_required'
+  | 'failed'
+  | 'incomplete';
+
+interface FinalBarProviderEvidenceRequirement {
+  id: string;
+  capability: string;
+  required_profiles: NonNullable<ProviderBenchmarkResult['certification']>['profile'][];
+  required_capabilities: string[];
+  evidence: string[];
+}
+
+interface FinalBarProviderEvidenceResult extends FinalBarProviderEvidenceRequirement {
+  status: FinalBarProviderEvidenceStatus;
+  missing_profiles: string[];
+  failed_profiles: string[];
+  missing_capabilities: string[];
+  skipped_capabilities: string[];
+  failed_capabilities: string[];
+}
+
 interface OcrTextLayerBenchmarkView {
   pages?: Array<{
     text?: string;
@@ -73,6 +96,13 @@ interface DocumentMapBenchmarkView {
 const execFileAsync = promisify(execFile);
 const STRICT_PROVIDER_BENCHMARK_ENV = 'MCP_PDF_PROVIDER_BENCHMARK_REQUIRED';
 const EXPECTED_TOKENS = ['HELLO', 'WORLD'];
+const PROVIDER_CERTIFICATION_PROFILES = {
+  'tesseract-tsv': 'ocr-text-layer',
+  'region-analysis': 'visual-full-fidelity',
+} as const satisfies Record<
+  ProviderBenchmarkResult['provider'],
+  NonNullable<ProviderBenchmarkResult['certification']>['profile']
+>;
 const TESSERACT_TSV_CAPABILITIES = [
   'tesseract-tsv provider returns expected OCR tokens',
   'tesseract-tsv provider normalizes word-level bounding boxes',
@@ -87,6 +117,63 @@ const VISUAL_REGION_CAPABILITIES = [
   'region provider returns figure description evidence',
   'region provider returns image-description evidence',
 ] as const;
+const FINAL_BAR_PROVIDER_EVIDENCE_REQUIREMENTS: FinalBarProviderEvidenceRequirement[] = [
+  {
+    id: 'scanned_pdf_pipeline',
+    capability: 'Scanned-PDF pipeline',
+    required_profiles: ['ocr-text-layer'],
+    required_capabilities: [...TESSERACT_TSV_CAPABILITIES],
+    evidence: [
+      'installed OCR provider returns expected text tokens',
+      'installed OCR provider returns word-level bounding boxes',
+      'read_pdf fuses OCR provider evidence into the document map',
+    ],
+  },
+  {
+    id: 'table_intelligence',
+    capability: 'Table intelligence',
+    required_profiles: ['visual-full-fidelity'],
+    required_capabilities: [
+      'region provider analyzes all visual certification fixtures',
+      'region provider preserves crop evidence provenance for every fixture',
+      'region provider returns a structured table with cell boxes',
+    ],
+    evidence: [
+      'configured visual-region provider processes the table fixture',
+      'table cell boxes survive normalization',
+      'crop provenance is preserved for table evidence',
+    ],
+  },
+  {
+    id: 'formula_chart_figure_enrichment',
+    capability: 'Formula, chart, and figure enrichment',
+    required_profiles: ['visual-full-fidelity'],
+    required_capabilities: [
+      'region provider analyzes all visual certification fixtures',
+      'region provider preserves crop evidence provenance for every fixture',
+      'region provider returns machine-readable formula evidence',
+      'region provider returns chart axes or series evidence',
+      'region provider returns figure description evidence',
+      'region provider returns image-description evidence',
+    ],
+    evidence: [
+      'configured visual-region provider processes formula, chart, figure, and image fixtures',
+      'formula/chart/figure/image outputs normalize into agent evidence',
+      'crop provenance is preserved for every visual evidence item',
+    ],
+  },
+  {
+    id: 'reproducible_public_quality_proof',
+    capability: 'Reproducible proof',
+    required_profiles: ['ocr-text-layer', 'visual-full-fidelity'],
+    required_capabilities: [...TESSERACT_TSV_CAPABILITIES, ...VISUAL_REGION_CAPABILITIES],
+    evidence: [
+      'installed OCR certification profile',
+      'installed visual full-fidelity certification profile',
+      'machine-readable final-bar provider evidence matrix',
+    ],
+  },
+];
 const VISUAL_PROVIDER_FIXTURES = [
   {
     id: 'cert-table',
@@ -549,6 +636,81 @@ const buildSkippedCertificationSummary = (
   ) as Record<string, 'passed' | 'failed' | 'skipped'>,
 });
 
+const buildFinalBarProviderEvidence = (
+  results: ProviderBenchmarkResult[]
+): FinalBarProviderEvidenceResult[] => {
+  const certifications = new Map<
+    NonNullable<ProviderBenchmarkResult['certification']>['profile'],
+    NonNullable<ProviderBenchmarkResult['certification']>
+  >();
+  const providerResultsByProfile = new Map<
+    NonNullable<ProviderBenchmarkResult['certification']>['profile'],
+    ProviderBenchmarkResult
+  >();
+  for (const result of results) {
+    providerResultsByProfile.set(PROVIDER_CERTIFICATION_PROFILES[result.provider], result);
+    if (result.certification) {
+      certifications.set(result.certification.profile, result.certification);
+    }
+  }
+
+  return FINAL_BAR_PROVIDER_EVIDENCE_REQUIREMENTS.map((requirement) => {
+    const missingProfiles = requirement.required_profiles.filter(
+      (profile) =>
+        !certifications.has(profile) && providerResultsByProfile.get(profile)?.status !== 'failed'
+    );
+    const failedProfiles = requirement.required_profiles.filter(
+      (profile) => providerResultsByProfile.get(profile)?.status === 'failed'
+    );
+    const missingCapabilities: string[] = [];
+    const skippedCapabilities: string[] = [];
+    const failedCapabilities: string[] = [];
+
+    for (const capability of requirement.required_capabilities) {
+      const capabilityStatus = requirement.required_profiles
+        .map((profile) => certifications.get(profile)?.capabilities[capability])
+        .find((status) => status !== undefined);
+
+      if (capabilityStatus === undefined) {
+        missingCapabilities.push(capability);
+      } else if (capabilityStatus === 'skipped') {
+        skippedCapabilities.push(capability);
+      } else if (capabilityStatus === 'failed') {
+        failedCapabilities.push(capability);
+      }
+    }
+
+    const status: FinalBarProviderEvidenceStatus =
+      failedProfiles.length > 0 || failedCapabilities.length > 0
+        ? 'failed'
+        : missingProfiles.length > 0 || missingCapabilities.length > 0
+        ? 'incomplete'
+        : skippedCapabilities.length > 0
+          ? 'provider_benchmark_required'
+          : 'certified';
+
+    return {
+      ...requirement,
+      status,
+      missing_profiles: missingProfiles,
+      failed_profiles: failedProfiles,
+      missing_capabilities: missingCapabilities,
+      skipped_capabilities: skippedCapabilities,
+      failed_capabilities: failedCapabilities,
+    };
+  });
+};
+
+const summarizeFinalBarProviderEvidence = (coverage: FinalBarProviderEvidenceResult[]) => ({
+  total: coverage.length,
+  certified: coverage.filter((entry) => entry.status === 'certified').length,
+  provider_benchmark_required: coverage.filter(
+    (entry) => entry.status === 'provider_benchmark_required'
+  ).length,
+  failed: coverage.filter((entry) => entry.status === 'failed').length,
+  incomplete: coverage.filter((entry) => entry.status === 'incomplete').length,
+});
+
 const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
   const start = performance.now();
   const providerStatus = await readTesseractTsvProviderStatus();
@@ -695,6 +857,7 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
 
 const main = async () => {
   const results = [await runTesseractTsvBenchmark(), await runRegionAnalysisProviderBenchmark()];
+  const finalBarProviderEvidence = buildFinalBarProviderEvidence(results);
   const report = {
     profile: 'pdf_provider_benchmark',
     generated_at: new Date().toISOString(),
@@ -703,6 +866,9 @@ const main = async () => {
     strict: process.env[STRICT_PROVIDER_BENCHMARK_ENV] === 'true',
     certification_profiles: ['ocr-text-layer', 'visual-full-fidelity'],
     results,
+    final_bar_provider_evidence_summary:
+      summarizeFinalBarProviderEvidence(finalBarProviderEvidence),
+    final_bar_provider_evidence: finalBarProviderEvidence,
   };
 
   console.table(

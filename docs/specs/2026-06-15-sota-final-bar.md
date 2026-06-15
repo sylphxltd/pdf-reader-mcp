@@ -104,7 +104,11 @@ themselves.
      and skipped-capability certification profiles when providers are absent, so
      release gates can distinguish a missing optional engine from a failed
      engine. Skipped providers are explicit and can be made blocking with
-     `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
+     `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`. Its JSON report includes
+     `final_bar_provider_evidence_summary` and
+     `final_bar_provider_evidence`, mapping installed-provider certification
+     profiles to the final-bar capabilities that still require provider-backed
+     evidence.
    - Provider-specific OCR, table, formula, chart, and image-description
      accuracy beyond the certification fixtures still requires public
      scanned/visual fixture benchmarks before any model-quality claim.

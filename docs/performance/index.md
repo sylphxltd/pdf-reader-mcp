@@ -81,9 +81,10 @@ provenance, table cell boxes, formula formats, chart axes or series, figure
 descriptions, and image-description text.
 
 The JSON report includes `certification_profiles`, safe `provider_status`
-metadata, and per-provider `certification` summaries so release environments
-can distinguish installed provider smoke checks from full visual evidence
-coverage.
+metadata, per-provider `certification` summaries,
+`final_bar_provider_evidence_summary`, and `final_bar_provider_evidence` so
+release environments can distinguish installed provider smoke checks, missing
+optional engines, and provider-backed final-bar evidence.
 
 Unavailable providers report `skipped` and still emit certification profiles
 with skipped capabilities by default. This keeps the JSON contract stable

@@ -40,3 +40,6 @@ and safe provider-status metadata.
 Extend the deterministic quality benchmark JSON with a machine-readable SOTA
 final-bar coverage matrix that maps each capability area to benchmark scenarios
 and marks areas that still require installed-provider benchmark evidence.
+Extend the installed-provider benchmark JSON with a machine-readable final-bar
+provider evidence matrix that maps OCR and visual certification profiles to the
+capability areas they can certify when local providers are installed.
