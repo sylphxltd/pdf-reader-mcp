@@ -73,9 +73,9 @@ themselves.
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers. It reports an `ocr-text-layer` profile for OCR
      word-box fusion and a `visual-full-fidelity` profile for runtime table,
-     formula, and chart crop certification when those providers are installed;
-     skipped providers are explicit and can be made blocking with
-     `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
+     formula, chart, figure, and image-description crop certification when
+     those providers are installed; skipped providers are explicit and can be
+     made blocking with `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
    - Provider-specific OCR, table, formula, chart, and image-description
      accuracy beyond the certification fixtures still requires public
      scanned/visual fixture benchmarks before any model-quality claim.

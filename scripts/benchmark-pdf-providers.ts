@@ -31,6 +31,8 @@ interface ProviderBenchmarkResult {
     table_rows?: number | undefined;
     chart_series?: number | undefined;
     formula_formats?: number | undefined;
+    figure_count?: number | undefined;
+    image_description_count?: number | undefined;
     text_chars?: number | undefined;
     word_count?: number | undefined;
     words_with_bounding_boxes?: number | undefined;
@@ -96,6 +98,26 @@ const VISUAL_PROVIDER_FIXTURES = [
       id: 'cert-chart',
       page: 1,
       bounding_box: { left: 50, bottom: 160, right: 535, top: 415 },
+      padding: 8,
+    },
+  },
+  {
+    id: 'cert-figure',
+    kind: 'figure',
+    region: {
+      id: 'cert-figure',
+      page: 1,
+      bounding_box: { left: 50, bottom: 40, right: 300, top: 145 },
+      padding: 8,
+    },
+  },
+  {
+    id: 'cert-image',
+    kind: 'image',
+    region: {
+      id: 'cert-image',
+      page: 1,
+      bounding_box: { left: 330, bottom: 40, right: 585, top: 145 },
       padding: 8,
     },
   },
@@ -191,6 +213,24 @@ const writeVisualProviderFixture = async (directory: string): Promise<string> =>
     '90 0 Td (Q2) Tj',
     '90 0 Td (Q3) Tj',
     '-260 205 Td (Revenue by Quarter) Tj',
+    'ET',
+    '0 0 0 RG',
+    '1 w',
+    '80 70 m 140 115 l 220 70 l S',
+    '80 70 m 220 70 l S',
+    'BT',
+    '/F1 12 Tf',
+    '72 118 Td (Pipeline figure) Tj',
+    'ET',
+    '0.85 0.90 0.96 rg',
+    '345 58 210 72 re f',
+    '0 0 0 RG',
+    '1 w',
+    '345 58 210 72 re S',
+    '360 72 m 410 108 l 458 76 l 510 120 l S',
+    'BT',
+    '/F1 12 Tf',
+    '360 118 Td (Office image) Tj',
     'ET',
     'Q',
   ].join('\n');
@@ -401,6 +441,30 @@ const evaluateRegionAnalysisEvidence = (
         result.chart.y_axis !== undefined
     ),
   },
+  {
+    name: 'region provider returns figure description evidence',
+    pass: results.some(
+      (result) =>
+        result.region_id === 'cert-figure' &&
+        result.kind === 'figure' &&
+        typeof result.description === 'string' &&
+        result.description.includes('pipeline') &&
+        typeof result.text === 'string' &&
+        result.text.includes('Pipeline figure')
+    ),
+  },
+  {
+    name: 'region provider returns image-description evidence',
+    pass: results.some(
+      (result) =>
+        result.region_id === 'cert-image' &&
+        result.kind === 'image' &&
+        typeof result.description === 'string' &&
+        result.description.includes('office image') &&
+        typeof result.text === 'string' &&
+        result.text.includes('Office image')
+    ),
+  },
 ];
 
 const buildRegionAnalysisMetrics = (
@@ -418,6 +482,12 @@ const buildRegionAnalysisMetrics = (
   table_rows: results.reduce((sum, result) => sum + (result.table?.row_count ?? 0), 0),
   chart_series: results.reduce((sum, result) => sum + (result.chart?.series?.length ?? 0), 0),
   formula_formats: results.reduce((sum, result) => sum + countFormulaFormats(result), 0),
+  figure_count: results.filter((result) => result.kind === 'figure').length,
+  image_description_count: results.filter(
+    (result) =>
+      result.kind === 'image' &&
+      ((result.description?.trim().length ?? 0) > 0 || (result.text?.trim().length ?? 0) > 0)
+  ).length,
 });
 
 const buildCertificationSummary = (
@@ -581,6 +651,8 @@ const main = async () => {
       table_cells: result.metrics?.table_cells ?? '-',
       chart_series: result.metrics?.chart_series ?? '-',
       formula_formats: result.metrics?.formula_formats ?? '-',
+      figures: result.metrics?.figure_count ?? '-',
+      image_descriptions: result.metrics?.image_description_count ?? '-',
       passed_capabilities: result.certification
         ? `${String(result.certification.passed_capability_count)}/${String(result.certification.capability_count)}`
         : '-',

@@ -169,9 +169,10 @@ duplicate cropped image base64.
 
 `bun run benchmark:providers` is the installed-provider certification path for
 the same contract. When a visual-region provider is configured, the benchmark
-creates a runtime PDF fixture with separate table, formula, and chart regions,
-crops each region through the PDF renderer, invokes the configured provider,
-and emits a `visual-full-fidelity` certification summary.
+creates a runtime PDF fixture with separate table, formula, chart, figure, and
+image-description regions, crops each region through the PDF renderer, invokes
+the configured provider, and emits a `visual-full-fidelity` certification
+summary.
 
 The profile passes only when the provider:
 
@@ -179,7 +180,9 @@ The profile passes only when the provider:
 - preserves crop evidence provenance for every region;
 - returns a structured table with cell bounding boxes;
 - returns machine-readable formula evidence in at least two formats; and
-- returns chart axes plus series or data points.
+- returns chart axes plus series or data points;
+- returns figure description evidence; and
+- returns image-description evidence.
 
 This profile proves that a configured provider satisfies the Agent Document
 Twin visual-evidence contract for the fixture set. It is still not a universal

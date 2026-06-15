@@ -1312,13 +1312,13 @@ const evaluateScannedPdfFixturePipeline = async (): Promise<QualityAssertion[]> 
   }
 };
 
-const buildRegionCrop = (): PdfRegionCropData => {
+const buildRegionCrop = (regionId = 'table-1'): PdfRegionCropData => {
   const png = buildPngData(3, 3);
 
   return {
-    region_id: 'table-1',
+    region_id: regionId,
     page: 2,
-    evidence_id: 'page-2-table-1-crop-scale-1',
+    evidence_id: `page-2-${regionId}-crop-scale-1`,
     source_bounding_box: { left: 10, bottom: 20, right: 110, top: 120 },
     crop_pixels: { left: 10, top: 20, width: 100, height: 100 },
     scale: 1,
@@ -1345,7 +1345,7 @@ const readRequestBody = async (request: Parameters<Parameters<typeof createServe
 
 const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
   const scriptPath = path.resolve(process.cwd(), 'test/fixtures/mock-region-analysis-provider.mjs');
-  const result = await withEnv(
+  const [result, figureResult, imageResult] = await withEnv(
     {
       MCP_PDF_REGION_ANALYSIS_COMMAND: process.execPath,
       MCP_PDF_REGION_ANALYSIS_ARGS_JSON: JSON.stringify([
@@ -1357,11 +1357,23 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
       ]),
     },
     () =>
-      analyzeRegionCropWithCommandProvider(
-        buildRegionCrop(),
-        { source: 'mock.pdf', languages: ['eng'] },
-        defaultAnalyzeRegionsOptions()
-      )
+      Promise.all([
+        analyzeRegionCropWithCommandProvider(
+          buildRegionCrop('table-1'),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        ),
+        analyzeRegionCropWithCommandProvider(
+          buildRegionCrop('cert-figure'),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        ),
+        analyzeRegionCropWithCommandProvider(
+          buildRegionCrop('cert-image'),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        ),
+      ])
   );
   const server = createServer(async (request, response) => {
     const body = JSON.parse(await readRequestBody(request)) as { region_id?: string };
@@ -1435,6 +1447,18 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         result.chart.series?.[0]?.data_points.length === 1 &&
         result.confidence === 0.91 &&
         result.warnings?.includes('languages=eng') === true,
+    },
+    {
+      name: 'visual provider normalizes figure and image-description evidence',
+      pass:
+        figureResult.kind === 'figure' &&
+        figureResult.description?.includes('pipeline') === true &&
+        figureResult.text?.includes('Pipeline figure') === true &&
+        figureResult.source_crop_evidence_id === 'page-2-cert-figure-crop-scale-1' &&
+        imageResult.kind === 'image' &&
+        imageResult.description?.includes('office image') === true &&
+        imageResult.text?.includes('Office image') === true &&
+        imageResult.source_crop_evidence_id === 'page-2-cert-image-crop-scale-1',
     },
     {
       name: 'visual HTTP provider normalizes chart evidence and crop provenance',

@@ -191,6 +191,49 @@ describe('regionAnalysis', () => {
     });
   });
 
+  it('should normalize figure and image-description provider output', async () => {
+    const scriptPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
+    process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
+    process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([
+      scriptPath,
+      '{input}',
+      '{page}',
+      '{region_id}',
+    ]);
+
+    const [figure, image] = await Promise.all([
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop('cert-figure'),
+        { source: 'mock.pdf' },
+        defaultAnalyzeRegionsOptions()
+      ),
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop('cert-image'),
+        { source: 'mock.pdf' },
+        defaultAnalyzeRegionsOptions()
+      ),
+    ]);
+
+    expect(figure).toMatchObject({
+      region_id: 'cert-figure',
+      kind: 'figure',
+      description: 'Certification fixture pipeline figure with connected stages.',
+      text: 'Pipeline figure: ingest, analyze, cite.',
+      markdown: 'Figure: ingest -> analyze -> cite',
+      confidence: 0.89,
+      source_crop_evidence_id: 'page-2-cert-figure-crop-scale-1',
+    });
+    expect(image).toMatchObject({
+      region_id: 'cert-image',
+      kind: 'image',
+      description: 'Certification fixture office image with a framed landscape illustration.',
+      text: 'Office image: framed landscape with mountain shapes.',
+      markdown: 'Image description: framed landscape with mountain shapes.',
+      confidence: 0.88,
+      source_crop_evidence_id: 'page-2-cert-image-crop-scale-1',
+    });
+  });
+
   it('should normalize plain-text provider output as an unknown region description', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
     process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;

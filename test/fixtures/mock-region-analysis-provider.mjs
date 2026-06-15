@@ -147,6 +147,32 @@ if (regionId === 'cert-chart') {
   process.exit(0);
 }
 
+if (regionId === 'cert-figure') {
+  process.stdout.write(
+    JSON.stringify({
+      kind: 'figure',
+      description: 'Certification fixture pipeline figure with connected stages.',
+      text: 'Pipeline figure: ingest, analyze, cite.',
+      markdown: 'Figure: ingest -> analyze -> cite',
+      confidence: 0.89,
+    })
+  );
+  process.exit(0);
+}
+
+if (regionId === 'cert-image') {
+  process.stdout.write(
+    JSON.stringify({
+      kind: 'image',
+      description: 'Certification fixture office image with a framed landscape illustration.',
+      text: 'Office image: framed landscape with mountain shapes.',
+      markdown: 'Image description: framed landscape with mountain shapes.',
+      confidence: 0.88,
+    })
+  );
+  process.exit(0);
+}
+
 process.stdout.write(
   JSON.stringify({
     kind: 'table',

@@ -8,9 +8,9 @@
 - Add `bun run benchmark:providers`, an optional installed-provider benchmark
   for the Tesseract TSV OCR path and configured visual-region providers. It now
   reports certification profiles for OCR text-layer word boxes and
-  visual-full-fidelity table/formula/chart crop evidence, reports skipped
-  providers explicitly by default, and can be made blocking with
-  `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
+  visual-full-fidelity table/formula/chart/figure/image-description crop
+  evidence, reports skipped providers explicitly by default, and can be made
+  blocking with `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
 - Extend deterministic semantic hints and the document AST with caption,
   header, and footer roles. Header/footer detection uses page-edge geometry and
   horizontal page bounds so off-page text remains available as evidence without

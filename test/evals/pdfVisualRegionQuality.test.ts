@@ -52,7 +52,7 @@ describe('PDF visual-region quality evals', () => {
     restoreEnv('MCP_PDF_REGION_ANALYSIS_ARGS_JSON', originalArgs);
   });
 
-  it('normalizes rich table, formula, and chart evidence from a local provider', async () => {
+  it('normalizes rich table, formula, chart, figure, and image evidence from a local provider', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
     process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
     process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([
@@ -84,7 +84,7 @@ describe('PDF visual-region quality evals', () => {
     ).toBe(true);
   });
 
-  it('certifies independent table, formula, and chart visual-region outputs', async () => {
+  it('certifies independent table, formula, chart, figure, and image visual-region outputs', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
     process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
     process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([
@@ -95,15 +95,33 @@ describe('PDF visual-region quality evals', () => {
       '{languages}',
     ]);
 
-    const [table, formula, chart] = await Promise.all(
-      ['cert-table', 'cert-formula', 'cert-chart'].map((regionId) =>
-        analyzeRegionCropWithCommandProvider(
-          buildRegionCrop(regionId),
-          { source: 'certification-fixture.pdf', languages: ['eng'] },
-          defaultAnalyzeRegionsOptions()
-        )
-      )
-    );
+    const [table, formula, chart, figure, image] = await Promise.all([
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop('cert-table'),
+        { source: 'certification-fixture.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      ),
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop('cert-formula'),
+        { source: 'certification-fixture.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      ),
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop('cert-chart'),
+        { source: 'certification-fixture.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      ),
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop('cert-figure'),
+        { source: 'certification-fixture.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      ),
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop('cert-image'),
+        { source: 'certification-fixture.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      ),
+    ]);
 
     expect(table).toMatchObject({
       kind: 'table',
@@ -130,5 +148,15 @@ describe('PDF visual-region quality evals', () => {
       },
     });
     expect(chart.chart?.series?.[0]?.data_points).toHaveLength(3);
+    expect(figure).toMatchObject({
+      kind: 'figure',
+      description: 'Certification fixture pipeline figure with connected stages.',
+      text: 'Pipeline figure: ingest, analyze, cite.',
+    });
+    expect(image).toMatchObject({
+      kind: 'image',
+      description: 'Certification fixture office image with a framed landscape illustration.',
+      text: 'Office image: framed landscape with mountain shapes.',
+    });
   });
 });

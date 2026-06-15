@@ -378,7 +378,7 @@ than reconstructing document structure from flat text items.
 - `section_path` and `continued_from_section_id` metadata where page breaks continue the active section context
 - Caption nodes can expose `caption_links` to nearby table, image, figure, chart, formula, or diagram evidence; target nodes can expose `caption_ids` for reverse lookup
 - Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
-- Optional visual enrichment payloads with provider, crop evidence ID, source bounding box, normalized table/formula/chart fields, and confidence
+- Optional visual enrichment payloads with provider, crop evidence ID, source bounding box, normalized table/formula/chart fields, figure or image-description text, and confidence
 - No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
 
 ### Text Layer
@@ -529,17 +529,18 @@ by request arguments.
 
 **Response includes:**
 - A JSON summary with `profile: "region_analysis"` and the effective analysis options
-- Region-level `kind`, description, text, Markdown, confidence, normalized table rows/cells/spans/boxes, formula fields, chart data points/axes/series, warnings, and provenance when supplied by the provider
+- Region-level `kind`, description, text, Markdown, confidence, normalized table rows/cells/spans/boxes, formula fields, chart data points/axes/series, figure or image-description evidence, warnings, and provenance when supplied by the provider
 - `source_crop_evidence_id`, source bounding box, crop pixel bounds, and scale for every analyzed region
 - Bounded defaults: `max_regions` default 20, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per region
 - No cropped image base64 duplicated inside the JSON response
 
 Provider quality can be checked with `bun run benchmark:providers`. When a
 visual-region provider is configured, the benchmark renders a runtime PDF
-fixture with separate table, formula, and chart regions, sends those crops
-through `analyze_regions`, and reports a `visual-full-fidelity` certification
-profile covering crop provenance, table cell boxes, formula formats, and chart
-axes or series.
+fixture with separate table, formula, chart, figure, and image-description
+regions, sends those crops through `analyze_regions`, and reports a
+`visual-full-fidelity` certification profile covering crop provenance, table
+cell boxes, formula formats, chart axes or series, figure descriptions, and
+image-description text.
 
 ### OCR Selected Pages
 
@@ -1701,7 +1702,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, and accessibility report fusion
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
-- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, and chart PDF fixtures
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures
 - [x] Deterministic semantic hints and AST nodes for captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes
