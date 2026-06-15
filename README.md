@@ -1574,6 +1574,8 @@ bun run test:cov     # Run coverage
 bun run check        # Lint + format
 bun run check:fix    # Auto-fix
 bun run benchmark    # Reproducible local performance benchmark
+bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
+bun run benchmark:all # Performance + quality benchmarks
 ```
 
 **Quality:**
@@ -1581,7 +1583,7 @@ bun run benchmark    # Reproducible local performance benchmark
 - ✅ Coverage reporting
 - ✅ Strict TypeScript
 - ✅ Zero lint errors
-- ✅ Strict TypeScript
+- ✅ Reproducible quality benchmark
 
 </details>
 
@@ -1646,11 +1648,12 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Tesseract OCR provider preset without bundling OCR model assets
 - [x] Configured local visual region analysis provider for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
+- [x] Public deterministic quality benchmark for Agent Document Twin, reading order, OCR normalization, visual region normalization, and search evidence
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
 - [ ] Richer semantic layout detection
-- [ ] Fixture-backed OCR and visual-region accuracy benchmarks
+- [ ] Real scanned-PDF and visual-region fixture accuracy benchmarks for configured providers
 - [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming

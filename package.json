@@ -69,6 +69,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
+    "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",
+    "benchmark:all": "bun run benchmark && bun run benchmark:quality",
     "clean": "rm -rf dist coverage",
     "docs:api": "typedoc --entryPoints src/index.ts --tsconfig tsconfig.json --plugin typedoc-plugin-markdown --out docs/api --readme none",
     "prepublishOnly": "bun run clean && bun run build",

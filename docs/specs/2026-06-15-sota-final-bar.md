@@ -63,6 +63,12 @@ themselves.
    - Fixtures must cover selectable text, multi-column layout, tables, scans,
      formulas, charts, figures, hidden text, annotations, forms, attachments,
      and tagged PDFs.
+   - `bun run benchmark:quality` is the deterministic contract-quality gate for
+     Agent Document Twin semantics, recursive reading order, OCR normalization,
+     visual-region normalization, and search evidence.
+   - Provider-specific OCR, table, formula, chart, and image-description
+     accuracy still requires public scanned/visual fixture benchmarks before any
+     model-quality claim.
 
 9. Public contract integrity
    - README, docs, changelog, release notes, and package metadata may describe
@@ -82,4 +88,3 @@ A new major release should not be treated as complete until:
   unproven superiority claims.
 - The published npm package smoke test proves the released package exposes the
   expected MCP tools and contract version.
-

@@ -57,7 +57,7 @@ neutral capability names and avoids public comparison language.
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; visual provider output can now preserve cell spans and boxes; non-repeated continuation still needs broader fixtures. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
-| Quality eval harness | Shipped | Regression eval covers semantic chunks, table order, renderers, and safety findings. |
+| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, recursive reading order, visual-region normalization, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, OCR normalization, visual-region normalization, and evidence search. |
 | OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`. No default OCR model is bundled. |
 | Formula extraction | In progress | `analyze_regions` can normalize LaTeX, MathML, AsciiMath, text, confidence, and provenance from a configured provider; accuracy depends on the local engine. |
 | Chart/image descriptions | In progress | `analyze_regions` can normalize chart data points, axes, series, figure, and image-description provider output; accuracy depends on the configured local engine. |
@@ -70,8 +70,8 @@ neutral capability names and avoids public comparison language.
    outline, annotations, page labels, permissions, form fields, attachment
    metadata, page geometry, structure trees, accessibility reports, semantic
    hints, and safety findings.
-2. Expand extraction quality evals: multi-column, layout diagnostics, tables,
-   annotations, forms, hidden/off-page text, scanned PDFs.
+2. Expand extraction quality evals and benchmarks: multi-column, layout
+   diagnostics, tables, annotations, forms, hidden/off-page text, scanned PDFs.
 3. Harden the agent document map as the SSOT for pages, elements, chunks,
    layout, safety, page geometry, and optional engine enrichment.
 4. Promote run/character evidence into the shared document map and benchmark
@@ -80,10 +80,11 @@ neutral capability names and avoids public comparison language.
    AST traversal, and richer table trust signals.
 6. Harden trust reports with redaction and broader adversarial fixtures.
 7. Harden the optional OCR provider with real scanned fixtures, additional
-   provider presets, and accuracy/latency reporting.
+   provider presets, and accuracy/latency reporting beyond deterministic mock
+   provider normalization.
 8. Harden optional visual region providers for table, formula, chart, and
    image-description engines with broader fixtures and accuracy/latency
-   reporting.
+   reporting beyond deterministic mock provider normalization.
 9. Add formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 

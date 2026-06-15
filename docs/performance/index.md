@@ -23,6 +23,31 @@ with average, minimum, and maximum latency for these fixed scenarios:
 Treat benchmark output as machine- and fixture-specific. Public performance
 claims should cite the command, fixture, runtime, and measured output.
 
+## Quality Benchmark
+
+Run the deterministic quality benchmark:
+
+```bash
+bun run benchmark:quality
+```
+
+The quality benchmark prints a table and JSON report. It exits with a non-zero
+status if any quality gate fails.
+
+| Scenario | Quality gate |
+|----------|--------------|
+| `agent_document_twin_semantic_quality` | Semantic roles, citation chunks, table ordering, safety findings, Markdown/HTML rendering, text-layer evidence, document map, document AST, and accessibility report |
+| `recursive_reading_order_quality` | Spanning header, independent column bands, and footer reading sequence |
+| `ocr_text_layer_quality` | Local OCR provider normalization, word boxes, confidence, language, render evidence, and OCR text-layer summary |
+| `visual_region_analysis_quality` | Local visual-region provider normalization for table cells/spans/boxes, formula fields, chart axes/series, confidence, warnings, and crop evidence |
+| `search_evidence_quality` | Selectable text search with character-derived boxes and OCR search with word-level boxes plus render provenance |
+
+This benchmark uses in-repository synthetic cases and mock local providers so it
+is reproducible in CI and on developer machines. It is a contract-quality gate,
+not a claim about a particular OCR, table, formula, chart, or vision model's
+real-world accuracy. Provider-specific accuracy and latency claims require
+separate public scanned/visual fixture runs.
+
 ## Optimization Tips
 
 ### 1. Inspect Before Heavy Extraction
