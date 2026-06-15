@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCitationChunks,
+  buildLayoutDiagnostics,
   buildSafetyFindings,
   buildStructuredElements,
   renderHtmlFromPageContents,
@@ -119,6 +120,7 @@ const evaluateCase = (qualityCase: QualityCase) => {
     maxChars: 140,
   });
   const safetyFindings = buildSafetyFindings(qualityCase.pageContents, qualityCase.pageGeometry);
+  const layoutDiagnostics = buildLayoutDiagnostics(qualityCase.pageContents);
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
 
@@ -174,6 +176,14 @@ const evaluateCase = (qualityCase: QualityCase) => {
       name: 'bounding boxes are preserved on citation chunks',
       pass: chunks.every((chunk) => (chunk.bounding_boxes?.length ?? 0) > 0),
     },
+    {
+      name: 'layout diagnostics expose reading-order confidence',
+      pass:
+        layoutDiagnostics[0]?.profile === 'single_column' &&
+        layoutDiagnostics[0].reading_order === 'natural' &&
+        layoutDiagnostics[0].confidence >= 0.8 &&
+        layoutDiagnostics[0].signals.includes('positioned-items'),
+    },
   ];
 
   const failures = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.name);
@@ -195,8 +205,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 9,
-        total: 9,
+        passed: 10,
+        total: 10,
         score: 1,
       });
     });

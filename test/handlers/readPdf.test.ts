@@ -630,6 +630,93 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
+  it('should include layout diagnostics without forcing full text output', async () => {
+    mockGetPage.mockImplementation((pageNum: number) => {
+      if (pageNum === 1) {
+        return {
+          getTextContent: vi.fn().mockResolvedValue({
+            items: [
+              {
+                str: 'Left column top',
+                transform: [1, 0, 0, 10, 40, 720],
+                width: 110,
+                height: 10,
+              },
+              {
+                str: 'Left column bottom',
+                transform: [1, 0, 0, 10, 40, 690],
+                width: 130,
+                height: 10,
+              },
+              {
+                str: 'Right column top',
+                transform: [1, 0, 0, 10, 330, 720],
+                width: 120,
+                height: 10,
+              },
+              {
+                str: 'Right column bottom',
+                transform: [1, 0, 0, 10, 330, 690],
+                width: 140,
+                height: 10,
+              },
+            ],
+          }),
+          getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+          getAnnotations: vi.fn().mockResolvedValue([]),
+          objs: { get: vi.fn() },
+        };
+      }
+      throw new Error(`Mock getPage error: Invalid page number ${String(pageNum)}`);
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf', pages: [1] }],
+      include_layout_diagnostics: true,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    };
+
+    const result = await handler(args);
+
+    if (result.content?.[0]) {
+      const parsed = JSON.parse(result.content[0].text) as {
+        results: Array<{
+          data?: {
+            full_text?: string;
+            layout_diagnostics?: Array<{
+              page: number;
+              profile: string;
+              reading_order: string;
+              confidence: number;
+              column_count: number;
+              columns?: Array<{ index: number; item_count: number }>;
+              signals: string[];
+            }>;
+          };
+        }>;
+      };
+
+      const diagnostics = parsed.results[0]?.data?.layout_diagnostics;
+      expect(parsed.results[0]?.data?.full_text).toBeUndefined();
+      expect(diagnostics?.[0]).toMatchObject({
+        page: 1,
+        profile: 'multi_column',
+        reading_order: 'columnar',
+        column_count: 2,
+        columns: [
+          { index: 1, item_count: 2 },
+          { index: 2, item_count: 2 },
+        ],
+      });
+      expect(diagnostics?.[0]?.confidence).toBeGreaterThanOrEqual(0.8);
+      expect(diagnostics?.[0]?.signals).toEqual(expect.arrayContaining(['positioned-items', 'two-column-layout']));
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
+
   it('should include document outline, page labels, and permission signals without page extraction', async () => {
     mockGetOutline.mockResolvedValue([
       {

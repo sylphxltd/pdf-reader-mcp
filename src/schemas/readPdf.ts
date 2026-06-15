@@ -140,6 +140,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_layout_diagnostics: optional(
+    bool(
+      description(
+        'Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing.'
+      )
+    )
+  ),
 });
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;

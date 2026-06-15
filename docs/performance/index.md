@@ -161,7 +161,23 @@ context.
 }
 ```
 
-### 11. Use Document Signals For Lightweight Structure
+### 11. Use Layout Diagnostics For Routing
+
+`include_layout_diagnostics` returns page layout profiles, reading-order
+confidence, column signals, and warnings. It uses already extracted content
+geometry and does not add OCR, vision, or parser dependencies. It is useful
+before unattended RAG indexing or citation-critical summarization.
+
+```json
+{
+  "sources": [{ "path": "doc.pdf", "pages": "1-5" }],
+  "include_layout_diagnostics": true,
+  "include_chunks": true,
+  "include_full_text": false
+}
+```
+
+### 12. Use Document Signals For Lightweight Structure
 
 Outline, page labels, permissions, structure trees, form fields, attachment
 metadata, and page geometry can be requested without extracting full page text.
@@ -177,7 +193,7 @@ Annotations, structure trees, and page geometry respect selected page ranges.
 }
 ```
 
-### 12. Use Safety Findings When Agents Consume PDF Text
+### 13. Use Safety Findings When Agents Consume PDF Text
 
 `include_safety_findings` scans extracted page text for deterministic risk
 signals. It requires page text extraction, but it does not force `full_text`

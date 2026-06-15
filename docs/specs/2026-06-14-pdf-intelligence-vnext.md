@@ -137,6 +137,7 @@ Candidate engines:
    - Add best-effort text and image element metadata.
    - Add best-effort table and table-cell geometry.
    - Add semantic, size, and table-aware chunk strategies.
+   - Add layout diagnostics with reading-order confidence for agent routing.
    - Keep legacy outputs stable.
    - Add tests for schema, JSON response shape, and no binary data in JSON.
 
@@ -145,6 +146,7 @@ Candidate engines:
    - Add layout-aware reading order beyond simple Y sorting.
    - Split distant same-line text into independent segments for common
      multi-column PDFs.
+   - Add page-level layout profiles, confidence scores, and warnings.
    - Add fixtures for multi-column pages, sidebars, headers, and footers.
 
 3. Semantic extraction

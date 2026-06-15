@@ -4,6 +4,7 @@ import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   buildCitationChunks,
+  buildLayoutDiagnostics,
   buildSafetyFindings,
   buildStructuredElements,
   renderHtmlFromPageContents,
@@ -60,6 +61,7 @@ const processSingleSource = async (
     includeAttachments: boolean;
     includeStructureTree: boolean;
     includeSafetyFindings: boolean;
+    includeLayoutDiagnostics: boolean;
   }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
@@ -102,7 +104,8 @@ const processSingleSource = async (
       options.includeHtml ||
       options.includeChunks ||
       options.includeImages ||
-      options.includeSafetyFindings;
+      options.includeSafetyFindings ||
+      options.includeLayoutDiagnostics;
     const pageScopedMetadata =
       options.includeTables ||
       options.includeAnnotations ||
@@ -245,6 +248,10 @@ const processSingleSource = async (
         }
       }
 
+      if (options.includeLayoutDiagnostics && output.page_contents) {
+        output.layout_diagnostics = buildLayoutDiagnostics(output.page_contents);
+      }
+
       if (options.includeAnnotations) {
         const annotations = await extractAnnotations(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
@@ -335,6 +342,7 @@ export const readPdf = tool()
       include_attachments,
       include_structure_tree,
       include_safety_findings,
+      include_layout_diagnostics,
     } = input;
 
     // Process sources with concurrency limit to prevent memory exhaustion
@@ -361,6 +369,7 @@ export const readPdf = tool()
       includeAttachments: include_attachments ?? false,
       includeStructureTree: include_structure_tree ?? false,
       includeSafetyFindings: include_safety_findings ?? false,
+      includeLayoutDiagnostics: include_layout_diagnostics ?? false,
     };
 
     for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {
