@@ -450,13 +450,14 @@ export const buildInspectionRecommendation = (
       include_document_map: true,
       include_layout_diagnostics: true,
       include_ocr_text_layer: true,
+      include_tables: true,
     });
     enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: 'scanned_pdf_triage',
       needs_ocr: true,
       reason:
-        'Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer for text extraction and include_visual_enrichments when a visual-region provider is ready.',
+        'Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer and include_tables for OCR text and OCR-derived table evidence, plus include_visual_enrichments when a visual-region provider is ready.',
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(
         source,

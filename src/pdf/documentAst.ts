@@ -250,6 +250,7 @@ const nodeForElement = (
         confidence: element.table.confidence,
         ...(element.table.quality ? { quality: element.table.quality } : {}),
         ...(element.table.continuation ? { continuation: element.table.continuation } : {}),
+        ...(element.table.provenance ? { provenance: element.table.provenance } : {}),
       },
     };
   }

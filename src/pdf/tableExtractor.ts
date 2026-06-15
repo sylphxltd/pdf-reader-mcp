@@ -5,7 +5,10 @@ import type {
   BoundingBox,
   ExtractedTable,
   PageContentItem,
+  PdfOcrPageData,
+  PdfOcrTextLayer,
   TableCell,
+  TableExtractionProvenance,
   TableQuality,
   TableQualitySignal,
 } from '../types/pdf.js';
@@ -58,6 +61,15 @@ interface AssignedCellAccumulator {
 const tableId = (table: Pick<ExtractedTable, 'page' | 'tableIndex'>): string =>
   `p${table.page}-table-${table.tableIndex + 1}`;
 
+const tableKey = (page: number, tableIndex: number): string => `${page}:${tableIndex}`;
+
+const tableKeyFromId = (id: string | undefined): string | undefined => {
+  const match = /^p(\d+)-table-(\d+)$/u.exec(id ?? '');
+  if (!match?.[1] || !match[2]) return undefined;
+
+  return tableKey(Number(match[1]), Number(match[2]) - 1);
+};
+
 const roundRatio = (value: number): number => Math.round(value * 100) / 100;
 
 const buildBoundingBox = (
@@ -87,6 +99,120 @@ const mergeBoundingBoxes = (boxes: BoundingBox[]): BoundingBox | undefined => {
     right: Math.max(...boxes.map((box) => box.right)),
     top: Math.max(...boxes.map((box) => box.top)),
   };
+};
+
+const boundingBoxArea = (box: BoundingBox): number =>
+  Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom);
+
+const boundingBoxIntersectionArea = (a: BoundingBox, b: BoundingBox): number => {
+  const left = Math.max(a.left, b.left);
+  const right = Math.min(a.right, b.right);
+  const bottom = Math.max(a.bottom, b.bottom);
+  const top = Math.min(a.top, b.top);
+
+  return Math.max(0, right - left) * Math.max(0, top - bottom);
+};
+
+const tableOverlapRatio = (a: ExtractedTable, b: ExtractedTable): number => {
+  if (!a.bounding_box || !b.bounding_box) return 0;
+
+  const intersection = boundingBoxIntersectionArea(a.bounding_box, b.bounding_box);
+  const smallestArea = Math.min(boundingBoxArea(a.bounding_box), boundingBoxArea(b.bounding_box));
+
+  return smallestArea > 0 ? intersection / smallestArea : 0;
+};
+
+const isLikelyDuplicateTable = (
+  selectableTable: ExtractedTable,
+  ocrTable: ExtractedTable
+): boolean =>
+  selectableTable.page === ocrTable.page && tableOverlapRatio(selectableTable, ocrTable) >= 0.6;
+
+const rebaseOcrTableContinuation = (
+  table: ExtractedTable,
+  newIdByOldKey: Map<string, string>,
+  oldId: string,
+  newId: string
+): ExtractedTable => {
+  if (!table.continuation) return table;
+
+  const previousTableId =
+    newIdByOldKey.get(tableKeyFromId(table.continuation.previousTableId) ?? '') ??
+    table.continuation.previousTableId;
+  const nextTableId =
+    newIdByOldKey.get(tableKeyFromId(table.continuation.nextTableId) ?? '') ??
+    table.continuation.nextTableId;
+  const groupEndpoints = previousTableId
+    ? [previousTableId, newId]
+    : nextTableId
+      ? [newId, nextTableId]
+      : undefined;
+
+  return {
+    ...table,
+    continuation: {
+      ...table.continuation,
+      groupId: groupEndpoints
+        ? `table-continuation-${groupEndpoints[0]}-${groupEndpoints[1]}`
+        : table.continuation.groupId.replace(oldId, newId),
+      ...(previousTableId ? { previousTableId } : {}),
+      ...(nextTableId ? { nextTableId } : {}),
+    },
+  };
+};
+
+const reindexOcrTablesAfterSelectableTables = (
+  selectableTables: ExtractedTable[],
+  ocrTables: ExtractedTable[]
+): ExtractedTable[] => {
+  const maxSelectableIndexByPage = new Map<number, number>();
+  for (const table of selectableTables) {
+    maxSelectableIndexByPage.set(
+      table.page,
+      Math.max(maxSelectableIndexByPage.get(table.page) ?? -1, table.tableIndex)
+    );
+  }
+
+  const nextOcrOrdinalByPage = new Map<number, number>();
+  const newIdByOldKey = new Map<string, string>();
+  const indexedTables = ocrTables.map((table) => {
+    const oldId = tableId(table);
+    const oldKey = tableKey(table.page, table.tableIndex);
+    const ordinal = nextOcrOrdinalByPage.get(table.page) ?? 0;
+    nextOcrOrdinalByPage.set(table.page, ordinal + 1);
+
+    const baseIndex = maxSelectableIndexByPage.get(table.page);
+    const tableIndex = baseIndex === undefined ? table.tableIndex : baseIndex + 1 + ordinal;
+    const indexedTable = tableIndex === table.tableIndex ? table : { ...table, tableIndex };
+    newIdByOldKey.set(oldKey, tableId(indexedTable));
+
+    return {
+      oldId,
+      table: indexedTable,
+    };
+  });
+
+  return indexedTables.map(({ oldId, table }) =>
+    rebaseOcrTableContinuation(table, newIdByOldKey, oldId, tableId(table))
+  );
+};
+
+export const mergeTableExtractionEvidence = (
+  selectableTables: ExtractedTable[],
+  ocrTables: ExtractedTable[]
+): ExtractedTable[] => {
+  const distinctOcrTables = ocrTables.filter(
+    (ocrTable) =>
+      !selectableTables.some((selectableTable) => isLikelyDuplicateTable(selectableTable, ocrTable))
+  );
+  const indexedOcrTables = reindexOcrTablesAfterSelectableTables(
+    selectableTables,
+    distinctOcrTables
+  );
+
+  return [...selectableTables, ...indexedOcrTables].sort(
+    (a, b) => a.page - b.page || a.tableIndex - b.tableIndex
+  );
 };
 
 /**
@@ -609,7 +735,8 @@ const identifyTableRegions = (rows: TextRow[]): TableRegion[] => {
 
 export const extractTablesFromTextItems = (
   textItems: TextItemWithPosition[],
-  pageNum: number
+  pageNum: number,
+  provenance: TableExtractionProvenance = { source: 'selectable_text', engine: 'pdfjs' }
 ): ExtractedTable[] => {
   const tables: ExtractedTable[] = [];
 
@@ -654,6 +781,7 @@ export const extractTablesFromTextItems = (
         rowCount: tableRows.length,
         colCount: region.columnBoundaries.length,
         confidence: roundedConfidence,
+        provenance,
         quality: buildTableQuality(
           region.rows,
           tableCells,
@@ -684,12 +812,39 @@ const textItemsFromPageContent = (items: PageContentItem[]): TextItemWithPositio
     })
     .filter((item): item is TextItemWithPosition => item !== undefined);
 
+const textItemsFromOcrPage = (page: PdfOcrPageData): TextItemWithPosition[] =>
+  (page.words ?? [])
+    .map((word): TextItemWithPosition | undefined => {
+      if (!word.text.trim() || !word.bounding_box) return undefined;
+
+      return {
+        text: word.text.trim(),
+        x: word.bounding_box.left,
+        y: word.bounding_box.bottom,
+        width: word.bounding_box.right - word.bounding_box.left,
+        height: word.bounding_box.top - word.bounding_box.bottom,
+        bounding_box: word.bounding_box,
+      };
+    })
+    .filter((item): item is TextItemWithPosition => item !== undefined);
+
 export const extractTablesFromPageContents = (
   pageContents: Array<{ page: number; items: PageContentItem[] }>
 ): ExtractedTable[] =>
   linkTableContinuationCandidates(
     pageContents.flatMap((pageContent) =>
       extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page)
+    )
+  );
+
+export const extractTablesFromOcrTextLayer = (ocrTextLayer: PdfOcrTextLayer): ExtractedTable[] =>
+  linkTableContinuationCandidates(
+    ocrTextLayer.pages.flatMap((page) =>
+      extractTablesFromTextItems(textItemsFromOcrPage(page), page.page, {
+        source: 'ocr_text_layer',
+        engine: 'external-command',
+        ocr_source_render_evidence_id: page.source_render_evidence_id,
+      })
     )
   );
 

@@ -35,6 +35,14 @@ export interface TableQuality {
   warnings?: string[] | undefined;
 }
 
+export type TableExtractionSource = 'selectable_text' | 'ocr_text_layer';
+
+export interface TableExtractionProvenance {
+  source: TableExtractionSource;
+  engine: 'pdfjs' | 'external-command';
+  ocr_source_render_evidence_id?: string | undefined;
+}
+
 export interface TableContinuationCandidate {
   groupId: string;
   role: 'starts' | 'continues' | 'ends';
@@ -55,6 +63,7 @@ export interface ExtractedTable {
   confidence: number; // 0-1 detection confidence
   quality?: TableQuality | undefined;
   continuation?: TableContinuationCandidate | undefined;
+  provenance?: TableExtractionProvenance | undefined;
 }
 
 export interface PdfOutlineItem {
@@ -161,8 +170,9 @@ export interface BoundingBox {
 }
 
 export interface PdfElementProvenance {
-  engine: 'pdfjs';
-  source: 'text-content' | 'image-xobject' | 'table-detector';
+  engine: 'pdfjs' | 'external-command';
+  source: 'text-content' | 'image-xobject' | 'table-detector' | 'ocr-table-detector';
+  ocr_source_render_evidence_id?: string | undefined;
 }
 
 export type PdfTextSemanticRole =
@@ -386,6 +396,7 @@ export interface PdfDocumentAstTable {
   confidence: number;
   quality?: TableQuality | undefined;
   continuation?: TableContinuationCandidate | undefined;
+  provenance?: TableExtractionProvenance | undefined;
 }
 
 export interface PdfDocumentAstImage {
@@ -1028,6 +1039,9 @@ export interface PdfOcrPageData {
   language?: string | undefined;
   provider: PdfOcrProvider;
   source_render_evidence_id: string;
+  source_render_scale?: number | undefined;
+  source_render_width?: number | undefined;
+  source_render_height?: number | undefined;
   provenance: {
     engine: 'external-command';
     source: 'ocr-provider';

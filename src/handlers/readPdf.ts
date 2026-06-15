@@ -27,7 +27,9 @@ import { buildOcrTextLayer, defaultOcrPagesOptions, ocrPdfSourcePages } from '..
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
 import {
   extractTables,
+  extractTablesFromOcrTextLayer,
   extractTablesFromPageContents,
+  mergeTableExtractionEvidence,
   tablesToMarkdown,
 } from '../pdf/tableExtractor.js';
 import { buildTextLayer } from '../pdf/textLayer.js';
@@ -284,6 +286,42 @@ const processSingleSource = async (
         }
       }
 
+      let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
+      if (options.includeLayoutDiagnostics && output.page_contents) {
+        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
+        output.layout_diagnostics = layoutDiagnostics;
+      }
+
+      let ocrTextLayer: PdfOcrTextLayer | undefined;
+      if (options.includeOcrTextLayer && output.page_contents) {
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        const ocrPages = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
+
+        if (ocrPages.length > 0) {
+          try {
+            const ocr = await ocrPdfSourcePages(
+              { ...source, pages: ocrPages },
+              defaultOcrPagesOptions()
+            );
+            ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
+            output.ocr_text_layer = ocrTextLayer;
+            appendOutputWarnings(output, ocr.warnings);
+          } catch (error: unknown) {
+            const message =
+              error instanceof PdfError
+                ? error.message
+                : 'OCR provider failed before returning a normalized text layer.';
+            if (!(error instanceof PdfError)) {
+              logger.warn('Unexpected error building OCR text layer', {
+                sourceDescription,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+            appendOutputWarnings(output, [`OCR text layer unavailable: ${message}`]);
+          }
+        }
+      }
+
       // Extract tables if requested
       if (
         options.includeTables ||
@@ -295,9 +333,10 @@ const processSingleSource = async (
         const extractedTables = output.page_contents
           ? extractTablesFromPageContents(output.page_contents)
           : await extractTables(pdfDocument as pdfjsLib.PDFDocumentProxy, pagesToProcess);
+        const ocrTables = ocrTextLayer ? extractTablesFromOcrTextLayer(ocrTextLayer) : [];
 
-        if (extractedTables.length > 0) {
-          output.tables = extractedTables;
+        if (extractedTables.length > 0 || ocrTables.length > 0) {
+          output.tables = mergeTableExtractionEvidence(extractedTables, ocrTables);
         }
       }
 
@@ -356,12 +395,6 @@ const processSingleSource = async (
         }
       }
 
-      let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
-      if (options.includeLayoutDiagnostics && output.page_contents) {
-        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
-        output.layout_diagnostics = layoutDiagnostics;
-      }
-
       let visualEnrichments: PdfVisualEnrichment[] | undefined;
       if (options.includeVisualEnrichments && output.page_contents) {
         const visualElements = buildElementsForOutput(true);
@@ -376,36 +409,6 @@ const processSingleSource = async (
           output.visual_enrichments = visualEnrichments;
         }
         appendOutputWarnings(output, enriched.warnings);
-      }
-
-      let ocrTextLayer: PdfOcrTextLayer | undefined;
-      if (options.includeOcrTextLayer && output.page_contents) {
-        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        const ocrPages = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
-
-        if (ocrPages.length > 0) {
-          try {
-            const ocr = await ocrPdfSourcePages(
-              { ...source, pages: ocrPages },
-              defaultOcrPagesOptions()
-            );
-            ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
-            output.ocr_text_layer = ocrTextLayer;
-            appendOutputWarnings(output, ocr.warnings);
-          } catch (error: unknown) {
-            const message =
-              error instanceof PdfError
-                ? error.message
-                : 'OCR provider failed before returning a normalized text layer.';
-            if (!(error instanceof PdfError)) {
-              logger.warn('Unexpected error building OCR text layer', {
-                sourceDescription,
-                error: error instanceof Error ? error.message : String(error),
-              });
-            }
-            appendOutputWarnings(output, [`OCR text layer unavailable: ${message}`]);
-          }
-        }
       }
 
       let safetyFindings: PdfSafetyFinding[] | undefined;
@@ -667,6 +670,7 @@ export const readPdf = tool()
             confidence: tbl.confidence,
             quality: tbl.quality,
             continuation: tbl.continuation,
+            provenance: tbl.provenance,
           }));
         }
 

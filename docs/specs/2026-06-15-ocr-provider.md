@@ -151,7 +151,12 @@ silently mixing incomplete OCR into selectable-text outputs.
 - OCR output links to `source_render_evidence_id` rather than embedding image
   data in JSON.
 - `read_pdf` OCR output remains in `ocr_text_layer` and document-map OCR
-  fields; it must not be merged into `full_text` or text elements.
+  fields; it must not be merged into `full_text` or selectable text elements.
+- OCR word boxes are normalized from rendered image pixels back into PDF page
+  coordinates using the render scale.
+- When `include_tables` is also enabled, OCR word boxes may produce
+  OCR-derived table structure with provenance linking back to the source page
+  render evidence.
 
 ## Follow-On Work
 
@@ -170,6 +175,8 @@ silently mixing incomplete OCR into selectable-text outputs.
 - Handler responses include `profile: "ocr_text_layer"`.
 - `read_pdf` with `include_ocr_text_layer` returns a separate OCR layer and
   links applied pages into `document_map` when requested.
+- `read_pdf` with `include_ocr_text_layer` and `include_tables` can extract
+  table structure from OCR word boxes on scanned pages without selectable text.
 - Unit tests cover configured-provider detection, JSON output normalization,
   and curated missing-provider errors.
 - Integration tests call `ocr_pages` through the built server with a mock

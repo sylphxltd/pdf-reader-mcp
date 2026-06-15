@@ -163,7 +163,8 @@ Output is a JSON text part:
 
 - Inspection returns per-source success or failure independently.
 - Sampling is bounded and defaults to a small number of pages.
-- `read_pdf_arguments` may recommend `include_ocr_text_layer`, but must make
+- `read_pdf_arguments` may recommend `include_ocr_text_layer` and
+  `include_tables` together for scanned-page OCR table evidence, but must make
   OCR opt-in and dependent on a configured local provider.
 - `next_tools` is ordered by `priority`; executable steps use `arguments`, while
   steps that need task input or region boxes use `argument_template` and

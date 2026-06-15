@@ -36,6 +36,10 @@
 - Add table cell evidence coverage metrics. Table quality now reports cell
   bounding-box coverage, inferred-cell counts/ratios, and incomplete geometry
   signals so agents can route weak table evidence to visual verification.
+- Add OCR-derived table extraction for scanned pages. `read_pdf` can now use
+  normalized OCR word boxes to produce table evidence when both
+  `include_ocr_text_layer` and `include_tables` are enabled, with provenance
+  back to the source page render.
 - Replace the empty generated API page with a maintained MCP API reference and
   remove unused TypeDoc tooling from the docs pipeline.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can

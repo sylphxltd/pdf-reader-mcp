@@ -307,13 +307,21 @@ export const buildStructuredElements = (
         confidence: table.confidence,
         ...(table.quality ? { quality: table.quality } : {}),
         ...(table.continuation ? { continuation: table.continuation } : {}),
+        ...(table.provenance ? { provenance: table.provenance } : {}),
       },
       bounding_box: table.bounding_box,
       confidence: table.confidence,
-      provenance: {
-        engine: 'pdfjs',
-        source: 'table-detector',
-      },
+      provenance:
+        table.provenance?.source === 'ocr_text_layer'
+          ? {
+              engine: 'external-command',
+              source: 'ocr-table-detector',
+              ocr_source_render_evidence_id: table.provenance.ocr_source_render_evidence_id,
+            }
+          : {
+              engine: 'pdfjs',
+              source: 'table-detector',
+            },
     });
   };
 

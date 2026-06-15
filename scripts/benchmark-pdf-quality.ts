@@ -1344,6 +1344,109 @@ const evaluateScannedPdfFixturePipeline = async (): Promise<QualityAssertion[]> 
   }
 };
 
+const evaluateOcrTableExtraction = async (): Promise<QualityAssertion[]> => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-quality-'));
+
+  try {
+    const fixturePath = await writeScannedImagePdfFixture(tempDir);
+    const scriptPath = path.resolve(process.cwd(), 'test/fixtures/mock-ocr-table-provider.mjs');
+    const payload = await withEnv(
+      {
+        MCP_PDF_OCR_COMMAND: process.execPath,
+        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([scriptPath, '{input}', '{page}', '{languages}']),
+        MCP_PDF_OCR_PRESET: undefined,
+      },
+      () =>
+        parseReadPdfResult({
+          sources: [{ path: fixturePath, pages: [1] }],
+          include_page_count: false,
+          include_full_text: false,
+          include_ocr_text_layer: true,
+          include_tables: true,
+          include_document_map: true,
+          include_document_ast: true,
+        })
+    );
+    const data = firstReadPdfData(payload);
+    const tableInfo = data.table_info as
+      | Array<{
+          rowCount?: number;
+          colCount?: number;
+          cellCount?: number;
+          quality?: { cellBoundingBoxCoverage?: number; signals?: string[] };
+          provenance?: { source?: string; ocr_source_render_evidence_id?: string };
+        }>
+      | undefined;
+    const ocrTextLayer = data.ocr_text_layer as
+      | {
+          pages?: Array<{
+            words?: Array<{ bounding_box?: BoundingBox; text?: string }>;
+          }>;
+        }
+      | undefined;
+    const documentMap = data.document_map as
+      | {
+          layers?: string[];
+          pages?: Array<{ table_count?: number; ocr_word_count?: number }>;
+          elements?: Array<{
+            type?: string;
+            provenance?: { source?: string; ocr_source_render_evidence_id?: string };
+          }>;
+        }
+      | undefined;
+    const documentAst = data.document_ast as
+      | {
+          summary?: { table_count?: number };
+          root?: unknown;
+        }
+      | undefined;
+
+    return [
+      {
+        name: 'scanned PDF OCR word boxes produce table_info with OCR provenance',
+        pass:
+          tableInfo?.[0]?.rowCount === 3 &&
+          tableInfo[0]?.colCount === 2 &&
+          tableInfo[0]?.cellCount === 6 &&
+          tableInfo[0]?.provenance?.source === 'ocr_text_layer' &&
+          tableInfo[0]?.provenance?.ocr_source_render_evidence_id ===
+            'page-1-render-scale-2' &&
+          tableInfo[0]?.quality?.cellBoundingBoxCoverage === 1 &&
+          tableInfo[0]?.quality?.signals?.includes('complete_grid') === true,
+      },
+      {
+        name: 'OCR provider pixel boxes are normalized into PDF coordinates',
+        pass:
+          JSON.stringify(ocrTextLayer?.pages?.[0]?.words?.[0]?.bounding_box) ===
+          JSON.stringify({ left: 40, bottom: 700, right: 88, top: 710 }),
+      },
+      {
+        name: 'document map exposes OCR-derived table structure without selectable text',
+        pass:
+          documentMap?.layers?.includes('ocr_text_layer') === true &&
+          documentMap.layers.includes('table_structure') &&
+          documentMap.pages?.[0]?.table_count === 1 &&
+          documentMap.pages[0]?.ocr_word_count === 6 &&
+          documentMap.elements?.some(
+            (element) =>
+              element.type === 'table' &&
+              element.provenance?.source === 'ocr-table-detector' &&
+              element.provenance.ocr_source_render_evidence_id === 'page-1-render-scale-2'
+          ) === true,
+      },
+      {
+        name: 'document AST carries OCR table provenance for agent evidence routing',
+        pass:
+          documentAst?.summary?.table_count === 1 &&
+          JSON.stringify(documentAst.root).includes('"source":"ocr_text_layer"') &&
+          JSON.stringify(documentAst.root).includes('"ocr_source_render_evidence_id"'),
+      },
+    ];
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+};
+
 const buildRegionCrop = (regionId = 'table-1'): PdfRegionCropData => {
   const png = buildPngData(3, 3);
 
@@ -1745,6 +1848,7 @@ const main = async () => {
     await runCase('recursive_reading_order_quality', evaluateRecursiveReadingOrder),
     await runCase('ocr_text_layer_quality', evaluateOcrTextLayer),
     await runCase('scanned_pdf_fixture_pipeline_quality', evaluateScannedPdfFixturePipeline),
+    await runCase('ocr_table_extraction_quality', evaluateOcrTableExtraction),
     await runCase('visual_region_analysis_quality', evaluateVisualRegionAnalysis),
     await runCase('search_evidence_quality', evaluateSearchEvidence),
     await runCase('table_evidence_quality', evaluateTableEvidenceQuality),

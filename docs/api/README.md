@@ -53,12 +53,12 @@ private-IP, and size policies documented in the guide.
 | Option | Type | Default | Output |
 | --- | --- | --- | --- |
 | `pages` | number array or range string | all pages when full text is requested | Page selection. |
-| `include_full_text` | boolean | `true` | Concatenated text. |
+| `include_full_text` | boolean | `false` | Concatenated text. |
 | `include_page_texts` | boolean | `false` | Per-page text. |
 | `include_metadata` | boolean | `true` | PDF metadata. |
 | `include_page_count` | boolean | `true` | Total page count. |
 | `include_images` | boolean | `false` | Embedded image metadata and base64 payloads. |
-| `include_tables` | boolean | `false` | Tables with rows, cells, geometry, confidence, quality signals, and continuation hints. |
+| `include_tables` | boolean | `false` | Selectable-text and OCR-derived tables with rows, cells, geometry, confidence, provenance, quality signals, and continuation hints. |
 | `include_elements` | boolean | `false` | Structured text, image, and table elements. |
 | `include_markdown` | boolean | `false` | Markdown rendering. |
 | `include_html` | boolean | `false` | HTML rendering. |
@@ -70,7 +70,7 @@ private-IP, and size policies documented in the guide.
 | `include_safety_findings` | boolean | `false` | Prompt-injection, hidden text, and visual-spoofing findings. |
 | `include_trust_report` | boolean | `false` | Consolidated risk report with page-level signals and guidance. |
 | `include_accessibility_report` | boolean | `false` | Tagged-PDF, image-alt, form, permission, and tag-visible coverage signals. |
-| `include_ocr_text_layer` | boolean | `false` | OCR page text and word boxes from a configured OCR provider. |
+| `include_ocr_text_layer` | boolean | `false` | OCR page text and PDF-coordinate word boxes from a configured OCR provider. OCR word boxes can also feed table extraction when `include_tables` is enabled. |
 | `include_visual_enrichments` | boolean | `false` | Provider-normalized visual region evidence fused into the document twin. |
 
 ## Table Quality
@@ -91,6 +91,12 @@ When `include_tables` is enabled, each table may include `quality`:
 | `mergedCellCandidateCount` | Number of cells with inferred spans. |
 | `signals` | Machine-readable quality signals such as `complete_grid`, `missing_cells`, `merged_cell_candidates`, `incomplete_cell_geometry`, `irregular_row_spacing`, `multi_page_continuation_candidate`, and `low_confidence`. |
 | `warnings` | Human-readable routing guidance for weak table evidence. |
+
+Tables also include `provenance.source`. `selectable_text` means the table came
+from PDF text coordinates. `ocr_text_layer` means it came from OCR word boxes
+linked through `ocr_source_render_evidence_id`. OCR-derived tables are merged by
+bounding-box overlap, so duplicate OCR evidence is suppressed while distinct
+scanned tables on a mixed page are retained.
 
 Agents should use `incomplete_cell_geometry`, sparse-cell, merged-cell,
 irregular-spacing, and low-confidence warnings as a cue to request

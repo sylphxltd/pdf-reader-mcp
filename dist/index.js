@@ -2597,6 +2597,24 @@ var defaultOcrPagesOptions = () => ({
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
 });
 var roundRatio = (value) => Math.round(value * 100) / 100;
+var roundCoordinate = (value) => Math.round(value * 100) / 100;
+var normalizeWordBoxesToPdfCoordinates = (words, scale) => {
+  if (!words || scale <= 0 || !Number.isFinite(scale))
+    return words;
+  return words.map((word) => {
+    if (!word.bounding_box)
+      return word;
+    return {
+      ...word,
+      bounding_box: {
+        left: roundCoordinate(word.bounding_box.left / scale),
+        bottom: roundCoordinate(word.bounding_box.bottom / scale),
+        right: roundCoordinate(word.bounding_box.right / scale),
+        top: roundCoordinate(word.bounding_box.top / scale)
+      }
+    };
+  });
+};
 var buildOcrTextLayer = (pages, warnings = []) => {
   const textChars = pages.reduce((sum, page) => sum + page.text.length, 0);
   const words = pages.flatMap((page) => page.words ?? []);
@@ -2875,8 +2893,12 @@ var ocrRenderedPageWithCommandProvider = async (page, context, options) => {
     return {
       page: page.page,
       ...normalized,
+      ...normalized.words ? { words: normalizeWordBoxesToPdfCoordinates(normalized.words, page.scale) } : {},
       provider: "command",
       source_render_evidence_id: page.evidence_id,
+      source_render_scale: page.scale,
+      source_render_width: page.width,
+      source_render_height: page.height,
       provenance: {
         engine: "external-command",
         source: "ocr-provider"
@@ -3185,13 +3207,14 @@ var buildInspectionRecommendation = (source, profile, documentSignals, pageSigna
     Object.assign(readPdfArguments, {
       include_document_map: true,
       include_layout_diagnostics: true,
-      include_ocr_text_layer: true
+      include_ocr_text_layer: true,
+      include_tables: true
     });
     enableVisualEnrichmentFusion(readPdfArguments, providerReadiness);
     return {
       workflow: "scanned_pdf_triage",
       needs_ocr: true,
-      reason: "Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer for text extraction and include_visual_enrichments when a visual-region provider is ready.",
+      reason: "Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer and include_tables for OCR text and OCR-derived table evidence, plus include_visual_enrichments when a visual-region provider is ready.",
       read_pdf_arguments: readPdfArguments,
       next_tools: buildInspectionNextTools(source, profile, readPdfArguments, pageSignals, providerReadiness)
     };
@@ -3349,7 +3372,7 @@ var readPdfArgsSchema = object({
   include_metadata: optional(bool(description("Include metadata and info objects for each PDF."))),
   include_page_count: optional(bool(description("Include the total number of pages for each PDF."))),
   include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
-  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures."))),
+  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of selectable text coordinates and, when include_ocr_text_layer is enabled, OCR word boxes to identify tabular structures."))),
   include_elements: optional(bool(description("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
   include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, paragraph, caption, header, or footer."))),
   include_markdown: optional(bool(description("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
@@ -3912,7 +3935,8 @@ var nodeForElement = (element, chunkIndex, visualEnrichment) => {
         colCount: element.table.colCount,
         confidence: element.table.confidence,
         ...element.table.quality ? { quality: element.table.quality } : {},
-        ...element.table.continuation ? { continuation: element.table.continuation } : {}
+        ...element.table.continuation ? { continuation: element.table.continuation } : {},
+        ...element.table.provenance ? { provenance: element.table.provenance } : {}
       }
     };
   }
@@ -4459,6 +4483,13 @@ var MIN_ROWS = 2;
 var MIN_COLS = 2;
 var MIN_ROW_ITEMS = 2;
 var tableId = (table) => `p${table.page}-table-${table.tableIndex + 1}`;
+var tableKey = (page, tableIndex) => `${page}:${tableIndex}`;
+var tableKeyFromId = (id) => {
+  const match = /^p(\d+)-table-(\d+)$/u.exec(id ?? "");
+  if (!match?.[1] || !match[2])
+    return;
+  return tableKey(Number(match[1]), Number(match[2]) - 1);
+};
 var roundRatio4 = (value) => Math.round(value * 100) / 100;
 var buildBoundingBox2 = (x, y, width, height) => {
   if (![x, y, width].every(Number.isFinite) || height === undefined || !Number.isFinite(height)) {
@@ -4480,6 +4511,66 @@ var mergeBoundingBoxes2 = (boxes) => {
     right: Math.max(...boxes.map((box) => box.right)),
     top: Math.max(...boxes.map((box) => box.top))
   };
+};
+var boundingBoxArea = (box) => Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom);
+var boundingBoxIntersectionArea = (a, b) => {
+  const left = Math.max(a.left, b.left);
+  const right = Math.min(a.right, b.right);
+  const bottom = Math.max(a.bottom, b.bottom);
+  const top = Math.min(a.top, b.top);
+  return Math.max(0, right - left) * Math.max(0, top - bottom);
+};
+var tableOverlapRatio = (a, b) => {
+  if (!a.bounding_box || !b.bounding_box)
+    return 0;
+  const intersection = boundingBoxIntersectionArea(a.bounding_box, b.bounding_box);
+  const smallestArea = Math.min(boundingBoxArea(a.bounding_box), boundingBoxArea(b.bounding_box));
+  return smallestArea > 0 ? intersection / smallestArea : 0;
+};
+var isLikelyDuplicateTable = (selectableTable, ocrTable) => selectableTable.page === ocrTable.page && tableOverlapRatio(selectableTable, ocrTable) >= 0.6;
+var rebaseOcrTableContinuation = (table, newIdByOldKey, oldId, newId) => {
+  if (!table.continuation)
+    return table;
+  const previousTableId = newIdByOldKey.get(tableKeyFromId(table.continuation.previousTableId) ?? "") ?? table.continuation.previousTableId;
+  const nextTableId = newIdByOldKey.get(tableKeyFromId(table.continuation.nextTableId) ?? "") ?? table.continuation.nextTableId;
+  const groupEndpoints = previousTableId ? [previousTableId, newId] : nextTableId ? [newId, nextTableId] : undefined;
+  return {
+    ...table,
+    continuation: {
+      ...table.continuation,
+      groupId: groupEndpoints ? `table-continuation-${groupEndpoints[0]}-${groupEndpoints[1]}` : table.continuation.groupId.replace(oldId, newId),
+      ...previousTableId ? { previousTableId } : {},
+      ...nextTableId ? { nextTableId } : {}
+    }
+  };
+};
+var reindexOcrTablesAfterSelectableTables = (selectableTables, ocrTables) => {
+  const maxSelectableIndexByPage = new Map;
+  for (const table of selectableTables) {
+    maxSelectableIndexByPage.set(table.page, Math.max(maxSelectableIndexByPage.get(table.page) ?? -1, table.tableIndex));
+  }
+  const nextOcrOrdinalByPage = new Map;
+  const newIdByOldKey = new Map;
+  const indexedTables = ocrTables.map((table) => {
+    const oldId = tableId(table);
+    const oldKey = tableKey(table.page, table.tableIndex);
+    const ordinal = nextOcrOrdinalByPage.get(table.page) ?? 0;
+    nextOcrOrdinalByPage.set(table.page, ordinal + 1);
+    const baseIndex = maxSelectableIndexByPage.get(table.page);
+    const tableIndex = baseIndex === undefined ? table.tableIndex : baseIndex + 1 + ordinal;
+    const indexedTable = tableIndex === table.tableIndex ? table : { ...table, tableIndex };
+    newIdByOldKey.set(oldKey, tableId(indexedTable));
+    return {
+      oldId,
+      table: indexedTable
+    };
+  });
+  return indexedTables.map(({ oldId, table }) => rebaseOcrTableContinuation(table, newIdByOldKey, oldId, tableId(table)));
+};
+var mergeTableExtractionEvidence = (selectableTables, ocrTables) => {
+  const distinctOcrTables = ocrTables.filter((ocrTable) => !selectableTables.some((selectableTable) => isLikelyDuplicateTable(selectableTable, ocrTable)));
+  const indexedOcrTables = reindexOcrTablesAfterSelectableTables(selectableTables, distinctOcrTables);
+  return [...selectableTables, ...indexedOcrTables].sort((a, b) => a.page - b.page || a.tableIndex - b.tableIndex);
 };
 var extractTextItemsWithPositions = async (page) => {
   const textContent = await page.getTextContent();
@@ -4847,7 +4938,7 @@ var identifyTableRegions = (rows) => {
   }
   return regions;
 };
-var extractTablesFromTextItems = (textItems, pageNum) => {
+var extractTablesFromTextItems = (textItems, pageNum, provenance = { source: "selectable_text", engine: "pdfjs" }) => {
   const tables = [];
   if (textItems.length === 0) {
     return tables;
@@ -4881,6 +4972,7 @@ var extractTablesFromTextItems = (textItems, pageNum) => {
         rowCount: tableRows.length,
         colCount: region.columnBoundaries.length,
         confidence: roundedConfidence,
+        provenance,
         quality: buildTableQuality(region.rows, tableCells, region.columnBoundaries, roundedConfidence)
       });
     }
@@ -4900,7 +4992,24 @@ var textItemsFromPageContent = (items) => items.map((item) => {
     ...item.bounding_box ? { bounding_box: item.bounding_box } : {}
   };
 }).filter((item) => item !== undefined);
+var textItemsFromOcrPage = (page) => (page.words ?? []).map((word) => {
+  if (!word.text.trim() || !word.bounding_box)
+    return;
+  return {
+    text: word.text.trim(),
+    x: word.bounding_box.left,
+    y: word.bounding_box.bottom,
+    width: word.bounding_box.right - word.bounding_box.left,
+    height: word.bounding_box.top - word.bounding_box.bottom,
+    bounding_box: word.bounding_box
+  };
+}).filter((item) => item !== undefined);
 var extractTablesFromPageContents = (pageContents) => linkTableContinuationCandidates(pageContents.flatMap((pageContent) => extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page)));
+var extractTablesFromOcrTextLayer = (ocrTextLayer) => linkTableContinuationCandidates(ocrTextLayer.pages.flatMap((page) => extractTablesFromTextItems(textItemsFromOcrPage(page), page.page, {
+  source: "ocr_text_layer",
+  engine: "external-command",
+  ocr_source_render_evidence_id: page.source_render_evidence_id
+})));
 var extractTablesFromPage = async (page, pageNum) => {
   try {
     return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
@@ -5162,11 +5271,16 @@ var buildStructuredElements = (pageContents, tables, includeSemanticHints, pageG
         colCount: table.colCount,
         confidence: table.confidence,
         ...table.quality ? { quality: table.quality } : {},
-        ...table.continuation ? { continuation: table.continuation } : {}
+        ...table.continuation ? { continuation: table.continuation } : {},
+        ...table.provenance ? { provenance: table.provenance } : {}
       },
       bounding_box: table.bounding_box,
       confidence: table.confidence,
-      provenance: {
+      provenance: table.provenance?.source === "ocr_text_layer" ? {
+        engine: "external-command",
+        source: "ocr-table-detector",
+        ocr_source_render_evidence_id: table.provenance.ocr_source_render_evidence_id
+      } : {
         engine: "pdfjs",
         source: "table-detector"
       }
@@ -6169,10 +6283,38 @@ var processSingleSource = async (source, options) => {
           }
         }
       }
+      let layoutDiagnostics;
+      if (options.includeLayoutDiagnostics && output.page_contents) {
+        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
+        output.layout_diagnostics = layoutDiagnostics;
+      }
+      let ocrTextLayer;
+      if (options.includeOcrTextLayer && output.page_contents) {
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        const ocrPages2 = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
+        if (ocrPages2.length > 0) {
+          try {
+            const ocr = await ocrPdfSourcePages({ ...source, pages: ocrPages2 }, defaultOcrPagesOptions());
+            ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
+            output.ocr_text_layer = ocrTextLayer;
+            appendOutputWarnings(output, ocr.warnings);
+          } catch (error) {
+            const message = error instanceof PdfError ? error.message : "OCR provider failed before returning a normalized text layer.";
+            if (!(error instanceof PdfError)) {
+              logger14.warn("Unexpected error building OCR text layer", {
+                sourceDescription,
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
+            appendOutputWarnings(output, [`OCR text layer unavailable: ${message}`]);
+          }
+        }
+      }
       if (options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeVisualEnrichments || options.includeTrustReport) {
         const extractedTables = output.page_contents ? extractTablesFromPageContents(output.page_contents) : await extractTables(pdfDocument, pagesToProcess);
-        if (extractedTables.length > 0) {
-          output.tables = extractedTables;
+        const ocrTables = ocrTextLayer ? extractTablesFromOcrTextLayer(ocrTextLayer) : [];
+        if (extractedTables.length > 0 || ocrTables.length > 0) {
+          output.tables = mergeTableExtractionEvidence(extractedTables, ocrTables);
         }
       }
       let plainElements;
@@ -6212,11 +6354,6 @@ var processSingleSource = async (source, options) => {
           output.text_layer = textLayer;
         }
       }
-      let layoutDiagnostics;
-      if (options.includeLayoutDiagnostics && output.page_contents) {
-        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
-        output.layout_diagnostics = layoutDiagnostics;
-      }
       let visualEnrichments;
       if (options.includeVisualEnrichments && output.page_contents) {
         const visualElements = buildElementsForOutput(true);
@@ -6231,28 +6368,6 @@ var processSingleSource = async (source, options) => {
           output.visual_enrichments = visualEnrichments;
         }
         appendOutputWarnings(output, enriched.warnings);
-      }
-      let ocrTextLayer;
-      if (options.includeOcrTextLayer && output.page_contents) {
-        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        const ocrPages2 = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
-        if (ocrPages2.length > 0) {
-          try {
-            const ocr = await ocrPdfSourcePages({ ...source, pages: ocrPages2 }, defaultOcrPagesOptions());
-            ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
-            output.ocr_text_layer = ocrTextLayer;
-            appendOutputWarnings(output, ocr.warnings);
-          } catch (error) {
-            const message = error instanceof PdfError ? error.message : "OCR provider failed before returning a normalized text layer.";
-            if (!(error instanceof PdfError)) {
-              logger14.warn("Unexpected error building OCR text layer", {
-                sourceDescription,
-                error: error instanceof Error ? error.message : String(error)
-              });
-            }
-            appendOutputWarnings(output, [`OCR text layer unavailable: ${message}`]);
-          }
-        }
       }
       let safetyFindings;
       if (options.includeSafetyFindings && output.page_contents) {
@@ -6459,7 +6574,8 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
           bounding_box: tbl.bounding_box,
           confidence: tbl.confidence,
           quality: tbl.quality,
-          continuation: tbl.continuation
+          continuation: tbl.continuation,
+          provenance: tbl.provenance
         }));
       }
       return { ...result, data: processedData };

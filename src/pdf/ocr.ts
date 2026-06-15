@@ -76,6 +76,28 @@ export const defaultOcrPagesOptions = (): OcrPagesOptions => ({
 });
 
 const roundRatio = (value: number): number => Math.round(value * 100) / 100;
+const roundCoordinate = (value: number): number => Math.round(value * 100) / 100;
+
+const normalizeWordBoxesToPdfCoordinates = (
+  words: PdfOcrWord[] | undefined,
+  scale: number
+): PdfOcrWord[] | undefined => {
+  if (!words || scale <= 0 || !Number.isFinite(scale)) return words;
+
+  return words.map((word) => {
+    if (!word.bounding_box) return word;
+
+    return {
+      ...word,
+      bounding_box: {
+        left: roundCoordinate(word.bounding_box.left / scale),
+        bottom: roundCoordinate(word.bounding_box.bottom / scale),
+        right: roundCoordinate(word.bounding_box.right / scale),
+        top: roundCoordinate(word.bounding_box.top / scale),
+      },
+    };
+  });
+};
 
 export const buildOcrTextLayer = (
   pages: PdfOcrPageData[],
@@ -518,8 +540,14 @@ export const ocrRenderedPageWithCommandProvider = async (
     return {
       page: page.page,
       ...normalized,
+      ...(normalized.words
+        ? { words: normalizeWordBoxesToPdfCoordinates(normalized.words, page.scale) }
+        : {}),
       provider: 'command',
       source_render_evidence_id: page.evidence_id,
+      source_render_scale: page.scale,
+      source_render_width: page.width,
+      source_render_height: page.height,
       provenance: {
         engine: 'external-command',
         source: 'ocr-provider',

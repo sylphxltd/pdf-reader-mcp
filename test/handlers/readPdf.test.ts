@@ -1255,6 +1255,147 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
+  it('should derive table evidence from OCR word boxes on scanned pages', async () => {
+    const getTextContent = vi.fn().mockResolvedValue({ items: [] });
+    const getViewport = vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 });
+    mockGetPage.mockResolvedValue({
+      getTextContent,
+      getViewport,
+      view: [0, 0, 612, 792],
+      rotate: 0,
+      userUnit: 1,
+      getAnnotations: vi.fn(),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    });
+    mockOcrPdfSourcePages.mockResolvedValue({
+      source: 'scanned-table.pdf',
+      numPages: 1,
+      pages: [
+        {
+          page: 1,
+          text: 'Metric Value\nRevenue 24%',
+          confidence: 0.92,
+          words: [
+            {
+              text: 'Metric',
+              confidence: 0.95,
+              bounding_box: { left: 40, bottom: 700, right: 88, top: 710 },
+            },
+            {
+              text: 'Value',
+              confidence: 0.94,
+              bounding_box: { left: 160, bottom: 700, right: 202, top: 710 },
+            },
+            {
+              text: 'Revenue',
+              confidence: 0.93,
+              bounding_box: { left: 40, bottom: 680, right: 100, top: 690 },
+            },
+            {
+              text: '24%',
+              confidence: 0.91,
+              bounding_box: { left: 160, bottom: 680, right: 184, top: 690 },
+            },
+          ],
+          provider: 'command',
+          source_render_evidence_id: 'page-1-render-scale-2',
+          source_render_scale: 2,
+          source_render_width: 1224,
+          source_render_height: 1584,
+          provenance: {
+            engine: 'external-command',
+            source: 'ocr-provider',
+          },
+        },
+      ],
+      warnings: ['Rendered page 1 for OCR without embedding image bytes in JSON.'],
+    });
+
+    const result = await handler({
+      sources: [{ path: 'scanned-table.pdf', pages: [1] }],
+      include_tables: true,
+      include_ocr_text_layer: true,
+      include_document_map: true,
+      include_document_ast: true,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    });
+
+    const parsed = JSON.parse(result.content[0]?.text ?? '{}') as {
+      results?: Array<{
+        data?: {
+          table_info?: Array<{
+            page: number;
+            rowCount: number;
+            colCount: number;
+            cellCount: number;
+            provenance?: { source?: string; ocr_source_render_evidence_id?: string };
+            quality?: { cellBoundingBoxCoverage?: number; signals?: string[] };
+          }>;
+          document_map?: {
+            layers?: string[];
+            pages?: Array<{ page: number; table_count?: number; ocr_word_count?: number }>;
+            elements?: Array<{
+              type?: string;
+              provenance?: { source?: string; ocr_source_render_evidence_id?: string };
+            }>;
+          };
+          document_ast?: {
+            summary?: { table_count?: number };
+            root?: unknown;
+          };
+        };
+      }>;
+    };
+    const data = parsed.results?.[0]?.data;
+    const tableInfo = data?.table_info?.[0];
+
+    expect(mockOcrPdfSourcePages).toHaveBeenCalledWith(
+      { path: 'scanned-table.pdf', pages: [1] },
+      expect.objectContaining({ scale: 2, max_pages: 5 })
+    );
+    expect(tableInfo).toMatchObject({
+      page: 1,
+      rowCount: 2,
+      colCount: 2,
+      cellCount: 4,
+      provenance: {
+        source: 'ocr_text_layer',
+        ocr_source_render_evidence_id: 'page-1-render-scale-2',
+      },
+      quality: {
+        cellBoundingBoxCoverage: 1,
+        signals: ['complete_grid'],
+      },
+    });
+    expect(data?.document_map?.layers).toEqual(
+      expect.arrayContaining(['ocr_text_layer', 'table_structure'])
+    );
+    expect(data?.document_map?.pages?.[0]).toMatchObject({
+      page: 1,
+      table_count: 1,
+      ocr_word_count: 4,
+    });
+    expect(data?.document_map?.elements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'table',
+          provenance: expect.objectContaining({
+            source: 'ocr-table-detector',
+            ocr_source_render_evidence_id: 'page-1-render-scale-2',
+          }),
+        }),
+      ])
+    );
+    expect(data?.document_ast?.summary).toMatchObject({ table_count: 1 });
+    expect(JSON.stringify(data?.document_ast?.root)).toContain('"source":"ocr_text_layer"');
+    expect(
+      result.content.find((part) => part.text.includes('## Extracted Tables'))?.text
+    ).toContain('| Metric | Value |');
+  });
+
   it('should include visual enrichments and fuse them into the document twin', async () => {
     const getTextContent = vi.fn().mockResolvedValue({
       items: [

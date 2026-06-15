@@ -53,7 +53,7 @@ export const readPdfArgsSchema = object({
   include_tables: optional(
     bool(
       description(
-        'Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures.'
+        'Detect and extract tables from PDF pages. Uses spatial clustering of selectable text coordinates and, when include_ocr_text_layer is enabled, OCR word boxes to identify tabular structures.'
       )
     )
   ),

@@ -233,7 +233,9 @@ Next slices for the same v3 track:
   and summary counts.
 - The map includes table elements when deterministic table extraction finds
   tables.
-- The map links OCR pages when `include_ocr_text_layer` returns OCR evidence.
+- The map links OCR pages when `include_ocr_text_layer` returns OCR evidence,
+  and links OCR-derived table elements when OCR word boxes form table
+  structure.
 - The map links visual enrichment evidence when `include_visual_enrichments`
   returns provider-backed region analysis.
 - The AST attaches visual enrichment evidence to semantic nodes without

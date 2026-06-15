@@ -82,6 +82,7 @@ describe('inspector', () => {
           include_document_map: true,
           include_layout_diagnostics: true,
           include_ocr_text_layer: true,
+          include_tables: true,
           include_visual_enrichments: true,
           max_visual_enrichments: 8,
         },
@@ -94,6 +95,7 @@ describe('inspector', () => {
             arguments: {
               include_document_map: true,
               include_ocr_text_layer: true,
+              include_tables: true,
               include_visual_enrichments: true,
               max_visual_enrichments: 8,
             },

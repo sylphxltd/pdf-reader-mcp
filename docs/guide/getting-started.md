@@ -311,7 +311,9 @@ configured OCR provider for selected sparse/scanned pages and return a separate
 `ocr_text_layer`. When `include_document_map` is also enabled, OCR pages are
 linked through `document_map.layers`, page-level OCR fields, and
 `document_map.routing.ocr_applied_pages`. OCR text is not merged into
-`full_text`, so provenance stays explicit.
+`full_text`, so provenance stays explicit. When `include_tables` is also
+enabled, OCR word boxes can generate OCR-derived table elements for scanned
+pages that have no selectable text tables.
 
 ### Get Markdown
 

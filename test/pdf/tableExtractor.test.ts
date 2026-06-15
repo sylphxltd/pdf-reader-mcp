@@ -4,13 +4,39 @@ import {
   clusterByY,
   detectColumnBoundaries,
   extractTables,
+  extractTablesFromOcrTextLayer,
   extractTablesFromPage,
   extractTablesFromPageContents,
   extractTextItemsWithPositions,
+  mergeTableExtractionEvidence,
   type TextItemWithPosition,
   tablesToMarkdown,
   tableToMarkdown,
 } from '../../src/pdf/tableExtractor.js';
+import type { ExtractedTable, TableExtractionSource } from '../../src/types/pdf.js';
+
+const tableFixture = (
+  tableIndex: number,
+  boundingBox: NonNullable<ExtractedTable['bounding_box']>,
+  source: TableExtractionSource,
+  page = 1
+): ExtractedTable => ({
+  page,
+  tableIndex,
+  rows: [
+    ['Metric', 'Value'],
+    ['Revenue', '24%'],
+  ],
+  cells: [],
+  bounding_box: boundingBox,
+  rowCount: 2,
+  colCount: 2,
+  confidence: 0.9,
+  provenance: {
+    source,
+    engine: source === 'ocr_text_layer' ? 'external-command' : 'pdfjs',
+  },
+});
 
 describe('tableExtractor', () => {
   describe('extractTextItemsWithPositions', () => {
@@ -480,6 +506,159 @@ describe('tableExtractor', () => {
           expect.stringContaining('lack bounding boxes'),
         ])
       );
+    });
+
+    it('should extract OCR-derived tables from normalized OCR word boxes', () => {
+      const result = extractTablesFromOcrTextLayer({
+        profile: 'ocr_text_layer',
+        pages: [
+          {
+            page: 1,
+            text: 'Metric Value\nRevenue 24%',
+            confidence: 0.92,
+            words: [
+              {
+                text: 'Metric',
+                confidence: 0.95,
+                bounding_box: { left: 40, bottom: 700, right: 88, top: 710 },
+              },
+              {
+                text: 'Value',
+                confidence: 0.94,
+                bounding_box: { left: 160, bottom: 700, right: 202, top: 710 },
+              },
+              {
+                text: 'Revenue',
+                confidence: 0.93,
+                bounding_box: { left: 40, bottom: 680, right: 100, top: 690 },
+              },
+              {
+                text: '24%',
+                confidence: 0.91,
+                bounding_box: { left: 160, bottom: 680, right: 184, top: 690 },
+              },
+            ],
+            provider: 'command',
+            source_render_evidence_id: 'page-1-render-scale-2',
+            source_render_scale: 2,
+            source_render_width: 1224,
+            source_render_height: 1584,
+            provenance: {
+              engine: 'external-command',
+              source: 'ocr-provider',
+            },
+          },
+        ],
+        summary: {
+          page_count: 1,
+          text_chars: 24,
+          word_count: 4,
+          words_with_bounding_boxes: 4,
+          source_render_count: 1,
+          average_confidence: 0.92,
+        },
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        page: 1,
+        rows: [
+          ['Metric', 'Value'],
+          ['Revenue', '24%'],
+        ],
+        rowCount: 2,
+        colCount: 2,
+        bounding_box: { left: 40, bottom: 680, right: 202, top: 710 },
+        provenance: {
+          source: 'ocr_text_layer',
+          engine: 'external-command',
+          ocr_source_render_evidence_id: 'page-1-render-scale-2',
+        },
+        quality: {
+          cellBoundingBoxCoverage: 1,
+          inferredCellRatio: 0,
+          signals: ['complete_grid'],
+        },
+      });
+    });
+
+    it('should merge OCR table evidence by overlap instead of dropping every same-page OCR table', () => {
+      const selectableTable = tableFixture(
+        0,
+        { left: 40, bottom: 680, right: 202, top: 710 },
+        'selectable_text'
+      );
+      const overlappingOcrTable = tableFixture(
+        1,
+        { left: 42, bottom: 681, right: 201, top: 709 },
+        'ocr_text_layer'
+      );
+      const distinctOcrTable = tableFixture(
+        2,
+        { left: 300, bottom: 520, right: 470, top: 560 },
+        'ocr_text_layer'
+      );
+
+      const result = mergeTableExtractionEvidence(
+        [selectableTable],
+        [overlappingOcrTable, distinctOcrTable]
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result.map((table) => table.tableIndex)).toEqual([0, 1]);
+      expect(result.map((table) => table.provenance?.source)).toEqual([
+        'selectable_text',
+        'ocr_text_layer',
+      ]);
+    });
+
+    it('should rebase OCR continuation IDs when merged table indexes are offset', () => {
+      const selectableTable = tableFixture(
+        0,
+        { left: 40, bottom: 680, right: 202, top: 710 },
+        'selectable_text'
+      );
+      const firstOcrTable = tableFixture(
+        0,
+        { left: 300, bottom: 680, right: 470, top: 710 },
+        'ocr_text_layer'
+      );
+      firstOcrTable.continuation = {
+        groupId: 'table-continuation-p1-table-1-p2-table-1',
+        role: 'starts',
+        nextTableId: 'p2-table-1',
+        confidence: 0.9,
+        signals: ['same_column_count', 'repeated_header_candidate'],
+      };
+      const nextOcrTable = tableFixture(
+        0,
+        { left: 300, bottom: 680, right: 470, top: 710 },
+        'ocr_text_layer',
+        2
+      );
+      nextOcrTable.continuation = {
+        groupId: 'table-continuation-p1-table-1-p2-table-1',
+        role: 'ends',
+        previousTableId: 'p1-table-1',
+        confidence: 0.9,
+        signals: ['same_column_count', 'repeated_header_candidate'],
+      };
+
+      const result = mergeTableExtractionEvidence([selectableTable], [firstOcrTable, nextOcrTable]);
+
+      expect(result.map((table) => [table.page, table.tableIndex])).toEqual([
+        [1, 0],
+        [1, 1],
+        [2, 0],
+      ]);
+      expect(result[1]?.continuation).toMatchObject({
+        groupId: 'table-continuation-p1-table-2-p2-table-1',
+        nextTableId: 'p2-table-1',
+      });
+      expect(result[2]?.continuation).toMatchObject({
+        groupId: 'table-continuation-p1-table-2-p2-table-1',
+        previousTableId: 'p1-table-2',
+      });
     });
 
     it('should link repeated-header table continuation candidates across adjacent pages', () => {
