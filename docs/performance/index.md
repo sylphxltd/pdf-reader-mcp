@@ -75,11 +75,14 @@ reports a `visual-full-fidelity` certification profile covering crop
 provenance, table cell boxes, formula formats, chart axes or series, figure
 descriptions, and image-description text.
 
-The JSON report includes `certification_profiles` and per-provider
-`certification` summaries so release environments can distinguish installed
-provider smoke checks from full visual evidence coverage.
+The JSON report includes `certification_profiles`, safe `provider_status`
+metadata, and per-provider `certification` summaries so release environments
+can distinguish installed provider smoke checks from full visual evidence
+coverage.
 
-Unavailable providers report `skipped` and exit successfully by default.
+Unavailable providers report `skipped` and still emit certification profiles
+with skipped capabilities by default. This keeps the JSON contract stable
+whether a developer machine has optional engines installed or not.
 Release or provider-certification environments can make skipped providers fail
 with:
 

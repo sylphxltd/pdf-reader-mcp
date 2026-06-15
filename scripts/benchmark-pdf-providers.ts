@@ -5,6 +5,7 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { promisify } from 'node:util';
 import { readPdf } from '../src/handlers/readPdf.js';
+import { getOcrProviderStatus } from '../src/pdf/ocr.js';
 import {
   analyzePdfRegionsFromSource,
   defaultAnalyzeRegionsOptions,
@@ -12,6 +13,7 @@ import {
 } from '../src/pdf/regionAnalysis.js';
 import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
 import type {
+  PdfInspectionProviderStatus,
   PdfRegionAnalysisData,
   PdfRegionAnalysisKind,
   PdfRegionRequest,
@@ -23,6 +25,7 @@ interface ProviderBenchmarkResult {
   duration_ms: number;
   message?: string | undefined;
   assertions?: Array<{ name: string; pass: boolean }> | undefined;
+  provider_status?: Partial<PdfInspectionProviderStatus> | undefined;
   metrics?: {
     adapter?: string | undefined;
     kind?: string | undefined;
@@ -70,6 +73,20 @@ interface DocumentMapBenchmarkView {
 const execFileAsync = promisify(execFile);
 const STRICT_PROVIDER_BENCHMARK_ENV = 'MCP_PDF_PROVIDER_BENCHMARK_REQUIRED';
 const EXPECTED_TOKENS = ['HELLO', 'WORLD'];
+const TESSERACT_TSV_CAPABILITIES = [
+  'tesseract-tsv provider returns expected OCR tokens',
+  'tesseract-tsv provider normalizes word-level bounding boxes',
+  'read_pdf fuses provider OCR evidence into the document map',
+] as const;
+const VISUAL_REGION_CAPABILITIES = [
+  'region provider analyzes all visual certification fixtures',
+  'region provider preserves crop evidence provenance for every fixture',
+  'region provider returns a structured table with cell boxes',
+  'region provider returns machine-readable formula evidence',
+  'region provider returns chart axes or series evidence',
+  'region provider returns figure description evidence',
+  'region provider returns image-description evidence',
+] as const;
 const VISUAL_PROVIDER_FIXTURES = [
   {
     id: 'cert-table',
@@ -283,6 +300,16 @@ const withEnv = async <T>(
   }
 };
 
+const readTesseractTsvProviderStatus = async () =>
+  withEnv(
+    {
+      MCP_PDF_OCR_COMMAND: undefined,
+      MCP_PDF_OCR_ARGS_JSON: undefined,
+      MCP_PDF_OCR_PRESET: 'tesseract-tsv',
+    },
+    async () => getOcrProviderStatus()
+  );
+
 const parseReadPdfResult = async (input: ReadPdfArgs): Promise<Record<string, unknown>> => {
   const result = await readPdf.handler({ input, ctx: {} as unknown });
   if (result && typeof result === 'object' && 'isError' in result && result.isError) {
@@ -354,18 +381,18 @@ const evaluateTesseractTsvEvidence = ({
   normalizedText,
 }: ReturnType<typeof extractTesseractTsvEvidence>): Array<{ name: string; pass: boolean }> => [
   {
-    name: 'tesseract-tsv provider returns expected OCR tokens',
+    name: TESSERACT_TSV_CAPABILITIES[0],
     pass: EXPECTED_TOKENS.every((token) => normalizedText.includes(token)),
   },
   {
-    name: 'tesseract-tsv provider normalizes word-level bounding boxes',
+    name: TESSERACT_TSV_CAPABILITIES[1],
     pass:
       (ocrTextLayer?.summary?.words_with_bounding_boxes ?? 0) >= EXPECTED_TOKENS.length &&
       (page?.words?.filter((word) => word.bounding_box !== undefined).length ?? 0) >=
         EXPECTED_TOKENS.length,
   },
   {
-    name: 'read_pdf fuses provider OCR evidence into the document map',
+    name: TESSERACT_TSV_CAPABILITIES[2],
     pass:
       documentMap?.layers?.includes('ocr_text_layer') === true &&
       documentMap.routing?.ocr_applied_pages?.includes(1) === true &&
@@ -394,13 +421,13 @@ const evaluateRegionAnalysisEvidence = (
   results: PdfRegionAnalysisData[]
 ): Array<{ name: string; pass: boolean }> => [
   {
-    name: 'region provider analyzes all visual certification fixtures',
+    name: VISUAL_REGION_CAPABILITIES[0],
     pass: VISUAL_PROVIDER_FIXTURES.every((fixture) =>
       results.some((result) => result.region_id === fixture.id)
     ),
   },
   {
-    name: 'region provider preserves crop evidence provenance for every fixture',
+    name: VISUAL_REGION_CAPABILITIES[1],
     pass: results.every(
       (result) =>
         result.source_crop_evidence_id ===
@@ -410,7 +437,7 @@ const evaluateRegionAnalysisEvidence = (
     ),
   },
   {
-    name: 'region provider returns a structured table with cell boxes',
+    name: VISUAL_REGION_CAPABILITIES[2],
     pass: results.some(
       (result) =>
         result.region_id === 'cert-table' &&
@@ -421,7 +448,7 @@ const evaluateRegionAnalysisEvidence = (
     ),
   },
   {
-    name: 'region provider returns machine-readable formula evidence',
+    name: VISUAL_REGION_CAPABILITIES[3],
     pass: results.some(
       (result) =>
         result.region_id === 'cert-formula' &&
@@ -430,7 +457,7 @@ const evaluateRegionAnalysisEvidence = (
     ),
   },
   {
-    name: 'region provider returns chart axes or series evidence',
+    name: VISUAL_REGION_CAPABILITIES[4],
     pass: results.some(
       (result) =>
         result.region_id === 'cert-chart' &&
@@ -442,7 +469,7 @@ const evaluateRegionAnalysisEvidence = (
     ),
   },
   {
-    name: 'region provider returns figure description evidence',
+    name: VISUAL_REGION_CAPABILITIES[5],
     pass: results.some(
       (result) =>
         result.region_id === 'cert-figure' &&
@@ -454,7 +481,7 @@ const evaluateRegionAnalysisEvidence = (
     ),
   },
   {
-    name: 'region provider returns image-description evidence',
+    name: VISUAL_REGION_CAPABILITIES[6],
     pass: results.some(
       (result) =>
         result.region_id === 'cert-image' &&
@@ -508,14 +535,37 @@ const buildCertificationSummary = (
   };
 };
 
+const buildSkippedCertificationSummary = (
+  profile: NonNullable<ProviderBenchmarkResult['certification']>['profile'],
+  fixtureCount: number,
+  capabilityNames: readonly string[]
+): NonNullable<ProviderBenchmarkResult['certification']> => ({
+  profile,
+  fixture_count: fixtureCount,
+  capability_count: capabilityNames.length,
+  passed_capability_count: 0,
+  capabilities: Object.fromEntries(
+    capabilityNames.map((name) => [name, 'skipped'])
+  ) as Record<string, 'passed' | 'failed' | 'skipped'>,
+});
+
 const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
   const start = performance.now();
+  const providerStatus = await readTesseractTsvProviderStatus();
   if (!(await hasTesseract())) {
     return {
       provider: 'tesseract-tsv',
       status: 'skipped',
       duration_ms: round(performance.now() - start),
       message: 'tesseract executable was not found on PATH.',
+      provider_status: {
+        ocr_pages: providerStatus,
+      },
+      certification: buildSkippedCertificationSummary(
+        'ocr-text-layer',
+        1,
+        TESSERACT_TSV_CAPABILITIES
+      ),
     };
   }
 
@@ -548,6 +598,9 @@ const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
       status: assertions.every((assertion) => assertion.pass) ? 'passed' : 'failed',
       duration_ms: round(performance.now() - start),
       assertions,
+      provider_status: {
+        ocr_pages: providerStatus,
+      },
       metrics: buildProviderMetrics(evidence.ocrTextLayer),
       certification: buildCertificationSummary('ocr-text-layer', 1, assertions),
     };
@@ -574,6 +627,14 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
       duration_ms: round(performance.now() - start),
       message:
         'Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to benchmark a configured visual-region provider.',
+      provider_status: {
+        analyze_regions: status,
+      },
+      certification: buildSkippedCertificationSummary(
+        'visual-full-fidelity',
+        VISUAL_PROVIDER_FIXTURES.length,
+        VISUAL_REGION_CAPABILITIES
+      ),
     };
   }
 
@@ -583,6 +644,9 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
       status: 'failed',
       duration_ms: round(performance.now() - start),
       message: status.warnings?.join('; ') ?? 'Region analysis provider configuration is invalid.',
+      provider_status: {
+        analyze_regions: status,
+      },
     };
   }
 
@@ -607,6 +671,9 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
       status: assertions.every((assertion) => assertion.pass) ? 'passed' : 'failed',
       duration_ms: round(performance.now() - start),
       assertions,
+      provider_status: {
+        analyze_regions: status,
+      },
       metrics: buildRegionAnalysisMetrics(analyzed.analyses),
       certification: buildCertificationSummary(
         'visual-full-fidelity',

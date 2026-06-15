@@ -43,8 +43,9 @@ Typical response fields:
   structure-tree availability
 - `recommendation`: workflow, OCR need, reason, ordered `next_tools`, and
   ready-to-use `read_pdf` arguments
-- `provider_status`: safe readiness metadata for optional `ocr_pages` and
-  `analyze_regions` providers without exposing local provider paths
+- `provider_status`: safe readiness and health metadata for optional
+  `ocr_pages` and `analyze_regions` providers without exposing local provider
+  paths
 
 ### Search For Evidence
 
@@ -301,7 +302,9 @@ into normalized words, confidence, and word boxes. You can also set
 `MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes `{input}` and may
 also use `{page}`, `{source}`, `{language}`, `{languages}`, and
 `{languages_tesseract}` placeholders. Custom providers can return plain text
-or JSON with `text`, `confidence`, `language`, and `words`.
+or JSON with `text`, `confidence`, `language`, and `words`. `inspect_pdf`
+reports built-in preset executable health; OCR-dependent routing is marked not
+ready when the selected preset binary is unavailable.
 
 The response starts with JSON metadata using `profile: "ocr_text_layer"`.
 Each page includes normalized OCR text, confidence when supplied, optional word

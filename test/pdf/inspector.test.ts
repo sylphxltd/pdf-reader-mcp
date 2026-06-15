@@ -153,6 +153,33 @@ describe('inspector', () => {
       });
     });
 
+    it('marks OCR-dependent routing as not ready when the OCR preset executable is unavailable', () => {
+      const recommendation = buildInspectionRecommendation(
+        { path: 'scan.pdf' },
+        'scanned_or_image_only',
+        documentSignals(),
+        [signal(1, 0, 2)],
+        { ocr_pages: 'unavailable', analyze_regions: 'ready' }
+      );
+
+      expect(recommendation.next_tools[0]).toMatchObject({
+        tool: 'read_pdf',
+        ready: false,
+        required_inputs: ['available OCR provider'],
+        requires_provider: 'ocr_pages',
+      });
+      expect(recommendation.next_tools[1]).toMatchObject({
+        tool: 'ocr_pages',
+        ready: false,
+        required_inputs: ['available OCR provider'],
+        requires_provider: 'ocr_pages',
+      });
+      expect(recommendation.next_tools[2]).toMatchObject({
+        tool: 'render_page',
+        ready: true,
+      });
+    });
+
     it('recommends citation-ready extraction for digital text PDFs', () => {
       const recommendation = buildInspectionRecommendation(
         { path: 'report.pdf' },

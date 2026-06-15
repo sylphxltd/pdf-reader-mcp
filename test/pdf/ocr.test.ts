@@ -14,6 +14,7 @@ import type { PdfPageRenderData } from '../../src/types/pdf.js';
 const originalCommand = process.env['MCP_PDF_OCR_COMMAND'];
 const originalArgs = process.env['MCP_PDF_OCR_ARGS_JSON'];
 const originalPreset = process.env['MCP_PDF_OCR_PRESET'];
+const originalPath = process.env.PATH;
 
 const restoreEnv = (
   name: 'MCP_PDF_OCR_COMMAND' | 'MCP_PDF_OCR_ARGS_JSON' | 'MCP_PDF_OCR_PRESET',
@@ -56,6 +57,11 @@ describe('ocr', () => {
     restoreEnv('MCP_PDF_OCR_COMMAND', originalCommand);
     restoreEnv('MCP_PDF_OCR_ARGS_JSON', originalArgs);
     restoreEnv('MCP_PDF_OCR_PRESET', originalPreset);
+    if (originalPath === undefined) {
+      Reflect.deleteProperty(process.env, 'PATH');
+    } else {
+      process.env.PATH = originalPath;
+    }
   });
 
   it('should report whether the command OCR provider is configured', () => {
@@ -66,6 +72,8 @@ describe('ocr', () => {
       readiness: 'not_configured',
       provider: 'command',
       command_configured: false,
+      health: 'not_checked',
+      health_check: 'not_checked',
     });
 
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
@@ -74,23 +82,30 @@ describe('ocr', () => {
       readiness: 'ready',
       provider: 'command',
       command_configured: true,
+      health: 'not_checked',
+      health_check: 'not_checked',
     });
 
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
     process.env['MCP_PDF_OCR_PRESET'] = 'tesseract';
+    process.env.PATH = '';
     expect(isOcrProviderConfigured()).toBe(true);
     expect(getOcrProviderStatus()).toMatchObject({
-      readiness: 'ready',
+      readiness: 'unavailable',
       provider: 'command',
       command_configured: false,
+      health: 'unavailable',
+      health_check: 'preset_executable',
       preset: 'tesseract',
     });
 
     process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
     expect(getOcrProviderStatus()).toMatchObject({
-      readiness: 'ready',
+      readiness: 'unavailable',
       provider: 'command',
       command_configured: false,
+      health: 'unavailable',
+      health_check: 'preset_executable',
       preset: 'tesseract-tsv',
     });
   });
@@ -257,6 +272,7 @@ describe('ocr', () => {
   it('should fail with a curated error when OCR provider is not configured', async () => {
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_ARGS_JSON');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_PRESET');
 
     await expect(
       ocrRenderedPageWithCommandProvider(

@@ -1012,6 +1012,8 @@ var getRegionAnalysisProviderStatus = () => {
         readiness: "invalid_configuration",
         provider: commandConfigured ? "command" : "http",
         command_configured: commandConfigured,
+        health: "not_checked",
+        health_check: "not_checked",
         http_configured: httpConfigured,
         warnings: [error instanceof Error ? error.message : String(error)]
       };
@@ -1022,6 +1024,8 @@ var getRegionAnalysisProviderStatus = () => {
       readiness: "not_configured",
       provider: "command",
       command_configured: false,
+      health: "not_checked",
+      health_check: "not_checked",
       http_configured: false,
       warnings: [
         "Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions."
@@ -1032,6 +1036,8 @@ var getRegionAnalysisProviderStatus = () => {
     readiness: "ready",
     provider: commandConfigured ? "command" : "http",
     command_configured: commandConfigured,
+    health: "not_checked",
+    health_check: "not_checked",
     http_configured: httpConfigured
   };
 };
@@ -2589,7 +2595,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
 };
 
 // src/pdf/ocr.ts
-import { execFile as execFile2 } from "node:child_process";
+import { execFile as execFile2, spawnSync } from "node:child_process";
 import fs5 from "node:fs/promises";
 import os2 from "node:os";
 import path4 from "node:path";
@@ -2601,6 +2607,7 @@ var DEFAULT_OCR_MAX_OUTPUT_CHARS = 200000;
 var OCR_COMMAND_ENV = "MCP_PDF_OCR_COMMAND";
 var OCR_ARGS_ENV = "MCP_PDF_OCR_ARGS_JSON";
 var OCR_PRESET_ENV = "MCP_PDF_OCR_PRESET";
+var OCR_PRESET_HEALTHCHECK_TIMEOUT_MS = 2500;
 var OCR_PROVIDER_PRESETS = {
   tesseract: {
     command: "tesseract",
@@ -2617,6 +2624,32 @@ var OCR_PROVIDER_PRESETS = {
 };
 var SUPPORTED_OCR_PRESETS = Object.keys(OCR_PROVIDER_PRESETS);
 var isOcrProviderPreset = (value) => SUPPORTED_OCR_PRESETS.includes(value);
+var checkOcrPresetExecutable = (preset) => {
+  const command = OCR_PROVIDER_PRESETS[preset].command;
+  const result = spawnSync(command, ["--version"], {
+    timeout: OCR_PRESET_HEALTHCHECK_TIMEOUT_MS,
+    windowsHide: true,
+    stdio: "ignore"
+  });
+  if (result.status === 0)
+    return { available: true };
+  if (result.error) {
+    return {
+      available: false,
+      warning: `${command} executable was not found or could not be started for MCP_PDF_OCR_PRESET=${preset}.`
+    };
+  }
+  if (result.signal) {
+    return {
+      available: false,
+      warning: `${command} health check for MCP_PDF_OCR_PRESET=${preset} ended with signal ${result.signal}.`
+    };
+  }
+  return {
+    available: false,
+    warning: `${command} health check for MCP_PDF_OCR_PRESET=${preset} exited with status ${String(result.status ?? "unknown")}.`
+  };
+};
 var defaultOcrPagesOptions = () => ({
   scale: DEFAULT_RENDER_SCALE,
   max_pages: DEFAULT_MAX_RENDER_PAGES,
@@ -2674,6 +2707,8 @@ var getOcrProviderStatus = () => {
       readiness: "invalid_configuration",
       provider: "command",
       command_configured: commandConfigured,
+      health: "not_checked",
+      health_check: "not_checked",
       preset,
       warnings: [
         `Unsupported MCP_PDF_OCR_PRESET. Supported values: ${SUPPORTED_OCR_PRESETS.join(", ")}.`
@@ -2685,13 +2720,39 @@ var getOcrProviderStatus = () => {
       readiness: "not_configured",
       provider: "command",
       command_configured: false,
+      health: "not_checked",
+      health_check: "not_checked",
       warnings: ["Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages."]
+    };
+  }
+  if (preset && !commandConfigured) {
+    const health = checkOcrPresetExecutable(preset);
+    if (!health.available) {
+      return {
+        readiness: "unavailable",
+        provider: "command",
+        command_configured: false,
+        health: "unavailable",
+        health_check: "preset_executable",
+        preset,
+        warnings: [health.warning]
+      };
+    }
+    return {
+      readiness: "ready",
+      provider: "command",
+      command_configured: false,
+      health: "available",
+      health_check: "preset_executable",
+      preset
     };
   }
   return {
     readiness: "ready",
     provider: "command",
     command_configured: commandConfigured,
+    health: "not_checked",
+    health_check: "not_checked",
     ...preset ? { preset } : {}
   };
 };
@@ -3080,7 +3141,13 @@ var enableVisualEnrichmentFusion = (target, providerReadiness) => {
   target["include_visual_enrichments"] = true;
   target["max_visual_enrichments"] = 8;
 };
-var providerRequiredInputs = (inputs, providerName, readiness) => providerReady(readiness) ? inputs : [...inputs, `configured ${providerName} provider`];
+var providerRequiredInputs = (inputs, providerName, readiness) => {
+  if (providerReady(readiness))
+    return inputs;
+  const providerRequirement = readiness === "not_configured" ? `configured ${providerName} provider` : readiness === "unavailable" ? `available ${providerName} provider` : `valid ${providerName} provider configuration`;
+  return [...inputs, providerRequirement];
+};
+var providerRequiredInput = (providerName, readiness) => providerRequiredInputs([], providerName, readiness)[0] ?? `configured ${providerName} provider`;
 var buildRegionSourceTemplate = (source) => ({
   ...source.path ? { path: source.path } : {},
   ...source.url ? { url: source.url } : {},
@@ -3118,7 +3185,7 @@ var buildInspectionNextTools = (source, profile, readPdfArguments, pageSignals, 
       when,
       arguments: readPdfArguments,
       ...needsOcrProvider ? { requires_provider: "ocr_pages" } : {},
-      ...needsOcrProvider && !ocrReady ? { required_inputs: ["configured OCR provider"] } : {}
+      ...needsOcrProvider && !ocrReady ? { required_inputs: [providerRequiredInput("OCR", providerReadiness.ocr_pages)] } : {}
     });
   };
   const searchStep = (priority, includeOcrTextLayer, when) => toolStep(priority, {
@@ -3159,7 +3226,7 @@ var buildInspectionNextTools = (source, profile, readPdfArguments, pageSignals, 
       max_pages: Math.min(Math.max(visualPages.length, 1), 5)
     },
     requires_provider: "ocr_pages",
-    ...providerReady(providerReadiness.ocr_pages) ? {} : { required_inputs: ["configured OCR provider"] }
+    ...providerReady(providerReadiness.ocr_pages) ? {} : { required_inputs: [providerRequiredInput("OCR", providerReadiness.ocr_pages)] }
   });
   const extractRegionsStep = (priority, when) => toolStep(priority, {
     tool: "extract_regions",

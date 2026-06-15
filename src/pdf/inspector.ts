@@ -190,8 +190,24 @@ const providerRequiredInputs = (
   inputs: string[],
   providerName: 'OCR' | 'analyze_regions',
   readiness: PdfOptionalProviderReadiness
-): string[] =>
-  providerReady(readiness) ? inputs : [...inputs, `configured ${providerName} provider`];
+): string[] => {
+  if (providerReady(readiness)) return inputs;
+
+  const providerRequirement =
+    readiness === 'not_configured'
+      ? `configured ${providerName} provider`
+      : readiness === 'unavailable'
+        ? `available ${providerName} provider`
+        : `valid ${providerName} provider configuration`;
+
+  return [...inputs, providerRequirement];
+};
+
+const providerRequiredInput = (
+  providerName: 'OCR' | 'analyze_regions',
+  readiness: PdfOptionalProviderReadiness
+): string =>
+  providerRequiredInputs([], providerName, readiness)[0] ?? `configured ${providerName} provider`;
 
 const buildRegionSourceTemplate = (source: PdfSource): Record<string, unknown> => ({
   ...(source.path ? { path: source.path } : {}),
@@ -244,7 +260,9 @@ const buildInspectionNextTools = (
       when,
       arguments: readPdfArguments,
       ...(needsOcrProvider ? { requires_provider: 'ocr_pages' as const } : {}),
-      ...(needsOcrProvider && !ocrReady ? { required_inputs: ['configured OCR provider'] } : {}),
+      ...(needsOcrProvider && !ocrReady
+        ? { required_inputs: [providerRequiredInput('OCR', providerReadiness.ocr_pages)] }
+        : {}),
     });
   };
   const searchStep = (
@@ -301,7 +319,7 @@ const buildInspectionNextTools = (
       requires_provider: 'ocr_pages',
       ...(providerReady(providerReadiness.ocr_pages)
         ? {}
-        : { required_inputs: ['configured OCR provider'] }),
+        : { required_inputs: [providerRequiredInput('OCR', providerReadiness.ocr_pages)] }),
     });
   const extractRegionsStep = (priority: number, when: string): PdfInspectionNextTool =>
     toolStep(priority, {

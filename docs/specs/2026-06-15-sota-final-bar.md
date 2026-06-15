@@ -96,8 +96,11 @@ themselves.
      visual-region providers. It reports an `ocr-text-layer` profile for OCR
      word-box fusion and a `visual-full-fidelity` profile for runtime table,
      formula, chart, figure, and image-description crop certification when
-     those providers are installed; skipped providers are explicit and can be
-     made blocking with `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
+     those providers are installed. It also emits safe provider-status metadata
+     and skipped-capability certification profiles when providers are absent, so
+     release gates can distinguish a missing optional engine from a failed
+     engine. Skipped providers are explicit and can be made blocking with
+     `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
    - Provider-specific OCR, table, formula, chart, and image-description
      accuracy beyond the certification fixtures still requires public
      scanned/visual fixture benchmarks before any model-quality claim.

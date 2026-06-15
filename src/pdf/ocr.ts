@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,6 +29,7 @@ export const DEFAULT_OCR_MAX_OUTPUT_CHARS = 200_000;
 const OCR_COMMAND_ENV = 'MCP_PDF_OCR_COMMAND';
 const OCR_ARGS_ENV = 'MCP_PDF_OCR_ARGS_JSON';
 const OCR_PRESET_ENV = 'MCP_PDF_OCR_PRESET';
+const OCR_PRESET_HEALTHCHECK_TIMEOUT_MS = 2_500;
 
 interface CommandOcrProviderConfig {
   command: string;
@@ -59,6 +60,38 @@ const SUPPORTED_OCR_PRESETS = Object.keys(OCR_PROVIDER_PRESETS) as OcrProviderPr
 
 const isOcrProviderPreset = (value: string): value is OcrProviderPreset =>
   SUPPORTED_OCR_PRESETS.includes(value as OcrProviderPreset);
+
+const checkOcrPresetExecutable = (
+  preset: OcrProviderPreset
+): { available: true } | { available: false; warning: string } => {
+  const command = OCR_PROVIDER_PRESETS[preset].command;
+  const result = spawnSync(command, ['--version'], {
+    timeout: OCR_PRESET_HEALTHCHECK_TIMEOUT_MS,
+    windowsHide: true,
+    stdio: 'ignore',
+  });
+
+  if (result.status === 0) return { available: true };
+
+  if (result.error) {
+    return {
+      available: false,
+      warning: `${command} executable was not found or could not be started for MCP_PDF_OCR_PRESET=${preset}.`,
+    };
+  }
+
+  if (result.signal) {
+    return {
+      available: false,
+      warning: `${command} health check for MCP_PDF_OCR_PRESET=${preset} ended with signal ${result.signal}.`,
+    };
+  }
+
+  return {
+    available: false,
+    warning: `${command} health check for MCP_PDF_OCR_PRESET=${preset} exited with status ${String(result.status ?? 'unknown')}.`,
+  };
+};
 
 interface RawOcrOutput {
   text?: unknown;
@@ -150,6 +183,8 @@ export const getOcrProviderStatus = (): PdfOcrProviderStatus => {
       readiness: 'invalid_configuration',
       provider: 'command',
       command_configured: commandConfigured,
+      health: 'not_checked',
+      health_check: 'not_checked',
       preset,
       warnings: [
         `Unsupported MCP_PDF_OCR_PRESET. Supported values: ${SUPPORTED_OCR_PRESETS.join(', ')}.`,
@@ -162,7 +197,33 @@ export const getOcrProviderStatus = (): PdfOcrProviderStatus => {
       readiness: 'not_configured',
       provider: 'command',
       command_configured: false,
+      health: 'not_checked',
+      health_check: 'not_checked',
       warnings: ['Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages.'],
+    };
+  }
+
+  if (preset && !commandConfigured) {
+    const health = checkOcrPresetExecutable(preset);
+    if (!health.available) {
+      return {
+        readiness: 'unavailable',
+        provider: 'command',
+        command_configured: false,
+        health: 'unavailable',
+        health_check: 'preset_executable',
+        preset,
+        warnings: [health.warning],
+      };
+    }
+
+    return {
+      readiness: 'ready',
+      provider: 'command',
+      command_configured: false,
+      health: 'available',
+      health_check: 'preset_executable',
+      preset,
     };
   }
 
@@ -170,6 +231,8 @@ export const getOcrProviderStatus = (): PdfOcrProviderStatus => {
     readiness: 'ready',
     provider: 'command',
     command_configured: commandConfigured,
+    health: 'not_checked',
+    health_check: 'not_checked',
     ...(preset ? { preset } : {}),
   };
 };

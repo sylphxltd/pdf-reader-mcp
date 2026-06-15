@@ -142,12 +142,16 @@ Output is a JSON text part:
             "readiness": "ready",
             "provider": "command",
             "command_configured": true,
+            "health": "not_checked",
+            "health_check": "not_checked",
             "preset": "tesseract"
           },
           "analyze_regions": {
             "readiness": "not_configured",
             "provider": "command",
             "command_configured": false,
+            "health": "not_checked",
+            "health_check": "not_checked",
             "warnings": [
               "Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions."
             ]
@@ -165,14 +169,17 @@ Output is a JSON text part:
 - Sampling is bounded and defaults to a small number of pages.
 - `read_pdf_arguments` may recommend `include_ocr_text_layer` and
   `include_tables` together for scanned-page OCR table evidence, but must make
-  OCR opt-in and dependent on a configured local provider.
+  OCR opt-in and dependent on a configured local provider with an available
+  preset executable when a built-in OCR preset is selected.
 - `next_tools` is ordered by `priority`; executable steps use `arguments`, while
   steps that need task input or region boxes use `argument_template` and
   `required_inputs`.
 - `next_tools[].ready` means the step can be called immediately with the current
   arguments and provider readiness. OCR or visual-provider steps must become
-  not ready when their provider is not configured or has invalid configuration.
-- Provider readiness must not expose local provider paths or arguments.
+  not ready when their provider is not configured, has invalid configuration, or
+  the selected known OCR preset executable is unavailable.
+- Provider readiness and health metadata must not expose local provider paths
+  or arguments.
 - The first JSON part must not include binary image data.
 - Existing `read_pdf` callers remain unchanged.
 

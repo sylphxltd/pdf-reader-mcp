@@ -846,7 +846,9 @@ does not perform OCR. When sampled pages look scanned or image-only, the tool
 marks `needs_ocr: true` so agents do not mistake an image-based PDF for a text
 extraction failure. It also reports safe optional-provider readiness for
 `ocr_pages` and `analyze_regions` without exposing local provider paths or
-arguments.
+arguments. Built-in OCR presets also report executable health; if the selected
+preset binary is unavailable, OCR-dependent `next_tools` are marked not ready
+instead of routing agents into a failing OCR call.
 
 ### Layout Confidence for Agent Routing
 
@@ -954,12 +956,12 @@ or neither, is rejected during argument validation.
 | `page_signals` | Text chars, text items, token estimate, image paint operations, and scan/low-text flags |
 | `document_signals` | Outline, labels, permissions, forms, attachments, and structure-tree availability |
 | `recommendation` | Suggested workflow, OCR need, reason, ordered `next_tools`, and ready-to-use `read_pdf` arguments |
-| `provider_status` | Safe readiness metadata for optional `ocr_pages` and `analyze_regions` providers without provider paths |
+| `provider_status` | Safe readiness and health metadata for optional `ocr_pages` and `analyze_regions` providers without provider paths |
 
 `recommendation.next_tools[].ready` means the step can be called immediately
 with the listed arguments and current provider readiness. Steps that need a
-query, bounding box, OCR provider, or visual-region provider report
-`required_inputs` and/or `requires_provider`.
+query, bounding box, OCR provider, visual-region provider, or available preset
+executable report `required_inputs` and/or `requires_provider`.
 
 ### `render_page` Tool
 

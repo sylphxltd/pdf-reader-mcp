@@ -101,6 +101,8 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
         readiness: 'invalid_configuration',
         provider: commandConfigured ? 'command' : 'http',
         command_configured: commandConfigured,
+        health: 'not_checked',
+        health_check: 'not_checked',
         http_configured: httpConfigured,
         warnings: [error instanceof Error ? error.message : String(error)],
       };
@@ -112,6 +114,8 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
       readiness: 'not_configured',
       provider: 'command',
       command_configured: false,
+      health: 'not_checked',
+      health_check: 'not_checked',
       http_configured: false,
       warnings: [
         'Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions.',
@@ -123,6 +127,8 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
     readiness: 'ready',
     provider: commandConfigured ? 'command' : 'http',
     command_configured: commandConfigured,
+    health: 'not_checked',
+    health_check: 'not_checked',
     http_configured: httpConfigured,
   };
 };

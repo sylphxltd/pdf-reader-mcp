@@ -971,12 +971,20 @@ export interface PdfInspectionNextTool {
   requires_provider?: 'ocr_pages' | 'analyze_regions' | undefined;
 }
 
-export type PdfOptionalProviderReadiness = 'ready' | 'not_configured' | 'invalid_configuration';
+export type PdfOptionalProviderReadiness =
+  | 'ready'
+  | 'not_configured'
+  | 'invalid_configuration'
+  | 'unavailable';
+
+export type PdfOptionalProviderHealth = 'available' | 'unavailable' | 'not_checked';
 
 export interface PdfOcrProviderStatus {
   readiness: PdfOptionalProviderReadiness;
   provider: 'command';
   command_configured: boolean;
+  health: PdfOptionalProviderHealth;
+  health_check: 'preset_executable' | 'not_checked';
   preset?: 'tesseract' | 'tesseract-tsv' | 'unsupported' | undefined;
   warnings?: string[] | undefined;
 }
@@ -985,6 +993,8 @@ export interface PdfRegionAnalysisProviderStatus {
   readiness: PdfOptionalProviderReadiness;
   provider: 'command' | 'http';
   command_configured: boolean;
+  health: PdfOptionalProviderHealth;
+  health_check: 'not_checked';
   http_configured?: boolean | undefined;
   warnings?: string[] | undefined;
 }

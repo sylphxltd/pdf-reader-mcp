@@ -32,3 +32,8 @@ Link trust report routing into the agent document map when both features are
 requested, including page report indexes, signal indexes, risk, score, signal
 counts, high-signal routing, high/medium-risk routing arrays, and trust summary
 counts without forcing raw safety, layout, annotation, or table outputs.
+Add provider health metadata to optional OCR and visual-region provider status,
+including unavailable routing for built-in OCR presets when their executable is
+not installed. Extend the installed-provider benchmark so skipped providers
+still emit machine-readable certification profiles with skipped capabilities
+and safe provider-status metadata.
