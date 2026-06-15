@@ -17,7 +17,7 @@ type VisualTargetElement = Extract<PdfDocumentElement, { type: 'image' | 'table'
   bounding_box: NonNullable<PdfDocumentElement['bounding_box']>;
 };
 
-interface VisualEnrichmentCandidate {
+export interface VisualEnrichmentCandidate {
   element: VisualTargetElement;
   region: PdfRegionRequest;
 }
@@ -37,10 +37,10 @@ export interface BuildVisualEnrichmentsOutput {
 const visualTargetElement = (element: PdfDocumentElement): element is VisualTargetElement =>
   (element.type === 'image' || element.type === 'table') && element.bounding_box !== undefined;
 
-export const selectVisualEnrichmentCandidates = (
+export function selectVisualEnrichmentCandidates(
   elements: PdfDocumentElement[],
   maxVisualEnrichments: number
-): VisualEnrichmentCandidate[] => {
+): VisualEnrichmentCandidate[] {
   const candidates: VisualEnrichmentCandidate[] = [];
 
   for (const element of elements) {
@@ -57,7 +57,7 @@ export const selectVisualEnrichmentCandidates = (
   }
 
   return candidates;
-};
+}
 
 export const buildVisualEnrichmentsForSource = async (
   input: BuildVisualEnrichmentsInput

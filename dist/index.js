@@ -5617,7 +5617,7 @@ var buildTrustReport = (input) => {
 // src/pdf/visualEnrichment.ts
 var DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS = 8;
 var visualTargetElement = (element) => (element.type === "image" || element.type === "table") && element.bounding_box !== undefined;
-var selectVisualEnrichmentCandidates = (elements, maxVisualEnrichments) => {
+function selectVisualEnrichmentCandidates(elements, maxVisualEnrichments) {
   const candidates = [];
   for (const element of elements) {
     if (!visualTargetElement(element))
@@ -5634,7 +5634,7 @@ var selectVisualEnrichmentCandidates = (elements, maxVisualEnrichments) => {
       break;
   }
   return candidates;
-};
+}
 var buildVisualEnrichmentsForSource = async (input) => {
   const providerStatus = getRegionAnalysisProviderStatus();
   if (providerStatus.readiness !== "ready") {
