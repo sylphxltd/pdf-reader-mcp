@@ -39,8 +39,9 @@ MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_PROVIDER_BENCHMARK_RE
 ```
 
 `benchmark:all` writes one artifact per report profile:
-`pdf_performance_benchmark.json`, `pdf_quality_benchmark.json`, and
-`pdf_provider_benchmark.json`. Individual benchmark scripts also accept
+`pdf_performance_benchmark.json`, `pdf_quality_benchmark.json`,
+`pdf_corpus_benchmark.json`, and `pdf_provider_benchmark.json`.
+Individual benchmark scripts also accept
 `--output <path>` for a single report file or `--output-dir <dir>` for a
 profile-named report file.
 
@@ -52,10 +53,12 @@ MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gat
 
 The release gate writes `pdf_sota_release_gate.json` when artifact output is
 enabled. It exits non-zero until deterministic quality coverage is complete,
-all quality areas that require installed-provider evidence are certified by
-`benchmark:providers`, and the provider benchmark artifact was produced with
-strict provider requirements enabled. It also requires provider quality metrics
-to be present and passing for installed-provider certification results.
+the corpus benchmark is fully passing with checked-in and runtime-generated
+fixture diversity, all quality areas that require installed-provider evidence
+are certified by `benchmark:providers`, and the provider benchmark artifact was
+produced with strict provider requirements enabled. It also requires provider
+quality metrics to be present and passing for installed-provider certification
+results.
 
 ## Quality Benchmark
 
@@ -95,6 +98,24 @@ chart, figure, image-description, or vision model's real-world accuracy.
 Provider-specific accuracy and latency claims require separate public
 scanned/visual fixture runs.
 
+## Corpus Benchmark
+
+Run the corpus benchmark when you want a compact public proof artifact that is
+closer to end-to-end agent use than isolated unit fixtures:
+
+```bash
+bun run benchmark:corpus
+```
+
+The corpus benchmark covers a checked-in text-rich PDF plus mandatory
+runtime-generated multi-column reading-order, scanned-page OCR routing, and
+OCR-derived table recovery archetypes. Each case reports fixture type,
+document archetype, metrics, expected evidence, observed evidence, and
+assertion-level pass/fail status. Release gates require the exact archetype
+case set, checked-in and runtime-generated fixture diversity, and per-case
+passing assertion evidence in addition to performance, deterministic quality,
+and installed-provider evidence.
+
 ## Provider Benchmark
 
 Run the optional installed-provider benchmark when the local machine has OCR or
@@ -104,15 +125,14 @@ visual-region providers installed:
 bun run benchmark:providers
 ```
 
-The provider benchmark exercises the `tesseract-tsv` OCR preset over a
-runtime-generated PDF rendered through `read_pdf` OCR fusion, and it can
-exercise a configured `analyze_regions` command or HTTP provider over a
-runtime-generated visual fixture PDF. The visual fixture contains separate
-table, formula, chart, figure, and image-description regions. The benchmark
-crops those regions through the same rendering path as `analyze_regions` and
-reports a `visual-full-fidelity` certification profile covering crop
-provenance, table cell boxes, formula formats, chart axes or series, figure
-descriptions, and image-description text.
+The provider benchmark exercises the `tesseract-tsv` OCR preset over multiple
+runtime-generated PDFs rendered through `read_pdf` OCR fusion, and it can
+exercise a configured `analyze_regions` command or HTTP provider over 10
+runtime-generated table, formula, chart, figure, and image-description visual
+fixture regions. The benchmark crops those regions through the same rendering
+path as `analyze_regions` and reports a `visual-full-fidelity` certification
+profile covering crop provenance, table cell boxes, formula formats, chart
+axes or series, figure descriptions, and image-description text.
 
 The repository includes `scripts/reference-region-analysis-provider.mjs` as a
 deterministic command provider for the visual certification fixtures. It is

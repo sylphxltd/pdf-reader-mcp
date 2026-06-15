@@ -5,6 +5,12 @@ import { writeBenchmarkReport } from './benchmark-utils.js';
 const ARTIFACT_DIR_ENV = 'MCP_PDF_BENCHMARK_OUTPUT_DIR';
 const DEFAULT_ARTIFACT_DIR = 'benchmark-artifacts';
 const ARTIFACT_DIR_FLAGS = new Set(['--artifacts-dir', '--artifact-dir']);
+const REQUIRED_CORPUS_CASE_IDS = [
+  'checked-in-sample-agent-document-twin',
+  'runtime-report-reading-order',
+  'runtime-scanned-ocr-routing',
+  'runtime-ocr-table-agent-evidence',
+] as const;
 
 const REQUIRED_ARTIFACTS = {
   performance: {
@@ -14,6 +20,10 @@ const REQUIRED_ARTIFACTS = {
   quality: {
     fileName: 'pdf_quality_benchmark.json',
     profile: 'pdf_quality_benchmark',
+  },
+  corpus: {
+    fileName: 'pdf_corpus_benchmark.json',
+    profile: 'pdf_corpus_benchmark',
   },
   provider: {
     fileName: 'pdf_provider_benchmark.json',
@@ -124,6 +134,7 @@ export const buildSotaReleaseGateReport = async (
   const artifacts = {
     performance: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.performance.fileName),
     quality: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.quality.fileName),
+    corpus: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.corpus.fileName),
     provider: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.provider.fileName),
   };
 
@@ -187,6 +198,76 @@ export const buildSotaReleaseGateReport = async (
     publicContract?.status === 'covered',
     'public contract integrity is covered by deterministic benchmark evidence',
     { status: publicContract?.status }
+  );
+
+  const corpusCases = getArray(artifacts.corpus, 'cases');
+  const corpusScore = getNumber(artifacts.corpus, 'score');
+  const corpusCaseCount = getNumber(artifacts.corpus, 'case_count');
+  const corpusAssertionCount = getNumber(artifacts.corpus, 'assertion_count');
+  const corpusPassedAssertionCount = getNumber(artifacts.corpus, 'passed_assertion_count');
+  addCheck(
+    checks,
+    'corpus:score',
+    corpusScore === 1 &&
+      corpusAssertionCount === corpusPassedAssertionCount &&
+      (corpusAssertionCount ?? 0) > 0,
+    'corpus benchmark is fully passing',
+    {
+      score: corpusScore,
+      passed_assertions: corpusPassedAssertionCount,
+      assertion_count: corpusAssertionCount,
+    }
+  );
+  addCheck(
+    checks,
+    'corpus:case-count',
+    corpusCases.length >= 4 && corpusCaseCount === corpusCases.length,
+    'corpus benchmark includes the expected minimum case coverage',
+    { case_count: corpusCaseCount, observed_cases: corpusCases.length }
+  );
+  addCheck(
+    checks,
+    'corpus:fixture-diversity',
+    corpusCases.some((entry) => entry.fixture_type === 'checked-in') &&
+      corpusCases.some((entry) => entry.fixture_type === 'runtime-generated'),
+    'corpus benchmark covers checked-in and runtime-generated fixtures',
+    {
+      fixture_types: Array.from(
+        new Set(corpusCases.map((entry) => getString(entry, 'fixture_type')).filter(Boolean))
+      ),
+    }
+  );
+  const corpusCaseIds = new Set(corpusCases.map((entry) => getString(entry, 'id')).filter(Boolean));
+  const missingCorpusCaseIds = REQUIRED_CORPUS_CASE_IDS.filter((id) => !corpusCaseIds.has(id));
+  addCheck(
+    checks,
+    'corpus:required-archetypes',
+    missingCorpusCaseIds.length === 0,
+    'corpus benchmark includes all required end-to-end archetype cases',
+    { required_case_ids: REQUIRED_CORPUS_CASE_IDS, missing_case_ids: missingCorpusCaseIds }
+  );
+  const failingCorpusCases = corpusCases.filter((entry) => {
+    const assertionCount = getNumber(entry, 'assertion_count');
+    return (
+      assertionCount === undefined ||
+      assertionCount <= 0 ||
+      getNumber(entry, 'passed_assertion_count') !== assertionCount ||
+      getNumber(entry, 'score') !== 1
+    );
+  });
+  addCheck(
+    checks,
+    'corpus:case-quality',
+    corpusCases.length > 0 && failingCorpusCases.length === 0,
+    'every corpus benchmark case has passing assertion-level evidence',
+    {
+      failing_case_ids: failingCorpusCases.map((entry) => ({
+        id: entry.id,
+        score: entry.score,
+        assertion_count: entry.assertion_count,
+        passed_assertion_count: entry.passed_assertion_count,
+      })),
+    }
   );
 
   const providerRequiredIds = finalBarCoverage

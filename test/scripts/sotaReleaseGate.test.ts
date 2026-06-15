@@ -43,6 +43,46 @@ const writeValidQualityArtifact = (artifactDir: string) => {
   });
 };
 
+const writeValidCorpusArtifact = (artifactDir: string) => {
+  writeArtifact(artifactDir, 'pdf_corpus_benchmark.json', {
+    profile: 'pdf_corpus_benchmark',
+    case_count: 4,
+    assertion_count: 19,
+    passed_assertion_count: 19,
+    score: 1,
+    cases: [
+      {
+        id: 'checked-in-sample-agent-document-twin',
+        fixture_type: 'checked-in',
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        score: 1,
+      },
+      {
+        id: 'runtime-report-reading-order',
+        fixture_type: 'runtime-generated',
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        score: 1,
+      },
+      {
+        id: 'runtime-scanned-ocr-routing',
+        fixture_type: 'runtime-generated',
+        assertion_count: 3,
+        passed_assertion_count: 3,
+        score: 1,
+      },
+      {
+        id: 'runtime-ocr-table-agent-evidence',
+        fixture_type: 'runtime-generated',
+        assertion_count: 4,
+        passed_assertion_count: 4,
+        score: 1,
+      },
+    ],
+  });
+};
+
 const writeProviderArtifact = (
   artifactDir: string,
   status: 'certified' | 'provider_benchmark_required',
@@ -113,6 +153,7 @@ describe('SOTA release gate', () => {
     await withTempDir(async (tempDir) => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
       writeProviderArtifact(tempDir, 'certified', true);
 
       const report = await buildSotaReleaseGateReport(tempDir);
@@ -127,6 +168,7 @@ describe('SOTA release gate', () => {
     await withTempDir(async (tempDir) => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
       writeProviderArtifact(tempDir, 'provider_benchmark_required', false);
 
       const report = await buildSotaReleaseGateReport(tempDir);
@@ -148,6 +190,7 @@ describe('SOTA release gate', () => {
     await withTempDir(async (tempDir) => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -162,6 +205,7 @@ describe('SOTA release gate', () => {
     await withTempDir(async (tempDir) => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
       writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
         profile: 'pdf_provider_benchmark',
         strict: true,
@@ -182,6 +226,7 @@ describe('SOTA release gate', () => {
     await withTempDir(async (tempDir) => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
       writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
         profile: 'pdf_provider_benchmark',
         strict: true,
@@ -221,6 +266,47 @@ describe('SOTA release gate', () => {
       expect(
         report.checks.find((check) => check.id === 'provider:quality-metrics-passing')?.status
       ).toBe('failed');
+    });
+  });
+
+  test('fails when corpus benchmark evidence is incomplete', async () => {
+    await withTempDir(async (tempDir) => {
+      writeValidPerformanceArtifact(tempDir);
+      writeValidQualityArtifact(tempDir);
+      writeArtifact(tempDir, 'pdf_corpus_benchmark.json', {
+        profile: 'pdf_corpus_benchmark',
+        case_count: 1,
+        assertion_count: 2,
+        passed_assertion_count: 1,
+        score: 0.5,
+        cases: [
+          {
+            id: 'checked-in-sample-agent-document-twin',
+            fixture_type: 'checked-in',
+            assertion_count: 2,
+            passed_assertion_count: 1,
+            score: 0.5,
+          },
+        ],
+      });
+      writeProviderArtifact(tempDir, 'certified', true);
+
+      const report = await buildSotaReleaseGateReport(tempDir);
+
+      expect(report.status).toBe('failed');
+      expect(report.checks.find((check) => check.id === 'corpus:score')?.status).toBe('failed');
+      expect(report.checks.find((check) => check.id === 'corpus:case-count')?.status).toBe(
+        'failed'
+      );
+      expect(report.checks.find((check) => check.id === 'corpus:fixture-diversity')?.status).toBe(
+        'failed'
+      );
+      expect(report.checks.find((check) => check.id === 'corpus:required-archetypes')?.status).toBe(
+        'failed'
+      );
+      expect(report.checks.find((check) => check.id === 'corpus:case-quality')?.status).toBe(
+        'failed'
+      );
     });
   });
 });

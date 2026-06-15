@@ -149,7 +149,8 @@ MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all
 ```
 
 `benchmark:release-gate` reads those artifacts and fails until deterministic
-final-bar coverage and installed-provider final-bar evidence are both complete.
+final-bar coverage, mandatory corpus archetype evidence, and
+installed-provider final-bar evidence are complete.
 `package:smoke` packs the package locally and verifies that the tarball contains
 the executable `dist/index.js` runtime artifact with matching `bin` and
 `exports` metadata.
@@ -171,6 +172,12 @@ capabilities. Its JSON report also emits
 per-provider `quality` metrics, `final_bar_provider_evidence_summary`, and
 `final_bar_provider_evidence`, mapping provider certification profiles to the
 SOTA final-bar capabilities that require installed-provider evidence.
+
+`benchmark:corpus` emits `pdf_corpus_benchmark.json`, covering the checked-in
+sample PDF plus runtime-generated reading-order, scanned-OCR routing, and
+OCR-derived table archetypes. The release gate requires all corpus archetypes,
+checked-in and runtime-generated fixture diversity, and passing per-case
+assertions.
 
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar
