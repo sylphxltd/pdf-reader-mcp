@@ -140,7 +140,8 @@ Required before publishing the next package release:
 Next slices for the same v3 track:
 
 - OCR provider presets, scanned fixtures, and accuracy/latency benchmarks.
-- Optional layout/table/formula/chart provider interfaces.
+- Engine-specific layout, table, formula, and chart provider presets and
+  accuracy/latency fixtures.
 - Benchmark harness with accuracy and latency reported separately.
 - Broader fixtures for multi-column, forms, tables, scanned pages, hidden text,
   charts, and formulas.

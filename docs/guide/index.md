@@ -10,6 +10,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **PDF search evidence** - Locate literal text matches with snippets, match offsets, text-item bounding boxes, and provenance
 - **Visual page evidence** - Render selected pages as bounded PNG MCP image parts with provenance
 - **Region crop evidence** - Crop PDF-coordinate bounding boxes as focused PNG evidence
+- **Visual region analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - **Configured OCR text layers** - Run selected rendered pages through a local OCR provider and normalize text, confidence, words, language, and provenance
 - **Full text content** - Get all text from a PDF
 - **PDF text layers** - Return line records, word records, character ranges, best-effort boxes, and provenance
@@ -50,6 +51,9 @@ Render selected pages as visual evidence for layout inspection, OCR routing, and
 
 ### Region Cropping
 Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figures, charts, formulas, annotations, and citation verification.
+
+### Visual Region Analysis
+Analyze focused crops with a configured local provider for visual table recognition, chart-to-data extraction, formula recognition, figure descriptions, and image captions. Provider commands are environment-configured, so request payloads cannot choose arbitrary executables.
 
 ### OCR Provider Pipeline
 Run selected rendered pages through a configured local OCR command when scanned or sparse pages need a text layer. OCR commands are environment-configured, so request payloads cannot choose arbitrary executables.

@@ -78,7 +78,7 @@ The JSON summary must not include rendered page base64.
 
 - OCR provider hardening with scanned fixtures and provider presets.
 - Advanced viewport transforms for rotated-page crop evidence.
-- Optional chart, formula, and visual table adapters behind provider
-  interfaces.
+- Engine-specific chart, formula, and visual table provider presets and
+  accuracy fixtures.
 - Benchmark fixtures for scanned, sparse, mixed-layout, and visually dense
   pages.

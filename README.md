@@ -1585,13 +1585,14 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Layout diagnostics with reading-order confidence
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Tesseract OCR provider preset without bundling OCR model assets
+- [x] Configured local visual region analysis provider for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
 - [ ] Richer semantic layout detection
-- [ ] Optional visual table recognizer provider
-- [ ] Fixture-backed OCR accuracy benchmarks
+- [ ] Fixture-backed OCR and visual-region accuracy benchmarks
+- [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming
 - [ ] Advanced caching
