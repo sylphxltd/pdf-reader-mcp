@@ -35,7 +35,7 @@ neutral capability names and avoids public comparison language.
 | Table quality diagnostics | Shipped | Completeness, non-empty cell ratio, row alignment, row spacing consistency, missing-cell count, inferred merged-cell candidates, warnings, and repeated-header continuation candidates. |
 | Structured element output | Shipped | `include_elements`. |
 | Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, OCR evidence, visual enrichment indexes, and page geometry in one agent-ready contract. |
-| Semantic document AST | Shipped | `include_document_ast`; page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, diagram, and visual-region nodes linked to element IDs, visual enrichment IDs, chunk IDs, bounding boxes, confidence, section-path context, and table quality metadata. |
+| Semantic document AST | Shipped | `include_document_ast`; page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, diagram, and visual-region nodes linked to element IDs, visual enrichment IDs, chunk IDs, bounding boxes, confidence, section-path context, caption-to-evidence links, and table quality metadata. |
 | Deterministic semantic hints | Shipped | `include_semantic_hints`; heading, list item, paragraph, caption, header, and footer hints with confidence. Header/footer detection uses page-edge geometry and avoids off-page text. |
 | Markdown rendering | Shipped | `include_markdown`. |
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
@@ -53,11 +53,11 @@ neutral capability names and avoids public comparison language.
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, off-page text, and overlapping text that may visually spoof or obscure content. |
 | PDF trust report | Shipped | `include_trust_report`; consolidates content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals with page-level routing guidance. |
-| Rich semantic headings/paragraphs/lists | In progress | Deterministic hints and AST nodes now cover headings, paragraphs, lists, captions, headers, footers, and cross-page section context. Broader semantic variants and caption-to-figure/table linking still need fixtures/evals. |
+| Rich semantic headings/paragraphs/lists | In progress | Deterministic hints and AST nodes now cover headings, paragraphs, lists, captions, headers, footers, cross-page section context, and caption-to-evidence linking. Broader semantic variants and caption-link fixture diversity still need expanded evals. |
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; visual provider output can now preserve cell spans and boxes; non-repeated continuation still needs broader fixtures. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
-| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, inspection routing, recursive reading order, visual-region normalization, document-twin visual enrichment fusion, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, inspection tool routing, real PDF document signals, real PDF reading order, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. `bun run benchmark:providers` reports installed-provider certification profiles for OCR text-layer word boxes and visual table/formula/chart crop evidence when providers are configured. |
+| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, inspection routing, recursive reading order, visual-region normalization, document-twin visual enrichment fusion, caption-to-evidence links, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, inspection tool routing, real PDF document signals, real PDF reading order, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. `bun run benchmark:providers` reports installed-provider certification profiles for OCR text-layer word boxes and visual table/formula/chart crop evidence when providers are configured. |
 | OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract` and `tesseract-tsv`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`; TSV output is normalized into word boxes and confidence. No default OCR model is bundled. |
 | Formula extraction | Shipped | `analyze_regions` can normalize LaTeX, MathML, AsciiMath, text, confidence, and provenance from a configured provider; `read_pdf` can opt into `include_visual_enrichments` and attach formula evidence to the document twin. Accuracy depends on the configured local engine. |
 | Chart/image descriptions | Shipped | `analyze_regions` can normalize chart data points, axes, series, figure, and image-description provider output; `read_pdf` can opt into `include_visual_enrichments` and attach visual evidence to the document twin. Accuracy depends on the configured local engine. |
@@ -81,7 +81,8 @@ neutral capability names and avoids public comparison language.
    retrieval quality against fixture expectations.
 5. Continue broadening the deterministic semantic model beyond shipped
    headings, paragraphs, lists, captions, headers, footers, cross-page section
-   context, AST traversal, and richer table trust signals.
+   context, caption-to-evidence links, AST traversal, and richer table trust
+   signals.
 6. Harden trust reports with redaction and broader adversarial fixtures.
 7. Harden the optional OCR provider with broader scanned fixtures, additional
    provider presets, and accuracy/latency reporting beyond deterministic mock

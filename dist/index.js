@@ -3368,7 +3368,7 @@ var readPdfArgsSchema = object({
   include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
   include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
   include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
-  include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context linked back to element and chunk evidence."))),
+  include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image regions and fuse normalized table, formula, chart, figure, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
   include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing."))),
@@ -3713,6 +3713,8 @@ var buildAccessibilityReport = (input) => {
 
 // src/pdf/documentAst.ts
 var DOCUMENT_AST_VERSION = "2026-06-15";
+var CAPTION_TARGET_MAX_VERTICAL_GAP = 96;
+var CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 var unique = (values) => [...new Set(values)];
 var sectionRef = (node) => ({
   id: node.id,
@@ -3723,6 +3725,15 @@ var sectionRef = (node) => ({
 var continuedFromSectionId = (path5, page) => {
   const priorPageSection = path5.findLast((section) => section.page_start < page);
   return priorPageSection?.id;
+};
+var captionKind = (text2) => {
+  const match = text2?.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
+  const rawKind = match?.[1]?.toLowerCase();
+  if (!rawKind)
+    return;
+  if (rawKind === "fig")
+    return "figure";
+  return rawKind;
 };
 var pageRangeForElements = (elements) => {
   if (elements.length === 0)
@@ -3750,6 +3761,23 @@ var visualEnrichmentType = (kind) => {
   }
   return;
 };
+var visualKindForNode = (node) => {
+  if (node.visual_enrichment)
+    return node.visual_enrichment.kind;
+  if (node.type === "table" || node.type === "figure" || node.type === "chart" || node.type === "formula" || node.type === "image" || node.type === "diagram") {
+    return node.type;
+  }
+  return;
+};
+var captionKindMatchesNode = (kind, node) => {
+  if (!kind)
+    return true;
+  const nodeKind = visualKindForNode(node);
+  if (kind === "figure")
+    return nodeKind === "figure" || nodeKind === "image";
+  return nodeKind === kind;
+};
+var isCaptionTargetNode = (node) => node.type === "table" || node.type === "image" || node.type === "figure" || node.type === "chart" || node.type === "formula" || node.type === "diagram" || node.type === "visual_region";
 var visualText = (enrichment) => enrichment.markdown ?? enrichment.text ?? enrichment.description ?? enrichment.formula?.latex ?? enrichment.formula?.text ?? enrichment.chart?.summary;
 var visualEnrichmentsByTargetElementId = (enrichments) => {
   const index = new Map;
@@ -3867,6 +3895,83 @@ var appendToPageTree = (pageNode, sectionStack, node) => {
   parent.children ??= [];
   parent.children.push(node);
 };
+var collectPageNodes = (node) => {
+  const children = node.children ?? [];
+  return [node, ...children.flatMap(collectPageNodes)];
+};
+var primaryBox = (node) => node.bounding_boxes?.[0];
+var horizontalOverlapRatio = (left, right) => {
+  const overlap = Math.min(left.right, right.right) - Math.max(left.left, right.left);
+  if (overlap <= 0)
+    return 0;
+  const leftWidth = left.right - left.left;
+  const rightWidth = right.right - right.left;
+  const denominator = Math.min(leftWidth, rightWidth);
+  if (denominator <= 0)
+    return 0;
+  return overlap / denominator;
+};
+var captionTargetRelation = (captionBox, targetBox) => {
+  if (captionBox.top <= targetBox.bottom) {
+    return { relation: "below", gap: targetBox.bottom - captionBox.top };
+  }
+  if (captionBox.bottom >= targetBox.top) {
+    return { relation: "above", gap: captionBox.bottom - targetBox.top };
+  }
+  return { relation: "overlapping", gap: 0 };
+};
+var captionTargetSignals = (kind, relation, kindMatched) => [
+  "same-page",
+  "horizontal-overlap",
+  `caption-${relation}`,
+  ...kind ? [`caption-prefix-${kind}`] : [],
+  ...kindMatched ? ["caption-kind-match"] : []
+];
+var buildCaptionLink = (caption, target, kind) => {
+  const captionBox = primaryBox(caption);
+  const targetBox = primaryBox(target);
+  if (!captionBox || !targetBox)
+    return;
+  const overlapRatio = horizontalOverlapRatio(captionBox, targetBox);
+  if (overlapRatio < CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO)
+    return;
+  const { relation, gap } = captionTargetRelation(captionBox, targetBox);
+  if (gap > CAPTION_TARGET_MAX_VERTICAL_GAP)
+    return;
+  const kindMatched = kind !== undefined && captionKindMatchesNode(kind, target);
+  const visualEnrichmentId = target.visual_enrichment_ids?.[0];
+  const confidence = Math.max(0.5, Math.min(0.95, 0.62 + overlapRatio * 0.18 + (kindMatched ? 0.12 : 0) - gap / 480));
+  return {
+    node_id: target.id,
+    element_id: target.element_ids[0] ?? target.id,
+    type: target.type,
+    relation,
+    confidence: Number(confidence.toFixed(2)),
+    signals: captionTargetSignals(kind, relation, kindMatched),
+    ...visualEnrichmentId ? { visual_enrichment_id: visualEnrichmentId } : {}
+  };
+};
+var linkCaptionsOnPage = (pageNode) => {
+  const pageNodes = collectPageNodes(pageNode);
+  const captions = pageNodes.filter((node) => node.type === "caption");
+  const targets = pageNodes.filter(isCaptionTargetNode);
+  for (const caption of captions) {
+    const kind = captionKind(caption.text);
+    const matchingTargets = targets.filter((target2) => captionKindMatchesNode(kind, target2));
+    if (kind && matchingTargets.length === 0)
+      continue;
+    const candidateTargets = matchingTargets.length > 0 ? matchingTargets : targets;
+    const links = candidateTargets.map((target2) => buildCaptionLink(caption, target2, kind)).filter((link) => link !== undefined).sort((left, right) => right.confidence - left.confidence);
+    const bestLink = links[0];
+    if (!bestLink)
+      continue;
+    caption.caption_links = [bestLink];
+    const target = targets.find((candidate) => candidate.id === bestLink.node_id);
+    if (target) {
+      target.caption_ids = unique([...target.caption_ids ?? [], caption.id]);
+    }
+  }
+};
 var syncSectionContext = (documentSectionStack, node) => {
   if (node.type === "header" || node.type === "footer")
     return;
@@ -3935,6 +4040,7 @@ var aggregateNode = (node, depth) => {
     footerCount: stats.footerCount + child.footerCount,
     sectionContextNodeCount: stats.sectionContextNodeCount + child.sectionContextNodeCount,
     crossPageSectionContextCount: stats.crossPageSectionContextCount + child.crossPageSectionContextCount,
+    captionLinkCount: stats.captionLinkCount + child.captionLinkCount,
     tableCount: stats.tableCount + child.tableCount,
     imageCount: stats.imageCount + child.imageCount,
     figureCount: stats.figureCount + child.figureCount,
@@ -3954,6 +4060,7 @@ var aggregateNode = (node, depth) => {
     footerCount: node.type === "footer" ? 1 : 0,
     sectionContextNodeCount: node.section_path ? 1 : 0,
     crossPageSectionContextCount: node.continued_from_section_id ? 1 : 0,
+    captionLinkCount: node.caption_links?.length ?? 0,
     tableCount: node.type === "table" ? 1 : 0,
     imageCount: node.image !== undefined ? 1 : 0,
     figureCount: node.type === "figure" ? 1 : 0,
@@ -4030,6 +4137,7 @@ var buildDocumentAst = (input) => {
       syncSectionContext(documentSectionStack, node);
       appendToPageTree(pageNode, sectionStack, node);
     }
+    linkCaptionsOnPage(pageNode);
     root.children?.push(pageNode);
   }
   const stats = aggregateNode(root, 1);
@@ -4053,6 +4161,7 @@ var buildDocumentAst = (input) => {
       footer_count: stats.footerCount,
       section_context_node_count: stats.sectionContextNodeCount,
       cross_page_section_context_count: stats.crossPageSectionContextCount,
+      caption_link_count: stats.captionLinkCount,
       table_count: stats.tableCount,
       image_count: stats.imageCount,
       figure_count: stats.figureCount,

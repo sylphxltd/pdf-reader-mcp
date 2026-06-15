@@ -5,6 +5,7 @@ import type {
   BoundingBox,
   ExtractedTable,
   PageContentItem,
+  PdfDocumentAstNode,
   PdfPageGeometry,
 } from '../../src/types/pdf.js';
 
@@ -30,6 +31,35 @@ const textItem = (
   height,
   bounding_box: box(left, bottom, width, height),
 });
+
+const imageItem = (
+  index: number,
+  left: number,
+  bottom: number,
+  width: number,
+  height: number
+): PageContentItem => ({
+  type: 'image',
+  xPosition: left,
+  yPosition: bottom,
+  width,
+  height,
+  bounding_box: box(left, bottom, width, height),
+  imageData: {
+    page: 1,
+    index,
+    width: Math.round(width),
+    height: Math.round(height),
+    format: 'png',
+    data: 'mock-image-data',
+    bounding_box: box(left, bottom, width, height),
+  },
+});
+
+const flattenNodes = (node: PdfDocumentAstNode): PdfDocumentAstNode[] => [
+  node,
+  ...(node.children ?? []).flatMap(flattenNodes),
+];
 
 describe('documentAst', () => {
   it('builds a semantic document tree from structured elements and chunks', () => {
@@ -241,5 +271,73 @@ describe('documentAst', () => {
       cross_page_section_context_count: 3,
     });
     expect(ast.root.children?.[1]?.element_ids).toEqual(['p2-text-1', 'p2-text-2', 'p2-text-3']);
+  });
+
+  it('links captions to nearby table and image evidence without moving nodes', () => {
+    const pageContents = [
+      {
+        page: 1,
+        items: [
+          imageItem(0, 40, 590, 220, 100),
+          textItem('Figure 1: Regional retention by cohort', 42, 570, 230, 9),
+          textItem('Table 1: Quarterly revenue', 42, 520, 180, 9),
+        ],
+      },
+    ];
+    const tables: ExtractedTable[] = [
+      {
+        page: 1,
+        tableIndex: 0,
+        rows: [
+          ['Metric', 'Value'],
+          ['Revenue growth', '24%'],
+        ],
+        bounding_box: box(40, 470, 220, 40),
+        rowCount: 2,
+        colCount: 2,
+        confidence: 0.9,
+      },
+    ];
+
+    const elements = buildStructuredElements(pageContents, tables, true);
+    const chunks = buildCitationChunks(elements, { useSemanticBoundaries: true });
+    const ast = buildDocumentAst({ selectedPages: [1], elements, chunks });
+    const nodes = flattenNodes(ast.root);
+    const figureCaption = nodes.find((node) => node.id === 'p1-text-2');
+    const tableCaption = nodes.find((node) => node.id === 'p1-text-3');
+    const imageNode = nodes.find((node) => node.id === 'p1-image-1');
+    const tableNode = nodes.find((node) => node.id === 'p1-table-1');
+
+    expect(figureCaption?.type).toBe('caption');
+    expect(figureCaption?.caption_links?.[0]).toMatchObject({
+      node_id: 'p1-image-1',
+      element_id: 'p1-image-1',
+      type: 'image',
+      relation: 'below',
+      signals: expect.arrayContaining([
+        'same-page',
+        'horizontal-overlap',
+        'caption-below',
+        'caption-prefix-figure',
+        'caption-kind-match',
+      ]),
+    });
+    expect(tableCaption?.type).toBe('caption');
+    expect(tableCaption?.caption_links?.[0]).toMatchObject({
+      node_id: 'p1-table-1',
+      element_id: 'p1-table-1',
+      type: 'table',
+      relation: 'above',
+      signals: expect.arrayContaining([
+        'same-page',
+        'horizontal-overlap',
+        'caption-above',
+        'caption-prefix-table',
+        'caption-kind-match',
+      ]),
+    });
+    expect(imageNode?.caption_ids).toEqual(['p1-text-2']);
+    expect(tableNode?.caption_ids).toEqual(['p1-text-3']);
+    expect(ast.summary.caption_link_count).toBe(2);
   });
 });

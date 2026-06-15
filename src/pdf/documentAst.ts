@@ -2,6 +2,8 @@ import type {
   BoundingBox,
   PdfChunk,
   PdfDocumentAst,
+  PdfDocumentAstCaptionLink,
+  PdfDocumentAstCaptionRelation,
   PdfDocumentAstNode,
   PdfDocumentAstNodeType,
   PdfDocumentAstSectionRef,
@@ -11,6 +13,8 @@ import type {
 } from '../types/pdf.js';
 
 const DOCUMENT_AST_VERSION = '2026-06-15' as const;
+const CAPTION_TARGET_MAX_VERTICAL_GAP = 96;
+const CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 
 interface BuildDocumentAstInput {
   selectedPages: number[];
@@ -30,6 +34,7 @@ interface AstStats {
   footerCount: number;
   sectionContextNodeCount: number;
   crossPageSectionContextCount: number;
+  captionLinkCount: number;
   tableCount: number;
   imageCount: number;
   figureCount: number;
@@ -56,6 +61,16 @@ const continuedFromSectionId = (
 ): string | undefined => {
   const priorPageSection = path.findLast((section) => section.page_start < page);
   return priorPageSection?.id;
+};
+
+const captionKind = (
+  text: string | undefined
+): 'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram' | undefined => {
+  const match = text?.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
+  const rawKind = match?.[1]?.toLowerCase();
+  if (!rawKind) return undefined;
+  if (rawKind === 'fig') return 'figure';
+  return rawKind as 'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram';
 };
 
 const pageRangeForElements = (elements: PdfDocumentElement[]): { start: number; end: number } => {
@@ -88,6 +103,42 @@ const visualEnrichmentType = (kind: PdfRegionAnalysisKind): PdfDocumentAstNodeTy
 
   return undefined;
 };
+
+const visualKindForNode = (node: PdfDocumentAstNode): PdfRegionAnalysisKind | undefined => {
+  if (node.visual_enrichment) return node.visual_enrichment.kind;
+  if (
+    node.type === 'table' ||
+    node.type === 'figure' ||
+    node.type === 'chart' ||
+    node.type === 'formula' ||
+    node.type === 'image' ||
+    node.type === 'diagram'
+  ) {
+    return node.type;
+  }
+
+  return undefined;
+};
+
+const captionKindMatchesNode = (
+  kind: ReturnType<typeof captionKind>,
+  node: PdfDocumentAstNode
+): boolean => {
+  if (!kind) return true;
+  const nodeKind = visualKindForNode(node);
+  if (kind === 'figure') return nodeKind === 'figure' || nodeKind === 'image';
+
+  return nodeKind === kind;
+};
+
+const isCaptionTargetNode = (node: PdfDocumentAstNode): boolean =>
+  node.type === 'table' ||
+  node.type === 'image' ||
+  node.type === 'figure' ||
+  node.type === 'chart' ||
+  node.type === 'formula' ||
+  node.type === 'diagram' ||
+  node.type === 'visual_region';
 
 const visualText = (enrichment: PdfVisualEnrichment): string | undefined =>
   enrichment.markdown ??
@@ -254,6 +305,110 @@ const appendToPageTree = (
   parent.children.push(node);
 };
 
+const collectPageNodes = (node: PdfDocumentAstNode): PdfDocumentAstNode[] => {
+  const children = node.children ?? [];
+  return [node, ...children.flatMap(collectPageNodes)];
+};
+
+const primaryBox = (node: PdfDocumentAstNode): BoundingBox | undefined => node.bounding_boxes?.[0];
+
+const horizontalOverlapRatio = (left: BoundingBox, right: BoundingBox): number => {
+  const overlap = Math.min(left.right, right.right) - Math.max(left.left, right.left);
+  if (overlap <= 0) return 0;
+
+  const leftWidth = left.right - left.left;
+  const rightWidth = right.right - right.left;
+  const denominator = Math.min(leftWidth, rightWidth);
+  if (denominator <= 0) return 0;
+
+  return overlap / denominator;
+};
+
+const captionTargetRelation = (
+  captionBox: BoundingBox,
+  targetBox: BoundingBox
+): { relation: PdfDocumentAstCaptionRelation; gap: number } => {
+  if (captionBox.top <= targetBox.bottom) {
+    return { relation: 'below', gap: targetBox.bottom - captionBox.top };
+  }
+
+  if (captionBox.bottom >= targetBox.top) {
+    return { relation: 'above', gap: captionBox.bottom - targetBox.top };
+  }
+
+  return { relation: 'overlapping', gap: 0 };
+};
+
+const captionTargetSignals = (
+  kind: ReturnType<typeof captionKind>,
+  relation: PdfDocumentAstCaptionRelation,
+  kindMatched: boolean
+): string[] => [
+  'same-page',
+  'horizontal-overlap',
+  `caption-${relation}`,
+  ...(kind ? [`caption-prefix-${kind}`] : []),
+  ...(kindMatched ? ['caption-kind-match'] : []),
+];
+
+const buildCaptionLink = (
+  caption: PdfDocumentAstNode,
+  target: PdfDocumentAstNode,
+  kind: ReturnType<typeof captionKind>
+): PdfDocumentAstCaptionLink | undefined => {
+  const captionBox = primaryBox(caption);
+  const targetBox = primaryBox(target);
+  if (!captionBox || !targetBox) return undefined;
+
+  const overlapRatio = horizontalOverlapRatio(captionBox, targetBox);
+  if (overlapRatio < CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
+
+  const { relation, gap } = captionTargetRelation(captionBox, targetBox);
+  if (gap > CAPTION_TARGET_MAX_VERTICAL_GAP) return undefined;
+
+  const kindMatched = kind !== undefined && captionKindMatchesNode(kind, target);
+  const visualEnrichmentId = target.visual_enrichment_ids?.[0];
+  const confidence = Math.max(
+    0.5,
+    Math.min(0.95, 0.62 + overlapRatio * 0.18 + (kindMatched ? 0.12 : 0) - gap / 480)
+  );
+
+  return {
+    node_id: target.id,
+    element_id: target.element_ids[0] ?? target.id,
+    type: target.type,
+    relation,
+    confidence: Number(confidence.toFixed(2)),
+    signals: captionTargetSignals(kind, relation, kindMatched),
+    ...(visualEnrichmentId ? { visual_enrichment_id: visualEnrichmentId } : {}),
+  };
+};
+
+const linkCaptionsOnPage = (pageNode: PdfDocumentAstNode) => {
+  const pageNodes = collectPageNodes(pageNode);
+  const captions = pageNodes.filter((node) => node.type === 'caption');
+  const targets = pageNodes.filter(isCaptionTargetNode);
+
+  for (const caption of captions) {
+    const kind = captionKind(caption.text);
+    const matchingTargets = targets.filter((target) => captionKindMatchesNode(kind, target));
+    if (kind && matchingTargets.length === 0) continue;
+    const candidateTargets = matchingTargets.length > 0 ? matchingTargets : targets;
+    const links = candidateTargets
+      .map((target) => buildCaptionLink(caption, target, kind))
+      .filter((link) => link !== undefined)
+      .sort((left, right) => right.confidence - left.confidence);
+    const bestLink = links[0];
+    if (!bestLink) continue;
+
+    caption.caption_links = [bestLink];
+    const target = targets.find((candidate) => candidate.id === bestLink.node_id);
+    if (target) {
+      target.caption_ids = unique([...(target.caption_ids ?? []), caption.id]);
+    }
+  }
+};
+
 const syncSectionContext = (
   documentSectionStack: PdfDocumentAstNode[],
   node: PdfDocumentAstNode
@@ -335,6 +490,7 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       sectionContextNodeCount: stats.sectionContextNodeCount + child.sectionContextNodeCount,
       crossPageSectionContextCount:
         stats.crossPageSectionContextCount + child.crossPageSectionContextCount,
+      captionLinkCount: stats.captionLinkCount + child.captionLinkCount,
       tableCount: stats.tableCount + child.tableCount,
       imageCount: stats.imageCount + child.imageCount,
       figureCount: stats.figureCount + child.figureCount,
@@ -358,6 +514,7 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       footerCount: node.type === 'footer' ? 1 : 0,
       sectionContextNodeCount: node.section_path ? 1 : 0,
       crossPageSectionContextCount: node.continued_from_section_id ? 1 : 0,
+      captionLinkCount: node.caption_links?.length ?? 0,
       tableCount: node.type === 'table' ? 1 : 0,
       imageCount: node.image !== undefined ? 1 : 0,
       figureCount: node.type === 'figure' ? 1 : 0,
@@ -451,6 +608,7 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
       appendToPageTree(pageNode, sectionStack, node);
     }
 
+    linkCaptionsOnPage(pageNode);
     root.children?.push(pageNode);
   }
 
@@ -480,6 +638,7 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
       footer_count: stats.footerCount,
       section_context_node_count: stats.sectionContextNodeCount,
       cross_page_section_context_count: stats.crossPageSectionContextCount,
+      caption_link_count: stats.captionLinkCount,
       table_count: stats.tableCount,
       image_count: stats.imageCount,
       figure_count: stats.figureCount,

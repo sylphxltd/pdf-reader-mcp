@@ -211,6 +211,8 @@ Next slices for the same v3 track:
   returns provider-backed region analysis.
 - The AST attaches visual enrichment evidence to semantic nodes without
   duplicating table elements.
+- The AST links captions to nearby matching table, image, figure, chart,
+  formula, or diagram evidence without moving page-local nodes.
 - The first JSON content part omits `page_contents` and image bytes.
 - Existing `read_pdf` calls without `include_document_map` remain unchanged.
 - `inspect_pdf` recommends the document map for agentic digital-text and mixed

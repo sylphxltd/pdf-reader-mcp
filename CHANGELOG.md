@@ -18,6 +18,10 @@
 - Add cross-page section context to the document AST. Continued paragraphs,
   subsections, tables, images, and visual regions can now expose `section_path`
   and `continued_from_section_id` while preserving page-local evidence nodes.
+- Link document AST captions to nearby table, image, figure, chart, formula, or
+  diagram evidence with `caption_links`, target-side `caption_ids`, confidence,
+  relation, and signals so agents can keep captions attached to source-backed
+  visual or tabular evidence.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can
   receive crop image bytes and return the same normalized table, formula, chart,
   figure, image-description, confidence, warning, and provenance fields as

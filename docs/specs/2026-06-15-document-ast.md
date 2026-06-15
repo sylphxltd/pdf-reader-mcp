@@ -23,11 +23,14 @@ callers to request every intermediate top-level output.
 - `section_path` and `continued_from_section_id` metadata where page breaks
   continue the active section context without moving evidence out of the page
   node that owns it.
+- Caption nodes can expose `caption_links` for nearby table, image, figure,
+  chart, formula, or diagram evidence. Linked target nodes can expose
+  `caption_ids` for reverse lookup.
 - Table nodes with rows, confidence, quality diagnostics, and continuation
   candidates when deterministic table extraction finds tables.
 - Summary counts for pages, nodes, sections, paragraphs, list items, captions,
   headers, footers, section-context nodes, cross-page section contexts, tables,
-  images, and max depth.
+  images, caption links, and max depth.
 
 The AST is opt-in. It can build the internal element, chunk, semantic, and
 table state it needs without forcing top-level `elements`, `chunks`, or
@@ -50,9 +53,11 @@ around one extraction model.
 The AST uses deterministic semantic hints. Caption, header, and footer roles
 come from conservative text-pattern and page-edge heuristics with confidence
 signals. Cross-page section context preserves deterministic heading continuity
-as metadata; it does not claim ML-grade semantic classification, cross-page
-content merging, or visual layout understanding. Those can enrich the same AST
-later through optional providers.
+as metadata. Caption links use conservative same-page geometry, horizontal
+overlap, caption prefix, target type, and distance signals; the AST does not
+claim ML-grade semantic classification, cross-page content merging, or visual
+layout understanding. Those can enrich the same AST later through optional
+providers.
 
 ## Acceptance Criteria
 
@@ -62,6 +67,8 @@ later through optional providers.
 - Paragraph, list, caption, header, and footer hints create leaf nodes.
 - Paragraphs and subsections that continue after a page break expose
   `section_path` and `continued_from_section_id`.
+- Captions near matching table, image, figure, chart, formula, or diagram nodes
+  expose `caption_links`; linked target nodes expose `caption_ids`.
 - Table nodes carry table rows and table quality metadata.
 - The quality eval covers AST sections, paragraphs, lists, captions, headers,
-  footers, cross-page section context, and tables.
+  footers, cross-page section context, caption links, and tables.

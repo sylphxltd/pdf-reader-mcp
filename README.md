@@ -45,7 +45,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Opt-in OCR text layer fusion for `read_pdf` document maps 🧾
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
-- Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal 🌳
+- Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including caption-to-evidence links 🌳
 - PDF trust report for content safety, layout, table, and link-risk routing 🛡️
 - Accessibility report for tagged-PDF coverage, headings, images, forms, links, and permissions ♿
 - Structured element output for agent workflows 🧩
@@ -85,7 +85,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧾 **OCR-Aware Document Map** - `read_pdf` can opt into OCR text layers for sparse/scanned pages while keeping OCR separate from selectable PDF text
 - 🧾 **PDF Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
-- 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context
+- 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context and caption-to-evidence links
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, and external links
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
@@ -374,6 +374,7 @@ than reconstructing document structure from flat text items.
 - A `document_ast` root with page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, and diagram nodes where available
 - Node-level `element_ids`, `chunk_ids`, visual enrichment IDs, bounding boxes, confidence, and semantic roles where available
 - `section_path` and `continued_from_section_id` metadata where page breaks continue the active section context
+- Caption nodes can expose `caption_links` to nearby table, image, figure, chart, formula, or diagram evidence; target nodes can expose `caption_ids` for reverse lookup
 - Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
 - Optional visual enrichment payloads with provider, crop evidence ID, source bounding box, normalized table/formula/chart fields, and confidence
 - No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
@@ -723,7 +724,7 @@ OCR output remains a separate `ocr_text_layer`; it is not merged into
 - ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
-- ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context
+- ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
 - ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, and external links
 - ✅ **Accessibility Report** - Tagged-PDF coverage, structure tree, heading, image, form, link, and permission signals
 - ✅ **PDF Text Layer** - Run records, line records, word records, character records, estimated bounding boxes, and provenance
@@ -1171,7 +1172,7 @@ tables, and document signals.
 | `include_images` | boolean | Extract embedded images | `false` |
 | `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
-| `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence | `false` |
+| `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including caption-to-evidence references | `false` |
 | `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table/image regions and fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, and external links | `false` |
@@ -1700,10 +1701,11 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, and chart PDF fixtures
 - [x] Deterministic semantic hints and AST nodes for captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
+- [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Broader semantic layout variants and caption-to-figure/table linking
+- [ ] Broader semantic layout variants and caption-link fixture diversity
 - [ ] Broader scanned-PDF and visual-region fixture accuracy benchmarks for configured providers beyond the current runtime certification fixtures
 - [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines

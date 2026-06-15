@@ -36,7 +36,7 @@ status if any quality gate fails.
 
 | Scenario | Quality gate |
 |----------|--------------|
-| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; cross-page section context; citation chunks; table ordering; safety findings; Markdown/HTML rendering; text-layer evidence; document map; document AST; accessibility report; and inspection tool routing |
+| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; cross-page section context; caption-to-evidence links; citation chunks; table ordering; safety findings; Markdown/HTML rendering; text-layer evidence; document map; document AST; accessibility report; and inspection tool routing |
 | `document_signal_fixture_quality` | Runtime-generated real PDF fixture through `read_pdf` for outline, page labels, mark info, link and widget annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure tree roles, and accessibility report fusion |
 | `real_reading_order_fixture_quality` | Runtime-generated real multi-column PDF through `read_pdf` for spanning headers, independently ordered columns, short footer placement, text-layer line order, and mixed-layout diagnostics |
 | `recursive_reading_order_quality` | Spanning header, independent column bands, and footer reading sequence |

@@ -401,7 +401,9 @@ header, footer, table, and image nodes with `element_ids`, `chunk_ids`,
 bounding boxes, confidence, semantic roles, and table quality metadata where
 available. When a page break continues an active section, AST nodes expose
 `section_path` and `continued_from_section_id` without moving evidence out of
-the page that owns it.
+the page that owns it. Caption nodes can expose `caption_links` to nearby
+table, image, figure, chart, formula, or diagram evidence, and linked targets
+can expose `caption_ids`.
 
 ```json
 {

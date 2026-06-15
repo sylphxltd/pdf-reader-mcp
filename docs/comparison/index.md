@@ -97,7 +97,7 @@
 - You need focused crops from table, figure, chart, formula, or citation bounding boxes
 - You need scanned-page OCR through a local provider without making a cloud API the default path
 - You need table quality signals, sparse-cell warnings, or continuation candidates for agent routing
-- You need a semantic document AST for page, section, paragraph, list, caption, header, footer, table, and image traversal with continued section context
+- You need a semantic document AST for page, section, paragraph, list, caption, header, footer, table, and image traversal with continued section context and caption-to-evidence links
 - You need a local trust report before using PDF content as instructions, evidence, or retrieval context
 - You need an accessibility report before relying on tagged structure, headings, images, forms, links, or copy-based accessibility workflows
 - You want structured, parseable output

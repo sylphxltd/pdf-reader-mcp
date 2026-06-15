@@ -174,7 +174,7 @@ export const readPdfArgsSchema = object({
   include_document_ast: optional(
     bool(
       description(
-        'Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context linked back to element and chunk evidence.'
+        'Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence.'
       )
     )
   ),

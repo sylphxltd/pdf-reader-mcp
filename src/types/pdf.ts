@@ -378,6 +378,18 @@ export interface PdfDocumentAstSectionRef {
   page_start: number;
 }
 
+export type PdfDocumentAstCaptionRelation = 'above' | 'below' | 'overlapping';
+
+export interface PdfDocumentAstCaptionLink {
+  node_id: string;
+  element_id: string;
+  type: PdfDocumentAstNodeType;
+  relation: PdfDocumentAstCaptionRelation;
+  confidence: number;
+  signals: string[];
+  visual_enrichment_id?: string | undefined;
+}
+
 export interface PdfDocumentAstNode {
   id: string;
   type: PdfDocumentAstNodeType;
@@ -394,6 +406,8 @@ export interface PdfDocumentAstNode {
   semantic_role?: PdfTextSemanticRole | undefined;
   section_path?: PdfDocumentAstSectionRef[] | undefined;
   continued_from_section_id?: string | undefined;
+  caption_links?: PdfDocumentAstCaptionLink[] | undefined;
+  caption_ids?: string[] | undefined;
   table?: PdfDocumentAstTable | undefined;
   image?: PdfDocumentAstImage | undefined;
   formula?: PdfRegionAnalysisFormula | undefined;
@@ -414,6 +428,7 @@ export interface PdfDocumentAstSummary {
   footer_count: number;
   section_context_node_count: number;
   cross_page_section_context_count: number;
+  caption_link_count: number;
   table_count: number;
   image_count: number;
   figure_count: number;
