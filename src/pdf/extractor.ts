@@ -421,7 +421,7 @@ const findHorizontalWhitespaceCut = (items: PageContentItem[]): number | undefin
     const lowerCount = boxedItems.filter(
       (item) => (item.bounding_box?.top ?? 0) <= candidate.cutPosition
     ).length;
-    if (upperCount > 0 && lowerCount >= 2) {
+    if (upperCount > 0 && (lowerCount >= 2 || (lowerCount === 1 && upperCount >= 4))) {
       return candidate.cutPosition;
     }
   }

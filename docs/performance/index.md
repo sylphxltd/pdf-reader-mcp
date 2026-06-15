@@ -38,6 +38,7 @@ status if any quality gate fails.
 |----------|--------------|
 | `agent_document_twin_semantic_quality` | Semantic roles, citation chunks, table ordering, safety findings, Markdown/HTML rendering, text-layer evidence, document map, document AST, accessibility report, and inspection tool routing |
 | `document_signal_fixture_quality` | Runtime-generated real PDF fixture through `read_pdf` for outline, page labels, mark info, link and widget annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure tree roles, and accessibility report fusion |
+| `real_reading_order_fixture_quality` | Runtime-generated real multi-column PDF through `read_pdf` for spanning headers, independently ordered columns, short footer placement, text-layer line order, and mixed-layout diagnostics |
 | `recursive_reading_order_quality` | Spanning header, independent column bands, and footer reading sequence |
 | `ocr_text_layer_quality` | Local OCR provider normalization, word boxes, confidence, language, render evidence, and OCR text-layer summary |
 | `scanned_pdf_fixture_pipeline_quality` | Runtime-generated image-only PDF fixture through `read_pdf` load, render, OCR provider, OCR text-layer fusion, document map routing, and low-confidence layout diagnostics |
@@ -46,11 +47,11 @@ status if any quality gate fails.
 | `ai_safety_overlap_quality` | Overlapping text detection for visual-spoofing or obscured-content risk |
 
 This benchmark uses in-repository synthetic cases, runtime-generated
-document-signal and scanned PDF fixtures, and mock local providers so it is
-reproducible in CI and on developer machines. It is a contract-quality gate,
-not a claim about a particular OCR, table, formula, chart, or vision model's
-real-world accuracy. Provider-specific accuracy and latency claims require
-separate public scanned/visual fixture runs.
+document-signal, reading-order, and scanned PDF fixtures, and mock local
+providers so it is reproducible in CI and on developer machines. It is a
+contract-quality gate, not a claim about a particular OCR, table, formula,
+chart, or vision model's real-world accuracy. Provider-specific accuracy and
+latency claims require separate public scanned/visual fixture runs.
 
 ## Provider Benchmark
 

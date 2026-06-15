@@ -1817,7 +1817,7 @@ var findHorizontalWhitespaceCut = (items) => {
   for (const candidate of viableCandidates) {
     const upperCount = boxedItems.filter((item) => (item.bounding_box?.bottom ?? 0) >= candidate.cutPosition).length;
     const lowerCount = boxedItems.filter((item) => (item.bounding_box?.top ?? 0) <= candidate.cutPosition).length;
-    if (upperCount > 0 && lowerCount >= 2) {
+    if (upperCount > 0 && (lowerCount >= 2 || lowerCount === 1 && upperCount >= 4)) {
       return candidate.cutPosition;
     }
   }

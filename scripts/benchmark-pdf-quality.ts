@@ -754,6 +754,85 @@ const writeDocumentSignalsPdfFixture = async (directory: string): Promise<string
   return fixturePath;
 };
 
+const writeReadingOrderPdfFixture = async (directory: string): Promise<string> => {
+  const content = [
+    'BT',
+    '/F1 18 Tf',
+    '50 760 Td',
+    '(Quarterly Report Spanning Header Across Both Columns) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '320 700 Td',
+    '(A Right 1) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '320 680 Td',
+    '(A Right 2) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '50 700 Td',
+    '(A Left 1) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '50 680 Td',
+    '(A Left 2) Tj',
+    'ET',
+    'BT',
+    '/F1 18 Tf',
+    '50 610 Td',
+    '(Risk Section Spanning Header Across Both Columns) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '320 550 Td',
+    '(B Right 1) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '320 530 Td',
+    '(B Right 2) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '50 550 Td',
+    '(B Left 1) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '50 530 Td',
+    '(B Left 2) Tj',
+    'ET',
+    'BT',
+    '/F1 10 Tf',
+    '50 80 Td',
+    '(Page 1 footer spanning both columns) Tj',
+    'ET',
+    '',
+  ].join('\n');
+  const pdf = serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    [
+      '<< /Type /Page',
+      '/Parent 2 0 R',
+      '/MediaBox [0 0 612 792]',
+      '/Resources << /Font << /F1 4 0 R >> >>',
+      '/Contents 5 0 R',
+      '>>',
+    ].join(' '),
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    pdfStream(content),
+  ]);
+  const fixturePath = path.join(directory, 'reading-order.pdf');
+  await fs.writeFile(fixturePath, pdf);
+
+  return fixturePath;
+};
+
 const writeScannedImagePdfFixture = async (directory: string): Promise<string> => {
   const contentStream = 'q\n160 0 0 160 20 20 cm\n/Im1 Do\nQ\n';
   const imageData = 'FF000000FF000000FFFF00>';
@@ -968,6 +1047,72 @@ const evaluateDocumentSignalsFixture = async (): Promise<QualityAssertion[]> => 
           accessibilityReport.summary.link_count === 1 &&
           accessibilityReport.summary.form_field_count === 1 &&
           accessibilityReport.summary.issue_count === 0,
+      },
+    ];
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+};
+
+const evaluateRealReadingOrderFixture = async (): Promise<QualityAssertion[]> => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-reading-order-'));
+
+  try {
+    const fixturePath = await writeReadingOrderPdfFixture(tempDir);
+    const payload = await parseReadPdfResult({
+      sources: [{ path: fixturePath, pages: [1] }],
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+      include_layout_diagnostics: true,
+      include_text_layer: true,
+    });
+    const data = firstReadPdfData(payload);
+    const textLayer = data.text_layer as
+      | { pages?: Array<{ page?: number; lines?: Array<{ text?: string }> }> }
+      | undefined;
+    const textOrder =
+      textLayer?.pages?.[0]?.lines
+        ?.map((line) => line.text?.trim() ?? '')
+        .filter((text) => text.length > 0) ?? [];
+    const diagnostics = data.layout_diagnostics as
+      | Array<{
+          page?: number;
+          profile?: string;
+          reading_order?: string;
+          column_count?: number;
+          signals?: string[];
+        }>
+      | undefined;
+
+    return [
+      {
+        name: 'real multi-column PDF reorders content stream into visual reading order',
+        pass:
+          JSON.stringify(textOrder) ===
+          JSON.stringify([
+            'Quarterly Report Spanning Header Across Both Columns',
+            'A Left 1',
+            'A Left 2',
+            'A Right 1',
+            'A Right 2',
+            'Risk Section Spanning Header Across Both Columns',
+            'B Left 1',
+            'B Left 2',
+            'B Right 1',
+            'B Right 2',
+            'Page 1 footer spanning both columns',
+          ]),
+      },
+      {
+        name: 'real multi-column PDF exposes mixed-layout diagnostics for agent routing',
+        pass:
+          diagnostics?.[0]?.page === 1 &&
+          diagnostics[0]?.profile === 'mixed_layout' &&
+          diagnostics[0]?.reading_order === 'mixed' &&
+          diagnostics[0]?.column_count === 2 &&
+          diagnostics[0]?.signals?.includes('two-column-layout') === true &&
+          diagnostics[0]?.signals?.includes('spanning-items') === true,
       },
     ];
   } finally {
@@ -1337,6 +1482,7 @@ const main = async () => {
   const results = [
     await runCase('agent_document_twin_semantic_quality', evaluateAgentDocumentTwin),
     await runCase('document_signal_fixture_quality', evaluateDocumentSignalsFixture),
+    await runCase('real_reading_order_fixture_quality', evaluateRealReadingOrderFixture),
     await runCase('recursive_reading_order_quality', evaluateRecursiveReadingOrder),
     await runCase('ocr_text_layer_quality', evaluateOcrTextLayer),
     await runCase('scanned_pdf_fixture_pipeline_quality', evaluateScannedPdfFixturePipeline),
@@ -1351,7 +1497,7 @@ const main = async () => {
     profile: 'pdf_quality_benchmark',
     generated_at: new Date().toISOString(),
     fixture_scope:
-      'deterministic in-repository synthetic cases, runtime-generated document-signal and scanned PDF fixtures, and local mock providers',
+      'deterministic in-repository synthetic cases, runtime-generated document-signal, reading-order, and scanned PDF fixtures, and local mock providers',
     passed,
     total,
     score: total === 0 ? 0 : round(passed / total),

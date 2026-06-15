@@ -40,7 +40,7 @@ neutral capability names and avoids public comparison language.
 | Markdown rendering | Shipped | `include_markdown`. |
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
 | Citation-ready chunks | Shipped | `include_chunks`; page, semantic, size, and table strategies with stable element references. |
-| Recursive reading order | Shipped | Handles common two-column text segmentation plus spanning-header, independent column-band, and footer ordering. Needs broader fixtures. |
+| Recursive reading order | Shipped | Handles common two-column text segmentation plus spanning-header, independent column-band, and footer ordering, including runtime-generated real PDF coverage for short footers. Needs broader fixture diversity. |
 | Layout diagnostics and confidence | Shipped | `include_layout_diagnostics`; page profile, reading-order model, confidence, column signals, and warnings. |
 | Outline/bookmark extraction | Shipped | `include_outline`; best-effort when exposed by PDF.js. |
 | Annotation extraction | Shipped | `include_annotations`; safe summary fields. |
@@ -57,7 +57,7 @@ neutral capability names and avoids public comparison language.
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; visual provider output can now preserve cell spans and boxes; non-repeated continuation still needs broader fixtures. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
-| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, inspection routing, recursive reading order, visual-region normalization, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, inspection tool routing, real PDF document signals, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. |
+| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, inspection routing, recursive reading order, visual-region normalization, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, inspection tool routing, real PDF document signals, real PDF reading order, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. |
 | OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract` and `tesseract-tsv`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`; TSV output is normalized into word boxes and confidence. No default OCR model is bundled. |
 | Formula extraction | In progress | `analyze_regions` can normalize LaTeX, MathML, AsciiMath, text, confidence, and provenance from a configured provider; accuracy depends on the local engine. |
 | Chart/image descriptions | In progress | `analyze_regions` can normalize chart data points, axes, series, figure, and image-description provider output; accuracy depends on the configured local engine. |
@@ -70,7 +70,8 @@ neutral capability names and avoids public comparison language.
    features. The quality benchmark now covers outline, annotations, page
    labels, mark info, form fields, attachment metadata, page geometry,
    structure trees, and accessibility reports through a runtime-generated real
-   PDF; permissions, additional tagged structures, semantic variants, and safety
+   PDF, plus real multi-column reading order with short footer placement;
+   permissions, additional tagged structures, semantic variants, and safety
    adversarial fixtures still need broader coverage.
 2. Expand extraction quality evals and benchmarks: multi-column, layout
    diagnostics, tables, annotations, forms, hidden/off-page text, scanned PDFs.

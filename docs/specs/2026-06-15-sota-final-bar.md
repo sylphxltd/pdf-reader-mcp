@@ -65,7 +65,7 @@ themselves.
      and tagged PDFs.
    - `bun run benchmark:quality` is the deterministic contract-quality gate for
      Agent Document Twin semantics, inspection tool routing, real PDF document
-     signals, recursive reading order, OCR normalization, a runtime-generated
+     signals, real PDF reading order, OCR normalization, a runtime-generated
      scanned-PDF OCR pipeline fixture, visual-region command/HTTP
      normalization, and search evidence.
    - `bun run benchmark:providers` is the installed-provider smoke benchmark

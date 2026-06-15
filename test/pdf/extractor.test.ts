@@ -301,7 +301,7 @@ describe('extractor', () => {
             { str: 'B Right 1', transform: [1, 0, 0, 10, 300, 550], width: 75, height: 10 },
             { str: 'B Left 2', transform: [1, 0, 0, 10, 50, 530], width: 70, height: 10 },
             { str: 'B Right 2', transform: [1, 0, 0, 10, 300, 530], width: 75, height: 10 },
-            { str: 'Footer', transform: [1, 0, 0, 10, 50, 80], width: 500, height: 10 },
+            { str: 'Footer', transform: [1, 0, 0, 10, 50, 80], width: 120, height: 10 },
           ],
         }),
         getOperatorList: vi.fn().mockResolvedValue({
