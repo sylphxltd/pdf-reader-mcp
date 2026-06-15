@@ -73,6 +73,8 @@ themselves.
 
 8. Reproducible proof
    - Public benchmark commands must measure speed and quality, not just runtime.
+   - Benchmark commands must be able to persist machine-readable JSON artifacts
+     for release review.
    - Fixtures must cover selectable text, multi-column layout, tables, scans,
      formulas, charts, figures, hidden text, annotations, forms, attachments,
      and tagged PDFs.
@@ -112,6 +114,9 @@ themselves.
    - Provider-specific OCR, table, formula, chart, and image-description
      accuracy beyond the certification fixtures still requires public
      scanned/visual fixture benchmarks before any model-quality claim.
+   - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all`
+     writes profile-named JSON artifacts for performance, deterministic
+     quality, and installed-provider evidence reports.
 
 9. Public contract integrity
    - README, docs, changelog, release notes, and package metadata may describe

@@ -55,6 +55,7 @@ import type {
   PdfVisualEnrichment,
   SearchPdfOptions,
 } from '../src/types/pdf.js';
+import { writeBenchmarkReport } from './benchmark-utils.js';
 
 interface QualityAssertion {
   name: string;
@@ -84,6 +85,25 @@ interface FinalBarCoverageResult extends FinalBarCoverageRequirement {
   status: FinalBarCoverageStatus;
   missing_scenarios: string[];
   failing_scenarios: string[];
+}
+
+interface FinalBarCoverageSummary {
+  total: number;
+  covered: number;
+  provider_benchmark_required: number;
+  incomplete: number;
+}
+
+interface QualityBenchmarkReport {
+  profile: 'pdf_quality_benchmark';
+  generated_at: string;
+  fixture_scope: string;
+  passed: number;
+  total: number;
+  score: number;
+  results: BenchmarkCaseResult[];
+  final_bar_coverage_summary: FinalBarCoverageSummary;
+  final_bar_coverage: FinalBarCoverageResult[];
 }
 
 interface AgentDocumentTwinCase {
@@ -344,7 +364,7 @@ const buildFinalBarCoverage = (results: BenchmarkCaseResult[]): FinalBarCoverage
   });
 };
 
-const summarizeFinalBarCoverage = (coverage: FinalBarCoverageResult[]) => ({
+const summarizeFinalBarCoverage = (coverage: FinalBarCoverageResult[]): FinalBarCoverageSummary => ({
   total: coverage.length,
   covered: coverage.filter((entry) => entry.status === 'covered').length,
   provider_benchmark_required: coverage.filter(
@@ -2382,7 +2402,7 @@ const main = async () => {
   const passed = results.reduce((sum, result) => sum + result.passed, 0);
   const total = results.reduce((sum, result) => sum + result.total, 0);
   const finalBarCoverage = buildFinalBarCoverage(results);
-  const report = {
+  const report: QualityBenchmarkReport = {
     profile: 'pdf_quality_benchmark',
     generated_at: new Date().toISOString(),
     fixture_scope:
@@ -2405,6 +2425,10 @@ const main = async () => {
     }))
   );
   console.log(JSON.stringify(report, null, 2));
+  const outputPath = await writeBenchmarkReport(report);
+  if (outputPath) {
+    console.error(`Benchmark report written to ${outputPath}`);
+  }
 
   if (failed.length > 0) {
     process.exitCode = 1;

@@ -43,3 +43,6 @@ and marks areas that still require installed-provider benchmark evidence.
 Extend the installed-provider benchmark JSON with a machine-readable final-bar
 provider evidence matrix that maps OCR and visual certification profiles to the
 capability areas they can certify when local providers are installed.
+Add shared benchmark artifact output support so performance, deterministic
+quality, and installed-provider reports can be written as profile-named JSON
+files for release evidence.

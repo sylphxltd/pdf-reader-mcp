@@ -23,6 +23,21 @@ with average, minimum, and maximum latency for these fixed scenarios:
 Treat benchmark output as machine- and fixture-specific. Public performance
 claims should cite the command, fixture, runtime, and measured output.
 
+## Benchmark Artifacts
+
+All benchmark scripts print JSON to stdout and can also write formatted JSON
+artifacts for release review:
+
+```bash
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all
+```
+
+`benchmark:all` writes one artifact per report profile:
+`pdf_performance_benchmark.json`, `pdf_quality_benchmark.json`, and
+`pdf_provider_benchmark.json`. Individual benchmark scripts also accept
+`--output <path>` for a single report file or `--output-dir <dir>` for a
+profile-named report file.
+
 ## Quality Benchmark
 
 Run the deterministic quality benchmark:

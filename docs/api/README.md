@@ -137,6 +137,13 @@ bun run benchmark:quality
 bun run benchmark:providers
 ```
 
+Set `MCP_PDF_BENCHMARK_OUTPUT_DIR` to persist benchmark JSON artifacts for
+release review:
+
+```bash
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all
+```
+
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider
 capabilities. Its JSON report also emits

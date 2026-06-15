@@ -18,6 +18,7 @@ import type {
   PdfRegionAnalysisKind,
   PdfRegionRequest,
 } from '../src/types/pdf.js';
+import { writeBenchmarkReport } from './benchmark-utils.js';
 
 interface ProviderBenchmarkResult {
   provider: 'tesseract-tsv' | 'region-analysis';
@@ -71,6 +72,25 @@ interface FinalBarProviderEvidenceResult extends FinalBarProviderEvidenceRequire
   missing_capabilities: string[];
   skipped_capabilities: string[];
   failed_capabilities: string[];
+}
+
+interface FinalBarProviderEvidenceSummary {
+  total: number;
+  certified: number;
+  provider_benchmark_required: number;
+  failed: number;
+  incomplete: number;
+}
+
+interface ProviderBenchmarkReport {
+  profile: 'pdf_provider_benchmark';
+  generated_at: string;
+  fixture_scope: string;
+  strict: boolean;
+  certification_profiles: Array<NonNullable<ProviderBenchmarkResult['certification']>['profile']>;
+  results: ProviderBenchmarkResult[];
+  final_bar_provider_evidence_summary: FinalBarProviderEvidenceSummary;
+  final_bar_provider_evidence: FinalBarProviderEvidenceResult[];
 }
 
 interface OcrTextLayerBenchmarkView {
@@ -701,7 +721,9 @@ const buildFinalBarProviderEvidence = (
   });
 };
 
-const summarizeFinalBarProviderEvidence = (coverage: FinalBarProviderEvidenceResult[]) => ({
+const summarizeFinalBarProviderEvidence = (
+  coverage: FinalBarProviderEvidenceResult[]
+): FinalBarProviderEvidenceSummary => ({
   total: coverage.length,
   certified: coverage.filter((entry) => entry.status === 'certified').length,
   provider_benchmark_required: coverage.filter(
@@ -858,7 +880,7 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
 const main = async () => {
   const results = [await runTesseractTsvBenchmark(), await runRegionAnalysisProviderBenchmark()];
   const finalBarProviderEvidence = buildFinalBarProviderEvidence(results);
-  const report = {
+  const report: ProviderBenchmarkReport = {
     profile: 'pdf_provider_benchmark',
     generated_at: new Date().toISOString(),
     fixture_scope:
@@ -892,6 +914,10 @@ const main = async () => {
     }))
   );
   console.log(JSON.stringify(report, null, 2));
+  const outputPath = await writeBenchmarkReport(report);
+  if (outputPath) {
+    console.error(`Benchmark report written to ${outputPath}`);
+  }
 
   const failed = results.some((result) => result.status === 'failed');
   const skipped = results.some((result) => result.status === 'skipped');
