@@ -15,7 +15,21 @@ Benchmarks run on Node.js 22, measuring operations per second.
 
 ## Optimization Tips
 
-### 1. Request Only What You Need
+### 1. Inspect Before Heavy Extraction
+
+Use `inspect_pdf` first when an agent does not know the document shape. It
+samples a bounded number of pages, counts selectable text and image paint
+operations, and recommends `read_pdf` arguments without decoding image bytes.
+
+```json
+{
+  "sources": [{ "path": "doc.pdf" }],
+  "sample_pages": 5,
+  "include_metadata": true
+}
+```
+
+### 2. Request Only What You Need
 
 ```json
 // Fast - metadata only
@@ -28,7 +42,7 @@ Benchmarks run on Node.js 22, measuring operations per second.
 }
 ```
 
-### 2. Use Page Ranges
+### 3. Use Page Ranges
 
 Instead of full text extraction, request specific pages:
 
@@ -45,7 +59,7 @@ Instead of full text extraction, request specific pages:
 }
 ```
 
-### 3. Batch Sources
+### 4. Batch Sources
 
 Process multiple PDFs in one request for better throughput:
 
@@ -63,7 +77,7 @@ Process multiple PDFs in one request for better throughput:
 }
 ```
 
-### 4. Avoid Images Unless Needed
+### 5. Avoid Images Unless Needed
 
 Image extraction involves encoding to PNG and base64, which adds overhead:
 
@@ -75,7 +89,7 @@ Image extraction involves encoding to PNG and base64, which adds overhead:
 { "include_images": false }
 ```
 
-### 5. Use Structured Elements When You Need References
+### 6. Use Structured Elements When You Need References
 
 `include_elements` adds page-level element metadata for agent workflows. It is
 worth enabling when you need stable IDs, provenance, or best-effort coordinates,
@@ -89,7 +103,7 @@ but plain text remains the leanest response shape.
 }
 ```
 
-### 6. Add Semantic Hints Only When They Help
+### 7. Add Semantic Hints Only When They Help
 
 `include_semantic_hints` adds deterministic heading, list, and paragraph hints
 to text elements. It returns elements even when `include_elements` is omitted.
@@ -102,7 +116,7 @@ to text elements. It returns elements even when `include_elements` is omitted.
 }
 ```
 
-### 7. Use Markdown When You Need Ready-to-Use Context
+### 8. Use Markdown When You Need Ready-to-Use Context
 
 `include_markdown` creates page-aware Markdown in the JSON response. It is
 more convenient than rebuilding sections from `page_texts`, but it still
@@ -116,7 +130,7 @@ requires page extraction.
 }
 ```
 
-### 8. Use Chunks When You Need Source References
+### 9. Use Chunks When You Need Source References
 
 `include_chunks` creates citation-ready chunks with element IDs, strategy
 labels, and best-effort bounding boxes. It can split on semantic heading
@@ -133,7 +147,7 @@ citations, but it does more work than metadata-only or page-count requests.
 }
 ```
 
-### 9. Use HTML Only When Needed
+### 10. Use HTML Only When Needed
 
 `include_html` creates escaped page-aware HTML. It is useful for preview and
 export workflows, but plain text or Markdown are usually leaner for agent-only
@@ -147,7 +161,7 @@ context.
 }
 ```
 
-### 10. Use Document Signals For Lightweight Structure
+### 11. Use Document Signals For Lightweight Structure
 
 Outline, page labels, permissions, structure trees, form fields, attachment
 metadata, and page geometry can be requested without extracting full page text.
@@ -163,7 +177,7 @@ Annotations, structure trees, and page geometry respect selected page ranges.
 }
 ```
 
-### 11. Use Safety Findings When Agents Consume PDF Text
+### 12. Use Safety Findings When Agents Consume PDF Text
 
 `include_safety_findings` scans extracted page text for deterministic risk
 signals. It requires page text extraction, but it does not force `full_text`

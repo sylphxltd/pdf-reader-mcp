@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
   "version": "2.5.3",
-  "description": "An MCP server providing tools to read PDF files.",
+  "description": "Agent-native MCP server for PDF inspection, extraction, citation chunks, and safety signals.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/index.js"
@@ -40,7 +40,12 @@
     "node",
     "ai",
     "agent",
-    "tool"
+    "tool",
+    "rag",
+    "citations",
+    "pdf-inspection",
+    "pdf-to-markdown",
+    "document-processing"
   ],
   "scripts": {
     "build": "bunup --no-dts",

@@ -4,11 +4,15 @@
  */
 
 import { type ChildProcess, spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const TEST_PORT = 18080; // Use a high port to avoid conflicts
 const BASE_URL = `http://localhost:${TEST_PORT}/mcp`;
+const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')) as {
+  version: string;
+};
 
 // JSON-RPC request helper
 const sendRequest = async (method: string, params?: unknown, id = 1) => {
@@ -102,7 +106,7 @@ describe('MCP Server HTTP Transport Integration', () => {
 
     expect(response.id).toBe(1);
     expect(response.result?.serverInfo?.name).toBe('pdf-reader-mcp');
-    expect(response.result?.serverInfo?.version).toBe('2.1.0');
+    expect(response.result?.serverInfo?.version).toBe(packageJson.version);
   });
 
   it('should list available tools over HTTP', async () => {
@@ -119,6 +123,7 @@ describe('MCP Server HTTP Transport Integration', () => {
     expect(response.result?.tools?.length).toBeGreaterThan(0);
 
     const toolNames = response.result?.tools?.map((t: { name: string }) => t.name);
+    expect(toolNames).toContain('inspect_pdf');
     expect(toolNames).toContain('read_pdf');
   });
 

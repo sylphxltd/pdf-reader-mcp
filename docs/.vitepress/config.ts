@@ -2,7 +2,8 @@ import { defineConfig } from 'vitepress';
 
 export default defineConfig({
   title: 'PDF Reader MCP',
-  description: 'MCP Server for reading PDF files - extract text, metadata, and images',
+  description:
+    'MCP server for PDF inspection, extraction, citation chunks, and safety signals for AI agents',
 
   appearance: 'dark',
   lastUpdated: true,
@@ -15,26 +16,36 @@ export default defineConfig({
 
   head: [
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: 'PDF Reader MCP - Extract PDF Content for AI' }],
+    [
+      'meta',
+      { property: 'og:title', content: 'PDF Reader MCP - Inspect and Extract PDFs for AI Agents' },
+    ],
     [
       'meta',
       {
         property: 'og:description',
         content:
-          'A high-performance MCP server for reading text, metadata, and images from PDF files',
+          'A high-performance MCP server for PDF inspection, structured extraction, citation chunks, and safety signals',
       },
     ],
     ['meta', { property: 'og:url', content: 'https://pdf-reader-mcp.sylphx.com' }],
     ['meta', { property: 'og:site_name', content: 'PDF Reader MCP' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'PDF Reader MCP' }],
-    ['meta', { name: 'twitter:description', content: 'Extract PDF content for AI agents via MCP' }],
+    [
+      'meta',
+      {
+        name: 'twitter:description',
+        content: 'Inspect PDFs and extract agent-ready content via MCP',
+      },
+    ],
     ['meta', { name: 'twitter:site', content: '@sylphxai' }],
     [
       'meta',
       {
         name: 'keywords',
-        content: 'mcp, pdf, reader, ai, claude, model context protocol, typescript',
+        content:
+          'mcp, pdf, reader, ai, claude, model context protocol, typescript, rag, citations, pdf inspection',
       },
     ],
     ['meta', { name: 'author', content: 'Sylphx' }],

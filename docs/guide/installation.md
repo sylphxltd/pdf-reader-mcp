@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js >= 22.0.0
+- Node.js >= 22.13.0
 
 ## Claude Code
 

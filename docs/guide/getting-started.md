@@ -1,8 +1,35 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides a single tool: `read_pdf`.
+Once installed, the PDF Reader MCP server provides two tools:
+
+- `inspect_pdf` profiles a PDF and recommends the best extraction options.
+- `read_pdf` extracts PDF content, structure, citations, tables, images, and signals.
 
 ## Basic Usage
+
+### Inspect a PDF First
+
+Use `inspect_pdf` when an agent needs to decide how to process an unfamiliar
+document. It samples a bounded number of pages and returns an extraction plan
+without decoding image bytes.
+
+```json
+{
+  "sources": [{ "path": "/path/to/document.pdf" }],
+  "sample_pages": 5,
+  "include_metadata": true
+}
+```
+
+Typical response fields:
+
+- `profile`: `digital_text`, `scanned_or_image_only`, `mixed_text_and_scan`,
+  `low_text_or_form`, or `unknown`
+- `page_signals`: text density, token estimate, and image paint-operation count
+- `document_signals`: outline, labels, permissions, forms, attachments, and
+  structure-tree availability
+- `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
+  arguments
 
 ### Get Metadata and Page Count
 
