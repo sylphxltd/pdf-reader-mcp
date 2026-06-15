@@ -114,6 +114,13 @@ reports a `visual-full-fidelity` certification profile covering crop
 provenance, table cell boxes, formula formats, chart axes or series, figure
 descriptions, and image-description text.
 
+The repository includes `scripts/reference-region-analysis-provider.mjs` as a
+deterministic command provider for the visual certification fixtures. It is
+useful for release evidence and contract regression checks, but it is not a
+general-purpose vision model. OCR certification still requires an installed
+Tesseract executable because the benchmark verifies the real `tesseract-tsv`
+preset and OCR document-map fusion path.
+
 The JSON report includes `certification_profiles`, safe `provider_status`
 metadata, per-provider `certification` summaries, per-provider `quality`
 metrics with thresholds, scores, expected evidence, and observed evidence,
@@ -130,6 +137,9 @@ with:
 ```bash
 MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:providers
 ```
+
+Release workflows install Tesseract, configure the reference visual provider,
+write strict benchmark artifacts, and then run `benchmark:release-gate`.
 
 ## Optimization Tips
 

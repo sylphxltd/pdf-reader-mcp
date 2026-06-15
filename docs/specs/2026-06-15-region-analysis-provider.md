@@ -196,6 +196,12 @@ Twin visual-evidence contract for the fixture set. It is still not a universal
 model-accuracy claim; broader domain accuracy requires larger public fixture
 runs that name the configured engine and fixture corpus.
 
+The repository includes `scripts/reference-region-analysis-provider.mjs` as a
+deterministic command provider for this certification fixture set. Release
+workflows use it to prove the visual provider contract and crop-provenance
+normalization path. It is intentionally fixture-scoped and does not bundle or
+claim a general vision model.
+
 ## Non-Goals
 
 - No bundled model weights.

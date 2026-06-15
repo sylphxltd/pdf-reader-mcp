@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install provider certification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+          tesseract --version
+
       - name: Check Code Quality (Biome)
         run: bun run check
 
@@ -62,6 +68,9 @@ jobs:
         env:
           MCP_PDF_BENCHMARK_OUTPUT_DIR: benchmark-artifacts
           MCP_PDF_PROVIDER_BENCHMARK_REQUIRED: 'true'
+          MCP_PDF_OCR_PRESET: tesseract-tsv
+          MCP_PDF_REGION_ANALYSIS_COMMAND: bun
+          MCP_PDF_REGION_ANALYSIS_ARGS_JSON: '["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]'
         run: |
           bun run benchmark
           bun run benchmark:quality
@@ -98,3 +107,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.release-token.outputs.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          MCP_PDF_OCR_PRESET: tesseract-tsv
+          MCP_PDF_REGION_ANALYSIS_COMMAND: bun
+          MCP_PDF_REGION_ANALYSIS_ARGS_JSON: '["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]'

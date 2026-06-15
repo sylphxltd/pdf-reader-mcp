@@ -548,7 +548,10 @@ regions, sends those crops through `analyze_regions`, and reports a
 cell boxes, formula formats, chart axes or series, figure descriptions, and
 image-description text. Its JSON report also includes a final-bar provider
 evidence matrix that separates certified installed-provider evidence from
-capabilities that still require provider benchmark runs.
+capabilities that still require provider benchmark runs. The repository ships
+`scripts/reference-region-analysis-provider.mjs` as a deterministic
+certification adapter for the runtime visual fixtures; it is not a bundled
+general-purpose vision model.
 
 ### OCR Selected Pages
 
@@ -1654,6 +1657,7 @@ bun run check:fix    # Auto-fix
 bun run benchmark    # Reproducible local performance benchmark
 bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
 bun run benchmark:providers # Optional OCR/visual-provider certification benchmark; skips missing engines by default
+MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the visual fixture contract with the reference provider
 bun run benchmark:all # Performance + quality + provider benchmarks
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate # Verify SOTA release gate
@@ -1671,6 +1675,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ Provider quality metrics with thresholds, scores, expected evidence, and observed evidence
+- ✅ Release workflow installs Tesseract and configures the reference visual-region provider before running strict provider evidence gates
 - ✅ JSON benchmark artifact output for release evidence
 - ✅ SOTA release gate over benchmark artifacts
 - ✅ Package tarball smoke check for published runtime integrity
@@ -1746,7 +1751,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
-- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures, with machine-readable final-bar provider evidence summaries
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures, with a deterministic reference visual provider and machine-readable final-bar provider evidence summaries
 - [x] Provider quality metrics for OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section

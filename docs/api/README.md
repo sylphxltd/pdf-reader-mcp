@@ -156,6 +156,12 @@ the executable `dist/index.js` runtime artifact with matching `bin` and
 `release:preflight` runs the full publish gate and requires strict installed
 provider certification before publishing can proceed.
 
+The repository release workflow installs Tesseract for the `tesseract-tsv` OCR
+profile and configures `scripts/reference-region-analysis-provider.mjs` for the
+visual `visual-full-fidelity` fixture profile before running strict benchmark
+artifacts and the release gate. The reference visual provider is a deterministic
+contract-certification adapter, not a bundled general-purpose vision model.
+
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider
 capabilities. Its JSON report also emits
