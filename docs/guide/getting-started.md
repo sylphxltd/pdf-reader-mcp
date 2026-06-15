@@ -31,6 +31,9 @@ without decoding image bytes.
 }
 ```
 
+Each source must provide exactly one locator: `path` for a local PDF or `url`
+for a remote PDF.
+
 Typical response fields:
 
 - `profile`: `digital_text`, `scanned_or_image_only`, `mixed_text_and_scan`,

@@ -2416,11 +2416,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
     await expect(handler(invalidArgs)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
 
-  // Skipped: this schema intentionally leaves page-range grammar validation to parser logic.
-  // Invalid page strings like "1,abc,3" will be caught at processing time instead
-  it.skip('should throw PdfError for invalid page specification string', async () => {
+  it('should throw PdfError for invalid page specification string', async () => {
     const args = { sources: [{ path: 'test.pdf', pages: '1,abc,3' }] };
     await expect(handler(args)).rejects.toThrow(PdfError);
+    await expect(handler(args)).rejects.toThrow(/Invalid page number: abc/);
   });
 
   it('should throw PdfError for invalid page specification array (non-positive - Zod)', async () => {
@@ -2622,27 +2621,27 @@ describe('handleReadPdfFunc Integration Tests', () => {
     await expect(handler(args)).rejects.toThrow(/Invalid page range values: 5-3/);
   });
 
-  // Invalid page strings are caught at processing time instead of schema validation.
-  it.skip('should throw PdfError for invalid page number string', async () => {
+  it('should throw PdfError for invalid page number string', async () => {
     const args = { sources: [{ path: 'test.pdf', pages: '1,a,3' }] };
     await expect(handler(args)).rejects.toThrow(PdfError);
+    await expect(handler(args)).rejects.toThrow(/Invalid page number: a/);
   });
 
-  // These cases are caught at processing time when the loader fails.
-  it.skip('should throw PdfError if source has both path and url', async () => {
+  it('should throw PdfError if source has both path and url', async () => {
     const args = { sources: [{ path: 'test.pdf', url: 'http://example.com' }] };
     await expect(handler(args)).rejects.toThrow(PdfError);
+    await expect(handler(args)).rejects.toThrow(/exactly one of path or url/i);
+    await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
 
-  // These cases are caught at processing time when the loader fails.
-  it.skip('should throw PdfError if source has neither path nor url', async () => {
+  it('should throw PdfError if source has neither path nor url', async () => {
     const args = { sources: [{ pages: [1] }] }; // Missing path and url
     await expect(handler(args)).rejects.toThrow(PdfError);
+    await expect(handler(args)).rejects.toThrow(/exactly one of path or url/i);
+    await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
 
-  it.skip('should handle non-Error exceptions during processing', async () => {
-    // TODO: Fix this test - spy from previous test is persisting in Bun's test runner
-    // Reset all mocks to ensure clean state
+  it('should handle non-Error exceptions during processing', async () => {
     vi.clearAllMocks();
     vi.spyOn(pathUtils, 'resolvePath')
       .mockClear()
@@ -2659,24 +2658,14 @@ describe('handleReadPdfFunc Integration Tests', () => {
     });
 
     const args = { sources: [{ path: 'test.pdf' }] };
-    const result = await handler(args);
-
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (result.content?.[0]) {
-      const parsedResult = JSON.parse(result.content[0].text) as ExpectedResultType;
-      expect(parsedResult.results[0]).toBeDefined();
-      if (parsedResult.results[0]) {
-        expect(parsedResult.results[0].success).toBe(false);
-        expect(parsedResult.results[0].error).toContain('Unknown error');
-        expect(parsedResult.results[0].error).toContain('custom');
-      }
-    } else {
-      expect.fail('result.content[0] was undefined');
-    }
+    await expect(handler(args)).rejects.toThrow(PdfError);
+    await expect(handler(args)).rejects.toThrow(
+      'All PDF sources failed to process: Failed to process PDF from test.pdf.'
+    );
+    await expect(handler(args)).rejects.not.toThrow(/custom|object error|\[object Object\]/);
   });
 
-  it.skip('should extract images when include_images is true with full text', async () => {
-    // TODO: Fix this test - Bun test runner handles image content differently
+  it('should extract images when include_images is true with full text', async () => {
     const mockImageData = {
       width: 100,
       height: 50,
@@ -2734,8 +2723,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(imageParts[0].mimeType).toBeDefined();
   });
 
-  it.skip('should extract images with page_texts preserving order', async () => {
-    // TODO: Fix this test - Bun test runner handles image content differently
+  it('should extract images with page_texts preserving order', async () => {
     const mockImageData = {
       width: 50,
       height: 50,

@@ -3340,6 +3340,8 @@ var pdfSourceSchema = object({
   path: optional(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
   url: optional(str(min(1), description("URL of the PDF file."))),
   pages: optional(pageSpecifierSchema)
+}).refine((source) => Boolean(source.path) !== Boolean(source.url), {
+  message: "Provide exactly one of path or url for each PDF source."
 });
 var readPdfArgsSchema = object({
   sources: array(pdfSourceSchema),

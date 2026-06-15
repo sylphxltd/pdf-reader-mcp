@@ -896,6 +896,10 @@ Plan PDF extraction before running a heavier read. This is useful for agents
 that need to choose between metadata review, citation-ready extraction, mixed
 PDF handling, or OCR-capable workflows.
 
+All PDF tools use the same `sources` shape. Each source must provide exactly one
+locator: either `path` for a local PDF or `url` for a remote PDF. Supplying both,
+or neither, is rejected during argument validation.
+
 #### Parameters
 
 | Parameter | Type | Description | Default |

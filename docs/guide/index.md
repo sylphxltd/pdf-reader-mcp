@@ -26,7 +26,8 @@ AI agents often need to access information from PDF documents - reports, invoice
 ## Key Features
 
 ### Multiple Sources
-Process PDFs from local files or URLs in a single request. Mix and match sources as needed.
+Process PDFs from local files or URLs in a single request. Mix and match sources
+as needed, but each source must provide exactly one locator: `path` or `url`.
 
 ### Batch Processing
 Send multiple PDF sources in one request. The server processes them concurrently for optimal performance.
