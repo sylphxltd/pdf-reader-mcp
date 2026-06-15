@@ -79,6 +79,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, text-item bounding boxes, and provenance
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
+- 🧠 **Visual Region Analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
 - 🧾 **PDF Text Layer** - Optional line and word records with page-level character ranges, best-effort bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
@@ -94,7 +95,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - `inspect_pdf` plans extraction, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
+- 🎨 **Simple API** - `inspect_pdf` plans extraction, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `analyze_regions` enriches visual regions, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
 
 ---
 
@@ -488,6 +489,37 @@ citation bounding box and needs a focused crop from the original page.
 - PNG region crops as MCP image content parts when `include_image` is true
 - Bounded defaults: `max_regions` default 20 and `max_pixels_per_page` default 16MP
 - No cropped image base64 duplicated inside the first JSON content part
+
+### Analyze Visual Regions
+
+Use `analyze_regions` when an agent has a crop target for a table, chart,
+formula, figure, or image and wants a normalized local-provider result linked
+back to source pixels. The provider is configured by environment variables, not
+by request arguments.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "regions": [{
+      "id": "chart-1",
+      "page": 2,
+      "bounding_box": { "left": 72, "bottom": 240, "right": 540, "top": 520 },
+      "padding": 8
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 10,
+  "languages": ["eng"]
+}
+```
+
+**Response includes:**
+- A JSON summary with `profile: "region_analysis"` and the effective analysis options
+- Region-level `kind`, description, text, Markdown, confidence, normalized table rows, formula fields, chart data points, warnings, and provenance when supplied by the provider
+- `source_crop_evidence_id`, source bounding box, crop pixel bounds, and scale for every analyzed region
+- Bounded defaults: `max_regions` default 20, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per region
+- No cropped image base64 duplicated inside the JSON response
 
 ### OCR Selected Pages
 
@@ -920,6 +952,64 @@ The first content part is JSON metadata with `profile:
 "region_crop_evidence"`. Cropped PNG data is returned as subsequent MCP image
 parts and referenced by `image_content_index`.
 
+### `analyze_regions` Tool
+
+Analyze selected PDF-coordinate page regions with a configured local provider.
+This is useful for visual table recognition, chart-to-data enrichment, formula
+recognition, figure descriptions, and image captions while keeping every result
+linked to a crop evidence ID.
+
+#### Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `sources` | Array | List of PDF sources with `regions` to analyze | Required |
+| `scale` | number | Render scale used before cropping and analysis, from 0.25 to 4 | `2` |
+| `max_regions` | number | Maximum regions to analyze per source, capped at 100 | `20` |
+| `max_pixels_per_page` | number | Maximum rendered pixels per page before cropping, capped at 64MP | `16000000` |
+| `timeout_ms` | number | Timeout per analyzed region in milliseconds, capped at 300000 | `60000` |
+| `max_output_chars` | number | Maximum provider output characters returned per region | `200000` |
+| `languages` | string[] | Optional language tags passed to the configured provider | - |
+
+#### Provider Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required to enable `analyze_regions`. |
+| `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and `{languages}` placeholders. Defaults to `["{input}"]`. |
+
+Provider stdout may be plain text or JSON:
+
+```json
+{
+  "kind": "table",
+  "description": "Quarterly revenue table",
+  "text": "Q1 revenue...",
+  "markdown": "| Quarter | Revenue |",
+  "confidence": 0.91,
+  "table": {
+    "rows": [["Quarter", "Revenue"], ["Q1", "$1.2M"]],
+    "confidence": 0.9
+  },
+  "formula": {
+    "latex": "E = mc^2",
+    "confidence": 0.82
+  },
+  "chart": {
+    "title": "Revenue by quarter",
+    "summary": "Revenue rises across the period.",
+    "data_points": [{ "label": "Q1", "value": 1.2 }],
+    "confidence": 0.78
+  },
+  "warnings": ["Low contrast axis labels"]
+}
+```
+
+The first content part is JSON metadata with `profile: "region_analysis"`.
+Each analysis includes `source_crop_evidence_id`, source bounding box, crop
+pixel bounds, scale, provider, provenance, and normalized fields supplied by
+the local provider. The request cannot select an executable.
+
 ### `ocr_pages` Tool
 
 Run selected rendered pages through a configured local OCR provider and return
@@ -1331,6 +1421,8 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_PDF_OCR_PRESET` | - | Optional OCR preset. Supported value: `tesseract` |
 | `MCP_PDF_OCR_COMMAND` | - | Optional local OCR command used by `ocr_pages` |
 | `MCP_PDF_OCR_ARGS_JSON` | `["{input}"]` | Optional JSON string array of OCR command arguments. Must include `{input}`. |
+| `MCP_PDF_REGION_ANALYSIS_COMMAND` | - | Optional local visual-region analysis command used by `analyze_regions` |
+| `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | `["{input}"]` | Optional JSON string array of region analysis command arguments. Must include `{input}`. |
 
 ### Docker Deployment
 

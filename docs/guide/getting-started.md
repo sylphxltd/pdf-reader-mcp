@@ -1,12 +1,14 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides six tools:
+Once installed, the PDF Reader MCP server provides seven tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
 - `search_pdf` searches extracted PDF text with snippets, bounding boxes, and
   provenance.
 - `render_page` renders selected PDF pages as bounded visual evidence images.
 - `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
+- `analyze_regions` sends focused crops to a configured local provider and
+  normalizes table, chart, formula, figure, and image-description results.
 - `ocr_pages` runs selected rendered pages through a configured local OCR
   provider and returns a normalized OCR text layer.
 - `read_pdf` extracts PDF content, an agent document map, structure,
@@ -216,6 +218,42 @@ The response starts with JSON metadata for each crop, including region ID,
 source bounding box, crop pixel bounds, evidence ID, and provenance. Cropped PNG
 data is returned as MCP image content parts and referenced by
 `image_content_index`.
+
+### Analyze Visual Regions
+
+Use `analyze_regions` when a workflow has a table, figure, chart, formula, or
+image bounding box and wants local-provider enrichment linked back to source
+pixels. The region analysis provider is configured by environment variables,
+not by request arguments.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "regions": [{
+      "id": "chart-1",
+      "page": 2,
+      "bounding_box": { "left": 72, "bottom": 240, "right": 540, "top": 520 },
+      "padding": 8
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 10,
+  "languages": ["eng"]
+}
+```
+
+Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to the local visual analysis executable
+or wrapper you want the server to run. Optionally set
+`MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array that includes
+`{input}` and may also use `{page}`, `{source}`, `{region_id}`,
+`{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and
+`{languages}` placeholders.
+
+The response starts with JSON metadata using `profile: "region_analysis"`.
+Each analyzed region includes normalized `kind`, description, text, Markdown,
+confidence, optional table/formula/chart fields, warnings, provenance, and a
+`source_crop_evidence_id` pointing back to the crop used as provider input.
 
 ### OCR Selected Pages
 

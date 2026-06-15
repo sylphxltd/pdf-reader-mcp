@@ -128,6 +128,7 @@ describe('MCP Server HTTP Transport Integration', () => {
     expect(toolNames).toContain('search_pdf');
     expect(toolNames).toContain('render_page');
     expect(toolNames).toContain('extract_regions');
+    expect(toolNames).toContain('analyze_regions');
     expect(toolNames).toContain('ocr_pages');
   });
 

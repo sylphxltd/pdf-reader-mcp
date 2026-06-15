@@ -184,8 +184,9 @@ Candidate engines:
    - Add optional provider interface for high-accuracy local engines.
    - Add `ocr_pages` as the first optional OCR provider interface over bounded
      rendered pages.
-   - Add formula, chart, and image description enrichment behind optional
-     providers.
+   - Add `analyze_regions` for formula, chart, table, figure, and image
+     description enrichment behind optional providers over bounded crop
+     evidence.
    - Keep the default package lightweight.
 
 6. Agent workflows
@@ -208,7 +209,8 @@ Candidate engines:
 - Integration tests for MCP `read_pdf` with and without
   `include_accessibility_report`.
 - Integration tests confirm `inspect_pdf`, `search_pdf`, `render_page`,
-  `extract_regions`, and `ocr_pages` are exposed by the MCP server.
+  `extract_regions`, `analyze_regions`, and `ocr_pages` are exposed by the MCP
+  server.
 - Quality evals for semantic chunks, table ordering, renderers, and safety
   findings.
 - Fixtures for simple text, multi-column reading order, tables, images, scans,

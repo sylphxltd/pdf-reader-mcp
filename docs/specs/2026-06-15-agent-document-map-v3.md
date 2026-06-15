@@ -126,9 +126,9 @@ Required before publishing the next package release:
 - `include_document_map` public schema, handler, types, tests, docs.
 - Inspector recommendations include `include_document_map` for digital and
   mixed PDFs.
-- `render_page`, `extract_regions`, and `ocr_pages` provide visual evidence,
-  focused crops, and configured OCR text layers without embedding image bytes
-  in JSON summaries.
+- `render_page`, `extract_regions`, `analyze_regions`, and `ocr_pages` provide
+  visual evidence, focused crops, visual region enrichment, and configured OCR
+  text layers without embedding image bytes in JSON summaries.
 - `search_pdf` provides bounded evidence retrieval with snippets, offsets,
   optional text-item bounding boxes, and provenance before heavier workflows.
 - Quality eval proves the map links pages, elements, chunks, safety findings,
