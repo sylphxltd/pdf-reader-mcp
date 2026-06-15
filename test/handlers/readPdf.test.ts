@@ -1665,7 +1665,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     ]);
     const getStructTree = vi.fn().mockResolvedValue({
       role: 'Document',
-      children: [{ role: 'H1' }, { role: 'P' }],
+      children: [{ role: 'H1', children: [{ type: 'content', id: 'p1-text-1' }] }, { role: 'P' }],
     });
 
     mockGetOutline.mockResolvedValue([{ title: 'Executive Summary' }]);
@@ -1718,6 +1718,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
               tagged: boolean;
               summary: {
                 tagged_page_count: number;
+                structure_content_count: number;
+                structure_content_id_count: number;
+                visible_element_count: number;
+                average_tag_content_coverage: number;
                 heading_count: number;
                 form_field_count: number;
                 link_count: number;
@@ -1745,6 +1749,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
         tagged: true,
         summary: {
           tagged_page_count: 1,
+          structure_content_count: 1,
+          structure_content_id_count: 1,
+          visible_element_count: 1,
+          average_tag_content_coverage: 1,
           heading_count: 1,
           form_field_count: 1,
           link_count: 1,
@@ -1760,6 +1768,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
           expect.objectContaining({ type: 'form_field_label', severity: 'medium', page: 1 }),
           expect.objectContaining({ type: 'link_label', severity: 'low', page: 1 }),
         ])
+      );
+      expect(report?.issues).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ type: 'tagged_content_mismatch' })])
       );
       expect(report?.guidance).toEqual(
         expect.arrayContaining([

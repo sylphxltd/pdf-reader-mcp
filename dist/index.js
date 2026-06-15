@@ -3372,7 +3372,7 @@ var readPdfArgsSchema = object({
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image regions and fuse normalized table, formula, chart, figure, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
   include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing."))),
-  include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
+  include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
 });
 
 // src/schemas/inspectPdf.ts
@@ -3475,6 +3475,13 @@ var ocrPages = tool().description("Runs selected rendered PDF pages through a co
 
 // src/pdf/accessibilityReport.ts
 var ACCESSIBILITY_REPORT_VERSION = "2026-06-15";
+var EMPTY_STRUCTURE_ROLE_STATS = {
+  roleCount: 0,
+  contentCount: 0,
+  contentIdCount: 0,
+  headingCount: 0,
+  figureCount: 0
+};
 var issueScore = (severity) => {
   if (severity === "high")
     return 35;
@@ -3501,14 +3508,22 @@ var countStructureRoles = (node) => {
   const role = normalizeRole(node.role);
   const ownStats = {
     roleCount: 1,
+    contentCount: 0,
+    contentIdCount: 0,
     headingCount: isHeadingRole(role) ? 1 : 0,
     figureCount: role === "figure" ? 1 : 0
   };
   for (const child of node.children ?? []) {
-    if (!isStructureNode(child))
+    if (!isStructureNode(child)) {
+      ownStats.contentCount++;
+      if (child.id)
+        ownStats.contentIdCount++;
       continue;
+    }
     const childStats = countStructureRoles(child);
     ownStats.roleCount += childStats.roleCount;
+    ownStats.contentCount += childStats.contentCount;
+    ownStats.contentIdCount += childStats.contentIdCount;
     ownStats.headingCount += childStats.headingCount;
     ownStats.figureCount += childStats.figureCount;
   }
@@ -3518,6 +3533,33 @@ var outlineCount = (items) => (items ?? []).reduce((sum, item) => sum + 1 + outl
 var pageAnnotations = (annotations, page) => annotations?.find((entry) => entry.page === page)?.annotations ?? [];
 var pageFields = (formFields, page) => (formFields ?? []).filter((field) => field.page === page);
 var pageImages = (elements, page) => elements.filter((element) => element.type === "image" && element.page === page);
+var pageVisibleElements = (elements, page) => elements.filter((element) => element.page === page);
+var roundRatio2 = (value) => Math.round(value * 100) / 100;
+var tagContentCoverage = (structureTree, roleStats, visibleElementCount) => {
+  if (!structureTree)
+    return 0;
+  if (visibleElementCount === 0)
+    return 1;
+  return roundRatio2(Math.min(1, (roleStats?.contentCount ?? 0) / visibleElementCount));
+};
+var pageAccessibilitySignals = (input, page) => {
+  const structureTree = input.structureTrees?.find((entry) => entry.page === page);
+  const roleStats = structureTree ? countStructureRoles(structureTree.tree) : EMPTY_STRUCTURE_ROLE_STATS;
+  const visibleElementCount = pageVisibleElements(input.elements, page).length;
+  const annotations = pageAnnotations(input.annotations, page);
+  const links = annotations.filter((annotation) => annotation.url);
+  const fields = pageFields(input.formFields, page);
+  return {
+    page,
+    structureTree,
+    roleStats,
+    visibleElementCount,
+    tagContentCoverage: tagContentCoverage(structureTree, roleStats, visibleElementCount),
+    images: pageImages(input.elements, page),
+    links,
+    fields
+  };
+};
 var buildDocumentIssues = (input) => {
   const issues = [];
   const marked = booleanMarkInfo(input.markInfo, "Marked");
@@ -3562,49 +3604,57 @@ var buildDocumentIssues = (input) => {
   }
   return issues;
 };
-var buildPageIssues = (input, page) => {
+var buildPageIssues = (input, signals) => {
   const issues = [];
-  const structureTree = input.structureTrees?.find((entry) => entry.page === page);
-  const roleStats = structureTree ? countStructureRoles(structureTree.tree) : undefined;
-  const images = pageImages(input.elements, page);
-  const annotations = pageAnnotations(input.annotations, page);
-  const links = annotations.filter((annotation) => annotation.url);
-  const fields = pageFields(input.formFields, page);
-  if (!structureTree) {
+  if (!signals.structureTree) {
     issues.push({
       type: "untagged_page",
       severity: "medium",
-      page,
+      page: signals.page,
       message: "Selected page does not expose a tagged structure tree."
     });
   }
-  if (structureTree && roleStats?.headingCount === 0 && outlineCount(input.outline) > 0) {
+  if (signals.structureTree && signals.roleStats.headingCount === 0 && outlineCount(input.outline) > 0) {
     issues.push({
       type: "heading_structure",
       severity: "low",
-      page,
+      page: signals.page,
       message: "The document has outline entries, but this page does not expose heading roles in the structure tree.",
       evidence: { outline_count: outlineCount(input.outline) }
     });
   }
-  if (images.length > 0 && (roleStats?.figureCount ?? 0) < images.length) {
+  if (signals.structureTree && signals.visibleElementCount > 0 && signals.tagContentCoverage < 0.5) {
     issues.push({
-      type: "image_alt_text",
-      severity: structureTree ? "medium" : "high",
-      page,
-      message: "Page image objects outnumber Figure roles; image alt-text coverage cannot be verified from the available PDF structure.",
+      type: "tagged_content_mismatch",
+      severity: "medium",
+      page: signals.page,
+      message: "Tagged structure exposes too few content references for the visible page content; tag-to-content coverage needs verification.",
       evidence: {
-        image_count: images.length,
-        figure_role_count: roleStats?.figureCount ?? 0
+        visible_element_count: signals.visibleElementCount,
+        structure_content_count: signals.roleStats.contentCount,
+        structure_content_id_count: signals.roleStats.contentIdCount,
+        tag_content_coverage: signals.tagContentCoverage
       }
     });
   }
-  for (const field of fields) {
+  if (signals.images.length > 0 && signals.roleStats.figureCount < signals.images.length) {
+    issues.push({
+      type: "image_alt_text",
+      severity: signals.structureTree ? "medium" : "high",
+      page: signals.page,
+      message: "Page image objects outnumber Figure roles; image alt-text coverage cannot be verified from the available PDF structure.",
+      evidence: {
+        image_count: signals.images.length,
+        figure_role_count: signals.roleStats.figureCount
+      }
+    });
+  }
+  for (const field of signals.fields) {
     if (!field.name || /^unnamed|^field\d+$/i.test(field.name)) {
       issues.push({
         type: "form_field_label",
         severity: field.required ? "medium" : "low",
-        page,
+        page: signals.page,
         message: "Form field does not expose a useful accessible name.",
         evidence: {
           field_id: field.id,
@@ -3615,12 +3665,12 @@ var buildPageIssues = (input, page) => {
       });
     }
   }
-  for (const link of links) {
+  for (const link of signals.links) {
     if (!link.contents && !link.title) {
       issues.push({
         type: "link_label",
         severity: "low",
-        page,
+        page: signals.page,
         message: "Link annotation target is present, but an accessible label was not exposed.",
         evidence: {
           annotation_id: link.id,
@@ -3640,6 +3690,9 @@ var buildGuidance = (issues) => {
   if (issues.some((issue) => issue.type === "suspect_tags")) {
     guidance.add("Verify suspect tags with page rendering or source authoring files before relying on them.");
   }
+  if (issues.some((issue) => issue.type === "tagged_content_mismatch")) {
+    guidance.add("Verify tagged structure against visible page content before relying on tag-derived semantics.");
+  }
   if (issues.some((issue) => issue.type === "image_alt_text")) {
     guidance.add("Use region crops or source documents to verify image meaning when alt text is not exposed.");
   }
@@ -3658,21 +3711,24 @@ var buildAccessibilityReport = (input) => {
   const selectedPages = [...new Set(input.selectedPages)].sort((a, b) => a - b);
   const documentIssues = buildDocumentIssues(input);
   const pageReports = selectedPages.map((page) => {
-    const structureTree = input.structureTrees?.find((entry) => entry.page === page);
-    const roleStats = structureTree ? countStructureRoles(structureTree.tree) : { roleCount: 0, headingCount: 0, figureCount: 0 };
-    const issues2 = buildPageIssues(input, page);
+    const signals = pageAccessibilitySignals(input, page);
+    const issues2 = buildPageIssues(input, signals);
     const score2 = clampScore(100 - issues2.reduce((sum, issue) => sum + issueScore(issue.severity), 0));
     return {
       page,
-      tagged: roleStats.roleCount > 0,
+      tagged: signals.roleStats.roleCount > 0,
       score: score2,
       grade: gradeFromScore(score2),
-      structure_role_count: roleStats.roleCount,
-      heading_count: roleStats.headingCount,
-      figure_count: roleStats.figureCount,
-      image_count: pageImages(input.elements, page).length,
-      link_count: pageAnnotations(input.annotations, page).filter((annotation) => annotation.url).length,
-      form_field_count: pageFields(input.formFields, page).length,
+      structure_role_count: signals.roleStats.roleCount,
+      structure_content_count: signals.roleStats.contentCount,
+      structure_content_id_count: signals.roleStats.contentIdCount,
+      visible_element_count: signals.visibleElementCount,
+      tag_content_coverage: signals.tagContentCoverage,
+      heading_count: signals.roleStats.headingCount,
+      figure_count: signals.roleStats.figureCount,
+      image_count: signals.images.length,
+      link_count: signals.links.length,
+      form_field_count: signals.fields.length,
       issues: issues2
     };
   });
@@ -3682,6 +3738,7 @@ var buildAccessibilityReport = (input) => {
   const mediumIssueCount = issues.filter((issue) => issue.severity === "medium").length;
   const lowIssueCount = issues.filter((issue) => issue.severity === "low").length;
   const taggedPageCount = pageReports.filter((pageReport) => pageReport.tagged).length;
+  const averageTagContentCoverage = pageReports.length === 0 ? 0 : roundRatio2(pageReports.reduce((sum, pageReport) => sum + pageReport.tag_content_coverage, 0) / pageReports.length);
   return {
     version: ACCESSIBILITY_REPORT_VERSION,
     profile: "pdf_accessibility_report",
@@ -3695,6 +3752,10 @@ var buildAccessibilityReport = (input) => {
       tagged_page_count: taggedPageCount,
       untagged_page_count: selectedPages.length - taggedPageCount,
       structure_role_count: pageReports.reduce((sum, pageReport) => sum + pageReport.structure_role_count, 0),
+      structure_content_count: pageReports.reduce((sum, pageReport) => sum + pageReport.structure_content_count, 0),
+      structure_content_id_count: pageReports.reduce((sum, pageReport) => sum + pageReport.structure_content_id_count, 0),
+      visible_element_count: pageReports.reduce((sum, pageReport) => sum + pageReport.visible_element_count, 0),
+      average_tag_content_coverage: averageTagContentCoverage,
       heading_count: pageReports.reduce((sum, pageReport) => sum + pageReport.heading_count, 0),
       figure_count: pageReports.reduce((sum, pageReport) => sum + pageReport.figure_count, 0),
       image_count: pageReports.reduce((sum, pageReport) => sum + pageReport.image_count, 0),
@@ -4179,7 +4240,7 @@ var buildDocumentAst = (input) => {
 // src/pdf/documentMap.ts
 var DOCUMENT_MAP_VERSION = "2026-06-15";
 var LOW_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
-var roundRatio2 = (value) => Math.round(value * 100) / 100;
+var roundRatio3 = (value) => Math.round(value * 100) / 100;
 var pushToMap = (map, key, value) => {
   const values = map.get(key);
   if (values) {
@@ -4339,8 +4400,8 @@ var buildDocumentMap = (input) => {
   const needsOcrPages = input.layoutDiagnostics.filter((layout) => (layout.profile === "image_or_sparse" || layout.item_count === 0) && layout.text_item_count === 0).map((layout) => layout.page);
   const ocrAppliedPages = input.ocrTextLayer?.pages.map((page) => page.page) ?? [];
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
-  const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio2(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
-  const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio2(Math.min(...layoutConfidences)) : undefined;
+  const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
+  const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(Math.min(...layoutConfidences)) : undefined;
   const textElementCount = input.elements.filter((element) => element.type === "text").length;
   const imageElementCount = input.elements.filter((element) => element.type === "image").length;
   const tableElementCount = input.elements.filter((element) => element.type === "table").length;
@@ -4398,7 +4459,7 @@ var MIN_ROWS = 2;
 var MIN_COLS = 2;
 var MIN_ROW_ITEMS = 2;
 var tableId = (table) => `p${table.page}-table-${table.tableIndex + 1}`;
-var roundRatio3 = (value) => Math.round(value * 100) / 100;
+var roundRatio4 = (value) => Math.round(value * 100) / 100;
 var buildBoundingBox2 = (x, y, width, height) => {
   if (![x, y, width].every(Number.isFinite) || height === undefined || !Number.isFinite(height)) {
     return;
@@ -4577,7 +4638,7 @@ var rowSpacingConsistency = (rows) => {
     return 0;
   const variance = spacings.reduce((sum, spacing) => sum + (spacing - averageSpacing) ** 2, 0) / spacings.length;
   const standardDeviation = Math.sqrt(variance);
-  return roundRatio3(Math.max(0, 1 - standardDeviation / averageSpacing));
+  return roundRatio4(Math.max(0, 1 - standardDeviation / averageSpacing));
 };
 var calculateRowAlignment = (rows, columnBoundaries) => {
   if (rows.length === 0 || columnBoundaries.length === 0)
@@ -4589,16 +4650,16 @@ var calculateRowAlignment = (rows, columnBoundaries) => {
     }
     return Math.min(1, columns.size / columnBoundaries.length);
   });
-  return roundRatio3(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
+  return roundRatio4(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
 };
 var buildTableQuality = (rows, cells, columnBoundaries, confidence) => {
   const nonEmptyCellCount = cells.filter((cell) => cell.text.trim().length > 0).length;
   const missingCellCount = Math.max(0, cells.length - nonEmptyCellCount);
   const mergedCellCandidateCount = cells.filter((cell) => (cell.colSpan ?? 1) > 1).length;
-  const nonEmptyCellRatio = cells.length > 0 ? roundRatio3(nonEmptyCellCount / cells.length) : 0;
+  const nonEmptyCellRatio = cells.length > 0 ? roundRatio4(nonEmptyCellCount / cells.length) : 0;
   const rowAlignment = calculateRowAlignment(rows, columnBoundaries);
   const spacingConsistency = rowSpacingConsistency(rows);
-  const completeness = roundRatio3(nonEmptyCellRatio * rowAlignment);
+  const completeness = roundRatio4(nonEmptyCellRatio * rowAlignment);
   const signals = [];
   const warnings = [];
   if (missingCellCount === 0) {
@@ -4704,7 +4765,7 @@ var linkTableContinuationCandidates = (tables) => {
     if (similarity < 0.6)
       continue;
     const groupId = `table-continuation-${tableId(current)}-${tableId(next)}`;
-    const confidence = roundRatio3(0.55 + similarity * 0.4);
+    const confidence = roundRatio4(0.55 + similarity * 0.4);
     const signals = ["same_column_count", "repeated_header_candidate"];
     current.continuation = {
       groupId,
@@ -5276,8 +5337,8 @@ var buildCitationChunks = (elements, options) => {
   pushCurrent();
   return chunks;
 };
-var roundRatio4 = (value) => Math.round(value * 100) / 100;
-var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio4(value)));
+var roundRatio5 = (value) => Math.round(value * 100) / 100;
+var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio5(value)));
 var boxWidth = (box) => box ? Math.max(0, box.right - box.left) : 0;
 var boxArea = (box) => {
   if (!box)
@@ -5364,7 +5425,7 @@ var buildLayoutDiagnostics = (pageContents) => pageContents.map((pageContent) =>
   const textItemCount = pageContent.items.filter((item) => item.type === "text").length;
   const imageItemCount = pageContent.items.filter((item) => item.type === "image").length;
   const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
-  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio4(positionedItems.length / itemCount);
+  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio5(positionedItems.length / itemCount);
   const columns = detectLayoutColumns(positionedItems);
   const left = positionedItems.length ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0)) : 0;
   const right = positionedItems.length ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0)) : 0;

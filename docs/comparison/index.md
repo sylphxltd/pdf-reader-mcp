@@ -78,7 +78,7 @@
 - URL support
 - Structured JSON output
 - Agent document maps with linked pages, elements, text-layer coverage, chunks, layout confidence, safety findings, routing signals, and geometry
-- Accessibility reports with tagged-PDF coverage, heading, image, form, link, and permission signals
+- Accessibility reports with tagged-PDF coverage, tag-to-visible-content coverage, heading, image, form, link, and permission signals
 
 **Cons:**
 - PDF-specific (not general file access)
@@ -99,6 +99,6 @@
 - You need table quality signals, sparse-cell warnings, or continuation candidates for agent routing
 - You need a semantic document AST for page, section, paragraph, list, caption, header, footer, table, and image traversal with continued section context and caption-to-evidence links
 - You need a local trust report before using PDF content as instructions, evidence, or retrieval context
-- You need an accessibility report before relying on tagged structure, headings, images, forms, links, or copy-based accessibility workflows
+- You need an accessibility report before relying on tagged structure, tag-to-visible-content coverage, headings, images, forms, links, or copy-based accessibility workflows
 - You want structured, parseable output
 - You want agents to navigate PDF evidence through stable references

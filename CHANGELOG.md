@@ -26,6 +26,10 @@
   expose text-layer page indexes plus run, line, word, character, and bounding
   box coverage counts, and the map summary reports text-layer totals without
   forcing top-level `text_layer` output.
+- Add tag-to-visible-content correlation to the accessibility report. Page
+  reports now expose visible element counts, structure content-reference counts,
+  and tag-content coverage, and the report can flag tagged pages whose structure
+  tree does not reference enough visible content.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can
   receive crop image bytes and return the same normalized table, formula, chart,
   figure, image-description, confidence, warning, and provenance fields as

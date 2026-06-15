@@ -5,20 +5,38 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-const TEST_PORT = 18080; // Use a high port to avoid conflicts
-const BASE_URL = `http://localhost:${TEST_PORT}/mcp`;
+const TEST_HOST = '127.0.0.1';
+let baseUrl: string;
 const packageJson = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')
 ) as {
   version: string;
 };
 
+const getFreePort = async (): Promise<number> =>
+  new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.once('error', reject);
+    server.listen(0, TEST_HOST, () => {
+      const address = server.address();
+      server.close(() => {
+        if (typeof address === 'object' && address) {
+          resolve(address.port);
+        } else {
+          reject(new Error('Failed to allocate a test HTTP port'));
+        }
+      });
+    });
+  });
+
 // JSON-RPC request helper
 const sendRequest = async (method: string, params?: unknown, id = 1) => {
-  const response = await fetch(BASE_URL, {
+  const response = await fetch(baseUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -36,7 +54,7 @@ const sendRequest = async (method: string, params?: unknown, id = 1) => {
 
 // Send notification (no response expected for proper notifications)
 const sendNotification = async (method: string, params?: unknown) => {
-  await fetch(BASE_URL, {
+  await fetch(baseUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -56,14 +74,16 @@ describe('MCP Server HTTP Transport Integration', () => {
   beforeAll(async () => {
     // Start the MCP server with HTTP transport
     const serverPath = path.resolve(__dirname, '../../dist/index.js');
+    const testPort = await getFreePort();
+    baseUrl = `http://${TEST_HOST}:${String(testPort)}/mcp`;
     serverProc = spawn('bun', [serverPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
         NODE_ENV: 'test',
         MCP_TRANSPORT: 'http',
-        MCP_HTTP_PORT: TEST_PORT.toString(),
-        MCP_HTTP_HOST: 'localhost',
+        MCP_HTTP_PORT: testPort.toString(),
+        MCP_HTTP_HOST: TEST_HOST,
       },
     });
 
@@ -93,7 +113,7 @@ describe('MCP Server HTTP Transport Integration', () => {
   });
 
   it('should respond to health check', async () => {
-    const response = await fetch(`${BASE_URL}/health`);
+    const response = await fetch(`${baseUrl}/health`);
     expect(response.ok).toBe(true);
     const data = await response.json();
     expect(data.status).toBe('ok');
@@ -163,7 +183,7 @@ describe('MCP Server HTTP Transport Integration', () => {
   });
 
   it('should not return wildcard CORS headers by default', async () => {
-    const response = await fetch(BASE_URL, {
+    const response = await fetch(baseUrl, {
       method: 'OPTIONS',
       headers: {
         Origin: 'http://example.com',
@@ -177,7 +197,7 @@ describe('MCP Server HTTP Transport Integration', () => {
   });
 
   it('should reject invalid JSON-RPC requests', async () => {
-    const response = await fetch(BASE_URL, {
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

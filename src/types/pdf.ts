@@ -613,6 +613,7 @@ export type PdfAccessibilityIssueType =
   | 'structure_tree_missing'
   | 'untagged_page'
   | 'heading_structure'
+  | 'tagged_content_mismatch'
   | 'image_alt_text'
   | 'form_field_label'
   | 'link_label'
@@ -632,6 +633,10 @@ export interface PdfAccessibilityPageReport {
   score: number;
   grade: PdfAccessibilityGrade;
   structure_role_count: number;
+  structure_content_count: number;
+  structure_content_id_count: number;
+  visible_element_count: number;
+  tag_content_coverage: number;
   heading_count: number;
   figure_count: number;
   image_count: number;
@@ -646,6 +651,10 @@ export interface PdfAccessibilityReportSummary {
   tagged_page_count: number;
   untagged_page_count: number;
   structure_role_count: number;
+  structure_content_count: number;
+  structure_content_id_count: number;
+  visible_element_count: number;
+  average_tag_content_coverage: number;
   heading_count: number;
   figure_count: number;
   image_count: number;

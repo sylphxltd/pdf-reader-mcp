@@ -462,9 +462,10 @@ claim PDF/UA certification.
 ```
 
 Response fields include `score`, `grade`, `tagged`, `suspected_tagging_issues`,
-page reports, issue counts, and guidance. The report can use mark info,
-permissions, annotations, form fields, and structure trees internally without
-forcing those raw outputs into the top-level response.
+page reports, tag-to-visible-content coverage, issue counts, and guidance. The
+report can use mark info, permissions, annotations, form fields, structured
+elements, and structure trees internally without forcing those raw outputs into
+the top-level response.
 
 ### Get Layout Diagnostics
 

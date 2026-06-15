@@ -169,14 +169,34 @@ const evaluateCase = (qualityCase: QualityCase) => {
         page: 1,
         tree: {
           role: 'Document',
-          children: [{ role: 'H1' }, { role: 'P' }, { role: 'L' }],
+          children: [
+            { role: 'H1', children: [{ type: 'content', id: 'p1-text-2' }] },
+            {
+              role: 'P',
+              children: [
+                { type: 'content', id: 'p1-text-3' },
+                { type: 'content', id: 'p1-text-5' },
+              ],
+            },
+            { role: 'L', children: [{ type: 'content', id: 'p1-text-4' }] },
+            { role: 'Table', children: [{ type: 'content', id: 'p1-table-1' }] },
+          ],
         },
       },
       {
         page: 2,
         tree: {
           role: 'Document',
-          children: [{ role: 'H1' }, { role: 'P' }],
+          children: [
+            { role: 'H1', children: [{ type: 'content', id: 'p2-text-2' }] },
+            {
+              role: 'P',
+              children: [
+                { type: 'content', id: 'p2-text-1' },
+                { type: 'content', id: 'p2-text-3' },
+              ],
+            },
+          ],
         },
       },
     ],
@@ -322,6 +342,9 @@ const evaluateCase = (qualityCase: QualityCase) => {
         accessibilityReport.score === 100 &&
         accessibilityReport.summary.tagged_page_count === 2 &&
         accessibilityReport.summary.heading_count === 2 &&
+        accessibilityReport.summary.visible_element_count === elements.length &&
+        accessibilityReport.summary.structure_content_count === 8 &&
+        accessibilityReport.summary.average_tag_content_coverage >= 0.75 &&
         accessibilityReport.summary.issue_count === 0,
     },
     {

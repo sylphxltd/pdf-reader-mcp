@@ -16,7 +16,7 @@ PDF Reader MCP is built on these core principles:
 - **Agent Document Map** - One navigable contract linking pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry
 - **Document AST** - Optional semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
 - **Trust Report** - Optional consolidated risk report for content safety, layout uncertainty, sparse pages, table quality, and external links
-- **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions
+- **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, and accessibility permissions
 - **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - **Visual Page Evidence** - Bounded page rendering with evidence IDs, provenance, and MCP image parts for OCR routing and page inspection
 - **Region Crop Evidence** - Bbox-grounded visual crops that connect extracted structure back to focused source evidence
@@ -64,7 +64,7 @@ PDF Reader MCP is built on these core principles:
 - **Document Map** - Pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
 - **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs, chunk IDs, continued section context, and caption links as evidence anchors
 - **Trust Routing** - The trust report turns safety, layout, table, and annotation signals into page-level routing guidance
-- **Accessibility Routing** - The accessibility report turns tagged structure, headings, images, forms, links, and permissions into page-level quality guidance
+- **Accessibility Routing** - The accessibility report turns tagged structure, tag-to-visible-content coverage, headings, images, forms, links, and permissions into page-level quality guidance
 - **Semantic Hints** - Heading, list, paragraph, caption, header, and footer hints carry confidence and signals without overstating parser certainty
 - **Caption Evidence** - Caption nodes link to nearby matching table, image, figure, chart, formula, and diagram nodes, while targets keep reverse caption IDs for agent traversal
 - **Cell-Level Provenance** - Table cells can carry row/column indexes, header/span hints, inference flags, and coordinates for downstream citation workflows

@@ -48,7 +48,7 @@ neutral capability names and avoids public comparison language.
 | Page geometry | Shipped | `include_page_geometry`; viewport size, rotation, user unit, and view box. |
 | Permissions and mark info | Shipped | `include_permissions`. |
 | Tagged PDF structure extraction | Shipped | `include_structure_tree`; page-scoped structure trees when exposed by PDF.js. |
-| Accessibility report | Shipped | `include_accessibility_report`; deterministic tagged-PDF coverage, structure tree, heading, image, form, link, permission, and mark-info signals. Does not claim PDF/UA certification. |
+| Accessibility report | Shipped | `include_accessibility_report`; deterministic tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, permission, and mark-info signals. Does not claim PDF/UA certification. |
 | Form fields | Shipped | `include_form_fields`; covered by a runtime-generated AcroForm fixture with PDF.js zero-based page normalization. Broader form variants still belong in future fixture expansion. |
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, off-page text, and overlapping text that may visually spoof or obscure content. |
@@ -69,8 +69,9 @@ neutral capability names and avoids public comparison language.
 1. Continue broadening real fixture coverage for the no-new-dependency parity
    features. The quality benchmark now covers outline, annotations, page
    labels, mark info, form fields, attachment metadata, page geometry,
-   structure trees, and accessibility reports through a runtime-generated real
-   PDF, plus real multi-column reading order with short footer placement;
+   structure trees, tag-content coverage, and accessibility reports through a
+   runtime-generated real PDF, plus real multi-column reading order with short
+   footer placement;
    permissions, additional tagged structures, semantic variants, and safety
    adversarial fixtures still need broader coverage.
 2. Expand extraction quality evals and benchmarks: multi-column, layout

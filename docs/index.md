@@ -52,5 +52,5 @@ features:
     details: Surface deterministic findings for prompt-injection patterns, tiny text, and off-page text before agents use PDF content.
   - icon: "\u267F"
     title: Accessibility Report
-    details: Summarize tagged-PDF coverage, structure trees, headings, image alt-text verifiability, form labels, link labels, and accessibility permissions without claiming PDF/UA certification.
+    details: Summarize tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, image alt-text verifiability, form labels, link labels, and accessibility permissions without claiming PDF/UA certification.
 ---

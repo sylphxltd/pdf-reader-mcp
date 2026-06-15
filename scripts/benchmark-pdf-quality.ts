@@ -273,14 +273,34 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         page: 1,
         tree: {
           role: 'Document',
-          children: [{ role: 'H1' }, { role: 'P' }, { role: 'L' }],
+          children: [
+            { role: 'H1', children: [{ type: 'content', id: 'p1-text-2' }] },
+            {
+              role: 'P',
+              children: [
+                { type: 'content', id: 'p1-text-3' },
+                { type: 'content', id: 'p1-text-5' },
+              ],
+            },
+            { role: 'L', children: [{ type: 'content', id: 'p1-text-4' }] },
+            { role: 'Table', children: [{ type: 'content', id: 'p1-table-1' }] },
+          ],
         },
       },
       {
         page: 2,
         tree: {
           role: 'Document',
-          children: [{ role: 'H1' }, { role: 'P' }],
+          children: [
+            { role: 'H1', children: [{ type: 'content', id: 'p2-text-2' }] },
+            {
+              role: 'P',
+              children: [
+                { type: 'content', id: 'p2-text-1' },
+                { type: 'content', id: 'p2-text-3' },
+              ],
+            },
+          ],
         },
       },
     ],
@@ -479,6 +499,9 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         accessibilityReport.score === 100 &&
         accessibilityReport.summary.tagged_page_count === 2 &&
         accessibilityReport.summary.heading_count === 2 &&
+        accessibilityReport.summary.visible_element_count === elements.length &&
+        accessibilityReport.summary.structure_content_count === 8 &&
+        accessibilityReport.summary.average_tag_content_coverage >= 0.75 &&
         accessibilityReport.summary.issue_count === 0,
     },
     {
@@ -1081,6 +1104,9 @@ const evaluateDocumentSignalsFixture = async (): Promise<QualityAssertion[]> => 
           score?: number;
           summary?: {
             tagged_page_count?: number;
+            structure_content_count?: number;
+            visible_element_count?: number;
+            average_tag_content_coverage?: number;
             heading_count?: number;
             link_count?: number;
             form_field_count?: number;
@@ -1149,6 +1175,9 @@ const evaluateDocumentSignalsFixture = async (): Promise<QualityAssertion[]> => 
           accessibilityReport.tagged === true &&
           accessibilityReport.score === 100 &&
           accessibilityReport.summary?.tagged_page_count === 1 &&
+          (accessibilityReport.summary.structure_content_count ?? 0) >= 2 &&
+          (accessibilityReport.summary.visible_element_count ?? 0) >= 2 &&
+          (accessibilityReport.summary.average_tag_content_coverage ?? 0) >= 0.5 &&
           accessibilityReport.summary.heading_count === 1 &&
           accessibilityReport.summary.link_count === 1 &&
           accessibilityReport.summary.form_field_count === 1 &&

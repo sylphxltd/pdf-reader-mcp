@@ -157,8 +157,9 @@ Candidate engines:
    - Add `include_trust_report` for consolidated content safety, layout,
      sparse-page, table quality, and external-link routing signals.
    - Add `include_accessibility_report` for deterministic tagged-PDF coverage,
-     structure tree, heading, image, form, link, permission, and mark-info
-     signals without claiming PDF/UA certification.
+     tag-to-visible-content coverage, structure tree, heading, image, form,
+     link, permission, and mark-info signals without claiming PDF/UA
+     certification.
    - Add `search_pdf` for bounded evidence retrieval before heavier reading,
      rendering, cropping, or citation workflows.
    - Keep legacy outputs stable.

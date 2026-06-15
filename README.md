@@ -47,7 +47,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Full agent document map linking pages, elements, text-layer coverage, chunks, layout, safety, and geometry 🧭
 - Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including caption-to-evidence links 🌳
 - PDF trust report for content safety, layout, table, and link-risk routing 🛡️
-- Accessibility report for tagged-PDF coverage, headings, images, forms, links, and permissions ♿
+- Accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, headings, images, forms, links, and permissions ♿
 - Structured element output for agent workflows 🧩
 - Table quality diagnostics with inferred cell spans and continuation candidates 📊
 - Markdown rendering for RAG and summarization 📝
@@ -87,7 +87,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧭 **Agent Document Map** - Optional page map that links elements, text-layer coverage, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context and caption-to-evidence links
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, and external links
-- ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
+- ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
@@ -449,7 +449,7 @@ for navigation, form filling, summarization, or assisted reading workflows.
 
 **Response includes:**
 - Document and page-level accessibility scores and grades
-- Tagged-page coverage, structure role counts, heading counts, image counts, link counts, and form field counts
+- Tagged-page coverage, structure role counts, tag-to-visible-content coverage, heading counts, image counts, link counts, and form field counts
 - Issues for missing mark info, untagged pages, suspect tags, image alt-text verifiability, weak form labels, weak link labels, and missing `copy_for_accessibility`
 - Guidance for when agents should verify semantics with source files, rendering, or region crops
 - No forced top-level permissions, mark info, annotations, form fields, or structure trees unless those options are requested
@@ -729,7 +729,7 @@ OCR output remains a separate `ocr_text_layer`; it is not merged into
 - ✅ **Agent Document Map** - Pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
 - ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
 - ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, and external links
-- ✅ **Accessibility Report** - Tagged-PDF coverage, structure tree, heading, image, form, link, and permission signals
+- ✅ **Accessibility Report** - Tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, and permission signals
 - ✅ **PDF Text Layer** - Run records, line records, word records, character records, estimated bounding boxes, and provenance
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
@@ -783,10 +783,11 @@ of failing the whole document read.
 ### Accessibility Report
 
 `include_accessibility_report` returns a deterministic report for tagged-PDF
-coverage, page structure trees, heading roles, image alt-text verifiability,
-form field labels, link labels, mark info, and `copy_for_accessibility`
-permissions. It gives agents routing guidance without claiming PDF/UA
-certification or forcing raw structure outputs into top-level JSON.
+coverage, page structure trees, tag-to-visible-content coverage, heading roles,
+image alt-text verifiability, form field labels, link labels, mark info, and
+`copy_for_accessibility` permissions. It gives agents routing guidance without
+claiming PDF/UA certification or forcing raw structure outputs into top-level
+JSON.
 
 ### Configured OCR Text Layer
 
@@ -1179,7 +1180,7 @@ tables, and document signals.
 | `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table/image regions and fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, and external links | `false` |
-| `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
+| `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph/caption/header/footer hints on text elements | `false` |
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
@@ -1700,7 +1701,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
-- [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, and accessibility report fusion
+- [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion
+- [x] Tag-to-visible-content coverage in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures
 - [x] Deterministic semantic hints and AST nodes for captions, headers, and footers, with page-edge safeguards for off-page text
