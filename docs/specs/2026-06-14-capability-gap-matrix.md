@@ -48,6 +48,7 @@ neutral capability names and avoids public comparison language.
 | Form fields | Shipped | `include_form_fields`; needs broader AcroForm fixture coverage. |
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, and off-page text. |
+| PDF trust report | Shipped | `include_trust_report`; consolidates content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals with page-level routing guidance. |
 | Rich semantic headings/paragraphs/lists | Next | Promote hints to stronger element model after fixtures/evals. |
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; full visual spans and non-repeated continuation require an optional visual table engine. |
@@ -71,10 +72,11 @@ neutral capability names and avoids public comparison language.
    layout, safety, page geometry, and optional engine enrichment.
 4. Add deterministic semantic model: headings, paragraphs, lists, captions,
    AST traversal, and richer table trust signals.
-5. Harden the optional OCR provider with real scanned fixtures, provider
+5. Harden trust reports with redaction and broader adversarial fixtures.
+6. Harden the optional OCR provider with real scanned fixtures, provider
    presets, and accuracy/latency reporting.
-6. Add optional advanced engines behind provider interfaces.
-7. Add formula/chart/tagged-PDF capabilities only through optional engines
+7. Add optional advanced engines behind provider interfaces.
+8. Add formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 
 ## Public Messaging Rule

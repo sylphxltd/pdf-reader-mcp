@@ -161,6 +161,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_trust_report: optional(
+    bool(
+      description(
+        'Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing.'
+      )
+    )
+  ),
 });
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;

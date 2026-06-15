@@ -31,7 +31,7 @@ features:
     details: Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. One command to install.
   - icon: "\U0001F5BC\uFE0F"
     title: Agent-Ready Context
-    details: Return an agent document map and semantic document AST with stable element IDs, citation chunks, table quality diagnostics, layout confidence, structure trees, page geometry, provenance, and best-effort coordinates.
+    details: Return an agent document map, semantic document AST, and trust report with stable element IDs, citation chunks, table quality diagnostics, layout confidence, safety signals, page geometry, provenance, and best-effort coordinates.
   - icon: "\U0001F5BC\uFE0F"
     title: Visual Evidence
     details: Render selected pages as bounded PNG MCP image parts with JSON provenance, evidence IDs, and pixel budgets for OCR routing and page inspection.

@@ -45,6 +45,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Semantic document AST for page/section/paragraph/list/table/image traversal 🌳
+- PDF trust report for content safety, layout, table, and link-risk routing 🛡️
 - Structured element output for agent workflows 🧩
 - Table quality diagnostics with inferred cell spans and continuation candidates 📊
 - Markdown rendering for RAG and summarization 📝
@@ -80,6 +81,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
+- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page signals, layout uncertainty, sparse pages, table warnings, and external links
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
@@ -363,6 +365,28 @@ than reconstructing document structure from flat text items.
 - Node-level `element_ids`, `chunk_ids`, bounding boxes, confidence, and semantic roles where available
 - Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
 - No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
+
+### Trust Report
+
+Use `include_trust_report` when an agent needs one local risk summary before
+using extracted PDF content as instructions, evidence, or retrieval context.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-5"
+  }],
+  "include_trust_report": true,
+  "include_full_text": false
+}
+```
+
+**Response includes:**
+- Document and page-level risk scores
+- Content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals
+- Guidance for when to verify with OCR, page rendering, or region crops
+- No forced top-level safety, layout, annotation, or table outputs unless those options are requested
 
 ### Render Page Evidence
 
@@ -893,6 +917,7 @@ tables, and document signals.
 | `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, table, and image nodes linked to element/chunk evidence | `false` |
+| `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, and external links | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph hints on text elements | `false` |
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
@@ -1386,6 +1411,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Table extraction
 - [x] Structured element output
 - [x] Semantic document AST
+- [x] PDF trust report
 - [x] Table quality diagnostics, inferred cell spans, and continuation candidates
 - [x] Markdown rendering
 - [x] Citation-ready page, semantic, size, and table chunks

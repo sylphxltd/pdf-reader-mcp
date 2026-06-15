@@ -325,6 +325,27 @@ semantic roles, and table quality metadata where available.
 }
 ```
 
+### Get a Trust Report
+
+Use `include_trust_report` when an agent needs one risk summary before using
+PDF content as instructions, evidence, or retrieval context. The report
+consolidates content safety, layout uncertainty, sparse/scanned-page, table
+quality, and external-link signals without forcing those raw outputs into the
+top-level response.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_trust_report": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
 ### Get Layout Diagnostics
 
 Use `include_layout_diagnostics` when an agent needs to know whether local

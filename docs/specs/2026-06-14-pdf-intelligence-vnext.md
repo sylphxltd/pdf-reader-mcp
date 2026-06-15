@@ -149,6 +149,8 @@ Candidate engines:
      navigation and future optional engine enrichment.
    - Add `include_document_ast` as a semantic tree over the same element and
      chunk IDs for page/section/paragraph/list/table/image traversal.
+   - Add `include_trust_report` for consolidated content safety, layout,
+     sparse-page, table quality, and external-link routing signals.
    - Add `search_pdf` for bounded evidence retrieval before heavier reading,
      rendering, cropping, or citation workflows.
    - Keep legacy outputs stable.
@@ -258,6 +260,9 @@ Candidate engines:
 - Chunk output includes table chunks when table extraction is requested.
 - Document AST output includes page, section, paragraph, list item, table, and
   image nodes linked back to element IDs and chunk IDs.
+- Trust report output includes document/page risk levels, risk scores, signals,
+  and routing guidance without forcing raw safety, layout, or annotation
+  outputs.
 - Structure tree output includes sanitized role/type/id/children data only.
 - Common two-column text with a full-width title is ordered title, left column,
   then right column.

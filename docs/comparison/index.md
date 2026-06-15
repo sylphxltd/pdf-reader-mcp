@@ -93,5 +93,6 @@
 - You need scanned-page OCR through a local provider without making a cloud API the default path
 - You need table quality signals, sparse-cell warnings, or continuation candidates for agent routing
 - You need a semantic document AST for page, section, paragraph, list, table, and image traversal
+- You need a local trust report before using PDF content as instructions, evidence, or retrieval context
 - You want structured, parseable output
 - You want agents to navigate PDF evidence through stable references

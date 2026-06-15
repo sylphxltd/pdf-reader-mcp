@@ -28,12 +28,14 @@ import {
   extractTablesFromPageContents,
   tablesToMarkdown,
 } from '../pdf/tableExtractor.js';
+import { buildTrustReport } from '../pdf/trustReport.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
 import type {
   ExtractedImage,
   ExtractedTable,
   PdfChunk,
   PdfDocumentElement,
+  PdfPageAnnotations,
   PdfPageGeometry,
   PdfPageLayoutDiagnostics,
   PdfResultData,
@@ -74,6 +76,7 @@ const processSingleSource = async (
     includeLayoutDiagnostics: boolean;
     includeDocumentMap: boolean;
     includeDocumentAst: boolean;
+    includeTrustReport: boolean;
   }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
@@ -119,11 +122,13 @@ const processSingleSource = async (
       options.includeSafetyFindings ||
       options.includeLayoutDiagnostics ||
       options.includeDocumentMap ||
-      options.includeDocumentAst;
+      options.includeDocumentAst ||
+      options.includeTrustReport;
     const pageScopedMetadata =
       options.includeTables ||
       options.includeDocumentMap ||
       options.includeDocumentAst ||
+      options.includeTrustReport ||
       options.includeAnnotations ||
       options.includePageGeometry ||
       options.includeStructureTree;
@@ -150,7 +155,8 @@ const processSingleSource = async (
       if (
         options.includePageGeometry ||
         options.includeSafetyFindings ||
-        options.includeDocumentMap
+        options.includeDocumentMap ||
+        options.includeTrustReport
       ) {
         pageGeometry = await extractPageGeometry(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
@@ -224,7 +230,12 @@ const processSingleSource = async (
       }
 
       // Extract tables if requested
-      if (options.includeTables || options.includeDocumentMap || options.includeDocumentAst) {
+      if (
+        options.includeTables ||
+        options.includeDocumentMap ||
+        options.includeDocumentAst ||
+        options.includeTrustReport
+      ) {
         const extractedTables = output.page_contents
           ? extractTablesFromPageContents(output.page_contents)
           : await extractTables(pdfDocument as pdfjsLib.PDFDocumentProxy, pagesToProcess);
@@ -315,14 +326,28 @@ const processSingleSource = async (
         });
       }
 
-      if (options.includeAnnotations) {
-        const annotations = await extractAnnotations(
+      let annotations: PdfPageAnnotations[] | undefined;
+      if (options.includeAnnotations || options.includeTrustReport) {
+        annotations = await extractAnnotations(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
           pagesToProcess
         );
-        if (annotations.length > 0) {
+        if (options.includeAnnotations && annotations.length > 0) {
           output.annotations = annotations;
         }
+      }
+
+      if (options.includeTrustReport && output.page_contents) {
+        const trustElements = buildElementsForOutput(true);
+        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        output.trust_report = buildTrustReport({
+          selectedPages: pagesToProcess,
+          safetyFindings,
+          layoutDiagnostics,
+          elements: trustElements,
+          annotations,
+        });
       }
 
       if (options.includeStructureTree) {
@@ -408,6 +433,7 @@ export const readPdf = tool()
       include_layout_diagnostics,
       include_document_map,
       include_document_ast,
+      include_trust_report,
     } = input;
 
     // Process sources with concurrency limit to prevent memory exhaustion
@@ -437,6 +463,7 @@ export const readPdf = tool()
       includeLayoutDiagnostics: include_layout_diagnostics ?? false,
       includeDocumentMap: include_document_map ?? false,
       includeDocumentAst: include_document_ast ?? false,
+      includeTrustReport: include_trust_report ?? false,
     };
 
     for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {
