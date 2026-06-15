@@ -138,8 +138,9 @@ with:
 MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:providers
 ```
 
-Release workflows install Tesseract, configure the reference visual provider,
-write strict benchmark artifacts, and then run `benchmark:release-gate`.
+CI and release workflows install Tesseract, configure the reference visual
+provider, write strict benchmark artifacts, and then run
+`benchmark:release-gate` without publishing from the CI evidence job.
 
 ## Optimization Tips
 

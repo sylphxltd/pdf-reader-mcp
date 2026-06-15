@@ -1638,7 +1638,7 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 
 **Prerequisites:**
 - Node.js >= 22.13.0 (required by pdfjs-dist v6)
-- Bun (this repo uses `bun@1.3.1`)
+- Bun (this repo uses `bun@1.3.12`)
 
 **Setup:**
 ```bash
@@ -1660,6 +1660,7 @@ bun run benchmark:providers # Optional OCR/visual-provider certification benchma
 MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the visual fixture contract with the reference provider
 bun run benchmark:all # Performance + quality + provider benchmarks
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
+MCP_PDF_OCR_PRESET=tesseract-tsv MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:release-artifacts # Write strict release artifacts
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate # Verify SOTA release gate
 bun run package:smoke # Verify the packed package includes the runtime artifact
 bun run release:preflight # Full publish preflight; requires certified local providers
@@ -1675,7 +1676,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ Provider quality metrics with thresholds, scores, expected evidence, and observed evidence
-- ✅ Release workflow installs Tesseract and configures the reference visual-region provider before running strict provider evidence gates
+- ✅ CI and release workflows install Tesseract and configure the reference visual-region provider before running strict provider evidence gates
 - ✅ JSON benchmark artifact output for release evidence
 - ✅ SOTA release gate over benchmark artifacts
 - ✅ Package tarball smoke check for published runtime integrity

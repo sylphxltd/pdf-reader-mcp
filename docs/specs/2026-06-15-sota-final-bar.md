@@ -141,8 +141,9 @@ A new major release should not be treated as complete until:
 
 - Every required capability above has direct test, fixture, eval, or benchmark
   evidence.
-- CI runs those checks or a documented local benchmark command produces a
-  reproducible artifact.
+- CI runs deterministic checks and the non-publishing strict release-evidence
+  gate, or a documented local benchmark command produces a reproducible
+  artifact when local provider tools are intentionally absent.
 - `bun run benchmark:release-gate` passes against the release benchmark
   artifacts.
 - `bun run package:smoke` passes against the packed package tarball.

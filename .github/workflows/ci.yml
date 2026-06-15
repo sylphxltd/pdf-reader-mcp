@@ -97,3 +97,45 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
+
+  release-evidence:
+    name: Release Evidence Gate
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.12'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install provider certification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+          tesseract --version
+
+      - name: Build strict release benchmark artifacts
+        env:
+          MCP_PDF_OCR_PRESET: tesseract-tsv
+          MCP_PDF_REGION_ANALYSIS_COMMAND: bun
+          MCP_PDF_REGION_ANALYSIS_ARGS_JSON: '["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]'
+        run: bun run benchmark:release-artifacts
+
+      - name: Run SOTA release gate
+        env:
+          MCP_PDF_BENCHMARK_OUTPUT_DIR: benchmark-artifacts
+        run: bun run benchmark:release-gate
+
+      - name: Upload release benchmark artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ci-release-benchmark-artifacts
+          path: benchmark-artifacts/
+          if-no-files-found: error

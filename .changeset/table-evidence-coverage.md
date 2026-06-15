@@ -57,3 +57,6 @@ evidence, and observed evidence for OCR and visual full-fidelity certification
 profiles.
 Link page-edge table continuation candidates when adjacent pages keep matching
 column geometry without repeating the header row.
+Add a deterministic reference visual-region provider for release certification
+fixtures and run the strict release-evidence gate in CI without publishing, so
+provider evidence regressions are caught before the release workflow.

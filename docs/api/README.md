@@ -161,6 +161,9 @@ profile and configures `scripts/reference-region-analysis-provider.mjs` for the
 visual `visual-full-fidelity` fixture profile before running strict benchmark
 artifacts and the release gate. The reference visual provider is a deterministic
 contract-certification adapter, not a bundled general-purpose vision model.
+The CI workflow runs the same strict benchmark artifact and release-gate path as
+a non-publishing evidence job, so pull requests can fail before release if OCR
+or visual-provider certification evidence regresses.
 
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider
