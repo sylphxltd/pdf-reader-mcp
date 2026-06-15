@@ -8,6 +8,13 @@ enrichment. It is the provider boundary for visual table recognition,
 chart-to-data extraction, formula recognition, figure descriptions, and image
 captions.
 
+`read_pdf` can reuse the same provider through `include_visual_enrichments`.
+It sends direct table/image element crops when available and can also derive
+bounded visual regions from semantic captions such as `Formula`, `Chart`,
+`Figure`, `Image`, or `Diagram`. Caption-derived enrichments keep a stable
+synthetic target ID plus `source_caption_element_id`, `source_caption_text`,
+and routing signals so agents can trace the crop back to source text evidence.
+
 The default package does not bundle a vision model. A request cannot select an
 executable or endpoint. Operators enable providers with environment variables:
 

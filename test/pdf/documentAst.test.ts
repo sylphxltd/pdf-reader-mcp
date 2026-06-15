@@ -7,6 +7,7 @@ import type {
   PageContentItem,
   PdfDocumentAstNode,
   PdfPageGeometry,
+  PdfVisualEnrichment,
 } from '../../src/types/pdf.js';
 
 const box = (left: number, bottom: number, width: number, height: number): BoundingBox => ({
@@ -359,5 +360,86 @@ describe('documentAst', () => {
     expect(imageNode?.caption_ids).toEqual(['p1-text-2']);
     expect(tableNode?.caption_ids).toEqual(['p1-text-3']);
     expect(ast.summary.caption_link_count).toBe(2);
+  });
+
+  it('links caption-derived visual enrichments as formula nodes with crop evidence', () => {
+    const pageContents = [
+      {
+        page: 1,
+        items: [
+          textItem('E = mc^2', 92, 656, 88, 24),
+          textItem('Formula 1: Mass-energy equivalence', 80, 620, 220, 12),
+        ],
+      },
+    ];
+    const elements = buildStructuredElements(pageContents, [], true);
+    const chunks = buildCitationChunks(elements, { useSemanticBoundaries: true });
+    const visualEnrichments: PdfVisualEnrichment[] = [
+      {
+        id: 'visual-p1-text-2-formula-region',
+        target_element_id: 'p1-text-2-formula-region',
+        target_element_type: 'formula',
+        source_caption_element_id: 'p1-text-2',
+        source_caption_text: 'Formula 1: Mass-energy equivalence',
+        candidate_signals: [
+          'caption-prefix-formula',
+          'nearby-positioned-evidence',
+          'caption-target-above',
+        ],
+        region_id: 'p1-text-2-formula-region',
+        page: 1,
+        kind: 'formula',
+        description: 'Formula recognized from a caption-derived visual region.',
+        text: 'E = mc^2',
+        confidence: 0.92,
+        formula: {
+          latex: 'E = mc^2',
+          asciimath: 'E = mc^2',
+          text: 'E equals m c squared',
+          confidence: 0.91,
+        },
+        provider: 'command',
+        source_crop_evidence_id: 'page-1-p1-text-2-formula-region-crop-scale-2',
+        source_bounding_box: { left: 68, bottom: 608, right: 312, top: 692 },
+        crop_pixels: { left: 136, top: 200, width: 488, height: 168 },
+        scale: 2,
+        provenance: {
+          engine: 'external-command',
+          source: 'region-analysis-provider',
+        },
+      },
+    ];
+
+    const ast = buildDocumentAst({
+      selectedPages: [1],
+      elements,
+      chunks,
+      visualEnrichments,
+    });
+    const nodes = flattenNodes(ast.root);
+    const captionNode = nodes.find((node) => node.id === 'p1-text-2');
+    const formulaNode = nodes.find((node) => node.id === 'visual-p1-text-2-formula-region');
+
+    expect(formulaNode).toMatchObject({
+      type: 'formula',
+      text: 'E = mc^2',
+      formula: { latex: 'E = mc^2' },
+      visual_enrichment_ids: ['visual-p1-text-2-formula-region'],
+    });
+    expect(captionNode?.caption_links?.[0]).toMatchObject({
+      node_id: 'visual-p1-text-2-formula-region',
+      element_id: 'p1-text-2-formula-region',
+      type: 'formula',
+      relation: 'overlapping',
+      visual_enrichment_id: 'visual-p1-text-2-formula-region',
+      signals: expect.arrayContaining(['caption-prefix-formula', 'caption-kind-match']),
+    });
+    expect(formulaNode?.caption_ids).toEqual(['p1-text-2']);
+    expect(ast.summary).toMatchObject({
+      formula_count: 1,
+      visual_enrichment_count: 1,
+      visual_enrichment_kind_counts: { formula: 1 },
+      caption_link_count: 1,
+    });
   });
 });

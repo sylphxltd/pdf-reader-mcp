@@ -47,7 +47,8 @@ themselves.
    - Support provider-backed formula recognition, chart-to-data extraction, and
      figure/image descriptions.
    - Normalize outputs into the same evidence model with crop IDs,
-     confidences, warnings, and benchmark coverage.
+     confidences, warnings, caption-derived visual-region routing, and
+     benchmark coverage.
 
 6. Tagged-PDF and accessibility intelligence
    - Read structure trees when available, correlate tags with visible content,
@@ -69,9 +70,10 @@ themselves.
      document map, accessibility tag-to-visible-content coverage,
      table cell evidence coverage, caption-to-evidence links, OCR
      normalization, a runtime-generated scanned-PDF OCR pipeline fixture,
-     OCR-derived table extraction from scanned-page word boxes, visual-region
-     command/HTTP normalization, search evidence, and AI-safety trust-report
-     hidden-text and unsafe-link routing.
+     OCR-derived table extraction from scanned-page word boxes,
+     caption-derived visual candidate routing, visual-region command/HTTP
+     normalization, search evidence, and AI-safety trust-report hidden-text
+     and unsafe-link routing.
    - `bun run benchmark:providers` is the installed-provider benchmark
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers. It reports an `ocr-text-layer` profile for OCR

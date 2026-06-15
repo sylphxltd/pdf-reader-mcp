@@ -180,9 +180,10 @@ The map links pages to element IDs, text-layer page indexes and coverage
 counts, chunk IDs, safety finding indexes, layout
 diagnostics, routing signals, page geometry, and optional visual enrichment
 indexes. Enable `include_visual_enrichments` when a configured visual-region
-provider should analyze bounded table/image crops and fuse table, formula,
-chart, figure, diagram, or image evidence into the same document twin. Image
-bytes are not embedded inside the JSON map.
+provider should analyze bounded table/image crops plus caption-derived visual
+regions for vector-drawn formulas, charts, figures, and diagrams, then fuse the
+normalized evidence into the same document twin. Image bytes are not embedded
+inside the JSON map.
 
 ### Render Page Evidence
 

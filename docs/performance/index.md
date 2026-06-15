@@ -188,10 +188,11 @@ embedding image bytes in JSON. It does more work than metadata-only extraction,
 but it prevents agents from rebuilding the same references themselves.
 
 Add `include_visual_enrichments` only when the configured visual-region
-provider is needed. It renders and crops bounded table/image regions, sends
-those crops to the provider, and fuses table, formula, chart, figure, diagram,
-or image evidence back into the document twin. Keep `max_visual_enrichments`
-small for interactive workflows.
+provider is needed. It renders and crops bounded table/image regions plus
+caption-derived visual regions for vector-drawn formulas, charts, figures, and
+diagrams, sends those crops to the provider, and fuses the normalized evidence
+back into the document twin. Keep `max_visual_enrichments` small for
+interactive workflows.
 
 ```json
 {

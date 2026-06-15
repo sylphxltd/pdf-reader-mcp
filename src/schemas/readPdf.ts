@@ -181,7 +181,7 @@ export const readPdfArgsSchema = object({
   include_visual_enrichments: optional(
     bool(
       description(
-        'Run the configured visual-region provider over table/image regions and fuse normalized table, formula, chart, figure, or image descriptions into the PDF document twin with crop evidence.'
+        'Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence.'
       )
     )
   ),
@@ -190,7 +190,7 @@ export const readPdfArgsSchema = object({
       int,
       gte(1),
       description(
-        'Maximum table/image regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled.'
+        'Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled.'
       )
     )
   ),

@@ -152,8 +152,11 @@ Each successful source may include:
   indexes in `document_map.visual_enrichments`.
 - `document_map.pages[*].text_layer_page_index` must reference the same-page
   record in the internally built or top-level `text_layer.pages` array.
-- `document_map.visual_enrichments[*].target_element_id` must reference the
-  table or image element whose crop was analyzed.
+- `document_map.visual_enrichments[*].target_element_id` must reference either
+  the table/image element whose crop was analyzed or a stable synthetic
+  caption-derived visual region ID. Caption-derived regions must include
+  `source_caption_element_id` so agents can trace the crop back to text
+  evidence.
 - `document_map.layers` must be derived from actual emitted layers, not user
   flags. `text_layer` is present only when selectable text-layer evidence was
   built. `ocr_text_layer` is present only when OCR pages were returned.
@@ -201,8 +204,9 @@ Required before publishing the next package release:
 - `include_document_map` links selectable text-layer coverage into page records
   and summary totals without forcing the top-level `text_layer` response.
 - `read_pdf` can opt into visual enrichment fusion for bounded table/image
-  regions and link provider-backed table, formula, chart, figure, diagram, or
-  image evidence into the document map and AST.
+  regions and caption-derived formula/chart/figure/diagram regions, then link
+  provider-backed table, formula, chart, figure, diagram, or image evidence
+  into the document map and AST.
 - `search_pdf` provides bounded evidence retrieval with snippets, offsets,
   optional character-derived or text-item bounding boxes, and provenance before
   heavier workflows.

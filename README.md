@@ -774,12 +774,14 @@ low-confidence pages and pages that likely need OCR.
 
 ### Visual Enrichment Fusion
 
-`include_visual_enrichments` sends bounded table and image regions to the
-configured visual-region provider, then fuses normalized table, formula, chart,
-figure, diagram, and image descriptions back into the same document twin. Each
-enrichment keeps its source crop evidence ID, source bounding box, provider,
-confidence, and provenance so agents can cite or inspect the original page
-region instead of trusting detached summaries.
+`include_visual_enrichments` sends bounded table, image, and caption-derived
+visual regions to the configured visual-region provider, then fuses normalized
+table, formula, chart, figure, diagram, and image descriptions back into the
+same document twin. This lets vector-drawn formulas and charts be routed even
+when the PDF does not expose them as image objects. Each enrichment keeps its
+source crop evidence ID, source bounding box, provider, confidence, routing
+signals, and provenance so agents can cite or inspect the original page region
+instead of trusting detached summaries.
 
 The provider is configured by environment variables and is never selected by
 the request. If no provider is configured, `read_pdf` returns a warning instead
@@ -1184,7 +1186,7 @@ tables, and document signals.
 | `include_tables` | boolean | Detect selectable-text and OCR-derived tables with rows, cell metadata, confidence, quality diagnostics, cell evidence coverage, provenance, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including caption-to-evidence references | `false` |
-| `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table/image regions and fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
+| `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table, image, and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, external links, and unsafe link schemes | `false` |
 | `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
@@ -1705,9 +1707,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Opt-in OCR text layer fusion for `read_pdf`, agent document maps, and OCR-derived table structure
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
-- [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
+- [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, command/HTTP visual region normalization, table evidence coverage, hidden-text/unsafe-link trust routing, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, hidden-text/unsafe-link trust routing, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion
 - [x] Tag-to-visible-content coverage in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics

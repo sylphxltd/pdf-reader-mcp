@@ -213,6 +213,7 @@ const processSingleSource = async (
         options.includeSafetyFindings ||
         options.includeDocumentMap ||
         options.includeDocumentAst ||
+        options.includeVisualEnrichments ||
         options.includeTrustReport
       ) {
         pageGeometry = await extractPageGeometry(
@@ -402,6 +403,7 @@ const processSingleSource = async (
           source,
           sourceDescription,
           elements: visualElements,
+          pageGeometry,
           maxVisualEnrichments: options.maxVisualEnrichments,
         });
         visualEnrichments = enriched.visualEnrichments;

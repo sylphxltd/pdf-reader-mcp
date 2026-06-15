@@ -38,6 +38,7 @@ import {
 import { extractTablesFromPageContents } from '../src/pdf/tableExtractor.js';
 import { buildTextLayer } from '../src/pdf/textLayer.js';
 import { buildTrustReport } from '../src/pdf/trustReport.js';
+import { selectVisualEnrichmentCandidates } from '../src/pdf/visualEnrichment.js';
 import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
 import type {
   BoundingBox,
@@ -268,6 +269,27 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
   });
   const documentAst = buildDocumentAst({ selectedPages, elements, chunks, visualEnrichments });
   const documentAstNodes = flattenAstNodes(documentAst.root);
+  const captionDerivedElements = buildStructuredElements(
+    [
+      {
+        page: 1,
+        items: [
+          textItem('E = mc^2', 92, 656, 88, 24),
+          textItem('Formula 1: Mass-energy equivalence', 80, 620, 220, 12),
+          textItem('Revenue by Quarter', 110, 440, 150, 16),
+          textItem('Chart 2: Revenue trend', 90, 384, 170, 12),
+        ],
+      },
+    ],
+    [],
+    true,
+    [qualityCase.pageGeometry[0] as PdfPageGeometry]
+  );
+  const captionDerivedVisualCandidates = selectVisualEnrichmentCandidates(
+    captionDerivedElements,
+    4,
+    { pageGeometry: [qualityCase.pageGeometry[0] as PdfPageGeometry] }
+  );
   const accessibilityReport = buildAccessibilityReport({
     selectedPages,
     elements,
@@ -493,6 +515,19 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         documentAst.summary.visual_enrichment_kind_counts.table === 1 &&
         documentAst.root.visual_enrichment_ids?.includes('visual-p1-table-1') === true &&
         JSON.stringify(documentAst.root).includes('page-1-p1-table-1-crop-scale-2'),
+    },
+    {
+      name: 'caption-derived visual candidates cover formula and chart regions without image objects',
+      pass:
+        JSON.stringify(
+          captionDerivedVisualCandidates.map((candidate) => candidate.target_element_type)
+        ) === JSON.stringify(['formula', 'chart']) &&
+        captionDerivedVisualCandidates.every(
+          (candidate) =>
+            candidate.source_caption_element_id !== undefined &&
+            candidate.region.bounding_box.right > candidate.region.bounding_box.left &&
+            candidate.region.bounding_box.top > candidate.region.bounding_box.bottom
+        ),
     },
     {
       name: 'accessibility report rewards tagged structure with no issues',

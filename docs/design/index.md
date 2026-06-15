@@ -20,7 +20,7 @@ PDF Reader MCP is built on these core principles:
 - **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - **Visual Page Evidence** - Bounded page rendering with evidence IDs, provenance, and MCP image parts for OCR routing and page inspection
 - **Region Crop Evidence** - Bbox-grounded visual crops that connect extracted structure back to focused source evidence
-- **Visual Region Analysis** - Optional command or HTTP provider enrichment for focused crops, normalized into table, chart, formula, figure, image-description, confidence, warning, and provenance fields
+- **Visual Region Analysis** - Optional command or HTTP provider enrichment for focused table/image crops and caption-derived visual regions, normalized into table, chart, formula, figure, image-description, confidence, warning, and provenance fields
 - **Configured OCR Text Layer** - Optional command-provider OCR over bounded rendered pages, normalized into text, confidence, word boxes, language, and provenance
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - **Semantic Hints** - Optional deterministic heading, list, paragraph, caption, header, and footer hints on text elements
@@ -74,7 +74,7 @@ PDF Reader MCP is built on these core principles:
 - **Layout Provenance** - Page geometry and best-effort bounding boxes make extracted content easier to trace back to source pages
 - **Visual Evidence** - Rendered pages give agents a bounded way to inspect original page appearance without duplicating base64 in JSON
 - **Focused Evidence** - Region crops let agents verify tables, figures, charts, formulas, annotations, and citations without carrying whole-page images
-- **Region Enrichment** - Region analysis lets local table, chart, formula, and caption providers return normalized fields tied to crop evidence IDs
+- **Region Enrichment** - Region analysis lets local table, chart, formula, and caption providers return normalized fields tied to crop evidence IDs, including caption-derived regions for vector-drawn formulas, charts, figures, and diagrams
 - **OCR Provenance** - OCR text layers point back to the render evidence ID used as provider input, so scanned-page text remains tied to source pixels
 - **Safety Findings** - Deterministic content warnings help agents treat risky PDF text as data, not instructions
 - **Recursive Reading Order** - Distant same-line text is segmented, then conservative band and column segmentation improves common multi-column PDFs with spanning headers or footers

@@ -71,7 +71,7 @@ private-IP, and size policies documented in the guide.
 | `include_trust_report` | boolean | `false` | Consolidated risk report with page-level signals and guidance. |
 | `include_accessibility_report` | boolean | `false` | Tagged-PDF, image-alt, form, permission, and tag-visible coverage signals. |
 | `include_ocr_text_layer` | boolean | `false` | OCR page text and PDF-coordinate word boxes from a configured OCR provider. OCR word boxes can also feed table extraction when `include_tables` is enabled. |
-| `include_visual_enrichments` | boolean | `false` | Provider-normalized visual region evidence fused into the document twin. |
+| `include_visual_enrichments` | boolean | `false` | Provider-normalized table/image and caption-derived visual region evidence fused into the document twin. |
 
 ## Table Quality
 

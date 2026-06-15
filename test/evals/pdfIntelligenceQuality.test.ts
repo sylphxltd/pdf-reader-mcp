@@ -12,6 +12,7 @@ import {
   textElementsOnly,
 } from '../../src/pdf/documentModel.js';
 import { buildTextLayer } from '../../src/pdf/textLayer.js';
+import { selectVisualEnrichmentCandidates } from '../../src/pdf/visualEnrichment.js';
 import type {
   BoundingBox,
   ExtractedTable,
@@ -161,6 +162,27 @@ const evaluateCase = (qualityCase: QualityCase) => {
     chunks,
   });
   const documentAstNodes = flattenAstNodes(documentAst.root);
+  const captionDerivedElements = buildStructuredElements(
+    [
+      {
+        page: 1,
+        items: [
+          textItem('E = mc^2', 92, 656, 88, 24),
+          textItem('Formula 1: Mass-energy equivalence', 80, 620, 220, 12),
+          textItem('Revenue by Quarter', 110, 440, 150, 16),
+          textItem('Chart 2: Revenue trend', 90, 384, 170, 12),
+        ],
+      },
+    ],
+    [],
+    true,
+    [qualityCase.pageGeometry[0] as PdfPageGeometry]
+  );
+  const captionDerivedVisualCandidates = selectVisualEnrichmentCandidates(
+    captionDerivedElements,
+    4,
+    { pageGeometry: [qualityCase.pageGeometry[0] as PdfPageGeometry] }
+  );
   const accessibilityReport = buildAccessibilityReport({
     selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
     elements,
@@ -335,6 +357,19 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentAst.root.chunk_ids !== undefined,
     },
     {
+      name: 'caption-derived visual candidates cover formula and chart regions without image objects',
+      pass:
+        JSON.stringify(
+          captionDerivedVisualCandidates.map((candidate) => candidate.target_element_type)
+        ) === JSON.stringify(['formula', 'chart']) &&
+        captionDerivedVisualCandidates.every(
+          (candidate) =>
+            candidate.source_caption_element_id !== undefined &&
+            candidate.region.bounding_box.right > candidate.region.bounding_box.left &&
+            candidate.region.bounding_box.top > candidate.region.bounding_box.bottom
+        ),
+    },
+    {
       name: 'accessibility report rewards tagged structure with no issues',
       pass:
         accessibilityReport.profile === 'pdf_accessibility_report' &&
@@ -387,8 +422,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 14,
-        total: 14,
+        passed: 15,
+        total: 15,
         score: 1,
       });
     });

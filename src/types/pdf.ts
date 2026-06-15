@@ -1170,10 +1170,22 @@ export interface PdfRegionAnalysisData {
   warnings?: string[] | undefined;
 }
 
+export type PdfVisualEnrichmentTargetType =
+  | 'image'
+  | 'table'
+  | 'figure'
+  | 'chart'
+  | 'formula'
+  | 'diagram'
+  | 'visual_region';
+
 export interface PdfVisualEnrichment extends PdfRegionAnalysisData {
   id: string;
   target_element_id: string;
-  target_element_type: 'image' | 'table';
+  target_element_type: PdfVisualEnrichmentTargetType;
+  source_caption_element_id?: string | undefined;
+  source_caption_text?: string | undefined;
+  candidate_signals?: string[] | undefined;
 }
 
 export interface PdfRegionAnalysisSourceResult {
