@@ -1757,13 +1757,13 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence
+- [x] Multi-caption and multi-target visual-layout fixture coverage for independent formula, chart, figure, and side-caption routing
 - [x] Text-layer evidence and metadata coverage in the agent document map without forcing top-level text-layer output
 - [x] Trust report routing and signal-level evidence indexes in the agent document map without forcing raw safety, layout, annotation, or table outputs
 - [x] Accessibility report routing and issue-level evidence indexes in the agent document map without forcing raw structure-tree output
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Broader multi-caption and multi-target fixture diversity across real-world visual layouts
 - [ ] Broader scanned-PDF and visual-region fixture accuracy benchmarks for configured providers beyond the current runtime certification fixtures
 - [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines

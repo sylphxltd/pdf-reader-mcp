@@ -560,6 +560,24 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
       provenance: { engine: 'pdfjs', source: 'text-content' },
       semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
     },
+    {
+      id: 'p1-figure-body',
+      type: 'text',
+      page: 1,
+      content: 'Ingest -> Parse -> Cite',
+      bounding_box: box(86, 158, 184, 60),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+    },
+    {
+      id: 'p1-figure-caption',
+      type: 'text',
+      page: 1,
+      content: 'Figure 4: Evidence routing pipeline',
+      bounding_box: box(78, 120, 234, 14),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+    },
   ];
   const captionDerivedPageGeometry: PdfPageGeometry[] = [
     {
@@ -577,6 +595,11 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
   );
   const captionDerivedCandidateTypes = new Set(
     captionDerivedVisualCandidates.map((candidate) => candidate.target_element_type)
+  );
+  const captionCandidatesBySource = new Map(
+    captionDerivedVisualCandidates
+      .filter((candidate) => candidate.source_caption_element_id !== undefined)
+      .map((candidate) => [candidate.source_caption_element_id as string, candidate])
   );
   const semanticVariantElements = buildStructuredElements(
     [
@@ -1010,6 +1033,7 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
       pass:
         captionDerivedCandidateTypes.has('formula') &&
         captionDerivedCandidateTypes.has('chart') &&
+        captionDerivedCandidateTypes.has('figure') &&
         sideVisualCandidate?.target_element_type === 'chart' &&
         sideVisualCandidate.candidate_signals.includes('caption-target-left') &&
         captionDerivedVisualCandidates.every(
@@ -1018,6 +1042,30 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
             candidate.region.bounding_box.right > candidate.region.bounding_box.left &&
             candidate.region.bounding_box.top > candidate.region.bounding_box.bottom
         ),
+    },
+    {
+      name: 'multi-caption visual routing keeps independent formula, chart, figure, and side targets',
+      pass:
+        JSON.stringify([...captionCandidatesBySource.keys()]) ===
+          JSON.stringify([
+            'p1-formula-caption',
+            'p1-chart-caption',
+            'p1-side-chart-caption',
+            'p1-figure-caption',
+          ]) &&
+        captionCandidatesBySource.get('p1-formula-caption')?.candidate_signals.includes(
+          'caption-target-above'
+        ) === true &&
+        captionCandidatesBySource.get('p1-chart-caption')?.candidate_signals.includes(
+          'caption-target-above'
+        ) === true &&
+        captionCandidatesBySource.get('p1-side-chart-caption')?.candidate_signals.includes(
+          'caption-target-left'
+        ) === true &&
+        captionCandidatesBySource.get('p1-figure-caption')?.target_element_type === 'figure' &&
+        captionCandidatesBySource.get('p1-figure-caption')?.candidate_signals.includes(
+          'caption-target-above'
+        ) === true,
     },
     {
       name: 'accessibility report rewards tagged structure with no issues',

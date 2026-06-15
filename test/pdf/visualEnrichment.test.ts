@@ -268,6 +268,116 @@ describe('visualEnrichment', () => {
     expect((sideRight ?? 0) - (sideLeft ?? 0) > 300).toBe(true);
   });
 
+  it('keeps multi-caption visual regions tied to their nearest targets', () => {
+    const candidates = selectVisualEnrichmentCandidates(
+      [
+        {
+          id: 'p1-formula-body',
+          type: 'text',
+          page: 1,
+          content: 'E = mc^2',
+          bounding_box: { left: 92, bottom: 656, right: 180, top: 680 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+        },
+        {
+          id: 'p1-formula-caption',
+          type: 'text',
+          page: 1,
+          content: 'Equation (1): Mass-energy equivalence',
+          bounding_box: { left: 80, bottom: 620, right: 300, top: 632 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+        },
+        {
+          id: 'p1-chart-body',
+          type: 'text',
+          page: 1,
+          content: 'Q1 10 Q2 18 Q3 24',
+          bounding_box: { left: 96, bottom: 470, right: 220, top: 530 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+        },
+        {
+          id: 'p1-chart-caption',
+          type: 'text',
+          page: 1,
+          content: 'Graph 2: Revenue trend',
+          bounding_box: { left: 90, bottom: 430, right: 270, top: 444 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+        },
+        {
+          id: 'p1-side-chart-body',
+          type: 'text',
+          page: 1,
+          content: 'Enterprise 24 SMB 12',
+          bounding_box: { left: 96, bottom: 286, right: 220, top: 344 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+        },
+        {
+          id: 'p1-side-chart-caption',
+          type: 'text',
+          page: 1,
+          content: 'Graph 3: Segment revenue',
+          bounding_box: { left: 252, bottom: 304, right: 430, top: 320 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+        },
+        {
+          id: 'p1-figure-body',
+          type: 'text',
+          page: 1,
+          content: 'Ingest -> Parse -> Cite',
+          bounding_box: { left: 86, bottom: 158, right: 270, top: 218 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+        },
+        {
+          id: 'p1-figure-caption',
+          type: 'text',
+          page: 1,
+          content: 'Figure 4: Evidence routing pipeline',
+          bounding_box: { left: 78, bottom: 120, right: 312, top: 134 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+        },
+      ],
+      4,
+      { pageGeometry }
+    );
+
+    const byCaption = new Map(
+      candidates.map((candidate) => [candidate.source_caption_element_id, candidate])
+    );
+    expect([...byCaption.keys()]).toEqual([
+      'p1-formula-caption',
+      'p1-chart-caption',
+      'p1-side-chart-caption',
+      'p1-figure-caption',
+    ]);
+    expect(byCaption.get('p1-formula-caption')).toMatchObject({
+      target_element_type: 'formula',
+      candidate_signals: expect.arrayContaining(['caption-target-above']),
+    });
+    expect(byCaption.get('p1-chart-caption')).toMatchObject({
+      target_element_type: 'chart',
+      candidate_signals: expect.arrayContaining(['caption-target-above']),
+    });
+    expect(byCaption.get('p1-side-chart-caption')).toMatchObject({
+      target_element_type: 'chart',
+      candidate_signals: expect.arrayContaining(['caption-target-left']),
+    });
+    expect(byCaption.get('p1-figure-caption')).toMatchObject({
+      target_element_type: 'figure',
+      candidate_signals: expect.arrayContaining(['caption-target-above']),
+    });
+    const figureBox = byCaption.get('p1-figure-caption')?.region.bounding_box;
+    expect((figureBox?.bottom ?? Number.POSITIVE_INFINITY) <= 120).toBe(true);
+    expect((figureBox?.top ?? 0) >= 218).toBe(true);
+  });
+
   it('does not duplicate a caption-derived region when a nearby direct visual target exists', () => {
     const candidates = selectVisualEnrichmentCandidates(
       [

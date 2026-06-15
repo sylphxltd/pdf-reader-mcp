@@ -62,3 +62,5 @@ fixtures and run the strict release-evidence gate in CI without publishing, so
 provider evidence regressions are caught before the release workflow.
 Make the release artifact script respect `MCP_PDF_BENCHMARK_OUTPUT_DIR` while
 preserving `benchmark-artifacts` as the default output directory.
+Add multi-caption and multi-target visual-layout fixture coverage for
+independent formula, chart, figure, and side-caption routing.
