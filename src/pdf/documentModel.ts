@@ -4,7 +4,9 @@ import type {
   PageContentItem,
   PdfChunk,
   PdfDocumentElement,
+  PdfLayoutColumn,
   PdfPageGeometry,
+  PdfPageLayoutDiagnostics,
   PdfSafetyFinding,
   PdfTextElement,
   PdfTextSemanticHint,
@@ -13,6 +15,10 @@ import type {
 import { tablesToMarkdown } from './tableExtractor.js';
 
 const DEFAULT_CHUNK_MAX_CHARS = 1800;
+const LAYOUT_COLUMN_MIN_GAP = 48;
+const LAYOUT_COLUMN_MIN_GAP_RATIO = 0.14;
+const LAYOUT_SPANNING_WIDTH_RATIO = 0.72;
+const LAYOUT_POSITIONED_RATIO_WARNING = 0.8;
 
 const buildElementId = (page: number, type: PdfDocumentElement['type'], index: number): string =>
   `p${String(page)}-${type}-${String(index)}`;
@@ -419,6 +425,222 @@ export const buildCitationChunks = (
 
   return chunks;
 };
+
+const roundRatio = (value: number): number => Math.round(value * 100) / 100;
+
+const clampConfidence = (value: number): number => Math.max(0.2, Math.min(0.98, roundRatio(value)));
+
+const boxWidth = (box: PageContentItem['bounding_box']): number =>
+  box ? Math.max(0, box.right - box.left) : 0;
+
+const boxArea = (box: PageContentItem['bounding_box']): number => {
+  if (!box) return 0;
+  return Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom);
+};
+
+const boxCenterX = (box: PageContentItem['bounding_box']): number =>
+  box ? (box.left + box.right) / 2 : 0;
+
+const toLayoutColumn = (items: PageContentItem[], index: number): PdfLayoutColumn => {
+  const boxes = items.map((item) => item.bounding_box).filter((box) => box !== undefined);
+  return {
+    index,
+    left: Math.min(...boxes.map((box) => box.left)),
+    right: Math.max(...boxes.map((box) => box.right)),
+    item_count: items.length,
+  };
+};
+
+const detectLayoutColumns = (positionedItems: PageContentItem[]): PdfLayoutColumn[] => {
+  if (positionedItems.length < 4) return [];
+
+  const left = Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0));
+  const right = Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0));
+  const pageWidth = right - left;
+  if (pageWidth <= 0) return [];
+
+  const candidates = positionedItems.filter(
+    (item) => boxWidth(item.bounding_box) < pageWidth * LAYOUT_SPANNING_WIDTH_RATIO
+  );
+  if (candidates.length < 4) return [];
+
+  const sorted = [...candidates].sort(
+    (a, b) => (a.bounding_box?.left ?? 0) - (b.bounding_box?.left ?? 0)
+  );
+  let currentRight = sorted[0]?.bounding_box?.right;
+  if (currentRight === undefined) return [];
+
+  let largestGap = 0;
+  let cutPosition: number | undefined;
+  for (let i = 1; i < sorted.length; i++) {
+    const box = sorted[i]?.bounding_box;
+    if (!box) continue;
+
+    if (box.left > currentRight) {
+      const gap = box.left - currentRight;
+      if (gap > largestGap) {
+        largestGap = gap;
+        cutPosition = (box.left + currentRight) / 2;
+      }
+    }
+    currentRight = Math.max(currentRight, box.right);
+  }
+
+  const minGap = Math.max(LAYOUT_COLUMN_MIN_GAP, pageWidth * LAYOUT_COLUMN_MIN_GAP_RATIO);
+  if (cutPosition === undefined || largestGap < minGap) return [];
+
+  const leftColumn = candidates.filter((item) => boxCenterX(item.bounding_box) < cutPosition);
+  const rightColumn = candidates.filter((item) => boxCenterX(item.bounding_box) >= cutPosition);
+  if (leftColumn.length < 2 || rightColumn.length < 2) return [];
+
+  return [toLayoutColumn(leftColumn, 1), toLayoutColumn(rightColumn, 2)];
+};
+
+const overlapArea = (
+  first: PageContentItem['bounding_box'],
+  second: PageContentItem['bounding_box']
+): number => {
+  if (!first || !second) return 0;
+  const width = Math.max(
+    0,
+    Math.min(first.right, second.right) - Math.max(first.left, second.left)
+  );
+  const height = Math.max(
+    0,
+    Math.min(first.top, second.top) - Math.max(first.bottom, second.bottom)
+  );
+  return width * height;
+};
+
+const countSignificantOverlaps = (items: PageContentItem[]): number => {
+  const positionedItems = items.filter((item) => item.bounding_box !== undefined).slice(0, 200);
+  let overlaps = 0;
+
+  for (let i = 0; i < positionedItems.length; i++) {
+    for (let j = i + 1; j < positionedItems.length; j++) {
+      const first = positionedItems[i];
+      const second = positionedItems[j];
+      if (!first?.bounding_box || !second?.bounding_box) continue;
+
+      const smallerArea = Math.min(boxArea(first.bounding_box), boxArea(second.bounding_box));
+      if (smallerArea <= 0) continue;
+
+      if (overlapArea(first.bounding_box, second.bounding_box) / smallerArea > 0.45) {
+        overlaps++;
+      }
+    }
+  }
+
+  return overlaps;
+};
+
+export const buildLayoutDiagnostics = (
+  pageContents: Array<{ page: number; items: PageContentItem[] }>
+): PdfPageLayoutDiagnostics[] =>
+  pageContents.map((pageContent) => {
+    const itemCount = pageContent.items.length;
+    const textItemCount = pageContent.items.filter((item) => item.type === 'text').length;
+    const imageItemCount = pageContent.items.filter((item) => item.type === 'image').length;
+    const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
+    const positionedItemRatio =
+      itemCount === 0 ? 0 : roundRatio(positionedItems.length / itemCount);
+    const columns = detectLayoutColumns(positionedItems);
+    const left = positionedItems.length
+      ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0))
+      : 0;
+    const right = positionedItems.length
+      ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0))
+      : 0;
+    const pageWidth = right - left;
+    const spanningItemCount =
+      pageWidth > 0
+        ? positionedItems.filter(
+            (item) => boxWidth(item.bounding_box) >= pageWidth * LAYOUT_SPANNING_WIDTH_RATIO
+          ).length
+        : 0;
+    const overlapCount = countSignificantOverlaps(pageContent.items);
+    const signals = new Set<string>();
+    const warnings: string[] = [];
+
+    if (itemCount === 0) signals.add('empty-page-content');
+    if (textItemCount > 0) signals.add('text-items');
+    if (imageItemCount > 0) signals.add('image-items');
+    if (positionedItems.length > 0) signals.add('positioned-items');
+    if (positionedItemRatio < 1 && itemCount > 0) signals.add('unpositioned-items');
+    if (columns.length >= 2) signals.add('two-column-layout');
+    if (spanningItemCount > 0) signals.add('spanning-items');
+    if (itemCount > 0 && itemCount < 3) signals.add('sparse-page');
+    if (overlapCount > 0) signals.add('overlap-risk');
+
+    if (positionedItemRatio < LAYOUT_POSITIONED_RATIO_WARNING && itemCount > 0) {
+      warnings.push(
+        'Some content items are missing coordinates; reading-order confidence is reduced.'
+      );
+    }
+    if (overlapCount > 0) {
+      warnings.push(
+        'Some positioned items overlap significantly; verify reading order before citation-critical use.'
+      );
+    }
+
+    const profile =
+      itemCount === 0
+        ? 'unknown'
+        : textItemCount === 0
+          ? 'image_or_sparse'
+          : columns.length >= 2 && spanningItemCount > 0
+            ? 'mixed_layout'
+            : columns.length >= 2
+              ? 'multi_column'
+              : positionedItems.length > 0
+                ? 'single_column'
+                : 'unknown';
+    const readingOrder =
+      profile === 'multi_column'
+        ? 'columnar'
+        : profile === 'mixed_layout'
+          ? 'mixed'
+          : profile === 'single_column'
+            ? 'natural'
+            : 'uncertain';
+    const baseConfidence =
+      profile === 'single_column'
+        ? 0.92
+        : profile === 'multi_column'
+          ? 0.86
+          : profile === 'mixed_layout'
+            ? 0.78
+            : profile === 'image_or_sparse'
+              ? 0.42
+              : 0.3;
+    const confidence = clampConfidence(
+      baseConfidence -
+        (1 - positionedItemRatio) * 0.35 -
+        (overlapCount > 0 ? 0.12 : 0) -
+        (itemCount > 0 && itemCount < 3 ? 0.12 : 0)
+    );
+
+    if (confidence < 0.7 && itemCount > 0) {
+      warnings.push(
+        'Layout confidence is below the recommended threshold for unattended RAG chunking.'
+      );
+    }
+
+    return {
+      page: pageContent.page,
+      profile,
+      reading_order: readingOrder,
+      confidence,
+      item_count: itemCount,
+      text_item_count: textItemCount,
+      image_item_count: imageItemCount,
+      positioned_item_ratio: positionedItemRatio,
+      column_count: columns.length > 0 ? columns.length : positionedItems.length > 0 ? 1 : 0,
+      ...(columns.length > 0 ? { columns } : {}),
+      signals: [...signals],
+      ...(warnings.length > 0 ? { warnings } : {}),
+    };
+  });
 
 const PROMPT_INJECTION_PATTERNS = [
   /\bignore (all )?(previous|prior|above) instructions\b/i,

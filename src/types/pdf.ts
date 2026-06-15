@@ -187,6 +187,37 @@ export interface PdfSafetyFinding {
   bounding_box?: BoundingBox | undefined;
 }
 
+export type PdfLayoutProfile =
+  | 'single_column'
+  | 'multi_column'
+  | 'mixed_layout'
+  | 'image_or_sparse'
+  | 'unknown';
+
+export type PdfReadingOrderModel = 'natural' | 'columnar' | 'mixed' | 'uncertain';
+
+export interface PdfLayoutColumn {
+  index: number;
+  left: number;
+  right: number;
+  item_count: number;
+}
+
+export interface PdfPageLayoutDiagnostics {
+  page: number;
+  profile: PdfLayoutProfile;
+  reading_order: PdfReadingOrderModel;
+  confidence: number;
+  item_count: number;
+  text_item_count: number;
+  image_item_count: number;
+  positioned_item_ratio: number;
+  column_count: number;
+  columns?: PdfLayoutColumn[] | undefined;
+  signals: string[];
+  warnings?: string[] | undefined;
+}
+
 // Content item with position for ordering
 export interface PageContentItem {
   type: 'text' | 'image';
@@ -220,6 +251,7 @@ export interface PdfResultData {
   elements?: PdfDocumentElement[];
   chunks?: PdfChunk[];
   safety_findings?: PdfSafetyFinding[];
+  layout_diagnostics?: PdfPageLayoutDiagnostics[];
   images?: ExtractedImage[];
   tables?: ExtractedTable[];
   warnings?: string[];
@@ -318,6 +350,7 @@ export interface ReadPdfOptions {
   include_attachments: boolean;
   include_structure_tree: boolean;
   include_safety_findings: boolean;
+  include_layout_diagnostics: boolean;
 }
 
 export interface InspectPdfOptions {

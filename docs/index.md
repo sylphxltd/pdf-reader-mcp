@@ -4,7 +4,7 @@ layout: home
 hero:
   name: PDF Reader MCP
   text: Inspect and Extract PDFs for AI Agents
-  tagline: A high-performance MCP server for local-first PDF inspection, extraction, citations, and safety signals.
+  tagline: A high-performance MCP server for local-first PDF inspection, layout confidence, citations, and safety signals.
   image:
     src: /logo.svg
     alt: PDF Reader MCP Logo
@@ -28,7 +28,10 @@ features:
     details: Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. One command to install.
   - icon: "\U0001F5BC\uFE0F"
     title: Agent-Ready Context
-    details: Return stable element IDs, semantic hints, citation-ready semantic/table chunks, structure trees, page geometry, provenance, and best-effort coordinates.
+    details: Return stable element IDs, semantic hints, citation-ready semantic/table chunks, layout confidence, structure trees, page geometry, provenance, and best-effort coordinates.
+  - icon: "\U0001F9ED"
+    title: Layout Confidence
+    details: Surface page layout profiles, reading-order confidence, column signals, and warnings so agents can route uncertain pages safely.
   - icon: "\U0001F6E1\uFE0F"
     title: Content Safety Signals
     details: Surface deterministic findings for prompt-injection patterns, tiny text, and off-page text before agents use PDF content.

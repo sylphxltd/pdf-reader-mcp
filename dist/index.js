@@ -1357,6 +1357,7 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
+      include_layout_diagnostics: true,
       include_markdown: true,
       include_tables: true
     });
@@ -1372,6 +1373,7 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
+      include_layout_diagnostics: true,
       include_markdown: true,
       include_tables: true
     });
@@ -1525,7 +1527,8 @@ var readPdfArgsSchema = object({
   include_form_fields: optional(bool(description("Include PDF form field summaries when AcroForm fields are exposed."))),
   include_attachments: optional(bool(description("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
   include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
-  include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text.")))
+  include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
+  include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing.")))
 });
 
 // src/schemas/inspectPdf.ts
@@ -1888,6 +1891,10 @@ var tablesToMarkdown = (tables) => {
 
 // src/pdf/documentModel.ts
 var DEFAULT_CHUNK_MAX_CHARS = 1800;
+var LAYOUT_COLUMN_MIN_GAP = 48;
+var LAYOUT_COLUMN_MIN_GAP_RATIO = 0.14;
+var LAYOUT_SPANNING_WIDTH_RATIO = 0.72;
+var LAYOUT_POSITIONED_RATIO_WARNING = 0.8;
 var buildElementId = (page, type, index) => `p${String(page)}-${type}-${String(index)}`;
 var imageElementMetadata = (imageData) => {
   const { data: _data, ...metadata } = imageData;
@@ -2173,6 +2180,149 @@ var buildCitationChunks = (elements, options) => {
   pushCurrent();
   return chunks;
 };
+var roundRatio = (value) => Math.round(value * 100) / 100;
+var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio(value)));
+var boxWidth = (box) => box ? Math.max(0, box.right - box.left) : 0;
+var boxArea = (box) => {
+  if (!box)
+    return 0;
+  return Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom);
+};
+var boxCenterX = (box) => box ? (box.left + box.right) / 2 : 0;
+var toLayoutColumn = (items, index) => {
+  const boxes = items.map((item) => item.bounding_box).filter((box) => box !== undefined);
+  return {
+    index,
+    left: Math.min(...boxes.map((box) => box.left)),
+    right: Math.max(...boxes.map((box) => box.right)),
+    item_count: items.length
+  };
+};
+var detectLayoutColumns = (positionedItems) => {
+  if (positionedItems.length < 4)
+    return [];
+  const left = Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0));
+  const right = Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0));
+  const pageWidth = right - left;
+  if (pageWidth <= 0)
+    return [];
+  const candidates = positionedItems.filter((item) => boxWidth(item.bounding_box) < pageWidth * LAYOUT_SPANNING_WIDTH_RATIO);
+  if (candidates.length < 4)
+    return [];
+  const sorted = [...candidates].sort((a, b) => (a.bounding_box?.left ?? 0) - (b.bounding_box?.left ?? 0));
+  let currentRight = sorted[0]?.bounding_box?.right;
+  if (currentRight === undefined)
+    return [];
+  let largestGap = 0;
+  let cutPosition;
+  for (let i = 1;i < sorted.length; i++) {
+    const box = sorted[i]?.bounding_box;
+    if (!box)
+      continue;
+    if (box.left > currentRight) {
+      const gap = box.left - currentRight;
+      if (gap > largestGap) {
+        largestGap = gap;
+        cutPosition = (box.left + currentRight) / 2;
+      }
+    }
+    currentRight = Math.max(currentRight, box.right);
+  }
+  const minGap = Math.max(LAYOUT_COLUMN_MIN_GAP, pageWidth * LAYOUT_COLUMN_MIN_GAP_RATIO);
+  if (cutPosition === undefined || largestGap < minGap)
+    return [];
+  const leftColumn = candidates.filter((item) => boxCenterX(item.bounding_box) < cutPosition);
+  const rightColumn = candidates.filter((item) => boxCenterX(item.bounding_box) >= cutPosition);
+  if (leftColumn.length < 2 || rightColumn.length < 2)
+    return [];
+  return [toLayoutColumn(leftColumn, 1), toLayoutColumn(rightColumn, 2)];
+};
+var overlapArea = (first, second) => {
+  if (!first || !second)
+    return 0;
+  const width = Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left));
+  const height = Math.max(0, Math.min(first.top, second.top) - Math.max(first.bottom, second.bottom));
+  return width * height;
+};
+var countSignificantOverlaps = (items) => {
+  const positionedItems = items.filter((item) => item.bounding_box !== undefined).slice(0, 200);
+  let overlaps = 0;
+  for (let i = 0;i < positionedItems.length; i++) {
+    for (let j = i + 1;j < positionedItems.length; j++) {
+      const first = positionedItems[i];
+      const second = positionedItems[j];
+      if (!first?.bounding_box || !second?.bounding_box)
+        continue;
+      const smallerArea = Math.min(boxArea(first.bounding_box), boxArea(second.bounding_box));
+      if (smallerArea <= 0)
+        continue;
+      if (overlapArea(first.bounding_box, second.bounding_box) / smallerArea > 0.45) {
+        overlaps++;
+      }
+    }
+  }
+  return overlaps;
+};
+var buildLayoutDiagnostics = (pageContents) => pageContents.map((pageContent) => {
+  const itemCount = pageContent.items.length;
+  const textItemCount = pageContent.items.filter((item) => item.type === "text").length;
+  const imageItemCount = pageContent.items.filter((item) => item.type === "image").length;
+  const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
+  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio(positionedItems.length / itemCount);
+  const columns = detectLayoutColumns(positionedItems);
+  const left = positionedItems.length ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0)) : 0;
+  const right = positionedItems.length ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0)) : 0;
+  const pageWidth = right - left;
+  const spanningItemCount = pageWidth > 0 ? positionedItems.filter((item) => boxWidth(item.bounding_box) >= pageWidth * LAYOUT_SPANNING_WIDTH_RATIO).length : 0;
+  const overlapCount = countSignificantOverlaps(pageContent.items);
+  const signals = new Set;
+  const warnings = [];
+  if (itemCount === 0)
+    signals.add("empty-page-content");
+  if (textItemCount > 0)
+    signals.add("text-items");
+  if (imageItemCount > 0)
+    signals.add("image-items");
+  if (positionedItems.length > 0)
+    signals.add("positioned-items");
+  if (positionedItemRatio < 1 && itemCount > 0)
+    signals.add("unpositioned-items");
+  if (columns.length >= 2)
+    signals.add("two-column-layout");
+  if (spanningItemCount > 0)
+    signals.add("spanning-items");
+  if (itemCount > 0 && itemCount < 3)
+    signals.add("sparse-page");
+  if (overlapCount > 0)
+    signals.add("overlap-risk");
+  if (positionedItemRatio < LAYOUT_POSITIONED_RATIO_WARNING && itemCount > 0) {
+    warnings.push("Some content items are missing coordinates; reading-order confidence is reduced.");
+  }
+  if (overlapCount > 0) {
+    warnings.push("Some positioned items overlap significantly; verify reading order before citation-critical use.");
+  }
+  const profile = itemCount === 0 ? "unknown" : textItemCount === 0 ? "image_or_sparse" : columns.length >= 2 && spanningItemCount > 0 ? "mixed_layout" : columns.length >= 2 ? "multi_column" : positionedItems.length > 0 ? "single_column" : "unknown";
+  const readingOrder = profile === "multi_column" ? "columnar" : profile === "mixed_layout" ? "mixed" : profile === "single_column" ? "natural" : "uncertain";
+  const baseConfidence = profile === "single_column" ? 0.92 : profile === "multi_column" ? 0.86 : profile === "mixed_layout" ? 0.78 : profile === "image_or_sparse" ? 0.42 : 0.3;
+  const confidence = clampConfidence(baseConfidence - (1 - positionedItemRatio) * 0.35 - (overlapCount > 0 ? 0.12 : 0) - (itemCount > 0 && itemCount < 3 ? 0.12 : 0));
+  if (confidence < 0.7 && itemCount > 0) {
+    warnings.push("Layout confidence is below the recommended threshold for unattended RAG chunking.");
+  }
+  return {
+    page: pageContent.page,
+    profile,
+    reading_order: readingOrder,
+    confidence,
+    item_count: itemCount,
+    text_item_count: textItemCount,
+    image_item_count: imageItemCount,
+    positioned_item_ratio: positionedItemRatio,
+    column_count: columns.length > 0 ? columns.length : positionedItems.length > 0 ? 1 : 0,
+    ...columns.length > 0 ? { columns } : {},
+    signals: [...signals],
+    ...warnings.length > 0 ? { warnings } : {}
+  };
+});
 var PROMPT_INJECTION_PATTERNS = [
   /\bignore (all )?(previous|prior|above) instructions\b/i,
   /\bdisregard (previous|prior|above) instructions\b/i,
@@ -2265,7 +2415,7 @@ var processSingleSource = async (source, options) => {
       includeAttachments: options.includeAttachments
     });
     Object.assign(output, structureOutput);
-    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings;
+    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics;
     const pageScopedMetadata = options.includeTables || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
     const includeSelectedPageText = targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
     const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
@@ -2344,6 +2494,9 @@ var processSingleSource = async (source, options) => {
           output.safety_findings = safetyFindings;
         }
       }
+      if (options.includeLayoutDiagnostics && output.page_contents) {
+        output.layout_diagnostics = buildLayoutDiagnostics(output.page_contents);
+      }
       if (options.includeAnnotations) {
         const annotations = await extractAnnotations(pdfDocument, pagesToProcess);
         if (annotations.length > 0) {
@@ -2407,7 +2560,8 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
     include_form_fields,
     include_attachments,
     include_structure_tree,
-    include_safety_findings
+    include_safety_findings,
+    include_layout_diagnostics
   } = input;
   const MAX_CONCURRENT_SOURCES2 = 3;
   const results = [];
@@ -2430,7 +2584,8 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
     includeFormFields: include_form_fields ?? false,
     includeAttachments: include_attachments ?? false,
     includeStructureTree: include_structure_tree ?? false,
-    includeSafetyFindings: include_safety_findings ?? false
+    includeSafetyFindings: include_safety_findings ?? false,
+    includeLayoutDiagnostics: include_layout_diagnostics ?? false
   };
   for (let i = 0;i < sources.length; i += MAX_CONCURRENT_SOURCES2) {
     const batch = sources.slice(i, i + MAX_CONCURRENT_SOURCES2);

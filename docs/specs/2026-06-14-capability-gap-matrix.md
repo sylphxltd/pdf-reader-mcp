@@ -31,6 +31,7 @@ neutral capability names and avoids public comparison language.
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
 | Citation-ready chunks | Shipped | `include_chunks`; page, semantic, size, and table strategies with stable element references. |
 | Column-aware reading order | Shipped | Handles common two-column text segmentation. Needs broader fixtures. |
+| Layout diagnostics and confidence | Shipped | `include_layout_diagnostics`; page profile, reading-order model, confidence, column signals, and warnings. |
 | Outline/bookmark extraction | Shipped | `include_outline`; best-effort when exposed by PDF.js. |
 | Annotation extraction | Shipped | `include_annotations`; safe summary fields. |
 | Page labels | Shipped | `include_page_labels`. |
@@ -57,7 +58,7 @@ neutral capability names and avoids public comparison language.
    outline, annotations, page labels, permissions, form fields, attachment
    metadata, page geometry, structure trees, semantic hints, and safety
    findings.
-2. Expand extraction quality evals: multi-column, tables,
+2. Expand extraction quality evals: multi-column, layout diagnostics, tables,
    annotations, forms, hidden/off-page text, scanned PDFs.
 3. Add deterministic semantic model: headings, paragraphs, lists, captions,
    richer tables.

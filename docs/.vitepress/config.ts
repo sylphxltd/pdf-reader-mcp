@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
   title: 'PDF Reader MCP',
   description:
-    'MCP server for PDF inspection, extraction, citation chunks, and safety signals for AI agents',
+    'MCP server for PDF inspection, layout confidence, citation chunks, and safety signals for AI agents',
 
   appearance: 'dark',
   lastUpdated: true,
@@ -25,7 +25,7 @@ export default defineConfig({
       {
         property: 'og:description',
         content:
-          'A high-performance MCP server for PDF inspection, structured extraction, citation chunks, and safety signals',
+          'A high-performance MCP server for PDF inspection, layout confidence, citation chunks, and safety signals',
       },
     ],
     ['meta', { property: 'og:url', content: 'https://pdf-reader-mcp.sylphx.com' }],
@@ -36,7 +36,7 @@ export default defineConfig({
       'meta',
       {
         name: 'twitter:description',
-        content: 'Inspect PDFs and extract agent-ready content via MCP',
+        content: 'Inspect PDFs and extract layout-aware agent-ready content via MCP',
       },
     ],
     ['meta', { name: 'twitter:site', content: '@sylphxai' }],
@@ -45,7 +45,7 @@ export default defineConfig({
       {
         name: 'keywords',
         content:
-          'mcp, pdf, reader, ai, claude, model context protocol, typescript, rag, citations, pdf inspection',
+          'mcp, pdf, reader, ai, claude, model context protocol, typescript, rag, citations, pdf inspection, layout analysis, reading order',
       },
     ],
     ['meta', { name: 'author', content: 'Sylphx' }],

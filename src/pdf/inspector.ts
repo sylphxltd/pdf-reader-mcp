@@ -189,6 +189,7 @@ export const buildInspectionRecommendation = (
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
+      include_layout_diagnostics: true,
       include_markdown: true,
       include_tables: true,
     });
@@ -206,6 +207,7 @@ export const buildInspectionRecommendation = (
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
+      include_layout_diagnostics: true,
       include_markdown: true,
       include_tables: true,
     });

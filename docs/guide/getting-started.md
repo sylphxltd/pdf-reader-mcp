@@ -3,7 +3,8 @@
 Once installed, the PDF Reader MCP server provides two tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
-- `read_pdf` extracts PDF content, structure, citations, tables, images, and signals.
+- `read_pdf` extracts PDF content, structure, citations, tables, images, layout
+  confidence, and signals.
 
 ## Basic Usage
 
@@ -175,6 +176,29 @@ available.
   "include_page_count": true
 }
 ```
+
+### Get Layout Diagnostics
+
+Use `include_layout_diagnostics` when an agent needs to know whether local
+reading order is likely reliable before indexing, citing, or summarizing a
+page. Diagnostics are deterministic and use existing extracted item geometry;
+they do not add OCR, vision, or a heavy parser dependency.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_layout_diagnostics": true,
+  "include_chunks": true,
+  "include_semantic_hints": true,
+  "include_full_text": false
+}
+```
+
+Response fields include `profile`, `reading_order`, `confidence`,
+`column_count`, `positioned_item_ratio`, `signals`, and optional `warnings`.
 
 ### Get Document Signals
 

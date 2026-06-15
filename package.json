@@ -44,6 +44,8 @@
     "rag",
     "citations",
     "pdf-inspection",
+    "layout-analysis",
+    "reading-order",
     "pdf-to-markdown",
     "document-processing"
   ],

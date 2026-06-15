@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **Structured element output** • **Semantic citation chunks** • **Local-first MCP**
+**PDF inspection** • **Layout confidence** • **Semantic citation chunks** • **Local-first MCP**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -42,6 +42,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Structured element output for agent workflows 🧩
 - Markdown rendering for RAG and summarization 📝
 - Citation-ready semantic/table/page chunks 🔗
+- Layout diagnostics with reading-order confidence 📐
 - Outlines, annotations, structure trees, forms, attachments, labels, and permission signals 🗂️
 - Column-aware reading order 📐
 - Flexible path support (absolute/relative) 🎯
@@ -67,6 +68,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
+- 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
 - 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
 - 🔗 **Citation Chunks** - Optional page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
 - 🗂️ **Document Signals** - Optional outlines, page labels, annotations, structure trees, forms, attachments, permissions, and mark info
@@ -446,6 +448,14 @@ does not perform OCR. When sampled pages look scanned or image-only, the tool
 marks `needs_ocr: true` so agents do not mistake an image-based PDF for a text
 extraction failure.
 
+### Layout Confidence for Agent Routing
+
+`include_layout_diagnostics` adds deterministic page-level signals for layout
+profile, reading-order model, confidence, column count, positioned item ratio,
+and warnings. This helps agents decide when local extraction is safe for RAG and
+when a page should be routed to a heavier parser, OCR/vision workflow, or human
+review.
+
 ### Agent-Ready Structured Output
 
 `include_elements` adds structured document elements to the JSON response while keeping the existing text, metadata, image, and table outputs backward compatible.
@@ -561,6 +571,7 @@ tables, and document signals.
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
 | `include_html` | boolean | Include escaped page-aware HTML for preview/export workflows | `false` |
 | `include_chunks` | boolean | Include page, semantic, size, and table chunks with source references | `false` |
+| `include_layout_diagnostics` | boolean | Include page layout profiles, reading-order confidence, column signals, and warnings | `false` |
 | `include_outline` | boolean | Include PDF outline/bookmarks when available | `false` |
 | `include_annotations` | boolean | Include safe annotation summaries for selected pages | `false` |
 | `include_page_labels` | boolean | Include PDF page labels when available | `false` |
@@ -1036,6 +1047,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Citation-ready page, semantic, size, and table chunks
 - [x] Outlines, annotations, structure trees, form fields, attachment metadata, page labels, and permission signals
 - [x] Column-aware ordering for common multi-column PDFs
+- [x] Layout diagnostics with reading-order confidence
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Filesystem and HTTP access restrictions
 
