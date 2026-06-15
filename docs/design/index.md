@@ -13,6 +13,7 @@ PDF Reader MCP is built on these core principles:
 
 - **Text Extraction** - Full document or specific pages
 - **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
+- **Document AST** - Optional semantic tree for page, section, paragraph, list item, table, and image traversal
 - **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, text-item bounding boxes, and provenance
 - **Visual Page Evidence** - Bounded page rendering with evidence IDs, provenance, and MCP image parts for OCR routing and page inspection
 - **Region Crop Evidence** - Bbox-grounded visual crops that connect extracted structure back to focused source evidence
@@ -54,6 +55,7 @@ PDF Reader MCP is built on these core principles:
 - **Stable References** - Element IDs and page numbers make downstream citations easier to preserve
 - **Searchable Evidence** - Search matches carry snippets, offsets, text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
+- **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs and chunk IDs as evidence anchors
 - **Semantic Hints** - Heading, list, and paragraph hints carry confidence and signals without overstating parser certainty
 - **Cell-Level Provenance** - Table cells can carry row/column indexes, header/span hints, inference flags, and coordinates for downstream citation workflows
 - **Table Trust Signals** - Table quality warnings tell agents when to verify sparse, merged, irregular, or continuation-candidate tables with visual evidence

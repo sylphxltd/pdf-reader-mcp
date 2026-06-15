@@ -147,6 +147,8 @@ Candidate engines:
    - Add layout diagnostics with reading-order confidence for agent routing.
    - Add `include_document_map` as the SSOT response shape for agent
      navigation and future optional engine enrichment.
+   - Add `include_document_ast` as a semantic tree over the same element and
+     chunk IDs for page/section/paragraph/list/table/image traversal.
    - Add `search_pdf` for bounded evidence retrieval before heavier reading,
      rendering, cropping, or citation workflows.
    - Keep legacy outputs stable.
@@ -254,6 +256,8 @@ Candidate engines:
   inference flags, quality diagnostics, continuation candidates, and
   best-effort bounding boxes when coordinates are available.
 - Chunk output includes table chunks when table extraction is requested.
+- Document AST output includes page, section, paragraph, list item, table, and
+  image nodes linked back to element IDs and chunk IDs.
 - Structure tree output includes sanitized role/type/id/children data only.
 - Common two-column text with a full-width title is ordered title, left column,
   then right column.

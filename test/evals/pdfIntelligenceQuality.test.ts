@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildDocumentAst } from '../../src/pdf/documentAst.js';
 import { buildDocumentMap } from '../../src/pdf/documentMap.js';
 import {
   buildCitationChunks,
@@ -132,6 +133,11 @@ const evaluateCase = (qualityCase: QualityCase) => {
     safetyFindings,
     pageGeometry: qualityCase.pageGeometry,
   });
+  const documentAst = buildDocumentAst({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    elements,
+    chunks,
+  });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
 
@@ -212,6 +218,17 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.summary.table_element_count === 1 &&
         documentMap.summary.safety_finding_count === 3,
     },
+    {
+      name: 'document AST exposes sections, paragraphs, lists, and tables',
+      pass:
+        documentAst.profile === 'document_ast' &&
+        documentAst.summary.section_count === 2 &&
+        documentAst.summary.paragraph_count === 4 &&
+        documentAst.summary.list_item_count === 1 &&
+        documentAst.summary.table_count === 1 &&
+        documentAst.root.element_ids.includes('p1-table-1') &&
+        documentAst.root.chunk_ids !== undefined,
+    },
   ];
 
   const failures = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.name);
@@ -233,8 +250,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 11,
-        total: 11,
+        passed: 12,
+        total: 12,
         score: 1,
       });
     });

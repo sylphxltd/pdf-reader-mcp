@@ -881,6 +881,122 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
+  it('should include a semantic document AST without forcing top-level legacy outputs', async () => {
+    const getTextContent = vi.fn().mockResolvedValue({
+      items: [
+        {
+          str: 'Executive Summary',
+          transform: [1, 0, 0, 18, 40, 720],
+          width: 180,
+          height: 18,
+        },
+        {
+          str: 'Revenue increased by 24%.',
+          transform: [1, 0, 0, 10, 40, 690],
+          width: 180,
+          height: 10,
+        },
+        {
+          str: 'Metric',
+          transform: [1, 0, 0, 10, 40, 640],
+          width: 50,
+          height: 10,
+        },
+        {
+          str: 'Value',
+          transform: [1, 0, 0, 10, 180, 640],
+          width: 50,
+          height: 10,
+        },
+        {
+          str: 'Revenue growth',
+          transform: [1, 0, 0, 10, 40, 620],
+          width: 80,
+          height: 10,
+        },
+        {
+          str: '24%',
+          transform: [1, 0, 0, 10, 180, 620],
+          width: 40,
+          height: 10,
+        },
+      ],
+    });
+
+    mockGetPage.mockResolvedValue({
+      getTextContent,
+      getViewport: vi.fn().mockReturnValue({ width: 612, height: 792 }),
+      getAnnotations: vi.fn(),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf', pages: [1] }],
+      include_document_ast: true,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    };
+
+    const result = await handler(args);
+
+    if (result.content?.[0]) {
+      const parsed = JSON.parse(result.content[0].text) as {
+        results: Array<{
+          data?: {
+            full_text?: string;
+            elements?: unknown;
+            chunks?: unknown;
+            table_info?: unknown;
+            document_ast?: {
+              version: string;
+              profile: string;
+              root: {
+                element_ids: string[];
+                chunk_ids?: string[];
+                children?: Array<{
+                  type: string;
+                  children?: Array<{ type: string; title?: string; children?: Array<{ type: string }> }>;
+                }>;
+              };
+              summary: {
+                selected_pages: number[];
+                section_count: number;
+                table_count: number;
+                max_depth: number;
+              };
+            };
+          };
+        }>;
+      };
+
+      const data = parsed.results[0]?.data;
+      const documentAst = data?.document_ast;
+      expect(data?.full_text).toBeUndefined();
+      expect(data?.elements).toBeUndefined();
+      expect(data?.chunks).toBeUndefined();
+      expect(data?.table_info).toBeUndefined();
+      expect(documentAst).toMatchObject({
+        version: '2026-06-15',
+        profile: 'document_ast',
+        summary: {
+          selected_pages: [1],
+          section_count: 1,
+          table_count: 1,
+        },
+      });
+      expect(documentAst?.root.element_ids).toContain('p1-table-1');
+      expect(documentAst?.root.chunk_ids?.length).toBeGreaterThan(0);
+      expect(documentAst?.root.children?.[0]?.children?.[0]).toMatchObject({
+        type: 'section',
+        title: 'Executive Summary',
+      });
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
+
   it('should include document outline, page labels, and permission signals without page extraction', async () => {
     mockGetOutline.mockResolvedValue([
       {

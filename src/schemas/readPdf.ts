@@ -154,6 +154,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_document_ast: optional(
+    bool(
+      description(
+        'Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence.'
+      )
+    )
+  ),
 });
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;

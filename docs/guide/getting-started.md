@@ -305,6 +305,26 @@ available.
 }
 ```
 
+### Get a Document AST
+
+Use `include_document_ast` when an agent needs a semantic tree instead of flat
+page text. The AST includes page, section, paragraph, list item, table, and
+image nodes with `element_ids`, `chunk_ids`, bounding boxes, confidence,
+semantic roles, and table quality metadata where available.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_document_ast": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
 ### Get Layout Diagnostics
 
 Use `include_layout_diagnostics` when an agent needs to know whether local

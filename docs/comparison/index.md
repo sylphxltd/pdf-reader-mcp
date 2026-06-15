@@ -92,5 +92,6 @@
 - You need focused crops from table, figure, chart, formula, or citation bounding boxes
 - You need scanned-page OCR through a local provider without making a cloud API the default path
 - You need table quality signals, sparse-cell warnings, or continuation candidates for agent routing
+- You need a semantic document AST for page, section, paragraph, list, table, and image traversal
 - You want structured, parseable output
 - You want agents to navigate PDF evidence through stable references

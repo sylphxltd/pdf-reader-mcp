@@ -44,6 +44,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Configured local OCR provider for scanned-page text layers 🔡
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
+- Semantic document AST for page/section/paragraph/list/table/image traversal 🌳
 - Structured element output for agent workflows 🧩
 - Table quality diagnostics with inferred cell spans and continuation candidates 📊
 - Markdown rendering for RAG and summarization 📝
@@ -78,6 +79,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
+- 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
@@ -339,6 +341,28 @@ instead of separate page, element, chunk, layout, and safety outputs.
 - Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
 - Safety findings linked back to page and element evidence
 - No embedded image bytes inside the JSON document map
+
+### Document AST
+
+Use `include_document_ast` when an agent needs a navigable semantic tree rather
+than reconstructing document structure from flat text items.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-5"
+  }],
+  "include_document_ast": true,
+  "include_full_text": false
+}
+```
+
+**Response includes:**
+- A `document_ast` root with page, section, paragraph, list item, table, and image nodes
+- Node-level `element_ids`, `chunk_ids`, bounding boxes, confidence, and semantic roles where available
+- Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
+- No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
 
 ### Render Page Evidence
 
@@ -868,6 +892,7 @@ tables, and document signals.
 | `include_images` | boolean | Extract embedded images | `false` |
 | `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
+| `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, table, and image nodes linked to element/chunk evidence | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph hints on text elements | `false` |
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
@@ -1360,6 +1385,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Absolute paths (v1.3.0)
 - [x] Table extraction
 - [x] Structured element output
+- [x] Semantic document AST
 - [x] Table quality diagnostics, inferred cell spans, and continuation candidates
 - [x] Markdown rendering
 - [x] Citation-ready page, semantic, size, and table chunks

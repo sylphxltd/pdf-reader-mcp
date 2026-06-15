@@ -164,6 +164,8 @@ export const buildStructuredElements = (
         rowCount: table.rowCount,
         colCount: table.colCount,
         confidence: table.confidence,
+        ...(table.quality ? { quality: table.quality } : {}),
+        ...(table.continuation ? { continuation: table.continuation } : {}),
       },
       bounding_box: table.bounding_box,
       confidence: table.confidence,

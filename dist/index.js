@@ -1938,7 +1938,8 @@ var readPdfArgsSchema = object2({
   include_structure_tree: optional2(bool2(description2("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
   include_safety_findings: optional2(bool2(description2("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
   include_layout_diagnostics: optional2(bool2(description2("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional2(bool2(description2("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON.")))
+  include_document_map: optional2(bool2(description2("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
+  include_document_ast: optional2(bool2(description2("Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence.")))
 });
 
 // src/schemas/inspectPdf.ts
@@ -2218,6 +2219,206 @@ var ocrPages = tool3().description("Runs selected rendered PDF pages through a c
 
 // src/handlers/readPdf.ts
 import { image as image2, text as text4, tool as tool4, toolError as toolError4 } from "@sylphx/mcp-server-sdk";
+
+// src/pdf/documentAst.ts
+var DOCUMENT_AST_VERSION = "2026-06-15";
+var unique = (values) => [...new Set(values)];
+var pageRangeForElements = (elements) => {
+  if (elements.length === 0)
+    return { start: 0, end: 0 };
+  const pages = elements.map((element) => element.page);
+  return {
+    start: Math.min(...pages),
+    end: Math.max(...pages)
+  };
+};
+var chunksByElementId = (chunks) => {
+  const index = new Map;
+  for (const chunk of chunks) {
+    for (const elementId of chunk.element_ids) {
+      const ids = index.get(elementId) ?? [];
+      ids.push(chunk.id);
+      index.set(elementId, ids);
+    }
+  }
+  return index;
+};
+var nodeForElement = (element, chunkIndex) => {
+  const base = {
+    page_start: element.page,
+    page_end: element.page,
+    element_ids: [element.id],
+    ...chunkIndex.get(element.id) ? { chunk_ids: chunkIndex.get(element.id) } : {},
+    ...element.bounding_box ? { bounding_boxes: [element.bounding_box] } : {},
+    ...element.confidence !== undefined ? { confidence: element.confidence } : {}
+  };
+  if (element.type === "text") {
+    const role = element.semantic_hint?.role ?? "paragraph";
+    const type = role === "heading" ? "section" : role === "list_item" ? "list_item" : "paragraph";
+    return {
+      ...base,
+      id: type === "section" ? `${element.id}-section` : element.id,
+      type,
+      text: element.content,
+      ...type === "section" ? { title: element.content, level: element.semantic_hint?.level ?? 1 } : {},
+      semantic_role: role,
+      ...type === "section" ? { children: [] } : {}
+    };
+  }
+  if (element.type === "table") {
+    return {
+      ...base,
+      id: element.id,
+      type: "table",
+      text: element.table.rows.map((row) => row.join(" | ")).join(`
+`),
+      table: {
+        rows: element.table.rows,
+        rowCount: element.table.rowCount,
+        colCount: element.table.colCount,
+        confidence: element.table.confidence,
+        ...element.table.quality ? { quality: element.table.quality } : {},
+        ...element.table.continuation ? { continuation: element.table.continuation } : {}
+      }
+    };
+  }
+  return {
+    ...base,
+    id: element.id,
+    type: "image",
+    image: {
+      index: element.image.index,
+      width: element.image.width,
+      height: element.image.height,
+      format: element.image.format
+    }
+  };
+};
+var appendToPageTree = (pageNode, sectionStack, node) => {
+  if (node.type === "section") {
+    const level = node.level ?? 1;
+    while (sectionStack.length > 0) {
+      const parent3 = sectionStack[sectionStack.length - 1];
+      if (parent3 && (parent3.level ?? 1) < level)
+        break;
+      sectionStack.pop();
+    }
+    const parent2 = sectionStack[sectionStack.length - 1] ?? pageNode;
+    parent2.children ??= [];
+    parent2.children.push(node);
+    sectionStack.push(node);
+    return;
+  }
+  const parent = sectionStack[sectionStack.length - 1] ?? pageNode;
+  parent.children ??= [];
+  parent.children.push(node);
+};
+var aggregateNode = (node, depth) => {
+  const children = node.children ?? [];
+  const childStats = children.map((child) => aggregateNode(child, depth + 1));
+  const childElementIds = children.flatMap((child) => child.element_ids);
+  node.element_ids = unique([...node.element_ids, ...childElementIds]);
+  const childChunkIds = children.flatMap((child) => child.chunk_ids ?? []);
+  const chunkIds = unique([...node.chunk_ids ?? [], ...childChunkIds]);
+  if (chunkIds.length > 0) {
+    node.chunk_ids = chunkIds;
+  }
+  const childBoxes = children.flatMap((child) => child.bounding_boxes ?? []);
+  const boxes = uniqueBoundingBoxes([...node.bounding_boxes ?? [], ...childBoxes]);
+  if (boxes.length > 0) {
+    node.bounding_boxes = boxes;
+  }
+  if (children.length > 0) {
+    node.page_start = Math.min(node.page_start, ...children.map((child) => child.page_start));
+    node.page_end = Math.max(node.page_end, ...children.map((child) => child.page_end));
+  }
+  return childStats.reduce((stats, child) => ({
+    nodeCount: stats.nodeCount + child.nodeCount,
+    sectionCount: stats.sectionCount + child.sectionCount,
+    paragraphCount: stats.paragraphCount + child.paragraphCount,
+    listItemCount: stats.listItemCount + child.listItemCount,
+    tableCount: stats.tableCount + child.tableCount,
+    imageCount: stats.imageCount + child.imageCount,
+    maxDepth: Math.max(stats.maxDepth, child.maxDepth)
+  }), {
+    nodeCount: 1,
+    sectionCount: node.type === "section" ? 1 : 0,
+    paragraphCount: node.type === "paragraph" ? 1 : 0,
+    listItemCount: node.type === "list_item" ? 1 : 0,
+    tableCount: node.type === "table" ? 1 : 0,
+    imageCount: node.type === "image" ? 1 : 0,
+    maxDepth: depth
+  });
+};
+var uniqueBoundingBoxes = (boxes) => {
+  const seen = new Set;
+  const uniqueBoxes = [];
+  for (const box of boxes) {
+    const key = `${box.left}:${box.bottom}:${box.right}:${box.top}`;
+    if (seen.has(key))
+      continue;
+    seen.add(key);
+    uniqueBoxes.push(box);
+  }
+  return uniqueBoxes;
+};
+var buildDocumentAst = (input) => {
+  const selectedPages = [...new Set(input.selectedPages)].sort((a, b) => a - b);
+  const range = pageRangeForElements(input.elements);
+  const chunkIndex = chunksByElementId(input.chunks);
+  const root = {
+    id: "document",
+    type: "document",
+    page_start: range.start,
+    page_end: range.end,
+    element_ids: [],
+    children: []
+  };
+  const elementsByPage = new Map;
+  for (const element of input.elements) {
+    const pageElements = elementsByPage.get(element.page) ?? [];
+    pageElements.push(element);
+    elementsByPage.set(element.page, pageElements);
+  }
+  for (const page of selectedPages) {
+    const pageElements = elementsByPage.get(page) ?? [];
+    const pageNode = {
+      id: `p${page}`,
+      type: "page",
+      page_start: page,
+      page_end: page,
+      element_ids: [],
+      children: []
+    };
+    const sectionStack = [];
+    for (const element of pageElements) {
+      appendToPageTree(pageNode, sectionStack, nodeForElement(element, chunkIndex));
+    }
+    root.children?.push(pageNode);
+  }
+  const stats = aggregateNode(root, 1);
+  const warnings = [...input.warnings ?? []];
+  if (!input.elements.some((element) => element.type === "text" && element.semantic_hint?.role === "heading")) {
+    warnings.push("No heading hierarchy detected; document_ast uses page-level leaf nodes.");
+  }
+  return {
+    version: DOCUMENT_AST_VERSION,
+    profile: "document_ast",
+    root,
+    summary: {
+      selected_pages: selectedPages,
+      page_count: selectedPages.length,
+      node_count: stats.nodeCount,
+      section_count: stats.sectionCount,
+      paragraph_count: stats.paragraphCount,
+      list_item_count: stats.listItemCount,
+      table_count: stats.tableCount,
+      image_count: stats.imageCount,
+      max_depth: stats.maxDepth
+    },
+    ...warnings.length > 0 ? { warnings } : {}
+  };
+};
 
 // src/pdf/documentMap.ts
 var DOCUMENT_MAP_VERSION = "2026-06-15";
@@ -2967,7 +3168,9 @@ var buildStructuredElements = (pageContents, tables, includeSemanticHints) => {
         ...table.bounding_box ? { bounding_box: table.bounding_box } : {},
         rowCount: table.rowCount,
         colCount: table.colCount,
-        confidence: table.confidence
+        confidence: table.confidence,
+        ...table.quality ? { quality: table.quality } : {},
+        ...table.continuation ? { continuation: table.continuation } : {}
       },
       bounding_box: table.bounding_box,
       confidence: table.confidence,
@@ -3389,8 +3592,8 @@ var processSingleSource = async (source, options) => {
       includeAttachments: options.includeAttachments
     });
     Object.assign(output, structureOutput);
-    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap;
-    const pageScopedMetadata = options.includeTables || options.includeDocumentMap || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
+    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap || options.includeDocumentAst;
+    const pageScopedMetadata = options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
     const includeSelectedPageText = targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
     const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
     const { pagesToProcess, invalidPages } = determinePagesToProcess(targetPages, totalPages, shouldSelectPages);
@@ -3440,7 +3643,7 @@ var processSingleSource = async (source, options) => {
           }
         }
       }
-      if (options.includeTables || options.includeDocumentMap) {
+      if (options.includeTables || options.includeDocumentMap || options.includeDocumentAst) {
         const extractedTables = output.page_contents ? extractTablesFromPageContents(output.page_contents) : await extractTables(pdfDocument, pagesToProcess);
         if (extractedTables.length > 0) {
           output.tables = extractedTables;
@@ -3499,6 +3702,16 @@ var processSingleSource = async (source, options) => {
           layoutDiagnostics,
           safetyFindings,
           pageGeometry,
+          warnings: output.warnings
+        });
+      }
+      if (options.includeDocumentAst && output.page_contents) {
+        const astElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(astElements, { useSemanticBoundaries: true });
+        output.document_ast = buildDocumentAst({
+          selectedPages: pagesToProcess,
+          elements: astElements,
+          chunks,
           warnings: output.warnings
         });
       }
@@ -3567,7 +3780,8 @@ var readPdf = tool4().description("Reads content/metadata/images from one or mor
     include_structure_tree,
     include_safety_findings,
     include_layout_diagnostics,
-    include_document_map
+    include_document_map,
+    include_document_ast
   } = input;
   const MAX_CONCURRENT_SOURCES2 = 3;
   const results = [];
@@ -3592,7 +3806,8 @@ var readPdf = tool4().description("Reads content/metadata/images from one or mor
     includeStructureTree: include_structure_tree ?? false,
     includeSafetyFindings: include_safety_findings ?? false,
     includeLayoutDiagnostics: include_layout_diagnostics ?? false,
-    includeDocumentMap: include_document_map ?? false
+    includeDocumentMap: include_document_map ?? false,
+    includeDocumentAst: include_document_ast ?? false
   };
   for (let i = 0;i < sources.length; i += MAX_CONCURRENT_SOURCES2) {
     const batch = sources.slice(i, i + MAX_CONCURRENT_SOURCES2);

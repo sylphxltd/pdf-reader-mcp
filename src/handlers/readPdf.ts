@@ -2,6 +2,7 @@
 
 import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { buildDocumentAst } from '../pdf/documentAst.js';
 import { buildDocumentMap } from '../pdf/documentMap.js';
 import {
   buildCitationChunks,
@@ -72,6 +73,7 @@ const processSingleSource = async (
     includeSafetyFindings: boolean;
     includeLayoutDiagnostics: boolean;
     includeDocumentMap: boolean;
+    includeDocumentAst: boolean;
   }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
@@ -116,10 +118,12 @@ const processSingleSource = async (
       options.includeImages ||
       options.includeSafetyFindings ||
       options.includeLayoutDiagnostics ||
-      options.includeDocumentMap;
+      options.includeDocumentMap ||
+      options.includeDocumentAst;
     const pageScopedMetadata =
       options.includeTables ||
       options.includeDocumentMap ||
+      options.includeDocumentAst ||
       options.includeAnnotations ||
       options.includePageGeometry ||
       options.includeStructureTree;
@@ -220,7 +224,7 @@ const processSingleSource = async (
       }
 
       // Extract tables if requested
-      if (options.includeTables || options.includeDocumentMap) {
+      if (options.includeTables || options.includeDocumentMap || options.includeDocumentAst) {
         const extractedTables = output.page_contents
           ? extractTablesFromPageContents(output.page_contents)
           : await extractTables(pdfDocument as pdfjsLib.PDFDocumentProxy, pagesToProcess);
@@ -296,6 +300,17 @@ const processSingleSource = async (
           layoutDiagnostics,
           safetyFindings,
           pageGeometry,
+          warnings: output.warnings,
+        });
+      }
+
+      if (options.includeDocumentAst && output.page_contents) {
+        const astElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(astElements, { useSemanticBoundaries: true });
+        output.document_ast = buildDocumentAst({
+          selectedPages: pagesToProcess,
+          elements: astElements,
+          chunks,
           warnings: output.warnings,
         });
       }
@@ -392,6 +407,7 @@ export const readPdf = tool()
       include_safety_findings,
       include_layout_diagnostics,
       include_document_map,
+      include_document_ast,
     } = input;
 
     // Process sources with concurrency limit to prevent memory exhaustion
@@ -420,6 +436,7 @@ export const readPdf = tool()
       includeSafetyFindings: include_safety_findings ?? false,
       includeLayoutDiagnostics: include_layout_diagnostics ?? false,
       includeDocumentMap: include_document_map ?? false,
+      includeDocumentAst: include_document_ast ?? false,
     };
 
     for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {

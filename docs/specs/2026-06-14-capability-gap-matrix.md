@@ -32,6 +32,7 @@ neutral capability names and avoids public comparison language.
 | Table quality diagnostics | Shipped | Completeness, non-empty cell ratio, row alignment, row spacing consistency, missing-cell count, inferred merged-cell candidates, warnings, and repeated-header continuation candidates. |
 | Structured element output | Shipped | `include_elements`. |
 | Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry in one agent-ready contract. |
+| Semantic document AST | Shipped | `include_document_ast`; page, section, paragraph, list item, table, and image tree linked to element IDs, chunk IDs, bounding boxes, confidence, and table quality metadata. |
 | Deterministic semantic hints | Shipped | `include_semantic_hints`; heading, list item, paragraph hints with confidence. |
 | Markdown rendering | Shipped | `include_markdown`. |
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
@@ -69,7 +70,7 @@ neutral capability names and avoids public comparison language.
 3. Harden the agent document map as the SSOT for pages, elements, chunks,
    layout, safety, page geometry, and optional engine enrichment.
 4. Add deterministic semantic model: headings, paragraphs, lists, captions,
-   and richer table trust signals.
+   AST traversal, and richer table trust signals.
 5. Harden the optional OCR provider with real scanned fixtures, provider
    presets, and accuracy/latency reporting.
 6. Add optional advanced engines behind provider interfaces.
