@@ -1087,6 +1087,131 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
+  it('should include an accessibility report without forcing raw structure outputs', async () => {
+    const getTextContent = vi.fn().mockResolvedValue({
+      items: [
+        {
+          str: 'Executive Summary',
+          transform: [1, 0, 0, 14, 40, 700],
+          width: 150,
+          height: 14,
+        },
+      ],
+    });
+    const getAnnotations = vi.fn().mockResolvedValue([
+      {
+        id: 'link-1',
+        subtype: 'Link',
+        url: 'https://example.com/report',
+        rect: [40, 680, 180, 700],
+      },
+    ]);
+    const getStructTree = vi.fn().mockResolvedValue({
+      role: 'Document',
+      children: [{ role: 'H1' }, { role: 'P' }],
+    });
+
+    mockGetOutline.mockResolvedValue([{ title: 'Executive Summary' }]);
+    mockGetPermissions.mockResolvedValue([4, 16]);
+    mockGetMarkInfo.mockResolvedValue({ Marked: true, Suspects: false });
+    mockGetFieldObjects.mockResolvedValue({
+      field1: {
+        id: 'field-1',
+        name: 'field1',
+        fieldType: 'Tx',
+        page: 1,
+        required: true,
+      },
+    });
+
+    mockGetPage.mockResolvedValue({
+      getTextContent,
+      getViewport: vi.fn().mockReturnValue({ width: 612, height: 792 }),
+      view: [0, 0, 612, 792],
+      rotate: 0,
+      userUnit: 1,
+      getAnnotations,
+      getStructTree,
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    });
+
+    const args = {
+      sources: [{ path: 'test.pdf', pages: [1] }],
+      include_accessibility_report: true,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    };
+
+    const result = await handler(args);
+
+    if (result.content?.[0]) {
+      const parsed = JSON.parse(result.content[0].text) as {
+        results: Array<{
+          data?: {
+            annotations?: unknown;
+            form_fields?: unknown;
+            permissions?: unknown;
+            mark_info?: unknown;
+            structure_trees?: unknown;
+            accessibility_report?: {
+              profile: string;
+              grade: string;
+              tagged: boolean;
+              summary: {
+                tagged_page_count: number;
+                heading_count: number;
+                form_field_count: number;
+                link_count: number;
+                issue_count: number;
+                high_issue_count: number;
+                medium_issue_count: number;
+                low_issue_count: number;
+              };
+              issues: Array<{ type: string; severity: string; page?: number }>;
+              guidance: string[];
+            };
+          };
+        }>;
+      };
+
+      const data = parsed.results[0]?.data;
+      const report = data?.accessibility_report;
+      expect(data?.annotations).toBeUndefined();
+      expect(data?.form_fields).toBeUndefined();
+      expect(data?.permissions).toBeUndefined();
+      expect(data?.mark_info).toBeUndefined();
+      expect(data?.structure_trees).toBeUndefined();
+      expect(report).toMatchObject({
+        profile: 'pdf_accessibility_report',
+        tagged: true,
+        summary: {
+          tagged_page_count: 1,
+          heading_count: 1,
+          form_field_count: 1,
+          link_count: 1,
+          issue_count: 3,
+          high_issue_count: 1,
+          medium_issue_count: 1,
+          low_issue_count: 1,
+        },
+      });
+      expect(report?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: 'accessibility_permission', severity: 'high' }),
+          expect.objectContaining({ type: 'form_field_label', severity: 'medium', page: 1 }),
+          expect.objectContaining({ type: 'link_label', severity: 'low', page: 1 }),
+        ])
+      );
+      expect(report?.guidance).toEqual(
+        expect.arrayContaining([expect.stringContaining('permissions'), expect.stringContaining('form field labels')])
+      );
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
+
   it('should include document outline, page labels, and permission signals without page extraction', async () => {
     mockGetOutline.mockResolvedValue([
       {

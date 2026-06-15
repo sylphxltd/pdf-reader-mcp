@@ -4,7 +4,7 @@ layout: home
 hero:
   name: PDF Reader MCP
   text: Inspect and Extract PDFs for AI Agents
-  tagline: A high-performance MCP server for local-first PDF inspection, PDF search, visual evidence, region crops, configured OCR text layers, agent document maps, citations, and safety signals.
+  tagline: A high-performance MCP server for local-first PDF inspection, PDF search, visual evidence, region crops, configured OCR text layers, agent document maps, accessibility reports, citations, and safety signals.
   image:
     src: /logo.svg
     alt: PDF Reader MCP Logo
@@ -31,7 +31,7 @@ features:
     details: Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. One command to install.
   - icon: "\U0001F5BC\uFE0F"
     title: Agent-Ready Context
-    details: Return an agent document map, semantic document AST, and trust report with stable element IDs, citation chunks, table quality diagnostics, layout confidence, safety signals, page geometry, provenance, and best-effort coordinates.
+    details: Return an agent document map, semantic document AST, trust report, and accessibility report with stable element IDs, citation chunks, table quality diagnostics, layout confidence, safety signals, page geometry, provenance, and best-effort coordinates.
   - icon: "\U0001F5BC\uFE0F"
     title: Visual Evidence
     details: Render selected pages as bounded PNG MCP image parts with JSON provenance, evidence IDs, and pixel budgets for OCR routing and page inspection.
@@ -47,4 +47,7 @@ features:
   - icon: "\U0001F6E1\uFE0F"
     title: Content Safety Signals
     details: Surface deterministic findings for prompt-injection patterns, tiny text, and off-page text before agents use PDF content.
+  - icon: "\u267F"
+    title: Accessibility Report
+    details: Summarize tagged-PDF coverage, structure trees, headings, image alt-text verifiability, form labels, link labels, and accessibility permissions without claiming PDF/UA certification.
 ---

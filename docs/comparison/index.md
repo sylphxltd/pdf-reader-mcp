@@ -19,6 +19,7 @@
 | No API Keys | ✅ | ✅ | ❌ | ✅ |
 | Structured Output | ✅ | ❌ | ✅ | ❌ |
 | Agent Document Map | ✅ | ❌ | ⚠️ | ❌ |
+| Accessibility Report | ✅ | ❌ | ⚠️ | ❌ |
 
 ## Detailed Comparison
 
@@ -75,6 +76,7 @@
 - URL support
 - Structured JSON output
 - Agent document maps with linked pages, elements, chunks, layout confidence, safety findings, routing signals, and geometry
+- Accessibility reports with tagged-PDF coverage, heading, image, form, link, and permission signals
 
 **Cons:**
 - PDF-specific (not general file access)
@@ -94,5 +96,6 @@
 - You need table quality signals, sparse-cell warnings, or continuation candidates for agent routing
 - You need a semantic document AST for page, section, paragraph, list, table, and image traversal
 - You need a local trust report before using PDF content as instructions, evidence, or retrieval context
+- You need an accessibility report before relying on tagged structure, headings, images, forms, links, or copy-based accessibility workflows
 - You want structured, parseable output
 - You want agents to navigate PDF evidence through stable references

@@ -168,6 +168,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_accessibility_report: optional(
+    bool(
+      description(
+        'Include a deterministic accessibility report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.'
+      )
+    )
+  ),
 });
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;

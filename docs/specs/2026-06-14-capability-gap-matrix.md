@@ -45,6 +45,7 @@ neutral capability names and avoids public comparison language.
 | Page geometry | Shipped | `include_page_geometry`; viewport size, rotation, user unit, and view box. |
 | Permissions and mark info | Shipped | `include_permissions`. |
 | Tagged PDF structure extraction | Shipped | `include_structure_tree`; page-scoped structure trees when exposed by PDF.js. |
+| Accessibility report | Shipped | `include_accessibility_report`; deterministic tagged-PDF coverage, structure tree, heading, image, form, link, permission, and mark-info signals. Does not claim PDF/UA certification. |
 | Form fields | Shipped | `include_form_fields`; needs broader AcroForm fixture coverage. |
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, and off-page text. |
@@ -64,8 +65,8 @@ neutral capability names and avoids public comparison language.
 
 1. Harden current no-new-dependency parity features with real fixtures:
    outline, annotations, page labels, permissions, form fields, attachment
-   metadata, page geometry, structure trees, semantic hints, and safety
-   findings.
+   metadata, page geometry, structure trees, accessibility reports, semantic
+   hints, and safety findings.
 2. Expand extraction quality evals: multi-column, layout diagnostics, tables,
    annotations, forms, hidden/off-page text, scanned PDFs.
 3. Harden the agent document map as the SSOT for pages, elements, chunks,

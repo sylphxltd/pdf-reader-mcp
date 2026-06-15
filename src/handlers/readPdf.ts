@@ -2,6 +2,7 @@
 
 import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { buildAccessibilityReport } from '../pdf/accessibilityReport.js';
 import { buildDocumentAst } from '../pdf/documentAst.js';
 import { buildDocumentMap } from '../pdf/documentMap.js';
 import {
@@ -38,6 +39,7 @@ import type {
   PdfPageAnnotations,
   PdfPageGeometry,
   PdfPageLayoutDiagnostics,
+  PdfPageStructureTree,
   PdfResultData,
   PdfSafetyFinding,
   PdfSource,
@@ -77,6 +79,7 @@ const processSingleSource = async (
     includeDocumentMap: boolean;
     includeDocumentAst: boolean;
     includeTrustReport: boolean;
+    includeAccessibilityReport: boolean;
   }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
@@ -102,13 +105,28 @@ const processSingleSource = async (
     const output: PdfResultData = { ...metadataOutput };
 
     const structureOutput = await extractDocumentStructure(pdfDocument, {
-      includeOutline: options.includeOutline,
+      includeOutline: options.includeOutline || options.includeAccessibilityReport,
       includePageLabels: options.includePageLabels,
-      includePermissions: options.includePermissions,
-      includeFormFields: options.includeFormFields,
+      includePermissions: options.includePermissions || options.includeAccessibilityReport,
+      includeFormFields: options.includeFormFields || options.includeAccessibilityReport,
       includeAttachments: options.includeAttachments,
     });
-    Object.assign(output, structureOutput);
+    if (options.includeOutline && structureOutput.outline) {
+      output.outline = structureOutput.outline;
+    }
+    if (options.includePageLabels && structureOutput.page_labels) {
+      output.page_labels = structureOutput.page_labels;
+    }
+    if (options.includePermissions) {
+      if (structureOutput.permissions) output.permissions = structureOutput.permissions;
+      if (structureOutput.mark_info) output.mark_info = structureOutput.mark_info;
+    }
+    if (options.includeFormFields && structureOutput.form_fields) {
+      output.form_fields = structureOutput.form_fields;
+    }
+    if (options.includeAttachments && structureOutput.attachments) {
+      output.attachments = structureOutput.attachments;
+    }
 
     // Determine pages to process
     const explicitPageContent =
@@ -123,12 +141,14 @@ const processSingleSource = async (
       options.includeLayoutDiagnostics ||
       options.includeDocumentMap ||
       options.includeDocumentAst ||
-      options.includeTrustReport;
+      options.includeTrustReport ||
+      options.includeAccessibilityReport;
     const pageScopedMetadata =
       options.includeTables ||
       options.includeDocumentMap ||
       options.includeDocumentAst ||
       options.includeTrustReport ||
+      options.includeAccessibilityReport ||
       options.includeAnnotations ||
       options.includePageGeometry ||
       options.includeStructureTree;
@@ -327,7 +347,11 @@ const processSingleSource = async (
       }
 
       let annotations: PdfPageAnnotations[] | undefined;
-      if (options.includeAnnotations || options.includeTrustReport) {
+      if (
+        options.includeAnnotations ||
+        options.includeTrustReport ||
+        options.includeAccessibilityReport
+      ) {
         annotations = await extractAnnotations(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
           pagesToProcess
@@ -350,14 +374,29 @@ const processSingleSource = async (
         });
       }
 
-      if (options.includeStructureTree) {
-        const structureTrees = await extractStructureTrees(
+      let structureTrees: PdfPageStructureTree[] | undefined;
+      if (options.includeStructureTree || options.includeAccessibilityReport) {
+        structureTrees = await extractStructureTrees(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
           pagesToProcess
         );
-        if (structureTrees.length > 0) {
+        if (options.includeStructureTree && structureTrees.length > 0) {
           output.structure_trees = structureTrees;
         }
+      }
+
+      if (options.includeAccessibilityReport && output.page_contents) {
+        const accessibilityElements = buildElementsForOutput(true);
+        output.accessibility_report = buildAccessibilityReport({
+          selectedPages: pagesToProcess,
+          elements: accessibilityElements,
+          structureTrees,
+          annotations,
+          formFields: structureOutput.form_fields,
+          permissions: structureOutput.permissions,
+          markInfo: structureOutput.mark_info,
+          outline: structureOutput.outline,
+        });
       }
     }
 
@@ -434,6 +473,7 @@ export const readPdf = tool()
       include_document_map,
       include_document_ast,
       include_trust_report,
+      include_accessibility_report,
     } = input;
 
     // Process sources with concurrency limit to prevent memory exhaustion
@@ -464,6 +504,7 @@ export const readPdf = tool()
       includeDocumentMap: include_document_map ?? false,
       includeDocumentAst: include_document_ast ?? false,
       includeTrustReport: include_trust_report ?? false,
+      includeAccessibilityReport: include_accessibility_report ?? false,
     };
 
     for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {

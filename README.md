@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **PDF search** • **Agent document map** • **Visual evidence** • **Region crops** • **Configured OCR**
+**PDF inspection** • **PDF search** • **Agent document map** • **Accessibility report** • **Visual evidence** • **Region crops** • **Configured OCR**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, accessibility report, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -46,6 +46,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Semantic document AST for page/section/paragraph/list/table/image traversal 🌳
 - PDF trust report for content safety, layout, table, and link-risk routing 🛡️
+- Accessibility report for tagged-PDF coverage, headings, images, forms, links, and permissions ♿
 - Structured element output for agent workflows 🧩
 - Table quality diagnostics with inferred cell spans and continuation candidates 📊
 - Markdown rendering for RAG and summarization 📝
@@ -82,6 +83,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page signals, layout uncertainty, sparse pages, table warnings, and external links
+- ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
@@ -388,6 +390,30 @@ using extracted PDF content as instructions, evidence, or retrieval context.
 - Guidance for when to verify with OCR, page rendering, or region crops
 - No forced top-level safety, layout, annotation, or table outputs unless those options are requested
 
+### Accessibility Report
+
+Use `include_accessibility_report` when an agent needs a deterministic view of
+tagged-PDF and accessibility-relevant structure before relying on the document
+for navigation, form filling, summarization, or assisted reading workflows.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-5"
+  }],
+  "include_accessibility_report": true,
+  "include_full_text": false
+}
+```
+
+**Response includes:**
+- Document and page-level accessibility scores and grades
+- Tagged-page coverage, structure role counts, heading counts, image counts, link counts, and form field counts
+- Issues for missing mark info, untagged pages, suspect tags, image alt-text verifiability, weak form labels, weak link labels, and missing `copy_for_accessibility`
+- Guidance for when agents should verify semantics with source files, rendering, or region crops
+- No forced top-level permissions, mark info, annotations, form fields, or structure trees unless those options are requested
+
 ### Render Page Evidence
 
 Use `render_page` when an agent needs to inspect the original page image,
@@ -597,6 +623,9 @@ configured local OCR command.
 - ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
+- ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, table, and image traversal
+- ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, and external links
+- ✅ **Accessibility Report** - Tagged-PDF coverage, structure tree, heading, image, form, link, and permission signals
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
@@ -632,6 +661,14 @@ separate response fields.
 The map is performance-bounded: it reuses the same extraction path, keeps image
 bytes out of JSON, and provides page-level routing signals such as
 low-confidence pages and pages that likely need OCR.
+
+### Accessibility Report
+
+`include_accessibility_report` returns a deterministic report for tagged-PDF
+coverage, page structure trees, heading roles, image alt-text verifiability,
+form field labels, link labels, mark info, and `copy_for_accessibility`
+permissions. It gives agents routing guidance without claiming PDF/UA
+certification or forcing raw structure outputs into top-level JSON.
 
 ### Configured OCR Text Layer
 
@@ -918,6 +955,7 @@ tables, and document signals.
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, table, and image nodes linked to element/chunk evidence | `false` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, and external links | `false` |
+| `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph hints on text elements | `false` |
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
@@ -1412,6 +1450,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Structured element output
 - [x] Semantic document AST
 - [x] PDF trust report
+- [x] PDF accessibility report
 - [x] Table quality diagnostics, inferred cell spans, and continuation candidates
 - [x] Markdown rendering
 - [x] Citation-ready page, semantic, size, and table chunks

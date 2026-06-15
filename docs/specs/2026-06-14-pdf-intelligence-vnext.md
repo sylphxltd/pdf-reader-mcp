@@ -151,6 +151,9 @@ Candidate engines:
      chunk IDs for page/section/paragraph/list/table/image traversal.
    - Add `include_trust_report` for consolidated content safety, layout,
      sparse-page, table quality, and external-link routing signals.
+   - Add `include_accessibility_report` for deterministic tagged-PDF coverage,
+     structure tree, heading, image, form, link, permission, and mark-info
+     signals without claiming PDF/UA certification.
    - Add `search_pdf` for bounded evidence retrieval before heavier reading,
      rendering, cropping, or citation workflows.
    - Keep legacy outputs stable.
@@ -190,7 +193,8 @@ Candidate engines:
    - Add progress and resource telemetry for large PDFs.
 
 7. Accessibility research
-   - Audit PDF structure tree quality across broader fixtures.
+   - Audit accessibility report quality across broader tagged and untagged PDF
+     fixtures.
    - Evaluate tagged PDF generation only after element model quality is proven.
 
 ## Validation Plan
@@ -199,6 +203,8 @@ Candidate engines:
   stripping.
 - Integration tests for MCP `read_pdf` with and without `include_elements`.
 - Integration tests for MCP `read_pdf` with and without `include_document_map`.
+- Integration tests for MCP `read_pdf` with and without
+  `include_accessibility_report`.
 - Integration tests confirm `inspect_pdf`, `search_pdf`, `render_page`,
   `extract_regions`, and `ocr_pages` are exposed by the MCP server.
 - Quality evals for semantic chunks, table ordering, renderers, and safety

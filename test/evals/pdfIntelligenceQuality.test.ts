@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildAccessibilityReport } from '../../src/pdf/accessibilityReport.js';
 import { buildDocumentAst } from '../../src/pdf/documentAst.js';
 import { buildDocumentMap } from '../../src/pdf/documentMap.js';
 import {
@@ -138,6 +139,28 @@ const evaluateCase = (qualityCase: QualityCase) => {
     elements,
     chunks,
   });
+  const accessibilityReport = buildAccessibilityReport({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    elements,
+    structureTrees: [
+      {
+        page: 1,
+        tree: {
+          role: 'Document',
+          children: [{ role: 'H1' }, { role: 'P' }, { role: 'L' }],
+        },
+      },
+      {
+        page: 2,
+        tree: {
+          role: 'Document',
+          children: [{ role: 'H1' }, { role: 'P' }],
+        },
+      },
+    ],
+    permissions: ['copy_for_accessibility'],
+    markInfo: { Marked: true, Suspects: false },
+  });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
 
@@ -229,6 +252,16 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentAst.root.element_ids.includes('p1-table-1') &&
         documentAst.root.chunk_ids !== undefined,
     },
+    {
+      name: 'accessibility report rewards tagged structure with no issues',
+      pass:
+        accessibilityReport.profile === 'pdf_accessibility_report' &&
+        accessibilityReport.grade === 'good' &&
+        accessibilityReport.score === 100 &&
+        accessibilityReport.summary.tagged_page_count === 2 &&
+        accessibilityReport.summary.heading_count === 2 &&
+        accessibilityReport.summary.issue_count === 0,
+    },
   ];
 
   const failures = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.name);
@@ -250,8 +283,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 12,
-        total: 12,
+        passed: 13,
+        total: 13,
         score: 1,
       });
     });

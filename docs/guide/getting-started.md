@@ -346,6 +346,31 @@ top-level response.
 }
 ```
 
+### Get an Accessibility Report
+
+Use `include_accessibility_report` when an agent needs to understand whether the
+PDF exposes reliable tagged structure for navigation, headings, figures, links,
+forms, and assisted reading workflows. The report is deterministic and does not
+claim PDF/UA certification.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_accessibility_report": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+Response fields include `score`, `grade`, `tagged`, `suspected_tagging_issues`,
+page reports, issue counts, and guidance. The report can use mark info,
+permissions, annotations, form fields, and structure trees internally without
+forcing those raw outputs into the top-level response.
+
 ### Get Layout Diagnostics
 
 Use `include_layout_diagnostics` when an agent needs to know whether local

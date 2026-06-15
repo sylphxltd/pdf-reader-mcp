@@ -97,6 +97,7 @@ const main = async () => {
         include_document_map: true,
         include_document_ast: true,
         include_trust_report: true,
+        include_accessibility_report: true,
         include_full_text: false,
       },
     },

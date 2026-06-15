@@ -17,6 +17,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **Page count** - Total number of pages
 - **Embedded images** - Extract images as base64-encoded PNG data
 - **Agent document maps** - Link pages, elements, chunks, layout confidence, safety findings, routing signals, and geometry
+- **Accessibility reports** - Summarize tagged-PDF coverage, heading roles, images, forms, links, and accessibility permissions
 - **Citation chunks** - Return stable source references for retrieval workflows
 - **Safety signals** - Surface deterministic findings before agents trust PDF text
 
@@ -48,6 +49,9 @@ Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figu
 
 ### OCR Provider Pipeline
 Run selected rendered pages through a configured local OCR command when scanned or sparse pages need a text layer. OCR commands are environment-configured, so request payloads cannot choose arbitrary executables.
+
+### Accessibility Report
+Use `include_accessibility_report` when an agent needs page-level accessibility routing for tagged structure, headings, image alt-text verifiability, form labels, link labels, and copy-based accessibility permissions.
 
 ## Supported Clients
 
