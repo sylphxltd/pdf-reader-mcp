@@ -12,9 +12,20 @@ PDF Reader MCP is built on these core principles:
 ## 2. Comprehensive Extraction
 
 - **Text Extraction** - Full document or specific pages
+- **Text Layer** - Optional line and word records with page-level character ranges, best-effort bounding boxes, and provenance
+- **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
+- **Document AST** - Optional semantic tree for page, section, paragraph, list item, table, and image traversal
+- **Trust Report** - Optional consolidated risk report for content safety, layout uncertainty, sparse pages, table quality, and external links
+- **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions
+- **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, text-item bounding boxes, and provenance
+- **Visual Page Evidence** - Bounded page rendering with evidence IDs, provenance, and MCP image parts for OCR routing and page inspection
+- **Region Crop Evidence** - Bbox-grounded visual crops that connect extracted structure back to focused source evidence
+- **Visual Region Analysis** - Optional command-provider enrichment for focused crops, normalized into table, chart, formula, figure, image-description, confidence, warning, and provenance fields
+- **Configured OCR Text Layer** - Optional command-provider OCR over bounded rendered pages, normalized into text, confidence, word boxes, language, and provenance
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - **Semantic Hints** - Optional deterministic heading, list, and paragraph hints on text elements
 - **Table Geometry** - Optional table elements include row data, cell metadata, confidence, and best-effort coordinates
+- **Table Quality** - Optional table diagnostics expose completeness, missing cells, inferred merged-cell candidates, and repeated-header continuation candidates
 - **Markdown Rendering** - Page-aware Markdown for RAG, summarization, and agent context
 - **HTML Rendering** - Escaped page-aware HTML for preview, export, and conversion workflows
 - **Citation Chunks** - Page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
@@ -26,7 +37,8 @@ PDF Reader MCP is built on these core principles:
 
 ## 3. Simple Integration
 
-- **Single Tool** - One `read_pdf` tool handles all extraction needs
+- **Focused Tools** - `inspect_pdf` plans extraction, `search_pdf` finds source text evidence, `render_page` returns page evidence, `extract_regions` returns crop evidence, `analyze_regions` enriches focused crops, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
+- **Safe Provider Status** - Inspection reports optional-provider readiness without exposing local command paths or arguments
 - **Standard MCP** - Compatible with any MCP client
 - **Easy Setup** - One command installation via npx
 - **Multiple Clients** - Works with Claude Desktop, Claude Code, Cursor, and more
@@ -46,15 +58,27 @@ PDF Reader MCP is built on these core principles:
 ## 6. Agent-Ready Output
 
 - **Stable References** - Element IDs and page numbers make downstream citations easier to preserve
+- **Text Fidelity** - Text layers expose line IDs, word records, character ranges, and bbox coverage without requiring agents to parse plain strings
+- **Searchable Evidence** - Search matches carry snippets, offsets, text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
+- **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
+- **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs and chunk IDs as evidence anchors
+- **Trust Routing** - The trust report turns safety, layout, table, and annotation signals into page-level routing guidance
+- **Accessibility Routing** - The accessibility report turns tagged structure, headings, images, forms, links, and permissions into page-level quality guidance
 - **Semantic Hints** - Heading, list, and paragraph hints carry confidence and signals without overstating parser certainty
-- **Cell-Level Provenance** - Table cells can carry row/column indexes and coordinates for downstream citation workflows
+- **Cell-Level Provenance** - Table cells can carry row/column indexes, header/span hints, inference flags, and coordinates for downstream citation workflows
+- **Table Trust Signals** - Table quality warnings tell agents when to verify sparse, merged, irregular, or continuation-candidate tables with visual evidence
 - **Retrieval-Ready Chunks** - Page, semantic, size, and table chunks carry source references without requiring a separate indexing pass
 - **Portable Renderings** - Markdown and HTML renderers support different agent, preview, and export workflows from the same extraction pass
 - **Layout Provenance** - Page geometry and best-effort bounding boxes make extracted content easier to trace back to source pages
+- **Visual Evidence** - Rendered pages give agents a bounded way to inspect original page appearance without duplicating base64 in JSON
+- **Focused Evidence** - Region crops let agents verify tables, figures, charts, formulas, annotations, and citations without carrying whole-page images
+- **Region Enrichment** - Region analysis lets local table, chart, formula, and caption providers return normalized fields tied to crop evidence IDs
+- **OCR Provenance** - OCR text layers point back to the render evidence ID used as provider input, so scanned-page text remains tied to source pixels
 - **Safety Findings** - Deterministic content warnings help agents treat risky PDF text as data, not instructions
 - **Column-Aware Ordering** - Distant same-line text is segmented before ordering to improve common multi-column PDFs
 - **Structured JSON First** - Machine-readable summaries come before large text or image parts
 - **Binary Discipline** - Image bytes are delivered as MCP image content, not duplicated into JSON summaries
+- **Provider Boundaries** - Optional engines are enabled through explicit local provider configuration instead of bundled heavy dependencies or request-selected commands
 - **Extensible Model** - The response model can grow toward headings, tables, citations, and richer layout without breaking existing callers
 
 ## Technical Stack

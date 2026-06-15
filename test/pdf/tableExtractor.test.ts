@@ -5,6 +5,7 @@ import {
   detectColumnBoundaries,
   extractTables,
   extractTablesFromPage,
+  extractTablesFromPageContents,
   extractTextItemsWithPositions,
   type TextItemWithPosition,
   tablesToMarkdown,
@@ -199,6 +200,117 @@ describe('tableExtractor', () => {
   });
 
   describe('extractTablesFromPage', () => {
+    it('should extract tables from already extracted page contents', () => {
+      const result = extractTablesFromPageContents([
+        {
+          page: 1,
+          items: [
+            {
+              type: 'text',
+              textContent: 'Name',
+              xPosition: 50,
+              yPosition: 700,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 700, right: 80, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Age',
+              xPosition: 150,
+              yPosition: 700,
+              width: 20,
+              height: 10,
+              bounding_box: { left: 150, bottom: 700, right: 170, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Alice',
+              xPosition: 50,
+              yPosition: 680,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 680, right: 80, top: 690 },
+            },
+            {
+              type: 'text',
+              textContent: '30',
+              xPosition: 150,
+              yPosition: 680,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 680, right: 165, top: 690 },
+            },
+          ],
+        },
+      ]);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        page: 1,
+        tableIndex: 0,
+        rows: [
+          ['Name', 'Age'],
+          ['Alice', '30'],
+        ],
+        cells: [
+          {
+            text: 'Name',
+            rowIndex: 0,
+            colIndex: 0,
+            rowSpan: 1,
+            colSpan: 1,
+            isHeader: true,
+            inferred: false,
+            bounding_box: { left: 50, bottom: 700, right: 80, top: 710 },
+          },
+          {
+            text: 'Age',
+            rowIndex: 0,
+            colIndex: 1,
+            rowSpan: 1,
+            colSpan: 1,
+            isHeader: true,
+            inferred: false,
+            bounding_box: { left: 150, bottom: 700, right: 170, top: 710 },
+          },
+          {
+            text: 'Alice',
+            rowIndex: 1,
+            colIndex: 0,
+            rowSpan: 1,
+            colSpan: 1,
+            isHeader: false,
+            inferred: false,
+            bounding_box: { left: 50, bottom: 680, right: 80, top: 690 },
+          },
+          {
+            text: '30',
+            rowIndex: 1,
+            colIndex: 1,
+            rowSpan: 1,
+            colSpan: 1,
+            isHeader: false,
+            inferred: false,
+            bounding_box: { left: 150, bottom: 680, right: 165, top: 690 },
+          },
+        ],
+        bounding_box: { left: 50, bottom: 680, right: 170, top: 710 },
+        rowCount: 2,
+        colCount: 2,
+        confidence: 1,
+        quality: {
+          completeness: 1,
+          nonEmptyCellRatio: 1,
+          rowAlignment: 1,
+          rowSpacingConsistency: 1,
+          missingCellCount: 0,
+          mergedCellCandidateCount: 0,
+          signals: ['complete_grid'],
+        },
+      });
+    });
+
     it('should extract tables from a page with tabular data', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({
@@ -233,13 +345,187 @@ describe('tableExtractor', () => {
           right: 275,
           top: 701,
         });
-        expect(result[0]?.cells).toContainEqual({
-          text: 'Alice',
-          rowIndex: 1,
-          colIndex: 0,
-          bounding_box: { left: 50, bottom: 680, right: 80, top: 681 },
+        expect(result[0]?.cells).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              text: 'Alice',
+              rowIndex: 1,
+              colIndex: 0,
+              rowSpan: 1,
+              colSpan: 1,
+              isHeader: false,
+              inferred: false,
+              bounding_box: { left: 50, bottom: 680, right: 80, top: 681 },
+            }),
+          ])
+        );
+        expect(result[0]?.quality).toMatchObject({
+          completeness: 1,
+          mergedCellCandidateCount: 0,
+          signals: ['complete_grid'],
         });
       }
+    });
+
+    it('should attach table quality warnings for sparse and merged-cell candidate grids', () => {
+      const result = extractTablesFromPageContents([
+        {
+          page: 1,
+          items: [
+            {
+              type: 'text',
+              textContent: 'Region Summary',
+              xPosition: 50,
+              yPosition: 700,
+              width: 120,
+              height: 10,
+              bounding_box: { left: 50, bottom: 700, right: 170, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Total',
+              xPosition: 250,
+              yPosition: 700,
+              width: 40,
+              height: 10,
+              bounding_box: { left: 250, bottom: 700, right: 290, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'North',
+              xPosition: 50,
+              yPosition: 680,
+              width: 35,
+              height: 10,
+              bounding_box: { left: 50, bottom: 680, right: 85, top: 690 },
+            },
+            {
+              type: 'text',
+              textContent: 'Q1',
+              xPosition: 150,
+              yPosition: 680,
+              width: 20,
+              height: 10,
+              bounding_box: { left: 150, bottom: 680, right: 170, top: 690 },
+            },
+            {
+              type: 'text',
+              textContent: '$10',
+              xPosition: 250,
+              yPosition: 680,
+              width: 20,
+              height: 10,
+              bounding_box: { left: 250, bottom: 680, right: 270, top: 690 },
+            },
+            {
+              type: 'text',
+              textContent: 'South',
+              xPosition: 50,
+              yPosition: 660,
+              width: 35,
+              height: 10,
+              bounding_box: { left: 50, bottom: 660, right: 85, top: 670 },
+            },
+            {
+              type: 'text',
+              textContent: '$8',
+              xPosition: 250,
+              yPosition: 660,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 250, bottom: 660, right: 265, top: 670 },
+            },
+          ],
+        },
+      ]);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.cells).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            text: 'Region Summary',
+            rowIndex: 0,
+            colIndex: 0,
+            colSpan: 2,
+          }),
+          expect.objectContaining({
+            text: '',
+            rowIndex: 2,
+            colIndex: 1,
+            inferred: true,
+          }),
+        ])
+      );
+      expect(result[0]?.quality).toMatchObject({
+        missingCellCount: 2,
+        mergedCellCandidateCount: 1,
+        signals: expect.arrayContaining(['missing_cells', 'merged_cell_candidates']),
+      });
+      expect(result[0]?.quality?.warnings).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('empty inferred cells'),
+          expect.stringContaining('spans are inferred'),
+        ])
+      );
+    });
+
+    it('should link repeated-header table continuation candidates across adjacent pages', () => {
+      const pageItems = (page: number, yOffset: number) => ({
+        page,
+        items: [
+          {
+            type: 'text' as const,
+            textContent: 'Name',
+            xPosition: 50,
+            yPosition: yOffset,
+            width: 30,
+            height: 10,
+            bounding_box: { left: 50, bottom: yOffset, right: 80, top: yOffset + 10 },
+          },
+          {
+            type: 'text' as const,
+            textContent: 'Age',
+            xPosition: 150,
+            yPosition: yOffset,
+            width: 20,
+            height: 10,
+            bounding_box: { left: 150, bottom: yOffset, right: 170, top: yOffset + 10 },
+          },
+          {
+            type: 'text' as const,
+            textContent: page === 1 ? 'Alice' : 'Bob',
+            xPosition: 50,
+            yPosition: yOffset - 20,
+            width: 40,
+            height: 10,
+            bounding_box: { left: 50, bottom: yOffset - 20, right: 90, top: yOffset - 10 },
+          },
+          {
+            type: 'text' as const,
+            textContent: page === 1 ? '30' : '25',
+            xPosition: 150,
+            yPosition: yOffset - 20,
+            width: 15,
+            height: 10,
+            bounding_box: { left: 150, bottom: yOffset - 20, right: 165, top: yOffset - 10 },
+          },
+        ],
+      });
+
+      const result = extractTablesFromPageContents([pageItems(1, 700), pageItems(2, 700)]);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.continuation).toMatchObject({
+        role: 'starts',
+        nextTableId: 'p2-table-1',
+        signals: ['same_column_count', 'repeated_header_candidate'],
+      });
+      expect(result[1]?.continuation).toMatchObject({
+        role: 'ends',
+        previousTableId: 'p1-table-1',
+      });
+      expect(result[0]?.quality?.signals).toContain('multi_page_continuation_candidate');
+      expect(result[1]?.quality?.signals).toContain('multi_page_continuation_candidate');
     });
 
     it('should return empty array for page with no text', async () => {

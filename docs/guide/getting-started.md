@@ -1,10 +1,18 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides two tools:
+Once installed, the PDF Reader MCP server provides seven tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
-- `read_pdf` extracts PDF content, structure, citations, tables, images, layout
-  confidence, and signals.
+- `search_pdf` searches extracted PDF text with snippets, bounding boxes, and
+  provenance.
+- `render_page` renders selected PDF pages as bounded visual evidence images.
+- `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
+- `analyze_regions` sends focused crops to a configured local provider and
+  normalizes table, chart, formula, figure, and image-description results.
+- `ocr_pages` runs selected rendered pages through a configured local OCR
+  provider and returns a normalized OCR text layer.
+- `read_pdf` extracts PDF content, an agent document map, structure,
+  citations, tables, images, layout confidence, and signals.
 
 ## Basic Usage
 
@@ -31,6 +39,29 @@ Typical response fields:
   structure-tree availability
 - `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
   arguments
+- `provider_status`: safe readiness metadata for optional `ocr_pages` and
+  `analyze_regions` providers without exposing local command paths
+
+### Search For Evidence
+
+Use `search_pdf` when an agent needs to find relevant pages and source
+snippets before running heavier extraction, rendering, or region cropping.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-20"
+  }],
+  "query": "risk controls",
+  "whole_word": true,
+  "max_matches_per_source": 10
+}
+```
+
+Matches include page number, matched text, snippet, match offsets, text-item
+index, optional text-item bounding box, and provenance. Search is literal and
+bounded by `max_pages` and `max_matches_per_source`.
 
 ### Get Metadata and Page Count
 
@@ -118,6 +149,145 @@ and best-effort coordinates instead of plain text alone.
 }
 ```
 
+### Get An Agent Document Map
+
+Use `include_document_map` when an agent needs one navigable structure for the
+PDF instead of separate page, element, chunk, layout, and safety outputs.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_document_map": true,
+  "include_full_text": false,
+  "include_metadata": true,
+  "include_page_count": true
+}
+```
+
+The map links pages to element IDs, chunk IDs, safety finding indexes, layout
+diagnostics, routing signals, and page geometry. Image bytes are not embedded
+inside the JSON map.
+
+### Render Page Evidence
+
+Use `render_page` when an agent needs to inspect the original page image,
+verify visual layout, or prepare OCR routing for sparse/scanned pages.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-2"
+  }],
+  "scale": 2,
+  "max_pages": 2
+}
+```
+
+The response starts with JSON metadata for each rendered page, including page
+number, dimensions, pixel count, byte length, evidence ID, and provenance. PNG
+data is returned as MCP image content parts and referenced by
+`image_content_index`. By default the tool renders the first page only when no
+page range is provided, caps each source at 5 pages, and rejects pages above a
+16MP render budget.
+
+### Extract Region Evidence
+
+Use `extract_regions` when a workflow has a bounding box from a table, figure,
+chart, formula, annotation, or citation and needs a focused crop from the
+original page.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "regions": [{
+      "id": "table-1",
+      "page": 1,
+      "bounding_box": { "left": 72, "bottom": 420, "right": 540, "top": 620 },
+      "padding": 8
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 20
+}
+```
+
+The response starts with JSON metadata for each crop, including region ID,
+source bounding box, crop pixel bounds, evidence ID, and provenance. Cropped PNG
+data is returned as MCP image content parts and referenced by
+`image_content_index`.
+
+### Analyze Visual Regions
+
+Use `analyze_regions` when a workflow has a table, figure, chart, formula, or
+image bounding box and wants local-provider enrichment linked back to source
+pixels. The region analysis provider is configured by environment variables,
+not by request arguments.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "regions": [{
+      "id": "chart-1",
+      "page": 2,
+      "bounding_box": { "left": 72, "bottom": 240, "right": 540, "top": 520 },
+      "padding": 8
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 10,
+  "languages": ["eng"]
+}
+```
+
+Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to the local visual analysis executable
+or wrapper you want the server to run. Optionally set
+`MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array that includes
+`{input}` and may also use `{page}`, `{source}`, `{region_id}`,
+`{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and
+`{languages}` placeholders.
+
+The response starts with JSON metadata using `profile: "region_analysis"`.
+Each analyzed region includes normalized `kind`, description, text, Markdown,
+confidence, optional table/formula/chart fields, warnings, provenance, and a
+`source_crop_evidence_id` pointing back to the crop used as provider input.
+
+### OCR Selected Pages
+
+Use `ocr_pages` after `inspect_pdf` flags scanned or sparse pages, or when a
+workflow needs a text layer from pages with little selectable text. The OCR
+provider is configured by environment variables, not by request arguments.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/scanned-document.pdf",
+    "pages": "1-3"
+  }],
+  "scale": 2,
+  "max_pages": 3,
+  "languages": ["eng"]
+}
+```
+
+Set `MCP_PDF_OCR_PRESET=tesseract` to use the built-in Tesseract command
+template, or set `MCP_PDF_OCR_COMMAND` for a custom local OCR executable.
+Optionally set `MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes
+`{input}` and may also use `{page}`, `{source}`, `{language}`, `{languages}`,
+and `{languages_tesseract}` placeholders.
+The provider can return plain text or JSON with `text`, `confidence`,
+`language`, and `words`.
+
+The response starts with JSON metadata using `profile: "ocr_text_layer"`.
+Each page includes normalized OCR text, confidence when supplied, optional word
+boxes, language, provenance, and a `source_render_evidence_id` that points back
+to the temporary page render used as OCR input.
+
 ### Get Markdown
 
 Use `include_markdown` when a workflow needs clean page-aware context for RAG,
@@ -176,6 +346,94 @@ available.
   "include_page_count": true
 }
 ```
+
+### Get a Text Layer
+
+Use `include_text_layer` when an agent needs line and word references with
+page-level character ranges and best-effort bounding boxes, rather than only
+plain full text.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_text_layer": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+Response fields include page text, lines, words, `char_start`, `char_end`,
+best-effort bounding boxes, provenance, and summary bbox coverage counts.
+
+### Get a Document AST
+
+Use `include_document_ast` when an agent needs a semantic tree instead of flat
+page text. The AST includes page, section, paragraph, list item, table, and
+image nodes with `element_ids`, `chunk_ids`, bounding boxes, confidence,
+semantic roles, and table quality metadata where available.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_document_ast": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+### Get a Trust Report
+
+Use `include_trust_report` when an agent needs one risk summary before using
+PDF content as instructions, evidence, or retrieval context. The report
+consolidates content safety, layout uncertainty, sparse/scanned-page, table
+quality, and external-link signals without forcing those raw outputs into the
+top-level response.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_trust_report": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+### Get an Accessibility Report
+
+Use `include_accessibility_report` when an agent needs to understand whether the
+PDF exposes reliable tagged structure for navigation, headings, figures, links,
+forms, and assisted reading workflows. The report is deterministic and does not
+claim PDF/UA certification.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_accessibility_report": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+Response fields include `score`, `grade`, `tagged`, `suspected_tagging_issues`,
+page reports, issue counts, and guidance. The report can use mark info,
+permissions, annotations, form fields, and structure trees internally without
+forcing those raw outputs into the top-level response.
 
 ### Get Layout Diagnostics
 
@@ -294,6 +552,45 @@ Process multiple PDFs in a single request:
             }
           }
         ],
+        "document_map": {
+          "version": "2026-06-15",
+          "profile": "agent_document_map",
+          "layers": [
+            "selectable_text",
+            "semantic_hints",
+            "citation_chunks",
+            "layout_diagnostics",
+            "content_safety",
+            "page_geometry"
+          ],
+          "pages": [
+            {
+              "page": 1,
+              "element_ids": ["p1-text-1"],
+              "chunk_ids": ["p1-chunk-1"],
+              "safety_finding_indexes": [],
+              "text_chars": 120,
+              "text_item_count": 3,
+              "image_count": 0,
+              "table_count": 0
+            }
+          ],
+          "routing": {
+            "low_confidence_pages": [],
+            "image_or_sparse_pages": [],
+            "needs_ocr_pages": []
+          },
+          "summary": {
+            "selected_pages": [1],
+            "processed_page_count": 1,
+            "element_count": 1,
+            "text_element_count": 1,
+            "image_element_count": 0,
+            "table_element_count": 0,
+            "chunk_count": 1,
+            "safety_finding_count": 0
+          }
+        },
         "image_info": [
           {
             "page": 1,
@@ -316,7 +613,16 @@ Process multiple PDFs in a single request:
               "right": 420,
               "top": 700
             },
-            "confidence": 0.85
+            "confidence": 0.85,
+            "quality": {
+              "completeness": 1,
+              "nonEmptyCellRatio": 1,
+              "rowAlignment": 1,
+              "rowSpacingConsistency": 1,
+              "missingCellCount": 0,
+              "mergedCellCandidateCount": 0,
+              "signals": ["complete_grid"]
+            }
           }
         ],
         "elements": [
@@ -358,6 +664,10 @@ Process multiple PDFs in a single request:
                   "text": "Name",
                   "rowIndex": 0,
                   "colIndex": 0,
+                  "rowSpan": 1,
+                  "colSpan": 1,
+                  "isHeader": true,
+                  "inferred": false,
                   "bounding_box": {
                     "left": 72,
                     "bottom": 680,
@@ -368,7 +678,16 @@ Process multiple PDFs in a single request:
               ],
               "rowCount": 2,
               "colCount": 2,
-              "confidence": 0.85
+              "confidence": 0.85,
+              "quality": {
+                "completeness": 1,
+                "nonEmptyCellRatio": 1,
+                "rowAlignment": 1,
+                "rowSpacingConsistency": 1,
+                "missingCellCount": 0,
+                "mergedCellCandidateCount": 0,
+                "signals": ["complete_grid"]
+              }
             },
             "confidence": 0.85,
             "provenance": {

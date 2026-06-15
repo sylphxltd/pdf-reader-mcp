@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { buildAccessibilityReport } from '../../src/pdf/accessibilityReport.js';
+import { buildDocumentAst } from '../../src/pdf/documentAst.js';
+import { buildDocumentMap } from '../../src/pdf/documentMap.js';
 import {
   buildCitationChunks,
   buildLayoutDiagnostics,
@@ -8,6 +11,7 @@ import {
   renderMarkdownFromPageContents,
   textElementsOnly,
 } from '../../src/pdf/documentModel.js';
+import { buildTextLayer } from '../../src/pdf/textLayer.js';
 import type {
   BoundingBox,
   ExtractedTable,
@@ -121,6 +125,47 @@ const evaluateCase = (qualityCase: QualityCase) => {
   });
   const safetyFindings = buildSafetyFindings(qualityCase.pageContents, qualityCase.pageGeometry);
   const layoutDiagnostics = buildLayoutDiagnostics(qualityCase.pageContents);
+  const documentMap = buildDocumentMap({
+    totalPages: qualityCase.pageContents.length,
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    pageContents: qualityCase.pageContents,
+    elements,
+    chunks,
+    layoutDiagnostics,
+    safetyFindings,
+    pageGeometry: qualityCase.pageGeometry,
+  });
+  const documentAst = buildDocumentAst({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    elements,
+    chunks,
+  });
+  const accessibilityReport = buildAccessibilityReport({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    elements,
+    structureTrees: [
+      {
+        page: 1,
+        tree: {
+          role: 'Document',
+          children: [{ role: 'H1' }, { role: 'P' }, { role: 'L' }],
+        },
+      },
+      {
+        page: 2,
+        tree: {
+          role: 'Document',
+          children: [{ role: 'H1' }, { role: 'P' }],
+        },
+      },
+    ],
+    permissions: ['copy_for_accessibility'],
+    markInfo: { Marked: true, Suspects: false },
+  });
+  const textLayer = buildTextLayer({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    pageContents: qualityCase.pageContents,
+  });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
 
@@ -184,6 +229,54 @@ const evaluateCase = (qualityCase: QualityCase) => {
         layoutDiagnostics[0].confidence >= 0.8 &&
         layoutDiagnostics[0].signals.includes('positioned-items'),
     },
+    {
+      name: 'document map links pages to elements, chunks, safety, and geometry',
+      pass:
+        documentMap.profile === 'agent_document_map' &&
+        documentMap.layers.includes('selectable_text') &&
+        documentMap.layers.includes('table_structure') &&
+        documentMap.layers.includes('semantic_hints') &&
+        documentMap.layers.includes('citation_chunks') &&
+        documentMap.layers.includes('layout_diagnostics') &&
+        documentMap.layers.includes('content_safety') &&
+        documentMap.layers.includes('page_geometry') &&
+        documentMap.pages[0]?.element_ids.includes('p1-table-1') === true &&
+        (documentMap.pages[0]?.chunk_ids.length ?? 0) > 0 &&
+        JSON.stringify(documentMap.pages[0]?.safety_finding_indexes) === JSON.stringify([0, 1, 2]) &&
+        documentMap.summary.table_element_count === 1 &&
+        documentMap.summary.safety_finding_count === 3,
+    },
+    {
+      name: 'document AST exposes sections, paragraphs, lists, and tables',
+      pass:
+        documentAst.profile === 'document_ast' &&
+        documentAst.summary.section_count === 2 &&
+        documentAst.summary.paragraph_count === 4 &&
+        documentAst.summary.list_item_count === 1 &&
+        documentAst.summary.table_count === 1 &&
+        documentAst.root.element_ids.includes('p1-table-1') &&
+        documentAst.root.chunk_ids !== undefined,
+    },
+    {
+      name: 'accessibility report rewards tagged structure with no issues',
+      pass:
+        accessibilityReport.profile === 'pdf_accessibility_report' &&
+        accessibilityReport.grade === 'good' &&
+        accessibilityReport.score === 100 &&
+        accessibilityReport.summary.tagged_page_count === 2 &&
+        accessibilityReport.summary.heading_count === 2 &&
+        accessibilityReport.summary.issue_count === 0,
+    },
+    {
+      name: 'text layer preserves line, word, and character references',
+      pass:
+        textLayer.profile === 'pdf_text_layer' &&
+        textLayer.summary.line_count === 7 &&
+        textLayer.summary.word_count > 20 &&
+        textLayer.summary.words_with_bounding_boxes === textLayer.summary.word_count &&
+        textLayer.pages[0]?.lines[0]?.text === 'Executive Summary' &&
+        textLayer.pages[0]?.lines[0]?.words[0]?.char_start === 0,
+    },
   ];
 
   const failures = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.name);
@@ -205,8 +298,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 10,
-        total: 10,
+        passed: 14,
+        total: 14,
         score: 1,
       });
     });

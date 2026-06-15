@@ -10,7 +10,8 @@ neutral capability names and avoids public comparison language.
 ## Legend
 
 - Shipped: implemented in this repository.
-- In progress: partially implemented and needs validation or hardening.
+- In progress: meaningful shipped coverage exists, but the full capability still
+  needs fixtures, engine adapters, or additional validation.
 - Next: feasible with current architecture and no mandatory heavy dependency.
 - Advanced: likely requires optional engines, OCR models, or larger architecture.
 
@@ -18,14 +19,23 @@ neutral capability names and avoids public comparison language.
 
 | Capability | Status | Notes |
 |---|---:|---|
-| MCP-native PDF tools | Shipped | `inspect_pdf` and `read_pdf` with stdio/http transport. |
-| Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, and recommends `read_pdf` options. |
+| MCP-native PDF tools | Shipped | `inspect_pdf`, `search_pdf`, `render_page`, `extract_regions`, `analyze_regions`, `ocr_pages`, and `read_pdf` with stdio/http transport. |
+| Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, reports optional-provider readiness, and recommends `read_pdf` options. |
+| Optional provider readiness | Shipped | `inspect_pdf` reports safe readiness for `ocr_pages` and `analyze_regions` without exposing command paths or arguments. |
+| MCP-native PDF search | Shipped | `search_pdf`; bounded literal search with snippets, match offsets, text-item bounding boxes, and provenance. |
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
 | Metadata and page count | Shipped | Existing `include_metadata`, `include_page_count`. |
 | Text extraction | Shipped | Full text and selected pages. |
+| Text layer with line/word ranges | Shipped | `include_text_layer`; page text, line IDs, word records, page-level character ranges, best-effort boxes, and provenance. |
 | Image extraction | Shipped | MCP image parts plus JSON metadata. |
+| Visual page rendering | Shipped | `render_page`; selected pages render as bounded PNG MCP image parts with evidence metadata and provenance. |
+| Region crop evidence | Shipped | `extract_regions`; PDF-coordinate bounding boxes crop into focused PNG MCP image parts with evidence metadata. |
+| Visual region analysis provider | Shipped | `analyze_regions`; focused crops are passed to an env-configured local provider and normalized into table, chart, formula, figure, image-description, confidence, warning, and provenance fields. No model is bundled. |
 | Table extraction | Shipped | Spatial clustering with rows, confidence, and best-effort cell geometry. |
+| Table quality diagnostics | Shipped | Completeness, non-empty cell ratio, row alignment, row spacing consistency, missing-cell count, inferred merged-cell candidates, warnings, and repeated-header continuation candidates. |
 | Structured element output | Shipped | `include_elements`. |
+| Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry in one agent-ready contract. |
+| Semantic document AST | Shipped | `include_document_ast`; page, section, paragraph, list item, table, and image tree linked to element IDs, chunk IDs, bounding boxes, confidence, and table quality metadata. |
 | Deterministic semantic hints | Shipped | `include_semantic_hints`; heading, list item, paragraph hints with confidence. |
 | Markdown rendering | Shipped | `include_markdown`. |
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
@@ -38,32 +48,41 @@ neutral capability names and avoids public comparison language.
 | Page geometry | Shipped | `include_page_geometry`; viewport size, rotation, user unit, and view box. |
 | Permissions and mark info | Shipped | `include_permissions`. |
 | Tagged PDF structure extraction | Shipped | `include_structure_tree`; page-scoped structure trees when exposed by PDF.js. |
+| Accessibility report | Shipped | `include_accessibility_report`; deterministic tagged-PDF coverage, structure tree, heading, image, form, link, permission, and mark-info signals. Does not claim PDF/UA certification. |
 | Form fields | Shipped | `include_form_fields`; needs broader AcroForm fixture coverage. |
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, and off-page text. |
+| PDF trust report | Shipped | `include_trust_report`; consolidates content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals with page-level routing guidance. |
 | Rich semantic headings/paragraphs/lists | Next | Promote hints to stronger element model after fixtures/evals. |
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
-| Rich table spans and multi-page links | Next | Row spans, column spans, cross-page continuity, stronger confidence model. |
+| Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; full visual spans and non-repeated continuation can be supplied through an optional visual region analysis provider. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
 | Quality eval harness | Shipped | Regression eval covers semantic chunks, table order, renderers, and safety findings. |
-| OCR for scanned PDFs | Advanced | Optional provider; must not bloat default install. |
-| Formula extraction | Advanced | Optional provider or external engine. |
-| Chart/image descriptions | Advanced | Optional vision enrichment. |
+| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract`. No default OCR model is bundled. |
+| Formula extraction | In progress | `analyze_regions` can normalize formula provider output; accuracy depends on the configured local engine. |
+| Chart/image descriptions | In progress | `analyze_regions` can normalize chart, figure, and image-description provider output; accuracy depends on the configured local engine. |
 | Tagged PDF generation | Advanced | Requires separate design and validation. |
-| Advanced parser engine adapters | Advanced | Provider boundary, normalized output, health checks. |
+| Advanced parser engine adapters | In progress | OCR and visual region provider boundaries are shipped; health checks, presets, and broader engine-specific fixtures remain. |
 
 ## Execution Priority
 
 1. Harden current no-new-dependency parity features with real fixtures:
    outline, annotations, page labels, permissions, form fields, attachment
-   metadata, page geometry, structure trees, semantic hints, and safety
-   findings.
+   metadata, page geometry, structure trees, accessibility reports, semantic
+   hints, and safety findings.
 2. Expand extraction quality evals: multi-column, layout diagnostics, tables,
    annotations, forms, hidden/off-page text, scanned PDFs.
-3. Add deterministic semantic model: headings, paragraphs, lists, captions,
-   richer tables.
-4. Add optional advanced engines behind provider interfaces.
-5. Add OCR/formula/chart/tagged-PDF capabilities only through optional engines
+3. Harden the agent document map as the SSOT for pages, elements, chunks,
+   layout, safety, page geometry, and optional engine enrichment.
+4. Add deterministic semantic model: headings, paragraphs, lists, captions,
+   AST traversal, and richer table trust signals.
+5. Harden trust reports with redaction and broader adversarial fixtures.
+6. Harden the optional OCR provider with real scanned fixtures, additional
+   provider presets, and accuracy/latency reporting.
+7. Harden optional visual region providers for table, formula, chart, and
+   image-description engines with broader fixtures and accuracy/latency
+   reporting.
+8. Add formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 
 ## Public Messaging Rule

@@ -20,7 +20,9 @@ import {
   extractStructureTrees,
 } from './extractor.js';
 import { loadPdfDocument } from './loader.js';
+import { getOcrProviderStatus } from './ocr.js';
 import { getTargetPages } from './parser.js';
+import { getRegionAnalysisProviderStatus } from './regionAnalysis.js';
 
 const logger = createLogger('Inspector');
 
@@ -179,13 +181,14 @@ export const buildInspectionRecommendation = (
       workflow: 'scanned_pdf_triage',
       needs_ocr: true,
       reason:
-        'Sampled pages contain little selectable text and visible image paint operations; OCR or an optional advanced engine is likely required for text extraction.',
+        'Sampled pages contain little selectable text and visible image paint operations; use ocr_pages with a configured OCR provider or an optional advanced engine for text extraction.',
       read_pdf_arguments: readPdfArguments,
     };
   }
 
   if (profile === 'mixed_text_and_scan') {
     Object.assign(readPdfArguments, {
+      include_document_map: true,
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
@@ -197,13 +200,14 @@ export const buildInspectionRecommendation = (
       workflow: 'mixed_pdf_review',
       needs_ocr: true,
       reason:
-        'Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and OCR for scanned pages.',
+        'Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and ocr_pages with a configured OCR provider for scanned pages.',
       read_pdf_arguments: readPdfArguments,
     };
   }
 
   if (profile === 'digital_text') {
     Object.assign(readPdfArguments, {
+      include_document_map: true,
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
@@ -215,7 +219,7 @@ export const buildInspectionRecommendation = (
       workflow: 'agentic_rag',
       needs_ocr: false,
       reason:
-        'Sampled pages expose selectable text; citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.',
+        'Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.',
       read_pdf_arguments: readPdfArguments,
     };
   }
@@ -280,7 +284,7 @@ export const inspectPdfSource = async (
     }
     if (recommendation.needs_ocr) {
       warnings.push(
-        'Default PDF Reader MCP does not perform OCR; use an optional OCR-capable engine for scanned pages.'
+        'read_pdf does not perform OCR; use ocr_pages with a configured OCR provider for scanned pages.'
       );
     }
 
@@ -291,6 +295,10 @@ export const inspectPdfSource = async (
       page_signals: pageSignals,
       document_signals: documentSignals,
       recommendation,
+      provider_status: {
+        ocr_pages: getOcrProviderStatus(),
+        analyze_regions: getRegionAnalysisProviderStatus(),
+      },
       ...(metadataOutput.info ? { info: metadataOutput.info } : {}),
       ...(metadataOutput.metadata ? { metadata: metadataOutput.metadata } : {}),
       ...(pageGeometry.length > 0 ? { page_geometry: pageGeometry } : {}),

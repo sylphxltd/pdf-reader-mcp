@@ -1,4 +1,4 @@
-import fs from 'node:fs/promises';
+import fs, * as realFsPromises from 'node:fs/promises';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadPdfDocument } from '../../src/pdf/loader.js';
@@ -7,10 +7,14 @@ import { ErrorCode, PdfError } from '../../src/utils/errors.js';
 import * as pathUtils from '../../src/utils/pathUtils.js';
 
 vi.mock('node:fs/promises', () => ({
+  ...realFsPromises,
   default: {
+    ...realFsPromises,
     readFile: vi.fn(),
     stat: vi.fn(),
   },
+  readFile: vi.fn(),
+  stat: vi.fn(),
 }));
 
 vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({

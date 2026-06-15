@@ -81,6 +81,20 @@ Output is a JSON text part:
             "include_markdown": true,
             "include_tables": true
           }
+        },
+        "provider_status": {
+          "ocr_pages": {
+            "readiness": "ready",
+            "provider": "command",
+            "command_configured": true,
+            "preset": "tesseract"
+          },
+          "analyze_regions": {
+            "readiness": "not_configured",
+            "provider": "command",
+            "command_configured": false,
+            "warnings": ["Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions."]
+          }
         }
       }
     }
@@ -93,6 +107,7 @@ Output is a JSON text part:
 - Inspection returns per-source success or failure independently.
 - Sampling is bounded and defaults to a small number of pages.
 - `read_pdf_arguments` must never imply OCR support from the default package.
+- Provider readiness must not expose local command paths or arguments.
 - The first JSON part must not include binary image data.
 - Existing `read_pdf` callers remain unchanged.
 

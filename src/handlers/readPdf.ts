@@ -2,6 +2,9 @@
 
 import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { buildAccessibilityReport } from '../pdf/accessibilityReport.js';
+import { buildDocumentAst } from '../pdf/documentAst.js';
+import { buildDocumentMap } from '../pdf/documentMap.js';
 import {
   buildCitationChunks,
   buildLayoutDiagnostics,
@@ -21,13 +24,25 @@ import {
 } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
-import { extractTables, tablesToMarkdown } from '../pdf/tableExtractor.js';
+import {
+  extractTables,
+  extractTablesFromPageContents,
+  tablesToMarkdown,
+} from '../pdf/tableExtractor.js';
+import { buildTextLayer } from '../pdf/textLayer.js';
+import { buildTrustReport } from '../pdf/trustReport.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
 import type {
   ExtractedImage,
   ExtractedTable,
+  PdfChunk,
+  PdfDocumentElement,
+  PdfPageAnnotations,
   PdfPageGeometry,
+  PdfPageLayoutDiagnostics,
+  PdfPageStructureTree,
   PdfResultData,
+  PdfSafetyFinding,
   PdfSource,
   PdfSourceResult,
 } from '../types/pdf.js';
@@ -52,6 +67,7 @@ const processSingleSource = async (
     includeMarkdown: boolean;
     includeHtml: boolean;
     includeChunks: boolean;
+    includeTextLayer: boolean;
     includeOutline: boolean;
     includeAnnotations: boolean;
     includePageLabels: boolean;
@@ -62,6 +78,10 @@ const processSingleSource = async (
     includeStructureTree: boolean;
     includeSafetyFindings: boolean;
     includeLayoutDiagnostics: boolean;
+    includeDocumentMap: boolean;
+    includeDocumentAst: boolean;
+    includeTrustReport: boolean;
+    includeAccessibilityReport: boolean;
   }
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
@@ -87,13 +107,28 @@ const processSingleSource = async (
     const output: PdfResultData = { ...metadataOutput };
 
     const structureOutput = await extractDocumentStructure(pdfDocument, {
-      includeOutline: options.includeOutline,
+      includeOutline: options.includeOutline || options.includeAccessibilityReport,
       includePageLabels: options.includePageLabels,
-      includePermissions: options.includePermissions,
-      includeFormFields: options.includeFormFields,
+      includePermissions: options.includePermissions || options.includeAccessibilityReport,
+      includeFormFields: options.includeFormFields || options.includeAccessibilityReport,
       includeAttachments: options.includeAttachments,
     });
-    Object.assign(output, structureOutput);
+    if (options.includeOutline && structureOutput.outline) {
+      output.outline = structureOutput.outline;
+    }
+    if (options.includePageLabels && structureOutput.page_labels) {
+      output.page_labels = structureOutput.page_labels;
+    }
+    if (options.includePermissions) {
+      if (structureOutput.permissions) output.permissions = structureOutput.permissions;
+      if (structureOutput.mark_info) output.mark_info = structureOutput.mark_info;
+    }
+    if (options.includeFormFields && structureOutput.form_fields) {
+      output.form_fields = structureOutput.form_fields;
+    }
+    if (options.includeAttachments && structureOutput.attachments) {
+      output.attachments = structureOutput.attachments;
+    }
 
     // Determine pages to process
     const explicitPageContent =
@@ -103,11 +138,20 @@ const processSingleSource = async (
       options.includeMarkdown ||
       options.includeHtml ||
       options.includeChunks ||
+      options.includeTextLayer ||
       options.includeImages ||
       options.includeSafetyFindings ||
-      options.includeLayoutDiagnostics;
+      options.includeLayoutDiagnostics ||
+      options.includeDocumentMap ||
+      options.includeDocumentAst ||
+      options.includeTrustReport ||
+      options.includeAccessibilityReport;
     const pageScopedMetadata =
       options.includeTables ||
+      options.includeDocumentMap ||
+      options.includeDocumentAst ||
+      options.includeTrustReport ||
+      options.includeAccessibilityReport ||
       options.includeAnnotations ||
       options.includePageGeometry ||
       options.includeStructureTree;
@@ -131,7 +175,12 @@ const processSingleSource = async (
       const needsPageContent = explicitPageContent || includeSelectedPageText;
 
       let pageGeometry: PdfPageGeometry[] | undefined;
-      if (options.includePageGeometry || options.includeSafetyFindings) {
+      if (
+        options.includePageGeometry ||
+        options.includeSafetyFindings ||
+        options.includeDocumentMap ||
+        options.includeTrustReport
+      ) {
         pageGeometry = await extractPageGeometry(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
           pagesToProcess
@@ -204,26 +253,39 @@ const processSingleSource = async (
       }
 
       // Extract tables if requested
-      if (options.includeTables) {
-        const extractedTables = await extractTables(
-          pdfDocument as pdfjsLib.PDFDocumentProxy,
-          pagesToProcess
-        );
+      if (
+        options.includeTables ||
+        options.includeDocumentMap ||
+        options.includeDocumentAst ||
+        options.includeTrustReport
+      ) {
+        const extractedTables = output.page_contents
+          ? extractTablesFromPageContents(output.page_contents)
+          : await extractTables(pdfDocument as pdfjsLib.PDFDocumentProxy, pagesToProcess);
 
         if (extractedTables.length > 0) {
           output.tables = extractedTables;
         }
       }
 
-      const buildElementsForOutput = () =>
-        buildStructuredElements(
-          output.page_contents ?? [],
-          output.tables,
-          options.includeSemanticHints
-        );
+      let plainElements: PdfDocumentElement[] | undefined;
+      let semanticElements: PdfDocumentElement[] | undefined;
+      const buildElementsForOutput = (includeSemanticHints: boolean) => {
+        if (includeSemanticHints) {
+          semanticElements ??= buildStructuredElements(
+            output.page_contents ?? [],
+            output.tables,
+            true
+          );
+          return semanticElements;
+        }
+
+        plainElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, false);
+        return plainElements;
+      };
 
       if ((options.includeElements || options.includeSemanticHints) && output.page_contents) {
-        output.elements = buildElementsForOutput();
+        output.elements = buildElementsForOutput(options.includeSemanticHints);
       }
 
       if (options.includeMarkdown && output.page_contents) {
@@ -234,42 +296,117 @@ const processSingleSource = async (
         output.html = renderHtmlFromPageContents(output.page_contents, output.tables);
       }
 
+      let chunks: PdfChunk[] | undefined;
       if (options.includeChunks && output.page_contents) {
-        const chunkElements = output.elements ?? buildElementsForOutput();
-        output.chunks = buildCitationChunks(chunkElements, {
+        const chunkElements =
+          output.elements ?? buildElementsForOutput(options.includeSemanticHints);
+        chunks = buildCitationChunks(chunkElements, {
           useSemanticBoundaries: options.includeSemanticHints,
+        });
+        output.chunks = chunks;
+      }
+
+      if (options.includeTextLayer && output.page_contents) {
+        output.text_layer = buildTextLayer({
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents,
         });
       }
 
+      let safetyFindings: PdfSafetyFinding[] | undefined;
       if (options.includeSafetyFindings && output.page_contents) {
-        const safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
+        safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
         if (safetyFindings.length > 0) {
           output.safety_findings = safetyFindings;
         }
       }
 
+      let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
       if (options.includeLayoutDiagnostics && output.page_contents) {
-        output.layout_diagnostics = buildLayoutDiagnostics(output.page_contents);
+        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
+        output.layout_diagnostics = layoutDiagnostics;
       }
 
-      if (options.includeAnnotations) {
-        const annotations = await extractAnnotations(
+      if (options.includeDocumentMap && output.page_contents) {
+        const mapElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
+        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        output.document_map = buildDocumentMap({
+          totalPages,
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents,
+          elements: mapElements,
+          chunks,
+          layoutDiagnostics,
+          safetyFindings,
+          pageGeometry,
+          warnings: output.warnings,
+        });
+      }
+
+      if (options.includeDocumentAst && output.page_contents) {
+        const astElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(astElements, { useSemanticBoundaries: true });
+        output.document_ast = buildDocumentAst({
+          selectedPages: pagesToProcess,
+          elements: astElements,
+          chunks,
+          warnings: output.warnings,
+        });
+      }
+
+      let annotations: PdfPageAnnotations[] | undefined;
+      if (
+        options.includeAnnotations ||
+        options.includeTrustReport ||
+        options.includeAccessibilityReport
+      ) {
+        annotations = await extractAnnotations(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
           pagesToProcess
         );
-        if (annotations.length > 0) {
+        if (options.includeAnnotations && annotations.length > 0) {
           output.annotations = annotations;
         }
       }
 
-      if (options.includeStructureTree) {
-        const structureTrees = await extractStructureTrees(
+      if (options.includeTrustReport && output.page_contents) {
+        const trustElements = buildElementsForOutput(true);
+        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        output.trust_report = buildTrustReport({
+          selectedPages: pagesToProcess,
+          safetyFindings,
+          layoutDiagnostics,
+          elements: trustElements,
+          annotations,
+        });
+      }
+
+      let structureTrees: PdfPageStructureTree[] | undefined;
+      if (options.includeStructureTree || options.includeAccessibilityReport) {
+        structureTrees = await extractStructureTrees(
           pdfDocument as pdfjsLib.PDFDocumentProxy,
           pagesToProcess
         );
-        if (structureTrees.length > 0) {
+        if (options.includeStructureTree && structureTrees.length > 0) {
           output.structure_trees = structureTrees;
         }
+      }
+
+      if (options.includeAccessibilityReport && output.page_contents) {
+        const accessibilityElements = buildElementsForOutput(true);
+        output.accessibility_report = buildAccessibilityReport({
+          selectedPages: pagesToProcess,
+          elements: accessibilityElements,
+          structureTrees,
+          annotations,
+          formFields: structureOutput.form_fields,
+          permissions: structureOutput.permissions,
+          markInfo: structureOutput.mark_info,
+          outline: structureOutput.outline,
+        });
       }
     }
 
@@ -333,6 +470,7 @@ export const readPdf = tool()
       include_markdown,
       include_html,
       include_chunks,
+      include_text_layer,
       include_outline,
       include_annotations,
       include_page_labels,
@@ -343,6 +481,10 @@ export const readPdf = tool()
       include_structure_tree,
       include_safety_findings,
       include_layout_diagnostics,
+      include_document_map,
+      include_document_ast,
+      include_trust_report,
+      include_accessibility_report,
     } = input;
 
     // Process sources with concurrency limit to prevent memory exhaustion
@@ -360,6 +502,7 @@ export const readPdf = tool()
       includeMarkdown: include_markdown ?? false,
       includeHtml: include_html ?? false,
       includeChunks: include_chunks ?? false,
+      includeTextLayer: include_text_layer ?? false,
       includeOutline: include_outline ?? false,
       includeAnnotations: include_annotations ?? false,
       includePageLabels: include_page_labels ?? false,
@@ -370,6 +513,10 @@ export const readPdf = tool()
       includeStructureTree: include_structure_tree ?? false,
       includeSafetyFindings: include_safety_findings ?? false,
       includeLayoutDiagnostics: include_layout_diagnostics ?? false,
+      includeDocumentMap: include_document_map ?? false,
+      includeDocumentAst: include_document_ast ?? false,
+      includeTrustReport: include_trust_report ?? false,
+      includeAccessibilityReport: include_accessibility_report ?? false,
     };
 
     for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {
@@ -410,7 +557,7 @@ export const readPdf = tool()
         }
 
         // Include table metadata in JSON, but not the full row data (that goes to markdown)
-        if (tables && tables.length > 0) {
+        if (options.includeTables && tables && tables.length > 0) {
           processedData['table_info'] = tables.map((tbl) => ({
             page: tbl.page,
             tableIndex: tbl.tableIndex,
@@ -419,6 +566,8 @@ export const readPdf = tool()
             cellCount: tbl.cells?.length ?? tbl.rowCount * tbl.colCount,
             bounding_box: tbl.bounding_box,
             confidence: tbl.confidence,
+            quality: tbl.quality,
+            continuation: tbl.continuation,
           }));
         }
 

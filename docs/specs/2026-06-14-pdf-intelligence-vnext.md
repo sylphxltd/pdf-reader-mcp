@@ -38,6 +38,12 @@ engines behind one stable MCP contract.
   Markdown, MCP text parts, or image parts.
 - Provenance: metadata describing which engine produced an element and how
   confident the server is.
+- Document map: one agent-facing contract that links pages, elements, chunks,
+  layout diagnostics, safety findings, routing signals, and page geometry.
+- Search evidence: literal text matches with page numbers, snippets, offsets,
+  optional text-item bounding boxes, and provenance.
+- OCR text layer: normalized text, confidence, optional word boxes, language,
+  and provenance produced by an explicitly configured local OCR provider.
 
 ## Invariants
 
@@ -118,7 +124,8 @@ Candidate engines:
 
 - `pdfjs`: default, local, current dependency set.
 - `external-cli`: optional adapter for high-accuracy local parsers.
-- `ocr`: optional local or service-backed OCR for scanned PDFs.
+- `ocr`: optional local provider for scanned PDFs, enabled explicitly outside
+  request payloads.
 - `vision`: optional enrichment for charts, figures, and formulas.
 
 ## Phased Roadmap
@@ -131,6 +138,8 @@ Candidate engines:
    - Add `include_markdown`.
    - Add `include_html`.
    - Add `include_chunks`.
+   - Add `include_text_layer` for line records, word records, character
+     ranges, best-effort bounding boxes, and provenance.
    - Add document signals: outline, annotations, page labels, page geometry,
      permissions, structure trees, form fields, and attachment metadata.
    - Add deterministic content safety findings for agent workflows.
@@ -138,6 +147,17 @@ Candidate engines:
    - Add best-effort table and table-cell geometry.
    - Add semantic, size, and table-aware chunk strategies.
    - Add layout diagnostics with reading-order confidence for agent routing.
+   - Add `include_document_map` as the SSOT response shape for agent
+     navigation and future optional engine enrichment.
+   - Add `include_document_ast` as a semantic tree over the same element and
+     chunk IDs for page/section/paragraph/list/table/image traversal.
+   - Add `include_trust_report` for consolidated content safety, layout,
+     sparse-page, table quality, and external-link routing signals.
+   - Add `include_accessibility_report` for deterministic tagged-PDF coverage,
+     structure tree, heading, image, form, link, permission, and mark-info
+     signals without claiming PDF/UA certification.
+   - Add `search_pdf` for bounded evidence retrieval before heavier reading,
+     rendering, cropping, or citation workflows.
    - Keep legacy outputs stable.
    - Add tests for schema, JSON response shape, and no binary data in JSON.
 
@@ -151,7 +171,8 @@ Candidate engines:
 
 3. Semantic extraction
    - Detect headings, paragraphs, lists, captions, headers, footers.
-   - Improve tables with row/column spans and multi-page linking.
+   - Improve tables with quality diagnostics, inferred row/column span hints,
+     and multi-page continuation candidates.
    - Add Markdown renderer using the normalized element tree.
 
 4. Safety and trust
@@ -161,7 +182,11 @@ Candidate engines:
 
 5. Advanced engines
    - Add optional provider interface for high-accuracy local engines.
-   - Add optional OCR, formula, chart, and image description enrichment.
+   - Add `ocr_pages` as the first optional OCR provider interface over bounded
+     rendered pages.
+   - Add `analyze_regions` for formula, chart, table, figure, and image
+     description enrichment behind optional providers over bounded crop
+     evidence.
    - Keep the default package lightweight.
 
 6. Agent workflows
@@ -171,7 +196,8 @@ Candidate engines:
    - Add progress and resource telemetry for large PDFs.
 
 7. Accessibility research
-   - Audit PDF structure tree quality across broader fixtures.
+   - Audit accessibility report quality across broader tagged and untagged PDF
+     fixtures.
    - Evaluate tagged PDF generation only after element model quality is proven.
 
 ## Validation Plan
@@ -179,6 +205,12 @@ Candidate engines:
 - Unit tests for schema, element construction, page ordering, and binary
   stripping.
 - Integration tests for MCP `read_pdf` with and without `include_elements`.
+- Integration tests for MCP `read_pdf` with and without `include_document_map`.
+- Integration tests for MCP `read_pdf` with and without
+  `include_accessibility_report`.
+- Integration tests confirm `inspect_pdf`, `search_pdf`, `render_page`,
+  `extract_regions`, `analyze_regions`, and `ocr_pages` are exposed by the MCP
+  server.
 - Quality evals for semantic chunks, table ordering, renderers, and safety
   findings.
 - Fixtures for simple text, multi-column reading order, tables, images, scans,
@@ -193,8 +225,8 @@ Candidate engines:
 - Do not mention external projects when describing improvements.
 - Use neutral language: "structured", "agent-ready", "local-first",
   "citation-ready", "safe by default", "optional advanced engines".
-- Do not imply unshipped OCR, formula extraction, chart description, or PDF/UA
-  support.
+- Do not imply built-in OCR models, formula extraction, chart description, or
+  PDF/UA support before they are shipped and validated.
 - Prefer measurable claims tied to tests, fixtures, or benchmarks in this repo.
 
 ## Acceptance Criteria For First Slice
@@ -207,6 +239,7 @@ Candidate engines:
 - Document signal flags validate as optional booleans.
 - `include_structure_tree` validates as an optional boolean.
 - `include_safety_findings` validates as an optional boolean.
+- `include_document_map` validates as an optional boolean.
 - Requests with `include_elements: true` process selected pages even when
   `include_full_text` is false.
 - Requests with `include_semantic_hints: true` return text elements with
@@ -225,12 +258,21 @@ Candidate engines:
   trees without forcing text extraction when tagged structure is available.
 - Requests with `include_safety_findings: true` produce deterministic findings
   without forcing `full_text`.
+- Requests with `include_document_map: true` produce an agent map with pages,
+  elements, chunks, layout diagnostics, safety findings, routing signals, page
+  geometry, and summary counts without forcing top-level legacy outputs.
 - JSON summary includes `elements` with stable ids, page numbers, type, content
   or metadata, and best-effort bounding boxes where available.
 - JSON summary does not include base64 image bytes.
-- Table output includes row/column-indexed cell metadata and best-effort
-  bounding boxes when coordinates are available.
+- Table output includes row/column-indexed cell metadata, header/span hints,
+  inference flags, quality diagnostics, continuation candidates, and
+  best-effort bounding boxes when coordinates are available.
 - Chunk output includes table chunks when table extraction is requested.
+- Document AST output includes page, section, paragraph, list item, table, and
+  image nodes linked back to element IDs and chunk IDs.
+- Trust report output includes document/page risk levels, risk scores, signals,
+  and routing guidance without forcing raw safety, layout, or annotation
+  outputs.
 - Structure tree output includes sanitized role/type/id/children data only.
 - Common two-column text with a full-width title is ordered title, left column,
   then right column.

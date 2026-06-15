@@ -89,6 +89,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_text_layer: optional(
+    bool(
+      description(
+        'Include a page text layer with line records, word records, page-level character ranges, best-effort bounding boxes, and provenance.'
+      )
+    )
+  ),
   include_outline: optional(
     bool(description('Include document outline/bookmark entries when the PDF exposes them.'))
   ),
@@ -144,6 +151,34 @@ export const readPdfArgsSchema = object({
     bool(
       description(
         'Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing.'
+      )
+    )
+  ),
+  include_document_map: optional(
+    bool(
+      description(
+        'Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON.'
+      )
+    )
+  ),
+  include_document_ast: optional(
+    bool(
+      description(
+        'Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence.'
+      )
+    )
+  ),
+  include_trust_report: optional(
+    bool(
+      description(
+        'Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing.'
+      )
+    )
+  ),
+  include_accessibility_report: optional(
+    bool(
+      description(
+        'Include a deterministic accessibility report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.'
       )
     )
   ),

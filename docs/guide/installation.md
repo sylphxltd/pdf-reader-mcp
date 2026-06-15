@@ -52,6 +52,67 @@ The server communicates via stdio. Run with:
 npx @sylphx/pdf-reader-mcp
 ```
 
+## Optional OCR Provider
+
+`ocr_pages` is disabled until a local OCR command or preset is configured. Set
+`MCP_PDF_OCR_PRESET=tesseract` to use the built-in Tesseract command template,
+or set `MCP_PDF_OCR_COMMAND` to the OCR executable or wrapper you want the
+server to run. Optionally set `MCP_PDF_OCR_ARGS_JSON` to a JSON string array
+with `{input}`, `{page}`, `{source}`, `{language}`, `{languages}`, and
+`{languages_tesseract}` placeholders. The argument template must include
+`{input}` so the provider receives the temporary rendered PNG.
+
+Example:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"],
+      "env": {
+        "MCP_PDF_OCR_PRESET": "tesseract"
+      }
+    }
+  }
+}
+```
+
+Provider stdout may be plain text or JSON with `text`, `confidence`,
+`language`, and `words`. The default package does not bundle an OCR model.
+
+## Optional Visual Region Analysis Provider
+
+`analyze_regions` is disabled until a local visual analysis command is
+configured. Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to a local executable or
+wrapper that accepts a temporary cropped PNG. Optionally set
+`MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array with `{input}`,
+`{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`,
+`{right}`, `{top}`, `{language}`, and `{languages}` placeholders. The argument
+template must include `{input}` so the provider receives the temporary region
+crop.
+
+Example:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"],
+      "env": {
+        "MCP_PDF_REGION_ANALYSIS_COMMAND": "/usr/local/bin/pdf-region-analyzer",
+        "MCP_PDF_REGION_ANALYSIS_ARGS_JSON": "[\"{input}\", \"--page\", \"{page}\", \"--region\", \"{region_id}\"]"
+      }
+    }
+  }
+}
+```
+
+Provider stdout may be plain text or JSON with `kind`, `description`, `text`,
+`markdown`, `confidence`, `table`, `formula`, `chart`, and `warnings`. The
+default package does not bundle a vision model.
+
 ## Development Setup
 
 1. Clone the repository:

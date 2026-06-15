@@ -64,10 +64,25 @@ describe('MCP Server Integration', () => {
   beforeAll(async () => {
     // Start the MCP server
     const serverPath = path.resolve(__dirname, '../../dist/index.js');
+    const mockOcrProviderPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
+    const mockRegionAnalysisProviderPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
     // Must use bun as SDK uses Bun APIs
     serverProc = spawn('bun', [serverPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        MCP_PDF_OCR_COMMAND: process.execPath,
+        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([mockOcrProviderPath, '{input}', '{page}', '{languages}']),
+        MCP_PDF_REGION_ANALYSIS_COMMAND: process.execPath,
+        MCP_PDF_REGION_ANALYSIS_ARGS_JSON: JSON.stringify([
+          mockRegionAnalysisProviderPath,
+          '{input}',
+          '{page}',
+          '{region_id}',
+          '{languages}',
+        ]),
+      },
     });
 
     // Wait for the server to boot. The module graph eagerly imports
@@ -120,6 +135,11 @@ describe('MCP Server Integration', () => {
     const toolNames = response.result?.tools?.map((t) => t.name);
     expect(toolNames).toContain('inspect_pdf');
     expect(toolNames).toContain('read_pdf');
+    expect(toolNames).toContain('search_pdf');
+    expect(toolNames).toContain('render_page');
+    expect(toolNames).toContain('extract_regions');
+    expect(toolNames).toContain('analyze_regions');
+    expect(toolNames).toContain('ocr_pages');
   });
 
   it('should call inspect_pdf tool with a test PDF', async () => {
@@ -147,9 +167,28 @@ describe('MCP Server Integration', () => {
       expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
     } else {
       const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        results: Array<{
+          success: boolean;
+          data?: {
+            provider_status?: {
+              ocr_pages?: { readiness?: string; command_configured?: boolean };
+              analyze_regions?: { readiness?: string; command_configured?: boolean };
+            };
+          };
+        }>;
+      };
       expect(response.result?.content?.[0]?.type).toBe('text');
       expect(textContent).toContain('"profile"');
       expect(textContent).toContain('"recommendation"');
+      expect(parsed.results[0]?.data?.provider_status?.ocr_pages).toMatchObject({
+        readiness: 'ready',
+        command_configured: true,
+      });
+      expect(parsed.results[0]?.data?.provider_status?.analyze_regions).toMatchObject({
+        readiness: 'ready',
+        command_configured: true,
+      });
     }
   });
 
@@ -186,8 +225,247 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should handle invalid tool arguments', async () => {
+  it('should call render_page tool with a test PDF', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
     const callRequest = createRequest(5, 'tools/call', {
+      name: 'render_page',
+      arguments: {
+        sources: [{ path: testPdfPath, pages: [1] }],
+        scale: 1,
+        max_pages: 1,
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: {
+        content?: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+        isError?: boolean;
+      };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(5);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{
+          success: boolean;
+          rendered_pages?: Array<{ data?: string; image_content_index?: number }>;
+        }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(response.result?.content?.[1]?.type).toBe('image');
+      expect(response.result?.content?.[1]?.mimeType).toBe('image/png');
+      expect(parsed.profile).toBe('page_render_evidence');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(parsed.results[0]?.rendered_pages?.[0]?.data).toBeUndefined();
+      expect(parsed.results[0]?.rendered_pages?.[0]?.image_content_index).toBe(1);
+    }
+  });
+
+  it('should call extract_regions tool with a test PDF', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
+    const callRequest = createRequest(6, 'tools/call', {
+      name: 'extract_regions',
+      arguments: {
+        sources: [
+          {
+            path: testPdfPath,
+            regions: [
+              {
+                id: 'bottom-left',
+                page: 1,
+                bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+              },
+            ],
+          },
+        ],
+        scale: 1,
+        max_regions: 1,
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: {
+        content?: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+        isError?: boolean;
+      };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(6);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{
+          success: boolean;
+          regions?: Array<{ data?: string; image_content_index?: number; region_id?: string }>;
+        }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(response.result?.content?.[1]?.type).toBe('image');
+      expect(response.result?.content?.[1]?.mimeType).toBe('image/png');
+      expect(parsed.profile).toBe('region_crop_evidence');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(parsed.results[0]?.regions?.[0]?.region_id).toBe('bottom-left');
+      expect(parsed.results[0]?.regions?.[0]?.data).toBeUndefined();
+      expect(parsed.results[0]?.regions?.[0]?.image_content_index).toBe(1);
+    }
+  });
+
+  it('should call analyze_regions tool with a configured region analysis provider', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
+    const callRequest = createRequest(7, 'tools/call', {
+      name: 'analyze_regions',
+      arguments: {
+        sources: [
+          {
+            path: testPdfPath,
+            regions: [
+              {
+                id: 'table-1',
+                page: 1,
+                bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+              },
+            ],
+          },
+        ],
+        scale: 1,
+        max_regions: 1,
+        languages: ['eng'],
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(7);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{
+          success: boolean;
+          region_analyses?: Array<{ description?: string; kind?: string; provider?: string }>;
+        }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(parsed.profile).toBe('region_analysis');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(parsed.results[0]?.region_analyses?.[0]?.description).toContain('Mock region analysis');
+      expect(parsed.results[0]?.region_analyses?.[0]?.kind).toBe('table');
+      expect(parsed.results[0]?.region_analyses?.[0]?.provider).toBe('command');
+    }
+  });
+
+  it('should call ocr_pages tool with a configured OCR provider', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
+    const callRequest = createRequest(8, 'tools/call', {
+      name: 'ocr_pages',
+      arguments: {
+        sources: [{ path: testPdfPath, pages: [1] }],
+        scale: 1,
+        max_pages: 1,
+        languages: ['eng'],
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(8);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{
+          success: boolean;
+          ocr_pages?: Array<{ text?: string; provider?: string; data?: string }>;
+        }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(parsed.profile).toBe('ocr_text_layer');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(parsed.results[0]?.ocr_pages?.[0]?.text).toBe('Mock OCR text for page 1');
+      expect(parsed.results[0]?.ocr_pages?.[0]?.provider).toBe('command');
+      expect(parsed.results[0]?.ocr_pages?.[0]?.data).toBeUndefined();
+    }
+  });
+
+  it('should call search_pdf tool with a test PDF', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
+    const callRequest = createRequest(9, 'tools/call', {
+      name: 'search_pdf',
+      arguments: {
+        sources: [{ path: testPdfPath, pages: [1] }],
+        query: 'PDF',
+        max_pages: 1,
+        max_matches_per_source: 5,
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(9);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{ success: boolean; matches?: unknown[] }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(parsed.profile).toBe('pdf_search_results');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(Array.isArray(parsed.results[0]?.matches)).toBe(true);
+    }
+  });
+
+  it('should handle invalid tool arguments', async () => {
+    const callRequest = createRequest(10, 'tools/call', {
       name: 'read_pdf',
       arguments: {
         // Missing required 'sources' field
@@ -202,7 +480,7 @@ describe('MCP Server Integration', () => {
       error?: { code: number; message: string };
     };
 
-    expect(response.id).toBe(5);
+    expect(response.id).toBe(10);
     // SDK returns validation error as result.isError, not JSON-RPC error
     expect(response.result?.isError).toBe(true);
     expect(response.result?.content?.[0]?.text).toMatch(/sources/i);
