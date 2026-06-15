@@ -63,52 +63,6 @@ vi.mock('node:fs/promises', () => ({
   stat: mockStat,
 }));
 
-vi.mock('../../src/pdf/ocr.js', () => {
-  return {
-    defaultOcrPagesOptions: () => ({
-      scale: 2,
-      max_pages: 5,
-      max_pixels_per_page: 16_000_000,
-      timeout_ms: 60_000,
-      max_output_chars: 200_000,
-    }),
-    buildOcrTextLayer: (
-      pages: Array<{
-        text: string;
-        confidence?: number;
-        words?: Array<{ bounding_box?: unknown }>;
-        source_render_evidence_id: string;
-        warnings?: string[];
-      }>,
-      warnings: string[] = []
-    ) => {
-      const words = pages.flatMap((page) => page.words ?? []);
-      const confidences = pages
-        .map((page) => page.confidence)
-        .filter((confidence): confidence is number => confidence !== undefined);
-      const averageConfidence =
-        confidences.length > 0
-          ? Math.round((confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length) * 100) / 100
-          : undefined;
-
-      return {
-        profile: 'ocr_text_layer',
-        pages,
-        summary: {
-          page_count: pages.length,
-          text_chars: pages.reduce((sum, page) => sum + page.text.length, 0),
-          word_count: words.length,
-          words_with_bounding_boxes: words.filter((word) => word.bounding_box !== undefined).length,
-          source_render_count: new Set(pages.map((page) => page.source_render_evidence_id)).size,
-          ...(averageConfidence !== undefined ? { average_confidence: averageConfidence } : {}),
-        },
-        warnings: [...warnings, ...pages.flatMap((page) => page.warnings ?? [])],
-      };
-    },
-    ocrPdfSourcePages: mockOcrPdfSourcePages,
-  };
-});
-
 // Dynamically import the handler *once* after mocks are defined
 // Define a more specific type for the handler's return value content
 interface HandlerResultContent {
@@ -117,8 +71,16 @@ interface HandlerResultContent {
 }
 let handler: (args: unknown) => Promise<{ content: HandlerResultContent[] }>;
 let readPdfSchema: Schema<unknown>;
+let ocrModule: typeof import('../../src/pdf/ocr.js');
+
+const installOcrPdfSourcePagesMock = () => {
+  vi.spyOn(ocrModule, 'ocrPdfSourcePages').mockImplementation(mockOcrPdfSourcePages);
+};
 
 beforeAll(async () => {
+  ocrModule = await import('../../src/pdf/ocr.js');
+  installOcrPdfSourcePagesMock();
+
   // Import the readPdf tool - the new SDK uses a builder pattern
   const { readPdf } = await import('../../src/handlers/readPdf.js');
   const { readPdfArgsSchema } = await import('../../src/schemas/readPdf.js');
@@ -159,6 +121,7 @@ let originalFetch: typeof globalThis.fetch;
 describe('handleReadPdfFunc Integration Tests', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    installOcrPdfSourcePagesMock();
     // Reset mocks for pathUtils if we spy on it
     vi.spyOn(pathUtils, 'resolvePath').mockImplementation((p) => p); // Simple mock for resolvePath
 
