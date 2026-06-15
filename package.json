@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "2.5.4",
+  "version": "2.6.0",
   "description": "Agent-native MCP server for PDF inspection, extraction, citation chunks, and safety signals.",
   "type": "module",
   "bin": {
