@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.5
+
+### Patch Changes
+
+- [#310](https://github.com/SylphxAI/pdf-reader-mcp/pull/310) [`d368eb9`](https://github.com/SylphxAI/pdf-reader-mcp/commit/d368eb9b310f53b10ebc1abfc9447470f1518139) Thanks [@shtse8](https://github.com/shtse8)! - Add optional `include_layout_diagnostics` output with page layout profiles, reading-order confidence, column signals, and warnings for agent routing.
+
 ## 2.5.4
 
 ### Patch Changes
