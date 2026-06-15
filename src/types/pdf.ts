@@ -160,7 +160,13 @@ export interface PdfElementProvenance {
   source: 'text-content' | 'image-xobject' | 'table-detector';
 }
 
-export type PdfTextSemanticRole = 'heading' | 'list_item' | 'paragraph';
+export type PdfTextSemanticRole =
+  | 'heading'
+  | 'list_item'
+  | 'paragraph'
+  | 'caption'
+  | 'header'
+  | 'footer';
 
 export interface PdfTextSemanticHint {
   role: PdfTextSemanticRole;
@@ -338,6 +344,9 @@ export type PdfDocumentAstNodeType =
   | 'section'
   | 'paragraph'
   | 'list_item'
+  | 'caption'
+  | 'header'
+  | 'footer'
   | 'table'
   | 'image'
   | 'figure'
@@ -391,6 +400,9 @@ export interface PdfDocumentAstSummary {
   section_count: number;
   paragraph_count: number;
   list_item_count: number;
+  caption_count: number;
+  header_count: number;
+  footer_count: number;
   table_count: number;
   image_count: number;
   figure_count: number;

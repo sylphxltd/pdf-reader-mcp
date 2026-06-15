@@ -3351,7 +3351,7 @@ var readPdfArgsSchema = object({
   include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
   include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures."))),
   include_elements: optional(bool(description("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
-  include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, or paragraph."))),
+  include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, paragraph, caption, header, or footer."))),
   include_markdown: optional(bool(description("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
   include_html: optional(bool(description("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
   include_chunks: optional(bool(description("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
@@ -3368,7 +3368,7 @@ var readPdfArgsSchema = object({
   include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
   include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
   include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
-  include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence."))),
+  include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image regions and fuse normalized table, formula, chart, figure, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
   include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing."))),
@@ -3789,7 +3789,7 @@ var nodeForElement = (element, chunkIndex, visualEnrichment) => {
   };
   if (element.type === "text") {
     const role = element.semantic_hint?.role ?? "paragraph";
-    const type = role === "heading" ? "section" : role === "list_item" ? "list_item" : "paragraph";
+    const type = role === "heading" ? "section" : role === "list_item" ? "list_item" : role === "caption" || role === "header" || role === "footer" ? role : "paragraph";
     return {
       ...base,
       id: type === "section" ? `${element.id}-section` : element.id,
@@ -3834,6 +3834,11 @@ var nodeForElement = (element, chunkIndex, visualEnrichment) => {
   };
 };
 var appendToPageTree = (pageNode, sectionStack, node) => {
+  if (node.type === "header" || node.type === "footer") {
+    pageNode.children ??= [];
+    pageNode.children.push(node);
+    return;
+  }
   if (node.type === "section") {
     const level = node.level ?? 1;
     while (sectionStack.length > 0) {
@@ -3884,6 +3889,9 @@ var aggregateNode = (node, depth) => {
     sectionCount: stats.sectionCount + child.sectionCount,
     paragraphCount: stats.paragraphCount + child.paragraphCount,
     listItemCount: stats.listItemCount + child.listItemCount,
+    captionCount: stats.captionCount + child.captionCount,
+    headerCount: stats.headerCount + child.headerCount,
+    footerCount: stats.footerCount + child.footerCount,
     tableCount: stats.tableCount + child.tableCount,
     imageCount: stats.imageCount + child.imageCount,
     figureCount: stats.figureCount + child.figureCount,
@@ -3898,6 +3906,9 @@ var aggregateNode = (node, depth) => {
     sectionCount: node.type === "section" ? 1 : 0,
     paragraphCount: node.type === "paragraph" ? 1 : 0,
     listItemCount: node.type === "list_item" ? 1 : 0,
+    captionCount: node.type === "caption" ? 1 : 0,
+    headerCount: node.type === "header" ? 1 : 0,
+    footerCount: node.type === "footer" ? 1 : 0,
     tableCount: node.type === "table" ? 1 : 0,
     imageCount: node.image !== undefined ? 1 : 0,
     figureCount: node.type === "figure" ? 1 : 0,
@@ -3987,6 +3998,9 @@ var buildDocumentAst = (input) => {
       section_count: stats.sectionCount,
       paragraph_count: stats.paragraphCount,
       list_item_count: stats.listItemCount,
+      caption_count: stats.captionCount,
+      header_count: stats.headerCount,
+      footer_count: stats.footerCount,
       table_count: stats.tableCount,
       image_count: stats.imageCount,
       figure_count: stats.figureCount,
@@ -4685,30 +4699,122 @@ var LAYOUT_COLUMN_MIN_GAP = 48;
 var LAYOUT_COLUMN_MIN_GAP_RATIO = 0.14;
 var LAYOUT_SPANNING_WIDTH_RATIO = 0.72;
 var LAYOUT_POSITIONED_RATIO_WARNING = 0.8;
+var SEMANTIC_PAGE_EDGE_ZONE_RATIO = 0.08;
+var SEMANTIC_PAGE_EDGE_MIN_POINTS = 36;
 var SAFETY_TEXT_OVERLAP_RATIO = 0.65;
 var SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE = 10;
+var CAPTION_PREFIX_PATTERN = /^(?:fig(?:ure)?|table|chart|formula|image|diagram)\s*(?:\d+|[ivxlcdm]+)?\s*[:.)-]/iu;
+var FOOTER_PATTERN = /^(?:page\s*)?\d+\s*(?:\/|of)\s*\d+$|^page\s+\d+$|copyright|all rights reserved/iu;
+var HEADER_PATTERN = /\b(?:confidential|draft|internal|prepared\s+(?:for|by))\b/iu;
 var buildElementId = (page, type, index) => `p${String(page)}-${type}-${String(index)}`;
 var imageElementMetadata = (imageData) => {
   const { data: _data, ...metadata } = imageData;
   return metadata;
 };
-var buildPageTextStats = (items) => {
+var pageGeometryByPage = (pageGeometry) => {
+  const index = new Map;
+  for (const geometry of pageGeometry ?? []) {
+    index.set(geometry.page, geometry);
+  }
+  return index;
+};
+var pageBoundsFromGeometry = (geometry) => {
+  if (!geometry)
+    return;
+  const left = geometry.view_box?.left ?? 0;
+  const right = geometry.view_box?.right ?? geometry.width;
+  const bottom = geometry.view_box?.bottom ?? 0;
+  const top = geometry.view_box?.top ?? geometry.height;
+  if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(bottom) || !Number.isFinite(top) || right <= left || top <= bottom) {
+    return;
+  }
+  return {
+    hasPageGeometry: true,
+    pageLeft: left,
+    pageRight: right,
+    pageBottom: bottom,
+    pageTop: top
+  };
+};
+var contentBounds = (items) => {
+  const boxes = items.map((item) => item.bounding_box).filter((box) => box !== undefined);
+  if (boxes.length === 0) {
+    return { hasPageGeometry: false, pageLeft: 0, pageRight: 0, pageBottom: 0, pageTop: 0 };
+  }
+  return {
+    hasPageGeometry: false,
+    pageLeft: Math.min(...boxes.map((box) => box.left)),
+    pageRight: Math.max(...boxes.map((box) => box.right)),
+    pageBottom: Math.min(...boxes.map((box) => box.bottom)),
+    pageTop: Math.max(...boxes.map((box) => box.top))
+  };
+};
+var buildPageTextStats = (items, geometry) => {
+  const bounds = pageBoundsFromGeometry(geometry) ?? contentBounds(items);
   const heights = items.filter((item) => item.type === "text" && item.textContent?.trim() && item.height).map((item) => item.height).sort((a, b) => a - b);
   if (heights.length === 0) {
-    return { maxHeight: 0, medianHeight: 0, textItemCount: 0 };
+    return { maxHeight: 0, medianHeight: 0, textItemCount: 0, ...bounds };
   }
   const midpoint = Math.floor(heights.length / 2);
   const medianHeight = heights.length % 2 === 0 ? ((heights[midpoint - 1] ?? 0) + (heights[midpoint] ?? 0)) / 2 : heights[midpoint] ?? 0;
   return {
     maxHeight: heights.at(-1) ?? 0,
     medianHeight,
-    textItemCount: heights.length
+    textItemCount: heights.length,
+    ...bounds
   };
+};
+var compactTextHeight = (height, stats) => {
+  if (height <= 0)
+    return false;
+  if (stats.medianHeight <= 0)
+    return height <= 12;
+  return height <= Math.max(stats.medianHeight * 1.25, stats.medianHeight + 2);
+};
+var pageEdgeRole = (item, textContent, stats) => {
+  if (!stats.hasPageGeometry || !item.bounding_box)
+    return;
+  const pageHeight = stats.pageTop - stats.pageBottom;
+  if (pageHeight <= 0)
+    return;
+  const edgeZone = Math.max(SEMANTIC_PAGE_EDGE_MIN_POINTS, pageHeight * SEMANTIC_PAGE_EDGE_ZONE_RATIO);
+  const nearTop = item.bounding_box.top >= stats.pageTop - edgeZone;
+  const nearBottom = item.bounding_box.bottom <= stats.pageBottom + edgeZone;
+  const withinHorizontalPage = item.bounding_box.left >= stats.pageLeft - 4 && item.bounding_box.right <= stats.pageRight + 4;
+  const height = item.height ?? item.bounding_box.top - item.bounding_box.bottom;
+  const compact = compactTextHeight(height, stats);
+  const shortLine = textContent.length <= 140;
+  const footerPattern = FOOTER_PATTERN.test(textContent);
+  if (nearBottom && withinHorizontalPage && shortLine && footerPattern) {
+    return {
+      role: "footer",
+      confidence: 0.88,
+      signals: ["page-bottom-band", ...compact ? ["compact-edge-text"] : [], "footer-pattern"]
+    };
+  }
+  if (nearTop && withinHorizontalPage && shortLine && compact && HEADER_PATTERN.test(textContent)) {
+    return {
+      role: "header",
+      confidence: 0.82,
+      signals: ["page-top-band", "compact-edge-text", "header-pattern"]
+    };
+  }
+  return;
 };
 var buildSemanticHint = (item, stats) => {
   if (item.type !== "text" || !item.textContent?.trim())
     return;
   const textContent = item.textContent.trim();
+  if (CAPTION_PREFIX_PATTERN.test(textContent)) {
+    return {
+      role: "caption",
+      confidence: 0.86,
+      signals: ["caption-prefix"]
+    };
+  }
+  const edgeRole = pageEdgeRole(item, textContent, stats);
+  if (edgeRole)
+    return edgeRole;
   if (/^([-*]\s+|\d+[.)]\s+)/.test(textContent)) {
     return {
       role: "list_item",
@@ -4766,9 +4872,10 @@ var contentItemToElement = (item, page, index, semanticHint) => {
   }
   return;
 };
-var buildStructuredElements = (pageContents, tables, includeSemanticHints) => {
+var buildStructuredElements = (pageContents, tables, includeSemanticHints, pageGeometry) => {
   const elements = [];
   const tablesByPage = new Map;
+  const geometryByPage = pageGeometryByPage(pageGeometry);
   for (const table of tables ?? []) {
     const pageTables = tablesByPage.get(table.page) ?? [];
     pageTables.push(table);
@@ -4798,7 +4905,7 @@ var buildStructuredElements = (pageContents, tables, includeSemanticHints) => {
     });
   };
   for (const pageContent of pageContents) {
-    const stats = includeSemanticHints ? buildPageTextStats(pageContent.items) : undefined;
+    const stats = includeSemanticHints ? buildPageTextStats(pageContent.items, geometryByPage.get(pageContent.page)) : undefined;
     let elementIndex = 1;
     for (const item of pageContent.items) {
       const semanticHint = stats ? buildSemanticHint(item, stats) : undefined;
@@ -5749,7 +5856,7 @@ var processSingleSource = async (source, options) => {
     if (pagesToProcess.length > 0) {
       const needsPageContent = explicitPageContent || includeSelectedPageText;
       let pageGeometry;
-      if (options.includePageGeometry || options.includeSafetyFindings || options.includeDocumentMap || options.includeTrustReport) {
+      if (options.includePageGeometry || options.includeSemanticHints || options.includeSafetyFindings || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport) {
         pageGeometry = await extractPageGeometry(pdfDocument, pagesToProcess);
         if (pageGeometry.length > 0 && options.includePageGeometry) {
           output.page_geometry = pageGeometry;
@@ -5798,10 +5905,10 @@ var processSingleSource = async (source, options) => {
       let semanticElements;
       const buildElementsForOutput = (includeSemanticHints) => {
         if (includeSemanticHints) {
-          semanticElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, true);
+          semanticElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, true, pageGeometry);
           return semanticElements;
         }
-        plainElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, false);
+        plainElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, false, pageGeometry);
         return plainElements;
       };
       if ((options.includeElements || options.includeSemanticHints) && output.page_contents) {

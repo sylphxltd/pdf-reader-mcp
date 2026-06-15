@@ -11,6 +11,10 @@
   visual-full-fidelity table/formula/chart crop evidence, reports skipped
   providers explicitly by default, and can be made blocking with
   `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
+- Extend deterministic semantic hints and the document AST with caption,
+  header, and footer roles. Header/footer detection uses page-edge geometry and
+  horizontal page bounds so off-page text remains available as evidence without
+  being misclassified as a footer.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can
   receive crop image bytes and return the same normalized table, formula, chart,
   figure, image-description, confidence, warning, and provenance fields as

@@ -380,6 +380,12 @@ describe('handleReadPdfFunc Integration Tests', () => {
           getTextContent: vi.fn().mockResolvedValue({
             items: [
               {
+                str: 'Confidential Report',
+                transform: [1, 0, 0, 10, 40, 770],
+                width: 160,
+                height: 10,
+              },
+              {
                 str: 'Executive Summary',
                 transform: [1, 0, 0, 18, 40, 720],
                 width: 180,
@@ -397,8 +403,24 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 width: 220,
                 height: 10,
               },
+              {
+                str: 'Figure 1: Regional retention by cohort',
+                transform: [1, 0, 0, 9, 40, 612],
+                width: 230,
+                height: 9,
+              },
+              {
+                str: 'Page 1 of 3',
+                transform: [1, 0, 0, 9, 260, 24],
+                width: 70,
+                height: 9,
+              },
             ],
           }),
+          getViewport: vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 }),
+          view: [0, 0, 612, 792],
+          rotate: 0,
+          userUnit: 1,
           getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
           getAnnotations: vi.fn().mockResolvedValue([]),
           objs: { get: vi.fn() },
@@ -440,6 +462,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
       expect(data?.full_text).toBeUndefined();
       expect(data?.elements?.map((element) => element.semantic_hint)).toEqual([
         {
+          role: 'header',
+          confidence: 0.82,
+          signals: ['page-top-band', 'compact-edge-text', 'header-pattern'],
+        },
+        {
           role: 'heading',
           level: 1,
           confidence: 0.78,
@@ -454,6 +481,16 @@ describe('handleReadPdfFunc Integration Tests', () => {
           role: 'paragraph',
           confidence: 0.5,
           signals: ['default-text'],
+        },
+        {
+          role: 'caption',
+          confidence: 0.86,
+          signals: ['caption-prefix'],
+        },
+        {
+          role: 'footer',
+          confidence: 0.88,
+          signals: ['page-bottom-band', 'compact-edge-text', 'footer-pattern'],
         },
       ]);
     } else {
@@ -721,6 +758,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
               },
             ],
           }),
+          getViewport: vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 }),
+          view: [0, 0, 612, 792],
+          rotate: 0,
+          userUnit: 1,
           getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
           getAnnotations: vi.fn().mockResolvedValue([]),
           objs: { get: vi.fn() },

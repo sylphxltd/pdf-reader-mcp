@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildDocumentAst } from '../../src/pdf/documentAst.js';
 import { buildCitationChunks, buildStructuredElements } from '../../src/pdf/documentModel.js';
-import type { BoundingBox, ExtractedTable, PageContentItem } from '../../src/types/pdf.js';
+import type {
+  BoundingBox,
+  ExtractedTable,
+  PageContentItem,
+  PdfPageGeometry,
+} from '../../src/types/pdf.js';
 
 const box = (left: number, bottom: number, width: number, height: number): BoundingBox => ({
   left,
@@ -118,5 +123,54 @@ describe('documentAst', () => {
       ],
     });
     expect(ast.root.chunk_ids?.length).toBeGreaterThan(0);
+  });
+
+  it('keeps caption, header, and footer hints as page-level semantic evidence', () => {
+    const pageContents = [
+      {
+        page: 1,
+        items: [
+          textItem('Confidential Report', 40, 770, 160, 10),
+          textItem('Executive Summary', 40, 720, 180, 20),
+          textItem('Revenue increased by 24%.', 40, 690, 260, 10),
+          textItem('Figure 1: Regional retention by cohort', 40, 612, 230, 9),
+          textItem('Page 1 of 3', 260, 24, 70, 9),
+        ],
+      },
+    ];
+    const pageGeometry: PdfPageGeometry[] = [
+      {
+        page: 1,
+        width: 612,
+        height: 792,
+        rotation: 0,
+        view_box: { left: 0, bottom: 0, right: 612, top: 792 },
+      },
+    ];
+
+    const elements = buildStructuredElements(pageContents, [], true, pageGeometry);
+    const chunks = buildCitationChunks(elements, { useSemanticBoundaries: true });
+    const ast = buildDocumentAst({
+      selectedPages: [1],
+      elements,
+      chunks,
+    });
+
+    expect(
+      elements.map((element) => element.type === 'text' && element.semantic_hint?.role)
+    ).toEqual(['header', 'heading', 'paragraph', 'caption', 'footer']);
+    expect(ast.summary).toMatchObject({
+      section_count: 1,
+      paragraph_count: 1,
+      caption_count: 1,
+      header_count: 1,
+      footer_count: 1,
+    });
+    expect(ast.root.children?.[0]?.children?.map((node) => node.type)).toEqual([
+      'header',
+      'section',
+      'footer',
+    ]);
+    expect(JSON.stringify(ast.root)).toContain('"type":"caption"');
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSafetyFindings } from '../../src/pdf/documentModel.js';
+import { buildSafetyFindings, buildStructuredElements } from '../../src/pdf/documentModel.js';
 import type { BoundingBox, PageContentItem, PdfPageGeometry } from '../../src/types/pdf.js';
 
 const box = (left: number, bottom: number, width: number, height: number): BoundingBox => ({
@@ -30,6 +30,34 @@ const geometry: PdfPageGeometry[] = [
 ];
 
 describe('documentModel', () => {
+  it('keeps semantic header and footer heuristics pattern-backed at page edges', () => {
+    const elements = buildStructuredElements(
+      [
+        {
+          page: 1,
+          items: [
+            textItem('Confidential Report', box(40, 770, 160, 10)),
+            textItem('Annual report overview', box(40, 720, 180, 10)),
+            textItem('Low margin note', box(40, 42, 120, 9)),
+            textItem('Tiny watermark', box(700, 20, 80, 1)),
+            textItem('Page 1 of 3', box(260, 24, 70, 9)),
+          ],
+        },
+      ],
+      [],
+      true,
+      geometry
+    );
+
+    expect(elements.map((element) => element.semantic_hint?.role)).toEqual([
+      'header',
+      'paragraph',
+      'paragraph',
+      'paragraph',
+      'footer',
+    ]);
+  });
+
   it('detects overlapping text that may visually spoof or obscure content', () => {
     const findings = buildSafetyFindings(
       [

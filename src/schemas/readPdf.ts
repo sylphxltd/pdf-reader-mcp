@@ -67,7 +67,7 @@ export const readPdfArgsSchema = object({
   include_semantic_hints: optional(
     bool(
       description(
-        'Include deterministic semantic hints on text elements, such as heading, list item, or paragraph.'
+        'Include deterministic semantic hints on text elements, such as heading, list item, paragraph, caption, header, or footer.'
       )
     )
   ),
@@ -174,7 +174,7 @@ export const readPdfArgsSchema = object({
   include_document_ast: optional(
     bool(
       description(
-        'Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence.'
+        'Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to element and chunk evidence.'
       )
     )
   ),

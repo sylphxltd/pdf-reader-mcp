@@ -206,8 +206,10 @@ const processSingleSource = async (
       let pageGeometry: PdfPageGeometry[] | undefined;
       if (
         options.includePageGeometry ||
+        options.includeSemanticHints ||
         options.includeSafetyFindings ||
         options.includeDocumentMap ||
+        options.includeDocumentAst ||
         options.includeTrustReport
       ) {
         pageGeometry = await extractPageGeometry(
@@ -305,12 +307,18 @@ const processSingleSource = async (
           semanticElements ??= buildStructuredElements(
             output.page_contents ?? [],
             output.tables,
-            true
+            true,
+            pageGeometry
           );
           return semanticElements;
         }
 
-        plainElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, false);
+        plainElements ??= buildStructuredElements(
+          output.page_contents ?? [],
+          output.tables,
+          false,
+          pageGeometry
+        );
         return plainElements;
       };
 

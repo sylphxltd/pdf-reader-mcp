@@ -396,9 +396,10 @@ bbox coverage counts.
 ### Get a Document AST
 
 Use `include_document_ast` when an agent needs a semantic tree instead of flat
-page text. The AST includes page, section, paragraph, list item, table, and
-image nodes with `element_ids`, `chunk_ids`, bounding boxes, confidence,
-semantic roles, and table quality metadata where available.
+page text. The AST includes page, section, paragraph, list item, caption,
+header, footer, table, and image nodes with `element_ids`, `chunk_ids`,
+bounding boxes, confidence, semantic roles, and table quality metadata where
+available.
 
 ```json
 {

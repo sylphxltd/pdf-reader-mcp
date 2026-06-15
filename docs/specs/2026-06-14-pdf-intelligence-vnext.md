@@ -270,8 +270,9 @@ Candidate engines:
   inference flags, quality diagnostics, continuation candidates, and
   best-effort bounding boxes when coordinates are available.
 - Chunk output includes table chunks when table extraction is requested.
-- Document AST output includes page, section, paragraph, list item, table, and
-  image nodes linked back to element IDs and chunk IDs.
+- Document AST output includes page, section, paragraph, list item, caption,
+  header, footer, table, and image nodes linked back to element IDs and chunk
+  IDs.
 - Trust report output includes document/page risk levels, risk scores, signals,
   and routing guidance without forcing raw safety, layout, or annotation
   outputs.

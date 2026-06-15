@@ -19,8 +19,15 @@ const LAYOUT_COLUMN_MIN_GAP = 48;
 const LAYOUT_COLUMN_MIN_GAP_RATIO = 0.14;
 const LAYOUT_SPANNING_WIDTH_RATIO = 0.72;
 const LAYOUT_POSITIONED_RATIO_WARNING = 0.8;
+const SEMANTIC_PAGE_EDGE_ZONE_RATIO = 0.08;
+const SEMANTIC_PAGE_EDGE_MIN_POINTS = 36;
 const SAFETY_TEXT_OVERLAP_RATIO = 0.65;
 const SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE = 10;
+const CAPTION_PREFIX_PATTERN =
+  /^(?:fig(?:ure)?|table|chart|formula|image|diagram)\s*(?:\d+|[ivxlcdm]+)?\s*[:.)-]/iu;
+const FOOTER_PATTERN =
+  /^(?:page\s*)?\d+\s*(?:\/|of)\s*\d+$|^page\s+\d+$|copyright|all rights reserved/iu;
+const HEADER_PATTERN = /\b(?:confidential|draft|internal|prepared\s+(?:for|by))\b/iu;
 
 const buildElementId = (page: number, type: PdfDocumentElement['type'], index: number): string =>
   `p${String(page)}-${type}-${String(index)}`;
@@ -34,16 +41,85 @@ interface PageTextStats {
   maxHeight: number;
   medianHeight: number;
   textItemCount: number;
+  hasPageGeometry: boolean;
+  pageLeft: number;
+  pageRight: number;
+  pageBottom: number;
+  pageTop: number;
 }
 
-const buildPageTextStats = (items: PageContentItem[]): PageTextStats => {
+const pageGeometryByPage = (
+  pageGeometry: PdfPageGeometry[] | undefined
+): Map<number, PdfPageGeometry> => {
+  const index = new Map<number, PdfPageGeometry>();
+
+  for (const geometry of pageGeometry ?? []) {
+    index.set(geometry.page, geometry);
+  }
+
+  return index;
+};
+
+const pageBoundsFromGeometry = (
+  geometry: PdfPageGeometry | undefined
+):
+  | Pick<PageTextStats, 'hasPageGeometry' | 'pageLeft' | 'pageRight' | 'pageBottom' | 'pageTop'>
+  | undefined => {
+  if (!geometry) return undefined;
+
+  const left = geometry.view_box?.left ?? 0;
+  const right = geometry.view_box?.right ?? geometry.width;
+  const bottom = geometry.view_box?.bottom ?? 0;
+  const top = geometry.view_box?.top ?? geometry.height;
+  if (
+    !Number.isFinite(left) ||
+    !Number.isFinite(right) ||
+    !Number.isFinite(bottom) ||
+    !Number.isFinite(top) ||
+    right <= left ||
+    top <= bottom
+  ) {
+    return undefined;
+  }
+
+  return {
+    hasPageGeometry: true,
+    pageLeft: left,
+    pageRight: right,
+    pageBottom: bottom,
+    pageTop: top,
+  };
+};
+
+const contentBounds = (
+  items: PageContentItem[]
+): Pick<PageTextStats, 'hasPageGeometry' | 'pageLeft' | 'pageRight' | 'pageBottom' | 'pageTop'> => {
+  const boxes = items.map((item) => item.bounding_box).filter((box) => box !== undefined);
+  if (boxes.length === 0) {
+    return { hasPageGeometry: false, pageLeft: 0, pageRight: 0, pageBottom: 0, pageTop: 0 };
+  }
+
+  return {
+    hasPageGeometry: false,
+    pageLeft: Math.min(...boxes.map((box) => box.left)),
+    pageRight: Math.max(...boxes.map((box) => box.right)),
+    pageBottom: Math.min(...boxes.map((box) => box.bottom)),
+    pageTop: Math.max(...boxes.map((box) => box.top)),
+  };
+};
+
+const buildPageTextStats = (
+  items: PageContentItem[],
+  geometry?: PdfPageGeometry | undefined
+): PageTextStats => {
+  const bounds = pageBoundsFromGeometry(geometry) ?? contentBounds(items);
   const heights = items
     .filter((item) => item.type === 'text' && item.textContent?.trim() && item.height)
     .map((item) => item.height as number)
     .sort((a, b) => a - b);
 
   if (heights.length === 0) {
-    return { maxHeight: 0, medianHeight: 0, textItemCount: 0 };
+    return { maxHeight: 0, medianHeight: 0, textItemCount: 0, ...bounds };
   }
 
   const midpoint = Math.floor(heights.length / 2);
@@ -56,7 +132,57 @@ const buildPageTextStats = (items: PageContentItem[]): PageTextStats => {
     maxHeight: heights.at(-1) ?? 0,
     medianHeight,
     textItemCount: heights.length,
+    ...bounds,
   };
+};
+
+const compactTextHeight = (height: number, stats: PageTextStats): boolean => {
+  if (height <= 0) return false;
+  if (stats.medianHeight <= 0) return height <= 12;
+
+  return height <= Math.max(stats.medianHeight * 1.25, stats.medianHeight + 2);
+};
+
+const pageEdgeRole = (
+  item: PageContentItem,
+  textContent: string,
+  stats: PageTextStats
+): PdfTextSemanticHint | undefined => {
+  if (!stats.hasPageGeometry || !item.bounding_box) return undefined;
+
+  const pageHeight = stats.pageTop - stats.pageBottom;
+  if (pageHeight <= 0) return undefined;
+
+  const edgeZone = Math.max(
+    SEMANTIC_PAGE_EDGE_MIN_POINTS,
+    pageHeight * SEMANTIC_PAGE_EDGE_ZONE_RATIO
+  );
+  const nearTop = item.bounding_box.top >= stats.pageTop - edgeZone;
+  const nearBottom = item.bounding_box.bottom <= stats.pageBottom + edgeZone;
+  const withinHorizontalPage =
+    item.bounding_box.left >= stats.pageLeft - 4 && item.bounding_box.right <= stats.pageRight + 4;
+  const height = item.height ?? item.bounding_box.top - item.bounding_box.bottom;
+  const compact = compactTextHeight(height, stats);
+  const shortLine = textContent.length <= 140;
+  const footerPattern = FOOTER_PATTERN.test(textContent);
+
+  if (nearBottom && withinHorizontalPage && shortLine && footerPattern) {
+    return {
+      role: 'footer',
+      confidence: 0.88,
+      signals: ['page-bottom-band', ...(compact ? ['compact-edge-text'] : []), 'footer-pattern'],
+    };
+  }
+
+  if (nearTop && withinHorizontalPage && shortLine && compact && HEADER_PATTERN.test(textContent)) {
+    return {
+      role: 'header',
+      confidence: 0.82,
+      signals: ['page-top-band', 'compact-edge-text', 'header-pattern'],
+    };
+  }
+
+  return undefined;
 };
 
 export const buildSemanticHint = (
@@ -66,6 +192,17 @@ export const buildSemanticHint = (
   if (item.type !== 'text' || !item.textContent?.trim()) return undefined;
 
   const textContent = item.textContent.trim();
+  if (CAPTION_PREFIX_PATTERN.test(textContent)) {
+    return {
+      role: 'caption',
+      confidence: 0.86,
+      signals: ['caption-prefix'],
+    };
+  }
+
+  const edgeRole = pageEdgeRole(item, textContent, stats);
+  if (edgeRole) return edgeRole;
+
   if (/^([-*]\s+|\d+[.)]\s+)/.test(textContent)) {
     return {
       role: 'list_item',
@@ -143,10 +280,12 @@ export const contentItemToElement = (
 export const buildStructuredElements = (
   pageContents: Array<{ page: number; items: PageContentItem[] }>,
   tables: ExtractedTable[] | undefined,
-  includeSemanticHints: boolean
+  includeSemanticHints: boolean,
+  pageGeometry?: PdfPageGeometry[] | undefined
 ): PdfDocumentElement[] => {
   const elements: PdfDocumentElement[] = [];
   const tablesByPage = new Map<number, ExtractedTable[]>();
+  const geometryByPage = pageGeometryByPage(pageGeometry);
 
   for (const table of tables ?? []) {
     const pageTables = tablesByPage.get(table.page) ?? [];
@@ -179,7 +318,9 @@ export const buildStructuredElements = (
   };
 
   for (const pageContent of pageContents) {
-    const stats = includeSemanticHints ? buildPageTextStats(pageContent.items) : undefined;
+    const stats = includeSemanticHints
+      ? buildPageTextStats(pageContent.items, geometryByPage.get(pageContent.page))
+      : undefined;
     let elementIndex = 1;
     for (const item of pageContent.items) {
       const semanticHint = stats ? buildSemanticHint(item, stats) : undefined;

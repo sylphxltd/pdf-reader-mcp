@@ -14,7 +14,7 @@ PDF Reader MCP is built on these core principles:
 - **Text Extraction** - Full document or specific pages
 - **Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
-- **Document AST** - Optional semantic tree for page, section, paragraph, list item, table, and image traversal
+- **Document AST** - Optional semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal
 - **Trust Report** - Optional consolidated risk report for content safety, layout uncertainty, sparse pages, table quality, and external links
 - **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions
 - **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
@@ -23,7 +23,7 @@ PDF Reader MCP is built on these core principles:
 - **Visual Region Analysis** - Optional command or HTTP provider enrichment for focused crops, normalized into table, chart, formula, figure, image-description, confidence, warning, and provenance fields
 - **Configured OCR Text Layer** - Optional command-provider OCR over bounded rendered pages, normalized into text, confidence, word boxes, language, and provenance
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
-- **Semantic Hints** - Optional deterministic heading, list, and paragraph hints on text elements
+- **Semantic Hints** - Optional deterministic heading, list, paragraph, caption, header, and footer hints on text elements
 - **Table Geometry** - Optional table elements include row data, cell metadata, confidence, and best-effort coordinates
 - **Table Quality** - Optional table diagnostics expose completeness, missing cells, inferred merged-cell candidates, and repeated-header continuation candidates
 - **Markdown Rendering** - Page-aware Markdown for RAG, summarization, and agent context
@@ -65,7 +65,7 @@ PDF Reader MCP is built on these core principles:
 - **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs and chunk IDs as evidence anchors
 - **Trust Routing** - The trust report turns safety, layout, table, and annotation signals into page-level routing guidance
 - **Accessibility Routing** - The accessibility report turns tagged structure, headings, images, forms, links, and permissions into page-level quality guidance
-- **Semantic Hints** - Heading, list, and paragraph hints carry confidence and signals without overstating parser certainty
+- **Semantic Hints** - Heading, list, paragraph, caption, header, and footer hints carry confidence and signals without overstating parser certainty
 - **Cell-Level Provenance** - Table cells can carry row/column indexes, header/span hints, inference flags, and coordinates for downstream citation workflows
 - **Table Trust Signals** - Table quality warnings tell agents when to verify sparse, merged, irregular, or continuation-candidate tables with visual evidence
 - **Retrieval-Ready Chunks** - Page, semantic, size, and table chunks carry source references without requiring a separate indexing pass

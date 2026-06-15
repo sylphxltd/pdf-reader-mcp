@@ -24,6 +24,9 @@ interface AstStats {
   sectionCount: number;
   paragraphCount: number;
   listItemCount: number;
+  captionCount: number;
+  headerCount: number;
+  footerCount: number;
   tableCount: number;
   imageCount: number;
   figureCount: number;
@@ -144,7 +147,13 @@ const nodeForElement = (
   if (element.type === 'text') {
     const role = element.semantic_hint?.role ?? 'paragraph';
     const type: PdfDocumentAstNodeType =
-      role === 'heading' ? 'section' : role === 'list_item' ? 'list_item' : 'paragraph';
+      role === 'heading'
+        ? 'section'
+        : role === 'list_item'
+          ? 'list_item'
+          : role === 'caption' || role === 'header' || role === 'footer'
+            ? role
+            : 'paragraph';
 
     return {
       ...base,
@@ -201,6 +210,12 @@ const appendToPageTree = (
   sectionStack: PdfDocumentAstNode[],
   node: PdfDocumentAstNode
 ) => {
+  if (node.type === 'header' || node.type === 'footer') {
+    pageNode.children ??= [];
+    pageNode.children.push(node);
+    return;
+  }
+
   if (node.type === 'section') {
     const level = node.level ?? 1;
     while (sectionStack.length > 0) {
@@ -260,6 +275,9 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       sectionCount: stats.sectionCount + child.sectionCount,
       paragraphCount: stats.paragraphCount + child.paragraphCount,
       listItemCount: stats.listItemCount + child.listItemCount,
+      captionCount: stats.captionCount + child.captionCount,
+      headerCount: stats.headerCount + child.headerCount,
+      footerCount: stats.footerCount + child.footerCount,
       tableCount: stats.tableCount + child.tableCount,
       imageCount: stats.imageCount + child.imageCount,
       figureCount: stats.figureCount + child.figureCount,
@@ -278,6 +296,9 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       sectionCount: node.type === 'section' ? 1 : 0,
       paragraphCount: node.type === 'paragraph' ? 1 : 0,
       listItemCount: node.type === 'list_item' ? 1 : 0,
+      captionCount: node.type === 'caption' ? 1 : 0,
+      headerCount: node.type === 'header' ? 1 : 0,
+      footerCount: node.type === 'footer' ? 1 : 0,
       tableCount: node.type === 'table' ? 1 : 0,
       imageCount: node.image !== undefined ? 1 : 0,
       figureCount: node.type === 'figure' ? 1 : 0,
@@ -394,6 +415,9 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
       section_count: stats.sectionCount,
       paragraph_count: stats.paragraphCount,
       list_item_count: stats.listItemCount,
+      caption_count: stats.captionCount,
+      header_count: stats.headerCount,
+      footer_count: stats.footerCount,
       table_count: stats.tableCount,
       image_count: stats.imageCount,
       figure_count: stats.figureCount,
