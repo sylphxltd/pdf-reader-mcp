@@ -85,9 +85,22 @@ const horizontalOverlapRatio = (left: BoundingBox, right: BoundingBox): number =
   return denominator > 0 ? overlap / denominator : 0;
 };
 
+const verticalOverlapRatio = (left: BoundingBox, right: BoundingBox): number => {
+  const overlap = Math.min(left.top, right.top) - Math.max(left.bottom, right.bottom);
+  if (overlap <= 0) return 0;
+  const denominator = Math.min(left.top - left.bottom, right.top - right.bottom);
+  return denominator > 0 ? overlap / denominator : 0;
+};
+
 const verticalGap = (left: BoundingBox, right: BoundingBox): number => {
   if (left.top < right.bottom) return right.bottom - left.top;
   if (right.top < left.bottom) return left.bottom - right.top;
+  return 0;
+};
+
+const horizontalGap = (left: BoundingBox, right: BoundingBox): number => {
+  if (left.right < right.left) return right.left - left.right;
+  if (right.right < left.left) return left.left - right.right;
   return 0;
 };
 
@@ -118,29 +131,75 @@ const mockHasNearbyDirectTarget = (
     (target) =>
       target.page === caption.page &&
       mockDirectKindMatch(kind, target) &&
-      horizontalOverlapRatio(caption.bounding_box, target.bounding_box) >= 0.12 &&
-      verticalGap(caption.bounding_box, target.bounding_box) <= 112
+      ((horizontalOverlapRatio(caption.bounding_box, target.bounding_box) >= 0.12 &&
+        verticalGap(caption.bounding_box, target.bounding_box) <= 112) ||
+        (verticalOverlapRatio(caption.bounding_box, target.bounding_box) >= 0.32 &&
+          horizontalGap(caption.bounding_box, target.bounding_box) <= 112))
   );
 
-const selectMockCaptionEvidenceBoxes = (
+const selectMockCaptionEvidence = (
   caption: CaptionElement,
   elements: PdfDocumentElement[],
   pageBounds: BoundingBox
-): BoundingBox[] => {
+): { boxes: BoundingBox[]; signal?: string | undefined } => {
   const pageHeight = pageBounds.top - pageBounds.bottom;
+  const pageWidth = pageBounds.right - pageBounds.left;
   const maxGap = Math.min(Math.max(96, pageHeight * 0.22), 180);
-  return elements
-    .filter(
-      (element) =>
-        element.id !== caption.id &&
-        element.page === caption.page &&
-        element.bounding_box !== undefined &&
-        horizontalOverlapRatio(caption.bounding_box, element.bounding_box) >= 0.06 &&
-        verticalGap(caption.bounding_box, element.bounding_box) <= maxGap &&
-        (element.type !== 'text' ||
-          !['caption', 'footer', 'header'].includes(element.semantic_hint?.role ?? ''))
-    )
-    .map((element) => element.bounding_box as BoundingBox);
+  const maxSideGap = Math.min(Math.max(96, pageWidth * 0.18), 160);
+  const groups = {
+    above: [] as Array<{ box: BoundingBox; gap: number }>,
+    below: [] as Array<{ box: BoundingBox; gap: number }>,
+    left: [] as Array<{ box: BoundingBox; gap: number }>,
+    right: [] as Array<{ box: BoundingBox; gap: number }>,
+  };
+
+  for (const element of elements) {
+    const box = element.bounding_box;
+    if (
+      element.id === caption.id ||
+      element.page !== caption.page ||
+      !box ||
+      (element.type === 'text' &&
+        ['caption', 'footer', 'header'].includes(element.semantic_hint?.role ?? ''))
+    ) {
+      continue;
+    }
+
+    if (horizontalOverlapRatio(caption.bounding_box, box) >= 0.06) {
+      const gap = verticalGap(caption.bounding_box, box);
+      if (gap > maxGap) continue;
+      if (box.bottom >= caption.bounding_box.top) groups.above.push({ box, gap });
+      else groups.below.push({ box, gap });
+      continue;
+    }
+
+    if (verticalOverlapRatio(caption.bounding_box, box) < 0.32) continue;
+    if (box.right <= caption.bounding_box.left) {
+      const gap = caption.bounding_box.left - box.right;
+      if (gap <= maxSideGap) groups.left.push({ box, gap });
+    } else if (box.left >= caption.bounding_box.right) {
+      const gap = box.left - caption.bounding_box.right;
+      if (gap <= maxSideGap) groups.right.push({ box, gap });
+    }
+  }
+
+  const selected = [
+    { entries: groups.above, signal: 'caption-target-above', priority: 0 },
+    { entries: groups.below, signal: 'caption-target-below', priority: 0 },
+    { entries: groups.left, signal: 'caption-target-left', priority: 1 },
+    { entries: groups.right, signal: 'caption-target-right', priority: 1 },
+  ]
+    .filter((group) => group.entries.length > 0)
+    .sort((first, second) => {
+      const firstGap = Math.min(...first.entries.map((entry) => entry.gap));
+      const secondGap = Math.min(...second.entries.map((entry) => entry.gap));
+      return firstGap + first.priority * 24 - (secondGap + second.priority * 24);
+    })[0];
+
+  return {
+    boxes: selected?.entries.map((entry) => entry.box) ?? [],
+    signal: selected?.signal,
+  };
 };
 
 const expandMockBox = (box: BoundingBox, pageBounds: BoundingBox): BoundingBox => ({
@@ -179,9 +238,9 @@ const selectMockVisualEnrichmentCandidates = (
       const pageBounds = mockPageBounds(elements, element.page, options.pageGeometry);
       if (!kind || !pageBounds || mockHasNearbyDirectTarget(element, kind, directTargets)) continue;
 
-      const evidenceBoxes = selectMockCaptionEvidenceBoxes(element, elements, pageBounds);
+      const evidence = selectMockCaptionEvidence(element, elements, pageBounds);
       const sourceBox =
-        unionBox([element.bounding_box, ...evidenceBoxes]) ??
+        unionBox([element.bounding_box, ...evidence.boxes]) ??
         ({
           left: element.bounding_box.left,
           bottom: Math.max(pageBounds.bottom, element.bounding_box.bottom - 84),
@@ -199,8 +258,8 @@ const selectMockVisualEnrichmentCandidates = (
         candidate_signals: [
           `caption-prefix-${kind}`,
           'caption-bounding-box',
-          ...(evidenceBoxes.length > 0
-            ? ['nearby-positioned-evidence', 'caption-target-above']
+          ...(evidence.boxes.length > 0 && evidence.signal
+            ? ['nearby-positioned-evidence', evidence.signal]
             : ['caption-region-expansion']),
         ],
         region: {
