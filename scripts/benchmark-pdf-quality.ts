@@ -519,7 +519,7 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
       id: 'p1-formula-caption',
       type: 'text',
       page: 1,
-      content: 'Formula 1: Mass-energy equivalence',
+      content: 'Equation (1): Mass-energy equivalence',
       bounding_box: box(80, 620, 220, 12),
       provenance: { engine: 'pdfjs', source: 'text-content' },
       semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
@@ -537,7 +537,7 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
       id: 'p1-chart-caption',
       type: 'text',
       page: 1,
-      content: 'Chart 2: Revenue trend',
+      content: 'Graph 2 - Revenue trend',
       bounding_box: box(90, 384, 170, 12),
       provenance: { engine: 'pdfjs', source: 'text-content' },
       semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
@@ -559,6 +559,28 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
   );
   const captionDerivedCandidateTypes = new Set(
     captionDerivedVisualCandidates.map((candidate) => candidate.target_element_type)
+  );
+  const semanticVariantElements = buildStructuredElements(
+    [
+      {
+        page: 1,
+        items: [
+          textItem('1. Introduction', 40, 720, 150, 10),
+          textItem('1.2 Scope', 40, 700, 100, 10),
+          textItem('Appendix A - Methods', 40, 680, 180, 10),
+          textItem('[x] Verify source evidence', 40, 650, 170, 10),
+          textItem('\u2022 Preserve region crops', 40, 630, 170, 10),
+          textItem('Equation (1): Loss function', 40, 600, 190, 10),
+          textItem('Table of contents', 40, 570, 150, 10),
+        ],
+      },
+    ],
+    [],
+    true,
+    captionDerivedPageGeometry
+  );
+  const semanticVariantHints = textElementsOnly(semanticVariantElements).map(
+    (element) => element.semantic_hint
   );
   const accessibilityReport = buildAccessibilityReport({
     selectedPages,
@@ -677,6 +699,51 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
           'paragraph',
           'heading',
           'paragraph',
+        ]),
+    },
+    {
+      name: 'semantic variants recover numbered headings, appendix headings, rich lists, and equation captions',
+      pass:
+        JSON.stringify(semanticVariantHints) ===
+        JSON.stringify([
+          {
+            role: 'heading',
+            level: 1,
+            confidence: 0.84,
+            signals: ['section-heading-pattern', 'numbered-section-prefix', 'short-line'],
+          },
+          {
+            role: 'heading',
+            level: 2,
+            confidence: 0.84,
+            signals: ['section-heading-pattern', 'numbered-section-prefix', 'short-line'],
+          },
+          {
+            role: 'heading',
+            level: 1,
+            confidence: 0.84,
+            signals: ['section-heading-pattern', 'named-section-prefix', 'short-line'],
+          },
+          {
+            role: 'list_item',
+            confidence: 0.92,
+            signals: ['list-prefix'],
+          },
+          {
+            role: 'list_item',
+            confidence: 0.92,
+            signals: ['list-prefix'],
+          },
+          {
+            role: 'caption',
+            confidence: 0.86,
+            signals: ['caption-prefix'],
+          },
+          {
+            role: 'paragraph',
+            confidence: 0.5,
+            signals: ['default-text'],
+          },
         ]),
     },
     {

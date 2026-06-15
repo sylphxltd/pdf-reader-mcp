@@ -3946,6 +3946,31 @@ var buildAccessibilityReport = (input) => {
   };
 };
 
+// src/pdf/semanticPatterns.ts
+var CAPTION_PREFIX_PATTERN = /^(fig(?:ure)?|table|chart|graph|plot|formula|eq(?:uation)?|image|diagram|algorithm|exhibit)\.?(?:(?:\s*(?:\(?[a-z]?\d+(?:[.-]\d+)*[a-z]?\)?|\([A-Z]\)|[ivxlcdm]+)(?:\s*[:.)\u2013\u2014-]|\s+|$))|\s*[:)\u2013\u2014-])/iu;
+var CAPTION_KIND_ALIASES = {
+  algorithm: "figure",
+  chart: "chart",
+  diagram: "diagram",
+  eq: "formula",
+  equation: "formula",
+  exhibit: "figure",
+  fig: "figure",
+  figure: "figure",
+  formula: "formula",
+  graph: "chart",
+  image: "image",
+  plot: "chart",
+  table: "table"
+};
+var semanticCaptionKind = (text2) => {
+  const rawKind = text2?.trim().match(CAPTION_PREFIX_PATTERN)?.[1]?.toLowerCase();
+  if (!rawKind)
+    return;
+  return CAPTION_KIND_ALIASES[rawKind];
+};
+var hasSemanticCaptionPrefix = (text2) => semanticCaptionKind(text2) !== undefined;
+
 // src/pdf/documentAst.ts
 var DOCUMENT_AST_VERSION = "2026-06-15";
 var CAPTION_TARGET_MAX_VERTICAL_GAP = 96;
@@ -3961,15 +3986,7 @@ var continuedFromSectionId = (path5, page) => {
   const priorPageSection = path5.findLast((section) => section.page_start < page);
   return priorPageSection?.id;
 };
-var captionKind = (text2) => {
-  const match = text2?.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
-  const rawKind = match?.[1]?.toLowerCase();
-  if (!rawKind)
-    return;
-  if (rawKind === "fig")
-    return "figure";
-  return rawKind;
-};
+var captionKind = (text2) => semanticCaptionKind(text2);
 var pageRangeForElements = (elements) => {
   if (elements.length === 0)
     return { start: 0, end: 0 };
@@ -5422,9 +5439,14 @@ var SAFETY_TEXT_OVERLAP_RATIO = 0.65;
 var SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE = 10;
 var SAFETY_HIDDEN_TEXT_MAX_DIMENSION = 0.5;
 var SAFETY_HIDDEN_TEXT_MAX_AREA = 1;
-var CAPTION_PREFIX_PATTERN = /^(?:fig(?:ure)?|table|chart|formula|image|diagram)\s*(?:\d+|[ivxlcdm]+)?\s*[:.)-]/iu;
 var FOOTER_PATTERN = /^(?:page\s*)?\d+\s*(?:\/|of)\s*\d+$|^page\s+\d+$|copyright|all rights reserved/iu;
 var HEADER_PATTERN = /\b(?:confidential|draft|internal|prepared\s+(?:for|by))\b/iu;
+var LIST_PREFIX_PATTERN = /^(?:[-*\u2022\u25e6\u25aa\u25ab\u2013\u2014]\s+|(?:\[[ xX]\]|\u2610|\u2611)\s+|(?:\d+|[a-z]|[ivxlcdm]+)[.)]\s+)/iu;
+var NUMBERED_SECTION_HEADING_PATTERN = /^(\d+(?:\.\d+)*)(?:\.)?\s+(.+)$/u;
+var ROMAN_SECTION_HEADING_PATTERN = /^([IVXLCDM]+)\.\s+(.+)$/u;
+var NAMED_SECTION_HEADING_PATTERN = /^(appendix|chapter|section|part)\s+([A-Z0-9]+(?:\.\d+)*)(?:\s*[:.\u2013\u2014-]|\s+)\s*(.+)$/iu;
+var SENTENCE_END_PATTERN = /[.!?]$/u;
+var HEADING_WORD_START_PATTERN = /^[\p{Lu}\d]/u;
 var buildElementId = (page, type, index) => `p${String(page)}-${type}-${String(index)}`;
 var imageElementMetadata = (imageData) => {
   const { data: _data, ...metadata } = imageData;
@@ -5520,11 +5542,48 @@ var pageEdgeRole = (item, textContent, stats) => {
   }
   return;
 };
+var titleLikeHeadingText = (text2) => {
+  const trimmed = text2.trim();
+  if (!trimmed || trimmed.length > 120 || SENTENCE_END_PATTERN.test(trimmed))
+    return false;
+  return HEADING_WORD_START_PATTERN.test(trimmed);
+};
+var numberedSectionLevel = (label) => Math.min(Math.max(label.split(".").filter(Boolean).length, 1), 6);
+var sectionHeadingRole = (textContent) => {
+  const namedMatch = textContent.match(NAMED_SECTION_HEADING_PATTERN);
+  if (namedMatch?.[3] && titleLikeHeadingText(namedMatch[3])) {
+    return {
+      role: "heading",
+      level: 1,
+      confidence: 0.84,
+      signals: ["section-heading-pattern", "named-section-prefix", "short-line"]
+    };
+  }
+  const numberedMatch = textContent.match(NUMBERED_SECTION_HEADING_PATTERN);
+  if (numberedMatch?.[1] && numberedMatch[2] && titleLikeHeadingText(numberedMatch[2])) {
+    return {
+      role: "heading",
+      level: numberedSectionLevel(numberedMatch[1]),
+      confidence: 0.84,
+      signals: ["section-heading-pattern", "numbered-section-prefix", "short-line"]
+    };
+  }
+  const romanMatch = textContent.match(ROMAN_SECTION_HEADING_PATTERN);
+  if (romanMatch?.[2] && titleLikeHeadingText(romanMatch[2])) {
+    return {
+      role: "heading",
+      level: 1,
+      confidence: 0.82,
+      signals: ["section-heading-pattern", "roman-section-prefix", "short-line"]
+    };
+  }
+  return;
+};
 var buildSemanticHint = (item, stats) => {
   if (item.type !== "text" || !item.textContent?.trim())
     return;
   const textContent = item.textContent.trim();
-  if (CAPTION_PREFIX_PATTERN.test(textContent)) {
+  if (hasSemanticCaptionPrefix(textContent)) {
     return {
       role: "caption",
       confidence: 0.86,
@@ -5534,7 +5593,10 @@ var buildSemanticHint = (item, stats) => {
   const edgeRole = pageEdgeRole(item, textContent, stats);
   if (edgeRole)
     return edgeRole;
-  if (/^([-*]\s+|\d+[.)]\s+)/.test(textContent)) {
+  const headingRole = sectionHeadingRole(textContent);
+  if (headingRole)
+    return headingRole;
+  if (LIST_PREFIX_PATTERN.test(textContent)) {
     return {
       role: "list_item",
       confidence: 0.92,
@@ -5543,7 +5605,7 @@ var buildSemanticHint = (item, stats) => {
   }
   const height = item.height ?? 0;
   const isShortLine = textContent.length <= 120;
-  const endsLikeSentence = /[.!?]$/.test(textContent);
+  const endsLikeSentence = SENTENCE_END_PATTERN.test(textContent);
   const isLargeText = stats.textItemCount > 1 && height > 0 && stats.medianHeight > 0 && height >= stats.medianHeight * 1.3 && height >= stats.maxHeight * 0.8;
   if (isLargeText && isShortLine && !endsLikeSentence) {
     const ratio = height / stats.medianHeight;
@@ -6567,15 +6629,7 @@ var buildTrustReport = (input) => {
 // src/pdf/visualEnrichment.ts
 var DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS = 8;
 var visualTargetElement = (element) => (element.type === "image" || element.type === "table") && element.bounding_box !== undefined;
-var captionVisualKind = (text2) => {
-  const match = text2.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
-  const rawKind = match?.[1]?.toLowerCase();
-  if (!rawKind)
-    return;
-  if (rawKind === "fig")
-    return "figure";
-  return rawKind;
-};
+var captionVisualKind = (text2) => semanticCaptionKind(text2);
 var captionElement = (element) => element.type === "text" && element.bounding_box !== undefined && captionVisualKind(element.content) !== undefined && !["footer", "header", "heading", "list_item"].includes(element.semantic_hint?.role ?? "");
 var pageBoundsFromGeometry2 = (geometry) => {
   if (!geometry)

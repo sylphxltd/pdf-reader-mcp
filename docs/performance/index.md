@@ -75,7 +75,7 @@ evidence before making engine-specific accuracy claims.
 
 | Scenario | Quality gate |
 |----------|--------------|
-| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; cross-page section context; document-map text-layer, metadata, trust-routing, trust-signal-index, accessibility-routing, and accessibility-issue-index coverage; caption-to-evidence links; citation chunks; table ordering; safety findings; Markdown/HTML rendering; direction-aware text-layer evidence; document map; document AST; accessibility report tag-content coverage plus issue/page-grade summary routing; and inspection tool routing |
+| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; numbered/appendix heading variants; checkbox/bullet list variants; equation/formula and graph/chart caption aliases; cross-page section context; document-map text-layer, metadata, trust-routing, trust-signal-index, accessibility-routing, and accessibility-issue-index coverage; caption-to-evidence links; citation chunks; table ordering; safety findings; Markdown/HTML rendering; direction-aware text-layer evidence; document map; document AST; accessibility report tag-content coverage plus issue/page-grade summary routing; and inspection tool routing |
 | `document_signal_fixture_quality` | Runtime-generated real PDF fixture through `read_pdf` for outline, page labels, mark info, link and widget annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure tree roles/content references, and accessibility report fusion with routeable issue/page-grade summaries |
 | `real_reading_order_fixture_quality` | Runtime-generated real multi-column PDF through `read_pdf` for spanning headers, independently ordered columns, short footer placement, text-layer line order, and mixed-layout diagnostics |
 | `recursive_reading_order_quality` | Spanning header, independent column bands, and footer reading sequence |
@@ -322,7 +322,9 @@ but plain text remains the leanest response shape.
 ### 12. Add Semantic Hints Only When They Help
 
 `include_semantic_hints` adds deterministic heading, list, paragraph, caption,
-header, and footer hints to text elements. It returns elements even when
+header, and footer hints to text elements, including common numbered sections,
+appendix/chapter-style headings, checkbox/bullet list prefixes, and
+equation/formula or graph/chart caption aliases. It returns elements even when
 `include_elements` is omitted.
 
 ```json

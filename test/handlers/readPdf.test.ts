@@ -1,11 +1,11 @@
 import * as realFsPromises from 'node:fs/promises';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type SemanticCaptionKind, semanticCaptionKind } from '../../src/pdf/semanticPatterns.js';
 import { type Schema, safeParse } from '../../src/schema.js';
 import type {
   BoundingBox,
   PdfDocumentElement,
   PdfPageGeometry,
-  PdfRegionAnalysisKind,
   PdfVisualEnrichmentCandidate,
 } from '../../src/types/pdf.js';
 import { ErrorCode, PdfError } from '../../src/utils/errors.js';
@@ -40,10 +40,7 @@ type CaptionElement = Extract<PdfDocumentElement, { type: 'text' }> & {
   bounding_box: NonNullable<PdfDocumentElement['bounding_box']>;
 };
 
-type CaptionVisualKind = Extract<
-  PdfRegionAnalysisKind,
-  'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram'
->;
+type CaptionVisualKind = SemanticCaptionKind;
 
 interface VisualEnrichmentCandidate extends PdfVisualEnrichmentCandidate {
   element?: VisualTargetElement | undefined;
@@ -52,13 +49,8 @@ interface VisualEnrichmentCandidate extends PdfVisualEnrichmentCandidate {
 const isVisualTargetElement = (element: PdfDocumentElement): element is VisualTargetElement =>
   (element.type === 'image' || element.type === 'table') && element.bounding_box !== undefined;
 
-const captionVisualKind = (text: string): CaptionVisualKind | undefined => {
-  const match = text.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
-  const rawKind = match?.[1]?.toLowerCase();
-  if (!rawKind) return undefined;
-  if (rawKind === 'fig') return 'figure';
-  return rawKind as CaptionVisualKind;
-};
+const captionVisualKind = (text: string): CaptionVisualKind | undefined =>
+  semanticCaptionKind(text);
 
 const isCaptionElement = (element: PdfDocumentElement): element is CaptionElement =>
   element.type === 'text' &&

@@ -2,7 +2,6 @@ import type {
   BoundingBox,
   PdfDocumentElement,
   PdfPageGeometry,
-  PdfRegionAnalysisKind,
   PdfRegionRequest,
   PdfSource,
   PdfVisualEnrichment,
@@ -15,6 +14,7 @@ import {
   defaultAnalyzeRegionsOptions,
   getRegionAnalysisProviderStatus,
 } from './regionAnalysis.js';
+import { type SemanticCaptionKind, semanticCaptionKind } from './semanticPatterns.js';
 
 export const DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS = 8;
 
@@ -26,10 +26,7 @@ type CaptionElement = Extract<PdfDocumentElement, { type: 'text' }> & {
   bounding_box: NonNullable<PdfDocumentElement['bounding_box']>;
 };
 
-type CaptionVisualKind = Extract<
-  PdfRegionAnalysisKind,
-  'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram'
->;
+type CaptionVisualKind = SemanticCaptionKind;
 
 export interface VisualEnrichmentCandidate {
   element?: VisualTargetElement | undefined;
@@ -58,13 +55,8 @@ export interface BuildVisualEnrichmentsOutput {
 const visualTargetElement = (element: PdfDocumentElement): element is VisualTargetElement =>
   (element.type === 'image' || element.type === 'table') && element.bounding_box !== undefined;
 
-const captionVisualKind = (text: string): CaptionVisualKind | undefined => {
-  const match = text.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
-  const rawKind = match?.[1]?.toLowerCase();
-  if (!rawKind) return undefined;
-  if (rawKind === 'fig') return 'figure';
-  return rawKind as CaptionVisualKind;
-};
+const captionVisualKind = (text: string): CaptionVisualKind | undefined =>
+  semanticCaptionKind(text);
 
 const captionElement = (element: PdfDocumentElement): element is CaptionElement =>
   element.type === 'text' &&

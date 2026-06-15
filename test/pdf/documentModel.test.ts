@@ -58,6 +58,69 @@ describe('documentModel', () => {
     ]);
   });
 
+  it('recognizes section headings, rich list prefixes, and equation captions without font-size hints', () => {
+    const elements = buildStructuredElements(
+      [
+        {
+          page: 1,
+          items: [
+            textItem('1. Introduction', box(40, 720, 150, 10)),
+            textItem('1.2 Scope', box(40, 700, 100, 10)),
+            textItem('Appendix A - Methods', box(40, 680, 180, 10)),
+            textItem('[x] Verify source evidence', box(40, 650, 170, 10)),
+            textItem('\u2022 Preserve region crops', box(40, 630, 170, 10)),
+            textItem('Equation (1): Loss function', box(40, 600, 190, 10)),
+            textItem('Table of contents', box(40, 570, 150, 10)),
+          ],
+        },
+      ],
+      [],
+      true,
+      geometry
+    );
+
+    expect(elements.map((element) => element.semantic_hint)).toEqual([
+      {
+        role: 'heading',
+        level: 1,
+        confidence: 0.84,
+        signals: ['section-heading-pattern', 'numbered-section-prefix', 'short-line'],
+      },
+      {
+        role: 'heading',
+        level: 2,
+        confidence: 0.84,
+        signals: ['section-heading-pattern', 'numbered-section-prefix', 'short-line'],
+      },
+      {
+        role: 'heading',
+        level: 1,
+        confidence: 0.84,
+        signals: ['section-heading-pattern', 'named-section-prefix', 'short-line'],
+      },
+      {
+        role: 'list_item',
+        confidence: 0.92,
+        signals: ['list-prefix'],
+      },
+      {
+        role: 'list_item',
+        confidence: 0.92,
+        signals: ['list-prefix'],
+      },
+      {
+        role: 'caption',
+        confidence: 0.86,
+        signals: ['caption-prefix'],
+      },
+      {
+        role: 'paragraph',
+        confidence: 0.5,
+        signals: ['default-text'],
+      },
+    ]);
+  });
+
   it('detects overlapping text that may visually spoof or obscure content', () => {
     const findings = buildSafetyFindings(
       [

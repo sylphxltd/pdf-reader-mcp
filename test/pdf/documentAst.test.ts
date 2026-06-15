@@ -368,7 +368,7 @@ describe('documentAst', () => {
         page: 1,
         items: [
           textItem('E = mc^2', 92, 656, 88, 24),
-          textItem('Formula 1: Mass-energy equivalence', 80, 620, 220, 12),
+          textItem('Equation (1): Mass-energy equivalence', 80, 620, 240, 12),
         ],
       },
     ];
@@ -380,7 +380,7 @@ describe('documentAst', () => {
         target_element_id: 'p1-text-2-formula-region',
         target_element_type: 'formula',
         source_caption_element_id: 'p1-text-2',
-        source_caption_text: 'Formula 1: Mass-energy equivalence',
+        source_caption_text: 'Equation (1): Mass-energy equivalence',
         candidate_signals: [
           'caption-prefix-formula',
           'nearby-positioned-evidence',

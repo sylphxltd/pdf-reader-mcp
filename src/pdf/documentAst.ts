@@ -11,6 +11,7 @@ import type {
   PdfRegionAnalysisKind,
   PdfVisualEnrichment,
 } from '../types/pdf.js';
+import { type SemanticCaptionKind, semanticCaptionKind } from './semanticPatterns.js';
 
 const DOCUMENT_AST_VERSION = '2026-06-15' as const;
 const CAPTION_TARGET_MAX_VERTICAL_GAP = 96;
@@ -63,15 +64,8 @@ const continuedFromSectionId = (
   return priorPageSection?.id;
 };
 
-const captionKind = (
-  text: string | undefined
-): 'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram' | undefined => {
-  const match = text?.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
-  const rawKind = match?.[1]?.toLowerCase();
-  if (!rawKind) return undefined;
-  if (rawKind === 'fig') return 'figure';
-  return rawKind as 'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram';
-};
+const captionKind = (text: string | undefined): SemanticCaptionKind | undefined =>
+  semanticCaptionKind(text);
 
 const pageRangeForElements = (elements: PdfDocumentElement[]): { start: number; end: number } => {
   if (elements.length === 0) return { start: 0, end: 0 };

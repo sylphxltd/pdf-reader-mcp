@@ -50,14 +50,15 @@ around one extraction model.
 
 ## Boundaries
 
-The AST uses deterministic semantic hints. Caption, header, and footer roles
-come from conservative text-pattern and page-edge heuristics with confidence
-signals. Cross-page section context preserves deterministic heading continuity
-as metadata. Caption links use conservative same-page geometry, horizontal
-overlap, caption prefix, target type, and distance signals; the AST does not
-claim ML-grade semantic classification, cross-page content merging, or visual
-layout understanding. Those can enrich the same AST later through optional
-providers.
+The AST uses deterministic semantic hints. Numbered/appendix headings, rich
+list prefixes, captions, headers, and footers come from conservative
+text-pattern and page-edge heuristics with confidence signals. Cross-page
+section context preserves deterministic heading continuity as metadata. Caption
+links use conservative same-page geometry, horizontal overlap, normalized
+caption aliases such as equation/formula and graph/chart, target type, and
+distance signals; the AST does not claim ML-grade semantic classification,
+cross-page content merging, or visual layout understanding. Those can enrich
+the same AST later through optional providers.
 
 ## Acceptance Criteria
 
@@ -70,5 +71,6 @@ providers.
 - Captions near matching table, image, figure, chart, formula, or diagram nodes
   expose `caption_links`; linked target nodes expose `caption_ids`.
 - Table nodes carry table rows and table quality metadata.
-- The quality eval covers AST sections, paragraphs, lists, captions, headers,
-  footers, cross-page section context, caption links, and tables.
+- The quality eval covers AST sections, numbered/appendix heading variants,
+  paragraphs, rich list prefixes, captions, caption aliases, headers, footers,
+  cross-page section context, caption links, and tables.

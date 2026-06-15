@@ -53,7 +53,7 @@ neutral capability names and avoids public comparison language.
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, hidden or near-invisible text geometry, tiny text, off-page text, and overlapping text that may visually spoof or obscure content. |
 | PDF trust report | Shipped | `include_trust_report`; consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table quality, external-link, and unsafe-link signals with selected-page-scoped category counts, page-risk counts, redacted evidence snippets, page-level routing guidance, and optional document-map trust signal routing. |
-| Rich semantic headings/paragraphs/lists | In progress | Deterministic hints and AST nodes now cover headings, paragraphs, lists, captions, headers, footers, cross-page section context, and caption-to-evidence linking. Broader semantic variants and caption-link fixture diversity still need expanded evals. |
+| Rich semantic headings/paragraphs/lists | In progress | Deterministic hints and AST nodes now cover headings, numbered/appendix heading variants, paragraphs, checkbox/bullet/roman list variants, equation/formula and graph/chart caption aliases, headers, footers, cross-page section context, and caption-to-evidence linking. Broader real-world caption-link fixture diversity still needs expanded evals. |
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints, repeated-header continuation candidates, and page-edge geometry continuation candidates are shipped; visual provider output can preserve cell spans and boxes; broader arbitrary continuation layouts still need fixture expansion. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
@@ -69,10 +69,10 @@ neutral capability names and avoids public comparison language.
 1. Continue broadening real fixture coverage for the no-new-dependency parity
    features. The quality benchmark now covers outline, annotations, page
    labels, mark info, form fields, attachment metadata, page geometry,
-   structure trees, tag-content coverage, and accessibility report summary
-   routing through a runtime-generated real PDF, plus real multi-column reading
-   order with short footer placement;
-   permissions, additional tagged structures, semantic variants, and safety
+   structure trees, tag-content coverage, semantic variants, and accessibility
+   report summary routing through a runtime-generated real PDF, plus real
+   multi-column reading order with short footer placement; permissions,
+   additional tagged structures, broader caption-link layouts, and safety
    adversarial fixtures still need broader coverage.
 2. Expand extraction quality evals and benchmarks: multi-column, layout
    diagnostics, tables, annotations, forms, hidden/off-page text, scanned PDFs.

@@ -12,6 +12,7 @@ import type {
   PdfTextSemanticHint,
   PdfTextSemanticRole,
 } from '../types/pdf.js';
+import { hasSemanticCaptionPrefix } from './semanticPatterns.js';
 import { tablesToMarkdown } from './tableExtractor.js';
 
 const DEFAULT_CHUNK_MAX_CHARS = 1800;
@@ -25,11 +26,17 @@ const SAFETY_TEXT_OVERLAP_RATIO = 0.65;
 const SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE = 10;
 const SAFETY_HIDDEN_TEXT_MAX_DIMENSION = 0.5;
 const SAFETY_HIDDEN_TEXT_MAX_AREA = 1;
-const CAPTION_PREFIX_PATTERN =
-  /^(?:fig(?:ure)?|table|chart|formula|image|diagram)\s*(?:\d+|[ivxlcdm]+)?\s*[:.)-]/iu;
 const FOOTER_PATTERN =
   /^(?:page\s*)?\d+\s*(?:\/|of)\s*\d+$|^page\s+\d+$|copyright|all rights reserved/iu;
 const HEADER_PATTERN = /\b(?:confidential|draft|internal|prepared\s+(?:for|by))\b/iu;
+const LIST_PREFIX_PATTERN =
+  /^(?:[-*\u2022\u25e6\u25aa\u25ab\u2013\u2014]\s+|(?:\[[ xX]\]|\u2610|\u2611)\s+|(?:\d+|[a-z]|[ivxlcdm]+)[.)]\s+)/iu;
+const NUMBERED_SECTION_HEADING_PATTERN = /^(\d+(?:\.\d+)*)(?:\.)?\s+(.+)$/u;
+const ROMAN_SECTION_HEADING_PATTERN = /^([IVXLCDM]+)\.\s+(.+)$/u;
+const NAMED_SECTION_HEADING_PATTERN =
+  /^(appendix|chapter|section|part)\s+([A-Z0-9]+(?:\.\d+)*)(?:\s*[:.\u2013\u2014-]|\s+)\s*(.+)$/iu;
+const SENTENCE_END_PATTERN = /[.!?]$/u;
+const HEADING_WORD_START_PATTERN = /^[\p{Lu}\d]/u;
 
 const buildElementId = (page: number, type: PdfDocumentElement['type'], index: number): string =>
   `p${String(page)}-${type}-${String(index)}`;
@@ -187,6 +194,50 @@ const pageEdgeRole = (
   return undefined;
 };
 
+const titleLikeHeadingText = (text: string): boolean => {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 120 || SENTENCE_END_PATTERN.test(trimmed)) return false;
+
+  return HEADING_WORD_START_PATTERN.test(trimmed);
+};
+
+const numberedSectionLevel = (label: string): number =>
+  Math.min(Math.max(label.split('.').filter(Boolean).length, 1), 6);
+
+const sectionHeadingRole = (textContent: string): PdfTextSemanticHint | undefined => {
+  const namedMatch = textContent.match(NAMED_SECTION_HEADING_PATTERN);
+  if (namedMatch?.[3] && titleLikeHeadingText(namedMatch[3])) {
+    return {
+      role: 'heading',
+      level: 1,
+      confidence: 0.84,
+      signals: ['section-heading-pattern', 'named-section-prefix', 'short-line'],
+    };
+  }
+
+  const numberedMatch = textContent.match(NUMBERED_SECTION_HEADING_PATTERN);
+  if (numberedMatch?.[1] && numberedMatch[2] && titleLikeHeadingText(numberedMatch[2])) {
+    return {
+      role: 'heading',
+      level: numberedSectionLevel(numberedMatch[1]),
+      confidence: 0.84,
+      signals: ['section-heading-pattern', 'numbered-section-prefix', 'short-line'],
+    };
+  }
+
+  const romanMatch = textContent.match(ROMAN_SECTION_HEADING_PATTERN);
+  if (romanMatch?.[2] && titleLikeHeadingText(romanMatch[2])) {
+    return {
+      role: 'heading',
+      level: 1,
+      confidence: 0.82,
+      signals: ['section-heading-pattern', 'roman-section-prefix', 'short-line'],
+    };
+  }
+
+  return undefined;
+};
+
 export const buildSemanticHint = (
   item: PageContentItem,
   stats: PageTextStats
@@ -194,7 +245,7 @@ export const buildSemanticHint = (
   if (item.type !== 'text' || !item.textContent?.trim()) return undefined;
 
   const textContent = item.textContent.trim();
-  if (CAPTION_PREFIX_PATTERN.test(textContent)) {
+  if (hasSemanticCaptionPrefix(textContent)) {
     return {
       role: 'caption',
       confidence: 0.86,
@@ -205,7 +256,10 @@ export const buildSemanticHint = (
   const edgeRole = pageEdgeRole(item, textContent, stats);
   if (edgeRole) return edgeRole;
 
-  if (/^([-*]\s+|\d+[.)]\s+)/.test(textContent)) {
+  const headingRole = sectionHeadingRole(textContent);
+  if (headingRole) return headingRole;
+
+  if (LIST_PREFIX_PATTERN.test(textContent)) {
     return {
       role: 'list_item',
       confidence: 0.92,
@@ -215,7 +269,7 @@ export const buildSemanticHint = (
 
   const height = item.height ?? 0;
   const isShortLine = textContent.length <= 120;
-  const endsLikeSentence = /[.!?]$/.test(textContent);
+  const endsLikeSentence = SENTENCE_END_PATTERN.test(textContent);
   const isLargeText =
     stats.textItemCount > 1 &&
     height > 0 &&

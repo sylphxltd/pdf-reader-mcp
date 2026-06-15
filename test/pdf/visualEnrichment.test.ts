@@ -129,7 +129,7 @@ describe('visualEnrichment', () => {
     });
   });
 
-  it('derives bounded formula and chart regions from caption-prefixed text', () => {
+  it('derives bounded formula and chart regions from equation and graph captions', () => {
     const candidates = selectVisualEnrichmentCandidates(
       [
         {
@@ -145,7 +145,7 @@ describe('visualEnrichment', () => {
           id: 'p1-text-2',
           type: 'text',
           page: 1,
-          content: 'Formula 1: Mass-energy equivalence',
+          content: 'Equation (1): Mass-energy equivalence',
           bounding_box: { left: 80, bottom: 620, right: 300, top: 632 },
           provenance: { engine: 'pdfjs', source: 'text-content' },
         },
@@ -162,7 +162,7 @@ describe('visualEnrichment', () => {
           id: 'p1-text-4',
           type: 'text',
           page: 1,
-          content: 'Chart 2: Revenue trend',
+          content: 'Graph 2 - Revenue trend',
           bounding_box: { left: 90, bottom: 384, right: 260, top: 396 },
           provenance: { engine: 'pdfjs', source: 'text-content' },
           semantic_hint: { role: 'paragraph', confidence: 0.64, signals: ['default-text'] },
@@ -180,7 +180,7 @@ describe('visualEnrichment', () => {
       target_element_id: 'p1-text-2-formula-region',
       target_element_type: 'formula',
       source_caption_element_id: 'p1-text-2',
-      source_caption_text: 'Formula 1: Mass-energy equivalence',
+      source_caption_text: 'Equation (1): Mass-energy equivalence',
       candidate_signals: expect.arrayContaining([
         'caption-prefix-formula',
         'nearby-positioned-evidence',
@@ -208,7 +208,7 @@ describe('visualEnrichment', () => {
       target_element_id: 'p1-text-4-chart-region',
       target_element_type: 'chart',
       source_caption_element_id: 'p1-text-4',
-      source_caption_text: 'Chart 2: Revenue trend',
+      source_caption_text: 'Graph 2 - Revenue trend',
       candidate_signals: expect.arrayContaining(['caption-prefix-chart']),
       region: {
         id: 'p1-text-4-chart-region',
