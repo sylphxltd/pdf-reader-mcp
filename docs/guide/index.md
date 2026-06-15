@@ -58,6 +58,8 @@ Analyze focused crops with a configured local provider for visual table recognit
 ### OCR Provider Pipeline
 Run selected rendered pages through a configured local OCR command when scanned or sparse pages need a text layer. OCR commands are environment-configured, so request payloads cannot choose arbitrary executables.
 
+`read_pdf` can also opt into OCR text layer fusion with `include_ocr_text_layer`, keeping external OCR text separate from selectable PDF text while linking it into the agent document map.
+
 ### Accessibility Report
 Use `include_accessibility_report` when an agent needs page-level accessibility routing for tagged structure, headings, image alt-text verifiability, form labels, link labels, and copy-based accessibility permissions.
 

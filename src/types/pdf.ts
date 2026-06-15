@@ -256,6 +256,7 @@ export type PdfDocumentMapVersion = '2026-06-15';
 
 export type PdfDocumentMapLayer =
   | 'selectable_text'
+  | 'ocr_text_layer'
   | 'image_metadata'
   | 'table_structure'
   | 'semantic_hints'
@@ -273,6 +274,10 @@ export interface PdfDocumentMapPage {
   safety_finding_indexes: number[];
   text_chars: number;
   text_item_count: number;
+  ocr_text_chars?: number | undefined;
+  ocr_word_count?: number | undefined;
+  ocr_confidence?: number | undefined;
+  ocr_source_render_evidence_id?: string | undefined;
   image_count: number;
   table_count: number;
   warnings?: string[] | undefined;
@@ -282,6 +287,7 @@ export interface PdfDocumentMapRouting {
   low_confidence_pages: number[];
   image_or_sparse_pages: number[];
   needs_ocr_pages: number[];
+  ocr_applied_pages: number[];
 }
 
 export interface PdfDocumentMapSummary {
@@ -290,6 +296,8 @@ export interface PdfDocumentMapSummary {
   processed_page_count: number;
   element_count: number;
   text_element_count: number;
+  ocr_page_count: number;
+  ocr_text_chars: number;
   image_element_count: number;
   table_element_count: number;
   chunk_count: number;
@@ -637,6 +645,7 @@ export interface PdfResultData {
   elements?: PdfDocumentElement[];
   chunks?: PdfChunk[];
   text_layer?: PdfTextLayer;
+  ocr_text_layer?: PdfOcrTextLayer;
   safety_findings?: PdfSafetyFinding[];
   layout_diagnostics?: PdfPageLayoutDiagnostics[];
   document_map?: PdfDocumentMap;
@@ -790,6 +799,7 @@ export interface ReadPdfOptions {
   include_html: boolean;
   include_chunks: boolean;
   include_text_layer: boolean;
+  include_ocr_text_layer: boolean;
   include_outline: boolean;
   include_annotations: boolean;
   include_page_labels: boolean;
@@ -910,6 +920,22 @@ export interface PdfOcrSourceResult {
   ocr_pages?: PdfOcrPageData[] | undefined;
   warnings?: string[] | undefined;
   error?: string | undefined;
+}
+
+export interface PdfOcrTextLayerSummary {
+  page_count: number;
+  text_chars: number;
+  word_count: number;
+  words_with_bounding_boxes: number;
+  source_render_count: number;
+  average_confidence?: number | undefined;
+}
+
+export interface PdfOcrTextLayer {
+  profile: 'ocr_text_layer';
+  pages: PdfOcrPageData[];
+  summary: PdfOcrTextLayerSummary;
+  warnings?: string[] | undefined;
 }
 
 export interface OcrPagesOptions {

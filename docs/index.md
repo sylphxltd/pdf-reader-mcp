@@ -43,7 +43,7 @@ features:
     details: Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figures, charts, formulas, and citation verification.
   - icon: "\U0001F524"
     title: Configured OCR
-    details: Route selected rendered pages through an environment-configured local OCR provider and return normalized text, confidence, words, language, and provenance.
+    details: Route selected rendered pages through an environment-configured local OCR provider and optionally fuse OCR text layers into read_pdf document maps with provenance.
   - icon: "\U0001F9ED"
     title: Layout Confidence
     details: Surface page layout profiles, reading-order confidence, column signals, and warnings so agents can route uncertain pages safely.

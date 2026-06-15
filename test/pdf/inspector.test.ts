@@ -57,7 +57,7 @@ describe('inspector', () => {
   });
 
   describe('buildInspectionRecommendation', () => {
-    it('does not imply OCR support for scanned PDFs', () => {
+    it('recommends opt-in OCR fusion for scanned PDFs', () => {
       const recommendation = buildInspectionRecommendation(
         { path: 'scan.pdf' },
         'scanned_or_image_only',
@@ -67,8 +67,13 @@ describe('inspector', () => {
       expect(recommendation).toMatchObject({
         workflow: 'scanned_pdf_triage',
         needs_ocr: true,
+        read_pdf_arguments: {
+          include_document_map: true,
+          include_layout_diagnostics: true,
+          include_ocr_text_layer: true,
+        },
       });
-      expect(recommendation.reason).toContain('ocr_pages');
+      expect(recommendation.reason).toContain('include_ocr_text_layer');
       expect(recommendation.read_pdf_arguments).not.toHaveProperty('include_full_text');
       expect(recommendation.read_pdf_arguments).not.toHaveProperty('include_chunks');
     });

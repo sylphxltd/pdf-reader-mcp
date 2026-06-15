@@ -22,6 +22,7 @@ const mockGetFieldObjects = vi.fn();
 const mockGetAttachments = vi.fn();
 const mockReadFile = vi.fn();
 const mockStat = vi.fn();
+const mockOcrPdfSourcePages = vi.fn();
 
 const fakeStats = (size: number) =>
   ({
@@ -61,6 +62,52 @@ vi.mock('node:fs/promises', () => ({
   readFile: mockReadFile,
   stat: mockStat,
 }));
+
+vi.mock('../../src/pdf/ocr.js', () => {
+  return {
+    defaultOcrPagesOptions: () => ({
+      scale: 2,
+      max_pages: 5,
+      max_pixels_per_page: 16_000_000,
+      timeout_ms: 60_000,
+      max_output_chars: 200_000,
+    }),
+    buildOcrTextLayer: (
+      pages: Array<{
+        text: string;
+        confidence?: number;
+        words?: Array<{ bounding_box?: unknown }>;
+        source_render_evidence_id: string;
+        warnings?: string[];
+      }>,
+      warnings: string[] = []
+    ) => {
+      const words = pages.flatMap((page) => page.words ?? []);
+      const confidences = pages
+        .map((page) => page.confidence)
+        .filter((confidence): confidence is number => confidence !== undefined);
+      const averageConfidence =
+        confidences.length > 0
+          ? Math.round((confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length) * 100) / 100
+          : undefined;
+
+      return {
+        profile: 'ocr_text_layer',
+        pages,
+        summary: {
+          page_count: pages.length,
+          text_chars: pages.reduce((sum, page) => sum + page.text.length, 0),
+          word_count: words.length,
+          words_with_bounding_boxes: words.filter((word) => word.bounding_box !== undefined).length,
+          source_render_count: new Set(pages.map((page) => page.source_render_evidence_id)).size,
+          ...(averageConfidence !== undefined ? { average_confidence: averageConfidence } : {}),
+        },
+        warnings: [...warnings, ...pages.flatMap((page) => page.warnings ?? [])],
+      };
+    },
+    ocrPdfSourcePages: mockOcrPdfSourcePages,
+  };
+});
 
 // Dynamically import the handler *once* after mocks are defined
 // Define a more specific type for the handler's return value content
@@ -966,6 +1013,143 @@ describe('handleReadPdfFunc Integration Tests', () => {
         element_id: 'p1-text-2',
       });
       expect(getTextContent).toHaveBeenCalledTimes(1);
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
+
+  it('should include OCR text layer and fuse it into the document map', async () => {
+    const getTextContent = vi.fn().mockResolvedValue({ items: [] });
+    const getViewport = vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 });
+    mockGetPage.mockResolvedValue({
+      getTextContent,
+      getViewport,
+      view: [0, 0, 612, 792],
+      rotate: 0,
+      userUnit: 1,
+      getAnnotations: vi.fn(),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    });
+    mockOcrPdfSourcePages.mockResolvedValue({
+      source: 'scanned.pdf',
+      numPages: 3,
+      pages: [
+        {
+          page: 1,
+          text: 'OCR recovered page text',
+          confidence: 0.91,
+          words: [
+            {
+              text: 'OCR',
+              confidence: 0.94,
+              bounding_box: { left: 10, bottom: 700, right: 32, top: 714 },
+            },
+          ],
+          provider: 'command',
+          source_render_evidence_id: 'page-1-render-scale-2',
+          provenance: {
+            engine: 'external-command',
+            source: 'ocr-provider',
+          },
+        },
+      ],
+      warnings: ['Rendered page 1 for OCR without embedding image bytes in JSON.'],
+    });
+
+    const result = await handler({
+      sources: [{ path: 'scanned.pdf', pages: [1] }],
+      include_document_map: true,
+      include_ocr_text_layer: true,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    });
+
+    expect(mockOcrPdfSourcePages).toHaveBeenCalledWith(
+      { path: 'scanned.pdf', pages: [1] },
+      expect.objectContaining({ scale: 2, max_pages: 5 })
+    );
+
+    if (result.content?.[0]) {
+      const parsed = JSON.parse(result.content[0].text) as {
+        results: Array<{
+          data?: {
+            full_text?: string;
+            ocr_text_layer?: {
+              profile: string;
+              pages: Array<{ page: number; text: string; source_render_evidence_id: string }>;
+              summary: {
+                page_count: number;
+                text_chars: number;
+                word_count: number;
+                words_with_bounding_boxes: number;
+                source_render_count: number;
+                average_confidence: number;
+              };
+              warnings?: string[];
+            };
+            document_map?: {
+              layers: string[];
+              pages: Array<{
+                page: number;
+                ocr_text_chars?: number;
+                ocr_word_count?: number;
+                ocr_source_render_evidence_id?: string;
+              }>;
+              routing: {
+                needs_ocr_pages: number[];
+                ocr_applied_pages: number[];
+              };
+              summary: {
+                ocr_page_count: number;
+                ocr_text_chars: number;
+              };
+            };
+            warnings?: string[];
+          };
+        }>;
+      };
+
+      const data = parsed.results[0]?.data;
+      expect(data?.full_text).toBeUndefined();
+      expect(data?.ocr_text_layer).toMatchObject({
+        profile: 'ocr_text_layer',
+        pages: [
+          {
+            page: 1,
+            text: 'OCR recovered page text',
+            source_render_evidence_id: 'page-1-render-scale-2',
+          },
+        ],
+        summary: {
+          page_count: 1,
+          text_chars: 23,
+          word_count: 1,
+          words_with_bounding_boxes: 1,
+          source_render_count: 1,
+          average_confidence: 0.91,
+        },
+      });
+      expect(data?.document_map).toMatchObject({
+        layers: expect.arrayContaining(['ocr_text_layer', 'layout_diagnostics']),
+        routing: {
+          needs_ocr_pages: [1],
+          ocr_applied_pages: [1],
+        },
+        summary: {
+          ocr_page_count: 1,
+          ocr_text_chars: 23,
+        },
+      });
+      expect(data?.document_map?.pages[0]).toMatchObject({
+        page: 1,
+        ocr_text_chars: 23,
+        ocr_word_count: 1,
+        ocr_source_render_evidence_id: 'page-1-render-scale-2',
+      });
+      expect(data?.warnings).toContain('Rendered page 1 for OCR without embedding image bytes in JSON.');
+      expect(result.content[1]?.text).toBe('[Page 1 OCR]\nOCR recovered page text');
     } else {
       expect.fail('result.content[0] was undefined');
     }

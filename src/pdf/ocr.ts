@@ -7,6 +7,7 @@ import type {
   OcrPagesOptions,
   PdfOcrPageData,
   PdfOcrProviderStatus,
+  PdfOcrTextLayer,
   PdfOcrWord,
   PdfPageRenderData,
   PdfSource,
@@ -59,6 +60,42 @@ export const defaultOcrPagesOptions = (): OcrPagesOptions => ({
   timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS,
 });
+
+const roundRatio = (value: number): number => Math.round(value * 100) / 100;
+
+export const buildOcrTextLayer = (
+  pages: PdfOcrPageData[],
+  warnings: string[] = []
+): PdfOcrTextLayer => {
+  const textChars = pages.reduce((sum, page) => sum + page.text.length, 0);
+  const words = pages.flatMap((page) => page.words ?? []);
+  const confidences = pages
+    .map((page) => page.confidence)
+    .filter((confidence): confidence is number => confidence !== undefined);
+  const averageConfidence =
+    confidences.length > 0
+      ? roundRatio(
+          confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length
+        )
+      : undefined;
+  const sourceRenderCount = new Set(pages.map((page) => page.source_render_evidence_id)).size;
+  const pageWarnings = pages.flatMap((page) => page.warnings ?? []);
+  const allWarnings = [...warnings, ...pageWarnings];
+
+  return {
+    profile: 'ocr_text_layer',
+    pages,
+    summary: {
+      page_count: pages.length,
+      text_chars: textChars,
+      word_count: words.length,
+      words_with_bounding_boxes: words.filter((word) => word.bounding_box !== undefined).length,
+      source_render_count: sourceRenderCount,
+      ...(averageConfidence !== undefined ? { average_confidence: averageConfidence } : {}),
+    },
+    ...(allWarnings.length > 0 ? { warnings: allWarnings } : {}),
+  };
+};
 
 export const isOcrProviderConfigured = (): boolean =>
   Boolean(process.env[OCR_COMMAND_ENV]?.trim() || process.env[OCR_PRESET_ENV]?.trim());

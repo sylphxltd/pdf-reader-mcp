@@ -96,6 +96,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_ocr_text_layer: optional(
+    bool(
+      description(
+        'Run the configured local OCR provider for selected sparse/scanned pages and include a normalized OCR text layer with render provenance.'
+      )
+    )
+  ),
   include_outline: optional(
     bool(description('Include document outline/bookmark entries when the PDF exposes them.'))
   ),

@@ -6,10 +6,10 @@ Status: active
 ## Goal
 
 Make PDF Reader MCP expose a single agent-native map of a PDF: pages,
-elements, chunks, layout confidence, safety findings, routing signals, and page
-geometry. The map is the stable contract that later OCR, vision, formula, chart,
-and advanced table engines can enrich without forcing agents to learn a new
-response shape each time.
+elements, chunks, layout confidence, safety findings, routing signals, OCR
+evidence, and page geometry. The map is the stable contract that OCR, vision,
+formula, chart, and advanced table engines can enrich without forcing agents to
+learn a new response shape each time.
 
 ## Product Positioning
 
@@ -48,6 +48,7 @@ Each successful source may include:
     "profile": "agent_document_map",
     "layers": [
       "selectable_text",
+      "ocr_text_layer",
       "table_structure",
       "semantic_hints",
       "citation_chunks",
@@ -63,6 +64,10 @@ Each successful source may include:
         "safety_finding_indexes": [0],
         "text_chars": 1200,
         "text_item_count": 30,
+        "ocr_text_chars": 128,
+        "ocr_word_count": 24,
+        "ocr_confidence": 0.91,
+        "ocr_source_render_evidence_id": "page-1-render-scale-2",
         "image_count": 0,
         "table_count": 1
       }
@@ -74,13 +79,16 @@ Each successful source may include:
     "routing": {
       "low_confidence_pages": [],
       "image_or_sparse_pages": [],
-      "needs_ocr_pages": []
+      "needs_ocr_pages": [],
+      "ocr_applied_pages": [1]
     },
     "summary": {
       "selected_pages": [1],
       "processed_page_count": 1,
       "element_count": 0,
       "text_element_count": 0,
+      "ocr_page_count": 1,
+      "ocr_text_chars": 128,
       "image_element_count": 0,
       "table_element_count": 0,
       "chunk_count": 0,
@@ -99,7 +107,7 @@ Each successful source may include:
 - `document_map.pages[*].safety_finding_indexes` must reference array indexes
   in `document_map.safety_findings`.
 - `document_map.layers` must be derived from actual emitted layers, not user
-  flags.
+  flags. `ocr_text_layer` is present only when OCR pages were returned.
 - Top-level legacy outputs remain opt-in. `include_document_map` may build
   internal elements, chunks, safety findings, layout diagnostics, page geometry,
   and tables for the map without forcing top-level `elements`, `chunks`,
@@ -117,7 +125,9 @@ Each successful source may include:
 - Page extraction remains batched; document map construction must not increase
   source concurrency beyond the existing handler limit.
 - OCR, VLM, and ONNX work belongs behind optional provider interfaces, with
-  health checks and explicit enablement.
+  health checks and explicit enablement. `include_ocr_text_layer` is the
+  explicit opt-in for OCR fusion and must keep OCR text separate from
+  selectable text.
 
 ## v3 Capability Batch
 
@@ -129,6 +139,8 @@ Required before publishing the next package release:
 - `render_page`, `extract_regions`, `analyze_regions`, and `ocr_pages` provide
   visual evidence, focused crops, visual region enrichment, and configured OCR
   text layers without embedding image bytes in JSON summaries.
+- `read_pdf` can opt into OCR text layer fusion for sparse/scanned pages and
+  link applied OCR pages into the document map.
 - `search_pdf` provides bounded evidence retrieval with snippets, offsets,
   optional character-derived or text-item bounding boxes, and provenance before
   heavier workflows.
@@ -140,7 +152,8 @@ Required before publishing the next package release:
 
 Next slices for the same v3 track:
 
-- OCR provider presets, scanned fixtures, and accuracy/latency benchmarks.
+- Additional OCR provider presets, scanned fixtures, and accuracy/latency
+  benchmarks.
 - Engine-specific layout, table, formula, and chart provider presets and
   accuracy/latency fixtures.
 - Benchmark harness with accuracy and latency reported separately.
@@ -156,6 +169,7 @@ Next slices for the same v3 track:
   safety findings, routing signals, page geometry, and summary counts.
 - The map includes table elements when deterministic table extraction finds
   tables.
+- The map links OCR pages when `include_ocr_text_layer` returns OCR evidence.
 - The first JSON content part omits `page_contents` and image bytes.
 - Existing `read_pdf` calls without `include_document_map` remain unchanged.
 - `inspect_pdf` recommends the document map for agentic digital-text and mixed

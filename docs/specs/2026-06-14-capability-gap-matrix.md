@@ -58,7 +58,7 @@ neutral capability names and avoids public comparison language.
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; full visual spans and non-repeated continuation can be supplied through an optional visual region analysis provider. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
 | Quality eval harness | Shipped | Regression eval covers semantic chunks, table order, renderers, and safety findings. |
-| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract`. No default OCR model is bundled. |
+| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`. No default OCR model is bundled. |
 | Formula extraction | In progress | `analyze_regions` can normalize formula provider output; accuracy depends on the configured local engine. |
 | Chart/image descriptions | In progress | `analyze_regions` can normalize chart, figure, and image-description provider output; accuracy depends on the configured local engine. |
 | Tagged PDF generation | Advanced | Requires separate design and validation. |

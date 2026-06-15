@@ -177,11 +177,16 @@ export const buildInspectionRecommendation = (
   setTrue(readPdfArguments, 'include_structure_tree', documentSignals.has_structure_tree);
 
   if (profile === 'scanned_or_image_only') {
+    Object.assign(readPdfArguments, {
+      include_document_map: true,
+      include_layout_diagnostics: true,
+      include_ocr_text_layer: true,
+    });
     return {
       workflow: 'scanned_pdf_triage',
       needs_ocr: true,
       reason:
-        'Sampled pages contain little selectable text and visible image paint operations; use ocr_pages with a configured OCR provider or an optional advanced engine for text extraction.',
+        'Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer or ocr_pages with a configured OCR provider for text extraction.',
       read_pdf_arguments: readPdfArguments,
     };
   }
@@ -193,6 +198,7 @@ export const buildInspectionRecommendation = (
       include_semantic_hints: true,
       include_safety_findings: true,
       include_layout_diagnostics: true,
+      include_ocr_text_layer: true,
       include_markdown: true,
       include_tables: true,
     });
@@ -200,7 +206,7 @@ export const buildInspectionRecommendation = (
       workflow: 'mixed_pdf_review',
       needs_ocr: true,
       reason:
-        'Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and ocr_pages with a configured OCR provider for scanned pages.',
+        'Some sampled pages look text-based while others look image-only; use read_pdf with include_ocr_text_layer for a single provenance-aware document map, or ocr_pages for a dedicated OCR pass.',
       read_pdf_arguments: readPdfArguments,
     };
   }
@@ -284,7 +290,7 @@ export const inspectPdfSource = async (
     }
     if (recommendation.needs_ocr) {
       warnings.push(
-        'read_pdf does not perform OCR; use ocr_pages with a configured OCR provider for scanned pages.'
+        'OCR is opt-in and requires a configured provider; use read_pdf with include_ocr_text_layer or ocr_pages for scanned pages.'
       );
     }
 

@@ -288,6 +288,13 @@ Each page includes normalized OCR text, confidence when supplied, optional word
 boxes, language, provenance, and a `source_render_evidence_id` that points back
 to the temporary page render used as OCR input.
 
+For `read_pdf` workflows, set `include_ocr_text_layer: true` to run the
+configured OCR provider for selected sparse/scanned pages and return a separate
+`ocr_text_layer`. When `include_document_map` is also enabled, OCR pages are
+linked through `document_map.layers`, page-level OCR fields, and
+`document_map.routing.ocr_applied_pages`. OCR text is not merged into
+`full_text`, so provenance stays explicit.
+
 ### Get Markdown
 
 Use `include_markdown` when a workflow needs clean page-aware context for RAG,

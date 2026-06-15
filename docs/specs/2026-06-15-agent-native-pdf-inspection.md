@@ -9,12 +9,12 @@ Add a lightweight MCP tool that lets an agent inspect a PDF before extracting it
 The tool should answer: what kind of PDF is this, which pages should be sampled,
 what risks are visible, and which `read_pdf` options are most useful next.
 
-This improves time-to-value without adding OCR models, Java, Python, cloud
-services, or any large default dependency.
+This improves time-to-value without adding bundled OCR models, Java, Python,
+cloud services, or any large default dependency.
 
 ## Non-goals
 
-- Do not perform OCR in the default package.
+- Do not bundle or automatically perform OCR in the default package.
 - Do not claim high-accuracy parsing from a short inspection sample.
 - Do not extract image bytes during inspection.
 - Do not replace `read_pdf`; inspection is an additive planning step.
@@ -106,7 +106,8 @@ Output is a JSON text part:
 
 - Inspection returns per-source success or failure independently.
 - Sampling is bounded and defaults to a small number of pages.
-- `read_pdf_arguments` must never imply OCR support from the default package.
+- `read_pdf_arguments` may recommend `include_ocr_text_layer`, but must make
+  OCR opt-in and dependent on a configured local provider.
 - Provider readiness must not expose local command paths or arguments.
 - The first JSON part must not include binary image data.
 - Existing `read_pdf` callers remain unchanged.

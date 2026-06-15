@@ -74,7 +74,7 @@
 - Image extraction
 - Page rendering evidence with bounded PNG image parts
 - Region crop evidence for bbox-grounded verification
-- Configured local OCR provider pipeline for scanned-page text layers
+- Configured local OCR provider pipeline with opt-in `read_pdf` OCR layer fusion
 - URL support
 - Structured JSON output
 - Agent document maps with linked pages, elements, chunks, layout confidence, safety findings, routing signals, and geometry

@@ -42,6 +42,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Bounded page rendering for visual evidence and OCR routing 🖼️
 - Bbox-grounded region crops for source evidence 🔍
 - Configured local OCR provider for scanned-page text layers 🔡
+- Opt-in OCR text layer fusion for `read_pdf` document maps 🧾
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Semantic document AST for page/section/paragraph/list/table/image traversal 🌳
@@ -81,6 +82,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🧠 **Visual Region Analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
+- 🧾 **OCR-Aware Document Map** - `read_pdf` can opt into OCR text layers for sparse/scanned pages while keeping OCR separate from selectable PDF text
 - 🧾 **PDF Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
@@ -549,6 +551,31 @@ configured local OCR command.
 - Bounded defaults: `max_pages` default 5, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per page
 - No rendered image base64 duplicated inside the JSON response
 
+### OCR Fusion in `read_pdf`
+
+Use `include_ocr_text_layer` when a `read_pdf` workflow should recover text
+from selected sparse/scanned pages through the configured local OCR provider.
+OCR output remains a separate `ocr_text_layer`; it is not merged into
+`full_text`, so agents can distinguish selectable PDF text from external OCR.
+
+```json
+{
+  "sources": [{
+    "path": "documents/scanned-report.pdf",
+    "pages": "1-3"
+  }],
+  "include_document_map": true,
+  "include_ocr_text_layer": true
+}
+```
+
+**Response includes:**
+- `ocr_text_layer.pages[*]` with text, confidence, optional word boxes, language, provider, and `source_render_evidence_id`
+- `document_map.layers` containing `ocr_text_layer` when OCR pages were returned
+- Page-level OCR summary fields and routing via `document_map.routing.ocr_applied_pages`
+- OCR page text as separate `[Page N OCR]` MCP text content parts
+- Warnings when the configured OCR provider is unavailable or page rendering/OCR emits bounded warnings
+
 ### Markdown for RAG and Summaries
 
 ```json
@@ -744,6 +771,11 @@ The OCR provider is env-only, not request-controlled. Tool responses normalize
 provider output into page text, confidence, optional word boxes, language,
 render evidence IDs, and provenance. Image bytes are not embedded in the JSON
 response.
+
+`read_pdf` can also include the same normalized OCR evidence with
+`include_ocr_text_layer: true`. The OCR layer is fused into the agent document
+map as routing and page evidence, but it remains separate from legacy
+`full_text` to preserve provenance.
 
 ### Agent-Native PDF Inspection
 
@@ -1086,6 +1118,7 @@ tables, and document signals.
 | `include_html` | boolean | Include escaped page-aware HTML for preview/export workflows | `false` |
 | `include_chunks` | boolean | Include page, semantic, size, and table chunks with source references | `false` |
 | `include_text_layer` | boolean | Include run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance | `false` |
+| `include_ocr_text_layer` | boolean | Run the configured local OCR provider for selected sparse/scanned pages and include a separate OCR text layer with render provenance | `false` |
 | `include_layout_diagnostics` | boolean | Include page layout profiles, reading-order confidence, column signals, and warnings | `false` |
 | `include_outline` | boolean | Include PDF outline/bookmarks when available | `false` |
 | `include_annotations` | boolean | Include safe annotation summaries for selected pages | `false` |
@@ -1587,6 +1620,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Recursive band and column ordering for common multi-column PDFs
 - [x] Layout diagnostics with reading-order confidence
 - [x] Configured local OCR provider for scanned-page text layers
+- [x] Opt-in OCR text layer fusion for `read_pdf` and agent document maps
 - [x] Tesseract OCR provider preset without bundling OCR model assets
 - [x] Configured local visual region analysis provider for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings

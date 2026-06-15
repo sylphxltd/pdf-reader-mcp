@@ -23,6 +23,7 @@ import {
   extractStructureTrees,
 } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
+import { buildOcrTextLayer, defaultOcrPagesOptions, ocrPdfSourcePages } from '../pdf/ocr.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
 import {
   extractTables,
@@ -37,6 +38,7 @@ import type {
   ExtractedTable,
   PdfChunk,
   PdfDocumentElement,
+  PdfOcrTextLayer,
   PdfPageAnnotations,
   PdfPageGeometry,
   PdfPageLayoutDiagnostics,
@@ -50,6 +52,22 @@ import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('ReadPdf');
+
+const appendOutputWarnings = (output: PdfResultData, warnings: string[]) => {
+  if (warnings.length === 0) return;
+  output.warnings = [...(output.warnings ?? []), ...warnings];
+};
+
+const selectOcrTextLayerPages = (
+  pagesToProcess: number[],
+  layoutDiagnostics: PdfPageLayoutDiagnostics[]
+): number[] => {
+  const zeroSelectableTextPages = layoutDiagnostics
+    .filter((layout) => layout.text_item_count === 0)
+    .map((layout) => layout.page);
+
+  return zeroSelectableTextPages.length > 0 ? zeroSelectableTextPages : pagesToProcess;
+};
 
 /**
  * Process a single PDF source
@@ -68,6 +86,7 @@ const processSingleSource = async (
     includeHtml: boolean;
     includeChunks: boolean;
     includeTextLayer: boolean;
+    includeOcrTextLayer: boolean;
     includeOutline: boolean;
     includeAnnotations: boolean;
     includePageLabels: boolean;
@@ -139,6 +158,7 @@ const processSingleSource = async (
       options.includeHtml ||
       options.includeChunks ||
       options.includeTextLayer ||
+      options.includeOcrTextLayer ||
       options.includeImages ||
       options.includeSafetyFindings ||
       options.includeLayoutDiagnostics ||
@@ -313,18 +333,48 @@ const processSingleSource = async (
         });
       }
 
+      let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
+      if (options.includeLayoutDiagnostics && output.page_contents) {
+        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
+        output.layout_diagnostics = layoutDiagnostics;
+      }
+
+      let ocrTextLayer: PdfOcrTextLayer | undefined;
+      if (options.includeOcrTextLayer && output.page_contents) {
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        const ocrPages = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
+
+        if (ocrPages.length > 0) {
+          try {
+            const ocr = await ocrPdfSourcePages(
+              { ...source, pages: ocrPages },
+              defaultOcrPagesOptions()
+            );
+            ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
+            output.ocr_text_layer = ocrTextLayer;
+            appendOutputWarnings(output, ocr.warnings);
+          } catch (error: unknown) {
+            const message =
+              error instanceof PdfError
+                ? error.message
+                : 'OCR provider failed before returning a normalized text layer.';
+            if (!(error instanceof PdfError)) {
+              logger.warn('Unexpected error building OCR text layer', {
+                sourceDescription,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+            appendOutputWarnings(output, [`OCR text layer unavailable: ${message}`]);
+          }
+        }
+      }
+
       let safetyFindings: PdfSafetyFinding[] | undefined;
       if (options.includeSafetyFindings && output.page_contents) {
         safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
         if (safetyFindings.length > 0) {
           output.safety_findings = safetyFindings;
         }
-      }
-
-      let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
-      if (options.includeLayoutDiagnostics && output.page_contents) {
-        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
-        output.layout_diagnostics = layoutDiagnostics;
       }
 
       if (options.includeDocumentMap && output.page_contents) {
@@ -340,6 +390,7 @@ const processSingleSource = async (
           chunks,
           layoutDiagnostics,
           safetyFindings,
+          ocrTextLayer,
           pageGeometry,
           warnings: output.warnings,
         });
@@ -471,6 +522,7 @@ export const readPdf = tool()
       include_html,
       include_chunks,
       include_text_layer,
+      include_ocr_text_layer,
       include_outline,
       include_annotations,
       include_page_labels,
@@ -503,6 +555,7 @@ export const readPdf = tool()
       includeHtml: include_html ?? false,
       includeChunks: include_chunks ?? false,
       includeTextLayer: include_text_layer ?? false,
+      includeOcrTextLayer: include_ocr_text_layer ?? false,
       includeOutline: include_outline ?? false,
       includeAnnotations: include_annotations ?? false,
       includePageLabels: include_page_labels ?? false,
@@ -606,6 +659,16 @@ export const readPdf = tool()
         // Add images for the page
         for (const img of pageImages) {
           content.push(image(img.data, 'image/png'));
+        }
+      }
+    }
+
+    for (const result of results) {
+      if (!result.success || !result.data?.ocr_text_layer) continue;
+
+      for (const page of result.data.ocr_text_layer.pages) {
+        if (page.text.trim().length > 0) {
+          content.push(text(`[Page ${String(page.page)} OCR]\n${page.text}`));
         }
       }
     }

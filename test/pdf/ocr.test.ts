@@ -2,6 +2,7 @@ import path from 'node:path';
 import { PNG } from 'pngjs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  buildOcrTextLayer,
   defaultOcrPagesOptions,
   getOcrProviderStatus,
   isOcrProviderConfigured,
@@ -139,6 +140,47 @@ describe('ocr', () => {
           bounding_box: { left: 0, bottom: 0, right: 20, top: 10 },
         },
       ],
+    });
+  });
+
+  it('should build an OCR text layer summary with render provenance', () => {
+    const layer = buildOcrTextLayer(
+      [
+        {
+          page: 2,
+          text: 'Scanned text',
+          confidence: 0.84,
+          words: [
+            {
+              text: 'Scanned',
+              confidence: 0.9,
+              bounding_box: { left: 10, bottom: 700, right: 80, top: 714 },
+            },
+            { text: 'text', confidence: 0.78 },
+          ],
+          provider: 'command',
+          source_render_evidence_id: 'page-2-render-scale-2',
+          provenance: {
+            engine: 'external-command',
+            source: 'ocr-provider',
+          },
+          warnings: ['Low contrast OCR region.'],
+        },
+      ],
+      ['Rendered page 2 for OCR.']
+    );
+
+    expect(layer).toMatchObject({
+      profile: 'ocr_text_layer',
+      summary: {
+        page_count: 1,
+        text_chars: 12,
+        word_count: 2,
+        words_with_bounding_boxes: 1,
+        source_render_count: 1,
+        average_confidence: 0.84,
+      },
+      warnings: ['Rendered page 2 for OCR.', 'Low contrast OCR region.'],
     });
   });
 

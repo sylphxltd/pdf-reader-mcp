@@ -5,6 +5,7 @@ import type {
   PdfDocumentMap,
   PdfDocumentMapLayer,
   PdfDocumentMapPage,
+  PdfOcrTextLayer,
   PdfPageGeometry,
   PdfPageLayoutDiagnostics,
   PdfSafetyFinding,
@@ -21,6 +22,7 @@ interface BuildDocumentMapInput {
   chunks: PdfChunk[];
   layoutDiagnostics: PdfPageLayoutDiagnostics[];
   safetyFindings: PdfSafetyFinding[];
+  ocrTextLayer?: PdfOcrTextLayer | undefined;
   pageGeometry?: PdfPageGeometry[] | undefined;
   warnings?: string[] | undefined;
 }
@@ -50,11 +52,13 @@ const buildLayers = (
   chunks: PdfChunk[],
   layoutDiagnostics: PdfPageLayoutDiagnostics[],
   safetyFindings: PdfSafetyFinding[],
+  ocrTextLayer: PdfOcrTextLayer | undefined,
   pageGeometry: PdfPageGeometry[] | undefined
 ): PdfDocumentMapLayer[] => {
   const layers = new Set<PdfDocumentMapLayer>();
 
   if (elements.some((element) => element.type === 'text')) layers.add('selectable_text');
+  if ((ocrTextLayer?.pages.length ?? 0) > 0) layers.add('ocr_text_layer');
   if (elements.some((element) => element.type === 'image')) layers.add('image_metadata');
   if (elements.some((element) => element.type === 'table')) layers.add('table_structure');
   if (elements.some((element) => element.type === 'text' && element.semantic_hint !== undefined)) {
@@ -115,6 +119,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   );
   const layoutByPage = new Map(input.layoutDiagnostics.map((layout) => [layout.page, layout]));
   const geometryByPage = new Map(input.pageGeometry?.map((geometry) => [geometry.page, geometry]));
+  const ocrPageByPage = new Map(input.ocrTextLayer?.pages.map((page) => [page.page, page]));
   const safetyFindingIndexesByPage = new Map<number, number[]>();
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
@@ -132,6 +137,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const elements = elementsByPage.get(page) ?? [];
     const chunks = chunksByPage.get(page) ?? [];
     const layout = layoutByPage.get(page);
+    const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === 'image').length;
@@ -153,6 +159,14 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       safety_finding_indexes: safetyFindingIndexes,
       text_chars: textChars,
       text_item_count: textItemCount,
+      ...(ocrPage
+        ? {
+            ocr_text_chars: ocrPage.text.length,
+            ocr_word_count: ocrPage.words?.length ?? 0,
+            ...(ocrPage.confidence !== undefined ? { ocr_confidence: ocrPage.confidence } : {}),
+            ocr_source_render_evidence_id: ocrPage.source_render_evidence_id,
+          }
+        : {}),
       image_count: imageCount,
       table_count: tableCount,
       ...(warnings ? { warnings } : {}),
@@ -166,8 +180,13 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     .filter((layout) => layout.profile === 'image_or_sparse')
     .map((layout) => layout.page);
   const needsOcrPages = input.layoutDiagnostics
-    .filter((layout) => layout.profile === 'image_or_sparse' && layout.text_item_count === 0)
+    .filter(
+      (layout) =>
+        (layout.profile === 'image_or_sparse' || layout.item_count === 0) &&
+        layout.text_item_count === 0
+    )
     .map((layout) => layout.page);
+  const ocrAppliedPages = input.ocrTextLayer?.pages.map((page) => page.page) ?? [];
 
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
   const averageLayoutConfidence =
@@ -192,6 +211,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       input.chunks,
       input.layoutDiagnostics,
       input.safetyFindings,
+      input.ocrTextLayer,
       input.pageGeometry
     ),
     pages,
@@ -203,6 +223,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       low_confidence_pages: lowConfidencePages,
       image_or_sparse_pages: imageOrSparsePages,
       needs_ocr_pages: needsOcrPages,
+      ocr_applied_pages: ocrAppliedPages,
     },
     summary: {
       ...(input.totalPages !== undefined ? { total_pages: input.totalPages } : {}),
@@ -210,6 +231,8 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       processed_page_count: pages.length,
       element_count: input.elements.length,
       text_element_count: textElementCount,
+      ocr_page_count: input.ocrTextLayer?.summary.page_count ?? 0,
+      ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
       table_element_count: tableElementCount,
       chunk_count: input.chunks.length,

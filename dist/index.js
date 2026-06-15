@@ -2180,6 +2180,29 @@ var defaultOcrPagesOptions = () => ({
   timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
 });
+var roundRatio = (value) => Math.round(value * 100) / 100;
+var buildOcrTextLayer = (pages, warnings = []) => {
+  const textChars = pages.reduce((sum, page) => sum + page.text.length, 0);
+  const words = pages.flatMap((page) => page.words ?? []);
+  const confidences = pages.map((page) => page.confidence).filter((confidence) => confidence !== undefined);
+  const averageConfidence = confidences.length > 0 ? roundRatio(confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length) : undefined;
+  const sourceRenderCount = new Set(pages.map((page) => page.source_render_evidence_id)).size;
+  const pageWarnings = pages.flatMap((page) => page.warnings ?? []);
+  const allWarnings = [...warnings, ...pageWarnings];
+  return {
+    profile: "ocr_text_layer",
+    pages,
+    summary: {
+      page_count: pages.length,
+      text_chars: textChars,
+      word_count: words.length,
+      words_with_bounding_boxes: words.filter((word) => word.bounding_box !== undefined).length,
+      source_render_count: sourceRenderCount,
+      ...averageConfidence !== undefined ? { average_confidence: averageConfidence } : {}
+    },
+    ...allWarnings.length > 0 ? { warnings: allWarnings } : {}
+  };
+};
 var getOcrProviderStatus = () => {
   const rawPreset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
   const commandConfigured = Boolean(process.env[OCR_COMMAND_ENV]?.trim());
@@ -2480,10 +2503,15 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
   setTrue(readPdfArguments, "include_attachments", documentSignals.has_attachments);
   setTrue(readPdfArguments, "include_structure_tree", documentSignals.has_structure_tree);
   if (profile === "scanned_or_image_only") {
+    Object.assign(readPdfArguments, {
+      include_document_map: true,
+      include_layout_diagnostics: true,
+      include_ocr_text_layer: true
+    });
     return {
       workflow: "scanned_pdf_triage",
       needs_ocr: true,
-      reason: "Sampled pages contain little selectable text and visible image paint operations; use ocr_pages with a configured OCR provider or an optional advanced engine for text extraction.",
+      reason: "Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer or ocr_pages with a configured OCR provider for text extraction.",
       read_pdf_arguments: readPdfArguments
     };
   }
@@ -2494,13 +2522,14 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
       include_semantic_hints: true,
       include_safety_findings: true,
       include_layout_diagnostics: true,
+      include_ocr_text_layer: true,
       include_markdown: true,
       include_tables: true
     });
     return {
       workflow: "mixed_pdf_review",
       needs_ocr: true,
-      reason: "Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and ocr_pages with a configured OCR provider for scanned pages.",
+      reason: "Some sampled pages look text-based while others look image-only; use read_pdf with include_ocr_text_layer for a single provenance-aware document map, or ocr_pages for a dedicated OCR pass.",
       read_pdf_arguments: readPdfArguments
     };
   }
@@ -2558,7 +2587,7 @@ var inspectPdfSource = async (source, options) => {
       warnings.push("No requested pages are inside the document page range.");
     }
     if (recommendation.needs_ocr) {
-      warnings.push("read_pdf does not perform OCR; use ocr_pages with a configured OCR provider for scanned pages.");
+      warnings.push("OCR is opt-in and requires a configured provider; use read_pdf with include_ocr_text_layer or ocr_pages for scanned pages.");
     }
     const data = {
       profile,
@@ -2661,6 +2690,7 @@ var readPdfArgsSchema = object3({
   include_html: optional3(bool2(description3("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
   include_chunks: optional3(bool2(description3("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
   include_text_layer: optional3(bool2(description3("Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance."))),
+  include_ocr_text_layer: optional3(bool2(description3("Run the configured local OCR provider for selected sparse/scanned pages and include a normalized OCR text layer with render provenance."))),
   include_outline: optional3(bool2(description3("Include document outline/bookmark entries when the PDF exposes them."))),
   include_annotations: optional3(bool2(description3("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
   include_page_labels: optional3(bool2(description3("Include PDF page labels when available, such as roman numerals or section labels."))),
@@ -3233,7 +3263,7 @@ var buildDocumentAst = (input) => {
 // src/pdf/documentMap.ts
 var DOCUMENT_MAP_VERSION = "2026-06-15";
 var LOW_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
-var roundRatio = (value) => Math.round(value * 100) / 100;
+var roundRatio2 = (value) => Math.round(value * 100) / 100;
 var pushToMap = (map, key, value) => {
   const values = map.get(key);
   if (values) {
@@ -3249,10 +3279,12 @@ var pagesForChunk = (chunk) => {
   }
   return pages;
 };
-var buildLayers = (elements, chunks, layoutDiagnostics, safetyFindings, pageGeometry) => {
+var buildLayers = (elements, chunks, layoutDiagnostics, safetyFindings, ocrTextLayer, pageGeometry) => {
   const layers = new Set;
   if (elements.some((element) => element.type === "text"))
     layers.add("selectable_text");
+  if ((ocrTextLayer?.pages.length ?? 0) > 0)
+    layers.add("ocr_text_layer");
   if (elements.some((element) => element.type === "image"))
     layers.add("image_metadata");
   if (elements.some((element) => element.type === "table"))
@@ -3305,6 +3337,7 @@ var buildDocumentMap = (input) => {
   const pageContentByPage = new Map(input.pageContents.map((pageContent) => [pageContent.page, pageContent]));
   const layoutByPage = new Map(input.layoutDiagnostics.map((layout) => [layout.page, layout]));
   const geometryByPage = new Map(input.pageGeometry?.map((geometry) => [geometry.page, geometry]));
+  const ocrPageByPage = new Map(input.ocrTextLayer?.pages.map((page) => [page.page, page]));
   const safetyFindingIndexesByPage = new Map;
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
@@ -3315,6 +3348,7 @@ var buildDocumentMap = (input) => {
     const elements = elementsByPage.get(page) ?? [];
     const chunks = chunksByPage.get(page) ?? [];
     const layout = layoutByPage.get(page);
+    const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === "image").length;
@@ -3331,6 +3365,12 @@ var buildDocumentMap = (input) => {
       safety_finding_indexes: safetyFindingIndexes,
       text_chars: textChars,
       text_item_count: textItemCount,
+      ...ocrPage ? {
+        ocr_text_chars: ocrPage.text.length,
+        ocr_word_count: ocrPage.words?.length ?? 0,
+        ...ocrPage.confidence !== undefined ? { ocr_confidence: ocrPage.confidence } : {},
+        ocr_source_render_evidence_id: ocrPage.source_render_evidence_id
+      } : {},
       image_count: imageCount,
       table_count: tableCount,
       ...warnings ? { warnings } : {}
@@ -3338,17 +3378,18 @@ var buildDocumentMap = (input) => {
   });
   const lowConfidencePages = input.layoutDiagnostics.filter((layout) => layout.confidence < LOW_LAYOUT_CONFIDENCE_THRESHOLD).map((layout) => layout.page);
   const imageOrSparsePages = input.layoutDiagnostics.filter((layout) => layout.profile === "image_or_sparse").map((layout) => layout.page);
-  const needsOcrPages = input.layoutDiagnostics.filter((layout) => layout.profile === "image_or_sparse" && layout.text_item_count === 0).map((layout) => layout.page);
+  const needsOcrPages = input.layoutDiagnostics.filter((layout) => (layout.profile === "image_or_sparse" || layout.item_count === 0) && layout.text_item_count === 0).map((layout) => layout.page);
+  const ocrAppliedPages = input.ocrTextLayer?.pages.map((page) => page.page) ?? [];
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
-  const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
-  const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio(Math.min(...layoutConfidences)) : undefined;
+  const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio2(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
+  const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio2(Math.min(...layoutConfidences)) : undefined;
   const textElementCount = input.elements.filter((element) => element.type === "text").length;
   const imageElementCount = input.elements.filter((element) => element.type === "image").length;
   const tableElementCount = input.elements.filter((element) => element.type === "table").length;
   return {
     version: DOCUMENT_MAP_VERSION,
     profile: "agent_document_map",
-    layers: buildLayers(input.elements, input.chunks, input.layoutDiagnostics, input.safetyFindings, input.pageGeometry),
+    layers: buildLayers(input.elements, input.chunks, input.layoutDiagnostics, input.safetyFindings, input.ocrTextLayer, input.pageGeometry),
     pages,
     elements: input.elements,
     chunks: input.chunks,
@@ -3357,7 +3398,8 @@ var buildDocumentMap = (input) => {
     routing: {
       low_confidence_pages: lowConfidencePages,
       image_or_sparse_pages: imageOrSparsePages,
-      needs_ocr_pages: needsOcrPages
+      needs_ocr_pages: needsOcrPages,
+      ocr_applied_pages: ocrAppliedPages
     },
     summary: {
       ...input.totalPages !== undefined ? { total_pages: input.totalPages } : {},
@@ -3365,6 +3407,8 @@ var buildDocumentMap = (input) => {
       processed_page_count: pages.length,
       element_count: input.elements.length,
       text_element_count: textElementCount,
+      ocr_page_count: input.ocrTextLayer?.summary.page_count ?? 0,
+      ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
       table_element_count: tableElementCount,
       chunk_count: input.chunks.length,
@@ -3384,7 +3428,7 @@ var MIN_ROWS = 2;
 var MIN_COLS = 2;
 var MIN_ROW_ITEMS = 2;
 var tableId = (table) => `p${table.page}-table-${table.tableIndex + 1}`;
-var roundRatio2 = (value) => Math.round(value * 100) / 100;
+var roundRatio3 = (value) => Math.round(value * 100) / 100;
 var buildBoundingBox2 = (x, y, width, height) => {
   if (![x, y, width].every(Number.isFinite) || height === undefined || !Number.isFinite(height)) {
     return;
@@ -3563,7 +3607,7 @@ var rowSpacingConsistency = (rows) => {
     return 0;
   const variance = spacings.reduce((sum, spacing) => sum + (spacing - averageSpacing) ** 2, 0) / spacings.length;
   const standardDeviation = Math.sqrt(variance);
-  return roundRatio2(Math.max(0, 1 - standardDeviation / averageSpacing));
+  return roundRatio3(Math.max(0, 1 - standardDeviation / averageSpacing));
 };
 var calculateRowAlignment = (rows, columnBoundaries) => {
   if (rows.length === 0 || columnBoundaries.length === 0)
@@ -3575,16 +3619,16 @@ var calculateRowAlignment = (rows, columnBoundaries) => {
     }
     return Math.min(1, columns.size / columnBoundaries.length);
   });
-  return roundRatio2(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
+  return roundRatio3(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
 };
 var buildTableQuality = (rows, cells, columnBoundaries, confidence) => {
   const nonEmptyCellCount = cells.filter((cell) => cell.text.trim().length > 0).length;
   const missingCellCount = Math.max(0, cells.length - nonEmptyCellCount);
   const mergedCellCandidateCount = cells.filter((cell) => (cell.colSpan ?? 1) > 1).length;
-  const nonEmptyCellRatio = cells.length > 0 ? roundRatio2(nonEmptyCellCount / cells.length) : 0;
+  const nonEmptyCellRatio = cells.length > 0 ? roundRatio3(nonEmptyCellCount / cells.length) : 0;
   const rowAlignment = calculateRowAlignment(rows, columnBoundaries);
   const spacingConsistency = rowSpacingConsistency(rows);
-  const completeness = roundRatio2(nonEmptyCellRatio * rowAlignment);
+  const completeness = roundRatio3(nonEmptyCellRatio * rowAlignment);
   const signals = [];
   const warnings = [];
   if (missingCellCount === 0) {
@@ -3690,7 +3734,7 @@ var linkTableContinuationCandidates = (tables) => {
     if (similarity < 0.6)
       continue;
     const groupId = `table-continuation-${tableId(current)}-${tableId(next)}`;
-    const confidence = roundRatio2(0.55 + similarity * 0.4);
+    const confidence = roundRatio3(0.55 + similarity * 0.4);
     const signals = ["same_column_count", "repeated_header_candidate"];
     current.continuation = {
       groupId,
@@ -4167,8 +4211,8 @@ var buildCitationChunks = (elements, options) => {
   pushCurrent();
   return chunks;
 };
-var roundRatio3 = (value) => Math.round(value * 100) / 100;
-var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio3(value)));
+var roundRatio4 = (value) => Math.round(value * 100) / 100;
+var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio4(value)));
 var boxWidth = (box) => box ? Math.max(0, box.right - box.left) : 0;
 var boxArea = (box) => {
   if (!box)
@@ -4255,7 +4299,7 @@ var buildLayoutDiagnostics = (pageContents) => pageContents.map((pageContent) =>
   const textItemCount = pageContent.items.filter((item) => item.type === "text").length;
   const imageItemCount = pageContent.items.filter((item) => item.type === "image").length;
   const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
-  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio3(positionedItems.length / itemCount);
+  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio4(positionedItems.length / itemCount);
   const columns = detectLayoutColumns(positionedItems);
   const left = positionedItems.length ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0)) : 0;
   const right = positionedItems.length ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0)) : 0;
@@ -4760,6 +4804,15 @@ var buildTrustReport = (input) => {
 
 // src/handlers/readPdf.ts
 var logger14 = createLogger("ReadPdf");
+var appendOutputWarnings = (output, warnings) => {
+  if (warnings.length === 0)
+    return;
+  output.warnings = [...output.warnings ?? [], ...warnings];
+};
+var selectOcrTextLayerPages = (pagesToProcess, layoutDiagnostics) => {
+  const zeroSelectableTextPages = layoutDiagnostics.filter((layout) => layout.text_item_count === 0).map((layout) => layout.page);
+  return zeroSelectableTextPages.length > 0 ? zeroSelectableTextPages : pagesToProcess;
+};
 var processSingleSource = async (source, options) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
   let individualResult = { source: sourceDescription, success: false };
@@ -4796,7 +4849,7 @@ var processSingleSource = async (source, options) => {
     if (options.includeAttachments && structureOutput.attachments) {
       output.attachments = structureOutput.attachments;
     }
-    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeTextLayer || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport;
+    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeTextLayer || options.includeOcrTextLayer || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport;
     const pageScopedMetadata = options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
     const includeSelectedPageText = targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
     const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
@@ -4886,17 +4939,39 @@ var processSingleSource = async (source, options) => {
           pageContents: output.page_contents
         });
       }
+      let layoutDiagnostics;
+      if (options.includeLayoutDiagnostics && output.page_contents) {
+        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
+        output.layout_diagnostics = layoutDiagnostics;
+      }
+      let ocrTextLayer;
+      if (options.includeOcrTextLayer && output.page_contents) {
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        const ocrPages2 = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
+        if (ocrPages2.length > 0) {
+          try {
+            const ocr = await ocrPdfSourcePages({ ...source, pages: ocrPages2 }, defaultOcrPagesOptions());
+            ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
+            output.ocr_text_layer = ocrTextLayer;
+            appendOutputWarnings(output, ocr.warnings);
+          } catch (error) {
+            const message = error instanceof PdfError ? error.message : "OCR provider failed before returning a normalized text layer.";
+            if (!(error instanceof PdfError)) {
+              logger14.warn("Unexpected error building OCR text layer", {
+                sourceDescription,
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
+            appendOutputWarnings(output, [`OCR text layer unavailable: ${message}`]);
+          }
+        }
+      }
       let safetyFindings;
       if (options.includeSafetyFindings && output.page_contents) {
         safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
         if (safetyFindings.length > 0) {
           output.safety_findings = safetyFindings;
         }
-      }
-      let layoutDiagnostics;
-      if (options.includeLayoutDiagnostics && output.page_contents) {
-        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
-        output.layout_diagnostics = layoutDiagnostics;
       }
       if (options.includeDocumentMap && output.page_contents) {
         const mapElements = buildElementsForOutput(true);
@@ -4911,6 +4986,7 @@ var processSingleSource = async (source, options) => {
           chunks,
           layoutDiagnostics,
           safetyFindings,
+          ocrTextLayer,
           pageGeometry,
           warnings: output.warnings
         });
@@ -5008,6 +5084,7 @@ var readPdf = tool5().description("Reads content/metadata/images from one or mor
     include_html,
     include_chunks,
     include_text_layer,
+    include_ocr_text_layer,
     include_outline,
     include_annotations,
     include_page_labels,
@@ -5037,6 +5114,7 @@ var readPdf = tool5().description("Reads content/metadata/images from one or mor
     includeHtml: include_html ?? false,
     includeChunks: include_chunks ?? false,
     includeTextLayer: include_text_layer ?? false,
+    includeOcrTextLayer: include_ocr_text_layer ?? false,
     includeOutline: include_outline ?? false,
     includeAnnotations: include_annotations ?? false,
     includePageLabels: include_page_labels ?? false,
@@ -5114,6 +5192,16 @@ ${pageTextParts.join(`
       }
       for (const img of pageImages2) {
         content.push(image2(img.data, "image/png"));
+      }
+    }
+  }
+  for (const result of results) {
+    if (!result.success || !result.data?.ocr_text_layer)
+      continue;
+    for (const page of result.data.ocr_text_layer.pages) {
+      if (page.text.trim().length > 0) {
+        content.push(text5(`[Page ${String(page.page)} OCR]
+${page.text}`));
       }
     }
   }

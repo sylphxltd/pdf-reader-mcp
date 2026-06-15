@@ -16,7 +16,8 @@ optional character-derived or text-item bounding boxes, and provenance.
 
 - Do not accept arbitrary regular expressions in request payloads.
 - Do not build a persistent index or cache in the first slice.
-- Do not search OCR output until the OCR/document-map fusion policy is defined.
+- Do not search OCR output until `search_pdf` explicitly accepts an OCR-layer
+  search mode.
 - Do not claim semantic search or embedding retrieval.
 
 ## Public Contract
@@ -86,7 +87,7 @@ The first content part is JSON:
 
 ## Follow-On Work
 
-- Search over OCR text layers after OCR/document-map fusion is designed.
+- Search over OCR text layers with provenance-aware result labels.
 - Optional `get_evidence` tool for resolving match IDs or element IDs into
   visual crops without repeating bbox arguments manually.
 - Persistent local indexes only if repeated-agent workloads justify the

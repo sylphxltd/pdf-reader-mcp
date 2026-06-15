@@ -13,14 +13,18 @@ package.
 passes each temporary PNG to an explicitly configured local OCR command, and
 returns a normalized OCR text layer with provenance.
 
+`read_pdf` can also opt into the same OCR layer with
+`include_ocr_text_layer`. OCR output is linked into the agent document map as a
+separate evidence layer and is not merged into legacy selectable-text fields.
+
 ## Non-Goals
 
 - Do not bundle an OCR engine in the default package.
 - Do not let MCP request payloads choose arbitrary commands.
 - Do not claim OCR accuracy until scanned fixtures and benchmarks are public.
 - Do not embed rendered page image bytes in the JSON OCR response.
-- Do not merge OCR output into `read_pdf` text until confidence, provenance,
-  and conflict rules are designed.
+- Do not merge OCR output into `full_text`, `page_texts`, or selectable text
+  elements; OCR must remain separately provenance-tagged.
 
 ## Public Contract
 
@@ -98,6 +102,34 @@ Provider stdout may be plain text or JSON with `text`, `confidence`,
 `language`, and `words`. Confidence values above 1 are treated as percentages
 and normalized to 0-1.
 
+## `read_pdf` Fusion
+
+`read_pdf` accepts:
+
+```json
+{
+  "sources": [{ "path": "scan.pdf", "pages": "1-3" }],
+  "include_document_map": true,
+  "include_ocr_text_layer": true
+}
+```
+
+When enabled, `read_pdf` builds layout diagnostics for selected pages, runs the
+configured OCR provider for selected pages with no selectable text, and falls
+back to the selected page set when the caller explicitly asks for OCR on a
+document without zero-text pages. The response includes:
+
+- `ocr_text_layer` with page text, confidence, word boxes, provider, language,
+  warnings, and `source_render_evidence_id`.
+- `document_map.layers` containing `ocr_text_layer` when OCR pages are present.
+- Page-level OCR counters and render evidence references in
+  `document_map.pages[*]`.
+- `document_map.routing.ocr_applied_pages` for completed OCR pages.
+- Separate `[Page N OCR]` MCP text content parts for agent context.
+
+Provider failures are reported as warnings on the source result instead of
+silently mixing incomplete OCR into selectable-text outputs.
+
 ## Invariants
 
 - OCR is disabled unless `MCP_PDF_OCR_COMMAND` or a supported
@@ -115,6 +147,8 @@ and normalized to 0-1.
 - Each source result preserves success/failure isolation.
 - OCR output links to `source_render_evidence_id` rather than embedding image
   data in JSON.
+- `read_pdf` OCR output remains in `ocr_text_layer` and document-map OCR
+  fields; it must not be merged into `full_text` or text elements.
 
 ## Follow-On Work
 
@@ -123,7 +157,7 @@ and normalized to 0-1.
 - Scanned PDF fixtures with expected text and confidence envelopes.
 - OCR accuracy and latency benchmarks reported separately from parser speed.
 - Optional crop-level OCR once page-level OCR quality gates are stable.
-- Fusion policy for when OCR text should enrich the agent document map.
+- Conflict policy for reconciling OCR and selectable text on mixed pages.
 
 ## Acceptance Criteria
 
@@ -131,6 +165,8 @@ and normalized to 0-1.
   inputs.
 - MCP stdio and HTTP tool lists expose `ocr_pages`.
 - Handler responses include `profile: "ocr_text_layer"`.
+- `read_pdf` with `include_ocr_text_layer` returns a separate OCR layer and
+  links applied pages into `document_map` when requested.
 - Unit tests cover configured-provider detection, JSON output normalization,
   and curated missing-provider errors.
 - Integration tests call `ocr_pages` through the built server with a mock
