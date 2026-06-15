@@ -83,7 +83,7 @@ The command provider is enabled by process environment:
 
 | Variable | Meaning |
 |---|---|
-| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported value: `tesseract`. |
+| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported values: `tesseract`, `tesseract-tsv`. |
 | `MCP_PDF_OCR_COMMAND` | Required command path or executable name unless a preset is set. Overrides the preset command when both are set. |
 | `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array. Must include `{input}`. Defaults to the preset template or `["{input}"]`. |
 
@@ -98,9 +98,9 @@ Arguments support these placeholders:
 | `{languages}` | Comma-separated requested language tags, or an empty string. |
 | `{languages_tesseract}` | `+`-separated requested language tags, or `eng` when no language is requested. |
 
-Provider stdout may be plain text or JSON with `text`, `confidence`,
-`language`, and `words`. Confidence values above 1 are treated as percentages
-and normalized to 0-1.
+Provider stdout may be plain text, JSON with `text`, `confidence`, `language`,
+and `words`, or Tesseract TSV when using `MCP_PDF_OCR_PRESET=tesseract-tsv`.
+Confidence values above 1 are treated as percentages and normalized to 0-1.
 
 ## `read_pdf` Fusion
 
@@ -138,6 +138,9 @@ silently mixing incomplete OCR into selectable-text outputs.
 - `MCP_PDF_OCR_PRESET=tesseract` resolves to
   `tesseract {input} stdout -l {languages_tesseract}` without bundling
   Tesseract or language data.
+- `MCP_PDF_OCR_PRESET=tesseract-tsv` resolves to
+  `tesseract {input} stdout -l {languages_tesseract} tsv` and parses level-5
+  TSV rows into normalized word boxes, text, language, and confidence.
 - Temporary rendered PNG files are written under the OS temp directory and
   removed after each page attempt.
 - `max_pages` defaults to 5 and is capped by schema at 20 per source.
@@ -154,8 +157,8 @@ silently mixing incomplete OCR into selectable-text outputs.
 
 - Additional provider presets for common local engines such as PaddleOCR
   wrappers, without making them default dependencies.
-- Scanned PDF fixtures with expected text and confidence envelopes.
-- OCR accuracy and latency benchmarks reported separately from parser speed.
+- Broader scanned PDF fixtures with expected text and confidence envelopes.
+- Expanded OCR accuracy and latency benchmarks reported separately from parser speed.
 - Optional crop-level OCR once page-level OCR quality gates are stable.
 - Conflict policy for reconciling OCR and selectable text on mixed pages.
 

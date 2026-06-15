@@ -280,13 +280,14 @@ provider is configured by environment variables, not by request arguments.
 }
 ```
 
-Set `MCP_PDF_OCR_PRESET=tesseract` to use the built-in Tesseract command
-template, or set `MCP_PDF_OCR_COMMAND` for a custom local OCR executable.
-Optionally set `MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes
-`{input}` and may also use `{page}`, `{source}`, `{language}`, `{languages}`,
-and `{languages_tesseract}` placeholders.
-The provider can return plain text or JSON with `text`, `confidence`,
-`language`, and `words`.
+Set `MCP_PDF_OCR_PRESET=tesseract` to use the plain-text Tesseract command
+template, or `MCP_PDF_OCR_PRESET=tesseract-tsv` to parse Tesseract TSV stdout
+into normalized words, confidence, and word boxes. You can also set
+`MCP_PDF_OCR_COMMAND` for a custom local OCR executable. Optionally set
+`MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes `{input}` and may
+also use `{page}`, `{source}`, `{language}`, `{languages}`, and
+`{languages_tesseract}` placeholders. Custom providers can return plain text
+or JSON with `text`, `confidence`, `language`, and `words`.
 
 The response starts with JSON metadata using `profile: "ocr_text_layer"`.
 Each page includes normalized OCR text, confidence when supplied, optional word

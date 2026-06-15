@@ -34,17 +34,31 @@ interface CommandOcrProviderConfig {
   command: string;
   argsTemplate: string[];
   preset?: OcrProviderPreset | undefined;
+  outputFormat?: OcrProviderOutputFormat | undefined;
 }
 
-type OcrProviderPreset = 'tesseract';
+type OcrProviderPreset = 'tesseract' | 'tesseract-tsv';
+type OcrProviderOutputFormat = 'plain-text' | 'tesseract-tsv';
 
 const OCR_PROVIDER_PRESETS: Record<OcrProviderPreset, CommandOcrProviderConfig> = {
   tesseract: {
     command: 'tesseract',
     argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}'],
     preset: 'tesseract',
+    outputFormat: 'plain-text',
+  },
+  'tesseract-tsv': {
+    command: 'tesseract',
+    argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}', 'tsv'],
+    preset: 'tesseract-tsv',
+    outputFormat: 'tesseract-tsv',
   },
 };
+
+const SUPPORTED_OCR_PRESETS = Object.keys(OCR_PROVIDER_PRESETS) as OcrProviderPreset[];
+
+const isOcrProviderPreset = (value: string): value is OcrProviderPreset =>
+  SUPPORTED_OCR_PRESETS.includes(value as OcrProviderPreset);
 
 interface RawOcrOutput {
   text?: unknown;
@@ -103,7 +117,11 @@ export const isOcrProviderConfigured = (): boolean =>
 export const getOcrProviderStatus = (): PdfOcrProviderStatus => {
   const rawPreset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
   const commandConfigured = Boolean(process.env[OCR_COMMAND_ENV]?.trim());
-  const preset = rawPreset === 'tesseract' ? 'tesseract' : rawPreset ? 'unsupported' : undefined;
+  const preset = rawPreset
+    ? isOcrProviderPreset(rawPreset)
+      ? rawPreset
+      : 'unsupported'
+    : undefined;
 
   if (preset === 'unsupported') {
     return {
@@ -111,7 +129,9 @@ export const getOcrProviderStatus = (): PdfOcrProviderStatus => {
       provider: 'command',
       command_configured: commandConfigured,
       preset,
-      warnings: ['Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract.'],
+      warnings: [
+        `Unsupported MCP_PDF_OCR_PRESET. Supported values: ${SUPPORTED_OCR_PRESETS.join(', ')}.`,
+      ],
     };
   }
 
@@ -136,10 +156,10 @@ const readOcrProviderPreset = (): CommandOcrProviderConfig | undefined => {
   const preset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
   if (!preset) return undefined;
 
-  if (preset !== 'tesseract') {
+  if (!isOcrProviderPreset(preset)) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      'Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract.'
+      `Unsupported MCP_PDF_OCR_PRESET. Supported values: ${SUPPORTED_OCR_PRESETS.join(', ')}.`
     );
   }
 
@@ -158,7 +178,12 @@ export const readCommandProviderConfig = (): CommandOcrProviderConfig => {
 
   const rawArgs = process.env[OCR_ARGS_ENV];
   if (!rawArgs)
-    return { command, argsTemplate: preset?.argsTemplate ?? ['{input}'], preset: preset?.preset };
+    return {
+      command,
+      argsTemplate: preset?.argsTemplate ?? ['{input}'],
+      preset: preset?.preset,
+      outputFormat: preset?.outputFormat,
+    };
 
   let parsed: unknown;
   try {
@@ -187,7 +212,12 @@ export const readCommandProviderConfig = (): CommandOcrProviderConfig => {
     );
   }
 
-  return { command, argsTemplate: parsed, preset: preset?.preset };
+  return {
+    command,
+    argsTemplate: parsed,
+    preset: preset?.preset,
+    outputFormat: preset?.outputFormat,
+  };
 };
 
 const replacePlaceholders = (
@@ -270,10 +300,156 @@ const normalizeWords = (value: unknown): PdfOcrWord[] | undefined => {
   return words.length > 0 ? words : undefined;
 };
 
+const parseFiniteNumber = (value: string | undefined): number | undefined => {
+  if (value === undefined || value.trim() === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const requiredTsvColumnIndexes = (
+  headers: string[]
+):
+  | {
+      level: number;
+      blockNum: number;
+      parNum: number;
+      lineNum: number;
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      confidence: number;
+      text: number;
+    }
+  | undefined => {
+  const index = (name: string) => headers.indexOf(name);
+  const columns = {
+    level: index('level'),
+    blockNum: index('block_num'),
+    parNum: index('par_num'),
+    lineNum: index('line_num'),
+    left: index('left'),
+    top: index('top'),
+    width: index('width'),
+    height: index('height'),
+    confidence: index('conf'),
+    text: index('text'),
+  };
+
+  return Object.values(columns).some((value) => value < 0) ? undefined : columns;
+};
+
+const truncateOcrText = (
+  text: string,
+  maxOutputChars: number
+): { text: string; warnings?: string[] | undefined } =>
+  text.length > maxOutputChars
+    ? {
+        text: text.slice(0, maxOutputChars),
+        warnings: [`OCR output truncated to ${String(maxOutputChars)} characters.`],
+      }
+    : { text };
+
+const parseTesseractTsvOutput = (
+  stdout: string,
+  options: Pick<OcrPagesOptions, 'max_output_chars' | 'languages'>,
+  imageHeight: number | undefined
+): Omit<PdfOcrPageData, 'page' | 'provider' | 'source_render_evidence_id' | 'provenance'> => {
+  const lines = stdout.trim().split(/\r?\n/u);
+  const headers = lines[0]?.split('\t');
+  const columns = headers ? requiredTsvColumnIndexes(headers) : undefined;
+
+  if (!columns || imageHeight === undefined || imageHeight <= 0) {
+    const truncated = truncateOcrText(stdout.trim(), options.max_output_chars);
+    return {
+      text: truncated.text,
+      ...(options.languages?.[0] ? { language: options.languages[0] } : {}),
+      warnings: [
+        ...(truncated.warnings ?? []),
+        'Tesseract TSV output could not be normalized; returned raw OCR output.',
+      ],
+    };
+  }
+
+  const words: PdfOcrWord[] = [];
+  const lineTexts = new Map<string, string[]>();
+
+  for (const rawLine of lines.slice(1)) {
+    if (!rawLine.trim()) continue;
+
+    const values = rawLine.split('\t');
+    const level = parseFiniteNumber(values[columns.level]);
+    const text = values.slice(columns.text).join('\t').trim();
+    if (level !== 5 || text.length === 0) continue;
+
+    const left = parseFiniteNumber(values[columns.left]);
+    const top = parseFiniteNumber(values[columns.top]);
+    const width = parseFiniteNumber(values[columns.width]);
+    const height = parseFiniteNumber(values[columns.height]);
+    const confidence = normalizeConfidence(parseFiniteNumber(values[columns.confidence]));
+    const lineKey = [
+      values[columns.blockNum] ?? '0',
+      values[columns.parNum] ?? '0',
+      values[columns.lineNum] ?? '0',
+    ].join(':');
+
+    const line = lineTexts.get(lineKey) ?? [];
+    line.push(text);
+    lineTexts.set(lineKey, line);
+
+    const boundingBox =
+      left !== undefined &&
+      top !== undefined &&
+      width !== undefined &&
+      height !== undefined &&
+      width > 0 &&
+      height > 0
+        ? {
+            left,
+            bottom: imageHeight - top - height,
+            right: left + width,
+            top: imageHeight - top,
+          }
+        : undefined;
+
+    words.push({
+      text,
+      ...(confidence !== undefined ? { confidence } : {}),
+      ...(boundingBox ? { bounding_box: boundingBox } : {}),
+    });
+  }
+
+  const rawText = [...lineTexts.values()].map((line) => line.join(' ')).join('\n');
+  const truncated = truncateOcrText(rawText, options.max_output_chars);
+  const confidences = words
+    .map((word) => word.confidence)
+    .filter((confidence): confidence is number => confidence !== undefined);
+  const confidence =
+    confidences.length > 0
+      ? roundRatio(confidences.reduce((sum, value) => sum + value, 0) / confidences.length)
+      : undefined;
+
+  return {
+    text: truncated.text,
+    ...(confidence !== undefined ? { confidence } : {}),
+    ...(words.length > 0 ? { words } : {}),
+    ...(options.languages?.[0] ? { language: options.languages[0] } : {}),
+    ...(truncated.warnings ? { warnings: truncated.warnings } : {}),
+  };
+};
+
 const parseOcrOutput = (
   stdout: string,
-  options: Pick<OcrPagesOptions, 'max_output_chars' | 'languages'>
+  options: Pick<OcrPagesOptions, 'max_output_chars' | 'languages'>,
+  context: {
+    outputFormat?: OcrProviderOutputFormat | undefined;
+    imageHeight?: number | undefined;
+  } = {}
 ): Omit<PdfOcrPageData, 'page' | 'provider' | 'source_render_evidence_id' | 'provenance'> => {
+  if (context.outputFormat === 'tesseract-tsv') {
+    return parseTesseractTsvOutput(stdout, options, context.imageHeight);
+  }
+
   const trimmed = stdout.trim();
   let parsed: RawOcrOutput | undefined;
 
@@ -287,19 +463,12 @@ const parseOcrOutput = (
   }
 
   const rawText = parsed && typeof parsed.text === 'string' ? parsed.text : trimmed;
-  const text =
-    rawText.length > options.max_output_chars
-      ? rawText.slice(0, options.max_output_chars)
-      : rawText;
-  const warnings =
-    rawText.length > options.max_output_chars
-      ? [`OCR output truncated to ${String(options.max_output_chars)} characters.`]
-      : undefined;
+  const truncated = truncateOcrText(rawText, options.max_output_chars);
   const confidence = normalizeConfidence(parsed?.confidence);
   const words = normalizeWords(parsed?.words);
 
   return {
-    text,
+    text: truncated.text,
     ...(confidence !== undefined ? { confidence } : {}),
     ...(words ? { words } : {}),
     ...(typeof parsed?.language === 'string'
@@ -307,7 +476,7 @@ const parseOcrOutput = (
       : options.languages?.[0]
         ? { language: options.languages[0] }
         : {}),
-    ...(warnings ? { warnings } : {}),
+    ...(truncated.warnings ? { warnings: truncated.warnings } : {}),
   };
 };
 
@@ -335,7 +504,16 @@ export const ocrRenderedPageWithCommandProvider = async (
       maxBuffer: Math.max(options.max_output_chars * 4, 1024 * 1024),
       windowsHide: true,
     });
-    const normalized = parseOcrOutput(stdout, options);
+    const outputOptions: Pick<OcrPagesOptions, 'max_output_chars' | 'languages'> = {
+      max_output_chars: options.max_output_chars,
+      ...((context.languages ?? options.languages)
+        ? { languages: context.languages ?? options.languages }
+        : {}),
+    };
+    const normalized = parseOcrOutput(stdout, outputOptions, {
+      outputFormat: config.outputFormat,
+      imageHeight: page.height,
+    });
 
     return {
       page: page.page,

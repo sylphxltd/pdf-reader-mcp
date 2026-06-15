@@ -481,11 +481,28 @@ const withEnv = async <T>(
 
 const evaluateOcrTextLayer = async (): Promise<QualityAssertion[]> => {
   const scriptPath = path.resolve(process.cwd(), 'test/fixtures/mock-ocr-provider.mjs');
+  const tsvScriptPath = path.resolve(
+    process.cwd(),
+    'test/fixtures/mock-tesseract-tsv-provider.mjs'
+  );
   const page = await withEnv(
     {
       MCP_PDF_OCR_COMMAND: process.execPath,
       MCP_PDF_OCR_ARGS_JSON: JSON.stringify([scriptPath, '{input}', '{page}', '{languages}']),
       MCP_PDF_OCR_PRESET: undefined,
+    },
+    () =>
+      ocrRenderedPageWithCommandProvider(
+        buildRenderedPage(),
+        { source: 'mock.pdf', languages: ['eng'] },
+        defaultOcrPagesOptions()
+      )
+  );
+  const tsvPage = await withEnv(
+    {
+      MCP_PDF_OCR_COMMAND: process.execPath,
+      MCP_PDF_OCR_ARGS_JSON: JSON.stringify([tsvScriptPath, '{input}', '{page}', '{languages}']),
+      MCP_PDF_OCR_PRESET: 'tesseract-tsv',
     },
     () =>
       ocrRenderedPageWithCommandProvider(
@@ -522,6 +539,21 @@ const evaluateOcrTextLayer = async (): Promise<QualityAssertion[]> => {
         layer.summary.source_render_count === 1 &&
         layer.summary.average_confidence === 0.93 &&
         layer.warnings?.includes('Rendered page 3 for OCR.') === true,
+    },
+    {
+      name: 'Tesseract TSV preset normalizes words, confidence, language, and boxes',
+      pass:
+        tsvPage.text === 'Hello World' &&
+        tsvPage.confidence === 0.91 &&
+        tsvPage.language === 'eng' &&
+        tsvPage.words?.length === 2 &&
+        tsvPage.words[0]?.text === 'Hello' &&
+        tsvPage.words[0]?.confidence === 0.95 &&
+        JSON.stringify(tsvPage.words[0]?.bounding_box) ===
+          JSON.stringify({ left: 0, bottom: 1, right: 1, top: 2 }) &&
+        tsvPage.words[1]?.text === 'World' &&
+        JSON.stringify(tsvPage.words[1]?.bounding_box) ===
+          JSON.stringify({ left: 1, bottom: 0, right: 2, top: 1 }),
     },
   ];
 };

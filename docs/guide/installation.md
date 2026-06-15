@@ -55,12 +55,14 @@ npx @sylphx/pdf-reader-mcp
 ## Optional OCR Provider
 
 `ocr_pages` is disabled until a local OCR command or preset is configured. Set
-`MCP_PDF_OCR_PRESET=tesseract` to use the built-in Tesseract command template,
-or set `MCP_PDF_OCR_COMMAND` to the OCR executable or wrapper you want the
-server to run. Optionally set `MCP_PDF_OCR_ARGS_JSON` to a JSON string array
-with `{input}`, `{page}`, `{source}`, `{language}`, `{languages}`, and
-`{languages_tesseract}` placeholders. The argument template must include
-`{input}` so the provider receives the temporary rendered PNG.
+`MCP_PDF_OCR_PRESET=tesseract` for the plain-text Tesseract command template,
+or `MCP_PDF_OCR_PRESET=tesseract-tsv` when agents need normalized Tesseract
+word boxes and confidence. You can also set `MCP_PDF_OCR_COMMAND` to the OCR
+executable or wrapper you want the server to run. Optionally set
+`MCP_PDF_OCR_ARGS_JSON` to a JSON string array with `{input}`, `{page}`,
+`{source}`, `{language}`, `{languages}`, and `{languages_tesseract}`
+placeholders. The argument template must include `{input}` so the provider
+receives the temporary rendered PNG.
 
 Example:
 
@@ -79,7 +81,8 @@ Example:
 ```
 
 Provider stdout may be plain text or JSON with `text`, `confidence`,
-`language`, and `words`. The default package does not bundle an OCR model.
+`language`, and `words`; the `tesseract-tsv` preset parses TSV stdout directly.
+The default package does not bundle an OCR model.
 
 ## Optional Visual Region Analysis Provider
 

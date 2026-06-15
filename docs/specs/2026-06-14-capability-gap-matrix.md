@@ -58,7 +58,7 @@ neutral capability names and avoids public comparison language.
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; visual provider output can now preserve cell spans and boxes; non-repeated continuation still needs broader fixtures. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
 | Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, recursive reading order, visual-region normalization, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, visual-region normalization, and evidence search. |
-| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`. No default OCR model is bundled. |
+| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract` and `tesseract-tsv`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`; TSV output is normalized into word boxes and confidence. No default OCR model is bundled. |
 | Formula extraction | In progress | `analyze_regions` can normalize LaTeX, MathML, AsciiMath, text, confidence, and provenance from a configured provider; accuracy depends on the local engine. |
 | Chart/image descriptions | In progress | `analyze_regions` can normalize chart data points, axes, series, figure, and image-description provider output; accuracy depends on the configured local engine. |
 | Tagged PDF generation | Advanced | Requires separate design and validation. |
@@ -79,9 +79,9 @@ neutral capability names and avoids public comparison language.
 5. Add deterministic semantic model: headings, paragraphs, lists, captions,
    AST traversal, and richer table trust signals.
 6. Harden trust reports with redaction and broader adversarial fixtures.
-7. Harden the optional OCR provider with real scanned fixtures, additional
+7. Harden the optional OCR provider with broader scanned fixtures, additional
    provider presets, and accuracy/latency reporting beyond deterministic mock
-   provider normalization.
+   provider normalization and the installed Tesseract TSV smoke benchmark.
 8. Harden optional visual region providers for table, formula, chart, and
    image-description engines with broader fixtures and accuracy/latency
    reporting beyond deterministic mock provider normalization.

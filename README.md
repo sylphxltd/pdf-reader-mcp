@@ -767,7 +767,9 @@ local OCR command configured by environment variables. This keeps the default
 TypeScript package private and dependency-bounded while giving teams a real
 scanned PDF path when they already run Tesseract, PaddleOCR, a local HTTP shim,
 or an internal OCR binary. `MCP_PDF_OCR_PRESET=tesseract` provides a built-in
-Tesseract command template without bundling an OCR model.
+plain-text Tesseract command template, and `MCP_PDF_OCR_PRESET=tesseract-tsv`
+parses Tesseract TSV output into normalized words, confidence, and word
+bounding boxes without bundling an OCR model.
 
 The OCR provider is env-only, not request-controlled. Tool responses normalize
 provider output into page text, confidence, optional word boxes, language,
@@ -1091,11 +1093,12 @@ variables so an MCP request cannot choose arbitrary commands.
 
 | Variable | Description |
 |----------|-------------|
-| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported value: `tesseract`. |
+| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported values: `tesseract`, `tesseract-tsv`. Use `tesseract-tsv` when agents need provider word boxes and confidence from Tesseract TSV output. |
 | `MCP_PDF_OCR_COMMAND` | Absolute or PATH-resolved command used for OCR. Required unless `MCP_PDF_OCR_PRESET` is set. Overrides the preset command when both are set. |
 | `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{language}`, `{languages}`, and `{languages_tesseract}` placeholders. Defaults to the preset template or `["{input}"]`. |
 
-Provider stdout may be plain text or JSON:
+Provider stdout may be plain text, JSON, or Tesseract TSV when using the
+`tesseract-tsv` preset:
 
 ```json
 {
@@ -1478,7 +1481,7 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_HTTP_PORT` | `8080` | HTTP server port |
 | `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server hostname |
 | `MCP_API_KEY` | - | Optional API key for authentication |
-| `MCP_PDF_OCR_PRESET` | - | Optional OCR preset. Supported value: `tesseract` |
+| `MCP_PDF_OCR_PRESET` | - | Optional OCR preset. Supported values: `tesseract`, `tesseract-tsv` |
 | `MCP_PDF_OCR_COMMAND` | - | Optional local OCR command used by `ocr_pages` |
 | `MCP_PDF_OCR_ARGS_JSON` | `["{input}"]` | Optional JSON string array of OCR command arguments. Must include `{input}`. |
 | `MCP_PDF_REGION_ANALYSIS_COMMAND` | - | Optional local visual-region analysis command used by `analyze_regions` |
@@ -1575,7 +1578,8 @@ bun run check        # Lint + format
 bun run check:fix    # Auto-fix
 bun run benchmark    # Reproducible local performance benchmark
 bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
-bun run benchmark:all # Performance + quality benchmarks
+bun run benchmark:providers # Optional installed-provider benchmark; skips missing engines by default
+bun run benchmark:all # Performance + quality + provider benchmarks
 ```
 
 **Quality:**
@@ -1584,6 +1588,7 @@ bun run benchmark:all # Performance + quality benchmarks
 - ✅ Strict TypeScript
 - ✅ Zero lint errors
 - ✅ Reproducible quality benchmark
+- ✅ Optional installed-provider benchmark with strict mode
 
 </details>
 
@@ -1645,15 +1650,16 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Layout diagnostics with reading-order confidence
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Opt-in OCR text layer fusion for `read_pdf` and agent document maps
-- [x] Tesseract OCR provider preset without bundling OCR model assets
+- [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
 - [x] Configured local visual region analysis provider for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Public deterministic quality benchmark for Agent Document Twin, reading order, scanned-PDF OCR pipeline routing, OCR normalization, visual region normalization, and search evidence
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box accuracy/latency smoke checks
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
 - [ ] Richer semantic layout detection
-- [ ] Real scanned-PDF and visual-region fixture accuracy benchmarks for configured providers
+- [ ] Broader scanned-PDF and visual-region fixture accuracy benchmarks for configured providers
 - [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming

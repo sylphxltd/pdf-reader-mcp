@@ -748,7 +748,7 @@ export interface PdfOcrProviderStatus {
   readiness: PdfOptionalProviderReadiness;
   provider: 'command';
   command_configured: boolean;
-  preset?: 'tesseract' | 'unsupported' | undefined;
+  preset?: 'tesseract' | 'tesseract-tsv' | 'unsupported' | undefined;
   warnings?: string[] | undefined;
 }
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Add a `tesseract-tsv` OCR provider preset that runs Tesseract TSV output and
+  normalizes page text, confidence, language, and word-level bounding boxes
+  into the OCR text layer.
+- Add `bun run benchmark:providers`, an optional installed-provider benchmark
+  for the Tesseract TSV OCR path. It reports skipped providers explicitly by
+  default and can be made blocking with
+  `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
+- Update public docs to distinguish deterministic PDF intelligence quality
+  gates from installed-provider OCR accuracy/latency smoke checks.
+
 ## 2.6.0
 
 ### Minor Changes

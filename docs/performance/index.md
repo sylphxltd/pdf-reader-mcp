@@ -51,6 +51,26 @@ particular OCR, table, formula, chart, or vision model's real-world accuracy.
 Provider-specific accuracy and latency claims require separate public
 scanned/visual fixture runs.
 
+## Provider Benchmark
+
+Run the optional installed-provider benchmark when the local machine has the
+provider binary installed:
+
+```bash
+bun run benchmark:providers
+```
+
+The provider benchmark currently exercises the `tesseract-tsv` OCR preset over
+a runtime-generated PDF rendered through `read_pdf` OCR fusion. It checks
+recognized tokens, word-level bounding boxes, and document-map OCR provenance.
+If `tesseract` is not available on `PATH`, the case reports `skipped` and exits
+successfully by default. Release or provider-certification environments can
+make skipped providers fail with:
+
+```bash
+MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:providers
+```
+
 ## Optimization Tips
 
 ### 1. Inspect Before Heavy Extraction

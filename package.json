@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
   "version": "2.6.0",
-  "description": "Agent-native MCP server for PDF inspection, extraction, citation chunks, and safety signals.",
+  "description": "Agent-native MCP server for PDF inspection, extraction, OCR evidence, citation chunks, and safety signals.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/index.js"
@@ -70,7 +70,8 @@
     "typecheck": "tsc --noEmit",
     "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
     "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",
-    "benchmark:all": "bun run benchmark && bun run benchmark:quality",
+    "benchmark:providers": "bun scripts/benchmark-pdf-providers.ts",
+    "benchmark:all": "bun run benchmark && bun run benchmark:quality && bun run benchmark:providers",
     "clean": "rm -rf dist coverage",
     "docs:api": "typedoc --entryPoints src/index.ts --tsconfig tsconfig.json --plugin typedoc-plugin-markdown --out docs/api --readme none",
     "prepublishOnly": "bun run clean && bun run build",

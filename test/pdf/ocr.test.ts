@@ -85,6 +85,14 @@ describe('ocr', () => {
       command_configured: false,
       preset: 'tesseract',
     });
+
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
+    expect(getOcrProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'command',
+      command_configured: false,
+      preset: 'tesseract-tsv',
+    });
   });
 
   it('should resolve the tesseract OCR preset without custom command args', () => {
@@ -96,6 +104,20 @@ describe('ocr', () => {
       command: 'tesseract',
       argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}'],
       preset: 'tesseract',
+      outputFormat: 'plain-text',
+    });
+  });
+
+  it('should resolve the tesseract TSV OCR preset without custom command args', () => {
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_ARGS_JSON');
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
+
+    expect(readCommandProviderConfig()).toEqual({
+      command: 'tesseract',
+      argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}', 'tsv'],
+      preset: 'tesseract-tsv',
+      outputFormat: 'tesseract-tsv',
     });
   });
 
@@ -138,6 +160,44 @@ describe('ocr', () => {
           text: 'Mock',
           confidence: 0.95,
           bounding_box: { left: 0, bottom: 0, right: 20, top: 10 },
+        },
+      ],
+    });
+  });
+
+  it('should run the tesseract TSV preset and normalize word boxes', async () => {
+    const scriptPath = path.resolve(__dirname, '../fixtures/mock-tesseract-tsv-provider.mjs');
+    process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
+    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([scriptPath, '{input}', '{page}', '{languages}']);
+
+    const result = await ocrRenderedPageWithCommandProvider(
+      buildRenderedPage(),
+      { source: 'mock.pdf', languages: ['eng'] },
+      defaultOcrPagesOptions()
+    );
+
+    expect(result).toMatchObject({
+      page: 3,
+      text: 'Hello World',
+      confidence: 0.91,
+      language: 'eng',
+      provider: 'command',
+      source_render_evidence_id: 'page-3-render-scale-1',
+      provenance: {
+        engine: 'external-command',
+        source: 'ocr-provider',
+      },
+      words: [
+        {
+          text: 'Hello',
+          confidence: 0.95,
+          bounding_box: { left: 0, bottom: 1, right: 1, top: 2 },
+        },
+        {
+          text: 'World',
+          confidence: 0.87,
+          bounding_box: { left: 1, bottom: 0, right: 2, top: 1 },
         },
       ],
     });
