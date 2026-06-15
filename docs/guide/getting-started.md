@@ -399,7 +399,9 @@ Use `include_document_ast` when an agent needs a semantic tree instead of flat
 page text. The AST includes page, section, paragraph, list item, caption,
 header, footer, table, and image nodes with `element_ids`, `chunk_ids`,
 bounding boxes, confidence, semantic roles, and table quality metadata where
-available.
+available. When a page break continues an active section, AST nodes expose
+`section_path` and `continued_from_section_id` without moving evidence out of
+the page that owns it.
 
 ```json
 {

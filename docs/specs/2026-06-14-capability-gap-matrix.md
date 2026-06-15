@@ -35,7 +35,7 @@ neutral capability names and avoids public comparison language.
 | Table quality diagnostics | Shipped | Completeness, non-empty cell ratio, row alignment, row spacing consistency, missing-cell count, inferred merged-cell candidates, warnings, and repeated-header continuation candidates. |
 | Structured element output | Shipped | `include_elements`. |
 | Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, OCR evidence, visual enrichment indexes, and page geometry in one agent-ready contract. |
-| Semantic document AST | Shipped | `include_document_ast`; page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, diagram, and visual-region nodes linked to element IDs, visual enrichment IDs, chunk IDs, bounding boxes, confidence, and table quality metadata. |
+| Semantic document AST | Shipped | `include_document_ast`; page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, diagram, and visual-region nodes linked to element IDs, visual enrichment IDs, chunk IDs, bounding boxes, confidence, section-path context, and table quality metadata. |
 | Deterministic semantic hints | Shipped | `include_semantic_hints`; heading, list item, paragraph, caption, header, and footer hints with confidence. Header/footer detection uses page-edge geometry and avoids off-page text. |
 | Markdown rendering | Shipped | `include_markdown`. |
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
@@ -53,7 +53,7 @@ neutral capability names and avoids public comparison language.
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, off-page text, and overlapping text that may visually spoof or obscure content. |
 | PDF trust report | Shipped | `include_trust_report`; consolidates content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals with page-level routing guidance. |
-| Rich semantic headings/paragraphs/lists | In progress | Deterministic hints and AST nodes now cover headings, paragraphs, lists, captions, headers, and footers. Broader semantic variants and cross-page linking still need fixtures/evals. |
+| Rich semantic headings/paragraphs/lists | In progress | Deterministic hints and AST nodes now cover headings, paragraphs, lists, captions, headers, footers, and cross-page section context. Broader semantic variants and caption-to-figure/table linking still need fixtures/evals. |
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; visual provider output can now preserve cell spans and boxes; non-repeated continuation still needs broader fixtures. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
@@ -80,8 +80,8 @@ neutral capability names and avoids public comparison language.
 4. Promote run/character evidence into the shared document map and benchmark
    retrieval quality against fixture expectations.
 5. Continue broadening the deterministic semantic model beyond shipped
-   headings, paragraphs, lists, captions, headers, footers, AST traversal, and
-   richer table trust signals.
+   headings, paragraphs, lists, captions, headers, footers, cross-page section
+   context, AST traversal, and richer table trust signals.
 6. Harden trust reports with redaction and broader adversarial fixtures.
 7. Harden the optional OCR provider with broader scanned fixtures, additional
    provider presets, and accuracy/latency reporting beyond deterministic mock

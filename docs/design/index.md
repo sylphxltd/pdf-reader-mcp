@@ -14,7 +14,7 @@ PDF Reader MCP is built on these core principles:
 - **Text Extraction** - Full document or specific pages
 - **Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
-- **Document AST** - Optional semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal
+- **Document AST** - Optional semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context
 - **Trust Report** - Optional consolidated risk report for content safety, layout uncertainty, sparse pages, table quality, and external links
 - **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions
 - **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
@@ -62,7 +62,7 @@ PDF Reader MCP is built on these core principles:
 - **Text Fidelity** - Text layers expose run metadata, line IDs, word records, character records, character ranges, and bbox coverage without requiring agents to parse plain strings
 - **Searchable Evidence** - Search matches carry snippets, offsets, character-derived or text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
-- **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs and chunk IDs as evidence anchors
+- **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs, chunk IDs, and continued section context as evidence anchors
 - **Trust Routing** - The trust report turns safety, layout, table, and annotation signals into page-level routing guidance
 - **Accessibility Routing** - The accessibility report turns tagged structure, headings, images, forms, links, and permissions into page-level quality guidance
 - **Semantic Hints** - Heading, list, paragraph, caption, header, and footer hints carry confidence and signals without overstating parser certainty

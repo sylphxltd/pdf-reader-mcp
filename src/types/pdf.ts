@@ -371,6 +371,13 @@ export interface PdfDocumentAstImage {
   format: string;
 }
 
+export interface PdfDocumentAstSectionRef {
+  id: string;
+  title: string;
+  level: number;
+  page_start: number;
+}
+
 export interface PdfDocumentAstNode {
   id: string;
   type: PdfDocumentAstNodeType;
@@ -385,6 +392,8 @@ export interface PdfDocumentAstNode {
   level?: number | undefined;
   confidence?: number | undefined;
   semantic_role?: PdfTextSemanticRole | undefined;
+  section_path?: PdfDocumentAstSectionRef[] | undefined;
+  continued_from_section_id?: string | undefined;
   table?: PdfDocumentAstTable | undefined;
   image?: PdfDocumentAstImage | undefined;
   formula?: PdfRegionAnalysisFormula | undefined;
@@ -403,6 +412,8 @@ export interface PdfDocumentAstSummary {
   caption_count: number;
   header_count: number;
   footer_count: number;
+  section_context_node_count: number;
+  cross_page_section_context_count: number;
   table_count: number;
   image_count: number;
   figure_count: number;

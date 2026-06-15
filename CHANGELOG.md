@@ -15,6 +15,9 @@
   header, and footer roles. Header/footer detection uses page-edge geometry and
   horizontal page bounds so off-page text remains available as evidence without
   being misclassified as a footer.
+- Add cross-page section context to the document AST. Continued paragraphs,
+  subsections, tables, images, and visual regions can now expose `section_path`
+  and `continued_from_section_id` while preserving page-local evidence nodes.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can
   receive crop image bytes and return the same normalized table, formula, chart,
   figure, image-description, confidence, warning, and provenance fields as

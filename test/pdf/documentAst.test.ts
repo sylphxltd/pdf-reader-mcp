@@ -173,4 +173,73 @@ describe('documentAst', () => {
     ]);
     expect(JSON.stringify(ast.root)).toContain('"type":"caption"');
   });
+
+  it('preserves cross-page section context without moving evidence out of page nodes', () => {
+    const pageContents = [
+      {
+        page: 1,
+        items: [
+          textItem('Executive Summary', 40, 720, 180, 20),
+          textItem('Revenue increased by 24%.', 40, 690, 260, 10),
+          textItem('Operating margin stayed flat.', 40, 670, 220, 10),
+        ],
+      },
+      {
+        page: 2,
+        items: [
+          textItem('Management commentary continues on page two.', 40, 720, 300, 10),
+          textItem('Risk Controls', 40, 680, 140, 16),
+          textItem('Manual review remains required.', 40, 650, 240, 10),
+        ],
+      },
+    ];
+
+    const elements = buildStructuredElements(pageContents, [], true);
+    const chunks = buildCitationChunks(elements, { useSemanticBoundaries: true });
+    const ast = buildDocumentAst({
+      selectedPages: [1, 2],
+      elements,
+      chunks,
+    });
+
+    const pageTwoChildren = ast.root.children?.[1]?.children ?? [];
+    expect(pageTwoChildren[0]).toMatchObject({
+      id: 'p2-text-1',
+      type: 'paragraph',
+      continued_from_section_id: 'p1-text-1-section',
+      section_path: [
+        {
+          id: 'p1-text-1-section',
+          title: 'Executive Summary',
+          level: 1,
+          page_start: 1,
+        },
+      ],
+    });
+    expect(pageTwoChildren[1]).toMatchObject({
+      id: 'p2-text-2-section',
+      type: 'section',
+      continued_from_section_id: 'p1-text-1-section',
+      section_path: [
+        {
+          id: 'p1-text-1-section',
+          title: 'Executive Summary',
+          level: 1,
+          page_start: 1,
+        },
+        {
+          id: 'p2-text-2-section',
+          title: 'Risk Controls',
+          level: 2,
+          page_start: 2,
+        },
+      ],
+    });
+    expect(ast.summary).toMatchObject({
+      page_count: 2,
+      section_context_node_count: 6,
+      cross_page_section_context_count: 3,
+    });
+    expect(ast.root.children?.[1]?.element_ids).toEqual(['p2-text-1', 'p2-text-2', 'p2-text-3']);
+  });
 });

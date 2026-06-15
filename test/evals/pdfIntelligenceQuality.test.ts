@@ -75,6 +75,7 @@ const qualityCases: QualityCase[] = [
       {
         page: 2,
         items: [
+          textItem('Management commentary continues on page 2.', 40, 748, 300, 10),
           textItem('Risk Controls', 40, 720, 150, 22),
           textItem('Manual <review> remains required for exception queues.', 40, 690, 320, 10),
         ],
@@ -191,6 +192,7 @@ const evaluateCase = (qualityCase: QualityCase) => {
           'caption',
           'paragraph',
           'footer',
+          'paragraph',
           'heading',
           'paragraph',
         ]),
@@ -269,15 +271,21 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.summary.safety_finding_count === 3,
     },
     {
-      name: 'document AST exposes sections, paragraphs, lists, and tables',
+      name: 'document AST exposes sections, paragraphs, lists, cross-page context, and tables',
       pass:
         documentAst.profile === 'document_ast' &&
         documentAst.summary.section_count === 2 &&
-        documentAst.summary.paragraph_count === 4 &&
+        documentAst.summary.paragraph_count === 5 &&
         documentAst.summary.list_item_count === 1 &&
         documentAst.summary.caption_count === 1 &&
         documentAst.summary.header_count === 1 &&
         documentAst.summary.footer_count === 1 &&
+        documentAst.summary.cross_page_section_context_count === 1 &&
+        JSON.stringify(
+          documentAst.root.children?.[1]?.children?.[0]?.section_path?.map((section) => section.id)
+        ) === JSON.stringify(['p1-text-2-section']) &&
+        documentAst.root.children?.[1]?.children?.[0]?.continued_from_section_id ===
+          'p1-text-2-section' &&
         documentAst.summary.table_count === 1 &&
         documentAst.root.element_ids.includes('p1-table-1') &&
         documentAst.root.chunk_ids !== undefined,
@@ -296,8 +304,8 @@ const evaluateCase = (qualityCase: QualityCase) => {
       name: 'text layer preserves run, line, word, and character evidence',
       pass:
         textLayer.profile === 'pdf_text_layer' &&
-        textLayer.summary.run_count === 10 &&
-        textLayer.summary.line_count === 10 &&
+        textLayer.summary.run_count === 11 &&
+        textLayer.summary.line_count === 11 &&
         textLayer.summary.word_count > 20 &&
         textLayer.summary.chars_with_bounding_boxes > textLayer.summary.word_count &&
         textLayer.summary.words_with_bounding_boxes === textLayer.summary.word_count &&

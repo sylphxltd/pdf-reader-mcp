@@ -4,6 +4,7 @@ import type {
   PdfDocumentAst,
   PdfDocumentAstNode,
   PdfDocumentAstNodeType,
+  PdfDocumentAstSectionRef,
   PdfDocumentElement,
   PdfRegionAnalysisKind,
   PdfVisualEnrichment,
@@ -27,6 +28,8 @@ interface AstStats {
   captionCount: number;
   headerCount: number;
   footerCount: number;
+  sectionContextNodeCount: number;
+  crossPageSectionContextCount: number;
   tableCount: number;
   imageCount: number;
   figureCount: number;
@@ -39,6 +42,21 @@ interface AstStats {
 }
 
 const unique = <TValue>(values: TValue[]): TValue[] => [...new Set(values)];
+
+const sectionRef = (node: PdfDocumentAstNode): PdfDocumentAstSectionRef => ({
+  id: node.id,
+  title: node.title ?? node.text ?? node.id,
+  level: node.level ?? 1,
+  page_start: node.page_start,
+});
+
+const continuedFromSectionId = (
+  path: PdfDocumentAstSectionRef[],
+  page: number
+): string | undefined => {
+  const priorPageSection = path.findLast((section) => section.page_start < page);
+  return priorPageSection?.id;
+};
 
 const pageRangeForElements = (elements: PdfDocumentElement[]): { start: number; end: number } => {
   if (elements.length === 0) return { start: 0, end: 0 };
@@ -236,6 +254,42 @@ const appendToPageTree = (
   parent.children.push(node);
 };
 
+const syncSectionContext = (
+  documentSectionStack: PdfDocumentAstNode[],
+  node: PdfDocumentAstNode
+) => {
+  if (node.type === 'header' || node.type === 'footer') return;
+
+  if (node.type === 'section') {
+    const level = node.level ?? 1;
+    while (documentSectionStack.length > 0) {
+      const parent = documentSectionStack[documentSectionStack.length - 1];
+      if (parent && (parent.level ?? 1) < level) break;
+      documentSectionStack.pop();
+    }
+
+    const path = [...documentSectionStack.map(sectionRef), sectionRef(node)];
+    if (path.length > 0) {
+      node.section_path = path;
+    }
+    const continuedFrom = continuedFromSectionId(path, node.page_start);
+    if (continuedFrom) {
+      node.continued_from_section_id = continuedFrom;
+    }
+    documentSectionStack.push(node);
+    return;
+  }
+
+  if (documentSectionStack.length === 0) return;
+
+  const path = documentSectionStack.map(sectionRef);
+  node.section_path = path;
+  const continuedFrom = continuedFromSectionId(path, node.page_start);
+  if (continuedFrom) {
+    node.continued_from_section_id = continuedFrom;
+  }
+};
+
 const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
   const children = node.children ?? [];
   const childStats = children.map((child) => aggregateNode(child, depth + 1));
@@ -278,6 +332,9 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       captionCount: stats.captionCount + child.captionCount,
       headerCount: stats.headerCount + child.headerCount,
       footerCount: stats.footerCount + child.footerCount,
+      sectionContextNodeCount: stats.sectionContextNodeCount + child.sectionContextNodeCount,
+      crossPageSectionContextCount:
+        stats.crossPageSectionContextCount + child.crossPageSectionContextCount,
       tableCount: stats.tableCount + child.tableCount,
       imageCount: stats.imageCount + child.imageCount,
       figureCount: stats.figureCount + child.figureCount,
@@ -299,6 +356,8 @@ const aggregateNode = (node: PdfDocumentAstNode, depth: number): AstStats => {
       captionCount: node.type === 'caption' ? 1 : 0,
       headerCount: node.type === 'header' ? 1 : 0,
       footerCount: node.type === 'footer' ? 1 : 0,
+      sectionContextNodeCount: node.section_path ? 1 : 0,
+      crossPageSectionContextCount: node.continued_from_section_id ? 1 : 0,
       tableCount: node.type === 'table' ? 1 : 0,
       imageCount: node.image !== undefined ? 1 : 0,
       figureCount: node.type === 'figure' ? 1 : 0,
@@ -348,6 +407,7 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
   const chunkIndex = chunksByElementId(input.chunks);
   const visualByTargetElementId = visualEnrichmentsByTargetElementId(visualEnrichments);
   const visualByPage = visualEnrichmentsByPage(visualEnrichments);
+  const documentSectionStack: PdfDocumentAstNode[] = [];
 
   const root: PdfDocumentAstNode = {
     id: 'document',
@@ -379,16 +439,16 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
     const sectionStack: PdfDocumentAstNode[] = [];
 
     for (const element of pageElements) {
-      appendToPageTree(
-        pageNode,
-        sectionStack,
-        nodeForElement(element, chunkIndex, visualByTargetElementId.get(element.id))
-      );
+      const node = nodeForElement(element, chunkIndex, visualByTargetElementId.get(element.id));
+      syncSectionContext(documentSectionStack, node);
+      appendToPageTree(pageNode, sectionStack, node);
     }
 
     for (const enrichment of visualByPage.get(page) ?? []) {
       if (pageElementIds.has(enrichment.target_element_id)) continue;
-      appendToPageTree(pageNode, sectionStack, nodeForVisualEnrichment(enrichment));
+      const node = nodeForVisualEnrichment(enrichment);
+      syncSectionContext(documentSectionStack, node);
+      appendToPageTree(pageNode, sectionStack, node);
     }
 
     root.children?.push(pageNode);
@@ -418,6 +478,8 @@ export const buildDocumentAst = (input: BuildDocumentAstInput): PdfDocumentAst =
       caption_count: stats.captionCount,
       header_count: stats.headerCount,
       footer_count: stats.footerCount,
+      section_context_node_count: stats.sectionContextNodeCount,
+      cross_page_section_context_count: stats.crossPageSectionContextCount,
       table_count: stats.tableCount,
       image_count: stats.imageCount,
       figure_count: stats.figureCount,

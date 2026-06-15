@@ -20,10 +20,14 @@ callers to request every intermediate top-level output.
   image node types.
 - `element_ids`, `chunk_ids`, page ranges, bounding boxes, confidence, and
   semantic roles where available.
+- `section_path` and `continued_from_section_id` metadata where page breaks
+  continue the active section context without moving evidence out of the page
+  node that owns it.
 - Table nodes with rows, confidence, quality diagnostics, and continuation
   candidates when deterministic table extraction finds tables.
 - Summary counts for pages, nodes, sections, paragraphs, list items, captions,
-  headers, footers, tables, images, and max depth.
+  headers, footers, section-context nodes, cross-page section contexts, tables,
+  images, and max depth.
 
 The AST is opt-in. It can build the internal element, chunk, semantic, and
 table state it needs without forcing top-level `elements`, `chunks`, or
@@ -45,9 +49,10 @@ around one extraction model.
 
 The AST uses deterministic semantic hints. Caption, header, and footer roles
 come from conservative text-pattern and page-edge heuristics with confidence
-signals. It does not claim ML-grade semantic classification, cross-page section
-merging, or visual layout understanding. Those can enrich the same AST later
-through optional providers.
+signals. Cross-page section context preserves deterministic heading continuity
+as metadata; it does not claim ML-grade semantic classification, cross-page
+content merging, or visual layout understanding. Those can enrich the same AST
+later through optional providers.
 
 ## Acceptance Criteria
 
@@ -55,6 +60,8 @@ through optional providers.
 - AST nodes preserve evidence links through `element_ids` and `chunk_ids`.
 - Heading hints create section nodes.
 - Paragraph, list, caption, header, and footer hints create leaf nodes.
+- Paragraphs and subsections that continue after a page break expose
+  `section_path` and `continued_from_section_id`.
 - Table nodes carry table rows and table quality metadata.
 - The quality eval covers AST sections, paragraphs, lists, captions, headers,
-  footers, and tables.
+  footers, cross-page section context, and tables.
