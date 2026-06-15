@@ -982,6 +982,10 @@ var REGION_ANALYSIS_COMMAND_ENV = "MCP_PDF_REGION_ANALYSIS_COMMAND";
 var REGION_ANALYSIS_ARGS_ENV = "MCP_PDF_REGION_ANALYSIS_ARGS_JSON";
 var REGION_ANALYSIS_HTTP_URL_ENV = "MCP_PDF_REGION_ANALYSIS_HTTP_URL";
 var REGION_ANALYSIS_HTTP_HEADERS_ENV = "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON";
+var REGION_ANALYSIS_PRESET_ENV = "MCP_PDF_REGION_ANALYSIS_PRESET";
+var REGION_ANALYSIS_OLLAMA_URL_ENV = "MCP_PDF_REGION_ANALYSIS_OLLAMA_URL";
+var REGION_ANALYSIS_OLLAMA_MODEL_ENV = "MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL";
+var DEFAULT_OLLAMA_GENERATE_URL = "http://127.0.0.1:11434/api/generate";
 var REGION_ANALYSIS_KINDS = new Set([
   "text",
   "table",
@@ -992,6 +996,8 @@ var REGION_ANALYSIS_KINDS = new Set([
   "diagram",
   "unknown"
 ]);
+var SUPPORTED_REGION_ANALYSIS_PRESETS = ["ollama"];
+var isRegionAnalysisProviderPreset = (value) => SUPPORTED_REGION_ANALYSIS_PRESETS.includes(value);
 var defaultAnalyzeRegionsOptions = () => ({
   scale: DEFAULT_RENDER_SCALE,
   max_regions: DEFAULT_MAX_REGIONS,
@@ -1001,20 +1007,62 @@ var defaultAnalyzeRegionsOptions = () => ({
 });
 var getRegionAnalysisProviderStatus = () => {
   const commandConfigured = Boolean(process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim());
+  const rawPreset = process.env[REGION_ANALYSIS_PRESET_ENV]?.trim().toLowerCase();
+  const preset = rawPreset ? isRegionAnalysisProviderPreset(rawPreset) ? rawPreset : "unsupported" : undefined;
   const rawUrl = process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim();
-  const httpConfigured = Boolean(rawUrl);
+  const httpConfigured = Boolean(rawUrl || preset === "ollama");
+  if (commandConfigured) {
+    return {
+      readiness: "ready",
+      provider: "command",
+      command_configured: true,
+      health: "not_checked",
+      health_check: "not_checked",
+      http_configured: httpConfigured
+    };
+  }
+  if (preset === "unsupported") {
+    return {
+      readiness: "invalid_configuration",
+      provider: "http",
+      command_configured: false,
+      health: "not_checked",
+      health_check: "not_checked",
+      http_configured: Boolean(rawUrl),
+      preset,
+      warnings: [
+        `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${SUPPORTED_REGION_ANALYSIS_PRESETS.join(", ")}.`
+      ]
+    };
+  }
+  const model = process.env[REGION_ANALYSIS_OLLAMA_MODEL_ENV]?.trim();
+  const urlForValidation = preset === "ollama" ? process.env[REGION_ANALYSIS_OLLAMA_URL_ENV]?.trim() : rawUrl;
   if (httpConfigured) {
+    if (preset === "ollama" && !model) {
+      return {
+        readiness: "invalid_configuration",
+        provider: "http",
+        command_configured: false,
+        health: "not_checked",
+        health_check: "not_checked",
+        http_configured: true,
+        preset,
+        warnings: ["Set MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL to use the Ollama preset."]
+      };
+    }
     try {
       readRegionAnalysisHttpHeaders();
-      new URL(rawUrl);
+      new URL(urlForValidation || DEFAULT_OLLAMA_GENERATE_URL);
     } catch (error) {
       return {
         readiness: "invalid_configuration",
-        provider: commandConfigured ? "command" : "http",
+        provider: "http",
         command_configured: commandConfigured,
         health: "not_checked",
         health_check: "not_checked",
         http_configured: httpConfigured,
+        ...preset ? { preset } : {},
+        ...model ? { model } : {},
         warnings: [error instanceof Error ? error.message : String(error)]
       };
     }
@@ -1028,7 +1076,7 @@ var getRegionAnalysisProviderStatus = () => {
       health_check: "not_checked",
       http_configured: false,
       warnings: [
-        "Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions."
+        "Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama to enable analyze_regions."
       ]
     };
   }
@@ -1038,13 +1086,15 @@ var getRegionAnalysisProviderStatus = () => {
     command_configured: commandConfigured,
     health: "not_checked",
     health_check: "not_checked",
-    http_configured: httpConfigured
+    http_configured: httpConfigured,
+    ...preset ? { preset } : {},
+    ...model ? { model } : {}
   };
 };
 var readRegionAnalysisProviderConfig = () => {
   const command = process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim();
   if (!command) {
-    throw new PdfError(-32600 /* InvalidRequest */, "Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions.");
+    throw new PdfError(-32600 /* InvalidRequest */, "Region analysis command provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND to use the command adapter.");
   }
   const rawArgs = process.env[REGION_ANALYSIS_ARGS_ENV];
   if (!rawArgs)
@@ -1085,7 +1135,7 @@ var readRegionAnalysisHttpHeaders = () => {
 var readRegionAnalysisHttpProviderConfig = () => {
   const url = process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim();
   if (!url) {
-    throw new PdfError(-32600 /* InvalidRequest */, "Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions.");
+    throw new PdfError(-32600 /* InvalidRequest */, "Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama to enable analyze_regions.");
   }
   try {
     new URL(url);
@@ -1100,10 +1150,43 @@ var readRegionAnalysisHttpProviderConfig = () => {
     headers: readRegionAnalysisHttpHeaders()
   };
 };
+var readOllamaRegionAnalysisProviderConfig = () => {
+  const model = process.env[REGION_ANALYSIS_OLLAMA_MODEL_ENV]?.trim();
+  if (!model) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL is required when MCP_PDF_REGION_ANALYSIS_PRESET=ollama.");
+  }
+  const url = process.env[REGION_ANALYSIS_OLLAMA_URL_ENV]?.trim() || DEFAULT_OLLAMA_GENERATE_URL;
+  try {
+    new URL(url);
+  } catch (error) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_REGION_ANALYSIS_OLLAMA_URL must be a valid URL.", {
+      cause: error instanceof Error ? error : undefined
+    });
+  }
+  return {
+    provider: "http",
+    url,
+    headers: readRegionAnalysisHttpHeaders(),
+    preset: "ollama",
+    model
+  };
+};
+var readRegionAnalysisPreset = () => {
+  const preset = process.env[REGION_ANALYSIS_PRESET_ENV]?.trim().toLowerCase();
+  if (!preset)
+    return;
+  if (!isRegionAnalysisProviderPreset(preset)) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${SUPPORTED_REGION_ANALYSIS_PRESETS.join(", ")}.`);
+  }
+  return preset;
+};
 var readConfiguredRegionAnalysisProviderConfig = () => {
   const command = process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim();
   if (command)
     return readRegionAnalysisProviderConfig();
+  const preset = readRegionAnalysisPreset();
+  if (preset === "ollama")
+    return readOllamaRegionAnalysisProviderConfig();
   return readRegionAnalysisHttpProviderConfig();
 };
 var replacePlaceholders = (template, context) => template.replaceAll("{input}", context.inputPath).replaceAll("{page}", String(context.page)).replaceAll("{source}", context.source).replaceAll("{region_id}", context.regionId).replaceAll("{evidence_id}", context.evidenceId).replaceAll("{left}", String(context.left)).replaceAll("{bottom}", String(context.bottom)).replaceAll("{right}", String(context.right)).replaceAll("{top}", String(context.top)).replaceAll("{language}", context.languages?.[0] ?? "").replaceAll("{languages}", context.languages?.join(",") ?? "");
@@ -1389,6 +1472,57 @@ var parseRegionAnalysisOutput = (stdout, options) => {
     ...warnings.length > 0 ? { warnings } : {}
   };
 };
+var buildOllamaRegionAnalysisPrompt = (region, context) => [
+  "Analyze this cropped PDF region for an AI document parser.",
+  "Return only one JSON object with these optional fields: kind, description, text, markdown, confidence, table, formula, chart, warnings.",
+  "Use kind as one of: text, table, figure, chart, formula, image, diagram, unknown.",
+  "For tables, include rows and cells with row_index, column_index, text, confidence, and optional bounding_box in crop coordinates when reliable.",
+  "For formulas, include latex, mathml, asciimath, text, and confidence when available.",
+  "For charts, include title, summary, x_axis, y_axis, series, data_points, and confidence when available.",
+  "Do not invent values that are not visible in the crop; use warnings for uncertainty.",
+  `Source: ${context.source}`,
+  `Page: ${String(region.page)}`,
+  `Region ID: ${region.region_id}`,
+  `Evidence ID: ${region.evidence_id}`,
+  `PDF bounding box: left=${String(region.source_bounding_box.left)}, bottom=${String(region.source_bounding_box.bottom)}, right=${String(region.source_bounding_box.right)}, top=${String(region.source_bounding_box.top)}`,
+  `Languages: ${(context.languages ?? []).join(",") || "unspecified"}`
+].join(`
+`);
+var buildRegionAnalysisHttpRequestBody = (region, context, config) => {
+  if (config.preset === "ollama") {
+    return {
+      model: config.model,
+      prompt: buildOllamaRegionAnalysisPrompt(region, context),
+      images: [region.data],
+      stream: false,
+      format: "json"
+    };
+  }
+  return {
+    image_base64: region.data,
+    mime_type: region.mime_type,
+    format: region.format,
+    page: region.page,
+    region_id: region.region_id,
+    evidence_id: region.evidence_id,
+    source: context.source,
+    source_bounding_box: region.source_bounding_box,
+    crop_pixels: region.crop_pixels,
+    scale: region.scale,
+    languages: context.languages ?? []
+  };
+};
+var parseOllamaGenerateResponse = (stdout) => {
+  const parsed = JSON.parse(stdout);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new PdfError(-32600 /* InvalidRequest */, "Ollama region analysis response was not a JSON object.");
+  }
+  const response = parsed.response;
+  if (typeof response !== "string" || response.trim().length === 0) {
+    throw new PdfError(-32600 /* InvalidRequest */, "Ollama region analysis response did not include a non-empty response string.");
+  }
+  return response;
+};
 var analyzeRegionCropWithCommandProvider = async (region, context, options) => {
   const config = readRegionAnalysisProviderConfig();
   const tempDir = await fs4.mkdtemp(path3.join(os.tmpdir(), "pdf-reader-mcp-region-analysis-"));
@@ -1452,26 +1586,15 @@ var analyzeRegionCropWithHttpProvider = async (region, context, options, config 
         "Content-Type": "application/json",
         ...config.headers
       },
-      body: JSON.stringify({
-        image_base64: region.data,
-        mime_type: region.mime_type,
-        format: region.format,
-        page: region.page,
-        region_id: region.region_id,
-        evidence_id: region.evidence_id,
-        source: context.source,
-        source_bounding_box: region.source_bounding_box,
-        crop_pixels: region.crop_pixels,
-        scale: region.scale,
-        languages: context.languages ?? []
-      }),
+      body: JSON.stringify(buildRegionAnalysisHttpRequestBody(region, context, config)),
       signal: abortController.signal
     });
     const stdout = await response.text();
     if (!response.ok) {
       throw new PdfError(-32600 /* InvalidRequest */, `Region analysis HTTP provider failed with status ${String(response.status)}.`);
     }
-    const normalized = parseRegionAnalysisOutput(stdout, options);
+    const providerOutput = config.preset === "ollama" ? parseOllamaGenerateResponse(stdout) : stdout;
+    const normalized = parseRegionAnalysisOutput(providerOutput, options);
     return {
       region_id: region.region_id,
       page: region.page,

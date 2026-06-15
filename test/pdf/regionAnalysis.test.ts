@@ -16,13 +16,19 @@ const originalCommand = process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'];
 const originalArgs = process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'];
 const originalHttpUrl = process.env['MCP_PDF_REGION_ANALYSIS_HTTP_URL'];
 const originalHttpHeaders = process.env['MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON'];
+const originalPreset = process.env['MCP_PDF_REGION_ANALYSIS_PRESET'];
+const originalOllamaUrl = process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_URL'];
+const originalOllamaModel = process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL'];
 
 const restoreEnv = (
   name:
     | 'MCP_PDF_REGION_ANALYSIS_COMMAND'
     | 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON'
     | 'MCP_PDF_REGION_ANALYSIS_HTTP_URL'
-    | 'MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON',
+    | 'MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON'
+    | 'MCP_PDF_REGION_ANALYSIS_PRESET'
+    | 'MCP_PDF_REGION_ANALYSIS_OLLAMA_URL'
+    | 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL',
   value: string | undefined
 ) => {
   if (value === undefined) {
@@ -71,6 +77,9 @@ describe('regionAnalysis', () => {
     restoreEnv('MCP_PDF_REGION_ANALYSIS_ARGS_JSON', originalArgs);
     restoreEnv('MCP_PDF_REGION_ANALYSIS_HTTP_URL', originalHttpUrl);
     restoreEnv('MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON', originalHttpHeaders);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_PRESET', originalPreset);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_OLLAMA_URL', originalOllamaUrl);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL', originalOllamaModel);
   });
 
   it('should report whether the command region analysis provider is configured', () => {
@@ -91,7 +100,15 @@ describe('regionAnalysis', () => {
       command_configured: true,
     });
 
+    process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'unsupported-stale-value';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'command',
+      command_configured: true,
+    });
+
     Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_COMMAND');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_PRESET');
     process.env['MCP_PDF_REGION_ANALYSIS_HTTP_URL'] = 'http://127.0.0.1:9876/analyze';
     expect(isRegionAnalysisProviderConfigured()).toBe(true);
     expect(getRegionAnalysisProviderStatus()).toMatchObject({
@@ -99,6 +116,25 @@ describe('regionAnalysis', () => {
       provider: 'http',
       command_configured: false,
       http_configured: true,
+    });
+
+    Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_HTTP_URL');
+    process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'ollama';
+    expect(isRegionAnalysisProviderConfigured()).toBe(true);
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'invalid_configuration',
+      provider: 'http',
+      preset: 'ollama',
+      warnings: ['Set MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL to use the Ollama preset.'],
+    });
+
+    process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL'] = 'llama3.2-vision';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'http',
+      http_configured: true,
+      preset: 'ollama',
+      model: 'llama3.2-vision',
     });
   });
 
@@ -343,6 +379,93 @@ describe('regionAnalysis', () => {
     }
   });
 
+  it('should run the Ollama preset through the local generate API contract', async () => {
+    const requests: Array<{
+      headers: Record<string, string | string[] | undefined>;
+      body: Record<string, unknown>;
+    }> = [];
+    const server = createServer(async (request, response) => {
+      const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+      requests.push({ headers: request.headers, body });
+      response.setHeader('Content-Type', 'application/json');
+      response.end(
+        JSON.stringify({
+          model: body.model,
+          done: true,
+          response: JSON.stringify({
+            kind: 'formula',
+            description: 'Ollama formula crop analysis',
+            confidence: 0.9,
+            formula: {
+              latex: 'E = mc^2',
+              text: 'E equals m c squared',
+              confidence: 0.88,
+            },
+          }),
+        })
+      );
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (typeof address !== 'object' || address === null) {
+        throw new Error('HTTP test server did not expose a port');
+      }
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_COMMAND');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_HTTP_URL');
+      process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'ollama';
+      process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_URL'] =
+        `http://127.0.0.1:${String(address.port)}/api/generate`;
+      process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL'] = 'llama3.2-vision';
+      process.env['MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON'] = JSON.stringify({
+        'x-ollama-proxy': 'local',
+      });
+
+      const result = await analyzeRegionCropWithConfiguredProvider(
+        buildRegionCrop('formula-1'),
+        { source: 'mock.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      );
+
+      expect(result).toMatchObject({
+        region_id: 'formula-1',
+        page: 2,
+        kind: 'formula',
+        description: 'Ollama formula crop analysis',
+        confidence: 0.9,
+        provider: 'http',
+        source_crop_evidence_id: 'page-2-formula-1-crop-scale-1',
+        provenance: {
+          engine: 'external-http',
+          source: 'region-analysis-provider',
+        },
+        formula: {
+          latex: 'E = mc^2',
+          text: 'E equals m c squared',
+          confidence: 0.88,
+        },
+      });
+      expect(requests[0]?.headers['x-ollama-proxy']).toBe('local');
+      expect(requests[0]?.body).toMatchObject({
+        model: 'llama3.2-vision',
+        images: [buildRegionCrop('formula-1').data],
+        stream: false,
+        format: 'json',
+      });
+      expect(String(requests[0]?.body.prompt)).toContain('Region ID: formula-1');
+      expect(String(requests[0]?.body.prompt)).toContain('Return only one JSON object');
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
   it('should normalize unsupported provider kinds and percentage confidence', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
     process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
@@ -378,7 +501,7 @@ describe('regionAnalysis', () => {
         { source: 'mock.pdf' },
         defaultAnalyzeRegionsOptions()
       )
-    ).rejects.toThrow(/Region analysis provider is not configured/);
+    ).rejects.toThrow(/Region analysis command provider is not configured/);
   });
 
   it('should reject command args that cannot receive the cropped region image', () => {

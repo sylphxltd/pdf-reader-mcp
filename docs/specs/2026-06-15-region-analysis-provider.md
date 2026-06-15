@@ -22,6 +22,9 @@ executable or endpoint. Operators enable providers with environment variables:
 - `MCP_PDF_REGION_ANALYSIS_ARGS_JSON`
 - `MCP_PDF_REGION_ANALYSIS_HTTP_URL`
 - `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`
+- `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`
+- `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`
+- `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL`
 
 Command providers take precedence when both command and HTTP providers are
 configured. The args template must include `{input}` and may also use `{page}`, `{source}`,
@@ -45,6 +48,14 @@ HTTP providers receive a JSON POST payload with:
   "languages": ["eng"]
 }
 ```
+
+The Ollama preset is a local HTTP preset over Ollama `/api/generate`. It sends
+the cropped PNG as a base64 entry in `images`, sets `stream: false`, requests
+`format: "json"`, and normalizes the JSON object returned in Ollama's
+`response` string into the same evidence contract. Operators must provide the
+local model name with `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`; the endpoint
+defaults to `http://127.0.0.1:11434/api/generate`. The package does not bundle
+Ollama or a model.
 
 ## Request
 
@@ -201,6 +212,10 @@ deterministic command provider for this certification fixture set. Release
 workflows use it to prove the visual provider contract and crop-provenance
 normalization path. It is intentionally fixture-scoped and does not bundle or
 claim a general vision model.
+
+The Ollama preset is covered by unit tests for request shape, prompt routing,
+and `response` normalization. Model-specific quality still requires provider
+benchmark runs that name the Ollama model and fixture corpus.
 
 ## Non-Goals
 

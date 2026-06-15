@@ -262,13 +262,14 @@ const FINAL_BAR_COVERAGE_REQUIREMENTS: FinalBarCoverageRequirement[] = [
       'agent_document_twin_semantic_quality',
       'visual_region_analysis_quality',
     ],
-    evidence: [
-      'caption-derived visual-region routing',
-      'formula normalization',
-      'chart axis/series normalization',
-      'figure and image-description normalization',
-      'crop provenance through visual-region provider adapters',
-    ],
+      evidence: [
+        'caption-derived visual-region routing',
+        'formula normalization',
+        'chart axis/series normalization',
+        'figure and image-description normalization',
+        'crop provenance through visual-region provider adapters',
+        'Ollama preset crop-image request and response JSON normalization',
+      ],
     provider_benchmark_required: true,
   },
   {
@@ -2115,6 +2116,10 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         '{region_id}',
         '{languages}',
       ]),
+      MCP_PDF_REGION_ANALYSIS_HTTP_URL: undefined,
+      MCP_PDF_REGION_ANALYSIS_PRESET: undefined,
+      MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: undefined,
+      MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: undefined,
     },
     () =>
       Promise.all([
@@ -2170,6 +2175,9 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         MCP_PDF_REGION_ANALYSIS_ARGS_JSON: undefined,
         MCP_PDF_REGION_ANALYSIS_HTTP_URL: `http://127.0.0.1:${String(address.port)}/analyze`,
         MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_PRESET: undefined,
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: undefined,
       },
       () =>
         analyzeRegionCropWithConfiguredProvider(
@@ -2181,6 +2189,65 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
+  const ollamaRequests: Array<{ body: Record<string, unknown> }> = [];
+  const ollamaServer = createServer(async (request, response) => {
+    const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+    ollamaRequests.push({ body });
+    response.setHeader('Content-Type', 'application/json');
+    response.end(
+      JSON.stringify({
+        model: body.model,
+        done: true,
+        response: JSON.stringify({
+          kind: 'formula',
+          description: 'Ollama quality formula crop',
+          confidence: 0.9,
+          formula: {
+            latex: 'E = mc^2',
+            text: 'E equals m c squared',
+            confidence: 0.88,
+          },
+        }),
+      })
+    );
+  });
+
+  await new Promise<void>((resolve) => {
+    ollamaServer.listen(0, '127.0.0.1', resolve);
+  });
+
+  let ollamaResult: Awaited<ReturnType<typeof analyzeRegionCropWithConfiguredProvider>>;
+  try {
+    const address = ollamaServer.address();
+    if (typeof address !== 'object' || address === null) {
+      throw new Error('Ollama quality server did not expose a port');
+    }
+
+    ollamaResult = await withEnv(
+      {
+        MCP_PDF_REGION_ANALYSIS_COMMAND: undefined,
+        MCP_PDF_REGION_ANALYSIS_ARGS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_PRESET: 'ollama',
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: `http://127.0.0.1:${String(
+          address.port
+        )}/api/generate`,
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: 'llama3.2-vision',
+      },
+      () =>
+        analyzeRegionCropWithConfiguredProvider(
+          buildRegionCrop('formula-1'),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        )
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      ollamaServer.close((error) => (error ? reject(error) : resolve()));
     });
   }
 
@@ -2231,6 +2298,22 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         httpResult.chart.y_axis?.label === 'Value' &&
         httpResult.source_crop_evidence_id === 'page-2-table-1-crop-scale-1' &&
         httpResult.provenance.engine === 'external-http',
+    },
+    {
+      name: 'visual Ollama preset sends crop images and normalizes response JSON',
+      pass:
+        ollamaResult.provider === 'http' &&
+        ollamaResult.kind === 'formula' &&
+        ollamaResult.description === 'Ollama quality formula crop' &&
+        ollamaResult.formula?.latex === 'E = mc^2' &&
+        ollamaResult.formula.text === 'E equals m c squared' &&
+        ollamaResult.source_crop_evidence_id === 'page-2-formula-1-crop-scale-1' &&
+        ollamaResult.provenance.engine === 'external-http' &&
+        ollamaRequests[0]?.body.model === 'llama3.2-vision' &&
+        Array.isArray(ollamaRequests[0]?.body.images) &&
+        ollamaRequests[0]?.body.stream === false &&
+        ollamaRequests[0]?.body.format === 'json' &&
+        String(ollamaRequests[0]?.body.prompt).includes('Region ID: formula-1'),
     },
   ];
 };

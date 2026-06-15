@@ -32,6 +32,10 @@ const REGION_ANALYSIS_COMMAND_ENV = 'MCP_PDF_REGION_ANALYSIS_COMMAND';
 const REGION_ANALYSIS_ARGS_ENV = 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON';
 const REGION_ANALYSIS_HTTP_URL_ENV = 'MCP_PDF_REGION_ANALYSIS_HTTP_URL';
 const REGION_ANALYSIS_HTTP_HEADERS_ENV = 'MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON';
+const REGION_ANALYSIS_PRESET_ENV = 'MCP_PDF_REGION_ANALYSIS_PRESET';
+const REGION_ANALYSIS_OLLAMA_URL_ENV = 'MCP_PDF_REGION_ANALYSIS_OLLAMA_URL';
+const REGION_ANALYSIS_OLLAMA_MODEL_ENV = 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL';
+const DEFAULT_OLLAMA_GENERATE_URL = 'http://127.0.0.1:11434/api/generate';
 const REGION_ANALYSIS_KINDS = new Set<PdfRegionAnalysisKind>([
   'text',
   'table',
@@ -53,11 +57,19 @@ interface HttpRegionAnalysisProviderConfig {
   provider: 'http';
   url: string;
   headers: Record<string, string>;
+  preset?: RegionAnalysisProviderPreset | undefined;
+  model?: string | undefined;
 }
 
 type RegionAnalysisProviderConfig =
   | CommandRegionAnalysisProviderConfig
   | HttpRegionAnalysisProviderConfig;
+type RegionAnalysisProviderPreset = 'ollama';
+
+const SUPPORTED_REGION_ANALYSIS_PRESETS: RegionAnalysisProviderPreset[] = ['ollama'];
+
+const isRegionAnalysisProviderPreset = (value: string): value is RegionAnalysisProviderPreset =>
+  SUPPORTED_REGION_ANALYSIS_PRESETS.includes(value as RegionAnalysisProviderPreset);
 
 interface RawRegionAnalysisOutput {
   kind?: unknown;
@@ -82,28 +94,79 @@ export const defaultAnalyzeRegionsOptions = (): AnalyzeRegionsOptions => ({
 export const isRegionAnalysisProviderConfigured = (): boolean =>
   Boolean(
     process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim() ||
-      process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim()
+      process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim() ||
+      process.env[REGION_ANALYSIS_PRESET_ENV]?.trim()
   );
 
 export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStatus => {
   const commandConfigured = Boolean(process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim());
+  const rawPreset = process.env[REGION_ANALYSIS_PRESET_ENV]?.trim().toLowerCase();
+  const preset = rawPreset
+    ? isRegionAnalysisProviderPreset(rawPreset)
+      ? rawPreset
+      : 'unsupported'
+    : undefined;
   const rawUrl = process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim();
-  const httpConfigured = Boolean(rawUrl);
+  const httpConfigured = Boolean(rawUrl || preset === 'ollama');
+
+  if (commandConfigured) {
+    return {
+      readiness: 'ready',
+      provider: 'command',
+      command_configured: true,
+      health: 'not_checked',
+      health_check: 'not_checked',
+      http_configured: httpConfigured,
+    };
+  }
+
+  if (preset === 'unsupported') {
+    return {
+      readiness: 'invalid_configuration',
+      provider: 'http',
+      command_configured: false,
+      health: 'not_checked',
+      health_check: 'not_checked',
+      http_configured: Boolean(rawUrl),
+      preset,
+      warnings: [
+        `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${SUPPORTED_REGION_ANALYSIS_PRESETS.join(', ')}.`,
+      ],
+    };
+  }
+
+  const model = process.env[REGION_ANALYSIS_OLLAMA_MODEL_ENV]?.trim();
+  const urlForValidation =
+    preset === 'ollama' ? process.env[REGION_ANALYSIS_OLLAMA_URL_ENV]?.trim() : rawUrl;
 
   if (httpConfigured) {
+    if (preset === 'ollama' && !model) {
+      return {
+        readiness: 'invalid_configuration',
+        provider: 'http',
+        command_configured: false,
+        health: 'not_checked',
+        health_check: 'not_checked',
+        http_configured: true,
+        preset,
+        warnings: ['Set MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL to use the Ollama preset.'],
+      };
+    }
     try {
       readRegionAnalysisHttpHeaders();
       // URL validation is intentionally syntactic here. The endpoint is env-only,
       // so availability is checked when the provider is invoked.
-      new URL(rawUrl as string);
+      new URL(urlForValidation || DEFAULT_OLLAMA_GENERATE_URL);
     } catch (error: unknown) {
       return {
         readiness: 'invalid_configuration',
-        provider: commandConfigured ? 'command' : 'http',
+        provider: 'http',
         command_configured: commandConfigured,
         health: 'not_checked',
         health_check: 'not_checked',
         http_configured: httpConfigured,
+        ...(preset ? { preset } : {}),
+        ...(model ? { model } : {}),
         warnings: [error instanceof Error ? error.message : String(error)],
       };
     }
@@ -118,7 +181,7 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
       health_check: 'not_checked',
       http_configured: false,
       warnings: [
-        'Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions.',
+        'Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama to enable analyze_regions.',
       ],
     };
   }
@@ -130,6 +193,8 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
     health: 'not_checked',
     health_check: 'not_checked',
     http_configured: httpConfigured,
+    ...(preset ? { preset } : {}),
+    ...(model ? { model } : {}),
   };
 };
 
@@ -138,7 +203,7 @@ export const readRegionAnalysisProviderConfig = (): CommandRegionAnalysisProvide
   if (!command) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      'Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions.'
+      'Region analysis command provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND to use the command adapter.'
     );
   }
 
@@ -214,7 +279,7 @@ const readRegionAnalysisHttpProviderConfig = (): HttpRegionAnalysisProviderConfi
   if (!url) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      'Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions.'
+      'Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama to enable analyze_regions.'
     );
   }
 
@@ -237,9 +302,57 @@ const readRegionAnalysisHttpProviderConfig = (): HttpRegionAnalysisProviderConfi
   };
 };
 
+const readOllamaRegionAnalysisProviderConfig = (): HttpRegionAnalysisProviderConfig => {
+  const model = process.env[REGION_ANALYSIS_OLLAMA_MODEL_ENV]?.trim();
+  if (!model) {
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL is required when MCP_PDF_REGION_ANALYSIS_PRESET=ollama.'
+    );
+  }
+
+  const url = process.env[REGION_ANALYSIS_OLLAMA_URL_ENV]?.trim() || DEFAULT_OLLAMA_GENERATE_URL;
+  try {
+    new URL(url);
+  } catch (error: unknown) {
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      'MCP_PDF_REGION_ANALYSIS_OLLAMA_URL must be a valid URL.',
+      {
+        cause: error instanceof Error ? error : undefined,
+      }
+    );
+  }
+
+  return {
+    provider: 'http',
+    url,
+    headers: readRegionAnalysisHttpHeaders(),
+    preset: 'ollama',
+    model,
+  };
+};
+
+const readRegionAnalysisPreset = (): RegionAnalysisProviderPreset | undefined => {
+  const preset = process.env[REGION_ANALYSIS_PRESET_ENV]?.trim().toLowerCase();
+  if (!preset) return undefined;
+
+  if (!isRegionAnalysisProviderPreset(preset)) {
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${SUPPORTED_REGION_ANALYSIS_PRESETS.join(', ')}.`
+    );
+  }
+
+  return preset;
+};
+
 export const readConfiguredRegionAnalysisProviderConfig = (): RegionAnalysisProviderConfig => {
   const command = process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim();
   if (command) return readRegionAnalysisProviderConfig();
+
+  const preset = readRegionAnalysisPreset();
+  if (preset === 'ollama') return readOllamaRegionAnalysisProviderConfig();
 
   return readRegionAnalysisHttpProviderConfig();
 };
@@ -710,6 +823,78 @@ const parseRegionAnalysisOutput = (
   };
 };
 
+const buildOllamaRegionAnalysisPrompt = (
+  region: PdfRegionCropData,
+  context: { source: string; languages?: string[] | undefined }
+): string =>
+  [
+    'Analyze this cropped PDF region for an AI document parser.',
+    'Return only one JSON object with these optional fields: kind, description, text, markdown, confidence, table, formula, chart, warnings.',
+    'Use kind as one of: text, table, figure, chart, formula, image, diagram, unknown.',
+    'For tables, include rows and cells with row_index, column_index, text, confidence, and optional bounding_box in crop coordinates when reliable.',
+    'For formulas, include latex, mathml, asciimath, text, and confidence when available.',
+    'For charts, include title, summary, x_axis, y_axis, series, data_points, and confidence when available.',
+    'Do not invent values that are not visible in the crop; use warnings for uncertainty.',
+    `Source: ${context.source}`,
+    `Page: ${String(region.page)}`,
+    `Region ID: ${region.region_id}`,
+    `Evidence ID: ${region.evidence_id}`,
+    `PDF bounding box: left=${String(region.source_bounding_box.left)}, bottom=${String(
+      region.source_bounding_box.bottom
+    )}, right=${String(region.source_bounding_box.right)}, top=${String(region.source_bounding_box.top)}`,
+    `Languages: ${(context.languages ?? []).join(',') || 'unspecified'}`,
+  ].join('\n');
+
+const buildRegionAnalysisHttpRequestBody = (
+  region: PdfRegionCropData,
+  context: { source: string; languages?: string[] | undefined },
+  config: HttpRegionAnalysisProviderConfig
+): Record<string, unknown> => {
+  if (config.preset === 'ollama') {
+    return {
+      model: config.model,
+      prompt: buildOllamaRegionAnalysisPrompt(region, context),
+      images: [region.data],
+      stream: false,
+      format: 'json',
+    };
+  }
+
+  return {
+    image_base64: region.data,
+    mime_type: region.mime_type,
+    format: region.format,
+    page: region.page,
+    region_id: region.region_id,
+    evidence_id: region.evidence_id,
+    source: context.source,
+    source_bounding_box: region.source_bounding_box,
+    crop_pixels: region.crop_pixels,
+    scale: region.scale,
+    languages: context.languages ?? [],
+  };
+};
+
+const parseOllamaGenerateResponse = (stdout: string): string => {
+  const parsed = JSON.parse(stdout) as unknown;
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      'Ollama region analysis response was not a JSON object.'
+    );
+  }
+
+  const response = (parsed as { response?: unknown }).response;
+  if (typeof response !== 'string' || response.trim().length === 0) {
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      'Ollama region analysis response did not include a non-empty response string.'
+    );
+  }
+
+  return response;
+};
+
 export const analyzeRegionCropWithCommandProvider = async (
   region: PdfRegionCropData,
   context: { source: string; languages?: string[] | undefined },
@@ -790,19 +975,7 @@ export const analyzeRegionCropWithHttpProvider = async (
         'Content-Type': 'application/json',
         ...config.headers,
       },
-      body: JSON.stringify({
-        image_base64: region.data,
-        mime_type: region.mime_type,
-        format: region.format,
-        page: region.page,
-        region_id: region.region_id,
-        evidence_id: region.evidence_id,
-        source: context.source,
-        source_bounding_box: region.source_bounding_box,
-        crop_pixels: region.crop_pixels,
-        scale: region.scale,
-        languages: context.languages ?? [],
-      }),
+      body: JSON.stringify(buildRegionAnalysisHttpRequestBody(region, context, config)),
       signal: abortController.signal,
     });
 
@@ -814,7 +987,9 @@ export const analyzeRegionCropWithHttpProvider = async (
       );
     }
 
-    const normalized = parseRegionAnalysisOutput(stdout, options);
+    const providerOutput =
+      config.preset === 'ollama' ? parseOllamaGenerateResponse(stdout) : stdout;
+    const normalized = parseRegionAnalysisOutput(providerOutput, options);
 
     return {
       region_id: region.region_id,

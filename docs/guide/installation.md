@@ -90,14 +90,19 @@ The default package does not bundle an OCR model.
 configured. Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to a local executable or
 wrapper that accepts a temporary cropped PNG, or set
 `MCP_PDF_REGION_ANALYSIS_HTTP_URL` to an env-configured local model server.
-Command providers take precedence when both are configured. Optionally set
+For local Ollama vision models, set `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`
+and `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`; the generate endpoint defaults to
+`http://127.0.0.1:11434/api/generate`. Command providers take precedence when
+both are configured. Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array with `{input}`,
 `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`,
 `{right}`, `{top}`, `{language}`, and `{languages}` placeholders. The command
 argument template must include `{input}` so the provider receives the temporary
 region crop. HTTP providers receive JSON with `image_base64`, `mime_type`,
 page/region metadata, crop coordinates, scale, and languages; optional headers
-come from `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`.
+come from `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`. The Ollama preset sends
+`images: [base64Crop]`, `stream: false`, and `format: "json"` to `/api/generate`
+and normalizes the JSON object in the `response` field.
 
 Example:
 
@@ -118,6 +123,23 @@ Example:
 
 For a local HTTP model server, set `MCP_PDF_REGION_ANALYSIS_HTTP_URL` instead
 of the command variables.
+
+For Ollama:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"],
+      "env": {
+        "MCP_PDF_REGION_ANALYSIS_PRESET": "ollama",
+        "MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL": "llama3.2-vision"
+      }
+    }
+  }
+}
+```
 
 Provider stdout or HTTP response body may be plain text or JSON with `kind`, `description`, `text`,
 `markdown`, `confidence`, `table`, `formula`, `chart`, and `warnings`. The

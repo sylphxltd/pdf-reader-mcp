@@ -89,7 +89,7 @@ themselves.
      caption-to-evidence links, OCR
      normalization, a runtime-generated scanned-PDF OCR pipeline fixture,
      OCR-derived table extraction from scanned-page word boxes,
-     caption-derived visual candidate routing, visual-region command/HTTP
+     caption-derived visual candidate routing, visual-region command/HTTP/Ollama
      normalization, search evidence, and AI-safety trust-report
      selected-page-scoped category summaries, trust-evidence redaction,
      visual-spoofing guidance, hidden-text routing, and unsafe-link routing.

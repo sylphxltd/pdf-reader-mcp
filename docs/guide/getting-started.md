@@ -264,7 +264,11 @@ not by request arguments.
 Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to the local visual analysis executable
 or wrapper you want the server to run, or set
 `MCP_PDF_REGION_ANALYSIS_HTTP_URL` to an env-configured local model server.
-Command providers take precedence when both are configured. Optionally set
+For Ollama, set `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` plus
+`MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`; the server sends the crop through
+Ollama `/api/generate` with a JSON-only prompt and normalizes the returned
+`response` JSON. Command providers take precedence when both are configured.
+Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array that includes
 `{input}` and may also use `{page}`, `{source}`, `{region_id}`,
 `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and

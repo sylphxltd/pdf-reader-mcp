@@ -70,3 +70,6 @@ profiles, with fixture-level expected and observed evidence in the provider
 quality report.
 Add a corpus benchmark artifact over checked-in and runtime-generated PDF
 archetypes, then require that corpus evidence in the SOTA release gate.
+Add an Ollama visual-region provider preset that sends crop images to the local
+`/api/generate` endpoint with JSON-only output and normalizes the returned
+evidence through the existing table/formula/chart/figure contract.

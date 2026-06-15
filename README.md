@@ -798,8 +798,11 @@ signals, and provenance so agents can cite or inspect the original page region
 instead of trusting detached summaries.
 
 The provider is configured by environment variables and is never selected by
-the request. If no provider is configured, `read_pdf` returns a warning instead
-of failing the whole document read. It still emits
+the request. Teams can wire a command provider, a generic local HTTP endpoint,
+or `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` with
+`MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL` for a local Ollama vision model. If no
+provider is configured, `read_pdf` returns a warning instead of failing the
+whole document read. It still emits
 `visual_enrichment_candidates` with stable region IDs, PDF-coordinate bounding
 boxes, target types, caption provenance, and routing signals so agents can pass
 the same regions to `extract_regions` or a later `analyze_regions` call.
@@ -1089,10 +1092,18 @@ linked to a crop evidence ID.
 
 | Variable | Description |
 |----------|-------------|
-| `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required unless `MCP_PDF_REGION_ANALYSIS_HTTP_URL` is set. Command providers take precedence when both are configured. |
+| `MCP_PDF_REGION_ANALYSIS_PRESET` | Optional built-in visual-region provider preset. Supported value: `ollama`. Command providers take precedence when a command is also configured. |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`; local Ollama vision model name used for `/api/generate`. |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` | Optional Ollama generate endpoint. Defaults to `http://127.0.0.1:11434/api/generate`. |
+| `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required unless `MCP_PDF_REGION_ANALYSIS_HTTP_URL` or a supported preset is set. Command providers take precedence when both are configured. |
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and `{languages}` placeholders. Defaults to `["{input}"]`. |
 | `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | Optional env-configured HTTP endpoint for local model servers. The request cannot choose this URL. The server receives JSON with `image_base64`, `mime_type`, page/region metadata, crop coordinates, scale, and languages. |
 | `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` | Optional JSON object with string header values for the HTTP provider, for example `{"authorization":"Bearer local-token"}`. |
+
+The Ollama preset sends a non-streaming `/api/generate` request with
+`images: [base64Crop]` and `format: "json"`, then normalizes the JSON object
+returned in Ollama's `response` field into the same table/formula/chart/figure
+evidence contract. The package does not bundle Ollama or a vision model.
 
 Command provider stdout, or HTTP provider response body, may be plain text or
 JSON:
@@ -1565,6 +1576,9 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | `["{input}"]` | Optional JSON string array of region analysis command arguments. Must include `{input}`. |
 | `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | - | Optional env-configured HTTP endpoint used by `analyze_regions` when no command provider is configured |
 | `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` | `{}` | Optional JSON object with string headers for the HTTP region analysis provider |
+| `MCP_PDF_REGION_ANALYSIS_PRESET` | - | Optional visual-region preset. Supported value: `ollama` |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL` | - | Required local Ollama vision model when `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` | `http://127.0.0.1:11434/api/generate` | Optional Ollama generate endpoint override |
 
 ### Docker Deployment
 
@@ -1745,10 +1759,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Opt-in OCR text layer fusion for `read_pdf`, agent document maps, and OCR-derived table structure
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
-- [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
+- [x] Configured local visual region analysis providers over command, HTTP, and Ollama `/api/generate` adapters for table, chart, formula, figure, and image-description enrichment, including crop-image requests, JSON-only normalization, and caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
+- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
 - [x] JSON benchmark artifact output for performance, deterministic quality, corpus, and installed-provider evidence reports
 - [x] SOTA release gate that blocks release artifacts until deterministic quality, corpus, and installed-provider final-bar evidence are complete
 - [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact and matching `bin`/`exports` contract
@@ -1769,7 +1783,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 **🚀 Next**
 - [ ] Larger public real-world scanned-PDF and visual-region provider accuracy corpus beyond the in-repository corpus benchmark and synthetic runtime certification fixtures
-- [ ] Engine-specific visual region provider presets
+- [ ] Additional engine-specific visual region provider presets
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming
 - [ ] Advanced caching

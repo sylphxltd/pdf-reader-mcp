@@ -119,6 +119,7 @@ and routing signals for follow-up `extract_regions` or `analyze_regions` calls.
 | OCR preset | `MCP_PDF_OCR_PRESET=tesseract` or `tesseract-tsv` |
 | Visual-region command provider | `MCP_PDF_REGION_ANALYSIS_COMMAND`, `MCP_PDF_REGION_ANALYSIS_ARGS_JSON`, `MCP_PDF_REGION_ANALYSIS_TIMEOUT_MS`, `MCP_PDF_REGION_ANALYSIS_MAX_OUTPUT_CHARS` |
 | Visual-region HTTP provider | `MCP_PDF_REGION_ANALYSIS_HTTP_URL`, optional `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` |
+| Visual-region Ollama preset | `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`, `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`, optional `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` |
 
 Provider responses are normalized into the same evidence model used by
 `read_pdf`, `analyze_regions`, and the benchmark harness.

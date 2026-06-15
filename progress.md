@@ -17,15 +17,20 @@
 - [x] Outline, annotation, structure tree, page label, permission, form field, attachment metadata, and page geometry outputs
 - [x] Deterministic content safety findings via `include_safety_findings`
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Release workflow migrated from the internal BUMP workflow to Changesets release PRs
+- [x] Changesets-based release PR workflow
+- [x] Agent Document Twin outputs with text layer, semantic AST, document map, trust report, and accessibility report
+- [x] Scanned-PDF OCR pipeline routing with Tesseract text and TSV word-box presets
+- [x] OCR-derived table extraction with word-box provenance
+- [x] Local visual-region analysis providers over command, HTTP, and Ollama `/api/generate` presets
+- [x] Formula, chart, figure, image-description, and table evidence normalization from visual-region providers
+- [x] Deterministic quality, corpus, provider, package smoke, and SOTA release-gate evidence
 
 ## In Progress
 - [ ] Publish the PDF Intelligence vNext release through the Changesets version PR flow
-- [ ] Expand fixture coverage for layout, chunking, document signals, and structured output
+- [ ] Expand the public real-world scanned-PDF and visual-region accuracy corpus
+- [ ] Add more engine-specific visual-region provider presets
 
 ## Planned
-- [ ] Richer semantic layout detection with broader fixtures and evals
-- [ ] OCR for scanned PDFs
 - [ ] Optional redaction and safety policy controls
 - [ ] Optional advanced parser engine adapters
 - [ ] Large-file streaming beyond the current 100MB cap
