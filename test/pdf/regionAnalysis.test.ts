@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   analyzeRegionCropWithCommandProvider,
   defaultAnalyzeRegionsOptions,
+  getRegionAnalysisProviderStatus,
   isRegionAnalysisProviderConfigured,
   readRegionAnalysisProviderConfig,
 } from '../../src/pdf/regionAnalysis.js';
@@ -57,9 +58,19 @@ describe('regionAnalysis', () => {
   it('should report whether the command region analysis provider is configured', () => {
     Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_COMMAND');
     expect(isRegionAnalysisProviderConfigured()).toBe(false);
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'not_configured',
+      provider: 'command',
+      command_configured: false,
+    });
 
     process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
     expect(isRegionAnalysisProviderConfigured()).toBe(true);
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'command',
+      command_configured: true,
+    });
   });
 
   it('should run the configured provider and normalize structured visual output', async () => {

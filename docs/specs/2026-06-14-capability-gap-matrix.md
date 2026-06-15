@@ -20,7 +20,8 @@ neutral capability names and avoids public comparison language.
 | Capability | Status | Notes |
 |---|---:|---|
 | MCP-native PDF tools | Shipped | `inspect_pdf`, `search_pdf`, `render_page`, `extract_regions`, `analyze_regions`, `ocr_pages`, and `read_pdf` with stdio/http transport. |
-| Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, and recommends `read_pdf` options. |
+| Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, reports optional-provider readiness, and recommends `read_pdf` options. |
+| Optional provider readiness | Shipped | `inspect_pdf` reports safe readiness for `ocr_pages` and `analyze_regions` without exposing command paths or arguments. |
 | MCP-native PDF search | Shipped | `search_pdf`; bounded literal search with snippets, match offsets, text-item bounding boxes, and provenance. |
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
 | Metadata and page count | Shipped | Existing `include_metadata`, `include_page_count`. |

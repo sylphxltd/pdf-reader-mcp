@@ -843,6 +843,23 @@ var defaultAnalyzeRegionsOptions = () => ({
   timeout_ms: DEFAULT_REGION_ANALYSIS_TIMEOUT_MS,
   max_output_chars: DEFAULT_REGION_ANALYSIS_MAX_OUTPUT_CHARS
 });
+var isRegionAnalysisProviderConfigured = () => Boolean(process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim());
+var getRegionAnalysisProviderStatus = () => {
+  const commandConfigured = isRegionAnalysisProviderConfigured();
+  if (!commandConfigured) {
+    return {
+      readiness: "not_configured",
+      provider: "command",
+      command_configured: false,
+      warnings: ["Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions."]
+    };
+  }
+  return {
+    readiness: "ready",
+    provider: "command",
+    command_configured: true
+  };
+};
 var readRegionAnalysisProviderConfig = () => {
   const command = process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim();
   if (!command) {
@@ -2000,8 +2017,217 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
   return sortPageContentItems(contentItems);
 };
 
+// src/pdf/ocr.ts
+import { execFile as execFile2 } from "node:child_process";
+import fs5 from "node:fs/promises";
+import os2 from "node:os";
+import path4 from "node:path";
+import { promisify as promisify2 } from "node:util";
+var execFileAsync2 = promisify2(execFile2);
+var logger10 = createLogger("Ocr");
+var DEFAULT_OCR_TIMEOUT_MS = 60000;
+var DEFAULT_OCR_MAX_OUTPUT_CHARS = 200000;
+var OCR_COMMAND_ENV = "MCP_PDF_OCR_COMMAND";
+var OCR_ARGS_ENV = "MCP_PDF_OCR_ARGS_JSON";
+var OCR_PRESET_ENV = "MCP_PDF_OCR_PRESET";
+var OCR_PROVIDER_PRESETS = {
+  tesseract: {
+    command: "tesseract",
+    argsTemplate: ["{input}", "stdout", "-l", "{languages_tesseract}"],
+    preset: "tesseract"
+  }
+};
+var defaultOcrPagesOptions = () => ({
+  scale: DEFAULT_RENDER_SCALE,
+  max_pages: DEFAULT_MAX_RENDER_PAGES,
+  max_pixels_per_page: DEFAULT_MAX_RENDER_PIXELS,
+  timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
+  max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
+});
+var getOcrProviderStatus = () => {
+  const rawPreset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
+  const commandConfigured = Boolean(process.env[OCR_COMMAND_ENV]?.trim());
+  const preset = rawPreset === "tesseract" ? "tesseract" : rawPreset ? "unsupported" : undefined;
+  if (preset === "unsupported") {
+    return {
+      readiness: "invalid_configuration",
+      provider: "command",
+      command_configured: commandConfigured,
+      preset,
+      warnings: ["Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract."]
+    };
+  }
+  if (!commandConfigured && !preset) {
+    return {
+      readiness: "not_configured",
+      provider: "command",
+      command_configured: false,
+      warnings: ["Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages."]
+    };
+  }
+  return {
+    readiness: "ready",
+    provider: "command",
+    command_configured: commandConfigured,
+    ...preset ? { preset } : {}
+  };
+};
+var readOcrProviderPreset = () => {
+  const preset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
+  if (!preset)
+    return;
+  if (preset !== "tesseract") {
+    throw new PdfError(-32600 /* InvalidRequest */, "Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract.");
+  }
+  return OCR_PROVIDER_PRESETS[preset];
+};
+var readCommandProviderConfig = () => {
+  const preset = readOcrProviderPreset();
+  const command = process.env[OCR_COMMAND_ENV]?.trim() || preset?.command;
+  if (!command) {
+    throw new PdfError(-32600 /* InvalidRequest */, "OCR provider is not configured. Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages.");
+  }
+  const rawArgs = process.env[OCR_ARGS_ENV];
+  if (!rawArgs)
+    return { command, argsTemplate: preset?.argsTemplate ?? ["{input}"], preset: preset?.preset };
+  let parsed;
+  try {
+    parsed = JSON.parse(rawArgs);
+  } catch (error) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.", {
+      cause: error instanceof Error ? error : undefined
+    });
+  }
+  if (!Array.isArray(parsed) || parsed.some((arg) => typeof arg !== "string")) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.");
+  }
+  if (!parsed.some((arg) => arg.includes("{input}"))) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must include the {input} placeholder so the OCR provider receives the rendered page image.");
+  }
+  return { command, argsTemplate: parsed, preset: preset?.preset };
+};
+var replacePlaceholders2 = (template, context) => template.replaceAll("{input}", context.inputPath).replaceAll("{page}", String(context.page)).replaceAll("{source}", context.source).replaceAll("{language}", context.languages?.[0] ?? "").replaceAll("{languages}", context.languages?.join(",") ?? "").replaceAll("{languages_tesseract}", context.languages?.join("+") || "eng");
+var normalizeConfidence2 = (value) => {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return;
+  return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
+};
+var normalizeBoundingBox = (value) => {
+  if (typeof value !== "object" || value === null)
+    return;
+  const candidate = value;
+  const left = candidate.left;
+  const bottom = candidate.bottom;
+  const right = candidate.right;
+  const top = candidate.top;
+  if (typeof left !== "number" || !Number.isFinite(left) || typeof bottom !== "number" || !Number.isFinite(bottom) || typeof right !== "number" || !Number.isFinite(right) || typeof top !== "number" || !Number.isFinite(top) || right <= left || top <= bottom) {
+    return;
+  }
+  return { left, bottom, right, top };
+};
+var normalizeWords = (value) => {
+  if (!Array.isArray(value))
+    return;
+  const words = value.map((word) => {
+    if (typeof word !== "object" || word === null)
+      return;
+    const candidate = word;
+    if (typeof candidate.text !== "string" || candidate.text.trim().length === 0) {
+      return;
+    }
+    const confidence = normalizeConfidence2(candidate.confidence);
+    const boundingBox = normalizeBoundingBox(candidate.bounding_box);
+    return {
+      text: candidate.text,
+      ...confidence !== undefined ? { confidence } : {},
+      ...boundingBox ? { bounding_box: boundingBox } : {}
+    };
+  }).filter((word) => word !== undefined);
+  return words.length > 0 ? words : undefined;
+};
+var parseOcrOutput = (stdout, options) => {
+  const trimmed = stdout.trim();
+  let parsed;
+  try {
+    const maybeJson = JSON.parse(trimmed);
+    if (typeof maybeJson === "object" && maybeJson !== null) {
+      parsed = maybeJson;
+    }
+  } catch {
+    parsed = undefined;
+  }
+  const rawText = parsed && typeof parsed.text === "string" ? parsed.text : trimmed;
+  const text3 = rawText.length > options.max_output_chars ? rawText.slice(0, options.max_output_chars) : rawText;
+  const warnings = rawText.length > options.max_output_chars ? [`OCR output truncated to ${String(options.max_output_chars)} characters.`] : undefined;
+  const confidence = normalizeConfidence2(parsed?.confidence);
+  const words = normalizeWords(parsed?.words);
+  return {
+    text: text3,
+    ...confidence !== undefined ? { confidence } : {},
+    ...words ? { words } : {},
+    ...typeof parsed?.language === "string" ? { language: parsed.language } : options.languages?.[0] ? { language: options.languages[0] } : {},
+    ...warnings ? { warnings } : {}
+  };
+};
+var ocrRenderedPageWithCommandProvider = async (page, context, options) => {
+  const config = readCommandProviderConfig();
+  const tempDir = await fs5.mkdtemp(path4.join(os2.tmpdir(), "pdf-reader-mcp-ocr-"));
+  const inputPath = path4.join(tempDir, `page-${String(page.page)}.png`);
+  try {
+    await fs5.writeFile(inputPath, Buffer.from(page.data, "base64"));
+    const args = config.argsTemplate.map((arg) => replacePlaceholders2(arg, {
+      inputPath,
+      page: page.page,
+      source: context.source,
+      languages: context.languages
+    }));
+    const { stdout } = await execFileAsync2(config.command, args, {
+      timeout: options.timeout_ms,
+      maxBuffer: Math.max(options.max_output_chars * 4, 1024 * 1024),
+      windowsHide: true
+    });
+    const normalized = parseOcrOutput(stdout, options);
+    return {
+      page: page.page,
+      ...normalized,
+      provider: "command",
+      source_render_evidence_id: page.evidence_id,
+      provenance: {
+        engine: "external-command",
+        source: "ocr-provider"
+      }
+    };
+  } catch (error) {
+    if (error instanceof PdfError)
+      throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    logger10.warn("OCR provider command failed", { page: page.page, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `OCR provider command failed for page ${String(page.page)}.`);
+  } finally {
+    await fs5.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+};
+var ocrPdfSourcePages = async (source, options) => {
+  const rendered = await renderPdfSourcePages(source, {
+    scale: options.scale,
+    max_pages: options.max_pages,
+    max_pixels_per_page: options.max_pixels_per_page,
+    include_image: false
+  });
+  const pages = [];
+  for (const page of rendered.pages) {
+    pages.push(await ocrRenderedPageWithCommandProvider(page, { source: rendered.source, languages: options.languages }, options));
+  }
+  return {
+    source: rendered.source,
+    numPages: rendered.numPages,
+    pages,
+    warnings: rendered.warnings
+  };
+};
+
 // src/pdf/inspector.ts
-var logger10 = createLogger("Inspector");
+var logger11 = createLogger("Inspector");
 var DEFAULT_SAMPLE_PAGES = 5;
 var MAX_SAMPLE_PAGES = 20;
 var LOW_TEXT_CHAR_THRESHOLD = 20;
@@ -2070,7 +2296,7 @@ var countImagePaintOperations = async (page) => {
     return operatorList.fnArray.filter((op) => op === OPS2.paintImageXObject || op === OPS2.paintXObject).length;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger10.warn("Error counting image paint operations", { error: message });
+    logger11.warn("Error counting image paint operations", { error: message });
     return 0;
   }
 };
@@ -2205,6 +2431,10 @@ var inspectPdfSource = async (source, options) => {
       page_signals: pageSignals,
       document_signals: documentSignals,
       recommendation,
+      provider_status: {
+        ocr_pages: getOcrProviderStatus(),
+        analyze_regions: getRegionAnalysisProviderStatus()
+      },
       ...metadataOutput.info ? { info: metadataOutput.info } : {},
       ...metadataOutput.metadata ? { metadata: metadataOutput.metadata } : {},
       ...pageGeometry.length > 0 ? { page_geometry: pageGeometry } : {},
@@ -2220,7 +2450,7 @@ var inspectPdfSource = async (source, options) => {
       return { source: sourceDescription, success: false, error: error.message };
     }
     const message = error instanceof Error ? error.message : String(error);
-    logger10.error("Unexpected error inspecting PDF source", {
+    logger11.error("Unexpected error inspecting PDF source", {
       sourceDescription,
       error: message
     });
@@ -2236,7 +2466,7 @@ var inspectPdfSource = async (source, options) => {
         await loadingTask.destroy();
       } catch (destroyError) {
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger10.warn("Error destroying PDF document after inspection", {
+        logger11.warn("Error destroying PDF document after inspection", {
           sourceDescription,
           error: message
         });
@@ -2341,187 +2571,6 @@ var inspectPdf = tool3().description("Inspects one or more PDFs and recommends t
 
 // src/handlers/ocrPages.ts
 import { text as text4, tool as tool4, toolError as toolError4 } from "@sylphx/mcp-server-sdk";
-
-// src/pdf/ocr.ts
-import { execFile as execFile2 } from "node:child_process";
-import fs5 from "node:fs/promises";
-import os2 from "node:os";
-import path4 from "node:path";
-import { promisify as promisify2 } from "node:util";
-var execFileAsync2 = promisify2(execFile2);
-var logger11 = createLogger("Ocr");
-var DEFAULT_OCR_TIMEOUT_MS = 60000;
-var DEFAULT_OCR_MAX_OUTPUT_CHARS = 200000;
-var OCR_COMMAND_ENV = "MCP_PDF_OCR_COMMAND";
-var OCR_ARGS_ENV = "MCP_PDF_OCR_ARGS_JSON";
-var OCR_PRESET_ENV = "MCP_PDF_OCR_PRESET";
-var OCR_PROVIDER_PRESETS = {
-  tesseract: {
-    command: "tesseract",
-    argsTemplate: ["{input}", "stdout", "-l", "{languages_tesseract}"],
-    preset: "tesseract"
-  }
-};
-var defaultOcrPagesOptions = () => ({
-  scale: DEFAULT_RENDER_SCALE,
-  max_pages: DEFAULT_MAX_RENDER_PAGES,
-  max_pixels_per_page: DEFAULT_MAX_RENDER_PIXELS,
-  timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
-  max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
-});
-var readOcrProviderPreset = () => {
-  const preset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
-  if (!preset)
-    return;
-  if (preset !== "tesseract") {
-    throw new PdfError(-32600 /* InvalidRequest */, "Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract.");
-  }
-  return OCR_PROVIDER_PRESETS[preset];
-};
-var readCommandProviderConfig = () => {
-  const preset = readOcrProviderPreset();
-  const command = process.env[OCR_COMMAND_ENV]?.trim() || preset?.command;
-  if (!command) {
-    throw new PdfError(-32600 /* InvalidRequest */, "OCR provider is not configured. Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages.");
-  }
-  const rawArgs = process.env[OCR_ARGS_ENV];
-  if (!rawArgs)
-    return { command, argsTemplate: preset?.argsTemplate ?? ["{input}"], preset: preset?.preset };
-  let parsed;
-  try {
-    parsed = JSON.parse(rawArgs);
-  } catch (error) {
-    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.", {
-      cause: error instanceof Error ? error : undefined
-    });
-  }
-  if (!Array.isArray(parsed) || parsed.some((arg) => typeof arg !== "string")) {
-    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.");
-  }
-  if (!parsed.some((arg) => arg.includes("{input}"))) {
-    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must include the {input} placeholder so the OCR provider receives the rendered page image.");
-  }
-  return { command, argsTemplate: parsed, preset: preset?.preset };
-};
-var replacePlaceholders2 = (template, context) => template.replaceAll("{input}", context.inputPath).replaceAll("{page}", String(context.page)).replaceAll("{source}", context.source).replaceAll("{language}", context.languages?.[0] ?? "").replaceAll("{languages}", context.languages?.join(",") ?? "").replaceAll("{languages_tesseract}", context.languages?.join("+") || "eng");
-var normalizeConfidence2 = (value) => {
-  if (typeof value !== "number" || !Number.isFinite(value))
-    return;
-  return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
-};
-var normalizeBoundingBox = (value) => {
-  if (typeof value !== "object" || value === null)
-    return;
-  const candidate = value;
-  const left = candidate.left;
-  const bottom = candidate.bottom;
-  const right = candidate.right;
-  const top = candidate.top;
-  if (typeof left !== "number" || !Number.isFinite(left) || typeof bottom !== "number" || !Number.isFinite(bottom) || typeof right !== "number" || !Number.isFinite(right) || typeof top !== "number" || !Number.isFinite(top) || right <= left || top <= bottom) {
-    return;
-  }
-  return { left, bottom, right, top };
-};
-var normalizeWords = (value) => {
-  if (!Array.isArray(value))
-    return;
-  const words = value.map((word) => {
-    if (typeof word !== "object" || word === null)
-      return;
-    const candidate = word;
-    if (typeof candidate.text !== "string" || candidate.text.trim().length === 0) {
-      return;
-    }
-    const confidence = normalizeConfidence2(candidate.confidence);
-    const boundingBox = normalizeBoundingBox(candidate.bounding_box);
-    return {
-      text: candidate.text,
-      ...confidence !== undefined ? { confidence } : {},
-      ...boundingBox ? { bounding_box: boundingBox } : {}
-    };
-  }).filter((word) => word !== undefined);
-  return words.length > 0 ? words : undefined;
-};
-var parseOcrOutput = (stdout, options) => {
-  const trimmed = stdout.trim();
-  let parsed;
-  try {
-    const maybeJson = JSON.parse(trimmed);
-    if (typeof maybeJson === "object" && maybeJson !== null) {
-      parsed = maybeJson;
-    }
-  } catch {
-    parsed = undefined;
-  }
-  const rawText = parsed && typeof parsed.text === "string" ? parsed.text : trimmed;
-  const text4 = rawText.length > options.max_output_chars ? rawText.slice(0, options.max_output_chars) : rawText;
-  const warnings = rawText.length > options.max_output_chars ? [`OCR output truncated to ${String(options.max_output_chars)} characters.`] : undefined;
-  const confidence = normalizeConfidence2(parsed?.confidence);
-  const words = normalizeWords(parsed?.words);
-  return {
-    text: text4,
-    ...confidence !== undefined ? { confidence } : {},
-    ...words ? { words } : {},
-    ...typeof parsed?.language === "string" ? { language: parsed.language } : options.languages?.[0] ? { language: options.languages[0] } : {},
-    ...warnings ? { warnings } : {}
-  };
-};
-var ocrRenderedPageWithCommandProvider = async (page, context, options) => {
-  const config = readCommandProviderConfig();
-  const tempDir = await fs5.mkdtemp(path4.join(os2.tmpdir(), "pdf-reader-mcp-ocr-"));
-  const inputPath = path4.join(tempDir, `page-${String(page.page)}.png`);
-  try {
-    await fs5.writeFile(inputPath, Buffer.from(page.data, "base64"));
-    const args = config.argsTemplate.map((arg) => replacePlaceholders2(arg, {
-      inputPath,
-      page: page.page,
-      source: context.source,
-      languages: context.languages
-    }));
-    const { stdout } = await execFileAsync2(config.command, args, {
-      timeout: options.timeout_ms,
-      maxBuffer: Math.max(options.max_output_chars * 4, 1024 * 1024),
-      windowsHide: true
-    });
-    const normalized = parseOcrOutput(stdout, options);
-    return {
-      page: page.page,
-      ...normalized,
-      provider: "command",
-      source_render_evidence_id: page.evidence_id,
-      provenance: {
-        engine: "external-command",
-        source: "ocr-provider"
-      }
-    };
-  } catch (error) {
-    if (error instanceof PdfError)
-      throw error;
-    const message = error instanceof Error ? error.message : String(error);
-    logger11.warn("OCR provider command failed", { page: page.page, error: message });
-    throw new PdfError(-32600 /* InvalidRequest */, `OCR provider command failed for page ${String(page.page)}.`);
-  } finally {
-    await fs5.rm(tempDir, { recursive: true, force: true }).catch(() => {});
-  }
-};
-var ocrPdfSourcePages = async (source, options) => {
-  const rendered = await renderPdfSourcePages(source, {
-    scale: options.scale,
-    max_pages: options.max_pages,
-    max_pixels_per_page: options.max_pixels_per_page,
-    include_image: false
-  });
-  const pages = [];
-  for (const page of rendered.pages) {
-    pages.push(await ocrRenderedPageWithCommandProvider(page, { source: rendered.source, languages: options.languages }, options));
-  }
-  return {
-    source: rendered.source,
-    numPages: rendered.numPages,
-    pages,
-    warnings: rendered.warnings
-  };
-};
 
 // src/schemas/ocrPages.ts
 import {

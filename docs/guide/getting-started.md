@@ -39,6 +39,8 @@ Typical response fields:
   structure-tree availability
 - `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
   arguments
+- `provider_status`: safe readiness metadata for optional `ocr_pages` and
+  `analyze_regions` providers without exposing local command paths
 
 ### Search For Evidence
 

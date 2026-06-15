@@ -20,7 +20,9 @@ import {
   extractStructureTrees,
 } from './extractor.js';
 import { loadPdfDocument } from './loader.js';
+import { getOcrProviderStatus } from './ocr.js';
 import { getTargetPages } from './parser.js';
+import { getRegionAnalysisProviderStatus } from './regionAnalysis.js';
 
 const logger = createLogger('Inspector');
 
@@ -293,6 +295,10 @@ export const inspectPdfSource = async (
       page_signals: pageSignals,
       document_signals: documentSignals,
       recommendation,
+      provider_status: {
+        ocr_pages: getOcrProviderStatus(),
+        analyze_regions: getRegionAnalysisProviderStatus(),
+      },
       ...(metadataOutput.info ? { info: metadataOutput.info } : {}),
       ...(metadataOutput.metadata ? { metadata: metadataOutput.metadata } : {}),
       ...(pageGeometry.length > 0 ? { page_geometry: pageGeometry } : {}),

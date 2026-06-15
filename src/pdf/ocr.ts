@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import type {
   OcrPagesOptions,
   PdfOcrPageData,
+  PdfOcrProviderStatus,
   PdfOcrWord,
   PdfPageRenderData,
   PdfSource,
@@ -61,6 +62,38 @@ export const defaultOcrPagesOptions = (): OcrPagesOptions => ({
 
 export const isOcrProviderConfigured = (): boolean =>
   Boolean(process.env[OCR_COMMAND_ENV]?.trim() || process.env[OCR_PRESET_ENV]?.trim());
+
+export const getOcrProviderStatus = (): PdfOcrProviderStatus => {
+  const rawPreset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
+  const commandConfigured = Boolean(process.env[OCR_COMMAND_ENV]?.trim());
+  const preset = rawPreset === 'tesseract' ? 'tesseract' : rawPreset ? 'unsupported' : undefined;
+
+  if (preset === 'unsupported') {
+    return {
+      readiness: 'invalid_configuration',
+      provider: 'command',
+      command_configured: commandConfigured,
+      preset,
+      warnings: ['Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract.'],
+    };
+  }
+
+  if (!commandConfigured && !preset) {
+    return {
+      readiness: 'not_configured',
+      provider: 'command',
+      command_configured: false,
+      warnings: ['Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages.'],
+    };
+  }
+
+  return {
+    readiness: 'ready',
+    provider: 'command',
+    command_configured: commandConfigured,
+    ...(preset ? { preset } : {}),
+  };
+};
 
 const readOcrProviderPreset = (): CommandOcrProviderConfig | undefined => {
   const preset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();

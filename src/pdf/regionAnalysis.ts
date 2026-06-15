@@ -9,6 +9,7 @@ import type {
   PdfRegionAnalysisData,
   PdfRegionAnalysisFormula,
   PdfRegionAnalysisKind,
+  PdfRegionAnalysisProviderStatus,
   PdfRegionAnalysisTable,
   PdfRegionCropData,
   PdfRegionRequest,
@@ -63,6 +64,25 @@ export const defaultAnalyzeRegionsOptions = (): AnalyzeRegionsOptions => ({
 
 export const isRegionAnalysisProviderConfigured = (): boolean =>
   Boolean(process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim());
+
+export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStatus => {
+  const commandConfigured = isRegionAnalysisProviderConfigured();
+
+  if (!commandConfigured) {
+    return {
+      readiness: 'not_configured',
+      provider: 'command',
+      command_configured: false,
+      warnings: ['Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions.'],
+    };
+  }
+
+  return {
+    readiness: 'ready',
+    provider: 'command',
+    command_configured: true,
+  };
+};
 
 export const readRegionAnalysisProviderConfig = (): CommandRegionAnalysisProviderConfig => {
   const command = process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim();

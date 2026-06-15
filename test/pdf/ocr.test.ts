@@ -3,6 +3,7 @@ import { PNG } from 'pngjs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   defaultOcrPagesOptions,
+  getOcrProviderStatus,
   isOcrProviderConfigured,
   ocrRenderedPageWithCommandProvider,
   readCommandProviderConfig,
@@ -60,13 +61,29 @@ describe('ocr', () => {
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_PRESET');
     expect(isOcrProviderConfigured()).toBe(false);
+    expect(getOcrProviderStatus()).toMatchObject({
+      readiness: 'not_configured',
+      provider: 'command',
+      command_configured: false,
+    });
 
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
     expect(isOcrProviderConfigured()).toBe(true);
+    expect(getOcrProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'command',
+      command_configured: true,
+    });
 
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
     process.env['MCP_PDF_OCR_PRESET'] = 'tesseract';
     expect(isOcrProviderConfigured()).toBe(true);
+    expect(getOcrProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'command',
+      command_configured: false,
+      preset: 'tesseract',
+    });
   });
 
   it('should resolve the tesseract OCR preset without custom command args', () => {
@@ -86,6 +103,11 @@ describe('ocr', () => {
     process.env['MCP_PDF_OCR_PRESET'] = 'unknown';
 
     expect(() => readCommandProviderConfig()).toThrow(/Unsupported MCP_PDF_OCR_PRESET/);
+    expect(getOcrProviderStatus()).toMatchObject({
+      readiness: 'invalid_configuration',
+      provider: 'command',
+      preset: 'unsupported',
+    });
   });
 
   it('should run the configured command OCR provider and normalize JSON output', async () => {

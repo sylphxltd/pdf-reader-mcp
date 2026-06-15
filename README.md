@@ -753,7 +753,8 @@ best `read_pdf` arguments.
 Inspection is intentionally low overhead: it does not decode image bytes and it
 does not perform OCR. When sampled pages look scanned or image-only, the tool
 marks `needs_ocr: true` so agents do not mistake an image-based PDF for a text
-extraction failure.
+extraction failure. It also reports safe optional-provider readiness for
+`ocr_pages` and `analyze_regions` without exposing local command paths.
 
 ### Layout Confidence for Agent Routing
 
@@ -857,6 +858,7 @@ PDF handling, or OCR-capable workflows.
 | `page_signals` | Text chars, text items, token estimate, image paint operations, and scan/low-text flags |
 | `document_signals` | Outline, labels, permissions, forms, attachments, and structure-tree availability |
 | `recommendation` | Suggested workflow, OCR need, reason, and ready-to-use `read_pdf` arguments |
+| `provider_status` | Safe readiness metadata for optional `ocr_pages` and `analyze_regions` providers without command paths |
 
 ### `render_page` Tool
 

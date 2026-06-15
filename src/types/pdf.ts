@@ -669,6 +669,28 @@ export interface PdfInspectionRecommendation {
   read_pdf_arguments: Record<string, unknown>;
 }
 
+export type PdfOptionalProviderReadiness = 'ready' | 'not_configured' | 'invalid_configuration';
+
+export interface PdfOcrProviderStatus {
+  readiness: PdfOptionalProviderReadiness;
+  provider: 'command';
+  command_configured: boolean;
+  preset?: 'tesseract' | 'unsupported' | undefined;
+  warnings?: string[] | undefined;
+}
+
+export interface PdfRegionAnalysisProviderStatus {
+  readiness: PdfOptionalProviderReadiness;
+  provider: 'command';
+  command_configured: boolean;
+  warnings?: string[] | undefined;
+}
+
+export interface PdfInspectionProviderStatus {
+  ocr_pages: PdfOcrProviderStatus;
+  analyze_regions: PdfRegionAnalysisProviderStatus;
+}
+
 export interface PdfInspectionData {
   profile: PdfInspectionProfile;
   num_pages: number;
@@ -676,6 +698,7 @@ export interface PdfInspectionData {
   page_signals: PdfInspectionPageSignal[];
   document_signals: PdfInspectionDocumentSignals;
   recommendation: PdfInspectionRecommendation;
+  provider_status: PdfInspectionProviderStatus;
   info?: PdfInfo | undefined;
   metadata?: PdfMetadata | undefined;
   page_geometry?: PdfPageGeometry[] | undefined;

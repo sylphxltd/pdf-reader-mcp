@@ -167,9 +167,28 @@ describe('MCP Server Integration', () => {
       expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
     } else {
       const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        results: Array<{
+          success: boolean;
+          data?: {
+            provider_status?: {
+              ocr_pages?: { readiness?: string; command_configured?: boolean };
+              analyze_regions?: { readiness?: string; command_configured?: boolean };
+            };
+          };
+        }>;
+      };
       expect(response.result?.content?.[0]?.type).toBe('text');
       expect(textContent).toContain('"profile"');
       expect(textContent).toContain('"recommendation"');
+      expect(parsed.results[0]?.data?.provider_status?.ocr_pages).toMatchObject({
+        readiness: 'ready',
+        command_configured: true,
+      });
+      expect(parsed.results[0]?.data?.provider_status?.analyze_regions).toMatchObject({
+        readiness: 'ready',
+        command_configured: true,
+      });
     }
   });
 
