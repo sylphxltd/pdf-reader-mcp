@@ -32,7 +32,12 @@ bun run benchmark:quality
 ```
 
 The quality benchmark prints a table and JSON report. It exits with a non-zero
-status if any quality gate fails.
+status if any quality gate fails. The JSON report also includes
+`final_bar_coverage_summary` and `final_bar_coverage`, a machine-readable map
+from the SOTA final-bar capabilities to the benchmark scenarios that prove
+deterministic coverage. Entries marked `provider_benchmark_required` have
+passing deterministic coverage but still require installed-provider benchmark
+evidence before making engine-specific accuracy claims.
 
 | Scenario | Quality gate |
 |----------|--------------|

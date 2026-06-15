@@ -91,6 +91,10 @@ themselves.
      normalization, search evidence, and AI-safety trust-report
      selected-page-scoped category summaries, trust-evidence redaction,
      visual-spoofing guidance, hidden-text routing, and unsafe-link routing.
+     Its JSON report includes `final_bar_coverage_summary` and
+     `final_bar_coverage`, mapping each SOTA final-bar capability to the
+     deterministic benchmark scenarios that currently prove it and marking
+     areas that still require installed-provider benchmark evidence.
    - `bun run benchmark:providers` is the installed-provider benchmark
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers. It reports an `ocr-text-layer` profile for OCR

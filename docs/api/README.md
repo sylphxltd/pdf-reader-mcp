@@ -140,3 +140,8 @@ bun run benchmark:providers
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider
 capabilities.
+
+`benchmark:quality` also emits `final_bar_coverage_summary` and
+`final_bar_coverage` so release reviewers can see which SOTA final-bar
+capabilities are covered by deterministic fixtures and which still require
+installed-provider benchmark evidence.

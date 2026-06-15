@@ -70,6 +70,22 @@ interface BenchmarkCaseResult {
   failures: string[];
 }
 
+type FinalBarCoverageStatus = 'covered' | 'provider_benchmark_required' | 'incomplete';
+
+interface FinalBarCoverageRequirement {
+  id: string;
+  capability: string;
+  deterministic_scenarios: string[];
+  evidence: string[];
+  provider_benchmark_required?: boolean | undefined;
+}
+
+interface FinalBarCoverageResult extends FinalBarCoverageRequirement {
+  status: FinalBarCoverageStatus;
+  missing_scenarios: string[];
+  failing_scenarios: string[];
+}
+
 interface AgentDocumentTwinCase {
   pageContents: Array<{ page: number; items: PageContentItem[] }>;
   tables: ExtractedTable[];
@@ -157,6 +173,185 @@ const scoreAssertions = (
     failures,
   };
 };
+
+const FINAL_BAR_COVERAGE_REQUIREMENTS: FinalBarCoverageRequirement[] = [
+  {
+    id: 'lossless_selectable_text_evidence',
+    capability: 'Lossless selectable-text evidence',
+    deterministic_scenarios: [
+      'agent_document_twin_semantic_quality',
+      'real_reading_order_fixture_quality',
+    ],
+    evidence: [
+      'run, line, word, and character text-layer records',
+      'font, direction, transform, and end-of-line metadata coverage',
+      'page offsets, estimated geometry labels, and document-map coverage counters',
+    ],
+  },
+  {
+    id: 'robust_reading_order',
+    capability: 'Robust reading order',
+    deterministic_scenarios: [
+      'real_reading_order_fixture_quality',
+      'recursive_reading_order_quality',
+      'agent_document_twin_semantic_quality',
+    ],
+    evidence: [
+      'runtime-generated multi-column fixture',
+      'recursive band and column segmentation fixture',
+      'layout diagnostics and low-confidence routing evidence',
+    ],
+  },
+  {
+    id: 'scanned_pdf_pipeline',
+    capability: 'Scanned-PDF pipeline',
+    deterministic_scenarios: [
+      'ocr_text_layer_quality',
+      'scanned_pdf_fixture_pipeline_quality',
+      'ocr_table_extraction_quality',
+    ],
+    evidence: [
+      'render-to-OCR provenance',
+      'OCR word-box normalization',
+      'OCR text-layer document-map fusion',
+      'OCR-derived table extraction from scanned-page word boxes',
+    ],
+    provider_benchmark_required: true,
+  },
+  {
+    id: 'table_intelligence',
+    capability: 'Table intelligence',
+    deterministic_scenarios: [
+      'agent_document_twin_semantic_quality',
+      'table_evidence_quality',
+      'ocr_table_extraction_quality',
+      'visual_region_analysis_quality',
+    ],
+    evidence: [
+      'deterministic text-table clustering',
+      'cell bounding-box coverage',
+      'header/span and continuation diagnostics',
+      'visual provider table normalization',
+    ],
+    provider_benchmark_required: true,
+  },
+  {
+    id: 'formula_chart_figure_enrichment',
+    capability: 'Formula, chart, and figure enrichment',
+    deterministic_scenarios: [
+      'agent_document_twin_semantic_quality',
+      'visual_region_analysis_quality',
+    ],
+    evidence: [
+      'caption-derived visual-region routing',
+      'formula normalization',
+      'chart axis/series normalization',
+      'figure and image-description normalization',
+      'crop provenance through visual-region provider adapters',
+    ],
+    provider_benchmark_required: true,
+  },
+  {
+    id: 'tagged_pdf_accessibility_intelligence',
+    capability: 'Tagged-PDF and accessibility intelligence',
+    deterministic_scenarios: [
+      'document_signal_fixture_quality',
+      'agent_document_twin_semantic_quality',
+    ],
+    evidence: [
+      'runtime-generated tagged-PDF structure tree fixture',
+      'tag-to-visible-content coverage',
+      'issue severity/type/page-grade summaries',
+      'document-map accessibility routing and issue indexes',
+    ],
+  },
+  {
+    id: 'ai_safety_trust_reporting',
+    capability: 'AI-safety trust reporting',
+    deterministic_scenarios: [
+      'ai_safety_trust_report_quality',
+      'agent_document_twin_semantic_quality',
+    ],
+    evidence: [
+      'hidden, tiny, off-page, overlapping, unsafe-link, and prompt-like signals',
+      'selected-page-scoped trust summaries',
+      'trust evidence redaction',
+      'document-map trust routing and signal indexes',
+    ],
+  },
+  {
+    id: 'reproducible_public_quality_proof',
+    capability: 'Reproducible proof',
+    deterministic_scenarios: [
+      'agent_document_twin_semantic_quality',
+      'document_signal_fixture_quality',
+      'real_reading_order_fixture_quality',
+      'recursive_reading_order_quality',
+      'ocr_text_layer_quality',
+      'scanned_pdf_fixture_pipeline_quality',
+      'ocr_table_extraction_quality',
+      'visual_region_analysis_quality',
+      'search_evidence_quality',
+      'table_evidence_quality',
+      'ai_safety_trust_report_quality',
+    ],
+    evidence: [
+      'deterministic quality benchmark scenarios',
+      'runtime-generated real PDF fixtures',
+      'mock local provider fixtures',
+      'machine-readable final-bar coverage matrix',
+    ],
+    provider_benchmark_required: true,
+  },
+  {
+    id: 'public_contract_integrity',
+    capability: 'Public contract integrity',
+    deterministic_scenarios: [
+      'agent_document_twin_semantic_quality',
+      'document_signal_fixture_quality',
+    ],
+    evidence: [
+      'public docs tied to validated shipped behavior',
+      'quality benchmark report separates deterministic coverage from provider-specific accuracy',
+    ],
+  },
+];
+
+const buildFinalBarCoverage = (results: BenchmarkCaseResult[]): FinalBarCoverageResult[] => {
+  const byName = new Map(results.map((result) => [result.name, result]));
+
+  return FINAL_BAR_COVERAGE_REQUIREMENTS.map((requirement) => {
+    const missingScenarios = requirement.deterministic_scenarios.filter(
+      (scenario) => !byName.has(scenario)
+    );
+    const failingScenarios = requirement.deterministic_scenarios.filter((scenario) => {
+      const result = byName.get(scenario);
+      return result !== undefined && result.failures.length > 0;
+    });
+    const deterministicCovered = missingScenarios.length === 0 && failingScenarios.length === 0;
+    const status: FinalBarCoverageStatus = !deterministicCovered
+      ? 'incomplete'
+      : requirement.provider_benchmark_required
+        ? 'provider_benchmark_required'
+        : 'covered';
+
+    return {
+      ...requirement,
+      status,
+      missing_scenarios: missingScenarios,
+      failing_scenarios: failingScenarios,
+    };
+  });
+};
+
+const summarizeFinalBarCoverage = (coverage: FinalBarCoverageResult[]) => ({
+  total: coverage.length,
+  covered: coverage.filter((entry) => entry.status === 'covered').length,
+  provider_benchmark_required: coverage.filter(
+    (entry) => entry.status === 'provider_benchmark_required'
+  ).length,
+  incomplete: coverage.filter((entry) => entry.status === 'incomplete').length,
+});
 
 const runCase = async (
   name: string,
@@ -2186,6 +2381,7 @@ const main = async () => {
   const failed = results.filter((result) => result.failures.length > 0);
   const passed = results.reduce((sum, result) => sum + result.passed, 0);
   const total = results.reduce((sum, result) => sum + result.total, 0);
+  const finalBarCoverage = buildFinalBarCoverage(results);
   const report = {
     profile: 'pdf_quality_benchmark',
     generated_at: new Date().toISOString(),
@@ -2195,6 +2391,8 @@ const main = async () => {
     total,
     score: total === 0 ? 0 : round(passed / total),
     results,
+    final_bar_coverage_summary: summarizeFinalBarCoverage(finalBarCoverage),
+    final_bar_coverage: finalBarCoverage,
   };
 
   console.table(

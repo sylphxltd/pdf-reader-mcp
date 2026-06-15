@@ -37,3 +37,6 @@ including unavailable routing for built-in OCR presets when their executable is
 not installed. Extend the installed-provider benchmark so skipped providers
 still emit machine-readable certification profiles with skipped capabilities
 and safe provider-status metadata.
+Extend the deterministic quality benchmark JSON with a machine-readable SOTA
+final-bar coverage matrix that maps each capability area to benchmark scenarios
+and marks areas that still require installed-provider benchmark evidence.

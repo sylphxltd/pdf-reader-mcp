@@ -1661,6 +1661,7 @@ bun run benchmark:all # Performance + quality + provider benchmarks
 - ✅ Strict TypeScript
 - ✅ Zero lint errors
 - ✅ Reproducible quality benchmark
+- ✅ Machine-readable SOTA final-bar coverage matrix in `benchmark:quality`
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 
 </details>
@@ -1727,7 +1728,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
