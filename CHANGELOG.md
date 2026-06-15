@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.1
+
+### Patch Changes
+
+- [#300](https://github.com/SylphxAI/pdf-reader-mcp/pull/300) [`8cdb556`](https://github.com/SylphxAI/pdf-reader-mcp/commit/8cdb556c9de1f25bcd24b00acb00cd5d3ad42113) Thanks [@shtse8](https://github.com/shtse8)! - Remove the internal Doctor and Lefthook release gate so the project relies on Changesets, CI, and explicit package scripts for release validation.
+
 ## 2.5.0
 
 ### Minor Changes
