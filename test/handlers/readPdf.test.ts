@@ -1,6 +1,7 @@
 import * as realFsPromises from 'node:fs/promises';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type Schema, safeParse } from '../../src/schema.js';
+import type { PdfDocumentElement, PdfRegionRequest } from '../../src/types/pdf.js';
 import { ErrorCode, PdfError } from '../../src/utils/errors.js';
 import * as pathUtils from '../../src/utils/pathUtils.js'; // Import the module itself for spying
 import { resolvePath } from '../../src/utils/pathUtils.js';
@@ -24,6 +25,40 @@ const mockReadFile = vi.fn();
 const mockStat = vi.fn();
 const mockOcrPdfSourcePages = vi.fn();
 const mockBuildVisualEnrichmentsForSource = vi.fn();
+
+type VisualTargetElement = Extract<PdfDocumentElement, { type: 'image' | 'table' }> & {
+  bounding_box: NonNullable<PdfDocumentElement['bounding_box']>;
+};
+
+interface VisualEnrichmentCandidate {
+  element: VisualTargetElement;
+  region: PdfRegionRequest;
+}
+
+const isVisualTargetElement = (element: PdfDocumentElement): element is VisualTargetElement =>
+  (element.type === 'image' || element.type === 'table') && element.bounding_box !== undefined;
+
+const selectMockVisualEnrichmentCandidates = (
+  elements: PdfDocumentElement[],
+  maxVisualEnrichments: number
+): VisualEnrichmentCandidate[] => {
+  const candidates: VisualEnrichmentCandidate[] = [];
+
+  for (const element of elements) {
+    if (!isVisualTargetElement(element)) continue;
+    candidates.push({
+      element,
+      region: {
+        id: element.id,
+        page: element.page,
+        bounding_box: element.bounding_box,
+      },
+    });
+    if (candidates.length >= maxVisualEnrichments) break;
+  }
+
+  return candidates;
+};
 
 const fakeStats = (size: number) =>
   ({
@@ -56,7 +91,14 @@ vi.mock('node:fs/promises', () => ({
 
 vi.mock('../../src/pdf/visualEnrichment.js', () => ({
   DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS: 8,
-  buildVisualEnrichmentsForSource: mockBuildVisualEnrichmentsForSource,
+  selectVisualEnrichmentCandidates: selectMockVisualEnrichmentCandidates,
+  buildVisualEnrichmentsForSource: async (
+    input: Parameters<typeof mockBuildVisualEnrichmentsForSource>[0]
+  ) =>
+    (await mockBuildVisualEnrichmentsForSource(input)) ?? {
+      visualEnrichments: [],
+      warnings: ['Visual enrichment skipped: analyze_regions provider is not_configured.'],
+    },
 }));
 
 // Dynamically import the handler *once* after mocks are defined
