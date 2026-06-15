@@ -431,7 +431,38 @@ export interface PdfTextLayerWord {
   char_start: number;
   char_end: number;
   bounding_box?: BoundingBox | undefined;
+  bounding_box_level?: 'char_estimated' | 'word_estimated' | undefined;
   confidence?: number | undefined;
+}
+
+export interface PdfTextLayerChar {
+  index: number;
+  text: string;
+  char_start: number;
+  char_end: number;
+  run_index: number;
+  is_whitespace: boolean;
+  bounding_box?: BoundingBox | undefined;
+  bounding_box_level?: 'char_estimated' | undefined;
+  confidence?: number | undefined;
+}
+
+export interface PdfTextLayerRun {
+  index: number;
+  text: string;
+  char_start: number;
+  char_end: number;
+  bounding_box?: BoundingBox | undefined;
+  font_name?: string | undefined;
+  direction?: string | undefined;
+  transform?: number[] | undefined;
+  has_eol?: boolean | undefined;
+  chars: PdfTextLayerChar[];
+  provenance: {
+    engine: 'pdfjs';
+    source: 'text-content';
+    bounding_box_level: 'text_run' | 'char_estimated';
+  };
 }
 
 export interface PdfTextLayerLine {
@@ -441,11 +472,13 @@ export interface PdfTextLayerLine {
   char_start: number;
   char_end: number;
   bounding_box?: BoundingBox | undefined;
+  runs: PdfTextLayerRun[];
   words: PdfTextLayerWord[];
+  chars: PdfTextLayerChar[];
   provenance: {
     engine: 'pdfjs';
     source: 'text-content';
-    bounding_box_level: 'line' | 'word_estimated';
+    bounding_box_level: 'line' | 'word_estimated' | 'char_estimated';
   };
 }
 
@@ -461,9 +494,12 @@ export interface PdfTextLayerPage {
 export interface PdfTextLayerSummary {
   selected_pages: number[];
   page_count: number;
+  run_count: number;
   line_count: number;
   word_count: number;
   char_count: number;
+  chars_with_bounding_boxes: number;
+  runs_with_bounding_boxes: number;
   lines_with_bounding_boxes: number;
   words_with_bounding_boxes: number;
 }
@@ -545,6 +581,29 @@ export interface PdfAccessibilityReport {
 }
 
 // Content item with position for ordering
+export interface PageTextRunCharEvidence {
+  index: number;
+  text: string;
+  item_char_start: number;
+  item_char_end: number;
+  is_whitespace: boolean;
+  bounding_box?: BoundingBox | undefined;
+  confidence?: number | undefined;
+}
+
+export interface PageTextRunEvidence {
+  index: number;
+  text: string;
+  item_char_start: number;
+  item_char_end: number;
+  bounding_box?: BoundingBox | undefined;
+  font_name?: string | undefined;
+  direction?: string | undefined;
+  transform?: number[] | undefined;
+  has_eol?: boolean | undefined;
+  chars: PageTextRunCharEvidence[];
+}
+
 export interface PageContentItem {
   type: 'text' | 'image';
   yPosition: number;
@@ -553,6 +612,7 @@ export interface PageContentItem {
   height?: number | undefined;
   bounding_box?: BoundingBox | undefined;
   textContent?: string;
+  textRuns?: PageTextRunEvidence[] | undefined;
   imageData?: ExtractedImage;
 }
 
@@ -943,7 +1003,7 @@ export interface PdfSearchMatch {
   match_end: number;
   text_item_index: number;
   bounding_box?: BoundingBox | undefined;
-  bounding_box_level?: 'text_item' | undefined;
+  bounding_box_level?: 'char_estimated' | 'text_item' | undefined;
   provenance: {
     engine: 'pdfjs';
     source: 'text-content';

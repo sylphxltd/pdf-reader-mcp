@@ -91,6 +91,50 @@ const findMatchesInText = (
   return matches;
 };
 
+const mergeBoundingBoxes = (
+  boxes: Array<NonNullable<PageContentItem['bounding_box']> | undefined>
+): NonNullable<PageContentItem['bounding_box']> | undefined => {
+  const validBoxes = boxes.filter(
+    (box): box is NonNullable<PageContentItem['bounding_box']> => box !== undefined
+  );
+  if (validBoxes.length === 0) return undefined;
+
+  return {
+    left: Math.min(...validBoxes.map((box) => box.left)),
+    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
+    right: Math.max(...validBoxes.map((box) => box.right)),
+    top: Math.max(...validBoxes.map((box) => box.top)),
+  };
+};
+
+const matchBoundingBox = (
+  item: PageContentItem,
+  start: number,
+  end: number
+):
+  | {
+      bounding_box: NonNullable<PageContentItem['bounding_box']>;
+      level: 'char_estimated' | 'text_item';
+    }
+  | undefined => {
+  const charBoxes = (item.textRuns ?? [])
+    .flatMap((run) => run.chars)
+    .filter(
+      (char) =>
+        !char.is_whitespace &&
+        char.item_char_start >= start &&
+        char.item_char_end <= end &&
+        char.bounding_box
+    )
+    .map((char) => char.bounding_box);
+  const charBoundingBox = mergeBoundingBoxes(charBoxes);
+  if (charBoundingBox) {
+    return { bounding_box: charBoundingBox, level: 'char_estimated' };
+  }
+
+  return item.bounding_box ? { bounding_box: item.bounding_box, level: 'text_item' } : undefined;
+};
+
 export const searchPageContentItems = (
   page: number,
   items: PageContentItem[],
@@ -107,6 +151,7 @@ export const searchPageContentItems = (
     const itemMatches = findMatchesInText(item.textContent, options.query, options);
     for (const itemMatch of itemMatches) {
       const matchedText = item.textContent.slice(itemMatch.start, itemMatch.end);
+      const matchBox = matchBoundingBox(item, itemMatch.start, itemMatch.end);
       matches.push({
         id: `p${String(page)}-match-${String(matchOffset + matches.length + 1)}`,
         page,
@@ -120,8 +165,8 @@ export const searchPageContentItems = (
         match_start: itemMatch.start,
         match_end: itemMatch.end,
         text_item_index: textItemIndex,
-        ...(item.bounding_box
-          ? { bounding_box: item.bounding_box, bounding_box_level: 'text_item' as const }
+        ...(matchBox
+          ? { bounding_box: matchBox.bounding_box, bounding_box_level: matchBox.level }
           : {}),
         provenance: {
           engine: 'pdfjs',

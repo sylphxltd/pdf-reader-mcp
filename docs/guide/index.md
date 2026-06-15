@@ -7,13 +7,13 @@ PDF Reader MCP is a Model Context Protocol (MCP) server that enables AI agents t
 AI agents often need to access information from PDF documents - reports, invoices, research papers, manuals, and more. This server provides tools to inspect and extract:
 
 - **PDF profiles** - Detect text-rich, low-text, mixed, or scanned/image-like PDFs before extraction
-- **PDF search evidence** - Locate literal text matches with snippets, match offsets, text-item bounding boxes, and provenance
+- **PDF search evidence** - Locate literal text matches with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - **Visual page evidence** - Render selected pages as bounded PNG MCP image parts with provenance
 - **Region crop evidence** - Crop PDF-coordinate bounding boxes as focused PNG evidence
 - **Visual region analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - **Configured OCR text layers** - Run selected rendered pages through a local OCR provider and normalize text, confidence, words, language, and provenance
 - **Full text content** - Get all text from a PDF
-- **PDF text layers** - Return line records, word records, character ranges, best-effort boxes, and provenance
+- **PDF text layers** - Return run records, line records, word records, character records, estimated boxes, and provenance
 - **Page-specific text** - Extract text from specific pages or page ranges
 - **Metadata** - Author, title, creation date, and other document properties
 - **Page count** - Total number of pages
@@ -41,7 +41,7 @@ Use `inspect_pdf` to sample a PDF, identify extraction risks, and get recommende
 Use `search_pdf` to find relevant pages and source snippets before deciding whether an agent should read, render, crop, or cite a region.
 
 ### PDF Text Layer
-Use `include_text_layer` when agents need line and word records with page-level character ranges and best-effort bounding boxes.
+Use `include_text_layer` when agents need run, line, word, and character records with page-level ranges and estimated bounding boxes.
 
 ### Image Extraction
 Extract embedded images from PDFs for AI vision analysis. Images are returned as base64-encoded PNG data.

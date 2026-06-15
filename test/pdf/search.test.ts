@@ -19,6 +19,35 @@ const textItem = (textContent: string, bounding_box?: BoundingBox): PageContentI
   ...(bounding_box ? { bounding_box } : {}),
 });
 
+const textItemWithCharBoxes = (textContent: string, bounding_box: BoundingBox): PageContentItem => {
+  const width = bounding_box.right - bounding_box.left;
+  return {
+    ...textItem(textContent, bounding_box),
+    textRuns: [
+      {
+        index: 0,
+        text: textContent,
+        item_char_start: 0,
+        item_char_end: textContent.length,
+        bounding_box,
+        chars: Array.from(textContent).map((text, index) => {
+          const left = bounding_box.left + (width * index) / textContent.length;
+          const right = bounding_box.left + (width * (index + 1)) / textContent.length;
+          return {
+            index,
+            text,
+            item_char_start: index,
+            item_char_end: index + 1,
+            is_whitespace: /\s/u.test(text),
+            bounding_box: { left, bottom: bounding_box.bottom, right, top: bounding_box.top },
+            confidence: 0.74,
+          };
+        }),
+      },
+    ],
+  };
+};
+
 const options = (overrides: Partial<SearchPdfOptions> = {}): SearchPdfOptions => ({
   ...defaultSearchPdfOptions('risk'),
   context_chars: 6,
@@ -40,7 +69,7 @@ describe('search', () => {
     });
   });
 
-  it('finds literal matches with snippets and text-item bounding boxes', () => {
+  it('falls back to text-item bounding boxes when char evidence is unavailable', () => {
     const matches = searchPageContentItems(
       1,
       [
@@ -68,6 +97,24 @@ describe('search', () => {
         },
       },
     ]);
+  });
+
+  it('uses char-derived bounding boxes when text-run evidence is available', () => {
+    const matches = searchPageContentItems(
+      1,
+      [textItemWithCharBoxes('abc risk xyz', box(100, 700, 120, 12))],
+      options(),
+      0
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'risk',
+      match_start: 4,
+      match_end: 8,
+      bounding_box: { left: 140, bottom: 700, right: 180, top: 712 },
+      bounding_box_level: 'char_estimated',
+    });
   });
 
   it('supports whole-word and case-sensitive matching', () => {

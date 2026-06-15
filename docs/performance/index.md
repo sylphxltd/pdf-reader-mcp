@@ -303,11 +303,12 @@ the full raw structure tree or annotation payload.
 }
 ```
 
-### 19. Use Text Layers For Line And Word Evidence
+### 19. Use Text Layers For Run, Line, Word, And Character Evidence
 
-`include_text_layer` keeps line and word references in structured JSON with
-page-level character ranges and best-effort bounding boxes. Prefer it when an
-agent needs text evidence anchors but does not need full raw page content.
+`include_text_layer` keeps run, line, word, and character references in
+structured JSON with page-level ranges and estimated bounding boxes. Prefer it
+when an agent needs text evidence anchors but does not need full raw page
+content.
 
 ```json
 {

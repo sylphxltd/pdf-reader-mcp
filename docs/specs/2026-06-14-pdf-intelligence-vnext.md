@@ -41,7 +41,7 @@ engines behind one stable MCP contract.
 - Document map: one agent-facing contract that links pages, elements, chunks,
   layout diagnostics, safety findings, routing signals, and page geometry.
 - Search evidence: literal text matches with page numbers, snippets, offsets,
-  optional text-item bounding boxes, and provenance.
+  optional character-derived or text-item bounding boxes, and provenance.
 - OCR text layer: normalized text, confidence, optional word boxes, language,
   and provenance produced by an explicitly configured local OCR provider.
 
@@ -138,8 +138,9 @@ Candidate engines:
    - Add `include_markdown`.
    - Add `include_html`.
    - Add `include_chunks`.
-   - Add `include_text_layer` for line records, word records, character
-     ranges, best-effort bounding boxes, and provenance.
+   - Add `include_text_layer` for run records, line records, word records,
+     character records, page-level ranges, estimated bounding boxes, and
+     provenance.
    - Add document signals: outline, annotations, page labels, page geometry,
      permissions, structure trees, form fields, and attachment metadata.
    - Add deterministic content safety findings for agent workflows.

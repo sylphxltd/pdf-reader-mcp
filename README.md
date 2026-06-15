@@ -76,12 +76,12 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
-- 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, text-item bounding boxes, and provenance
+- 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🧠 **Visual Region Analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
-- 🧾 **PDF Text Layer** - Optional line and word records with page-level character ranges, best-effort bounding boxes, and provenance
+- 🧾 **PDF Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page signals, layout uncertainty, sparse pages, table warnings, and external links
@@ -269,7 +269,7 @@ whether to read a whole page, crop a region, or cite a result.
 **Response includes:**
 - A JSON summary with `profile: "pdf_search_results"` and effective search options
 - Page numbers, snippets, match offsets, and text-item indexes
-- Best-effort text-item bounding boxes when coordinates are available
+- Estimated character-derived bounding boxes when run evidence is available, with text-item fallback
 - Per-match provenance so agents can route hits into `render_page` or `extract_regions`
 - Bounded defaults: `max_pages` default 100 and `max_matches_per_source` default 50
 
@@ -372,10 +372,10 @@ than reconstructing document structure from flat text items.
 
 ### Text Layer
 
-Use `include_text_layer` when an agent needs deterministic line and word
-references instead of only full text. It exposes page text, line records, word
-records, page-level character ranges, best-effort bounding boxes, and
-provenance from the same extracted text-content pass.
+Use `include_text_layer` when an agent needs deterministic run, line, word, and
+character references instead of only full text. It exposes page text, normalized
+PDF.js text-run metadata, page-level character ranges, estimated character and
+word boxes, and provenance from the same extracted text-content pass.
 
 ```json
 {
@@ -390,9 +390,11 @@ provenance from the same extracted text-content pass.
 
 **Response includes:**
 - A `text_layer` object with one page record per selected page
+- Run records with text, page-level `char_start`/`char_end`, font names, direction, transform metadata, and run boxes when available
 - Line IDs, line text, page-level `char_start`/`char_end`, and line bounding boxes when available
-- Word text, page-level character ranges, and estimated word boxes when the line has geometry
-- Summary counts for pages, lines, words, characters, and bbox coverage
+- Character records with page-level offsets, whitespace flags, and estimated character boxes when the run has geometry
+- Word text, page-level character ranges, and boxes merged from estimated character evidence when available
+- Summary counts for pages, runs, lines, words, characters, and bbox coverage
 - No forced `full_text` or raw `page_contents` output
 
 ### Trust Report
@@ -678,13 +680,13 @@ configured local OCR command.
 ### Core Capabilities
 - ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend `read_pdf` options
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
-- ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, text-item bounding boxes, and provenance
+- ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
 - ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, table, and image traversal
 - ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, and external links
 - ✅ **Accessibility Report** - Tagged-PDF coverage, structure tree, heading, image, form, link, and permission signals
-- ✅ **PDF Text Layer** - Line records, word records, character ranges, best-effort bounding boxes, and provenance
+- ✅ **PDF Text Layer** - Run records, line records, word records, character records, estimated bounding boxes, and provenance
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
@@ -920,8 +922,9 @@ that agents can cite or route into visual tools.
 
 The first content part is JSON metadata with `profile: "pdf_search_results"`.
 Matches include page number, matched text, snippet, match offsets, text-item
-index, optional text-item bounding box, and provenance. Search uses literal
-matching only; request payloads do not accept arbitrary regular expressions.
+index, optional character-derived or text-item bounding box, and provenance.
+Search uses literal matching only; request payloads do not accept arbitrary
+regular expressions.
 
 ### `extract_regions` Tool
 
@@ -1082,7 +1085,7 @@ tables, and document signals.
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
 | `include_html` | boolean | Include escaped page-aware HTML for preview/export workflows | `false` |
 | `include_chunks` | boolean | Include page, semantic, size, and table chunks with source references | `false` |
-| `include_text_layer` | boolean | Include line and word records with page-level character ranges, best-effort bounding boxes, and provenance | `false` |
+| `include_text_layer` | boolean | Include run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance | `false` |
 | `include_layout_diagnostics` | boolean | Include page layout profiles, reading-order confidence, column signals, and warnings | `false` |
 | `include_outline` | boolean | Include PDF outline/bookmarks when available | `false` |
 | `include_annotations` | boolean | Include safe annotation summaries for selected pages | `false` |

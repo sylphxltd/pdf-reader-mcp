@@ -1385,6 +1385,43 @@ var buildRectBoundingBox = (rect) => {
     top: Math.max(y1, y2)
   };
 };
+var estimateCharacterBoundingBox = (runBox, textLength, charStart, charEnd) => {
+  if (!runBox || textLength <= 0 || charEnd <= charStart)
+    return;
+  const width = runBox.right - runBox.left;
+  if (!Number.isFinite(width) || width <= 0)
+    return;
+  const startRatio = Math.max(0, Math.min(1, charStart / textLength));
+  const endRatio = Math.max(startRatio, Math.min(1, charEnd / textLength));
+  return {
+    left: runBox.left + width * startRatio,
+    bottom: runBox.bottom,
+    right: runBox.left + width * endRatio,
+    top: runBox.top
+  };
+};
+var buildRunChars = (text3, runBox) => {
+  const chars = [];
+  for (let cursor = 0;cursor < text3.length; ) {
+    const codePoint = text3.codePointAt(cursor);
+    const char = codePoint === undefined ? text3[cursor] : String.fromCodePoint(codePoint);
+    if (char === undefined)
+      break;
+    const charStart = cursor;
+    const charEnd = cursor + char.length;
+    const boundingBox = estimateCharacterBoundingBox(runBox, text3.length, charStart, charEnd);
+    chars.push({
+      index: chars.length,
+      text: char,
+      item_char_start: charStart,
+      item_char_end: charEnd,
+      is_whitespace: /\s/u.test(char),
+      ...boundingBox ? { bounding_box: boundingBox, confidence: 0.74 } : {}
+    });
+    cursor = charEnd;
+  }
+  return chars;
+};
 var finiteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 var textFromAnnotationField = (direct, objectValue) => {
   const value = direct ?? objectValue?.str;
@@ -1435,6 +1472,29 @@ var textSegmentToContentItem = (y, segment) => {
   const xPosition = boundingBox?.left ?? segment[0]?.x;
   const width = boundingBox !== undefined ? boundingBox.right - boundingBox.left : segment.reduce((sum, part) => sum + part.width, 0);
   const height = boundingBox !== undefined ? boundingBox.top - boundingBox.bottom : Math.max(...segment.map((part) => part.height), 0);
+  const textRuns = [];
+  let itemCharOffset = 0;
+  for (const part of segment) {
+    const runBox = part.bounding_box;
+    const chars = part.chars.map((char) => ({
+      ...char,
+      item_char_start: itemCharOffset + char.item_char_start,
+      item_char_end: itemCharOffset + char.item_char_end
+    }));
+    textRuns.push({
+      index: textRuns.length,
+      text: part.text,
+      item_char_start: itemCharOffset,
+      item_char_end: itemCharOffset + part.text.length,
+      ...runBox ? { bounding_box: runBox } : {},
+      ...part.font_name ? { font_name: part.font_name } : {},
+      ...part.direction ? { direction: part.direction } : {},
+      ...part.transform ? { transform: part.transform } : {},
+      ...part.has_eol !== undefined ? { has_eol: part.has_eol } : {},
+      chars
+    });
+    itemCharOffset += part.text.length;
+  }
   return {
     type: "text",
     yPosition: y,
@@ -1442,7 +1502,8 @@ var textSegmentToContentItem = (y, segment) => {
     width,
     height,
     bounding_box: boundingBox,
-    textContent
+    textContent,
+    textRuns
   };
 };
 var splitTextPartsIntoSegments = (parts) => {
@@ -1931,6 +1992,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
       const width = textItem.width ?? textItem.str.length * 6;
       const height = textItem.height ?? Math.abs(textItem.transform?.[3] ?? 0);
       const boundingBox = buildBoundingBox(xCoord, yCoord, width, height);
+      const chars = buildRunChars(textItem.str, boundingBox);
       if (!textByY.has(y)) {
         textByY.set(y, []);
       }
@@ -1939,7 +2001,12 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
         x: xCoord ?? 0,
         width,
         height,
-        bounding_box: boundingBox
+        bounding_box: boundingBox,
+        ...textItem.fontName ? { font_name: textItem.fontName } : {},
+        ...textItem.dir ? { direction: textItem.dir } : {},
+        ...textItem.transform ? { transform: textItem.transform } : {},
+        ...textItem.hasEOL !== undefined ? { has_eol: textItem.hasEOL } : {},
+        chars
       });
     }
     for (const [y, textParts] of textByY.entries()) {
@@ -2524,7 +2591,7 @@ var readPdfArgsSchema = object3({
   include_markdown: optional3(bool2(description3("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
   include_html: optional3(bool2(description3("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
   include_chunks: optional3(bool2(description3("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
-  include_text_layer: optional3(bool2(description3("Include a page text layer with line records, word records, page-level character ranges, best-effort bounding boxes, and provenance."))),
+  include_text_layer: optional3(bool2(description3("Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance."))),
   include_outline: optional3(bool2(description3("Include document outline/bookmark entries when the PDF exposes them."))),
   include_annotations: optional3(bool2(description3("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
   include_page_labels: optional3(bool2(description3("Include PDF page labels when available, such as roman numerals or section labels."))),
@@ -4262,7 +4329,98 @@ var estimateWordBoundingBox = (lineBox, lineText, wordStartInLine, wordEndInLine
     top: lineBox.top
   };
 };
-var buildWords = (lineText, pageCharStart, lineBox) => {
+var mergeBoundingBoxes3 = (boxes) => {
+  const validBoxes = boxes.filter((box) => box !== undefined);
+  if (validBoxes.length === 0)
+    return;
+  return {
+    left: Math.min(...validBoxes.map((box) => box.left)),
+    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
+    right: Math.max(...validBoxes.map((box) => box.right)),
+    top: Math.max(...validBoxes.map((box) => box.top))
+  };
+};
+var buildFallbackChars = (lineText, pageCharStart, lineBox) => {
+  const chars = [];
+  for (let cursor = 0;cursor < lineText.length; ) {
+    const codePoint = lineText.codePointAt(cursor);
+    const char = codePoint === undefined ? lineText[cursor] : String.fromCodePoint(codePoint);
+    if (char === undefined)
+      break;
+    const charStartInLine = cursor;
+    const charEndInLine = cursor + char.length;
+    const boundingBox = estimateWordBoundingBox(lineBox, lineText, charStartInLine, charEndInLine);
+    chars.push({
+      index: chars.length,
+      text: char,
+      char_start: pageCharStart + charStartInLine,
+      char_end: pageCharStart + charEndInLine,
+      run_index: 0,
+      is_whitespace: /\s/u.test(char),
+      ...boundingBox ? {
+        bounding_box: boundingBox,
+        bounding_box_level: "char_estimated",
+        confidence: 0.6
+      } : {}
+    });
+    cursor = charEndInLine;
+  }
+  return chars;
+};
+var buildRuns = (item, lineText, pageCharStart) => {
+  const sourceRuns = item.textRuns && item.textRuns.length > 0 ? item.textRuns : [
+    {
+      index: 0,
+      text: lineText,
+      item_char_start: 0,
+      item_char_end: lineText.length,
+      ...item.bounding_box ? { bounding_box: item.bounding_box } : {},
+      chars: buildFallbackChars(lineText, 0, item.bounding_box).map((char) => ({
+        index: char.index,
+        text: char.text,
+        item_char_start: char.char_start,
+        item_char_end: char.char_end,
+        is_whitespace: char.is_whitespace,
+        ...char.bounding_box ? { bounding_box: char.bounding_box } : {},
+        ...char.confidence ? { confidence: char.confidence } : {}
+      }))
+    }
+  ];
+  return sourceRuns.map((run, runIndex) => {
+    const chars = run.chars.map((char, charIndex) => ({
+      index: charIndex,
+      text: char.text,
+      char_start: pageCharStart + char.item_char_start,
+      char_end: pageCharStart + char.item_char_end,
+      run_index: runIndex,
+      is_whitespace: char.is_whitespace,
+      ...char.bounding_box ? {
+        bounding_box: char.bounding_box,
+        bounding_box_level: "char_estimated"
+      } : {},
+      ...char.confidence !== undefined ? { confidence: char.confidence } : {}
+    }));
+    const hasCharBoxes = chars.some((char) => char.bounding_box);
+    return {
+      index: runIndex,
+      text: run.text,
+      char_start: pageCharStart + run.item_char_start,
+      char_end: pageCharStart + run.item_char_end,
+      ...run.bounding_box ? { bounding_box: run.bounding_box } : {},
+      ...run.font_name ? { font_name: run.font_name } : {},
+      ...run.direction ? { direction: run.direction } : {},
+      ...run.transform ? { transform: run.transform } : {},
+      ...run.has_eol !== undefined ? { has_eol: run.has_eol } : {},
+      chars,
+      provenance: {
+        engine: "pdfjs",
+        source: "text-content",
+        bounding_box_level: hasCharBoxes ? "char_estimated" : "text_run"
+      }
+    };
+  });
+};
+var buildWords = (lineText, pageCharStart, lineBox, chars) => {
   const words = [];
   const matches = lineText.matchAll(/\S+/g);
   for (const match of matches) {
@@ -4270,13 +4428,19 @@ var buildWords = (lineText, pageCharStart, lineBox) => {
     const index = match.index ?? 0;
     const charStart = pageCharStart + index;
     const charEnd = charStart + text5.length;
-    const boundingBox = estimateWordBoundingBox(lineBox, lineText, index, index + text5.length);
+    const charBoxes = chars.filter((char) => !char.is_whitespace && char.char_start >= charStart && char.char_end <= charEnd && char.bounding_box).map((char) => char.bounding_box);
+    const charDerivedBoundingBox = mergeBoundingBoxes3(charBoxes);
+    const boundingBox = charDerivedBoundingBox ?? estimateWordBoundingBox(lineBox, lineText, index, index + text5.length);
     words.push({
       index: words.length,
       text: text5,
       char_start: charStart,
       char_end: charEnd,
-      ...boundingBox ? { bounding_box: boundingBox, confidence: 0.68 } : {}
+      ...boundingBox ? {
+        bounding_box: boundingBox,
+        bounding_box_level: charDerivedBoundingBox ? "char_estimated" : "word_estimated",
+        confidence: charDerivedBoundingBox ? 0.74 : 0.68
+      } : {}
     });
   }
   return words;
@@ -4296,8 +4460,11 @@ var buildPage = (pageContent, warnings) => {
     const lineText = item.textContent;
     const lineStart = pageCharOffset;
     const lineEnd = lineStart + lineText.length;
-    const words = buildWords(lineText, lineStart, item.bounding_box);
+    const runs = buildRuns(item, lineText, lineStart);
+    const chars = runs.flatMap((run) => run.chars);
+    const words = buildWords(lineText, lineStart, item.bounding_box, chars);
     const hasWordBoxes = words.some((word) => word.bounding_box);
+    const hasCharBoxes = chars.some((char) => char.bounding_box);
     if (!item.bounding_box) {
       warnings.push(`Page ${String(pageContent.page)} line ${String(lines.length)} has no bounding box.`);
     }
@@ -4308,11 +4475,13 @@ var buildPage = (pageContent, warnings) => {
       char_start: lineStart,
       char_end: lineEnd,
       ...item.bounding_box ? { bounding_box: item.bounding_box } : {},
+      runs,
       words,
+      chars,
       provenance: {
         engine: "pdfjs",
         source: "text-content",
-        bounding_box_level: hasWordBoxes ? "word_estimated" : "line"
+        bounding_box_level: hasCharBoxes ? "char_estimated" : hasWordBoxes ? "word_estimated" : "line"
       }
     });
     textParts.push(lineText);
@@ -4333,7 +4502,9 @@ var buildTextLayer = (input) => {
   const warnings = [];
   const pages = input.pageContents.filter((pageContent) => selectedPages.includes(pageContent.page)).sort((a, b) => a.page - b.page).map((pageContent) => buildPage(pageContent, warnings));
   const lines = pages.flatMap((page) => page.lines);
+  const runs = lines.flatMap((line) => line.runs);
   const words = lines.flatMap((line) => line.words);
+  const chars = lines.flatMap((line) => line.chars);
   return {
     version: TEXT_LAYER_VERSION,
     profile: "pdf_text_layer",
@@ -4341,9 +4512,12 @@ var buildTextLayer = (input) => {
     summary: {
       selected_pages: selectedPages,
       page_count: pages.length,
+      run_count: runs.length,
       line_count: lines.length,
       word_count: words.length,
       char_count: pages.reduce((sum, page) => sum + page.char_count, 0),
+      chars_with_bounding_boxes: chars.filter((char) => char.bounding_box).length,
+      runs_with_bounding_boxes: runs.filter((run) => run.bounding_box).length,
       lines_with_bounding_boxes: lines.filter((line) => line.bounding_box).length,
       words_with_bounding_boxes: words.filter((word) => word.bounding_box).length
     },
@@ -5066,6 +5240,25 @@ var findMatchesInText = (text7, query, options) => {
   }
   return matches;
 };
+var mergeBoundingBoxes4 = (boxes) => {
+  const validBoxes = boxes.filter((box) => box !== undefined);
+  if (validBoxes.length === 0)
+    return;
+  return {
+    left: Math.min(...validBoxes.map((box) => box.left)),
+    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
+    right: Math.max(...validBoxes.map((box) => box.right)),
+    top: Math.max(...validBoxes.map((box) => box.top))
+  };
+};
+var matchBoundingBox = (item, start, end) => {
+  const charBoxes = (item.textRuns ?? []).flatMap((run) => run.chars).filter((char) => !char.is_whitespace && char.item_char_start >= start && char.item_char_end <= end && char.bounding_box).map((char) => char.bounding_box);
+  const charBoundingBox = mergeBoundingBoxes4(charBoxes);
+  if (charBoundingBox) {
+    return { bounding_box: charBoundingBox, level: "char_estimated" };
+  }
+  return item.bounding_box ? { bounding_box: item.bounding_box, level: "text_item" } : undefined;
+};
 var searchPageContentItems = (page, items, options, matchOffset) => {
   const matches = [];
   const textItems = items.filter((item) => item.type === "text" && item.textContent !== undefined);
@@ -5076,6 +5269,7 @@ var searchPageContentItems = (page, items, options, matchOffset) => {
     const itemMatches = findMatchesInText(item.textContent, options.query, options);
     for (const itemMatch of itemMatches) {
       const matchedText = item.textContent.slice(itemMatch.start, itemMatch.end);
+      const matchBox = matchBoundingBox(item, itemMatch.start, itemMatch.end);
       matches.push({
         id: `p${String(page)}-match-${String(matchOffset + matches.length + 1)}`,
         page,
@@ -5084,7 +5278,7 @@ var searchPageContentItems = (page, items, options, matchOffset) => {
         match_start: itemMatch.start,
         match_end: itemMatch.end,
         text_item_index: textItemIndex,
-        ...item.bounding_box ? { bounding_box: item.bounding_box, bounding_box_level: "text_item" } : {},
+        ...matchBox ? { bounding_box: matchBox.bounding_box, bounding_box_level: matchBox.level } : {},
         provenance: {
           engine: "pdfjs",
           source: "text-content"

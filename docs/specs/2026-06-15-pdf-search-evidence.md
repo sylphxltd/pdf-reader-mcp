@@ -10,7 +10,7 @@ rendering pages, cropping regions, or constructing citations.
 
 `search_pdf` performs bounded literal search over extracted PDF text and
 returns page-level evidence: matched text, snippets, offsets, text-item indexes,
-optional text-item bounding boxes, and provenance.
+optional character-derived or text-item bounding boxes, and provenance.
 
 ## Non-Goals
 
@@ -58,7 +58,7 @@ The first content part is JSON:
       "match_end": 17,
       "text_item_index": 3,
       "bounding_box": { "left": 72, "bottom": 620, "right": 280, "top": 632 },
-      "bounding_box_level": "text_item",
+      "bounding_box_level": "char_estimated",
       "provenance": {
         "engine": "pdfjs",
         "source": "text-content"
@@ -77,7 +77,10 @@ The first content part is JSON:
 - `max_matches_per_source` defaults to 50 and is capped at 500.
 - `context_chars` defaults to 120 and is capped at 1000.
 - Whole-word matching uses ASCII word boundaries.
-- Bounding boxes are best-effort text-item boxes, not character-perfect boxes.
+- Bounding boxes prefer estimated character evidence when the extracted text
+  layer has run/character boxes, then fall back to best-effort text-item boxes.
+- Character-derived boxes are still estimated geometry, not glyph-perfect
+  geometry.
 - Each source result preserves success/failure isolation.
 - Search output contains no image bytes.
 
@@ -94,7 +97,8 @@ The first content part is JSON:
 - `search_pdf` validates source, query, page cap, match cap, context, and match
   mode inputs.
 - Unit tests cover page resolution, literal matching, whole-word matching,
-  case-sensitive matching, snippets, match IDs, and bbox provenance.
+  case-sensitive matching, snippets, match IDs, char-derived boxes, and bbox
+  provenance.
 - MCP stdio and HTTP tool lists expose `search_pdf`.
 - Integration tests call `search_pdf` through the built server.
 - Full validation passes before merge.

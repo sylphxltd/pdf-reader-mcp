@@ -3,8 +3,8 @@
 Once installed, the PDF Reader MCP server provides seven tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
-- `search_pdf` searches extracted PDF text with snippets, bounding boxes, and
-  provenance.
+- `search_pdf` searches extracted PDF text with snippets, character-derived or
+  text-item bounding boxes, and provenance.
 - `render_page` renders selected PDF pages as bounded visual evidence images.
 - `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
 - `analyze_regions` sends focused crops to a configured local provider and
@@ -60,8 +60,8 @@ snippets before running heavier extraction, rendering, or region cropping.
 ```
 
 Matches include page number, matched text, snippet, match offsets, text-item
-index, optional text-item bounding box, and provenance. Search is literal and
-bounded by `max_pages` and `max_matches_per_source`.
+index, optional character-derived or text-item bounding box, and provenance.
+Search is literal and bounded by `max_pages` and `max_matches_per_source`.
 
 ### Get Metadata and Page Count
 
@@ -349,9 +349,9 @@ available.
 
 ### Get a Text Layer
 
-Use `include_text_layer` when an agent needs line and word references with
-page-level character ranges and best-effort bounding boxes, rather than only
-plain full text.
+Use `include_text_layer` when an agent needs run, line, word, and character
+references with page-level ranges and estimated bounding boxes, rather than
+only plain full text.
 
 ```json
 {
@@ -366,8 +366,9 @@ plain full text.
 }
 ```
 
-Response fields include page text, lines, words, `char_start`, `char_end`,
-best-effort bounding boxes, provenance, and summary bbox coverage counts.
+Response fields include page text, runs, lines, words, characters,
+`char_start`, `char_end`, estimated bounding boxes, provenance, and summary
+bbox coverage counts.
 
 ### Get a Document AST
 

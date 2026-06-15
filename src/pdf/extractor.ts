@@ -8,6 +8,8 @@ import type {
   ExtractedImage,
   ExtractedPageText,
   PageContentItem,
+  PageTextRunCharEvidence,
+  PageTextRunEvidence,
   PdfAnnotation,
   PdfAttachment,
   PdfFormField,
@@ -36,6 +38,11 @@ interface TextRowPart {
   width: number;
   height: number;
   bounding_box?: BoundingBox | undefined;
+  font_name?: string | undefined;
+  direction?: string | undefined;
+  transform?: number[] | undefined;
+  has_eol?: boolean | undefined;
+  chars: PageTextRunCharEvidence[];
 }
 
 interface RawOutlineItem {
@@ -170,6 +177,58 @@ const buildRectBoundingBox = (rect: ReadonlyArray<number> | undefined): Bounding
   };
 };
 
+const estimateCharacterBoundingBox = (
+  runBox: BoundingBox | undefined,
+  textLength: number,
+  charStart: number,
+  charEnd: number
+): BoundingBox | undefined => {
+  if (!runBox || textLength <= 0 || charEnd <= charStart) return undefined;
+
+  const width = runBox.right - runBox.left;
+  if (!Number.isFinite(width) || width <= 0) return undefined;
+
+  const startRatio = Math.max(0, Math.min(1, charStart / textLength));
+  const endRatio = Math.max(startRatio, Math.min(1, charEnd / textLength));
+
+  return {
+    left: runBox.left + width * startRatio,
+    bottom: runBox.bottom,
+    right: runBox.left + width * endRatio,
+    top: runBox.top,
+  };
+};
+
+const buildRunChars = (
+  text: string,
+  runBox: BoundingBox | undefined
+): PageTextRunCharEvidence[] => {
+  const chars: PageTextRunCharEvidence[] = [];
+
+  for (let cursor = 0; cursor < text.length; ) {
+    const codePoint = text.codePointAt(cursor);
+    const char = codePoint === undefined ? text[cursor] : String.fromCodePoint(codePoint);
+    if (char === undefined) break;
+
+    const charStart = cursor;
+    const charEnd = cursor + char.length;
+    const boundingBox = estimateCharacterBoundingBox(runBox, text.length, charStart, charEnd);
+
+    chars.push({
+      index: chars.length,
+      text: char,
+      item_char_start: charStart,
+      item_char_end: charEnd,
+      is_whitespace: /\s/u.test(char),
+      ...(boundingBox ? { bounding_box: boundingBox, confidence: 0.74 } : {}),
+    });
+
+    cursor = charEnd;
+  }
+
+  return chars;
+};
+
 const finiteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
@@ -242,6 +301,33 @@ const textSegmentToContentItem = (y: number, segment: TextRowPart[]): PageConten
       ? boundingBox.top - boundingBox.bottom
       : Math.max(...segment.map((part) => part.height), 0);
 
+  const textRuns: PageTextRunEvidence[] = [];
+  let itemCharOffset = 0;
+
+  for (const part of segment) {
+    const runBox = part.bounding_box;
+    const chars = part.chars.map((char) => ({
+      ...char,
+      item_char_start: itemCharOffset + char.item_char_start,
+      item_char_end: itemCharOffset + char.item_char_end,
+    }));
+
+    textRuns.push({
+      index: textRuns.length,
+      text: part.text,
+      item_char_start: itemCharOffset,
+      item_char_end: itemCharOffset + part.text.length,
+      ...(runBox ? { bounding_box: runBox } : {}),
+      ...(part.font_name ? { font_name: part.font_name } : {}),
+      ...(part.direction ? { direction: part.direction } : {}),
+      ...(part.transform ? { transform: part.transform } : {}),
+      ...(part.has_eol !== undefined ? { has_eol: part.has_eol } : {}),
+      chars,
+    });
+
+    itemCharOffset += part.text.length;
+  }
+
   return {
     type: 'text',
     yPosition: y,
@@ -250,6 +336,7 @@ const textSegmentToContentItem = (y: number, segment: TextRowPart[]): PageConten
     height,
     bounding_box: boundingBox,
     textContent,
+    textRuns,
   };
 };
 
@@ -1064,6 +1151,9 @@ export const extractPageContent = async (
         transform?: number[];
         width?: number;
         height?: number;
+        fontName?: string;
+        dir?: string;
+        hasEOL?: boolean;
       };
       // transform[5] is the Y coordinate
       const xCoord = textItem.transform?.[4];
@@ -1073,6 +1163,7 @@ export const extractPageContent = async (
       const width = textItem.width ?? textItem.str.length * 6;
       const height = textItem.height ?? Math.abs(textItem.transform?.[3] ?? 0);
       const boundingBox = buildBoundingBox(xCoord, yCoord, width, height);
+      const chars = buildRunChars(textItem.str, boundingBox);
 
       if (!textByY.has(y)) {
         textByY.set(y, []);
@@ -1083,6 +1174,11 @@ export const extractPageContent = async (
         width,
         height,
         bounding_box: boundingBox,
+        ...(textItem.fontName ? { font_name: textItem.fontName } : {}),
+        ...(textItem.dir ? { direction: textItem.dir } : {}),
+        ...(textItem.transform ? { transform: textItem.transform } : {}),
+        ...(textItem.hasEOL !== undefined ? { has_eol: textItem.hasEOL } : {}),
+        chars,
       });
     }
 

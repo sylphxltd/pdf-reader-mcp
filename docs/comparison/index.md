@@ -69,8 +69,8 @@
 - Local processing (privacy)
 - No API keys needed
 - Batch processing
-- Search with snippets, match offsets, text-item bounding boxes, and provenance
-- Text layer with line records, word records, character ranges, and best-effort bounding boxes
+- Search with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
+- Text layer with run records, line records, word records, character records, estimated bounding boxes, and provenance
 - Image extraction
 - Page rendering evidence with bounded PNG image parts
 - Region crop evidence for bbox-grounded verification

@@ -92,7 +92,7 @@ export const readPdfArgsSchema = object({
   include_text_layer: optional(
     bool(
       description(
-        'Include a page text layer with line records, word records, page-level character ranges, best-effort bounding boxes, and provenance.'
+        'Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance.'
       )
     )
   ),

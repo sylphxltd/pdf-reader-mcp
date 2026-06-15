@@ -268,14 +268,20 @@ const evaluateCase = (qualityCase: QualityCase) => {
         accessibilityReport.summary.issue_count === 0,
     },
     {
-      name: 'text layer preserves line, word, and character references',
+      name: 'text layer preserves run, line, word, and character evidence',
       pass:
         textLayer.profile === 'pdf_text_layer' &&
+        textLayer.summary.run_count === 7 &&
         textLayer.summary.line_count === 7 &&
         textLayer.summary.word_count > 20 &&
+        textLayer.summary.chars_with_bounding_boxes > textLayer.summary.word_count &&
         textLayer.summary.words_with_bounding_boxes === textLayer.summary.word_count &&
         textLayer.pages[0]?.lines[0]?.text === 'Executive Summary' &&
-        textLayer.pages[0]?.lines[0]?.words[0]?.char_start === 0,
+        textLayer.pages[0]?.lines[0]?.runs[0]?.text === 'Executive Summary' &&
+        textLayer.pages[0]?.lines[0]?.chars[0]?.text === 'E' &&
+        textLayer.pages[0]?.lines[0]?.chars[0]?.bounding_box_level === 'char_estimated' &&
+        textLayer.pages[0]?.lines[0]?.words[0]?.char_start === 0 &&
+        textLayer.pages[0]?.lines[0]?.words[0]?.bounding_box_level === 'char_estimated',
     },
   ];
 

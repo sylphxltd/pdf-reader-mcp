@@ -22,11 +22,11 @@ neutral capability names and avoids public comparison language.
 | MCP-native PDF tools | Shipped | `inspect_pdf`, `search_pdf`, `render_page`, `extract_regions`, `analyze_regions`, `ocr_pages`, and `read_pdf` with stdio/http transport. |
 | Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, reports optional-provider readiness, and recommends `read_pdf` options. |
 | Optional provider readiness | Shipped | `inspect_pdf` reports safe readiness for `ocr_pages` and `analyze_regions` without exposing command paths or arguments. |
-| MCP-native PDF search | Shipped | `search_pdf`; bounded literal search with snippets, match offsets, text-item bounding boxes, and provenance. |
+| MCP-native PDF search | Shipped | `search_pdf`; bounded literal search with snippets, match offsets, character-derived or text-item bounding boxes, and provenance. |
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
 | Metadata and page count | Shipped | Existing `include_metadata`, `include_page_count`. |
 | Text extraction | Shipped | Full text and selected pages. |
-| Text layer with line/word ranges | Shipped | `include_text_layer`; page text, line IDs, word records, page-level character ranges, best-effort boxes, and provenance. |
+| Text layer with run/line/word/char ranges | Shipped | `include_text_layer`; page text, run metadata, line IDs, word records, character records, page-level character ranges, estimated char/word boxes, and provenance. |
 | Image extraction | Shipped | MCP image parts plus JSON metadata. |
 | Visual page rendering | Shipped | `render_page`; selected pages render as bounded PNG MCP image parts with evidence metadata and provenance. |
 | Region crop evidence | Shipped | `extract_regions`; PDF-coordinate bounding boxes crop into focused PNG MCP image parts with evidence metadata. |
@@ -74,15 +74,17 @@ neutral capability names and avoids public comparison language.
    annotations, forms, hidden/off-page text, scanned PDFs.
 3. Harden the agent document map as the SSOT for pages, elements, chunks,
    layout, safety, page geometry, and optional engine enrichment.
-4. Add deterministic semantic model: headings, paragraphs, lists, captions,
+4. Promote run/character evidence into the shared document map and benchmark
+   retrieval quality against fixture expectations.
+5. Add deterministic semantic model: headings, paragraphs, lists, captions,
    AST traversal, and richer table trust signals.
-5. Harden trust reports with redaction and broader adversarial fixtures.
-6. Harden the optional OCR provider with real scanned fixtures, additional
+6. Harden trust reports with redaction and broader adversarial fixtures.
+7. Harden the optional OCR provider with real scanned fixtures, additional
    provider presets, and accuracy/latency reporting.
-7. Harden optional visual region providers for table, formula, chart, and
+8. Harden optional visual region providers for table, formula, chart, and
    image-description engines with broader fixtures and accuracy/latency
    reporting.
-8. Add formula/chart/tagged-PDF capabilities only through optional engines
+9. Add formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 
 ## Public Messaging Rule

@@ -247,6 +247,60 @@ describe('extractor', () => {
       expect(result.map((item) => item.textContent)).toEqual(['Title', 'Left 1', 'Left 2', 'Right 1', 'Right 2']);
       expect(result[1]?.bounding_box).toEqual({ left: 50, bottom: 700, right: 100, top: 710 });
     });
+
+    it('should preserve text-run and estimated character evidence from PDF.js text items', async () => {
+      const mockPage = {
+        getTextContent: vi.fn().mockResolvedValue({
+          items: [
+            {
+              str: 'Risk',
+              transform: [1, 0, 0, 12, 40, 700],
+              width: 48,
+              height: 12,
+              fontName: 'g_d0_f1',
+              dir: 'ltr',
+              hasEOL: false,
+            },
+          ],
+        }),
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageContent(mockDocument, 1, false, 'evidence.pdf');
+
+      expect(result[0]).toMatchObject({
+        textContent: 'Risk',
+        bounding_box: { left: 40, bottom: 700, right: 88, top: 712 },
+        textRuns: [
+          {
+            index: 0,
+            text: 'Risk',
+            item_char_start: 0,
+            item_char_end: 4,
+            bounding_box: { left: 40, bottom: 700, right: 88, top: 712 },
+            font_name: 'g_d0_f1',
+            direction: 'ltr',
+            transform: [1, 0, 0, 12, 40, 700],
+            has_eol: false,
+          },
+        ],
+      });
+      expect(result[0]?.textRuns?.[0]?.chars[0]).toMatchObject({
+        index: 0,
+        text: 'R',
+        item_char_start: 0,
+        item_char_end: 1,
+        bounding_box: { left: 40, bottom: 700, right: 52, top: 712 },
+        confidence: 0.74,
+      });
+    });
   });
 
   describe('extractPageGeometry', () => {

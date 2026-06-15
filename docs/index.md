@@ -22,7 +22,7 @@ features:
     details: Profile unfamiliar PDFs, detect low-text or scanned pages, and get recommended extraction options for agent workflows.
   - icon: "\U0001F50E"
     title: Search Evidence
-    details: Locate literal text matches with snippets, match offsets, text-item bounding boxes, and provenance before reading, rendering, cropping, or citing.
+    details: Locate literal text matches with snippets, match offsets, character-derived or text-item bounding boxes, and provenance before reading, rendering, cropping, or citing.
   - icon: "\u26A1"
     title: High Performance
     details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing, batch operations, and column-aware ordering.
@@ -34,7 +34,7 @@ features:
     details: Return an agent document map, text layer, semantic document AST, trust report, and accessibility report with stable element IDs, citation chunks, table quality diagnostics, layout confidence, safety signals, page geometry, provenance, and best-effort coordinates.
   - icon: "\U0001F9FE"
     title: Text Layer Fidelity
-    details: Expose line records, word records, page-level character ranges, best-effort bounding boxes, and provenance for citation and extraction workflows.
+    details: Expose run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance for citation and extraction workflows.
   - icon: "\U0001F5BC\uFE0F"
     title: Visual Evidence
     details: Render selected pages as bounded PNG MCP image parts with JSON provenance, evidence IDs, and pixel budgets for OCR routing and page inspection.
