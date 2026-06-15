@@ -85,9 +85,10 @@ const pageTextStats = (items: PageContentItem[]): { textChars: number; textItemC
 
 const pageWarnings = (
   layout: PdfPageLayoutDiagnostics | undefined,
-  safetyFindingIndexes: number[]
+  safetyFindingIndexes: number[],
+  tableWarnings: string[]
 ): string[] | undefined => {
-  const warnings = [...(layout?.warnings ?? [])];
+  const warnings = [...(layout?.warnings ?? []), ...tableWarnings];
   if (safetyFindingIndexes.length > 0) {
     warnings.push(
       'Page has content safety findings; inspect findings before using as instructions.'
@@ -134,8 +135,14 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === 'image').length;
-    const tableCount = elements.filter((element) => element.type === 'table').length;
-    const warnings = pageWarnings(layout, safetyFindingIndexes);
+    const tableElements = elements.filter((element) => element.type === 'table');
+    const tableCount = tableElements.length;
+    const tableWarnings = tableElements.flatMap((element) =>
+      element.type === 'table'
+        ? (element.table.quality?.warnings ?? []).map((warning) => `${element.id}: ${warning}`)
+        : []
+    );
+    const warnings = pageWarnings(layout, safetyFindingIndexes, tableWarnings);
 
     return {
       page,

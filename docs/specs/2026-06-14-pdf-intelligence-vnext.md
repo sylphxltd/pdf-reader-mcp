@@ -162,7 +162,8 @@ Candidate engines:
 
 3. Semantic extraction
    - Detect headings, paragraphs, lists, captions, headers, footers.
-   - Improve tables with row/column spans and multi-page linking.
+   - Improve tables with quality diagnostics, inferred row/column span hints,
+     and multi-page continuation candidates.
    - Add Markdown renderer using the normalized element tree.
 
 4. Safety and trust
@@ -249,8 +250,9 @@ Candidate engines:
 - JSON summary includes `elements` with stable ids, page numbers, type, content
   or metadata, and best-effort bounding boxes where available.
 - JSON summary does not include base64 image bytes.
-- Table output includes row/column-indexed cell metadata and best-effort
-  bounding boxes when coordinates are available.
+- Table output includes row/column-indexed cell metadata, header/span hints,
+  inference flags, quality diagnostics, continuation candidates, and
+  best-effort bounding boxes when coordinates are available.
 - Chunk output includes table chunks when table extraction is requested.
 - Structure tree output includes sanitized role/type/id/children data only.
 - Common two-column text with a full-width title is ordered title, left column,

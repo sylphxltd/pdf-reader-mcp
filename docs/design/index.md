@@ -20,6 +20,7 @@ PDF Reader MCP is built on these core principles:
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - **Semantic Hints** - Optional deterministic heading, list, and paragraph hints on text elements
 - **Table Geometry** - Optional table elements include row data, cell metadata, confidence, and best-effort coordinates
+- **Table Quality** - Optional table diagnostics expose completeness, missing cells, inferred merged-cell candidates, and repeated-header continuation candidates
 - **Markdown Rendering** - Page-aware Markdown for RAG, summarization, and agent context
 - **HTML Rendering** - Escaped page-aware HTML for preview, export, and conversion workflows
 - **Citation Chunks** - Page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
@@ -54,7 +55,8 @@ PDF Reader MCP is built on these core principles:
 - **Searchable Evidence** - Search matches carry snippets, offsets, text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
 - **Semantic Hints** - Heading, list, and paragraph hints carry confidence and signals without overstating parser certainty
-- **Cell-Level Provenance** - Table cells can carry row/column indexes and coordinates for downstream citation workflows
+- **Cell-Level Provenance** - Table cells can carry row/column indexes, header/span hints, inference flags, and coordinates for downstream citation workflows
+- **Table Trust Signals** - Table quality warnings tell agents when to verify sparse, merged, irregular, or continuation-candidate tables with visual evidence
 - **Retrieval-Ready Chunks** - Page, semantic, size, and table chunks carry source references without requiring a separate indexing pass
 - **Portable Renderings** - Markdown and HTML renderers support different agent, preview, and export workflows from the same extraction pass
 - **Layout Provenance** - Page geometry and best-effort bounding boxes make extracted content easier to trace back to source pages

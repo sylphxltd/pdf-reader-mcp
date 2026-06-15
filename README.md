@@ -45,6 +45,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Structured element output for agent workflows 🧩
+- Table quality diagnostics with inferred cell spans and continuation candidates 📊
 - Markdown rendering for RAG and summarization 📝
 - Citation-ready semantic/table/page chunks 🔗
 - Layout diagnostics with reading-order confidence 📐
@@ -78,6 +79,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
+- 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
 - 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
 - 🔗 **Citation Chunks** - Optional page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
@@ -313,7 +315,7 @@ whether to read a whole page, crop a region, or cite a result.
 - Page numbers and provenance for each element
 - Best-effort bounding boxes when coordinates are available
 - Text, image metadata, and table elements without embedding image bytes in the JSON summary
-- Table elements include best-effort table and cell bounding boxes when coordinates are available
+- Table elements include best-effort table and cell bounding boxes, quality metrics, header/span hints, and continuation candidates when coordinates are available
 
 ### Agent Document Map
 
@@ -864,7 +866,7 @@ tables, and document signals.
 | `include_metadata` | boolean | Extract PDF metadata | `true` |
 | `include_page_count` | boolean | Include total page count | `true` |
 | `include_images` | boolean | Extract embedded images | `false` |
-| `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, and best-effort geometry | `false` |
+| `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph hints on text elements | `false` |
@@ -1358,6 +1360,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Absolute paths (v1.3.0)
 - [x] Table extraction
 - [x] Structured element output
+- [x] Table quality diagnostics, inferred cell spans, and continuation candidates
 - [x] Markdown rendering
 - [x] Citation-ready page, semantic, size, and table chunks
 - [x] MCP-native PDF search with snippets and bbox provenance
@@ -1370,6 +1373,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 **🚀 Next**
 - [ ] Richer semantic layout detection
+- [ ] Optional visual table recognizer provider
 - [ ] Built-in OCR provider presets and fixture-backed OCR accuracy benchmarks
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming

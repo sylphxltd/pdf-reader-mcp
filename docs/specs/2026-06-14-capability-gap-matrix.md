@@ -10,7 +10,8 @@ neutral capability names and avoids public comparison language.
 ## Legend
 
 - Shipped: implemented in this repository.
-- In progress: partially implemented and needs validation or hardening.
+- In progress: meaningful shipped coverage exists, but the full capability still
+  needs fixtures, engine adapters, or additional validation.
 - Next: feasible with current architecture and no mandatory heavy dependency.
 - Advanced: likely requires optional engines, OCR models, or larger architecture.
 
@@ -28,6 +29,7 @@ neutral capability names and avoids public comparison language.
 | Visual page rendering | Shipped | `render_page`; selected pages render as bounded PNG MCP image parts with evidence metadata and provenance. |
 | Region crop evidence | Shipped | `extract_regions`; PDF-coordinate bounding boxes crop into focused PNG MCP image parts with evidence metadata. |
 | Table extraction | Shipped | Spatial clustering with rows, confidence, and best-effort cell geometry. |
+| Table quality diagnostics | Shipped | Completeness, non-empty cell ratio, row alignment, row spacing consistency, missing-cell count, inferred merged-cell candidates, warnings, and repeated-header continuation candidates. |
 | Structured element output | Shipped | `include_elements`. |
 | Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry in one agent-ready contract. |
 | Deterministic semantic hints | Shipped | `include_semantic_hints`; heading, list item, paragraph hints with confidence. |
@@ -47,7 +49,7 @@ neutral capability names and avoids public comparison language.
 | Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, and off-page text. |
 | Rich semantic headings/paragraphs/lists | Next | Promote hints to stronger element model after fixtures/evals. |
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
-| Rich table spans and multi-page links | Next | Row spans, column spans, cross-page continuity, stronger confidence model. |
+| Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; full visual spans and non-repeated continuation require an optional visual table engine. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
 | Quality eval harness | Shipped | Regression eval covers semantic chunks, table order, renderers, and safety findings. |
 | OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages. No default OCR model is bundled. |
@@ -67,7 +69,7 @@ neutral capability names and avoids public comparison language.
 3. Harden the agent document map as the SSOT for pages, elements, chunks,
    layout, safety, page geometry, and optional engine enrichment.
 4. Add deterministic semantic model: headings, paragraphs, lists, captions,
-   richer tables.
+   and richer table trust signals.
 5. Harden the optional OCR provider with real scanned fixtures, provider
    presets, and accuracy/latency reporting.
 6. Add optional advanced engines behind provider interfaces.

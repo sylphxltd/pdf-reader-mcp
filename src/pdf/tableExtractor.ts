@@ -1,7 +1,14 @@
 // Table extraction from PDF using spatial clustering of text coordinates
 
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { BoundingBox, ExtractedTable, PageContentItem, TableCell } from '../types/pdf.js';
+import type {
+  BoundingBox,
+  ExtractedTable,
+  PageContentItem,
+  TableCell,
+  TableQuality,
+  TableQualitySignal,
+} from '../types/pdf.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('TableExtractor');
@@ -47,6 +54,11 @@ interface AssignedCellAccumulator {
   textParts: string[];
   boundingBoxes: BoundingBox[];
 }
+
+const tableId = (table: Pick<ExtractedTable, 'page' | 'tableIndex'>): string =>
+  `p${table.page}-table-${table.tableIndex + 1}`;
+
+const roundRatio = (value: number): number => Math.round(value * 100) / 100;
 
 const buildBoundingBox = (
   x: number,
@@ -250,10 +262,16 @@ const assignToTableCells = (
 
   const cells = accumulators.map((accumulator, colIndex): TableCell => {
     const boundingBox = mergeBoundingBoxes(accumulator.boundingBoxes);
+    const colSpan = inferColumnSpan(boundingBox, colIndex, columnBoundaries);
+    const isInferred = accumulator.textParts.length === 0;
     return {
       text: accumulator.textParts.join(' '),
       rowIndex,
       colIndex,
+      rowSpan: 1,
+      colSpan,
+      isHeader: rowIndex === 0,
+      inferred: isInferred,
       ...(boundingBox ? { bounding_box: boundingBox } : {}),
     };
   });
@@ -261,6 +279,121 @@ const assignToTableCells = (
   return {
     rowValues: cells.map((cell) => cell.text),
     cells,
+  };
+};
+
+const inferColumnSpan = (
+  boundingBox: BoundingBox | undefined,
+  colIndex: number,
+  columnBoundaries: number[]
+): number => {
+  if (!boundingBox) return 1;
+
+  let span = 1;
+  for (let nextCol = colIndex + 1; nextCol < columnBoundaries.length; nextCol++) {
+    const nextBoundary = columnBoundaries[nextCol];
+    if (nextBoundary === undefined) continue;
+
+    if (boundingBox.right >= nextBoundary - COLUMN_GAP_THRESHOLD / 2) {
+      span++;
+      continue;
+    }
+    break;
+  }
+
+  return Math.max(1, Math.min(span, columnBoundaries.length - colIndex));
+};
+
+const rowSpacingConsistency = (rows: TextRow[]): number => {
+  if (rows.length < 3) return rows.length >= 2 ? 1 : 0;
+
+  const spacings: number[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const previousRow = rows[i - 1];
+    const currentRow = rows[i];
+    if (previousRow && currentRow) {
+      spacings.push(Math.abs(previousRow.y - currentRow.y));
+    }
+  }
+
+  if (spacings.length === 0) return 0;
+
+  const averageSpacing = spacings.reduce((sum, spacing) => sum + spacing, 0) / spacings.length;
+  if (averageSpacing <= 0) return 0;
+
+  const variance =
+    spacings.reduce((sum, spacing) => sum + (spacing - averageSpacing) ** 2, 0) / spacings.length;
+  const standardDeviation = Math.sqrt(variance);
+
+  return roundRatio(Math.max(0, 1 - standardDeviation / averageSpacing));
+};
+
+const calculateRowAlignment = (rows: TextRow[], columnBoundaries: number[]): number => {
+  if (rows.length === 0 || columnBoundaries.length === 0) return 0;
+
+  const coverage = rows.map((row) => {
+    const columns = new Set<number>();
+    for (const item of row.items) {
+      columns.add(columnIndexForItem(item, columnBoundaries));
+    }
+    return Math.min(1, columns.size / columnBoundaries.length);
+  });
+
+  return roundRatio(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
+};
+
+const buildTableQuality = (
+  rows: TextRow[],
+  cells: TableCell[],
+  columnBoundaries: number[],
+  confidence: number
+): TableQuality => {
+  const nonEmptyCellCount = cells.filter((cell) => cell.text.trim().length > 0).length;
+  const missingCellCount = Math.max(0, cells.length - nonEmptyCellCount);
+  const mergedCellCandidateCount = cells.filter((cell) => (cell.colSpan ?? 1) > 1).length;
+  const nonEmptyCellRatio = cells.length > 0 ? roundRatio(nonEmptyCellCount / cells.length) : 0;
+  const rowAlignment = calculateRowAlignment(rows, columnBoundaries);
+  const spacingConsistency = rowSpacingConsistency(rows);
+  const completeness = roundRatio(nonEmptyCellRatio * rowAlignment);
+
+  const signals: TableQualitySignal[] = [];
+  const warnings: string[] = [];
+
+  if (missingCellCount === 0) {
+    signals.push('complete_grid');
+  } else {
+    signals.push('missing_cells');
+    warnings.push('Detected empty inferred cells; table may contain sparse or merged structure.');
+  }
+
+  if (mergedCellCandidateCount > 0) {
+    signals.push('merged_cell_candidates');
+    warnings.push('Detected cells whose text boxes cross column boundaries; spans are inferred.');
+  }
+
+  if (spacingConsistency < 0.75) {
+    signals.push('irregular_row_spacing');
+    warnings.push(
+      'Row spacing is irregular; verify the table with visual evidence when precision matters.'
+    );
+  }
+
+  if (confidence < 0.65) {
+    signals.push('low_confidence');
+    warnings.push(
+      'Table detector confidence is low; use region crops or page rendering for verification.'
+    );
+  }
+
+  return {
+    completeness,
+    nonEmptyCellRatio,
+    rowAlignment,
+    rowSpacingConsistency: spacingConsistency,
+    missingCellCount,
+    mergedCellCandidateCount,
+    signals,
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
 };
 
@@ -319,6 +452,74 @@ const calculateConfidence = (rows: TextRow[], columnBoundaries: number[]): numbe
   }
 
   return checks > 0 ? Math.min(1, score / checks) : 0;
+};
+
+const normalizedHeader = (table: ExtractedTable): string[] =>
+  (table.rows[0] ?? []).map((cell) => cell.trim().toLowerCase()).filter((cell) => cell.length > 0);
+
+const headerSimilarity = (left: ExtractedTable, right: ExtractedTable): number => {
+  const leftHeader = new Set(normalizedHeader(left));
+  const rightHeader = new Set(normalizedHeader(right));
+  if (leftHeader.size === 0 || rightHeader.size === 0) return 0;
+
+  let shared = 0;
+  for (const cell of leftHeader) {
+    if (rightHeader.has(cell)) shared++;
+  }
+
+  return shared / Math.max(leftHeader.size, rightHeader.size);
+};
+
+const addQualitySignal = (table: ExtractedTable, signal: TableQualitySignal): void => {
+  if (!table.quality || table.quality.signals.includes(signal)) return;
+
+  table.quality = {
+    ...table.quality,
+    signals: [...table.quality.signals, signal],
+  };
+};
+
+const linkTableContinuationCandidates = (tables: ExtractedTable[]): ExtractedTable[] => {
+  const sorted = [...tables].sort((a, b) => a.page - b.page || a.tableIndex - b.tableIndex);
+
+  for (let index = 0; index < sorted.length - 1; index++) {
+    const current = sorted[index];
+    const next = sorted[index + 1];
+    if (!current || !next) continue;
+
+    if (next.page !== current.page + 1 || current.colCount !== next.colCount) continue;
+
+    const similarity = headerSimilarity(current, next);
+    if (similarity < 0.6) continue;
+
+    const groupId = `table-continuation-${tableId(current)}-${tableId(next)}`;
+    const confidence = roundRatio(0.55 + similarity * 0.4);
+    const signals = ['same_column_count', 'repeated_header_candidate'];
+
+    current.continuation = {
+      groupId,
+      role: current.continuation?.previousTableId ? 'continues' : 'starts',
+      ...(current.continuation?.previousTableId
+        ? { previousTableId: current.continuation.previousTableId }
+        : {}),
+      nextTableId: tableId(next),
+      confidence,
+      signals,
+    };
+    next.continuation = {
+      groupId,
+      role: next.continuation?.nextTableId ? 'continues' : 'ends',
+      previousTableId: tableId(current),
+      ...(next.continuation?.nextTableId ? { nextTableId: next.continuation.nextTableId } : {}),
+      confidence,
+      signals,
+    };
+
+    addQualitySignal(current, 'multi_page_continuation_candidate');
+    addQualitySignal(next, 'multi_page_continuation_candidate');
+  }
+
+  return tables;
 };
 
 /**
@@ -427,6 +628,7 @@ export const extractTablesFromTextItems = (
 
     // Only include tables with reasonable confidence
     if (confidence >= 0.3) {
+      const roundedConfidence = Math.round(confidence * 100) / 100;
       tables.push({
         page: pageNum,
         tableIndex,
@@ -435,7 +637,13 @@ export const extractTablesFromTextItems = (
         ...(tableBoundingBox ? { bounding_box: tableBoundingBox } : {}),
         rowCount: tableRows.length,
         colCount: region.columnBoundaries.length,
-        confidence: Math.round(confidence * 100) / 100,
+        confidence: roundedConfidence,
+        quality: buildTableQuality(
+          region.rows,
+          tableCells,
+          region.columnBoundaries,
+          roundedConfidence
+        ),
       });
     }
   }
@@ -463,8 +671,10 @@ const textItemsFromPageContent = (items: PageContentItem[]): TextItemWithPositio
 export const extractTablesFromPageContents = (
   pageContents: Array<{ page: number; items: PageContentItem[] }>
 ): ExtractedTable[] =>
-  pageContents.flatMap((pageContent) =>
-    extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page)
+  linkTableContinuationCandidates(
+    pageContents.flatMap((pageContent) =>
+      extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page)
+    )
   );
 
 /**
@@ -503,7 +713,7 @@ export const extractTables = async (
     }
   }
 
-  return allTables;
+  return linkTableContinuationCandidates(allTables);
 };
 
 /**

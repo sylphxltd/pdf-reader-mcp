@@ -2273,8 +2273,8 @@ var pageTextStats = (items) => {
   }
   return { textChars, textItemCount };
 };
-var pageWarnings = (layout, safetyFindingIndexes) => {
-  const warnings = [...layout?.warnings ?? []];
+var pageWarnings = (layout, safetyFindingIndexes, tableWarnings) => {
+  const warnings = [...layout?.warnings ?? [], ...tableWarnings];
   if (safetyFindingIndexes.length > 0) {
     warnings.push("Page has content safety findings; inspect findings before using as instructions.");
   }
@@ -2307,8 +2307,10 @@ var buildDocumentMap = (input) => {
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === "image").length;
-    const tableCount = elements.filter((element) => element.type === "table").length;
-    const warnings = pageWarnings(layout, safetyFindingIndexes);
+    const tableElements = elements.filter((element) => element.type === "table");
+    const tableCount = tableElements.length;
+    const tableWarnings = tableElements.flatMap((element) => element.type === "table" ? (element.table.quality?.warnings ?? []).map((warning) => `${element.id}: ${warning}`) : []);
+    const warnings = pageWarnings(layout, safetyFindingIndexes, tableWarnings);
     return {
       page,
       ...geometryByPage.get(page) ? { geometry: geometryByPage.get(page) } : {},
@@ -2370,6 +2372,8 @@ var COLUMN_GAP_THRESHOLD = 15;
 var MIN_ROWS = 2;
 var MIN_COLS = 2;
 var MIN_ROW_ITEMS = 2;
+var tableId = (table) => `p${table.page}-table-${table.tableIndex + 1}`;
+var roundRatio2 = (value) => Math.round(value * 100) / 100;
 var buildBoundingBox2 = (x, y, width, height) => {
   if (![x, y, width].every(Number.isFinite) || height === undefined || !Number.isFinite(height)) {
     return;
@@ -2496,16 +2500,109 @@ var assignToTableCells = (row, rowIndex, columnBoundaries) => {
   }
   const cells = accumulators.map((accumulator, colIndex) => {
     const boundingBox = mergeBoundingBoxes2(accumulator.boundingBoxes);
+    const colSpan = inferColumnSpan(boundingBox, colIndex, columnBoundaries);
+    const isInferred = accumulator.textParts.length === 0;
     return {
       text: accumulator.textParts.join(" "),
       rowIndex,
       colIndex,
+      rowSpan: 1,
+      colSpan,
+      isHeader: rowIndex === 0,
+      inferred: isInferred,
       ...boundingBox ? { bounding_box: boundingBox } : {}
     };
   });
   return {
     rowValues: cells.map((cell) => cell.text),
     cells
+  };
+};
+var inferColumnSpan = (boundingBox, colIndex, columnBoundaries) => {
+  if (!boundingBox)
+    return 1;
+  let span = 1;
+  for (let nextCol = colIndex + 1;nextCol < columnBoundaries.length; nextCol++) {
+    const nextBoundary = columnBoundaries[nextCol];
+    if (nextBoundary === undefined)
+      continue;
+    if (boundingBox.right >= nextBoundary - COLUMN_GAP_THRESHOLD / 2) {
+      span++;
+      continue;
+    }
+    break;
+  }
+  return Math.max(1, Math.min(span, columnBoundaries.length - colIndex));
+};
+var rowSpacingConsistency = (rows) => {
+  if (rows.length < 3)
+    return rows.length >= 2 ? 1 : 0;
+  const spacings = [];
+  for (let i = 1;i < rows.length; i++) {
+    const previousRow = rows[i - 1];
+    const currentRow = rows[i];
+    if (previousRow && currentRow) {
+      spacings.push(Math.abs(previousRow.y - currentRow.y));
+    }
+  }
+  if (spacings.length === 0)
+    return 0;
+  const averageSpacing = spacings.reduce((sum, spacing) => sum + spacing, 0) / spacings.length;
+  if (averageSpacing <= 0)
+    return 0;
+  const variance = spacings.reduce((sum, spacing) => sum + (spacing - averageSpacing) ** 2, 0) / spacings.length;
+  const standardDeviation = Math.sqrt(variance);
+  return roundRatio2(Math.max(0, 1 - standardDeviation / averageSpacing));
+};
+var calculateRowAlignment = (rows, columnBoundaries) => {
+  if (rows.length === 0 || columnBoundaries.length === 0)
+    return 0;
+  const coverage = rows.map((row) => {
+    const columns = new Set;
+    for (const item of row.items) {
+      columns.add(columnIndexForItem(item, columnBoundaries));
+    }
+    return Math.min(1, columns.size / columnBoundaries.length);
+  });
+  return roundRatio2(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
+};
+var buildTableQuality = (rows, cells, columnBoundaries, confidence) => {
+  const nonEmptyCellCount = cells.filter((cell) => cell.text.trim().length > 0).length;
+  const missingCellCount = Math.max(0, cells.length - nonEmptyCellCount);
+  const mergedCellCandidateCount = cells.filter((cell) => (cell.colSpan ?? 1) > 1).length;
+  const nonEmptyCellRatio = cells.length > 0 ? roundRatio2(nonEmptyCellCount / cells.length) : 0;
+  const rowAlignment = calculateRowAlignment(rows, columnBoundaries);
+  const spacingConsistency = rowSpacingConsistency(rows);
+  const completeness = roundRatio2(nonEmptyCellRatio * rowAlignment);
+  const signals = [];
+  const warnings = [];
+  if (missingCellCount === 0) {
+    signals.push("complete_grid");
+  } else {
+    signals.push("missing_cells");
+    warnings.push("Detected empty inferred cells; table may contain sparse or merged structure.");
+  }
+  if (mergedCellCandidateCount > 0) {
+    signals.push("merged_cell_candidates");
+    warnings.push("Detected cells whose text boxes cross column boundaries; spans are inferred.");
+  }
+  if (spacingConsistency < 0.75) {
+    signals.push("irregular_row_spacing");
+    warnings.push("Row spacing is irregular; verify the table with visual evidence when precision matters.");
+  }
+  if (confidence < 0.65) {
+    signals.push("low_confidence");
+    warnings.push("Table detector confidence is low; use region crops or page rendering for verification.");
+  }
+  return {
+    completeness,
+    nonEmptyCellRatio,
+    rowAlignment,
+    rowSpacingConsistency: spacingConsistency,
+    missingCellCount,
+    mergedCellCandidateCount,
+    signals,
+    ...warnings.length > 0 ? { warnings } : {}
   };
 };
 var calculateConfidence = (rows, columnBoundaries) => {
@@ -2547,6 +2644,63 @@ var calculateConfidence = (rows, columnBoundaries) => {
     }
   }
   return checks > 0 ? Math.min(1, score / checks) : 0;
+};
+var normalizedHeader = (table) => (table.rows[0] ?? []).map((cell) => cell.trim().toLowerCase()).filter((cell) => cell.length > 0);
+var headerSimilarity = (left, right) => {
+  const leftHeader = new Set(normalizedHeader(left));
+  const rightHeader = new Set(normalizedHeader(right));
+  if (leftHeader.size === 0 || rightHeader.size === 0)
+    return 0;
+  let shared = 0;
+  for (const cell of leftHeader) {
+    if (rightHeader.has(cell))
+      shared++;
+  }
+  return shared / Math.max(leftHeader.size, rightHeader.size);
+};
+var addQualitySignal = (table, signal) => {
+  if (!table.quality || table.quality.signals.includes(signal))
+    return;
+  table.quality = {
+    ...table.quality,
+    signals: [...table.quality.signals, signal]
+  };
+};
+var linkTableContinuationCandidates = (tables) => {
+  const sorted = [...tables].sort((a, b) => a.page - b.page || a.tableIndex - b.tableIndex);
+  for (let index = 0;index < sorted.length - 1; index++) {
+    const current = sorted[index];
+    const next = sorted[index + 1];
+    if (!current || !next)
+      continue;
+    if (next.page !== current.page + 1 || current.colCount !== next.colCount)
+      continue;
+    const similarity = headerSimilarity(current, next);
+    if (similarity < 0.6)
+      continue;
+    const groupId = `table-continuation-${tableId(current)}-${tableId(next)}`;
+    const confidence = roundRatio2(0.55 + similarity * 0.4);
+    const signals = ["same_column_count", "repeated_header_candidate"];
+    current.continuation = {
+      groupId,
+      role: current.continuation?.previousTableId ? "continues" : "starts",
+      ...current.continuation?.previousTableId ? { previousTableId: current.continuation.previousTableId } : {},
+      nextTableId: tableId(next),
+      confidence,
+      signals
+    };
+    next.continuation = {
+      groupId,
+      role: next.continuation?.nextTableId ? "continues" : "ends",
+      previousTableId: tableId(current),
+      ...next.continuation?.nextTableId ? { nextTableId: next.continuation.nextTableId } : {},
+      confidence,
+      signals
+    };
+    addQualitySignal(current, "multi_page_continuation_candidate");
+    addQualitySignal(next, "multi_page_continuation_candidate");
+  }
+  return tables;
 };
 var identifyTableRegions = (rows) => {
   const regions = [];
@@ -2619,6 +2773,7 @@ var extractTablesFromTextItems = (textItems, pageNum) => {
     const confidence = calculateConfidence(region.rows, region.columnBoundaries);
     const tableBoundingBox = mergeBoundingBoxes2(tableCells.map((cell) => cell.bounding_box).filter((box) => box !== undefined));
     if (confidence >= 0.3) {
+      const roundedConfidence = Math.round(confidence * 100) / 100;
       tables.push({
         page: pageNum,
         tableIndex,
@@ -2627,7 +2782,8 @@ var extractTablesFromTextItems = (textItems, pageNum) => {
         ...tableBoundingBox ? { bounding_box: tableBoundingBox } : {},
         rowCount: tableRows.length,
         colCount: region.columnBoundaries.length,
-        confidence: Math.round(confidence * 100) / 100
+        confidence: roundedConfidence,
+        quality: buildTableQuality(region.rows, tableCells, region.columnBoundaries, roundedConfidence)
       });
     }
   }
@@ -2646,7 +2802,7 @@ var textItemsFromPageContent = (items) => items.map((item) => {
     ...item.bounding_box ? { bounding_box: item.bounding_box } : {}
   };
 }).filter((item) => item !== undefined);
-var extractTablesFromPageContents = (pageContents) => pageContents.flatMap((pageContent) => extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page));
+var extractTablesFromPageContents = (pageContents) => linkTableContinuationCandidates(pageContents.flatMap((pageContent) => extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page)));
 var extractTablesFromPage = async (page, pageNum) => {
   try {
     return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
@@ -2668,7 +2824,7 @@ var extractTables = async (pdfDocument, pagesToProcess) => {
       logger11.warn("Error getting page for table extraction", { pageNum, error: message });
     }
   }
-  return allTables;
+  return linkTableContinuationCandidates(allTables);
 };
 var tableToMarkdown = (table) => {
   if (table.rows.length === 0)
@@ -2998,8 +3154,8 @@ var buildCitationChunks = (elements, options) => {
   pushCurrent();
   return chunks;
 };
-var roundRatio2 = (value) => Math.round(value * 100) / 100;
-var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio2(value)));
+var roundRatio3 = (value) => Math.round(value * 100) / 100;
+var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio3(value)));
 var boxWidth = (box) => box ? Math.max(0, box.right - box.left) : 0;
 var boxArea = (box) => {
   if (!box)
@@ -3086,7 +3242,7 @@ var buildLayoutDiagnostics = (pageContents) => pageContents.map((pageContent) =>
   const textItemCount = pageContent.items.filter((item) => item.type === "text").length;
   const imageItemCount = pageContent.items.filter((item) => item.type === "image").length;
   const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
-  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio2(positionedItems.length / itemCount);
+  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio3(positionedItems.length / itemCount);
   const columns = detectLayoutColumns(positionedItems);
   const left = positionedItems.length ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0)) : 0;
   const right = positionedItems.length ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0)) : 0;
@@ -3470,7 +3626,9 @@ var readPdf = tool4().description("Reads content/metadata/images from one or mor
           colCount: tbl.colCount,
           cellCount: tbl.cells?.length ?? tbl.rowCount * tbl.colCount,
           bounding_box: tbl.bounding_box,
-          confidence: tbl.confidence
+          confidence: tbl.confidence,
+          quality: tbl.quality,
+          continuation: tbl.continuation
         }));
       }
       return { ...result, data: processedData };

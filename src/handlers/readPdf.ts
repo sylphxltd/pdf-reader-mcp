@@ -469,6 +469,8 @@ export const readPdf = tool()
             cellCount: tbl.cells?.length ?? tbl.rowCount * tbl.colCount,
             bounding_box: tbl.bounding_box,
             confidence: tbl.confidence,
+            quality: tbl.quality,
+            continuation: tbl.continuation,
           }));
         }
 

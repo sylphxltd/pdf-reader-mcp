@@ -483,7 +483,16 @@ Process multiple PDFs in a single request:
               "right": 420,
               "top": 700
             },
-            "confidence": 0.85
+            "confidence": 0.85,
+            "quality": {
+              "completeness": 1,
+              "nonEmptyCellRatio": 1,
+              "rowAlignment": 1,
+              "rowSpacingConsistency": 1,
+              "missingCellCount": 0,
+              "mergedCellCandidateCount": 0,
+              "signals": ["complete_grid"]
+            }
           }
         ],
         "elements": [
@@ -525,6 +534,10 @@ Process multiple PDFs in a single request:
                   "text": "Name",
                   "rowIndex": 0,
                   "colIndex": 0,
+                  "rowSpan": 1,
+                  "colSpan": 1,
+                  "isHeader": true,
+                  "inferred": false,
                   "bounding_box": {
                     "left": 72,
                     "bottom": 680,
@@ -535,7 +548,16 @@ Process multiple PDFs in a single request:
               ],
               "rowCount": 2,
               "colCount": 2,
-              "confidence": 0.85
+              "confidence": 0.85,
+              "quality": {
+                "completeness": 1,
+                "nonEmptyCellRatio": 1,
+                "rowAlignment": 1,
+                "rowSpacingConsistency": 1,
+                "missingCellCount": 0,
+                "mergedCellCandidateCount": 0,
+                "signals": ["complete_grid"]
+              }
             },
             "confidence": 0.85,
             "provenance": {
