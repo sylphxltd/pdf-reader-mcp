@@ -254,7 +254,8 @@ or wrapper you want the server to run. Optionally set
 
 The response starts with JSON metadata using `profile: "region_analysis"`.
 Each analyzed region includes normalized `kind`, description, text, Markdown,
-confidence, optional table/formula/chart fields, warnings, provenance, and a
+confidence, optional table cell/span/box fields, formula LaTeX/MathML/AsciiMath
+fields, chart data/axis/series fields, warnings, provenance, and a
 `source_crop_evidence_id` pointing back to the crop used as provider input.
 
 ### OCR Selected Pages

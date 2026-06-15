@@ -56,12 +56,25 @@ Provider stdout may be plain text or JSON. JSON output can include:
   "confidence": 0.91,
   "table": {
     "rows": [["Quarter", "Revenue"], ["Q1", "$1.2M"]],
+    "row_count": 2,
+    "column_count": 2,
+    "cells": [{
+      "text": "Quarter",
+      "row_index": 0,
+      "column_index": 0,
+      "row_span": 1,
+      "column_span": 1,
+      "bounding_box": { "left": 72, "bottom": 492, "right": 168, "top": 520 },
+      "confidence": 0.94
+    }],
     "markdown": "| Quarter | Revenue |",
     "csv": "Quarter,Revenue\nQ1,$1.2M",
     "confidence": 0.9
   },
   "formula": {
     "latex": "E = mc^2",
+    "mathml": "<math><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></math>",
+    "asciimath": "E = m c^2",
     "text": "E equals m c squared",
     "confidence": 0.82
   },
@@ -69,6 +82,13 @@ Provider stdout may be plain text or JSON. JSON output can include:
     "title": "Revenue by quarter",
     "summary": "Revenue rises across the period.",
     "data_points": [{ "label": "Q1", "value": 1.2 }],
+    "x_axis": { "label": "Quarter" },
+    "y_axis": { "label": "Revenue", "unit": "USD millions", "min": 0 },
+    "series": [{
+      "name": "Revenue",
+      "data_points": [{ "label": "Q1", "value": 1.2 }],
+      "confidence": 0.78
+    }],
     "confidence": 0.78
   },
   "warnings": ["Low contrast axis labels"]
@@ -78,6 +98,11 @@ Provider stdout may be plain text or JSON. JSON output can include:
 Supported `kind` values are `text`, `table`, `figure`, `chart`, `formula`,
 `image`, `diagram`, and `unknown`. Unknown provider values are normalized to
 `unknown` with a warning. Confidence values are clamped to `0..1`.
+
+Table cells may include zero-based `row_index`, `column_index`, optional
+`row_span`, `column_span`, confidence, and PDF-coordinate bounding boxes. Chart
+outputs may include top-level data points plus axes and named series. Formula
+outputs may include LaTeX, MathML, AsciiMath, and plain text.
 
 ## Response
 

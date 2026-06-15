@@ -963,12 +963,40 @@ export interface PdfRegionAnalysisTable {
   rows?: string[][] | undefined;
   markdown?: string | undefined;
   csv?: string | undefined;
+  row_count?: number | undefined;
+  column_count?: number | undefined;
+  cells?: PdfRegionAnalysisTableCell[] | undefined;
   confidence?: number | undefined;
+}
+
+export interface PdfRegionAnalysisTableCell {
+  text: string;
+  row_index: number;
+  column_index: number;
+  row_span?: number | undefined;
+  column_span?: number | undefined;
+  confidence?: number | undefined;
+  bounding_box?: BoundingBox | undefined;
 }
 
 export interface PdfRegionAnalysisFormula {
   latex?: string | undefined;
+  mathml?: string | undefined;
+  asciimath?: string | undefined;
   text?: string | undefined;
+  confidence?: number | undefined;
+}
+
+export interface PdfRegionAnalysisChartAxis {
+  label?: string | undefined;
+  unit?: string | undefined;
+  min?: number | undefined;
+  max?: number | undefined;
+}
+
+export interface PdfRegionAnalysisChartSeries {
+  name?: string | undefined;
+  data_points: Array<Record<string, string | number | boolean | null>>;
   confidence?: number | undefined;
 }
 
@@ -976,6 +1004,9 @@ export interface PdfRegionAnalysisChart {
   title?: string | undefined;
   summary?: string | undefined;
   data_points?: Array<Record<string, string | number | boolean | null>> | undefined;
+  x_axis?: PdfRegionAnalysisChartAxis | undefined;
+  y_axis?: PdfRegionAnalysisChartAxis | undefined;
+  series?: PdfRegionAnalysisChartSeries[] | undefined;
   confidence?: number | undefined;
 }
 

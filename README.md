@@ -520,7 +520,7 @@ by request arguments.
 
 **Response includes:**
 - A JSON summary with `profile: "region_analysis"` and the effective analysis options
-- Region-level `kind`, description, text, Markdown, confidence, normalized table rows, formula fields, chart data points, warnings, and provenance when supplied by the provider
+- Region-level `kind`, description, text, Markdown, confidence, normalized table rows/cells/spans/boxes, formula fields, chart data points/axes/series, warnings, and provenance when supplied by the provider
 - `source_crop_evidence_id`, source bounding box, crop pixel bounds, and scale for every analyzed region
 - Bounded defaults: `max_regions` default 20, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per region
 - No cropped image base64 duplicated inside the JSON response
@@ -1026,16 +1026,34 @@ Provider stdout may be plain text or JSON:
   "confidence": 0.91,
   "table": {
     "rows": [["Quarter", "Revenue"], ["Q1", "$1.2M"]],
+    "row_count": 2,
+    "column_count": 2,
+    "cells": [{
+      "text": "Quarter",
+      "row_index": 0,
+      "column_index": 0,
+      "bounding_box": { "left": 72, "bottom": 492, "right": 168, "top": 520 },
+      "confidence": 0.94
+    }],
     "confidence": 0.9
   },
   "formula": {
     "latex": "E = mc^2",
+    "mathml": "<math><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></math>",
+    "asciimath": "E = m c^2",
     "confidence": 0.82
   },
   "chart": {
     "title": "Revenue by quarter",
     "summary": "Revenue rises across the period.",
     "data_points": [{ "label": "Q1", "value": 1.2 }],
+    "x_axis": { "label": "Quarter" },
+    "y_axis": { "label": "Revenue", "unit": "USD millions" },
+    "series": [{
+      "name": "Revenue",
+      "data_points": [{ "label": "Q1", "value": 1.2 }],
+      "confidence": 0.78
+    }],
     "confidence": 0.78
   },
   "warnings": ["Low contrast axis labels"]

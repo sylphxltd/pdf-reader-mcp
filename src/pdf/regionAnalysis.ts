@@ -5,12 +5,16 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
   AnalyzeRegionsOptions,
+  BoundingBox,
   PdfRegionAnalysisChart,
+  PdfRegionAnalysisChartAxis,
+  PdfRegionAnalysisChartSeries,
   PdfRegionAnalysisData,
   PdfRegionAnalysisFormula,
   PdfRegionAnalysisKind,
   PdfRegionAnalysisProviderStatus,
   PdfRegionAnalysisTable,
+  PdfRegionAnalysisTableCell,
   PdfRegionCropData,
   PdfRegionRequest,
 } from '../types/pdf.js';
@@ -159,6 +163,16 @@ const normalizeConfidence = (value: unknown): number | undefined => {
   return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
 };
 
+const normalizePositiveInteger = (value: unknown): number | undefined => {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) return undefined;
+  return value;
+};
+
+const normalizeZeroBasedInteger = (value: unknown): number | undefined => {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return undefined;
+  return value;
+};
+
 const normalizeString = (value: unknown, maxLength: number): string | undefined => {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -186,6 +200,33 @@ const normalizeKind = (value: unknown, warnings: string[]): PdfRegionAnalysisKin
   return 'unknown';
 };
 
+const normalizeBoundingBox = (value: unknown): BoundingBox | undefined => {
+  if (typeof value !== 'object' || value === null) return undefined;
+
+  const candidate = value as Partial<Record<keyof BoundingBox, unknown>>;
+  const left = candidate.left;
+  const bottom = candidate.bottom;
+  const right = candidate.right;
+  const top = candidate.top;
+
+  if (
+    typeof left !== 'number' ||
+    !Number.isFinite(left) ||
+    typeof bottom !== 'number' ||
+    !Number.isFinite(bottom) ||
+    typeof right !== 'number' ||
+    !Number.isFinite(right) ||
+    typeof top !== 'number' ||
+    !Number.isFinite(top) ||
+    right <= left ||
+    top <= bottom
+  ) {
+    return undefined;
+  }
+
+  return { left, bottom, right, top };
+};
+
 const normalizeRows = (value: unknown): string[][] | undefined => {
   if (!Array.isArray(value)) return undefined;
 
@@ -204,6 +245,83 @@ const normalizeRows = (value: unknown): string[][] | undefined => {
   return rows.length > 0 ? rows : undefined;
 };
 
+const normalizeTableCells = (
+  value: unknown,
+  maxLength: number
+): PdfRegionAnalysisTableCell[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+
+  const cells = value
+    .map((cell): PdfRegionAnalysisTableCell | undefined => {
+      if (typeof cell !== 'object' || cell === null) return undefined;
+
+      const candidate = cell as {
+        text?: unknown;
+        row_index?: unknown;
+        row?: unknown;
+        column_index?: unknown;
+        column?: unknown;
+        row_span?: unknown;
+        rowspan?: unknown;
+        column_span?: unknown;
+        colspan?: unknown;
+        confidence?: unknown;
+        bounding_box?: unknown;
+        bbox?: unknown;
+      };
+      const text = normalizeString(candidate.text, maxLength) ?? '';
+      const rowIndex = normalizeZeroBasedInteger(candidate.row_index ?? candidate.row);
+      const columnIndex = normalizeZeroBasedInteger(candidate.column_index ?? candidate.column);
+      if (rowIndex === undefined || columnIndex === undefined) return undefined;
+
+      const rowSpan = normalizePositiveInteger(candidate.row_span ?? candidate.rowspan);
+      const columnSpan = normalizePositiveInteger(candidate.column_span ?? candidate.colspan);
+      const confidence = normalizeConfidence(candidate.confidence);
+      const boundingBox = normalizeBoundingBox(candidate.bounding_box ?? candidate.bbox);
+
+      return {
+        text,
+        row_index: rowIndex,
+        column_index: columnIndex,
+        ...(rowSpan !== undefined ? { row_span: rowSpan } : {}),
+        ...(columnSpan !== undefined ? { column_span: columnSpan } : {}),
+        ...(confidence !== undefined ? { confidence } : {}),
+        ...(boundingBox ? { bounding_box: boundingBox } : {}),
+      };
+    })
+    .filter((cell): cell is PdfRegionAnalysisTableCell => cell !== undefined);
+
+  return cells.length > 0 ? cells : undefined;
+};
+
+const deriveRowCount = (
+  rows: string[][] | undefined,
+  cells: PdfRegionAnalysisTableCell[] | undefined,
+  explicit: unknown
+): number | undefined => {
+  const explicitCount = normalizePositiveInteger(explicit);
+  if (explicitCount !== undefined) return explicitCount;
+  if (rows && rows.length > 0) return rows.length;
+  if (cells && cells.length > 0) {
+    return Math.max(...cells.map((cell) => cell.row_index + (cell.row_span ?? 1)));
+  }
+  return undefined;
+};
+
+const deriveColumnCount = (
+  rows: string[][] | undefined,
+  cells: PdfRegionAnalysisTableCell[] | undefined,
+  explicit: unknown
+): number | undefined => {
+  const explicitCount = normalizePositiveInteger(explicit);
+  if (explicitCount !== undefined) return explicitCount;
+  if (rows && rows.length > 0) return Math.max(...rows.map((row) => row.length));
+  if (cells && cells.length > 0) {
+    return Math.max(...cells.map((cell) => cell.column_index + (cell.column_span ?? 1)));
+  }
+  return undefined;
+};
+
 const normalizeTable = (value: unknown, maxLength: number): PdfRegionAnalysisTable | undefined => {
   if (typeof value !== 'object' || value === null) return undefined;
 
@@ -211,19 +329,45 @@ const normalizeTable = (value: unknown, maxLength: number): PdfRegionAnalysisTab
     rows?: unknown;
     markdown?: unknown;
     csv?: unknown;
+    row_count?: unknown;
+    rowCount?: unknown;
+    column_count?: unknown;
+    col_count?: unknown;
+    columnCount?: unknown;
+    cells?: unknown;
     confidence?: unknown;
   };
   const rows = normalizeRows(candidate.rows);
   const markdown = normalizeString(candidate.markdown, maxLength);
   const csv = normalizeString(candidate.csv, maxLength);
+  const cells = normalizeTableCells(candidate.cells, maxLength);
+  const rowCount = deriveRowCount(rows, cells, candidate.row_count ?? candidate.rowCount);
+  const columnCount = deriveColumnCount(
+    rows,
+    cells,
+    candidate.column_count ?? candidate.columnCount ?? candidate.col_count
+  );
   const confidence = normalizeConfidence(candidate.confidence);
 
-  if (!rows && !markdown && !csv && confidence === undefined) return undefined;
+  if (
+    !rows &&
+    !markdown &&
+    !csv &&
+    !cells &&
+    rowCount === undefined &&
+    columnCount === undefined &&
+    confidence === undefined
+  ) {
+    return undefined;
+  }
 
   return {
     ...(rows ? { rows } : {}),
     ...(markdown ? { markdown } : {}),
     ...(csv ? { csv } : {}),
+    ...(rowCount !== undefined ? { row_count: rowCount } : {}),
+    ...(columnCount !== undefined ? { column_count: columnCount } : {}),
+    ...(cells ? { cells } : {}),
     ...(confidence !== undefined ? { confidence } : {}),
   };
 };
@@ -236,17 +380,24 @@ const normalizeFormula = (
 
   const candidate = value as {
     latex?: unknown;
+    mathml?: unknown;
+    asciimath?: unknown;
+    ascii_math?: unknown;
     text?: unknown;
     confidence?: unknown;
   };
   const latex = normalizeString(candidate.latex, maxLength);
+  const mathml = normalizeString(candidate.mathml, maxLength);
+  const asciimath = normalizeString(candidate.asciimath ?? candidate.ascii_math, maxLength);
   const text = normalizeString(candidate.text, maxLength);
   const confidence = normalizeConfidence(candidate.confidence);
 
-  if (!latex && !text && confidence === undefined) return undefined;
+  if (!latex && !mathml && !asciimath && !text && confidence === undefined) return undefined;
 
   return {
     ...(latex ? { latex } : {}),
+    ...(mathml ? { mathml } : {}),
+    ...(asciimath ? { asciimath } : {}),
     ...(text ? { text } : {}),
     ...(confidence !== undefined ? { confidence } : {}),
   };
@@ -277,6 +428,67 @@ const normalizeDataPoints = (
   return points.length > 0 ? points : undefined;
 };
 
+const normalizeChartAxis = (
+  value: unknown,
+  maxLength: number
+): PdfRegionAnalysisChartAxis | undefined => {
+  if (typeof value !== 'object' || value === null) return undefined;
+
+  const candidate = value as {
+    label?: unknown;
+    unit?: unknown;
+    min?: unknown;
+    max?: unknown;
+  };
+  const label = normalizeString(candidate.label, maxLength);
+  const unit = normalizeString(candidate.unit, maxLength);
+  const min =
+    typeof candidate.min === 'number' && Number.isFinite(candidate.min) ? candidate.min : undefined;
+  const max =
+    typeof candidate.max === 'number' && Number.isFinite(candidate.max) ? candidate.max : undefined;
+
+  if (!label && !unit && min === undefined && max === undefined) return undefined;
+
+  return {
+    ...(label ? { label } : {}),
+    ...(unit ? { unit } : {}),
+    ...(min !== undefined ? { min } : {}),
+    ...(max !== undefined ? { max } : {}),
+  };
+};
+
+const normalizeChartSeries = (
+  value: unknown,
+  maxLength: number
+): PdfRegionAnalysisChartSeries[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+
+  const series = value
+    .map((entry): PdfRegionAnalysisChartSeries | undefined => {
+      if (typeof entry !== 'object' || entry === null) return undefined;
+
+      const candidate = entry as {
+        name?: unknown;
+        data_points?: unknown;
+        points?: unknown;
+        confidence?: unknown;
+      };
+      const dataPoints = normalizeDataPoints(candidate.data_points ?? candidate.points);
+      if (!dataPoints) return undefined;
+      const name = normalizeString(candidate.name, maxLength);
+      const confidence = normalizeConfidence(candidate.confidence);
+
+      return {
+        ...(name ? { name } : {}),
+        data_points: dataPoints,
+        ...(confidence !== undefined ? { confidence } : {}),
+      };
+    })
+    .filter((entry): entry is PdfRegionAnalysisChartSeries => entry !== undefined);
+
+  return series.length > 0 ? series : undefined;
+};
+
 const normalizeChart = (value: unknown, maxLength: number): PdfRegionAnalysisChart | undefined => {
   if (typeof value !== 'object' || value === null) return undefined;
 
@@ -284,19 +496,38 @@ const normalizeChart = (value: unknown, maxLength: number): PdfRegionAnalysisCha
     title?: unknown;
     summary?: unknown;
     data_points?: unknown;
+    x_axis?: unknown;
+    y_axis?: unknown;
+    series?: unknown;
     confidence?: unknown;
   };
   const title = normalizeString(candidate.title, maxLength);
   const summary = normalizeString(candidate.summary, maxLength);
   const dataPoints = normalizeDataPoints(candidate.data_points);
+  const xAxis = normalizeChartAxis(candidate.x_axis, maxLength);
+  const yAxis = normalizeChartAxis(candidate.y_axis, maxLength);
+  const series = normalizeChartSeries(candidate.series, maxLength);
   const confidence = normalizeConfidence(candidate.confidence);
 
-  if (!title && !summary && !dataPoints && confidence === undefined) return undefined;
+  if (
+    !title &&
+    !summary &&
+    !dataPoints &&
+    !xAxis &&
+    !yAxis &&
+    !series &&
+    confidence === undefined
+  ) {
+    return undefined;
+  }
 
   return {
     ...(title ? { title } : {}),
     ...(summary ? { summary } : {}),
     ...(dataPoints ? { data_points: dataPoints } : {}),
+    ...(xAxis ? { x_axis: xAxis } : {}),
+    ...(yAxis ? { y_axis: yAxis } : {}),
+    ...(series ? { series } : {}),
     ...(confidence !== undefined ? { confidence } : {}),
   };
 };

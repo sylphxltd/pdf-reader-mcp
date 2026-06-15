@@ -890,6 +890,16 @@ var normalizeConfidence = (value) => {
     return;
   return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
 };
+var normalizePositiveInteger = (value) => {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0)
+    return;
+  return value;
+};
+var normalizeZeroBasedInteger = (value) => {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0)
+    return;
+  return value;
+};
 var normalizeString = (value, maxLength) => {
   if (typeof value !== "string")
     return;
@@ -913,6 +923,19 @@ var normalizeKind = (value, warnings) => {
   warnings.push(`Unsupported region analysis kind "${kind}"; normalized to "unknown".`);
   return "unknown";
 };
+var normalizeBoundingBox = (value) => {
+  if (typeof value !== "object" || value === null)
+    return;
+  const candidate = value;
+  const left = candidate.left;
+  const bottom = candidate.bottom;
+  const right = candidate.right;
+  const top = candidate.top;
+  if (typeof left !== "number" || !Number.isFinite(left) || typeof bottom !== "number" || !Number.isFinite(bottom) || typeof right !== "number" || !Number.isFinite(right) || typeof top !== "number" || !Number.isFinite(top) || right <= left || top <= bottom) {
+    return;
+  }
+  return { left, bottom, right, top };
+};
 var normalizeRows = (value) => {
   if (!Array.isArray(value))
     return;
@@ -930,6 +953,56 @@ var normalizeRows = (value) => {
   }).filter((row) => row !== undefined);
   return rows.length > 0 ? rows : undefined;
 };
+var normalizeTableCells = (value, maxLength) => {
+  if (!Array.isArray(value))
+    return;
+  const cells = value.map((cell) => {
+    if (typeof cell !== "object" || cell === null)
+      return;
+    const candidate = cell;
+    const text = normalizeString(candidate.text, maxLength) ?? "";
+    const rowIndex = normalizeZeroBasedInteger(candidate.row_index ?? candidate.row);
+    const columnIndex = normalizeZeroBasedInteger(candidate.column_index ?? candidate.column);
+    if (rowIndex === undefined || columnIndex === undefined)
+      return;
+    const rowSpan = normalizePositiveInteger(candidate.row_span ?? candidate.rowspan);
+    const columnSpan = normalizePositiveInteger(candidate.column_span ?? candidate.colspan);
+    const confidence = normalizeConfidence(candidate.confidence);
+    const boundingBox = normalizeBoundingBox(candidate.bounding_box ?? candidate.bbox);
+    return {
+      text,
+      row_index: rowIndex,
+      column_index: columnIndex,
+      ...rowSpan !== undefined ? { row_span: rowSpan } : {},
+      ...columnSpan !== undefined ? { column_span: columnSpan } : {},
+      ...confidence !== undefined ? { confidence } : {},
+      ...boundingBox ? { bounding_box: boundingBox } : {}
+    };
+  }).filter((cell) => cell !== undefined);
+  return cells.length > 0 ? cells : undefined;
+};
+var deriveRowCount = (rows, cells, explicit) => {
+  const explicitCount = normalizePositiveInteger(explicit);
+  if (explicitCount !== undefined)
+    return explicitCount;
+  if (rows && rows.length > 0)
+    return rows.length;
+  if (cells && cells.length > 0) {
+    return Math.max(...cells.map((cell) => cell.row_index + (cell.row_span ?? 1)));
+  }
+  return;
+};
+var deriveColumnCount = (rows, cells, explicit) => {
+  const explicitCount = normalizePositiveInteger(explicit);
+  if (explicitCount !== undefined)
+    return explicitCount;
+  if (rows && rows.length > 0)
+    return Math.max(...rows.map((row) => row.length));
+  if (cells && cells.length > 0) {
+    return Math.max(...cells.map((cell) => cell.column_index + (cell.column_span ?? 1)));
+  }
+  return;
+};
 var normalizeTable = (value, maxLength) => {
   if (typeof value !== "object" || value === null)
     return;
@@ -937,13 +1010,20 @@ var normalizeTable = (value, maxLength) => {
   const rows = normalizeRows(candidate.rows);
   const markdown = normalizeString(candidate.markdown, maxLength);
   const csv = normalizeString(candidate.csv, maxLength);
+  const cells = normalizeTableCells(candidate.cells, maxLength);
+  const rowCount = deriveRowCount(rows, cells, candidate.row_count ?? candidate.rowCount);
+  const columnCount = deriveColumnCount(rows, cells, candidate.column_count ?? candidate.columnCount ?? candidate.col_count);
   const confidence = normalizeConfidence(candidate.confidence);
-  if (!rows && !markdown && !csv && confidence === undefined)
+  if (!rows && !markdown && !csv && !cells && rowCount === undefined && columnCount === undefined && confidence === undefined) {
     return;
+  }
   return {
     ...rows ? { rows } : {},
     ...markdown ? { markdown } : {},
     ...csv ? { csv } : {},
+    ...rowCount !== undefined ? { row_count: rowCount } : {},
+    ...columnCount !== undefined ? { column_count: columnCount } : {},
+    ...cells ? { cells } : {},
     ...confidence !== undefined ? { confidence } : {}
   };
 };
@@ -952,12 +1032,16 @@ var normalizeFormula = (value, maxLength) => {
     return;
   const candidate = value;
   const latex = normalizeString(candidate.latex, maxLength);
+  const mathml = normalizeString(candidate.mathml, maxLength);
+  const asciimath = normalizeString(candidate.asciimath ?? candidate.ascii_math, maxLength);
   const text = normalizeString(candidate.text, maxLength);
   const confidence = normalizeConfidence(candidate.confidence);
-  if (!latex && !text && confidence === undefined)
+  if (!latex && !mathml && !asciimath && !text && confidence === undefined)
     return;
   return {
     ...latex ? { latex } : {},
+    ...mathml ? { mathml } : {},
+    ...asciimath ? { asciimath } : {},
     ...text ? { text } : {},
     ...confidence !== undefined ? { confidence } : {}
   };
@@ -978,6 +1062,43 @@ var normalizeDataPoints = (value) => {
   }).filter((point) => point !== undefined);
   return points.length > 0 ? points : undefined;
 };
+var normalizeChartAxis = (value, maxLength) => {
+  if (typeof value !== "object" || value === null)
+    return;
+  const candidate = value;
+  const label = normalizeString(candidate.label, maxLength);
+  const unit = normalizeString(candidate.unit, maxLength);
+  const min = typeof candidate.min === "number" && Number.isFinite(candidate.min) ? candidate.min : undefined;
+  const max = typeof candidate.max === "number" && Number.isFinite(candidate.max) ? candidate.max : undefined;
+  if (!label && !unit && min === undefined && max === undefined)
+    return;
+  return {
+    ...label ? { label } : {},
+    ...unit ? { unit } : {},
+    ...min !== undefined ? { min } : {},
+    ...max !== undefined ? { max } : {}
+  };
+};
+var normalizeChartSeries = (value, maxLength) => {
+  if (!Array.isArray(value))
+    return;
+  const series = value.map((entry) => {
+    if (typeof entry !== "object" || entry === null)
+      return;
+    const candidate = entry;
+    const dataPoints = normalizeDataPoints(candidate.data_points ?? candidate.points);
+    if (!dataPoints)
+      return;
+    const name = normalizeString(candidate.name, maxLength);
+    const confidence = normalizeConfidence(candidate.confidence);
+    return {
+      ...name ? { name } : {},
+      data_points: dataPoints,
+      ...confidence !== undefined ? { confidence } : {}
+    };
+  }).filter((entry) => entry !== undefined);
+  return series.length > 0 ? series : undefined;
+};
 var normalizeChart = (value, maxLength) => {
   if (typeof value !== "object" || value === null)
     return;
@@ -985,13 +1106,20 @@ var normalizeChart = (value, maxLength) => {
   const title = normalizeString(candidate.title, maxLength);
   const summary = normalizeString(candidate.summary, maxLength);
   const dataPoints = normalizeDataPoints(candidate.data_points);
+  const xAxis = normalizeChartAxis(candidate.x_axis, maxLength);
+  const yAxis = normalizeChartAxis(candidate.y_axis, maxLength);
+  const series = normalizeChartSeries(candidate.series, maxLength);
   const confidence = normalizeConfidence(candidate.confidence);
-  if (!title && !summary && !dataPoints && confidence === undefined)
+  if (!title && !summary && !dataPoints && !xAxis && !yAxis && !series && confidence === undefined) {
     return;
+  }
   return {
     ...title ? { title } : {},
     ...summary ? { summary } : {},
     ...dataPoints ? { data_points: dataPoints } : {},
+    ...xAxis ? { x_axis: xAxis } : {},
+    ...yAxis ? { y_axis: yAxis } : {},
+    ...series ? { series } : {},
     ...confidence !== undefined ? { confidence } : {}
   };
 };
@@ -2271,7 +2399,7 @@ var normalizeConfidence2 = (value) => {
     return;
   return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
 };
-var normalizeBoundingBox = (value) => {
+var normalizeBoundingBox2 = (value) => {
   if (typeof value !== "object" || value === null)
     return;
   const candidate = value;
@@ -2295,7 +2423,7 @@ var normalizeWords = (value) => {
       return;
     }
     const confidence = normalizeConfidence2(candidate.confidence);
-    const boundingBox = normalizeBoundingBox(candidate.bounding_box);
+    const boundingBox = normalizeBoundingBox2(candidate.bounding_box);
     return {
       text: candidate.text,
       ...confidence !== undefined ? { confidence } : {},

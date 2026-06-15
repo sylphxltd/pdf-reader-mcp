@@ -40,7 +40,7 @@ features:
     details: Render selected pages as bounded PNG MCP image parts with JSON provenance, evidence IDs, and pixel budgets for OCR routing and page inspection.
   - icon: "\U0001F50D"
     title: Region Crops
-    details: Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figures, charts, formulas, and citation verification.
+    details: Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figures, charts, formulas, and citation verification, with rich local-provider analysis when configured.
   - icon: "\U0001F524"
     title: Configured OCR
     details: Route selected rendered pages through an environment-configured local OCR provider and optionally fuse OCR text layers into read_pdf document maps with provenance.
