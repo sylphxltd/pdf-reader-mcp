@@ -72,12 +72,12 @@
     "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",
     "benchmark:providers": "bun scripts/benchmark-pdf-providers.ts",
     "benchmark:all": "bun run benchmark && bun run benchmark:quality && bun run benchmark:providers",
-    "benchmark:release-artifacts": "MCP_PDF_BENCHMARK_OUTPUT_DIR=benchmark-artifacts MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all",
+    "benchmark:release-artifacts": "MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all",
     "benchmark:release-gate": "bun scripts/sota-release-gate.ts",
     "package:smoke": "bun scripts/package-smoke.ts",
     "clean": "rm -rf dist coverage",
     "prepublishOnly": "bun run clean && bun run build && bun run package:smoke",
-    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=benchmark-artifacts bun run benchmark:release-gate",
+    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
     "release": "bun run release:preflight && changeset publish"
   },
   "dependencies": {

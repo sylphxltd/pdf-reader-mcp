@@ -2,8 +2,14 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildRegionAnalysisQuality,
   buildTesseractTsvQuality,
+  contentBlocksFromReadPdfResult,
 } from '../../scripts/benchmark-pdf-providers.js';
 import type { PdfRegionAnalysisData } from '../../src/types/pdf.js';
+
+type ReadPdfHandlerResult = Parameters<typeof contentBlocksFromReadPdfResult>[0];
+
+const asReadPdfHandlerResult = (value: unknown): ReadPdfHandlerResult =>
+  value as ReadPdfHandlerResult;
 
 const baseRegion = (
   regionId: string,
@@ -26,6 +32,24 @@ const baseRegion = (
 });
 
 describe('provider benchmark quality metrics', () => {
+  test('normalizes direct read_pdf content arrays for provider benchmark parsing', () => {
+    expect(
+      contentBlocksFromReadPdfResult(
+        asReadPdfHandlerResult([{ type: 'text', text: '{"results":[]}' }])
+      )
+    ).toEqual([{ type: 'text', text: '{"results":[]}' }]);
+    expect(
+      contentBlocksFromReadPdfResult(
+        asReadPdfHandlerResult({ content: [{ type: 'text', text: '{"results":[]}' }] })
+      )
+    ).toEqual([{ type: 'text', text: '{"results":[]}' }]);
+    expect(
+      contentBlocksFromReadPdfResult(
+        asReadPdfHandlerResult({ type: 'text', text: '{"results":[]}' })
+      )
+    ).toEqual([{ type: 'text', text: '{"results":[]}' }]);
+  });
+
   test('scores OCR token recall, word boxes, and document-map fusion', () => {
     const quality = buildTesseractTsvQuality({
       ocrTextLayer: {

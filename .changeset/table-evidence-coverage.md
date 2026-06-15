@@ -60,3 +60,5 @@ column geometry without repeating the header row.
 Add a deterministic reference visual-region provider for release certification
 fixtures and run the strict release-evidence gate in CI without publishing, so
 provider evidence regressions are caught before the release workflow.
+Make the release artifact script respect `MCP_PDF_BENCHMARK_OUTPUT_DIR` while
+preserving `benchmark-artifacts` as the default output directory.

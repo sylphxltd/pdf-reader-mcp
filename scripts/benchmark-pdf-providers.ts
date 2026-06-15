@@ -560,17 +560,41 @@ const readTesseractTsvProviderStatus = async () =>
     async () => getOcrProviderStatus()
   );
 
+export const contentBlocksFromReadPdfResult = (
+  result: Awaited<ReturnType<typeof readPdf.handler>>
+): Array<{ type?: string; text?: string }> => {
+  if (Array.isArray(result)) return result;
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray(result.content)) {
+    return result.content;
+  }
+  if (result && typeof result === 'object' && 'type' in result) {
+    return [result];
+  }
+  return [];
+};
+
+const describeReadPdfResultShape = (result: Awaited<ReturnType<typeof readPdf.handler>>): string => {
+  if (Array.isArray(result)) return 'content-array';
+  if (result && typeof result === 'object') return Object.keys(result).sort().join(',') || 'object';
+  return typeof result;
+};
+
 const parseReadPdfResult = async (input: ReadPdfArgs): Promise<Record<string, unknown>> => {
   const result = await readPdf.handler({ input, ctx: {} as unknown });
   if (result && typeof result === 'object' && 'isError' in result && result.isError) {
-    const content = result.content as Array<{ text?: string }>;
-    throw new Error(content[0]?.text ?? 'read_pdf returned an error');
+    const content = contentBlocksFromReadPdfResult(result);
+    throw new Error(
+      content[0]?.text ??
+        `read_pdf returned an error without text content; result shape: ${describeReadPdfResultShape(result)}`
+    );
   }
 
-  const content = result.content as Array<{ text?: string }>;
-  const textPayload = content[0]?.text;
+  const textPayload = contentBlocksFromReadPdfResult(result).find((block) => block.type === 'text')
+    ?.text;
   if (!textPayload) {
-    throw new Error('read_pdf did not return a JSON text payload');
+    throw new Error(
+      `read_pdf did not return a JSON text payload; result shape: ${describeReadPdfResultShape(result)}`
+    );
   }
 
   return JSON.parse(textPayload) as Record<string, unknown>;
@@ -585,7 +609,16 @@ const firstResultData = (payload: Record<string, unknown>): Record<string, unkno
     throw new Error('read_pdf payload did not include a first result');
   }
 
-  const data = (first as { data?: unknown }).data;
+  const firstRecord = first as { data?: unknown; error?: unknown; success?: unknown };
+  if (firstRecord.success === false) {
+    throw new Error(
+      `read_pdf first result failed: ${
+        typeof firstRecord.error === 'string' ? firstRecord.error : 'unknown source error'
+      }`
+    );
+  }
+
+  const data = firstRecord.data;
   if (typeof data !== 'object' || data === null) {
     throw new Error('read_pdf first result did not include data');
   }
