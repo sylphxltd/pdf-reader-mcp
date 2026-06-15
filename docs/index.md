@@ -19,7 +19,7 @@ hero:
 features:
   - icon: "\U0001F4C4"
     title: Inspect Before Extraction
-    details: Profile unfamiliar PDFs, detect low-text or scanned pages, and get recommended extraction options for agent workflows.
+    details: Profile unfamiliar PDFs, detect low-text or scanned pages, and get ordered extraction and evidence-routing plans for agent workflows.
   - icon: "\U0001F50E"
     title: Search Evidence
     details: Locate literal text matches with snippets, match offsets, character-derived, text-item, or opt-in OCR-word bounding boxes, and provenance before reading, rendering, cropping, or citing.

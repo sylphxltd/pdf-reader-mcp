@@ -13,6 +13,10 @@
   receive crop image bytes and return the same normalized table, formula, chart,
   figure, image-description, confidence, warning, and provenance fields as
   command providers.
+- Add ordered `next_tools` to `inspect_pdf` recommendations so agents can route
+  from inspection into `read_pdf`, `search_pdf`, `render_page`, `extract_regions`,
+  `analyze_regions`, or `ocr_pages` with executable arguments, missing inputs,
+  and provider requirements made explicit.
 - Update public docs to distinguish deterministic PDF intelligence quality
   gates from installed-provider OCR accuracy/latency smoke checks.
 

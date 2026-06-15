@@ -35,7 +35,9 @@ Send multiple PDF sources in one request. The server processes them concurrently
 Choose exactly what data you need - visual page evidence, region crops, full text, specific pages, metadata only, an agent document map, or everything including images.
 
 ### Agent-Native Inspection
-Use `inspect_pdf` to sample a PDF, identify extraction risks, and get recommended `read_pdf` arguments before spending context or runtime on heavier extraction.
+Use `inspect_pdf` to sample a PDF, identify extraction risks, and get an
+ordered `next_tools` plan plus recommended `read_pdf` arguments before spending
+context or runtime on heavier extraction.
 
 ### PDF Search
 Use `search_pdf` to find relevant pages and source snippets before deciding whether an agent should read, render, OCR, crop, or cite a region. OCR-layer search is opt-in so fast selectable-text search stays the default.

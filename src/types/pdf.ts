@@ -715,6 +715,14 @@ export type PdfInspectionWorkflow =
   | 'scanned_pdf_triage'
   | 'mixed_pdf_review';
 
+export type PdfInspectionNextToolName =
+  | 'read_pdf'
+  | 'search_pdf'
+  | 'render_page'
+  | 'extract_regions'
+  | 'analyze_regions'
+  | 'ocr_pages';
+
 export interface PdfInspectionPageSignal {
   page: number;
   text_chars: number;
@@ -740,6 +748,19 @@ export interface PdfInspectionRecommendation {
   needs_ocr: boolean;
   reason: string;
   read_pdf_arguments: Record<string, unknown>;
+  next_tools: PdfInspectionNextTool[];
+}
+
+export interface PdfInspectionNextTool {
+  tool: PdfInspectionNextToolName;
+  priority: number;
+  ready: boolean;
+  purpose: string;
+  when: string;
+  arguments?: Record<string, unknown> | undefined;
+  argument_template?: Record<string, unknown> | undefined;
+  required_inputs?: string[] | undefined;
+  requires_provider?: 'ocr_pages' | 'analyze_regions' | undefined;
 }
 
 export type PdfOptionalProviderReadiness = 'ready' | 'not_configured' | 'invalid_configuration';

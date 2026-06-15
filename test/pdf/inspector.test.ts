@@ -61,7 +61,8 @@ describe('inspector', () => {
       const recommendation = buildInspectionRecommendation(
         { path: 'scan.pdf' },
         'scanned_or_image_only',
-        documentSignals()
+        documentSignals(),
+        [signal(1, 0, 2), signal(2, 3, 1)]
       );
 
       expect(recommendation).toMatchObject({
@@ -72,10 +73,68 @@ describe('inspector', () => {
           include_layout_diagnostics: true,
           include_ocr_text_layer: true,
         },
+        next_tools: [
+          {
+            tool: 'read_pdf',
+            priority: 1,
+            ready: true,
+            requires_provider: 'ocr_pages',
+            arguments: {
+              include_document_map: true,
+              include_ocr_text_layer: true,
+            },
+          },
+          {
+            tool: 'ocr_pages',
+            priority: 2,
+            ready: true,
+            requires_provider: 'ocr_pages',
+            arguments: {
+              sources: [{ path: 'scan.pdf', pages: [1, 2] }],
+              scale: 2,
+            },
+          },
+          {
+            tool: 'render_page',
+            priority: 3,
+            ready: true,
+            arguments: {
+              sources: [{ path: 'scan.pdf', pages: [1, 2] }],
+              include_image: true,
+            },
+          },
+        ],
       });
       expect(recommendation.reason).toContain('include_ocr_text_layer');
       expect(recommendation.read_pdf_arguments).not.toHaveProperty('include_full_text');
       expect(recommendation.read_pdf_arguments).not.toHaveProperty('include_chunks');
+    });
+
+    it('marks OCR-dependent routing as not ready when the OCR provider is unavailable', () => {
+      const recommendation = buildInspectionRecommendation(
+        { path: 'scan.pdf' },
+        'scanned_or_image_only',
+        documentSignals(),
+        [signal(1, 0, 2)],
+        { ocr_pages: 'not_configured', analyze_regions: 'ready' }
+      );
+
+      expect(recommendation.next_tools[0]).toMatchObject({
+        tool: 'read_pdf',
+        ready: false,
+        required_inputs: ['configured OCR provider'],
+        requires_provider: 'ocr_pages',
+      });
+      expect(recommendation.next_tools[1]).toMatchObject({
+        tool: 'ocr_pages',
+        ready: false,
+        required_inputs: ['configured OCR provider'],
+        requires_provider: 'ocr_pages',
+      });
+      expect(recommendation.next_tools[2]).toMatchObject({
+        tool: 'render_page',
+        ready: true,
+      });
     });
 
     it('recommends citation-ready extraction for digital text PDFs', () => {
@@ -97,6 +156,40 @@ describe('inspector', () => {
           include_outline: true,
           include_structure_tree: true,
         },
+        next_tools: [
+          {
+            tool: 'read_pdf',
+            priority: 1,
+            ready: true,
+          },
+          {
+            tool: 'search_pdf',
+            priority: 2,
+            ready: false,
+            required_inputs: ['literal search query'],
+            argument_template: {
+              query: '<literal-query-from-user-task>',
+              include_ocr_text_layer: false,
+            },
+          },
+          {
+            tool: 'extract_regions',
+            priority: 3,
+            ready: false,
+            required_inputs: ['page number', 'PDF-coordinate bounding box'],
+          },
+          {
+            tool: 'analyze_regions',
+            priority: 4,
+            ready: false,
+            requires_provider: 'analyze_regions',
+          },
+          {
+            tool: 'render_page',
+            priority: 5,
+            ready: true,
+          },
+        ],
       });
     });
   });

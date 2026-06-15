@@ -7,7 +7,9 @@ Status: active
 
 Add a lightweight MCP tool that lets an agent inspect a PDF before extracting it.
 The tool should answer: what kind of PDF is this, which pages should be sampled,
-what risks are visible, and which `read_pdf` options are most useful next.
+what risks are visible, which `read_pdf` options are most useful next, and which
+MCP tools should be used next for search, visual evidence, OCR, crop extraction,
+or provider-backed enrichment.
 
 This improves time-to-value without adding bundled OCR models, Java, Python,
 cloud services, or any large default dependency.
@@ -80,7 +82,60 @@ Output is a JSON text part:
             "include_safety_findings": true,
             "include_markdown": true,
             "include_tables": true
-          }
+          },
+          "next_tools": [
+            {
+              "tool": "read_pdf",
+              "priority": 1,
+              "ready": true,
+              "purpose": "Build citation-ready agent context with document map, chunks, semantic hints, tables, layout diagnostics, and safety findings.",
+              "when": "Use first when sampled pages already expose selectable text.",
+              "arguments": {
+                "sources": [{ "path": "report.pdf", "pages": "1-5" }],
+                "include_metadata": true,
+                "include_page_count": true,
+                "include_page_geometry": true,
+                "include_outline": true,
+                "include_chunks": true,
+                "include_semantic_hints": true,
+                "include_safety_findings": true,
+                "include_markdown": true,
+                "include_tables": true
+              }
+            },
+            {
+              "tool": "search_pdf",
+              "priority": 2,
+              "ready": false,
+              "purpose": "Find task-relevant source snippets with offsets, page references, and bbox evidence before heavier extraction.",
+              "when": "Use before broad extraction when the task asks for specific facts, terms, or citations.",
+              "argument_template": {
+                "sources": [{ "path": "report.pdf", "pages": "1-5" }],
+                "query": "<literal-query-from-user-task>",
+                "include_ocr_text_layer": false,
+                "max_matches_per_source": 10,
+                "context_chars": 160
+              },
+              "required_inputs": ["literal search query"]
+            },
+            {
+              "tool": "extract_regions",
+              "priority": 3,
+              "ready": false,
+              "purpose": "Crop bbox-grounded regions as focused visual evidence after read_pdf exposes table, image, text-layer, or chunk boxes.",
+              "when": "Use when read_pdf returns bbox evidence for a table, figure, chart, formula, annotation, or citation that needs visual proof.",
+              "required_inputs": ["page number", "PDF-coordinate bounding box"]
+            },
+            {
+              "tool": "analyze_regions",
+              "priority": 4,
+              "ready": false,
+              "purpose": "Send focused crops to a configured local visual provider and normalize table, chart, formula, figure, or image-description evidence.",
+              "when": "Use when a known region needs local visual table, chart, formula, figure, or image-description enrichment.",
+              "required_inputs": ["page number", "PDF-coordinate bounding box"],
+              "requires_provider": "analyze_regions"
+            }
+          ]
         },
         "provider_status": {
           "ocr_pages": {
@@ -110,13 +165,20 @@ Output is a JSON text part:
 - Sampling is bounded and defaults to a small number of pages.
 - `read_pdf_arguments` may recommend `include_ocr_text_layer`, but must make
   OCR opt-in and dependent on a configured local provider.
+- `next_tools` is ordered by `priority`; executable steps use `arguments`, while
+  steps that need task input or region boxes use `argument_template` and
+  `required_inputs`.
+- `next_tools[].ready` means the step can be called immediately with the current
+  arguments and provider readiness. OCR or visual-provider steps must become
+  not ready when their provider is not configured or has invalid configuration.
 - Provider readiness must not expose local provider paths or arguments.
 - The first JSON part must not include binary image data.
 - Existing `read_pdf` callers remain unchanged.
 
 ## Validation
 
-- Unit tests cover page sampling and profile classification.
+- Unit tests cover page sampling, profile classification, and ordered
+  tool-routing recommendations.
 - Handler tests cover successful digital and scanned/image-like PDFs.
 - Integration tests confirm the MCP server lists `inspect_pdf`.
 - Full validation: `bun run check`, `bun run build`, `bun test`, and

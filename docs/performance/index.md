@@ -36,7 +36,7 @@ status if any quality gate fails.
 
 | Scenario | Quality gate |
 |----------|--------------|
-| `agent_document_twin_semantic_quality` | Semantic roles, citation chunks, table ordering, safety findings, Markdown/HTML rendering, text-layer evidence, document map, document AST, and accessibility report |
+| `agent_document_twin_semantic_quality` | Semantic roles, citation chunks, table ordering, safety findings, Markdown/HTML rendering, text-layer evidence, document map, document AST, accessibility report, and inspection tool routing |
 | `recursive_reading_order_quality` | Spanning header, independent column bands, and footer reading sequence |
 | `ocr_text_layer_quality` | Local OCR provider normalization, word boxes, confidence, language, render evidence, and OCR text-layer summary |
 | `scanned_pdf_fixture_pipeline_quality` | Runtime-generated image-only PDF fixture through `read_pdf` load, render, OCR provider, OCR text-layer fusion, document map routing, and low-confidence layout diagnostics |
@@ -77,7 +77,8 @@ MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:providers
 
 Use `inspect_pdf` first when an agent does not know the document shape. It
 samples a bounded number of pages, counts selectable text and image paint
-operations, and recommends `read_pdf` arguments without decoding image bytes.
+operations, and recommends ordered `next_tools` plus `read_pdf` arguments
+without decoding image bytes.
 
 ```json
 {

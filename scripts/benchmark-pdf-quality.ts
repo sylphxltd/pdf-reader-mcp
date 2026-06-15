@@ -19,6 +19,7 @@ import {
   textElementsOnly,
 } from '../src/pdf/documentModel.js';
 import { extractPageContent } from '../src/pdf/extractor.js';
+import { buildInspectionRecommendation } from '../src/pdf/inspector.js';
 import {
   buildOcrTextLayer,
   defaultOcrPagesOptions,
@@ -41,6 +42,8 @@ import type {
   ExtractedTable,
   PageContentItem,
   PdfDocumentElement,
+  PdfInspectionDocumentSignals,
+  PdfInspectionPageSignal,
   PdfPageGeometry,
   PdfPageRenderData,
   PdfRegionCropData,
@@ -236,6 +239,41 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
   const textLayer = buildTextLayer({ selectedPages, pageContents: qualityCase.pageContents });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
+  const inspectionDocumentSignals: PdfInspectionDocumentSignals = {
+    has_outline: true,
+    has_page_labels: false,
+    has_permissions: false,
+    has_mark_info: true,
+    has_form_fields: false,
+    has_attachments: false,
+    has_structure_tree: true,
+  };
+  const inspectionPageSignals: PdfInspectionPageSignal[] = [
+    {
+      page: 1,
+      text_chars: 500,
+      text_items: 5,
+      estimated_tokens: 125,
+      image_paint_operations: 1,
+      likely_scanned: false,
+      low_text_density: false,
+    },
+    {
+      page: 2,
+      text_chars: 180,
+      text_items: 2,
+      estimated_tokens: 45,
+      image_paint_operations: 0,
+      likely_scanned: false,
+      low_text_density: false,
+    },
+  ];
+  const inspectionRecommendation = buildInspectionRecommendation(
+    { path: 'quality.pdf' },
+    'digital_text',
+    inspectionDocumentSignals,
+    inspectionPageSignals
+  );
 
   return [
     {
@@ -361,6 +399,26 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         textLayer.pages[0]?.lines[0]?.chars[0]?.bounding_box_level === 'char_estimated' &&
         textLayer.pages[0]?.lines[0]?.words[0]?.char_start === 0 &&
         textLayer.pages[0]?.lines[0]?.words[0]?.bounding_box_level === 'char_estimated',
+    },
+    {
+      name: 'inspection recommendation exposes ordered MCP tool routing with evidence follow-ups',
+      pass:
+        inspectionRecommendation.next_tools[0]?.tool === 'read_pdf' &&
+        inspectionRecommendation.next_tools[0]?.ready === true &&
+        inspectionRecommendation.next_tools.some(
+          (step) =>
+            step.tool === 'search_pdf' &&
+            step.ready === false &&
+            step.required_inputs?.includes('literal search query') === true
+        ) &&
+        inspectionRecommendation.next_tools.some(
+          (step) =>
+            step.tool === 'extract_regions' &&
+            step.required_inputs?.includes('PDF-coordinate bounding box') === true
+        ) &&
+        inspectionRecommendation.next_tools.some(
+          (step) => step.tool === 'analyze_regions' && step.requires_provider === 'analyze_regions'
+        ),
     },
   ];
 };

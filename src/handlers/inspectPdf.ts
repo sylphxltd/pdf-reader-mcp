@@ -7,7 +7,7 @@ const MAX_CONCURRENT_SOURCES = 3;
 
 export const inspectPdf = tool()
   .description(
-    'Inspects one or more PDFs and recommends the best read_pdf options for agentic extraction, citations, safety, and OCR triage.'
+    'Inspects one or more PDFs and recommends ordered MCP tool routing plus read_pdf options for agentic extraction, citations, safety, and OCR triage.'
   )
   .input(inspectPdfArgsSchema)
   .handler(async ({ input }) => {

@@ -37,7 +37,7 @@ PDF Reader MCP is built on these core principles:
 
 ## 3. Simple Integration
 
-- **Focused Tools** - `inspect_pdf` plans extraction, `search_pdf` finds source text evidence, `render_page` returns page evidence, `extract_regions` returns crop evidence, `analyze_regions` enriches focused crops, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
+- **Focused Tools** - `inspect_pdf` plans ordered extraction and evidence routing, `search_pdf` finds source text evidence, `render_page` returns page evidence, `extract_regions` returns crop evidence, `analyze_regions` enriches focused crops, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
 - **Safe Provider Status** - Inspection reports optional-provider readiness without exposing local provider paths or arguments
 - **Standard MCP** - Compatible with any MCP client
 - **Easy Setup** - One command installation via npx
@@ -58,6 +58,7 @@ PDF Reader MCP is built on these core principles:
 ## 6. Agent-Ready Output
 
 - **Stable References** - Element IDs and page numbers make downstream citations easier to preserve
+- **Tool Routing** - Inspection recommendations expose ordered `next_tools`, executable arguments, missing inputs, and provider requirements so agents can choose the next MCP call without parsing prose
 - **Text Fidelity** - Text layers expose run metadata, line IDs, word records, character records, character ranges, and bbox coverage without requiring agents to parse plain strings
 - **Searchable Evidence** - Search matches carry snippets, offsets, character-derived or text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape

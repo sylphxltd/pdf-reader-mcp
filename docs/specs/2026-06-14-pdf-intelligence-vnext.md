@@ -132,7 +132,7 @@ Candidate engines:
 
 1. Structured foundation
    - Add `inspect_pdf` for bounded preflight profiling, OCR triage, and
-     recommended `read_pdf` arguments.
+     ordered `next_tools` with recommended `read_pdf` arguments.
    - Add `include_elements`.
    - Add `include_semantic_hints`.
    - Add `include_markdown`.

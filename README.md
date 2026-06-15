@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, accessibility report, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, get an ordered MCP tool plan, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, accessibility report, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -37,7 +37,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 **The Solution:**
 ```typescript
 // PDF Reader MCP
-- Preflight PDF inspection for agent extraction planning 🔎
+- Preflight PDF inspection with ordered MCP tool routing 🔎
 - MCP-native PDF search with snippets and bbox evidence 🔎
 - Bounded page rendering for visual evidence and OCR routing 🖼️
 - Bbox-grounded region crops for source evidence 🔍
@@ -76,7 +76,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 ### Developer Experience
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
-- 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
+- 🔎 **PDF Inspection** - Profile PDFs before extraction and get ordered `next_tools` plus recommended `read_pdf` arguments for agent workflows
 - 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, character-derived, text-item, or opt-in OCR-word bounding boxes, and provenance
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
@@ -97,7 +97,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Smart Ordering** - Recursive band and column segmentation improves natural reading flow for common mixed layouts
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - `inspect_pdf` plans extraction, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `analyze_regions` enriches visual regions, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
+- 🎨 **Simple API** - `inspect_pdf` plans ordered extraction and evidence routing, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `analyze_regions` enriches visual regions, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
 
 ---
 
@@ -232,8 +232,8 @@ npm install -g @sylphx/pdf-reader-mcp
 
 Use `inspect_pdf` when an agent needs to decide how to process an unfamiliar
 PDF. It samples a bounded number of pages, detects selectable-text versus
-image-like pages, surfaces document signals, and recommends useful `read_pdf`
-arguments without extracting image bytes.
+image-like pages, surfaces document signals, and recommends ordered `next_tools`
+plus useful `read_pdf` arguments without extracting image bytes.
 
 ```json
 {
@@ -249,7 +249,8 @@ arguments without extracting image bytes.
 - PDF profile such as `digital_text`, `scanned_or_image_only`, or `mixed_text_and_scan`
 - Page-level text density, token estimates, and image paint-operation counts
 - Signals for outlines, page labels, forms, attachments, permissions, and structure trees
-- Recommended `read_pdf` arguments for citation chunks, safety findings, tables, or OCR triage
+- Ordered `next_tools` for read, search, render, crop, visual analysis, or OCR routing
+- Paired `read_pdf` arguments for citation chunks, safety findings, tables, or OCR triage
 
 ### Search PDF Evidence
 
@@ -707,7 +708,7 @@ OCR output remains a separate `ocr_text_layer`; it is not merged into
 ## ✨ Features
 
 ### Core Capabilities
-- ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend `read_pdf` options
+- ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend ordered `next_tools` plus `read_pdf` options
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
 - ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
@@ -785,8 +786,8 @@ map as routing and page evidence, but it remains separate from legacy
 
 `inspect_pdf` adds a bounded planning tool for agent workflows. It samples
 up to 20 pages per source, counts selectable text and image paint operations,
-surfaces document-level signals, and returns a recommendation with the next
-best `read_pdf` arguments.
+surfaces document-level signals, and returns a recommendation with ordered
+`next_tools` plus the next best `read_pdf` arguments.
 
 Inspection is intentionally low overhead: it does not decode image bytes and it
 does not perform OCR. When sampled pages look scanned or image-only, the tool
@@ -896,8 +897,13 @@ PDF handling, or OCR-capable workflows.
 | `sampled_pages` | Pages used for the bounded inspection sample |
 | `page_signals` | Text chars, text items, token estimate, image paint operations, and scan/low-text flags |
 | `document_signals` | Outline, labels, permissions, forms, attachments, and structure-tree availability |
-| `recommendation` | Suggested workflow, OCR need, reason, and ready-to-use `read_pdf` arguments |
+| `recommendation` | Suggested workflow, OCR need, reason, ordered `next_tools`, and ready-to-use `read_pdf` arguments |
 | `provider_status` | Safe readiness metadata for optional `ocr_pages` and `analyze_regions` providers without provider paths |
+
+`recommendation.next_tools[].ready` means the step can be called immediately
+with the listed arguments and current provider readiness. Steps that need a
+query, bounding box, OCR provider, or visual-region provider report
+`required_inputs` and/or `requires_provider`.
 
 ### `render_page` Tool
 
@@ -1659,7 +1665,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, reading order, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, reading order, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box accuracy/latency smoke checks
 - [x] Filesystem and HTTP access restrictions
 

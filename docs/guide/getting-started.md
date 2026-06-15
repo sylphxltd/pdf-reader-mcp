@@ -2,7 +2,8 @@
 
 Once installed, the PDF Reader MCP server provides seven tools:
 
-- `inspect_pdf` profiles a PDF and recommends the best extraction options.
+- `inspect_pdf` profiles a PDF and recommends ordered extraction and evidence
+  routing.
 - `search_pdf` searches extracted PDF text with snippets, character-derived or
   text-item bounding boxes, and provenance.
 - `render_page` renders selected PDF pages as bounded visual evidence images.
@@ -37,8 +38,8 @@ Typical response fields:
 - `page_signals`: text density, token estimate, and image paint-operation count
 - `document_signals`: outline, labels, permissions, forms, attachments, and
   structure-tree availability
-- `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
-  arguments
+- `recommendation`: workflow, OCR need, reason, ordered `next_tools`, and
+  ready-to-use `read_pdf` arguments
 - `provider_status`: safe readiness metadata for optional `ocr_pages` and
   `analyze_regions` providers without exposing local provider paths
 

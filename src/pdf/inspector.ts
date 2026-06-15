@@ -4,10 +4,12 @@ import type {
   InspectPdfOptions,
   PdfInspectionData,
   PdfInspectionDocumentSignals,
+  PdfInspectionNextTool,
   PdfInspectionPageSignal,
   PdfInspectionProfile,
   PdfInspectionRecommendation,
   PdfInspectionSourceResult,
+  PdfOptionalProviderReadiness,
   PdfSource,
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
@@ -39,6 +41,11 @@ const publicSource = (source: PdfSource): PdfSource => ({
   ...(source.path ? { path: source.path } : {}),
   ...(source.url ? { url: source.url } : {}),
   ...(source.pages ? { pages: source.pages } : {}),
+});
+
+const publicSourceWithPages = (source: PdfSource, pages: number[]): PdfSource => ({
+  ...publicSource(source),
+  ...(pages.length > 0 ? { pages } : {}),
 });
 
 const selectEvenlySpaced = (values: number[], maxItems: number): number[] => {
@@ -157,10 +164,262 @@ const setTrue = (target: Record<string, unknown>, key: string, enabled: boolean)
   if (enabled) target[key] = true;
 };
 
+interface InspectionProviderReadiness {
+  ocr_pages: PdfOptionalProviderReadiness;
+  analyze_regions: PdfOptionalProviderReadiness;
+}
+
+const defaultInspectionProviderReadiness = (): InspectionProviderReadiness => ({
+  ocr_pages: 'ready',
+  analyze_regions: 'ready',
+});
+
+const providerReady = (readiness: PdfOptionalProviderReadiness): boolean => readiness === 'ready';
+
+const providerRequiredInputs = (
+  inputs: string[],
+  providerName: 'OCR' | 'analyze_regions',
+  readiness: PdfOptionalProviderReadiness
+): string[] =>
+  providerReady(readiness) ? inputs : [...inputs, `configured ${providerName} provider`];
+
+const buildRegionSourceTemplate = (source: PdfSource): Record<string, unknown> => ({
+  ...(source.path ? { path: source.path } : {}),
+  ...(source.url ? { url: source.url } : {}),
+  regions: [
+    {
+      id: '<region-id>',
+      page: '<page-number>',
+      bounding_box: {
+        left: '<pdf-left>',
+        bottom: '<pdf-bottom>',
+        right: '<pdf-right>',
+        top: '<pdf-top>',
+      },
+    },
+  ],
+});
+
+const toolStep = (
+  priority: number,
+  step: Omit<PdfInspectionNextTool, 'priority'>
+): PdfInspectionNextTool => ({
+  priority,
+  ...step,
+});
+
+const buildInspectionNextTools = (
+  source: PdfSource,
+  profile: PdfInspectionProfile,
+  readPdfArguments: Record<string, unknown>,
+  pageSignals: PdfInspectionPageSignal[],
+  providerReadiness: InspectionProviderReadiness
+): PdfInspectionNextTool[] => {
+  const sampledPages = pageSignals.map((signal) => signal.page);
+  const scannedPages = pageSignals
+    .filter((signal) => signal.likely_scanned)
+    .map((signal) => signal.page);
+  const visualPages = scannedPages.length > 0 ? scannedPages : sampledPages;
+  const visualSource = publicSourceWithPages(source, visualPages);
+  const baseSource = publicSource(source);
+  const regionSourceTemplate = buildRegionSourceTemplate(source);
+  const readPdfStep = (purpose: string, when: string): PdfInspectionNextTool => {
+    const needsOcrProvider = Boolean(readPdfArguments['include_ocr_text_layer']);
+    const ocrReady = providerReady(providerReadiness.ocr_pages);
+
+    return toolStep(1, {
+      tool: 'read_pdf',
+      ready: needsOcrProvider ? ocrReady : true,
+      purpose,
+      when,
+      arguments: readPdfArguments,
+      ...(needsOcrProvider ? { requires_provider: 'ocr_pages' as const } : {}),
+      ...(needsOcrProvider && !ocrReady ? { required_inputs: ['configured OCR provider'] } : {}),
+    });
+  };
+  const searchStep = (
+    priority: number,
+    includeOcrTextLayer: boolean,
+    when: string
+  ): PdfInspectionNextTool =>
+    toolStep(priority, {
+      tool: 'search_pdf',
+      ready: false,
+      purpose:
+        'Find task-relevant source snippets with offsets, page references, and bbox evidence before heavier extraction.',
+      when,
+      argument_template: {
+        sources: [baseSource],
+        query: '<literal-query-from-user-task>',
+        include_ocr_text_layer: includeOcrTextLayer,
+        max_matches_per_source: 10,
+        context_chars: 160,
+      },
+      required_inputs: providerRequiredInputs(
+        ['literal search query'],
+        'OCR',
+        includeOcrTextLayer ? providerReadiness.ocr_pages : 'ready'
+      ),
+      ...(includeOcrTextLayer ? { requires_provider: 'ocr_pages' as const } : {}),
+    });
+  const renderStep = (priority: number, when: string): PdfInspectionNextTool =>
+    toolStep(priority, {
+      tool: 'render_page',
+      ready: true,
+      purpose:
+        'Return bounded page images as MCP image evidence for visual verification, OCR routing, or human review.',
+      when,
+      arguments: {
+        sources: [visualSource],
+        scale: 2,
+        max_pages: Math.min(Math.max(visualPages.length, 1), 5),
+        include_image: true,
+      },
+    });
+  const ocrStep = (priority: number, when: string): PdfInspectionNextTool =>
+    toolStep(priority, {
+      tool: 'ocr_pages',
+      ready: providerReady(providerReadiness.ocr_pages),
+      purpose:
+        'Run selected rendered pages through the configured OCR provider and return normalized text, confidence, word boxes, and provenance.',
+      when,
+      arguments: {
+        sources: [visualSource],
+        scale: 2,
+        max_pages: Math.min(Math.max(visualPages.length, 1), 5),
+      },
+      requires_provider: 'ocr_pages',
+      ...(providerReady(providerReadiness.ocr_pages)
+        ? {}
+        : { required_inputs: ['configured OCR provider'] }),
+    });
+  const extractRegionsStep = (priority: number, when: string): PdfInspectionNextTool =>
+    toolStep(priority, {
+      tool: 'extract_regions',
+      ready: false,
+      purpose:
+        'Crop bbox-grounded regions as focused visual evidence after read_pdf exposes table, image, text-layer, or chunk boxes.',
+      when,
+      argument_template: {
+        sources: [regionSourceTemplate],
+        scale: 2,
+        max_regions: 20,
+        include_image: true,
+      },
+      required_inputs: ['page number', 'PDF-coordinate bounding box'],
+    });
+  const analyzeRegionsStep = (priority: number, when: string): PdfInspectionNextTool =>
+    toolStep(priority, {
+      tool: 'analyze_regions',
+      ready: false,
+      purpose:
+        'Send focused crops to a configured local visual provider and normalize table, chart, formula, figure, or image-description evidence.',
+      when,
+      argument_template: {
+        sources: [regionSourceTemplate],
+        scale: 2,
+        max_regions: 20,
+      },
+      required_inputs: providerRequiredInputs(
+        ['page number', 'PDF-coordinate bounding box'],
+        'analyze_regions',
+        providerReadiness.analyze_regions
+      ),
+      requires_provider: 'analyze_regions',
+    });
+
+  if (profile === 'scanned_or_image_only') {
+    return [
+      readPdfStep(
+        'Build an agent document map with OCR text-layer evidence fused into page routing.',
+        'Use first when the goal is to extract text from scanned or image-only pages.'
+      ),
+      ocrStep(
+        2,
+        'Use when the workflow needs a dedicated OCR pass or OCR output should be inspected before document-map fusion.'
+      ),
+      renderStep(
+        3,
+        'Use when no OCR provider is configured yet, OCR confidence is low, or the original page image must be inspected.'
+      ),
+    ];
+  }
+
+  if (profile === 'mixed_text_and_scan') {
+    return [
+      readPdfStep(
+        'Build one provenance-aware document map that includes selectable text, tables, chunks, safety signals, and OCR text-layer evidence.',
+        'Use first for mixed PDFs so digital and scanned pages share one evidence model.'
+      ),
+      searchStep(
+        2,
+        true,
+        'Use when the task has a specific term and both selectable text and OCR text should be searched.'
+      ),
+      renderStep(
+        3,
+        'Use to inspect sampled scanned or low-text pages before relying on extracted text.'
+      ),
+      extractRegionsStep(
+        4,
+        'Use after read_pdf exposes bbox evidence for tables, figures, formulas, suspicious text, or citation-critical regions.'
+      ),
+      analyzeRegionsStep(
+        5,
+        'Use after region boxes are known and visual table, chart, formula, figure, or caption enrichment is needed.'
+      ),
+    ];
+  }
+
+  if (profile === 'digital_text') {
+    return [
+      readPdfStep(
+        'Build citation-ready agent context with document map, chunks, semantic hints, tables, layout diagnostics, and safety findings.',
+        'Use first when sampled pages already expose selectable text.'
+      ),
+      searchStep(
+        2,
+        false,
+        'Use before broad extraction when the task asks for specific facts, terms, or citations.'
+      ),
+      extractRegionsStep(
+        3,
+        'Use when read_pdf returns bbox evidence for a table, figure, chart, formula, annotation, or citation that needs visual proof.'
+      ),
+      analyzeRegionsStep(
+        4,
+        'Use when a known region needs local visual table, chart, formula, figure, or image-description enrichment.'
+      ),
+      renderStep(
+        5,
+        'Use when layout diagnostics are uncertain or the answer requires original page appearance.'
+      ),
+    ];
+  }
+
+  return [
+    readPdfStep(
+      'Inspect metadata, forms, attachments, structure, page geometry, and low-text pages before choosing heavier extraction.',
+      'Use first for sparse, form-like, or uncertain PDFs.'
+    ),
+    renderStep(
+      2,
+      'Use when sparse sampled pages need visual inspection before OCR, form handling, or manual review.'
+    ),
+    searchStep(
+      3,
+      false,
+      'Use only if the task provides a literal query and selectable text may still contain relevant snippets.'
+    ),
+  ];
+};
+
 export const buildInspectionRecommendation = (
   source: PdfSource,
   profile: PdfInspectionProfile,
-  documentSignals: PdfInspectionDocumentSignals
+  documentSignals: PdfInspectionDocumentSignals,
+  pageSignals: PdfInspectionPageSignal[] = [],
+  providerReadiness: InspectionProviderReadiness = defaultInspectionProviderReadiness()
 ): PdfInspectionRecommendation => {
   const readPdfArguments: Record<string, unknown> = {
     sources: [publicSource(source)],
@@ -188,6 +447,13 @@ export const buildInspectionRecommendation = (
       reason:
         'Sampled pages contain little selectable text and visible image paint operations; use read_pdf with include_ocr_text_layer or ocr_pages with a configured OCR provider for text extraction.',
       read_pdf_arguments: readPdfArguments,
+      next_tools: buildInspectionNextTools(
+        source,
+        profile,
+        readPdfArguments,
+        pageSignals,
+        providerReadiness
+      ),
     };
   }
 
@@ -208,6 +474,13 @@ export const buildInspectionRecommendation = (
       reason:
         'Some sampled pages look text-based while others look image-only; use read_pdf with include_ocr_text_layer for a single provenance-aware document map, or ocr_pages for a dedicated OCR pass.',
       read_pdf_arguments: readPdfArguments,
+      next_tools: buildInspectionNextTools(
+        source,
+        profile,
+        readPdfArguments,
+        pageSignals,
+        providerReadiness
+      ),
     };
   }
 
@@ -227,6 +500,13 @@ export const buildInspectionRecommendation = (
       reason:
         'Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.',
       read_pdf_arguments: readPdfArguments,
+      next_tools: buildInspectionNextTools(
+        source,
+        profile,
+        readPdfArguments,
+        pageSignals,
+        providerReadiness
+      ),
     };
   }
 
@@ -236,6 +516,13 @@ export const buildInspectionRecommendation = (
     reason:
       'Sampled pages expose limited text; inspect metadata, forms, attachments, structure, and selected pages before running a heavier extraction.',
     read_pdf_arguments: readPdfArguments,
+    next_tools: buildInspectionNextTools(
+      source,
+      profile,
+      readPdfArguments,
+      pageSignals,
+      providerReadiness
+    ),
   };
 };
 
@@ -282,7 +569,20 @@ export const inspectPdfSource = async (
     const pageGeometry =
       sampledPages.length > 0 ? await extractPageGeometry(pdfDocument, sampledPages) : [];
     const profile = classifyPdfInspectionProfile(pageSignals);
-    const recommendation = buildInspectionRecommendation(source, profile, documentSignals);
+    const providerStatus = {
+      ocr_pages: getOcrProviderStatus(),
+      analyze_regions: getRegionAnalysisProviderStatus(),
+    };
+    const recommendation = buildInspectionRecommendation(
+      source,
+      profile,
+      documentSignals,
+      pageSignals,
+      {
+        ocr_pages: providerStatus.ocr_pages.readiness,
+        analyze_regions: providerStatus.analyze_regions.readiness,
+      }
+    );
     const warnings = buildWarnings(invalidPages, totalPages);
 
     if (targetPages !== undefined && sampledPages.length === 0) {
@@ -301,10 +601,7 @@ export const inspectPdfSource = async (
       page_signals: pageSignals,
       document_signals: documentSignals,
       recommendation,
-      provider_status: {
-        ocr_pages: getOcrProviderStatus(),
-        analyze_regions: getRegionAnalysisProviderStatus(),
-      },
+      provider_status: providerStatus,
       ...(metadataOutput.info ? { info: metadataOutput.info } : {}),
       ...(metadataOutput.metadata ? { metadata: metadataOutput.metadata } : {}),
       ...(pageGeometry.length > 0 ? { page_geometry: pageGeometry } : {}),

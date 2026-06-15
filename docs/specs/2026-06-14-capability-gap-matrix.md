@@ -20,7 +20,7 @@ neutral capability names and avoids public comparison language.
 | Capability | Status | Notes |
 |---|---:|---|
 | MCP-native PDF tools | Shipped | `inspect_pdf`, `search_pdf`, `render_page`, `extract_regions`, `analyze_regions`, `ocr_pages`, and `read_pdf` with stdio/http transport. |
-| Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, reports optional-provider readiness, and recommends `read_pdf` options. |
+| Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, reports optional-provider readiness, and recommends ordered `next_tools` plus `read_pdf` options. |
 | Optional provider readiness | Shipped | `inspect_pdf` reports safe readiness for `ocr_pages` and `analyze_regions` without exposing command paths or arguments. |
 | MCP-native PDF search | Shipped | `search_pdf`; bounded literal search with snippets, match offsets, character-derived, text-item, or opt-in OCR-word bounding boxes, and provenance. |
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
@@ -57,7 +57,7 @@ neutral capability names and avoids public comparison language.
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; visual provider output can now preserve cell spans and boxes; non-repeated continuation still needs broader fixtures. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
-| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, recursive reading order, visual-region normalization, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. |
+| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, inspection routing, recursive reading order, visual-region normalization, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, inspection tool routing, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. |
 | OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract` and `tesseract-tsv`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`; TSV output is normalized into word boxes and confidence. No default OCR model is bundled. |
 | Formula extraction | In progress | `analyze_regions` can normalize LaTeX, MathML, AsciiMath, text, confidence, and provenance from a configured provider; accuracy depends on the local engine. |
 | Chart/image descriptions | In progress | `analyze_regions` can normalize chart data points, axes, series, figure, and image-description provider output; accuracy depends on the configured local engine. |
