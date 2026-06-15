@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.4
+
+### Patch Changes
+
+- [#308](https://github.com/SylphxAI/pdf-reader-mcp/pull/308) [`cabfdd6`](https://github.com/SylphxAI/pdf-reader-mcp/commit/cabfdd656cd1e8fe6548c9901b2e991cedd76c82) Thanks [@shtse8](https://github.com/shtse8)! - Add an `inspect_pdf` MCP tool that profiles PDFs before extraction, recommends `read_pdf` arguments, and flags likely OCR needs without adding heavy default dependencies.
+
 ## 2.5.3
 
 ### Patch Changes
