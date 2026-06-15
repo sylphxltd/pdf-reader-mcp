@@ -60,6 +60,11 @@ const selectMockVisualEnrichmentCandidates = (
   return candidates;
 };
 
+const resetVisualEnrichmentMock = () => {
+  mockBuildVisualEnrichmentsForSource.mockReset();
+  mockBuildVisualEnrichmentsForSource.mockImplementation(() => undefined);
+};
+
 const fakeStats = (size: number) =>
   ({
     size,
@@ -162,6 +167,7 @@ let originalFetch: typeof globalThis.fetch;
 describe('handleReadPdfFunc Integration Tests', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    resetVisualEnrichmentMock();
     installOcrPdfSourcePagesMock();
     // Reset mocks for pathUtils if we spy on it
     vi.spyOn(pathUtils, 'resolvePath').mockImplementation((p) => p); // Simple mock for resolvePath
@@ -246,6 +252,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
   });
 
   afterEach(() => {
+    resetVisualEnrichmentMock();
     globalThis.fetch = originalFetch;
   });
 
