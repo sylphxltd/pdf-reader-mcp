@@ -12,6 +12,7 @@ import {
   textElementsOnly,
 } from '../../src/pdf/documentModel.js';
 import { buildTextLayer } from '../../src/pdf/textLayer.js';
+import { buildTrustReport } from '../../src/pdf/trustReport.js';
 import { selectVisualEnrichmentCandidates } from '../../src/pdf/visualEnrichment.js';
 import type {
   BoundingBox,
@@ -281,6 +282,12 @@ const evaluateCase = (qualityCase: QualityCase) => {
     permissions: ['copy_for_accessibility'],
     markInfo: { Marked: true, Suspects: false },
   });
+  const trustReport = buildTrustReport({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    safetyFindings,
+    layoutDiagnostics,
+    elements,
+  });
   const documentMap = buildDocumentMap({
     totalPages: qualityCase.pageContents.length,
     selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
@@ -290,6 +297,7 @@ const evaluateCase = (qualityCase: QualityCase) => {
     layoutDiagnostics,
     safetyFindings,
     textLayer,
+    trustReport,
     accessibilityReport,
     pageGeometry: qualityCase.pageGeometry,
   });
@@ -430,6 +438,25 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.summary.accessibility_page_grade_counts?.good === 2,
     },
     {
+      name: 'document map links trust report routing into the agent twin',
+      pass:
+        documentMap.layers.includes('trust_report') &&
+        documentMap.pages[0]?.trust_report_page_index === 0 &&
+        documentMap.pages[0]?.trust_signal_count === trustReport.page_reports[0]?.signals.length &&
+        documentMap.pages[0]?.trust_risk === trustReport.page_reports[0]?.risk &&
+        JSON.stringify(documentMap.routing.trust_review_pages) ===
+          JSON.stringify(
+            trustReport.page_reports
+              .filter((pageReport) => pageReport.signals.length > 0)
+              .map((pageReport) => pageReport.page)
+          ) &&
+        documentMap.summary.trust_report_page_count === trustReport.page_reports.length &&
+        documentMap.summary.trust_risk === trustReport.risk &&
+        documentMap.summary.trust_signal_count === trustReport.summary.signal_count &&
+        documentMap.summary.trust_high_signal_count === trustReport.summary.high_signal_count &&
+        documentMap.summary.trust_signal_type_counts?.content_safety === safetyFindings.length,
+    },
+    {
       name: 'document AST exposes sections, paragraphs, lists, cross-page context, and tables',
       pass:
         documentAst.profile === 'document_ast' &&
@@ -545,8 +572,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 17,
-        total: 17,
+        passed: 18,
+        total: 18,
         score: 1,
       });
     });

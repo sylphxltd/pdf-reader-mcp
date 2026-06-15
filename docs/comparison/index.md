@@ -20,6 +20,7 @@
 | No API Keys | ✅ | ✅ | ❌ | ✅ |
 | Structured Output | ✅ | ❌ | ✅ | ❌ |
 | Agent Document Map | ✅ | ❌ | ⚠️ | ❌ |
+| Trust Report | ✅ | ❌ | ⚠️ | ❌ |
 | Accessibility Report | ✅ | ❌ | ⚠️ | ❌ |
 
 ## Detailed Comparison
@@ -77,7 +78,8 @@
 - Configured local OCR provider pipeline with opt-in `read_pdf` OCR layer fusion
 - URL support
 - Structured JSON output
-- Agent document maps with linked pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, accessibility report routing, visual evidence routing, and geometry
+- Agent document maps with linked pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, trust report routing, accessibility report routing, visual evidence routing, and geometry
+- Trust reports with page risk, score, signal counters, redacted evidence snippets, and optional document-map routing
 - Accessibility reports with tagged-PDF coverage, tag-to-visible-content coverage, heading, image, form, link, and permission signals
 
 **Cons:**

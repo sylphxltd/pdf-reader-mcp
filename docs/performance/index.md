@@ -18,7 +18,7 @@ with average, minimum, and maximum latency for these fixed scenarios:
 | `metadata_page_count` | Fast metadata and page-count path |
 | `full_text` | Full selectable-text extraction |
 | `selected_page_text` | Single-page extraction |
-| `v3_agent_document_twin` | Document map, text layer, document AST, trust report, accessibility report, chunks, semantic hints, layout diagnostics, and tables |
+| `v3_agent_document_twin` | Document map, text layer, document AST, trust report, accessibility report, chunks, semantic hints, layout diagnostics, tables, and trust/accessibility routing fusion |
 
 Treat benchmark output as machine- and fixture-specific. Public performance
 claims should cite the command, fixture, runtime, and measured output.
@@ -36,7 +36,7 @@ status if any quality gate fails.
 
 | Scenario | Quality gate |
 |----------|--------------|
-| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; cross-page section context; document-map text-layer, metadata, and accessibility-routing coverage; caption-to-evidence links; citation chunks; table ordering; safety findings; Markdown/HTML rendering; direction-aware text-layer evidence; document map; document AST; accessibility report tag-content coverage plus issue/page-grade summary routing; and inspection tool routing |
+| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; cross-page section context; document-map text-layer, metadata, trust-routing, and accessibility-routing coverage; caption-to-evidence links; citation chunks; table ordering; safety findings; Markdown/HTML rendering; direction-aware text-layer evidence; document map; document AST; accessibility report tag-content coverage plus issue/page-grade summary routing; and inspection tool routing |
 | `document_signal_fixture_quality` | Runtime-generated real PDF fixture through `read_pdf` for outline, page labels, mark info, link and widget annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure tree roles/content references, and accessibility report fusion with routeable issue/page-grade summaries |
 | `real_reading_order_fixture_quality` | Runtime-generated real multi-column PDF through `read_pdf` for spanning headers, independently ordered columns, short footer placement, text-layer line order, and mixed-layout diagnostics |
 | `recursive_reading_order_quality` | Spanning header, independent column bands, and footer reading sequence |
@@ -183,8 +183,8 @@ Image extraction involves encoding to PNG and base64, which adds overhead:
 
 `include_document_map` builds the richest TypeScript-first response path. It
 links pages, elements, selectable text-layer and metadata coverage, chunks,
-layout diagnostics, safety findings, accessibility report routing, visual
-evidence routing, and page geometry without
+layout diagnostics, safety findings, trust report routing, accessibility
+report routing, visual evidence routing, and page geometry without
 embedding image bytes in JSON. It does more work than metadata-only extraction,
 but it prevents agents from rebuilding the same references themselves.
 
@@ -404,7 +404,8 @@ page content.
 signals, including prompt-injection-like text, tiny text, off-page text, and
 hidden or near-invisible text geometry, and overlapping text that may visually
 spoof or obscure content. `include_trust_report` can consolidate those text
-signals with annotation-derived unsafe link schemes.
+signals with annotation-derived unsafe link schemes, and `include_document_map`
+can link the trust report back to page-level risk routing.
 Safety findings require page text extraction, but they do not force `full_text`
 into the JSON response.
 

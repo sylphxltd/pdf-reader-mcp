@@ -79,7 +79,7 @@ themselves.
    - `bun run benchmark:quality` is the deterministic contract-quality gate for
      Agent Document Twin semantics, inspection tool routing, real PDF document
      signals, real PDF reading order, text-layer evidence and metadata coverage in the
-     document map, document-map accessibility routing,
+     document map, document-map trust routing, document-map accessibility routing,
      accessibility tag-to-visible-content coverage, accessibility
      issue/page-grade summaries, table cell evidence coverage,
      caption-to-evidence links, OCR

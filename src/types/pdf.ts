@@ -292,6 +292,7 @@ export type PdfDocumentMapLayer =
   | 'citation_chunks'
   | 'layout_diagnostics'
   | 'content_safety'
+  | 'trust_report'
   | 'accessibility_report'
   | 'page_geometry';
 
@@ -334,6 +335,13 @@ export interface PdfDocumentMapPage {
   accessibility_high_issue_count?: number | undefined;
   accessibility_medium_issue_count?: number | undefined;
   accessibility_low_issue_count?: number | undefined;
+  trust_report_page_index?: number | undefined;
+  trust_risk?: PdfTrustRiskLevel | undefined;
+  trust_score?: number | undefined;
+  trust_signal_count?: number | undefined;
+  trust_high_signal_count?: number | undefined;
+  trust_medium_signal_count?: number | undefined;
+  trust_low_signal_count?: number | undefined;
   warnings?: string[] | undefined;
 }
 
@@ -345,6 +353,9 @@ export interface PdfDocumentMapRouting {
   visual_candidate_pages: number[];
   accessibility_review_pages: number[];
   accessibility_high_issue_pages: number[];
+  trust_review_pages: number[];
+  trust_high_risk_pages: number[];
+  trust_medium_risk_pages: number[];
 }
 
 export interface PdfDocumentMapSummary {
@@ -388,6 +399,17 @@ export interface PdfDocumentMapSummary {
   accessibility_pages_with_issues_count?: number | undefined;
   accessibility_pages_with_high_issues_count?: number | undefined;
   accessibility_page_grade_counts?: Record<PdfAccessibilityGrade, number> | undefined;
+  trust_report_page_count?: number | undefined;
+  trust_risk?: PdfTrustRiskLevel | undefined;
+  trust_score?: number | undefined;
+  trust_signal_count?: number | undefined;
+  trust_high_signal_count?: number | undefined;
+  trust_medium_signal_count?: number | undefined;
+  trust_low_signal_count?: number | undefined;
+  trust_pages_with_signals?: number | undefined;
+  trust_high_risk_page_count?: number | undefined;
+  trust_medium_risk_page_count?: number | undefined;
+  trust_signal_type_counts?: Partial<Record<PdfTrustSignalType, number>> | undefined;
   average_layout_confidence?: number | undefined;
   lowest_layout_confidence?: number | undefined;
 }

@@ -3418,7 +3418,7 @@ var readPdfArgsSchema = object({
   include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
   include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, hidden or near-invisible text, tiny text, off-page text, and overlapping text."))),
   include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, accessibility report routing, visual evidence routing, and page geometry without embedding image bytes in JSON."))),
+  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing, accessibility report routing, visual evidence routing, and page geometry without embedding image bytes in JSON."))),
   include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
@@ -4364,7 +4364,7 @@ var pagesForChunk = (chunk) => {
   }
   return pages;
 };
-var buildLayers = (elements, chunks, visualEnrichmentCandidates, visualEnrichments, layoutDiagnostics, safetyFindings, textLayer, ocrTextLayer, accessibilityReport, pageGeometry) => {
+var buildLayers = (elements, chunks, visualEnrichmentCandidates, visualEnrichments, layoutDiagnostics, safetyFindings, textLayer, ocrTextLayer, trustReport, accessibilityReport, pageGeometry) => {
   const layers = new Set;
   if (elements.some((element) => element.type === "text"))
     layers.add("selectable_text");
@@ -4389,6 +4389,8 @@ var buildLayers = (elements, chunks, visualEnrichmentCandidates, visualEnrichmen
     layers.add("layout_diagnostics");
   if (safetyFindings.length > 0)
     layers.add("content_safety");
+  if (trustReport)
+    layers.add("trust_report");
   if (accessibilityReport)
     layers.add("accessibility_report");
   if ((pageGeometry?.length ?? 0) > 0)
@@ -4409,10 +4411,13 @@ var pageTextStats = (items) => {
   }
   return { textChars, textItemCount };
 };
-var pageWarnings = (layout, safetyFindingIndexes, accessibilityIssueCount, tableWarnings) => {
+var pageWarnings = (layout, safetyFindingIndexes, trustSignalCount, accessibilityIssueCount, tableWarnings) => {
   const warnings = [...layout?.warnings ?? [], ...tableWarnings];
   if (safetyFindingIndexes.length > 0) {
     warnings.push("Page has content safety findings; inspect findings before using as instructions.");
+  }
+  if (trustSignalCount > 0) {
+    warnings.push("Page has trust report signals; inspect trust evidence before using content.");
   }
   if (accessibilityIssueCount > 0) {
     warnings.push("Page has accessibility report issues; inspect accessibility evidence before relying on tagged structure.");
@@ -4475,6 +4480,8 @@ var buildDocumentMap = (input) => {
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
   });
+  const trustPageReportIndexByPage = new Map(input.trustReport?.page_reports.map((pageReport, index) => [pageReport.page, index]));
+  const trustPageReportByPage = new Map(input.trustReport?.page_reports.map((pageReport) => [pageReport.page, pageReport]));
   const accessibilityPageReportIndexByPage = new Map(input.accessibilityReport?.page_reports.map((pageReport, index) => [pageReport.page, index]));
   const accessibilityPageReportByPage = new Map(input.accessibilityReport?.page_reports.map((pageReport) => [pageReport.page, pageReport]));
   const visualEnrichmentCandidates = input.visualEnrichmentCandidates ?? [];
@@ -4499,6 +4506,8 @@ var buildDocumentMap = (input) => {
     const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
     const textLayerPageIndex = textLayerPageIndexByPage.get(page);
     const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
+    const trustPageReport = trustPageReportByPage.get(page);
+    const trustPageReportIndex = trustPageReportIndexByPage.get(page);
     const accessibilityPageReport = accessibilityPageReportByPage.get(page);
     const accessibilityPageReportIndex = accessibilityPageReportIndexByPage.get(page);
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
@@ -4506,7 +4515,7 @@ var buildDocumentMap = (input) => {
     const tableElements = elements.filter((element) => element.type === "table");
     const tableCount = tableElements.length;
     const tableWarnings = tableElements.flatMap((element) => element.type === "table" ? (element.table.quality?.warnings ?? []).map((warning) => `${element.id}: ${warning}`) : []);
-    const warnings = pageWarnings(layout, safetyFindingIndexes, accessibilityPageReport?.issue_count ?? 0, tableWarnings);
+    const warnings = pageWarnings(layout, safetyFindingIndexes, trustPageReport?.signals.length ?? 0, accessibilityPageReport?.issue_count ?? 0, tableWarnings);
     return {
       page,
       ...geometryByPage.get(page) ? { geometry: geometryByPage.get(page) } : {},
@@ -4530,6 +4539,15 @@ var buildDocumentMap = (input) => {
       table_count: tableCount,
       visual_candidate_count: visualCandidateIndexes.length,
       visual_enrichment_count: visualEnrichmentIndexes.length,
+      ...trustPageReportIndex !== undefined ? { trust_report_page_index: trustPageReportIndex } : {},
+      ...trustPageReport ? {
+        trust_risk: trustPageReport.risk,
+        trust_score: trustPageReport.score,
+        trust_signal_count: trustPageReport.signals.length,
+        trust_high_signal_count: trustPageReport.signals.filter((signal) => signal.severity === "high").length,
+        trust_medium_signal_count: trustPageReport.signals.filter((signal) => signal.severity === "medium").length,
+        trust_low_signal_count: trustPageReport.signals.filter((signal) => signal.severity === "low").length
+      } : {},
       ...accessibilityPageReportIndex !== undefined ? { accessibility_report_page_index: accessibilityPageReportIndex } : {},
       ...accessibilityPageReport ? {
         accessibility_grade: accessibilityPageReport.grade,
@@ -4551,6 +4569,9 @@ var buildDocumentMap = (input) => {
   ].sort((a, b) => a - b);
   const accessibilityReviewPages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.issue_count > 0).map((pageReport) => pageReport.page) ?? [];
   const accessibilityHighIssuePages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.high_issue_count > 0).map((pageReport) => pageReport.page) ?? [];
+  const trustReviewPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.signals.length > 0).map((pageReport) => pageReport.page) ?? [];
+  const trustHighRiskPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.risk === "high").map((pageReport) => pageReport.page) ?? [];
+  const trustMediumRiskPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.risk === "medium").map((pageReport) => pageReport.page) ?? [];
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
   const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
   const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(Math.min(...layoutConfidences)) : undefined;
@@ -4560,7 +4581,7 @@ var buildDocumentMap = (input) => {
   return {
     version: DOCUMENT_MAP_VERSION,
     profile: "agent_document_map",
-    layers: buildLayers(input.elements, input.chunks, visualEnrichmentCandidates, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.textLayer, input.ocrTextLayer, input.accessibilityReport, input.pageGeometry),
+    layers: buildLayers(input.elements, input.chunks, visualEnrichmentCandidates, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.textLayer, input.ocrTextLayer, input.trustReport, input.accessibilityReport, input.pageGeometry),
     pages,
     elements: input.elements,
     chunks: input.chunks,
@@ -4575,7 +4596,10 @@ var buildDocumentMap = (input) => {
       ocr_applied_pages: ocrAppliedPages,
       visual_candidate_pages: visualCandidatePages,
       accessibility_review_pages: accessibilityReviewPages,
-      accessibility_high_issue_pages: accessibilityHighIssuePages
+      accessibility_high_issue_pages: accessibilityHighIssuePages,
+      trust_review_pages: trustReviewPages,
+      trust_high_risk_pages: trustHighRiskPages,
+      trust_medium_risk_pages: trustMediumRiskPages
     },
     summary: {
       ...input.totalPages !== undefined ? { total_pages: input.totalPages } : {},
@@ -4619,6 +4643,19 @@ var buildDocumentMap = (input) => {
         accessibility_pages_with_issues_count: input.accessibilityReport.summary.pages_with_issues_count,
         accessibility_pages_with_high_issues_count: input.accessibilityReport.summary.pages_with_high_issues_count,
         accessibility_page_grade_counts: input.accessibilityReport.summary.page_grade_counts
+      } : {},
+      ...input.trustReport ? {
+        trust_report_page_count: input.trustReport.page_reports.length,
+        trust_risk: input.trustReport.risk,
+        trust_score: input.trustReport.score,
+        trust_signal_count: input.trustReport.summary.signal_count,
+        trust_high_signal_count: input.trustReport.summary.high_signal_count,
+        trust_medium_signal_count: input.trustReport.summary.medium_signal_count,
+        trust_low_signal_count: input.trustReport.summary.low_signal_count,
+        trust_pages_with_signals: input.trustReport.summary.pages_with_signals,
+        trust_high_risk_page_count: input.trustReport.summary.high_risk_page_count,
+        trust_medium_risk_page_count: input.trustReport.summary.medium_risk_page_count,
+        trust_signal_type_counts: input.trustReport.summary.signal_type_counts
       } : {},
       ...averageLayoutConfidence !== undefined ? { average_layout_confidence: averageLayoutConfidence } : {},
       ...lowestLayoutConfidence !== undefined ? { lowest_layout_confidence: lowestLayoutConfidence } : {}
@@ -6900,17 +6937,19 @@ var processSingleSource = async (source, options) => {
           output.annotations = annotations;
         }
       }
+      let trustReport;
       if (options.includeTrustReport && output.page_contents) {
         const trustElements = buildElementsForOutput(true);
         safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
         layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        output.trust_report = buildTrustReport({
+        trustReport = buildTrustReport({
           selectedPages: pagesToProcess,
           safetyFindings,
           layoutDiagnostics,
           elements: trustElements,
           annotations
         });
+        output.trust_report = trustReport;
       }
       let structureTrees;
       if (options.includeStructureTree || options.includeAccessibilityReport) {
@@ -6951,6 +6990,7 @@ var processSingleSource = async (source, options) => {
           visualEnrichments,
           textLayer,
           ocrTextLayer,
+          trustReport,
           accessibilityReport,
           pageGeometry,
           warnings: output.warnings

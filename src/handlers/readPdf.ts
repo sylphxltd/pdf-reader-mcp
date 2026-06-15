@@ -454,17 +454,19 @@ const processSingleSource = async (
         }
       }
 
+      let trustReport: PdfResultData['trust_report'] | undefined;
       if (options.includeTrustReport && output.page_contents) {
         const trustElements = buildElementsForOutput(true);
         safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
         layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        output.trust_report = buildTrustReport({
+        trustReport = buildTrustReport({
           selectedPages: pagesToProcess,
           safetyFindings,
           layoutDiagnostics,
           elements: trustElements,
           annotations,
         });
+        output.trust_report = trustReport;
       }
 
       let structureTrees: PdfPageStructureTree[] | undefined;
@@ -511,6 +513,7 @@ const processSingleSource = async (
           visualEnrichments,
           textLayer,
           ocrTextLayer,
+          trustReport,
           accessibilityReport,
           pageGeometry,
           warnings: output.warnings,

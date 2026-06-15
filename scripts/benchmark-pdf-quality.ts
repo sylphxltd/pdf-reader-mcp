@@ -387,6 +387,12 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
     permissions: ['copy_for_accessibility'],
     markInfo: { Marked: true, Suspects: false },
   });
+  const trustReport = buildTrustReport({
+    selectedPages,
+    safetyFindings,
+    layoutDiagnostics,
+    elements,
+  });
   const documentMap = buildDocumentMap({
     totalPages: qualityCase.pageContents.length,
     selectedPages,
@@ -397,6 +403,7 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
     safetyFindings,
     visualEnrichments,
     textLayer,
+    trustReport,
     accessibilityReport,
     pageGeometry: qualityCase.pageGeometry,
   });
@@ -570,6 +577,25 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         documentMap.summary.accessibility_issue_count === 0 &&
         documentMap.summary.accessibility_pages_with_issues_count === 0 &&
         documentMap.summary.accessibility_page_grade_counts?.good === 2,
+    },
+    {
+      name: 'document map links trust report routing into the agent twin',
+      pass:
+        documentMap.layers.includes('trust_report') &&
+        documentMap.pages[0]?.trust_report_page_index === 0 &&
+        documentMap.pages[0]?.trust_signal_count === trustReport.page_reports[0]?.signals.length &&
+        documentMap.pages[0]?.trust_risk === trustReport.page_reports[0]?.risk &&
+        JSON.stringify(documentMap.routing.trust_review_pages) ===
+          JSON.stringify(
+            trustReport.page_reports
+              .filter((pageReport) => pageReport.signals.length > 0)
+              .map((pageReport) => pageReport.page)
+          ) &&
+        documentMap.summary.trust_report_page_count === trustReport.page_reports.length &&
+        documentMap.summary.trust_risk === trustReport.risk &&
+        documentMap.summary.trust_signal_count === trustReport.summary.signal_count &&
+        documentMap.summary.trust_high_signal_count === trustReport.summary.high_signal_count &&
+        documentMap.summary.trust_signal_type_counts?.content_safety === safetyFindings.length,
     },
     {
       name: 'document map fuses visual enrichment evidence by page and kind',

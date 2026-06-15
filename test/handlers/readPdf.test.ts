@@ -1983,6 +1983,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     const args = {
       sources: [{ path: 'test.pdf', pages: [1] }],
       include_trust_report: true,
+      include_document_map: true,
       include_metadata: false,
       include_page_count: false,
       include_full_text: false,
@@ -1997,6 +1998,38 @@ describe('handleReadPdfFunc Integration Tests', () => {
             annotations?: unknown;
             safety_findings?: unknown;
             layout_diagnostics?: unknown;
+            document_map?: {
+              layers: string[];
+              pages: Array<{
+                page: number;
+                trust_report_page_index?: number;
+                trust_risk?: string;
+                trust_score?: number;
+                trust_signal_count?: number;
+                trust_high_signal_count?: number;
+                trust_medium_signal_count?: number;
+                trust_low_signal_count?: number;
+                warnings?: string[];
+              }>;
+              routing: {
+                trust_review_pages: number[];
+                trust_high_risk_pages: number[];
+                trust_medium_risk_pages: number[];
+              };
+              summary: {
+                trust_report_page_count?: number;
+                trust_risk?: string;
+                trust_score?: number;
+                trust_signal_count?: number;
+                trust_high_signal_count?: number;
+                trust_medium_signal_count?: number;
+                trust_low_signal_count?: number;
+                trust_pages_with_signals?: number;
+                trust_high_risk_page_count?: number;
+                trust_medium_risk_page_count?: number;
+                trust_signal_type_counts?: Record<string, number>;
+              };
+            };
             trust_report?: {
               profile: string;
               risk: string;
@@ -2019,9 +2052,45 @@ describe('handleReadPdfFunc Integration Tests', () => {
 
       const data = parsed.results[0]?.data;
       const trustReport = data?.trust_report;
+      const documentMap = data?.document_map;
       expect(data?.annotations).toBeUndefined();
       expect(data?.safety_findings).toBeUndefined();
       expect(data?.layout_diagnostics).toBeUndefined();
+      expect(documentMap).toMatchObject({
+        layers: expect.arrayContaining(['trust_report']),
+        routing: {
+          trust_review_pages: [1],
+          trust_high_risk_pages: [],
+          trust_medium_risk_pages: [1],
+        },
+        summary: {
+          trust_report_page_count: 1,
+          trust_risk: 'medium',
+          trust_score: 48,
+          trust_signal_count: 2,
+          trust_high_signal_count: 1,
+          trust_medium_signal_count: 0,
+          trust_low_signal_count: 1,
+          trust_pages_with_signals: 1,
+          trust_high_risk_page_count: 0,
+          trust_medium_risk_page_count: 1,
+          trust_signal_type_counts: {
+            content_safety: 1,
+            external_link: 1,
+          },
+        },
+      });
+      expect(documentMap?.pages[0]).toMatchObject({
+        page: 1,
+        trust_report_page_index: 0,
+        trust_risk: 'medium',
+        trust_score: 48,
+        trust_signal_count: 2,
+        trust_high_signal_count: 1,
+        trust_medium_signal_count: 0,
+        trust_low_signal_count: 1,
+        warnings: expect.arrayContaining([expect.stringContaining('trust report signals')]),
+      });
       expect(trustReport).toMatchObject({
         profile: 'pdf_trust_report',
         risk: 'medium',

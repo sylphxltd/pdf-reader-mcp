@@ -65,10 +65,10 @@ private-IP, and size policies documented in the guide.
 | `include_chunks` | boolean | `false` | Citation-ready chunks. |
 | `include_text_layer` | boolean | `false` | Direction-aware run, line, word, and character evidence with metadata coverage counts. |
 | `include_layout_diagnostics` | boolean | `false` | Reading-order and page-layout confidence. |
-| `include_document_map` | boolean | `false` | Page, element, chunk, OCR, visual candidate, visual enrichment, safety, accessibility, and routing map. |
+| `include_document_map` | boolean | `false` | Page, element, chunk, OCR, visual candidate, visual enrichment, safety, trust, accessibility, and routing map. |
 | `include_document_ast` | boolean | `false` | Semantic AST for page, section, paragraph, list, table, image, chart, formula, and figure nodes. |
 | `include_safety_findings` | boolean | `false` | Prompt-injection, hidden or near-invisible text geometry, and visual-spoofing findings. |
-| `include_trust_report` | boolean | `false` | Consolidated risk report with page-level signals, category counts, page-risk counts, and routing guidance. |
+| `include_trust_report` | boolean | `false` | Consolidated risk report with page-level signals, category counts, page-risk counts, routing guidance, and optional document-map trust routing. |
 | `include_accessibility_report` | boolean | `false` | Tagged-PDF, image-alt, form, permission, tag-visible coverage, issue-summary, and page-grade routing signals. |
 | `include_ocr_text_layer` | boolean | `false` | OCR page text and PDF-coordinate word boxes from a configured OCR provider. OCR word boxes can also feed table extraction when `include_tables` is enabled. |
 | `include_visual_enrichments` | boolean | `false` | Bbox-grounded visual-region candidates plus provider-normalized table/image and caption-derived visual region evidence when a provider is configured. |
