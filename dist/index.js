@@ -826,6 +826,8 @@ var DEFAULT_REGION_ANALYSIS_TIMEOUT_MS = 60000;
 var DEFAULT_REGION_ANALYSIS_MAX_OUTPUT_CHARS = 200000;
 var REGION_ANALYSIS_COMMAND_ENV = "MCP_PDF_REGION_ANALYSIS_COMMAND";
 var REGION_ANALYSIS_ARGS_ENV = "MCP_PDF_REGION_ANALYSIS_ARGS_JSON";
+var REGION_ANALYSIS_HTTP_URL_ENV = "MCP_PDF_REGION_ANALYSIS_HTTP_URL";
+var REGION_ANALYSIS_HTTP_HEADERS_ENV = "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON";
 var REGION_ANALYSIS_KINDS = new Set([
   "text",
   "table",
@@ -843,21 +845,40 @@ var defaultAnalyzeRegionsOptions = () => ({
   timeout_ms: DEFAULT_REGION_ANALYSIS_TIMEOUT_MS,
   max_output_chars: DEFAULT_REGION_ANALYSIS_MAX_OUTPUT_CHARS
 });
-var isRegionAnalysisProviderConfigured = () => Boolean(process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim());
 var getRegionAnalysisProviderStatus = () => {
-  const commandConfigured = isRegionAnalysisProviderConfigured();
-  if (!commandConfigured) {
+  const commandConfigured = Boolean(process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim());
+  const rawUrl = process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim();
+  const httpConfigured = Boolean(rawUrl);
+  if (httpConfigured) {
+    try {
+      readRegionAnalysisHttpHeaders();
+      new URL(rawUrl);
+    } catch (error) {
+      return {
+        readiness: "invalid_configuration",
+        provider: commandConfigured ? "command" : "http",
+        command_configured: commandConfigured,
+        http_configured: httpConfigured,
+        warnings: [error instanceof Error ? error.message : String(error)]
+      };
+    }
+  }
+  if (!commandConfigured && !httpConfigured) {
     return {
       readiness: "not_configured",
       provider: "command",
       command_configured: false,
-      warnings: ["Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions."]
+      http_configured: false,
+      warnings: [
+        "Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions."
+      ]
     };
   }
   return {
     readiness: "ready",
-    provider: "command",
-    command_configured: true
+    provider: commandConfigured ? "command" : "http",
+    command_configured: commandConfigured,
+    http_configured: httpConfigured
   };
 };
 var readRegionAnalysisProviderConfig = () => {
@@ -867,7 +888,7 @@ var readRegionAnalysisProviderConfig = () => {
   }
   const rawArgs = process.env[REGION_ANALYSIS_ARGS_ENV];
   if (!rawArgs)
-    return { command, argsTemplate: ["{input}"] };
+    return { provider: "command", command, argsTemplate: ["{input}"] };
   let parsed;
   try {
     parsed = JSON.parse(rawArgs);
@@ -882,7 +903,48 @@ var readRegionAnalysisProviderConfig = () => {
   if (!parsed.some((arg) => arg.includes("{input}"))) {
     throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_REGION_ANALYSIS_ARGS_JSON must include the {input} placeholder so the provider receives the cropped region image.");
   }
-  return { command, argsTemplate: parsed };
+  return { provider: "command", command, argsTemplate: parsed };
+};
+var readRegionAnalysisHttpHeaders = () => {
+  const rawHeaders = process.env[REGION_ANALYSIS_HTTP_HEADERS_ENV];
+  if (!rawHeaders)
+    return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(rawHeaders);
+  } catch (error) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON must be a JSON object with string keys and string values.", {
+      cause: error instanceof Error ? error : undefined
+    });
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || Object.entries(parsed).some(([key, value]) => key.trim() === "" || typeof value !== "string")) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON must be a JSON object with string keys and string values.");
+  }
+  return Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key, value.trim()]));
+};
+var readRegionAnalysisHttpProviderConfig = () => {
+  const url = process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim();
+  if (!url) {
+    throw new PdfError(-32600 /* InvalidRequest */, "Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions.");
+  }
+  try {
+    new URL(url);
+  } catch (error) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_REGION_ANALYSIS_HTTP_URL must be a valid URL.", {
+      cause: error instanceof Error ? error : undefined
+    });
+  }
+  return {
+    provider: "http",
+    url,
+    headers: readRegionAnalysisHttpHeaders()
+  };
+};
+var readConfiguredRegionAnalysisProviderConfig = () => {
+  const command = process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim();
+  if (command)
+    return readRegionAnalysisProviderConfig();
+  return readRegionAnalysisHttpProviderConfig();
 };
 var replacePlaceholders = (template, context) => template.replaceAll("{input}", context.inputPath).replaceAll("{page}", String(context.page)).replaceAll("{source}", context.source).replaceAll("{region_id}", context.regionId).replaceAll("{evidence_id}", context.evidenceId).replaceAll("{left}", String(context.left)).replaceAll("{bottom}", String(context.bottom)).replaceAll("{right}", String(context.right)).replaceAll("{top}", String(context.top)).replaceAll("{language}", context.languages?.[0] ?? "").replaceAll("{languages}", context.languages?.join(",") ?? "");
 var normalizeConfidence = (value) => {
@@ -1220,6 +1282,71 @@ var analyzeRegionCropWithCommandProvider = async (region, context, options) => {
     await fs4.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 };
+var analyzeRegionCropWithHttpProvider = async (region, context, options, config = readRegionAnalysisHttpProviderConfig()) => {
+  const abortController = new AbortController;
+  const timeout = setTimeout(() => abortController.abort(), options.timeout_ms);
+  try {
+    const response = await fetch(config.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...config.headers
+      },
+      body: JSON.stringify({
+        image_base64: region.data,
+        mime_type: region.mime_type,
+        format: region.format,
+        page: region.page,
+        region_id: region.region_id,
+        evidence_id: region.evidence_id,
+        source: context.source,
+        source_bounding_box: region.source_bounding_box,
+        crop_pixels: region.crop_pixels,
+        scale: region.scale,
+        languages: context.languages ?? []
+      }),
+      signal: abortController.signal
+    });
+    const stdout = await response.text();
+    if (!response.ok) {
+      throw new PdfError(-32600 /* InvalidRequest */, `Region analysis HTTP provider failed with status ${String(response.status)}.`);
+    }
+    const normalized = parseRegionAnalysisOutput(stdout, options);
+    return {
+      region_id: region.region_id,
+      page: region.page,
+      ...normalized,
+      provider: "http",
+      source_crop_evidence_id: region.evidence_id,
+      source_bounding_box: region.source_bounding_box,
+      crop_pixels: region.crop_pixels,
+      scale: region.scale,
+      provenance: {
+        engine: "external-http",
+        source: "region-analysis-provider"
+      }
+    };
+  } catch (error) {
+    if (error instanceof PdfError)
+      throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    logger6.warn("Region analysis HTTP provider failed", {
+      page: region.page,
+      regionId: region.region_id,
+      error: message
+    });
+    throw new PdfError(-32600 /* InvalidRequest */, `Region analysis HTTP provider failed for page ${String(region.page)} region ${region.region_id}.`);
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+var analyzeRegionCropWithConfiguredProvider = async (region, context, options) => {
+  const config = readConfiguredRegionAnalysisProviderConfig();
+  if (config.provider === "http") {
+    return analyzeRegionCropWithHttpProvider(region, context, options, config);
+  }
+  return analyzeRegionCropWithCommandProvider(region, context, options);
+};
 var analyzePdfRegionsFromSource = async (source, options) => {
   const cropped = await extractRegionCropsFromSource(source, {
     scale: options.scale,
@@ -1229,7 +1356,7 @@ var analyzePdfRegionsFromSource = async (source, options) => {
   });
   const analyses = [];
   for (const region of cropped.regions) {
-    analyses.push(await analyzeRegionCropWithCommandProvider(region, { source: cropped.source, languages: options.languages }, options));
+    analyses.push(await analyzeRegionCropWithConfiguredProvider(region, { source: cropped.source, languages: options.languages }, options));
   }
   return {
     source: cropped.source,

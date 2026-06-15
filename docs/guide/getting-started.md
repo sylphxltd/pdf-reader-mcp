@@ -40,7 +40,7 @@ Typical response fields:
 - `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
   arguments
 - `provider_status`: safe readiness metadata for optional `ocr_pages` and
-  `analyze_regions` providers without exposing local command paths
+  `analyze_regions` providers without exposing local provider paths
 
 ### Search For Evidence
 
@@ -250,11 +250,14 @@ not by request arguments.
 ```
 
 Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to the local visual analysis executable
-or wrapper you want the server to run. Optionally set
+or wrapper you want the server to run, or set
+`MCP_PDF_REGION_ANALYSIS_HTTP_URL` to an env-configured local model server.
+Command providers take precedence when both are configured. Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array that includes
 `{input}` and may also use `{page}`, `{source}`, `{region_id}`,
 `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and
-`{languages}` placeholders.
+`{languages}` placeholders. HTTP providers receive JSON with crop image bytes,
+region metadata, crop coordinates, scale, and languages.
 
 The response starts with JSON metadata using `profile: "region_analysis"`.
 Each analyzed region includes normalized `kind`, description, text, Markdown,

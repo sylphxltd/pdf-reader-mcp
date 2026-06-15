@@ -20,7 +20,7 @@ PDF Reader MCP is built on these core principles:
 - **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - **Visual Page Evidence** - Bounded page rendering with evidence IDs, provenance, and MCP image parts for OCR routing and page inspection
 - **Region Crop Evidence** - Bbox-grounded visual crops that connect extracted structure back to focused source evidence
-- **Visual Region Analysis** - Optional command-provider enrichment for focused crops, normalized into table, chart, formula, figure, image-description, confidence, warning, and provenance fields
+- **Visual Region Analysis** - Optional command or HTTP provider enrichment for focused crops, normalized into table, chart, formula, figure, image-description, confidence, warning, and provenance fields
 - **Configured OCR Text Layer** - Optional command-provider OCR over bounded rendered pages, normalized into text, confidence, word boxes, language, and provenance
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - **Semantic Hints** - Optional deterministic heading, list, and paragraph hints on text elements
@@ -38,7 +38,7 @@ PDF Reader MCP is built on these core principles:
 ## 3. Simple Integration
 
 - **Focused Tools** - `inspect_pdf` plans extraction, `search_pdf` finds source text evidence, `render_page` returns page evidence, `extract_regions` returns crop evidence, `analyze_regions` enriches focused crops, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
-- **Safe Provider Status** - Inspection reports optional-provider readiness without exposing local command paths or arguments
+- **Safe Provider Status** - Inspection reports optional-provider readiness without exposing local provider paths or arguments
 - **Standard MCP** - Compatible with any MCP client
 - **Easy Setup** - One command installation via npx
 - **Multiple Clients** - Works with Claude Desktop, Claude Code, Cursor, and more

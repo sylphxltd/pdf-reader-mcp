@@ -9,6 +9,10 @@
   for the Tesseract TSV OCR path. It reports skipped providers explicitly by
   default and can be made blocking with
   `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
+- Add an env-only HTTP adapter for `analyze_regions` so local model servers can
+  receive crop image bytes and return the same normalized table, formula, chart,
+  figure, image-description, confidence, warning, and provenance fields as
+  command providers.
 - Update public docs to distinguish deterministic PDF intelligence quality
   gates from installed-provider OCR accuracy/latency smoke checks.
 

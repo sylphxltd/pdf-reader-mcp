@@ -66,7 +66,7 @@ themselves.
    - `bun run benchmark:quality` is the deterministic contract-quality gate for
      Agent Document Twin semantics, recursive reading order, OCR normalization,
      a runtime-generated scanned-PDF OCR pipeline fixture, visual-region
-     normalization, and search evidence.
+     command/HTTP normalization, and search evidence.
    - `bun run benchmark:providers` is the installed-provider smoke benchmark
      for optional OCR engines such as `tesseract-tsv`; skipped providers are
      explicit and can be made blocking with

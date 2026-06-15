@@ -86,14 +86,18 @@ The default package does not bundle an OCR model.
 
 ## Optional Visual Region Analysis Provider
 
-`analyze_regions` is disabled until a local visual analysis command is
+`analyze_regions` is disabled until a local visual analysis provider is
 configured. Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to a local executable or
-wrapper that accepts a temporary cropped PNG. Optionally set
+wrapper that accepts a temporary cropped PNG, or set
+`MCP_PDF_REGION_ANALYSIS_HTTP_URL` to an env-configured local model server.
+Command providers take precedence when both are configured. Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array with `{input}`,
 `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`,
-`{right}`, `{top}`, `{language}`, and `{languages}` placeholders. The argument
-template must include `{input}` so the provider receives the temporary region
-crop.
+`{right}`, `{top}`, `{language}`, and `{languages}` placeholders. The command
+argument template must include `{input}` so the provider receives the temporary
+region crop. HTTP providers receive JSON with `image_base64`, `mime_type`,
+page/region metadata, crop coordinates, scale, and languages; optional headers
+come from `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`.
 
 Example:
 
@@ -112,7 +116,10 @@ Example:
 }
 ```
 
-Provider stdout may be plain text or JSON with `kind`, `description`, `text`,
+For a local HTTP model server, set `MCP_PDF_REGION_ANALYSIS_HTTP_URL` instead
+of the command variables.
+
+Provider stdout or HTTP response body may be plain text or JSON with `kind`, `description`, `text`,
 `markdown`, `confidence`, `table`, `formula`, `chart`, and `warnings`. The
 default package does not bundle a vision model.
 

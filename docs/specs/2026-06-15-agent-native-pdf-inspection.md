@@ -93,7 +93,9 @@ Output is a JSON text part:
             "readiness": "not_configured",
             "provider": "command",
             "command_configured": false,
-            "warnings": ["Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions."]
+            "warnings": [
+              "Set MCP_PDF_REGION_ANALYSIS_COMMAND or MCP_PDF_REGION_ANALYSIS_HTTP_URL to enable analyze_regions."
+            ]
           }
         }
       }
@@ -108,7 +110,7 @@ Output is a JSON text part:
 - Sampling is bounded and defaults to a small number of pages.
 - `read_pdf_arguments` may recommend `include_ocr_text_layer`, but must make
   OCR opt-in and dependent on a configured local provider.
-- Provider readiness must not expose local command paths or arguments.
+- Provider readiness must not expose local provider paths or arguments.
 - The first JSON part must not include binary image data.
 - Existing `read_pdf` callers remain unchanged.
 

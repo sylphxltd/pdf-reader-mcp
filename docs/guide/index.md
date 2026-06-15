@@ -53,7 +53,7 @@ Render selected pages as visual evidence for layout inspection, OCR routing, and
 Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figures, charts, formulas, annotations, and citation verification.
 
 ### Visual Region Analysis
-Analyze focused crops with a configured local provider for visual table recognition, chart-to-data extraction, formula recognition, figure descriptions, and image captions. Provider commands are environment-configured, so request payloads cannot choose arbitrary executables. Outputs can preserve rich table cell geometry, formula formats, and chart axes/series.
+Analyze focused crops with a configured local command or HTTP provider for visual table recognition, chart-to-data extraction, formula recognition, figure descriptions, and image captions. Provider commands and endpoints are environment-configured, so request payloads cannot choose arbitrary executables or URLs. Outputs can preserve rich table cell geometry, formula formats, and chart axes/series.
 
 ### OCR Provider Pipeline
 Run selected rendered pages through a configured local OCR command when scanned or sparse pages need a text layer. OCR commands are environment-configured, so request payloads cannot choose arbitrary executables.

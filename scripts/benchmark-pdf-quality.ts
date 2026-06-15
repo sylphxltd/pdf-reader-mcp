@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -25,6 +26,7 @@ import {
 } from '../src/pdf/ocr.js';
 import {
   analyzeRegionCropWithCommandProvider,
+  analyzeRegionCropWithConfiguredProvider,
   defaultAnalyzeRegionsOptions,
 } from '../src/pdf/regionAnalysis.js';
 import {
@@ -759,6 +761,14 @@ const buildRegionCrop = (): PdfRegionCropData => {
   };
 };
 
+const readRequestBody = async (request: Parameters<Parameters<typeof createServer>[0]>[0]) =>
+  new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    request.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+    request.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    request.on('error', reject);
+  });
+
 const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
   const scriptPath = path.resolve(process.cwd(), 'test/fixtures/mock-region-analysis-provider.mjs');
   const result = await withEnv(
@@ -779,6 +789,54 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         defaultAnalyzeRegionsOptions()
       )
   );
+  const server = createServer(async (request, response) => {
+    const body = JSON.parse(await readRequestBody(request)) as { region_id?: string };
+    response.setHeader('Content-Type', 'application/json');
+    response.end(
+      JSON.stringify({
+        kind: 'chart',
+        description: `HTTP analysis for ${body.region_id ?? 'unknown'}`,
+        confidence: 86,
+        chart: {
+          title: 'HTTP Quality Chart',
+          data_points: [{ label: 'A', value: 2 }],
+          y_axis: { label: 'Value', min: 0, max: 4 },
+          confidence: 0.81,
+        },
+      })
+    );
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', resolve);
+  });
+
+  let httpResult: Awaited<ReturnType<typeof analyzeRegionCropWithConfiguredProvider>>;
+  try {
+    const address = server.address();
+    if (typeof address !== 'object' || address === null) {
+      throw new Error('HTTP quality server did not expose a port');
+    }
+
+    httpResult = await withEnv(
+      {
+        MCP_PDF_REGION_ANALYSIS_COMMAND: undefined,
+        MCP_PDF_REGION_ANALYSIS_ARGS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_URL: `http://127.0.0.1:${String(address.port)}/analyze`,
+        MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON: undefined,
+      },
+      () =>
+        analyzeRegionCropWithConfiguredProvider(
+          buildRegionCrop(),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        )
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 
   return [
     {
@@ -803,6 +861,18 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         result.chart.series?.[0]?.data_points.length === 1 &&
         result.confidence === 0.91 &&
         result.warnings?.includes('languages=eng') === true,
+    },
+    {
+      name: 'visual HTTP provider normalizes chart evidence and crop provenance',
+      pass:
+        httpResult.provider === 'http' &&
+        httpResult.kind === 'chart' &&
+        httpResult.description === 'HTTP analysis for table-1' &&
+        httpResult.confidence === 0.86 &&
+        httpResult.chart?.title === 'HTTP Quality Chart' &&
+        httpResult.chart.y_axis?.label === 'Value' &&
+        httpResult.source_crop_evidence_id === 'page-2-table-1-crop-scale-1' &&
+        httpResult.provenance.engine === 'external-http',
     },
   ];
 };

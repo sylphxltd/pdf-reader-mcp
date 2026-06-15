@@ -9,14 +9,35 @@ chart-to-data extraction, formula recognition, figure descriptions, and image
 captions.
 
 The default package does not bundle a vision model. A request cannot select an
-executable. Operators enable the provider with environment variables:
+executable or endpoint. Operators enable providers with environment variables:
 
 - `MCP_PDF_REGION_ANALYSIS_COMMAND`
 - `MCP_PDF_REGION_ANALYSIS_ARGS_JSON`
+- `MCP_PDF_REGION_ANALYSIS_HTTP_URL`
+- `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`
 
-The args template must include `{input}` and may also use `{page}`, `{source}`,
+Command providers take precedence when both command and HTTP providers are
+configured. The args template must include `{input}` and may also use `{page}`, `{source}`,
 `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`,
 `{language}`, and `{languages}`.
+
+HTTP providers receive a JSON POST payload with:
+
+```json
+{
+  "image_base64": "...",
+  "mime_type": "image/png",
+  "format": "png",
+  "page": 2,
+  "region_id": "chart-1",
+  "evidence_id": "page-2-chart-1-crop-scale-2",
+  "source": "documents/report.pdf",
+  "source_bounding_box": { "left": 72, "bottom": 240, "right": 540, "top": 520 },
+  "crop_pixels": { "left": 144, "top": 544, "width": 936, "height": 560 },
+  "scale": 2,
+  "languages": ["eng"]
+}
+```
 
 ## Request
 
@@ -40,12 +61,14 @@ The args template must include `{input}` and may also use `{page}`, `{source}`,
 ```
 
 The server renders each requested page within `max_pixels_per_page`, crops the
-requested PDF-coordinate bbox, writes the temporary PNG to disk, invokes the
-configured provider, then deletes the temporary directory.
+requested PDF-coordinate bbox, then invokes the configured provider. Command
+providers receive a temporary PNG path that is deleted after the attempt. HTTP
+providers receive the crop bytes in the env-configured JSON request body.
 
 ## Provider Output
 
-Provider stdout may be plain text or JSON. JSON output can include:
+Command stdout or HTTP response body may be plain text or JSON. JSON output can
+include:
 
 ```json
 {
@@ -145,7 +168,7 @@ duplicate cropped image base64.
 ## Non-Goals
 
 - No bundled model weights.
-- No request-controlled command execution.
+- No request-controlled command execution or request-controlled provider URL.
 - No claim of PDF/UA, scientific formula, or chart extraction certification.
 - No benchmark claim for a provider unless the configured engine and fixture set
   are reported separately.

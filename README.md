@@ -792,7 +792,8 @@ Inspection is intentionally low overhead: it does not decode image bytes and it
 does not perform OCR. When sampled pages look scanned or image-only, the tool
 marks `needs_ocr: true` so agents do not mistake an image-based PDF for a text
 extraction failure. It also reports safe optional-provider readiness for
-`ocr_pages` and `analyze_regions` without exposing local command paths.
+`ocr_pages` and `analyze_regions` without exposing local provider paths or
+arguments.
 
 ### Layout Confidence for Agent Routing
 
@@ -896,7 +897,7 @@ PDF handling, or OCR-capable workflows.
 | `page_signals` | Text chars, text items, token estimate, image paint operations, and scan/low-text flags |
 | `document_signals` | Outline, labels, permissions, forms, attachments, and structure-tree availability |
 | `recommendation` | Suggested workflow, OCR need, reason, and ready-to-use `read_pdf` arguments |
-| `provider_status` | Safe readiness metadata for optional `ocr_pages` and `analyze_regions` providers without command paths |
+| `provider_status` | Safe readiness metadata for optional `ocr_pages` and `analyze_regions` providers without provider paths |
 
 ### `render_page` Tool
 
@@ -1018,10 +1019,13 @@ linked to a crop evidence ID.
 
 | Variable | Description |
 |----------|-------------|
-| `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required to enable `analyze_regions`. |
+| `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required unless `MCP_PDF_REGION_ANALYSIS_HTTP_URL` is set. Command providers take precedence when both are configured. |
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and `{languages}` placeholders. Defaults to `["{input}"]`. |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | Optional env-configured HTTP endpoint for local model servers. The request cannot choose this URL. The server receives JSON with `image_base64`, `mime_type`, page/region metadata, crop coordinates, scale, and languages. |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` | Optional JSON object with string header values for the HTTP provider, for example `{"authorization":"Bearer local-token"}`. |
 
-Provider stdout may be plain text or JSON:
+Command provider stdout, or HTTP provider response body, may be plain text or
+JSON:
 
 ```json
 {
@@ -1486,6 +1490,8 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_PDF_OCR_ARGS_JSON` | `["{input}"]` | Optional JSON string array of OCR command arguments. Must include `{input}`. |
 | `MCP_PDF_REGION_ANALYSIS_COMMAND` | - | Optional local visual-region analysis command used by `analyze_regions` |
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | `["{input}"]` | Optional JSON string array of region analysis command arguments. Must include `{input}`. |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | - | Optional env-configured HTTP endpoint used by `analyze_regions` when no command provider is configured |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` | `{}` | Optional JSON object with string headers for the HTTP region analysis provider |
 
 ### Docker Deployment
 
@@ -1651,9 +1657,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Opt-in OCR text layer fusion for `read_pdf` and agent document maps
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
-- [x] Configured local visual region analysis provider for table, chart, formula, figure, and image-description enrichment
+- [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, reading order, scanned-PDF OCR pipeline routing, OCR normalization, visual region normalization, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, reading order, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box accuracy/latency smoke checks
 - [x] Filesystem and HTTP access restrictions
 

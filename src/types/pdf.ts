@@ -754,8 +754,9 @@ export interface PdfOcrProviderStatus {
 
 export interface PdfRegionAnalysisProviderStatus {
   readiness: PdfOptionalProviderReadiness;
-  provider: 'command';
+  provider: 'command' | 'http';
   command_configured: boolean;
+  http_configured?: boolean | undefined;
   warnings?: string[] | undefined;
 }
 
@@ -951,7 +952,7 @@ export interface OcrPagesOptions {
   languages?: string[] | undefined;
 }
 
-export type PdfRegionAnalysisProvider = 'command';
+export type PdfRegionAnalysisProvider = 'command' | 'http';
 
 export type PdfRegionAnalysisKind =
   | 'text'
@@ -1031,7 +1032,7 @@ export interface PdfRegionAnalysisData {
   crop_pixels: PdfRegionCropPixels;
   scale: number;
   provenance: {
-    engine: 'external-command';
+    engine: 'external-command' | 'external-http';
     source: 'region-analysis-provider';
   };
   warnings?: string[] | undefined;
