@@ -4,15 +4,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { promisify } from 'node:util';
-import { PNG } from 'pngjs';
 import { readPdf } from '../src/handlers/readPdf.js';
 import {
-  analyzeRegionCropWithConfiguredProvider,
+  analyzePdfRegionsFromSource,
   defaultAnalyzeRegionsOptions,
   getRegionAnalysisProviderStatus,
 } from '../src/pdf/regionAnalysis.js';
 import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
-import type { PdfRegionAnalysisData, PdfRegionCropData } from '../src/types/pdf.js';
+import type {
+  PdfRegionAnalysisData,
+  PdfRegionAnalysisKind,
+  PdfRegionRequest,
+} from '../src/types/pdf.js';
 
 interface ProviderBenchmarkResult {
   provider: 'tesseract-tsv' | 'region-analysis';
@@ -32,6 +35,13 @@ interface ProviderBenchmarkResult {
     word_count?: number | undefined;
     words_with_bounding_boxes?: number | undefined;
     average_confidence?: number | undefined;
+  };
+  certification?: {
+    profile: 'ocr-text-layer' | 'visual-full-fidelity';
+    fixture_count: number;
+    capability_count: number;
+    passed_capability_count: number;
+    capabilities: Record<string, 'passed' | 'failed' | 'skipped'>;
   };
 }
 
@@ -58,6 +68,42 @@ interface DocumentMapBenchmarkView {
 const execFileAsync = promisify(execFile);
 const STRICT_PROVIDER_BENCHMARK_ENV = 'MCP_PDF_PROVIDER_BENCHMARK_REQUIRED';
 const EXPECTED_TOKENS = ['HELLO', 'WORLD'];
+const VISUAL_PROVIDER_FIXTURES = [
+  {
+    id: 'cert-table',
+    kind: 'table',
+    region: {
+      id: 'cert-table',
+      page: 1,
+      bounding_box: { left: 50, bottom: 545, right: 435, top: 735 },
+      padding: 8,
+    },
+  },
+  {
+    id: 'cert-formula',
+    kind: 'formula',
+    region: {
+      id: 'cert-formula',
+      page: 1,
+      bounding_box: { left: 50, bottom: 430, right: 435, top: 530 },
+      padding: 8,
+    },
+  },
+  {
+    id: 'cert-chart',
+    kind: 'chart',
+    region: {
+      id: 'cert-chart',
+      page: 1,
+      bounding_box: { left: 50, bottom: 160, right: 535, top: 415 },
+      padding: 8,
+    },
+  },
+] satisfies Array<{
+  id: string;
+  kind: Exclude<PdfRegionAnalysisKind, 'unknown'>;
+  region: PdfRegionRequest;
+}>;
 
 const round = (value: number): number => Math.round(value * 100) / 100;
 
@@ -104,6 +150,65 @@ const writeProviderFixture = async (directory: string): Promise<string> => {
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]);
   const fixturePath = path.join(directory, 'provider-ocr-fixture.pdf');
+  await fs.writeFile(fixturePath, pdf);
+
+  return fixturePath;
+};
+
+const writeVisualProviderFixture = async (directory: string): Promise<string> => {
+  const contentStream = [
+    'q',
+    '0 0 0 RG',
+    '1 w',
+    '60 720 m 420 720 l 420 560 l 60 560 l h S',
+    '60 680 m 420 680 l S',
+    '60 640 m 420 640 l S',
+    '60 600 m 420 600 l S',
+    '240 720 m 240 560 l S',
+    'BT',
+    '/F1 16 Tf',
+    '72 694 Td (Metric) Tj',
+    '180 0 Td (Value) Tj',
+    '-180 -40 Td (Revenue) Tj',
+    '180 0 Td ($1.2M) Tj',
+    '-180 -40 Td (Users) Tj',
+    '180 0 Td (4200) Tj',
+    'ET',
+    'BT',
+    '/F1 24 Tf',
+    '72 480 Td (E = mc^2) Tj',
+    'ET',
+    '0 0 0 RG',
+    '1.5 w',
+    '72 205 m 72 380 l 500 205 l S',
+    '0.24 0.47 0.86 rg',
+    '100 205 54 72 re f',
+    '190 205 54 108 re f',
+    '280 205 54 144 re f',
+    'BT',
+    '/F1 12 Tf',
+    '105 185 Td (Q1) Tj',
+    '90 0 Td (Q2) Tj',
+    '90 0 Td (Q3) Tj',
+    '-260 205 Td (Revenue by Quarter) Tj',
+    'ET',
+    'Q',
+  ].join('\n');
+  const pdf = serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    [
+      '<< /Type /Page',
+      '/Parent 2 0 R',
+      '/MediaBox [0 0 640 820]',
+      '/Resources << /Font << /F1 5 0 R >> >>',
+      '/Contents 4 0 R',
+      '>>',
+    ].join(' '),
+    `<< /Length ${String(byteLength(contentStream))} >>\nstream\n${contentStream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]);
+  const fixturePath = path.join(directory, 'provider-visual-fixture.pdf');
   await fs.writeFile(fixturePath, pdf);
 
   return fixturePath;
@@ -237,60 +342,6 @@ const buildProviderMetrics = (
   average_confidence: ocrTextLayer?.summary?.average_confidence,
 });
 
-const drawRect = (
-  png: PNG,
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  color: [number, number, number, number]
-) => {
-  for (let y = top; y < top + height; y++) {
-    for (let x = left; x < left + width; x++) {
-      if (x < 0 || y < 0 || x >= png.width || y >= png.height) continue;
-      const offset = (png.width * y + x) << 2;
-      png.data[offset] = color[0];
-      png.data[offset + 1] = color[1];
-      png.data[offset + 2] = color[2];
-      png.data[offset + 3] = color[3];
-    }
-  }
-};
-
-const buildRegionAnalysisBenchmarkCrop = (): PdfRegionCropData => {
-  const png = new PNG({ width: 220, height: 140 });
-  png.data.fill(255);
-  const black: [number, number, number, number] = [0, 0, 0, 255];
-  const blue: [number, number, number, number] = [60, 120, 220, 255];
-
-  for (const x of [20, 90, 160, 200]) drawRect(png, x, 18, 2, 72, black);
-  for (const y of [18, 42, 66, 90]) drawRect(png, 20, y, 180, 2, black);
-  drawRect(png, 34, 106, 22, 20, blue);
-  drawRect(png, 72, 96, 22, 30, blue);
-  drawRect(png, 110, 82, 22, 44, blue);
-  drawRect(png, 148, 68, 22, 58, blue);
-  const buffer = PNG.sync.write(png);
-
-  return {
-    region_id: 'provider-region-benchmark',
-    page: 1,
-    evidence_id: 'page-1-provider-region-benchmark-crop-scale-2',
-    source_bounding_box: { left: 24, bottom: 120, right: 244, top: 260 },
-    crop_pixels: { left: 48, top: 240, width: 440, height: 280 },
-    scale: 2,
-    byte_length: buffer.byteLength,
-    format: 'png',
-    mime_type: 'image/png',
-    provenance: {
-      engine: 'pdfjs',
-      renderer: '@napi-rs/canvas',
-      source: 'region-crop',
-      page_render_evidence_id: 'page-1-render-scale-2',
-    },
-    data: buffer.toString('base64'),
-  };
-};
-
 const countFormulaFormats = (result: PdfRegionAnalysisData): number =>
   [
     result.formula?.latex,
@@ -300,40 +351,92 @@ const countFormulaFormats = (result: PdfRegionAnalysisData): number =>
   ].filter((value) => typeof value === 'string' && value.trim().length > 0).length;
 
 const evaluateRegionAnalysisEvidence = (
-  result: PdfRegionAnalysisData
+  results: PdfRegionAnalysisData[]
 ): Array<{ name: string; pass: boolean }> => [
   {
-    name: 'region provider preserves crop evidence provenance',
-    pass:
-      result.source_crop_evidence_id === 'page-1-provider-region-benchmark-crop-scale-2' &&
-      result.source_bounding_box.left === 24 &&
-      result.provenance.source === 'region-analysis-provider',
+    name: 'region provider analyzes all visual certification fixtures',
+    pass: VISUAL_PROVIDER_FIXTURES.every((fixture) =>
+      results.some((result) => result.region_id === fixture.id)
+    ),
   },
   {
-    name: 'region provider returns typed visual evidence',
-    pass: result.kind !== 'unknown',
+    name: 'region provider preserves crop evidence provenance for every fixture',
+    pass: results.every(
+      (result) =>
+        result.source_crop_evidence_id ===
+          `page-1-${result.region_id}-crop-scale-${String(result.scale)}` &&
+        result.provenance.source === 'region-analysis-provider' &&
+        result.source_bounding_box.left > 0
+    ),
   },
   {
-    name: 'region provider returns structured visual fields or confidence',
-    pass:
-      result.table !== undefined ||
-      result.chart !== undefined ||
-      result.formula !== undefined ||
-      result.confidence !== undefined,
+    name: 'region provider returns a structured table with cell boxes',
+    pass: results.some(
+      (result) =>
+        result.region_id === 'cert-table' &&
+        result.kind === 'table' &&
+        (result.table?.row_count ?? 0) >= 2 &&
+        (result.table?.column_count ?? 0) >= 2 &&
+        (result.table?.cells?.filter((cell) => cell.bounding_box !== undefined).length ?? 0) >= 4
+    ),
+  },
+  {
+    name: 'region provider returns machine-readable formula evidence',
+    pass: results.some(
+      (result) =>
+        result.region_id === 'cert-formula' &&
+        result.kind === 'formula' &&
+        countFormulaFormats(result) >= 2
+    ),
+  },
+  {
+    name: 'region provider returns chart axes or series evidence',
+    pass: results.some(
+      (result) =>
+        result.region_id === 'cert-chart' &&
+        result.kind === 'chart' &&
+        ((result.chart?.series?.length ?? 0) > 0 ||
+          (result.chart?.data_points?.length ?? 0) >= 3) &&
+        result.chart?.x_axis !== undefined &&
+        result.chart.y_axis !== undefined
+    ),
   },
 ];
 
 const buildRegionAnalysisMetrics = (
-  result: PdfRegionAnalysisData
+  results: PdfRegionAnalysisData[]
 ): ProviderBenchmarkResult['metrics'] => ({
-  adapter: result.provider,
-  kind: result.kind,
-  confidence: result.confidence,
-  table_cells: result.table?.cells?.length,
-  table_rows: result.table?.row_count,
-  chart_series: result.chart?.series?.length,
-  formula_formats: countFormulaFormats(result),
+  adapter: results[0]?.provider,
+  kind: results.map((result) => result.kind).join(','),
+  confidence:
+    results.length > 0
+      ? round(
+          results.reduce((sum, result) => sum + (result.confidence ?? 0), 0) / results.length
+        )
+      : undefined,
+  table_cells: results.reduce((sum, result) => sum + (result.table?.cells?.length ?? 0), 0),
+  table_rows: results.reduce((sum, result) => sum + (result.table?.row_count ?? 0), 0),
+  chart_series: results.reduce((sum, result) => sum + (result.chart?.series?.length ?? 0), 0),
+  formula_formats: results.reduce((sum, result) => sum + countFormulaFormats(result), 0),
 });
+
+const buildCertificationSummary = (
+  profile: NonNullable<ProviderBenchmarkResult['certification']>['profile'],
+  fixtureCount: number,
+  assertions: Array<{ name: string; pass: boolean }>
+): NonNullable<ProviderBenchmarkResult['certification']> => {
+  const capabilities = Object.fromEntries(
+    assertions.map((assertion) => [assertion.name, assertion.pass ? 'passed' : 'failed'])
+  ) as Record<string, 'passed' | 'failed' | 'skipped'>;
+
+  return {
+    profile,
+    fixture_count: fixtureCount,
+    capability_count: assertions.length,
+    passed_capability_count: assertions.filter((assertion) => assertion.pass).length,
+    capabilities,
+  };
+};
 
 const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
   const start = performance.now();
@@ -376,6 +479,7 @@ const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
       duration_ms: round(performance.now() - start),
       assertions,
       metrics: buildProviderMetrics(evidence.ocrTextLayer),
+      certification: buildCertificationSummary('ocr-text-layer', 1, assertions),
     };
   } catch (error: unknown) {
     return {
@@ -412,20 +516,33 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
     };
   }
 
-  try {
-    const result = await analyzeRegionCropWithConfiguredProvider(
-      buildRegionAnalysisBenchmarkCrop(),
-      { source: 'provider-region-fixture.pdf', languages: ['eng'] },
-      defaultAnalyzeRegionsOptions()
-    );
-    const assertions = evaluateRegionAnalysisEvidence(result);
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-visual-provider-'));
 
+  try {
+    const fixturePath = await writeVisualProviderFixture(tempDir);
+    const analyzed = await analyzePdfRegionsFromSource(
+      {
+        path: fixturePath,
+        regions: VISUAL_PROVIDER_FIXTURES.map((fixture) => fixture.region),
+      },
+      {
+        ...defaultAnalyzeRegionsOptions(),
+        max_regions: VISUAL_PROVIDER_FIXTURES.length,
+        languages: ['eng'],
+      }
+    );
+    const assertions = evaluateRegionAnalysisEvidence(analyzed.analyses);
     return {
       provider: 'region-analysis',
       status: assertions.every((assertion) => assertion.pass) ? 'passed' : 'failed',
       duration_ms: round(performance.now() - start),
       assertions,
-      metrics: buildRegionAnalysisMetrics(result),
+      metrics: buildRegionAnalysisMetrics(analyzed.analyses),
+      certification: buildCertificationSummary(
+        'visual-full-fidelity',
+        VISUAL_PROVIDER_FIXTURES.length,
+        assertions
+      ),
     };
   } catch (error: unknown) {
     return {
@@ -434,6 +551,8 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
       duration_ms: round(performance.now() - start),
       message: error instanceof Error ? error.message : String(error),
     };
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
   }
 };
 
@@ -443,8 +562,9 @@ const main = async () => {
     profile: 'pdf_provider_benchmark',
     generated_at: new Date().toISOString(),
     fixture_scope:
-      'runtime-generated local PDF rendered through read_pdf OCR fusion plus synthetic visual-region crops with optional installed providers',
+      'runtime-generated local PDFs rendered through read_pdf OCR fusion and visual-region crop analysis with optional installed providers',
     strict: process.env[STRICT_PROVIDER_BENCHMARK_ENV] === 'true',
+    certification_profiles: ['ocr-text-layer', 'visual-full-fidelity'],
     results,
   };
 
@@ -461,6 +581,9 @@ const main = async () => {
       table_cells: result.metrics?.table_cells ?? '-',
       chart_series: result.metrics?.chart_series ?? '-',
       formula_formats: result.metrics?.formula_formats ?? '-',
+      passed_capabilities: result.certification
+        ? `${String(result.certification.passed_capability_count)}/${String(result.certification.capability_count)}`
+        : '-',
     }))
   );
   console.log(JSON.stringify(report, null, 2));

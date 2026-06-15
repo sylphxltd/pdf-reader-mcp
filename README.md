@@ -530,6 +530,13 @@ by request arguments.
 - Bounded defaults: `max_regions` default 20, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per region
 - No cropped image base64 duplicated inside the JSON response
 
+Provider quality can be checked with `bun run benchmark:providers`. When a
+visual-region provider is configured, the benchmark renders a runtime PDF
+fixture with separate table, formula, and chart regions, sends those crops
+through `analyze_regions`, and reports a `visual-full-fidelity` certification
+profile covering crop provenance, table cell boxes, formula formats, and chart
+axes or series.
+
 ### OCR Selected Pages
 
 Use `ocr_pages` after `inspect_pdf` flags scanned or sparse pages, or when an
@@ -1611,7 +1618,7 @@ bun run check        # Lint + format
 bun run check:fix    # Auto-fix
 bun run benchmark    # Reproducible local performance benchmark
 bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
-bun run benchmark:providers # Optional OCR/visual-provider benchmark; skips missing engines by default
+bun run benchmark:providers # Optional OCR/visual-provider certification benchmark; skips missing engines by default
 bun run benchmark:all # Performance + quality + provider benchmarks
 ```
 
@@ -1621,7 +1628,7 @@ bun run benchmark:all # Performance + quality + provider benchmarks
 - ✅ Strict TypeScript
 - ✅ Zero lint errors
 - ✅ Reproducible quality benchmark
-- ✅ Optional OCR and visual-provider benchmark with strict mode
+- ✅ Optional OCR and visual-provider certification benchmark with strict mode
 
 </details>
 
@@ -1689,12 +1696,12 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, and accessibility report fusion
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
-- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box and configured visual-region smoke checks
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, and chart PDF fixtures
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
 - [ ] Richer semantic layout detection
-- [ ] Broader scanned-PDF and visual-region fixture accuracy benchmarks for configured providers
+- [ ] Broader scanned-PDF and visual-region fixture accuracy benchmarks for configured providers beyond the current runtime certification fixtures
 - [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming

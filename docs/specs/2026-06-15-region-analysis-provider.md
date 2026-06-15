@@ -165,6 +165,27 @@ Every analyzed region includes the crop evidence ID, source bounding box, crop
 pixel bounds, scale, provider, and provenance. The JSON response does not
 duplicate cropped image base64.
 
+## Provider Certification
+
+`bun run benchmark:providers` is the installed-provider certification path for
+the same contract. When a visual-region provider is configured, the benchmark
+creates a runtime PDF fixture with separate table, formula, and chart regions,
+crops each region through the PDF renderer, invokes the configured provider,
+and emits a `visual-full-fidelity` certification summary.
+
+The profile passes only when the provider:
+
+- analyzes every certification region;
+- preserves crop evidence provenance for every region;
+- returns a structured table with cell bounding boxes;
+- returns machine-readable formula evidence in at least two formats; and
+- returns chart axes plus series or data points.
+
+This profile proves that a configured provider satisfies the Agent Document
+Twin visual-evidence contract for the fixture set. It is still not a universal
+model-accuracy claim; broader domain accuracy requires larger public fixture
+runs that name the configured engine and fixture corpus.
+
 ## Non-Goals
 
 - No bundled model weights.

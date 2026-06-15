@@ -65,10 +65,15 @@ bun run benchmark:providers
 The provider benchmark exercises the `tesseract-tsv` OCR preset over a
 runtime-generated PDF rendered through `read_pdf` OCR fusion, and it can
 exercise a configured `analyze_regions` command or HTTP provider over a
-synthetic visual-region crop. It checks OCR tokens, word-level boxes,
-document-map OCR provenance, visual-region crop provenance, typed visual
-evidence, and structured table/chart/formula fields when providers are
-configured.
+runtime-generated visual fixture PDF. The visual fixture contains separate
+table, formula, and chart regions. The benchmark crops those regions through
+the same rendering path as `analyze_regions` and reports a
+`visual-full-fidelity` certification profile covering crop provenance, table
+cell boxes, formula formats, and chart axes or series.
+
+The JSON report includes `certification_profiles` and per-provider
+`certification` summaries so release environments can distinguish installed
+provider smoke checks from full visual evidence coverage.
 
 Unavailable providers report `skipped` and exit successfully by default.
 Release or provider-certification environments can make skipped providers fail
