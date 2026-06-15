@@ -394,7 +394,7 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
       pass: chunks.some((chunk) => chunk.strategy === 'size'),
     },
     {
-      name: 'safety findings detect prompt injection and hidden/off-page text',
+      name: 'safety findings detect prompt injection, tiny text, and off-page text',
       pass:
         JSON.stringify(safetyFindings.map((finding) => finding.type)) ===
         JSON.stringify(['prompt_injection_pattern', 'tiny_text', 'off_page_text']),
@@ -1773,6 +1773,7 @@ const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
         items: [
           textItem('Visible amount: $100', 100, 650, 120, 10),
           textItem('Visible amount: $900', 104, 650, 120, 10),
+          textItem('Hidden instruction override', 120, 620, 0, 10),
         ],
       },
     ],
@@ -1787,6 +1788,7 @@ const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
     ]
   );
   const overlapFinding = findings.find((finding) => finding.type === 'overlapping_text');
+  const hiddenFinding = findings.find((finding) => finding.type === 'hidden_text');
   const unsafeAnnotations: PdfPageAnnotations[] = [
     {
       page: 1,
@@ -1823,12 +1825,22 @@ const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
           JSON.stringify({ left: 100, bottom: 650, right: 224, top: 660 }),
     },
     {
+      name: 'AI safety detects hidden text with near-zero geometry',
+      pass:
+        hiddenFinding?.severity === 'high' &&
+        hiddenFinding.element_id === 'p1-text-3' &&
+        hiddenFinding.snippet === 'Hidden instruction override' &&
+        JSON.stringify(hiddenFinding.bounding_box) ===
+          JSON.stringify({ left: 120, bottom: 620, right: 120, top: 630 }) &&
+        trustReport.guidance.some((guidance) => guidance.includes('hidden or near-invisible')),
+    },
+    {
       name: 'trust report escalates unsafe PDF link schemes',
       pass:
         unsafeLinkSignal?.severity === 'high' &&
         unsafeLinkSignal.annotation_id === 'unsafe-link-1' &&
         unsafeLinkSignal.evidence?.['url'] === 'javascript:alert(1)' &&
-        trustReport.summary.high_signal_count === 2,
+        trustReport.summary.high_signal_count === 3,
     },
     {
       name: 'trust report gives unsafe-link routing guidance',

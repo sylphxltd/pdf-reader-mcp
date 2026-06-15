@@ -33,6 +33,10 @@
 - Split unsafe PDF link schemes into a dedicated trust-report signal. The
   report now distinguishes ordinary external links from unsafe URL schemes and
   the deterministic quality benchmark verifies unsafe-link routing guidance.
+- Add a dedicated `hidden_text` safety finding for selectable text with zero or
+  near-zero geometry. The trust report now emits high-severity content-safety
+  signals and rendering/crop verification guidance for hidden or near-invisible
+  text.
 - Add table cell evidence coverage metrics. Table quality now reports cell
   bounding-box coverage, inferred-cell counts/ratios, and incomplete geometry
   signals so agents can route weak table evidence to visual verification.

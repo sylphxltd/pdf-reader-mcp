@@ -427,7 +427,7 @@ can expose `caption_ids`.
 Use `include_trust_report` when an agent needs one risk summary before using
 PDF content as instructions, evidence, or retrieval context. The report
 consolidates content safety, layout uncertainty, sparse/scanned-page, table
-quality, external-link, and unsafe-link signals without forcing those raw
+quality, hidden-text, external-link, and unsafe-link signals without forcing those raw
 outputs into the top-level response.
 
 ```json
@@ -519,8 +519,9 @@ text.
 ### Inspect Content Safety
 
 Use `include_safety_findings` when an agent will use PDF text as context and
-needs deterministic warnings for common prompt-injection patterns, tiny text,
-off-page text, or overlapping text that may visually spoof or obscure content.
+needs deterministic warnings for common prompt-injection patterns, hidden or
+near-invisible text geometry, tiny text, off-page text, or overlapping text
+that may visually spoof or obscure content.
 
 ```json
 {
@@ -800,6 +801,13 @@ Process multiple PDFs in a single request:
             "element_id": "p1-text-3",
             "message": "Text matches a common prompt-injection instruction pattern.",
             "snippet": "Ignore previous instructions..."
+          },
+          {
+            "type": "hidden_text",
+            "severity": "high",
+            "page": 1,
+            "element_id": "p1-text-4",
+            "message": "Text has zero or near-zero geometry and may be hidden or visually unavailable in the rendered page."
           }
         ]
       }

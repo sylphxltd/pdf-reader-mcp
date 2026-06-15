@@ -67,7 +67,7 @@ private-IP, and size policies documented in the guide.
 | `include_layout_diagnostics` | boolean | `false` | Reading-order and page-layout confidence. |
 | `include_document_map` | boolean | `false` | Page, element, chunk, OCR, visual, safety, and routing map. |
 | `include_document_ast` | boolean | `false` | Semantic AST for page, section, paragraph, list, table, image, chart, formula, and figure nodes. |
-| `include_safety_findings` | boolean | `false` | Prompt-injection, hidden text, and visual-spoofing findings. |
+| `include_safety_findings` | boolean | `false` | Prompt-injection, hidden or near-invisible text geometry, and visual-spoofing findings. |
 | `include_trust_report` | boolean | `false` | Consolidated risk report with page-level signals and guidance. |
 | `include_accessibility_report` | boolean | `false` | Tagged-PDF, image-alt, form, permission, and tag-visible coverage signals. |
 | `include_ocr_text_layer` | boolean | `false` | OCR page text and PDF-coordinate word boxes from a configured OCR provider. OCR word boxes can also feed table extraction when `include_tables` is enabled. |

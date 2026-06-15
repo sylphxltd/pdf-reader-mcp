@@ -23,6 +23,8 @@ const SEMANTIC_PAGE_EDGE_ZONE_RATIO = 0.08;
 const SEMANTIC_PAGE_EDGE_MIN_POINTS = 36;
 const SAFETY_TEXT_OVERLAP_RATIO = 0.65;
 const SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE = 10;
+const SAFETY_HIDDEN_TEXT_MAX_DIMENSION = 0.5;
+const SAFETY_HIDDEN_TEXT_MAX_AREA = 1;
 const CAPTION_PREFIX_PATTERN =
   /^(?:fig(?:ure)?|table|chart|formula|image|diagram)\s*(?:\d+|[ivxlcdm]+)?\s*[:.)-]/iu;
 const FOOTER_PATTERN =
@@ -839,6 +841,27 @@ const isOutsideViewBox = (
   );
 };
 
+const dimensionValue = (value: number | undefined): number | undefined =>
+  value !== undefined && Number.isFinite(value) ? value : undefined;
+
+const hasHiddenTextGeometry = (item: PageContentItem): boolean => {
+  if (item.type !== 'text' || !item.textContent?.trim()) return false;
+
+  const box = item.bounding_box;
+  const width = dimensionValue(item.width) ?? (box ? box.right - box.left : undefined);
+  const height = dimensionValue(item.height) ?? (box ? box.top - box.bottom : undefined);
+  const area =
+    box !== undefined
+      ? Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom)
+      : undefined;
+
+  return (
+    (width !== undefined && width <= SAFETY_HIDDEN_TEXT_MAX_DIMENSION) ||
+    (height !== undefined && height <= SAFETY_HIDDEN_TEXT_MAX_DIMENSION) ||
+    (area !== undefined && area <= SAFETY_HIDDEN_TEXT_MAX_AREA)
+  );
+};
+
 export const buildSafetyFindings = (
   pageContents: Array<{ page: number; items: PageContentItem[] }>,
   pageGeometry: PdfPageGeometry[] | undefined
@@ -881,6 +904,19 @@ export const buildSafetyFindings = (
             page: pageContent.page,
             element_id: element.id,
             message: 'Text matches a common prompt-injection instruction pattern.',
+            snippet,
+            ...(element.bounding_box ? { bounding_box: element.bounding_box } : {}),
+          });
+        }
+
+        if (hasHiddenTextGeometry(item)) {
+          findings.push({
+            type: 'hidden_text',
+            severity: 'high',
+            page: pageContent.page,
+            element_id: element.id,
+            message:
+              'Text has zero or near-zero geometry and may be hidden or visually unavailable in the rendered page.',
             snippet,
             ...(element.bounding_box ? { bounding_box: element.bounding_box } : {}),
           });

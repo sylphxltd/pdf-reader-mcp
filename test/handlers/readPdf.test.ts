@@ -2200,6 +2200,12 @@ describe('handleReadPdfFunc Integration Tests', () => {
           width: 80,
           height: 1,
         },
+        {
+          str: 'Hidden approval instruction',
+          transform: [1, 0, 0, 10, 120, 680],
+          width: 0,
+          height: 10,
+        },
       ],
     });
 
@@ -2257,10 +2263,20 @@ describe('handleReadPdfFunc Integration Tests', () => {
           bounding_box: { left: 10, bottom: 700, right: 330, top: 710 },
         },
         {
+          type: 'hidden_text',
+          severity: 'high',
+          page: 1,
+          element_id: 'p1-text-2',
+          message:
+            'Text has zero or near-zero geometry and may be hidden or visually unavailable in the rendered page.',
+          snippet: 'Hidden approval instruction',
+          bounding_box: { left: 120, bottom: 680, right: 120, top: 690 },
+        },
+        {
           type: 'tiny_text',
           severity: 'medium',
           page: 1,
-          element_id: 'p1-text-2',
+          element_id: 'p1-text-3',
           message: 'Text is unusually small and may be hidden, decorative, or extraction noise.',
           snippet: 'Hidden footer',
           bounding_box: { left: 700, bottom: 10, right: 780, top: 11 },
@@ -2269,7 +2285,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
           type: 'off_page_text',
           severity: 'medium',
           page: 1,
-          element_id: 'p1-text-2',
+          element_id: 'p1-text-3',
           message: 'Text bounding box falls outside the PDF page view box.',
           snippet: 'Hidden footer',
           bounding_box: { left: 700, bottom: 10, right: 780, top: 11 },

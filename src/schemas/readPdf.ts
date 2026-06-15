@@ -153,7 +153,7 @@ export const readPdfArgsSchema = object({
   include_safety_findings: optional(
     bool(
       description(
-        'Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text.'
+        'Include deterministic content safety findings for prompt-injection patterns, hidden or near-invisible text, tiny text, off-page text, and overlapping text.'
       )
     )
   ),

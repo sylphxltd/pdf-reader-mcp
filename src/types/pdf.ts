@@ -230,6 +230,7 @@ export interface PdfChunk {
 
 export type PdfSafetyFindingType =
   | 'prompt_injection_pattern'
+  | 'hidden_text'
   | 'off_page_text'
   | 'tiny_text'
   | 'overlapping_text';

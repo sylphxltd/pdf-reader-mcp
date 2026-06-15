@@ -252,7 +252,7 @@ const evaluateCase = (qualityCase: QualityCase) => {
       pass: chunks.some((chunk) => chunk.strategy === 'size'),
     },
     {
-      name: 'safety findings detect prompt injection and hidden/off-page text',
+      name: 'safety findings detect prompt injection, tiny text, and off-page text',
       pass:
         JSON.stringify(safetyFindings.map((finding) => finding.type)) ===
         JSON.stringify(['prompt_injection_pattern', 'tiny_text', 'off_page_text']),

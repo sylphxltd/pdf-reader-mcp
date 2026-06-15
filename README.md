@@ -86,7 +86,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧾 **PDF Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, text-layer coverage, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context and caption-to-evidence links
-- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, external links, and unsafe link schemes
+- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, external links, and unsafe link schemes
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
@@ -426,7 +426,7 @@ using extracted PDF content as instructions, evidence, or retrieval context.
 
 **Response includes:**
 - Document and page-level risk scores
-- Content safety, layout uncertainty, sparse/scanned-page, table quality, external-link, and unsafe-link signals
+- Content safety, hidden-text, layout uncertainty, sparse/scanned-page, table quality, external-link, and unsafe-link signals
 - Guidance for when to verify with OCR, page rendering, or region crops
 - No forced top-level safety, layout, annotation, or table outputs unless those options are requested
 
@@ -865,7 +865,7 @@ The extraction pipeline separates distant same-line text into independent segmen
 
 `include_outline`, `include_annotations`, `include_page_labels`, `include_page_geometry`, `include_permissions`, `include_structure_tree`, `include_form_fields`, and `include_attachments` expose additional document signals without changing the default response shape.
 
-`include_safety_findings` adds deterministic findings for common prompt-injection patterns, tiny text, off-page text, and overlapping text that may visually spoof or obscure content so agents can inspect risky document content before using it as instructions.
+`include_safety_findings` adds deterministic findings for common prompt-injection patterns, hidden or near-invisible text geometry, tiny text, off-page text, and overlapping text that may visually spoof or obscure content so agents can inspect risky document content before using it as instructions.
 
 ### Absolute Paths Supported
 
@@ -1707,7 +1707,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, command/HTTP visual region normalization, table evidence coverage, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, command/HTTP visual region normalization, table evidence coverage, hidden-text/unsafe-link trust routing, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion
 - [x] Tag-to-visible-content coverage in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
