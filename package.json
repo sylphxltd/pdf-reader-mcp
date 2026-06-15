@@ -73,7 +73,6 @@
     "benchmark:providers": "bun scripts/benchmark-pdf-providers.ts",
     "benchmark:all": "bun run benchmark && bun run benchmark:quality && bun run benchmark:providers",
     "clean": "rm -rf dist coverage",
-    "docs:api": "typedoc --entryPoints src/index.ts --tsconfig tsconfig.json --plugin typedoc-plugin-markdown --out docs/api --readme none",
     "prepublishOnly": "bun run clean && bun run build",
     "release": "bun run build && changeset publish"
   },
@@ -99,8 +98,6 @@
     "@types/node": "^25.9.1",
     "@types/pngjs": "^6.0.5",
     "bunup": "0.16.31",
-    "typedoc": "^0.28.19",
-    "typedoc-plugin-markdown": "^4.11.0",
     "typescript": "^6.0.3",
     "vitepress": "^1.6.4"
   },

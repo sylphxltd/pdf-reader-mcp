@@ -349,9 +349,14 @@ const buildTableQuality = (
   confidence: number
 ): TableQuality => {
   const nonEmptyCellCount = cells.filter((cell) => cell.text.trim().length > 0).length;
+  const cellBoundingBoxCount = cells.filter((cell) => cell.bounding_box !== undefined).length;
+  const inferredCellCount = cells.filter((cell) => cell.inferred === true).length;
   const missingCellCount = Math.max(0, cells.length - nonEmptyCellCount);
   const mergedCellCandidateCount = cells.filter((cell) => (cell.colSpan ?? 1) > 1).length;
   const nonEmptyCellRatio = cells.length > 0 ? roundRatio(nonEmptyCellCount / cells.length) : 0;
+  const cellBoundingBoxCoverage =
+    cells.length > 0 ? roundRatio(cellBoundingBoxCount / cells.length) : 0;
+  const inferredCellRatio = cells.length > 0 ? roundRatio(inferredCellCount / cells.length) : 0;
   const rowAlignment = calculateRowAlignment(rows, columnBoundaries);
   const spacingConsistency = rowSpacingConsistency(rows);
   const completeness = roundRatio(nonEmptyCellRatio * rowAlignment);
@@ -371,6 +376,13 @@ const buildTableQuality = (
     warnings.push('Detected cells whose text boxes cross column boundaries; spans are inferred.');
   }
 
+  if (cellBoundingBoxCoverage < 1) {
+    signals.push('incomplete_cell_geometry');
+    warnings.push(
+      'Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters.'
+    );
+  }
+
   if (spacingConsistency < 0.75) {
     signals.push('irregular_row_spacing');
     warnings.push(
@@ -388,8 +400,12 @@ const buildTableQuality = (
   return {
     completeness,
     nonEmptyCellRatio,
+    cellBoundingBoxCoverage,
+    inferredCellRatio,
     rowAlignment,
     rowSpacingConsistency: spacingConsistency,
+    cellBoundingBoxCount,
+    inferredCellCount,
     missingCellCount,
     mergedCellCandidateCount,
     signals,

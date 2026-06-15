@@ -47,13 +47,18 @@ describe('trustReport', () => {
           quality: {
             completeness: 0.5,
             nonEmptyCellRatio: 0.5,
+            cellBoundingBoxCoverage: 0,
+            inferredCellRatio: 0.5,
             rowAlignment: 1,
             rowSpacingConsistency: 1,
+            cellBoundingBoxCount: 0,
+            inferredCellCount: 1,
             missingCellCount: 1,
             mergedCellCandidateCount: 0,
-            signals: ['missing_cells', 'low_confidence'],
+            signals: ['missing_cells', 'incomplete_cell_geometry', 'low_confidence'],
             warnings: [
               'Detected empty inferred cells; table may contain sparse or merged structure.',
+              'Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters.',
             ],
           },
         },
@@ -91,8 +96,8 @@ describe('trustReport', () => {
       risk: 'high',
       summary: {
         selected_pages: [1],
-        signal_count: 5,
-        high_signal_count: 5,
+        signal_count: 6,
+        high_signal_count: 6,
         medium_signal_count: 0,
         low_signal_count: 0,
         pages_with_signals: 1,
@@ -102,6 +107,7 @@ describe('trustReport', () => {
       'content_safety',
       'layout_uncertainty',
       'sparse_or_scanned',
+      'table_quality',
       'table_quality',
       'unsafe_external_link',
     ]);

@@ -1174,7 +1174,7 @@ tables, and document signals.
 | `include_metadata` | boolean | Extract PDF metadata | `true` |
 | `include_page_count` | boolean | Include total page count | `true` |
 | `include_images` | boolean | Extract embedded images | `false` |
-| `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, inferred spans, continuation candidates, and best-effort geometry | `false` |
+| `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, cell evidence coverage, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including caption-to-evidence references | `false` |
 | `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table/image regions and fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
@@ -1688,7 +1688,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Semantic document AST
 - [x] PDF trust report
 - [x] PDF accessibility report
-- [x] Table quality diagnostics, inferred cell spans, and continuation candidates
+- [x] Table quality diagnostics, cell evidence coverage, inferred cell spans, and continuation candidates
 - [x] Markdown rendering
 - [x] Citation-ready page, semantic, size, and table chunks
 - [x] MCP-native PDF search with snippets and bbox provenance
@@ -1700,7 +1700,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, table evidence coverage, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion
 - [x] Tag-to-visible-content coverage in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics

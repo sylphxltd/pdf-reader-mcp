@@ -656,8 +656,12 @@ Process multiple PDFs in a single request:
             "quality": {
               "completeness": 1,
               "nonEmptyCellRatio": 1,
+              "cellBoundingBoxCoverage": 1,
+              "inferredCellRatio": 0,
               "rowAlignment": 1,
               "rowSpacingConsistency": 1,
+              "cellBoundingBoxCount": 4,
+              "inferredCellCount": 0,
               "missingCellCount": 0,
               "mergedCellCandidateCount": 0,
               "signals": ["complete_grid"]
@@ -721,8 +725,12 @@ Process multiple PDFs in a single request:
               "quality": {
                 "completeness": 1,
                 "nonEmptyCellRatio": 1,
+                "cellBoundingBoxCoverage": 1,
+                "inferredCellRatio": 0,
                 "rowAlignment": 1,
                 "rowSpacingConsistency": 1,
+                "cellBoundingBoxCount": 4,
+                "inferredCellCount": 0,
                 "missingCellCount": 0,
                 "mergedCellCandidateCount": 0,
                 "signals": ["complete_grid"]

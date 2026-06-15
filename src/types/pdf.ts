@@ -15,6 +15,7 @@ export type TableQualitySignal =
   | 'complete_grid'
   | 'missing_cells'
   | 'merged_cell_candidates'
+  | 'incomplete_cell_geometry'
   | 'irregular_row_spacing'
   | 'multi_page_continuation_candidate'
   | 'low_confidence';
@@ -22,8 +23,12 @@ export type TableQualitySignal =
 export interface TableQuality {
   completeness: number;
   nonEmptyCellRatio: number;
+  cellBoundingBoxCoverage: number;
+  inferredCellRatio: number;
   rowAlignment: number;
   rowSpacingConsistency: number;
+  cellBoundingBoxCount: number;
+  inferredCellCount: number;
   missingCellCount: number;
   mergedCellCandidateCount: number;
   signals: TableQualitySignal[];

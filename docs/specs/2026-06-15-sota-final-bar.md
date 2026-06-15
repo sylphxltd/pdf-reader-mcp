@@ -67,10 +67,10 @@ themselves.
      Agent Document Twin semantics, inspection tool routing, real PDF document
      signals, real PDF reading order, text-layer evidence coverage in the
      document map, accessibility tag-to-visible-content coverage,
-     caption-to-evidence links, OCR normalization, a runtime-generated
-     scanned-PDF OCR pipeline fixture, visual-region command/HTTP
-     normalization, search evidence, and AI-safety trust-report unsafe-link
-     routing.
+     table cell evidence coverage, caption-to-evidence links, OCR
+     normalization, a runtime-generated scanned-PDF OCR pipeline fixture,
+     visual-region command/HTTP normalization, search evidence, and AI-safety
+     trust-report unsafe-link routing.
    - `bun run benchmark:providers` is the installed-provider benchmark
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers. It reports an `ocr-text-layer` profile for OCR

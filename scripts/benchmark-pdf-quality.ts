@@ -35,6 +35,7 @@ import {
   searchOcrPage,
   searchPageContentItems,
 } from '../src/pdf/search.js';
+import { extractTablesFromPageContents } from '../src/pdf/tableExtractor.js';
 import { buildTextLayer } from '../src/pdf/textLayer.js';
 import { buildTrustReport } from '../src/pdf/trustReport.js';
 import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
@@ -1603,6 +1604,64 @@ const evaluateSearchEvidence = (): QualityAssertion[] => {
   ];
 };
 
+const evaluateTableEvidenceQuality = (): QualityAssertion[] => {
+  const completeTables = extractTablesFromPageContents([
+    {
+      page: 1,
+      items: [
+        textItem('Metric', 40, 700, 48, 10),
+        textItem('Value', 160, 700, 42, 10),
+        textItem('Revenue growth', 40, 680, 98, 10),
+        textItem('24%', 160, 680, 24, 10),
+      ],
+    },
+  ]);
+  const sparseTables = extractTablesFromPageContents([
+    {
+      page: 1,
+      items: [
+        textItem('Region Summary', 40, 700, 126, 10),
+        textItem('Total', 260, 700, 42, 10),
+        textItem('North', 40, 680, 36, 10),
+        textItem('Q1', 160, 680, 20, 10),
+        textItem('$10', 260, 680, 24, 10),
+        textItem('South', 40, 660, 36, 10),
+        textItem('$8', 260, 660, 18, 10),
+      ],
+    },
+  ]);
+  const completeQuality = completeTables[0]?.quality;
+  const sparseQuality = sparseTables[0]?.quality;
+
+  return [
+    {
+      name: 'table quality reports complete cell geometry coverage',
+      pass:
+        completeQuality?.cellBoundingBoxCoverage === 1 &&
+        completeQuality.cellBoundingBoxCount === 4 &&
+        completeQuality.inferredCellCount === 0 &&
+        completeQuality.signals.includes('complete_grid'),
+    },
+    {
+      name: 'table quality quantifies inferred cells and incomplete geometry',
+      pass:
+        sparseQuality?.missingCellCount === 2 &&
+        sparseQuality.inferredCellCount === 2 &&
+        sparseQuality.inferredCellRatio === 0.22 &&
+        sparseQuality.cellBoundingBoxCount === 7 &&
+        sparseQuality.cellBoundingBoxCoverage === 0.78 &&
+        sparseQuality.signals.includes('incomplete_cell_geometry'),
+    },
+    {
+      name: 'table quality routes weak cell evidence to visual verification',
+      pass:
+        sparseQuality?.warnings?.some((warning) => warning.includes('lack bounding boxes')) ===
+          true &&
+        sparseTables[0]?.cells?.some((cell) => cell.inferred === true) === true,
+    },
+  ];
+};
+
 const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
   const findings = buildSafetyFindings(
     [
@@ -1688,6 +1747,7 @@ const main = async () => {
     await runCase('scanned_pdf_fixture_pipeline_quality', evaluateScannedPdfFixturePipeline),
     await runCase('visual_region_analysis_quality', evaluateVisualRegionAnalysis),
     await runCase('search_evidence_quality', evaluateSearchEvidence),
+    await runCase('table_evidence_quality', evaluateTableEvidenceQuality),
     await runCase('ai_safety_trust_report_quality', evaluateAiSafetyTrustReport),
   ];
   const failed = results.filter((result) => result.failures.length > 0);

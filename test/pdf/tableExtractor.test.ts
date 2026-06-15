@@ -302,8 +302,12 @@ describe('tableExtractor', () => {
         quality: {
           completeness: 1,
           nonEmptyCellRatio: 1,
+          cellBoundingBoxCoverage: 1,
+          inferredCellRatio: 0,
           rowAlignment: 1,
           rowSpacingConsistency: 1,
+          cellBoundingBoxCount: 4,
+          inferredCellCount: 0,
           missingCellCount: 0,
           mergedCellCandidateCount: 0,
           signals: ['complete_grid'],
@@ -458,13 +462,22 @@ describe('tableExtractor', () => {
       );
       expect(result[0]?.quality).toMatchObject({
         missingCellCount: 2,
+        inferredCellCount: 2,
+        inferredCellRatio: 0.22,
+        cellBoundingBoxCount: 7,
+        cellBoundingBoxCoverage: 0.78,
         mergedCellCandidateCount: 1,
-        signals: expect.arrayContaining(['missing_cells', 'merged_cell_candidates']),
+        signals: expect.arrayContaining([
+          'missing_cells',
+          'merged_cell_candidates',
+          'incomplete_cell_geometry',
+        ]),
       });
       expect(result[0]?.quality?.warnings).toEqual(
         expect.arrayContaining([
           expect.stringContaining('empty inferred cells'),
           expect.stringContaining('spans are inferred'),
+          expect.stringContaining('lack bounding boxes'),
         ])
       );
     });

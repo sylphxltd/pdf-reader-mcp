@@ -1,0 +1,131 @@
+# API Reference
+
+PDF Reader MCP exposes an MCP server contract. The package entrypoint starts the
+server; it is not an importable TypeScript SDK. Agents and clients should call
+the MCP tools below over stdio or the optional HTTP transport.
+
+## Transports
+
+| Setting | Description | Default |
+| --- | --- | --- |
+| `MCP_TRANSPORT` | `stdio` or `http` | `stdio` |
+| `MCP_HTTP_HOST` | HTTP bind host when `MCP_TRANSPORT=http` | `0.0.0.0` |
+| `MCP_HTTP_PORT` | HTTP port when `MCP_TRANSPORT=http` | `8080` |
+| `MCP_API_KEY` | Optional HTTP `X-API-Key` authentication | unset |
+| `MCP_CORS_ORIGIN` | Optional explicit CORS origin | unset |
+
+## Tools
+
+| Tool | Purpose |
+| --- | --- |
+| `inspect_pdf` | Classify a PDF, sample pages, and recommend the extraction route before doing expensive work. |
+| `read_pdf` | Extract text, metadata, structure, tables, chunks, safety signals, accessibility signals, OCR evidence, and visual enrichments. |
+| `search_pdf` | Search selectable text and OCR text with snippets, page numbers, and bounding-box provenance. |
+| `render_page` | Render selected pages as PNG visual evidence with bounded pixel budgets. |
+| `extract_regions` | Crop bounded regions from rendered pages and return focused image evidence. |
+| `analyze_regions` | Send cropped visual regions to a configured local command or HTTP provider and normalize table, formula, chart, figure, or image-description evidence. |
+| `ocr_pages` | Render selected pages and send them to a configured local OCR provider. |
+
+## Source Object
+
+Most tools accept one source at a time. `read_pdf` also accepts `sources` for
+batch extraction.
+
+```json
+{
+  "path": "/absolute/path/to/file.pdf"
+}
+```
+
+```json
+{
+  "url": "https://example.com/file.pdf"
+}
+```
+
+Use exactly one of `path` or `url`. URL loading is guarded by the HTTP, host,
+private-IP, and size policies documented in the guide.
+
+## `read_pdf`
+
+`read_pdf` is the primary Agent Document Twin entrypoint.
+
+| Option | Type | Default | Output |
+| --- | --- | --- | --- |
+| `pages` | number array or range string | all pages when full text is requested | Page selection. |
+| `include_full_text` | boolean | `true` | Concatenated text. |
+| `include_page_texts` | boolean | `false` | Per-page text. |
+| `include_metadata` | boolean | `true` | PDF metadata. |
+| `include_page_count` | boolean | `true` | Total page count. |
+| `include_images` | boolean | `false` | Embedded image metadata and base64 payloads. |
+| `include_tables` | boolean | `false` | Tables with rows, cells, geometry, confidence, quality signals, and continuation hints. |
+| `include_elements` | boolean | `false` | Structured text, image, and table elements. |
+| `include_markdown` | boolean | `false` | Markdown rendering. |
+| `include_html` | boolean | `false` | HTML rendering. |
+| `include_chunks` | boolean | `false` | Citation-ready chunks. |
+| `include_text_layer` | boolean | `false` | Run, line, word, and character evidence. |
+| `include_layout_diagnostics` | boolean | `false` | Reading-order and page-layout confidence. |
+| `include_document_map` | boolean | `false` | Page, element, chunk, OCR, visual, safety, and routing map. |
+| `include_document_ast` | boolean | `false` | Semantic AST for page, section, paragraph, list, table, image, chart, formula, and figure nodes. |
+| `include_safety_findings` | boolean | `false` | Prompt-injection, hidden text, and visual-spoofing findings. |
+| `include_trust_report` | boolean | `false` | Consolidated risk report with page-level signals and guidance. |
+| `include_accessibility_report` | boolean | `false` | Tagged-PDF, image-alt, form, permission, and tag-visible coverage signals. |
+| `include_ocr_text_layer` | boolean | `false` | OCR page text and word boxes from a configured OCR provider. |
+| `include_visual_enrichments` | boolean | `false` | Provider-normalized visual region evidence fused into the document twin. |
+
+## Table Quality
+
+When `include_tables` is enabled, each table may include `quality`:
+
+| Field | Meaning |
+| --- | --- |
+| `completeness` | Combined non-empty-cell and row-alignment score. |
+| `nonEmptyCellRatio` | Ratio of cells with text. |
+| `cellBoundingBoxCoverage` | Ratio of cells with bounding boxes. |
+| `inferredCellRatio` | Ratio of cells inferred by the table grid model. |
+| `rowAlignment` | Alignment score against detected column boundaries. |
+| `rowSpacingConsistency` | Consistency of row spacing. |
+| `cellBoundingBoxCount` | Number of cells with bounding boxes. |
+| `inferredCellCount` | Number of inferred cells. |
+| `missingCellCount` | Number of empty cells. |
+| `mergedCellCandidateCount` | Number of cells with inferred spans. |
+| `signals` | Machine-readable quality signals such as `complete_grid`, `missing_cells`, `merged_cell_candidates`, `incomplete_cell_geometry`, `irregular_row_spacing`, `multi_page_continuation_candidate`, and `low_confidence`. |
+| `warnings` | Human-readable routing guidance for weak table evidence. |
+
+Agents should use `incomplete_cell_geometry`, sparse-cell, merged-cell,
+irregular-spacing, and low-confidence warnings as a cue to request
+`extract_regions`, `render_page`, or configured visual-region analysis before
+making cell-level claims.
+
+## Provider Adapters
+
+The server does not bundle OCR, formula, chart, or vision models. It provides
+stable local adapters so deployments can choose their own engines.
+
+| Capability | Configuration |
+| --- | --- |
+| OCR command provider | `MCP_PDF_OCR_COMMAND`, `MCP_PDF_OCR_ARGS_JSON`, `MCP_PDF_OCR_TIMEOUT_MS`, `MCP_PDF_OCR_MAX_OUTPUT_CHARS` |
+| OCR preset | `MCP_PDF_OCR_PRESET=tesseract` or `tesseract-tsv` |
+| Visual-region command provider | `MCP_PDF_REGION_ANALYSIS_COMMAND`, `MCP_PDF_REGION_ANALYSIS_ARGS_JSON`, `MCP_PDF_REGION_ANALYSIS_TIMEOUT_MS`, `MCP_PDF_REGION_ANALYSIS_MAX_OUTPUT_CHARS` |
+| Visual-region HTTP provider | `MCP_PDF_REGION_ANALYSIS_HTTP_URL`, optional `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` |
+
+Provider responses are normalized into the same evidence model used by
+`read_pdf`, `analyze_regions`, and the benchmark harness.
+
+## Quality Gates
+
+Use these commands before publishing:
+
+```bash
+bun run check
+bun run typecheck
+bun run test:cov
+bun run build
+bun run docs:build
+bun run benchmark:quality
+bun run benchmark:providers
+```
+
+`benchmark:providers` reports skipped providers when local engines are not
+installed. Configure OCR or visual-region adapters to certify installed-provider
+capabilities.

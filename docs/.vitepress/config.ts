@@ -61,7 +61,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/' },
-      { text: 'API', link: '/guide/getting-started' },
+      { text: 'API', link: '/api/' },
       { text: 'Design', link: '/design/' },
       { text: 'Performance', link: '/performance/' },
     ],
@@ -78,6 +78,7 @@ export default defineConfig({
       {
         text: 'Reference',
         items: [
+          { text: 'API Reference', link: '/api/' },
           { text: 'Design Philosophy', link: '/design/' },
           { text: 'Performance', link: '/performance/' },
           { text: 'Comparison', link: '/comparison/' },

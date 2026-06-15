@@ -19,11 +19,12 @@ When `include_tables` is enabled, each extracted table may include:
 - `cells[].isHeader` for the first detected row.
 - `cells[].inferred` when the grid cell exists because the table model inferred
   an empty slot.
-- `quality.completeness`, `nonEmptyCellRatio`, `rowAlignment`, and
-  `rowSpacingConsistency`.
-- `quality.missingCellCount` and `quality.mergedCellCandidateCount`.
+- `quality.completeness`, `nonEmptyCellRatio`, `cellBoundingBoxCoverage`,
+  `inferredCellRatio`, `rowAlignment`, and `rowSpacingConsistency`.
+- `quality.cellBoundingBoxCount`, `quality.inferredCellCount`,
+  `quality.missingCellCount`, and `quality.mergedCellCandidateCount`.
 - `quality.signals` and `quality.warnings` for sparse, merged, irregular,
-  low-confidence, or continuation-candidate tables.
+  incomplete-geometry, low-confidence, or continuation-candidate tables.
 - `continuation` candidates linking repeated-header tables on adjacent pages.
 
 The existing `rows`, Markdown rendering, table chunks, and document map element
@@ -42,8 +43,8 @@ Agents should use table quality signals as routing metadata:
 
 - High completeness and complete-grid signals can be used directly for routine
   RAG and summarization.
-- Sparse, merged, irregular, or low-confidence warnings should trigger
-  `extract_regions` or `render_page` for source verification.
+- Sparse, merged, incomplete-geometry, irregular, or low-confidence warnings
+  should trigger `extract_regions` or `render_page` for source verification.
 - Continuation candidates should be treated as linked evidence, not as a
   merged logical table unless the caller confirms that behavior.
 
@@ -52,6 +53,8 @@ Agents should use table quality signals as routing metadata:
 - Table cells expose header/span/inference hints without changing existing
   row arrays.
 - Sparse tables expose missing-cell and inferred-cell warnings.
+- Tables expose cell bounding-box coverage and inferred-cell ratios for
+  evidence-quality routing.
 - Wide text boxes crossing column boundaries expose merged-cell candidate
   signals.
 - Repeated headers on adjacent pages expose continuation candidates.
