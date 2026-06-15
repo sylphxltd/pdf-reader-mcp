@@ -7,6 +7,7 @@ import { inspectPdf } from './handlers/inspectPdf.js';
 import { ocrPages } from './handlers/ocrPages.js';
 import { readPdf } from './handlers/readPdf.js';
 import { renderPage } from './handlers/renderPage.js';
+import { searchPdf } from './handlers/searchPdf.js';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json') as { version: string };
@@ -41,10 +42,11 @@ const server = createServer({
   name: 'pdf-reader-mcp',
   version: packageJson.version,
   instructions:
-    'MCP Server for inspecting PDF files, rendering visual page evidence, cropping visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.',
+    'MCP Server for inspecting PDF files, searching text evidence, rendering visual page evidence, cropping visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.',
   tools: {
     inspect_pdf: inspectPdf,
     read_pdf: readPdf,
+    search_pdf: searchPdf,
     render_page: renderPage,
     extract_regions: extractRegions,
     ocr_pages: ocrPages,

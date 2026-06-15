@@ -3637,6 +3637,224 @@ var renderPage = tool5().description("Renders selected PDF pages as bounded PNG 
   return buildRenderContent(outputs, results, options);
 });
 
+// src/handlers/searchPdf.ts
+import { text as text6, tool as tool6, toolError as toolError6 } from "@sylphx/mcp-server-sdk";
+
+// src/pdf/search.ts
+var logger14 = createLogger("Search");
+var DEFAULT_SEARCH_MAX_PAGES = 100;
+var DEFAULT_SEARCH_MAX_MATCHES = 50;
+var DEFAULT_SEARCH_CONTEXT_CHARS = 120;
+var ASCII_WORD = /[A-Za-z0-9_]/;
+var defaultSearchPdfOptions = (query) => ({
+  query,
+  case_sensitive: false,
+  whole_word: false,
+  max_pages: DEFAULT_SEARCH_MAX_PAGES,
+  max_matches_per_source: DEFAULT_SEARCH_MAX_MATCHES,
+  context_chars: DEFAULT_SEARCH_CONTEXT_CHARS
+});
+var resolvePagesToSearch = (targetPages, totalPages, maxPages) => {
+  const requestedPages = targetPages && targetPages.length > 0 ? [...new Set(targetPages)].sort((a, b) => a - b) : Array.from({ length: totalPages }, (_, index) => index + 1);
+  const validPages = requestedPages.filter((page) => page <= totalPages);
+  const invalidPages = requestedPages.filter((page) => page > totalPages);
+  return {
+    pagesToSearch: validPages.slice(0, maxPages),
+    invalidPages,
+    truncatedPages: validPages.slice(maxPages)
+  };
+};
+var isWordChar = (value) => value !== undefined && ASCII_WORD.test(value);
+var isWholeWordMatch = (text6, start, end) => !isWordChar(text6[start - 1]) && !isWordChar(text6[end]);
+var normalizeForSearch = (value, caseSensitive) => caseSensitive ? value : value.toLocaleLowerCase();
+var buildSnippet = (text6, start, end, contextChars) => {
+  const snippetStart = Math.max(0, start - contextChars);
+  const snippetEnd = Math.min(text6.length, end + contextChars);
+  const prefix = snippetStart > 0 ? "..." : "";
+  const suffix = snippetEnd < text6.length ? "..." : "";
+  return `${prefix}${text6.slice(snippetStart, snippetEnd)}${suffix}`;
+};
+var findMatchesInText = (text6, query, options) => {
+  if (query.length === 0)
+    return [];
+  const searchableText = normalizeForSearch(text6, options.case_sensitive);
+  const searchableQuery = normalizeForSearch(query, options.case_sensitive);
+  const matches = [];
+  let searchFrom = 0;
+  while (searchFrom <= searchableText.length - searchableQuery.length) {
+    const start = searchableText.indexOf(searchableQuery, searchFrom);
+    if (start === -1)
+      break;
+    const end = start + searchableQuery.length;
+    if (!options.whole_word || isWholeWordMatch(searchableText, start, end)) {
+      matches.push({ start, end });
+    }
+    searchFrom = Math.max(end, start + 1);
+  }
+  return matches;
+};
+var searchPageContentItems = (page, items, options, matchOffset) => {
+  const matches = [];
+  const textItems = items.filter((item) => item.type === "text" && item.textContent !== undefined);
+  for (let textItemIndex = 0;textItemIndex < textItems.length; textItemIndex++) {
+    const item = textItems[textItemIndex];
+    if (!item?.textContent)
+      continue;
+    const itemMatches = findMatchesInText(item.textContent, options.query, options);
+    for (const itemMatch of itemMatches) {
+      const matchedText = item.textContent.slice(itemMatch.start, itemMatch.end);
+      matches.push({
+        id: `p${String(page)}-match-${String(matchOffset + matches.length + 1)}`,
+        page,
+        text: matchedText,
+        snippet: buildSnippet(item.textContent, itemMatch.start, itemMatch.end, options.context_chars),
+        match_start: itemMatch.start,
+        match_end: itemMatch.end,
+        text_item_index: textItemIndex,
+        ...item.bounding_box ? { bounding_box: item.bounding_box, bounding_box_level: "text_item" } : {},
+        provenance: {
+          engine: "pdfjs",
+          source: "text-content"
+        }
+      });
+    }
+  }
+  return matches;
+};
+var searchPdfSource = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  let pdfDocument = null;
+  try {
+    const targetPages = getTargetPages(source.pages, sourceDescription);
+    const { pages: _pages, ...loadArgs } = source;
+    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    const totalPages = pdfDocument.numPages;
+    const { pagesToSearch, invalidPages, truncatedPages } = resolvePagesToSearch(targetPages, totalPages, options.max_pages);
+    if (pagesToSearch.length === 0) {
+      throw new PdfError(-32600 /* InvalidRequest */, `No valid pages to search for source ${sourceDescription}.`);
+    }
+    const warnings = buildWarnings(invalidPages, totalPages);
+    if (truncatedPages.length > 0) {
+      warnings.push(`Searched first ${String(options.max_pages)} selected pages; skipped ${truncatedPages.join(", ")} due to max_pages.`);
+    }
+    const matches = [];
+    let truncated = false;
+    for (const page of pagesToSearch) {
+      const items = await extractPageContent(pdfDocument, page, false, sourceDescription);
+      const pageMatches = searchPageContentItems(page, items, options, matches.length);
+      for (const match of pageMatches) {
+        if (matches.length >= options.max_matches_per_source) {
+          truncated = true;
+          break;
+        }
+        matches.push(match);
+      }
+      if (truncated)
+        break;
+    }
+    if (truncated) {
+      warnings.push(`Search results truncated to ${String(options.max_matches_per_source)} matches for this source.`);
+    }
+    return {
+      source: sourceDescription,
+      success: true,
+      num_pages: totalPages,
+      searched_pages: pagesToSearch,
+      total_matches: matches.length,
+      matches,
+      ...truncated ? { truncated } : {},
+      ...warnings.length > 0 ? { warnings } : {}
+    };
+  } finally {
+    const loadingTask = pdfDocument?.loadingTask;
+    if (loadingTask && typeof loadingTask.destroy === "function") {
+      try {
+        await loadingTask.destroy();
+      } catch (destroyError) {
+        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
+        logger14.warn("Error destroying searched PDF document", {
+          sourceDescription,
+          error: message
+        });
+      }
+    }
+  }
+};
+
+// src/schemas/searchPdf.ts
+import {
+  array as array6,
+  bool as bool5,
+  description as description6,
+  gte as gte6,
+  int as int6,
+  lte as lte5,
+  min as min2,
+  num as num6,
+  object as object6,
+  optional as optional6,
+  str as str4
+} from "@sylphx/vex";
+var searchPdfArgsSchema = object6({
+  sources: array6(pdfSourceSchema),
+  query: str4(min2(1), description6("Literal text query to search for in extracted PDF text.")),
+  case_sensitive: optional6(bool5(description6("Use case-sensitive literal matching."))),
+  whole_word: optional6(bool5(description6("Match only whole words using ASCII word boundaries."))),
+  max_pages: optional6(num6(int6, gte6(1), lte5(1000), description6("Maximum pages to search per source. Defaults to 100 and is capped at 1000."))),
+  max_matches_per_source: optional6(num6(int6, gte6(1), lte5(500), description6("Maximum matches returned per source. Defaults to 50 and is capped at 500."))),
+  context_chars: optional6(num6(int6, gte6(0), lte5(1000), description6("Context characters to include around each match. Defaults to 120.")))
+});
+
+// src/handlers/searchPdf.ts
+var logger15 = createLogger("SearchPdf");
+var buildOptions3 = (input) => ({
+  ...defaultSearchPdfOptions(input.query),
+  ...input.case_sensitive !== undefined ? { case_sensitive: input.case_sensitive } : {},
+  ...input.whole_word !== undefined ? { whole_word: input.whole_word } : {},
+  ...input.max_pages !== undefined ? { max_pages: input.max_pages } : {},
+  ...input.max_matches_per_source !== undefined ? { max_matches_per_source: input.max_matches_per_source } : {},
+  ...input.context_chars !== undefined ? { context_chars: input.context_chars } : {}
+});
+var processSource3 = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  try {
+    return await searchPdfSource(source, options);
+  } catch (error) {
+    let errorMessage;
+    if (error instanceof PdfError) {
+      errorMessage = error.message;
+    } else {
+      const detail = error instanceof Error ? error.message : String(error);
+      logger15.error("Unexpected error searching PDF source", {
+        sourceDescription,
+        error: detail
+      });
+      errorMessage = `Failed to search PDF source ${sourceDescription}.`;
+    }
+    return {
+      source: sourceDescription,
+      success: false,
+      error: errorMessage
+    };
+  }
+};
+var searchPdf = tool6().description("Searches extracted PDF text with page, snippet, bounding-box, and provenance evidence for agent retrieval.").input(searchPdfArgsSchema).handler(async ({ input }) => {
+  const options = buildOptions3(input);
+  const results = [];
+  for (const source of input.sources) {
+    results.push(await processSource3(source, options));
+  }
+  if (results.every((result) => !result.success)) {
+    const errorMessages = results.map((result) => result.error).join("; ");
+    return toolError6(`All PDF sources failed search: ${errorMessages}`);
+  }
+  return text6(JSON.stringify({
+    profile: "pdf_search_results",
+    search_options: options,
+    results
+  }, null, 2));
+});
+
 // src/index.ts
 var require4 = createRequire3(import.meta.url);
 var packageJson = require4("../package.json");
@@ -3658,10 +3876,11 @@ function createTransport() {
 var server = createServer({
   name: "pdf-reader-mcp",
   version: packageJson.version,
-  instructions: "MCP Server for inspecting PDF files, rendering visual page evidence, cropping visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
+  instructions: "MCP Server for inspecting PDF files, searching text evidence, rendering visual page evidence, cropping visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
   tools: {
     inspect_pdf: inspectPdf,
     read_pdf: readPdf,
+    search_pdf: searchPdf,
     render_page: renderPage,
     extract_regions: extractRegions,
     ocr_pages: ocrPages

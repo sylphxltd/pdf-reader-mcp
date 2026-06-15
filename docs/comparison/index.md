@@ -5,6 +5,7 @@
 | Feature | PDF Reader MCP | CLI Tools | Cloud APIs | Generic FS MCP |
 |---------|---------------|-----------|------------|----------------|
 | Text Extraction | ✅ | ✅ | ✅ | ❌ |
+| Search With Evidence | ✅ | ⚠️ | ✅ | ❌ |
 | Metadata | ✅ | ✅ | ✅ | ❌ |
 | Image Extraction | ✅ | ⚠️ | ✅ | ❌ |
 | Page Rendering Evidence | ✅ | ⚠️ | ✅ | ❌ |
@@ -66,6 +67,7 @@
 - Local processing (privacy)
 - No API keys needed
 - Batch processing
+- Search with snippets, match offsets, text-item bounding boxes, and provenance
 - Image extraction
 - Page rendering evidence with bounded PNG image parts
 - Region crop evidence for bbox-grounded verification
@@ -84,6 +86,7 @@
 - Privacy matters (local processing)
 - You want simple MCP integration
 - You need to process multiple PDFs
+- You need to find evidence before reading, rendering, cropping, or citing a PDF region
 - You need image extraction
 - You need page images for visual verification or OCR routing
 - You need focused crops from table, figure, chart, formula, or citation bounding boxes

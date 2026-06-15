@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **Agent document map** • **Visual evidence** • **Region crops** • **Configured OCR**
+**PDF inspection** • **PDF search** • **Agent document map** • **Visual evidence** • **Region crops** • **Configured OCR**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -38,6 +38,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 ```typescript
 // PDF Reader MCP
 - Preflight PDF inspection for agent extraction planning 🔎
+- MCP-native PDF search with snippets and bbox evidence 🔎
 - Bounded page rendering for visual evidence and OCR routing 🖼️
 - Bbox-grounded region crops for source evidence 🔍
 - Configured local OCR provider for scanned-page text layers 🔡
@@ -71,6 +72,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
+- 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, text-item bounding boxes, and provenance
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
@@ -83,7 +85,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - `inspect_pdf` plans extraction, `render_page` returns visual evidence, `extract_regions` crops source evidence, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
+- 🎨 **Simple API** - `inspect_pdf` plans extraction, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
 
 ---
 
@@ -236,6 +238,30 @@ arguments without extracting image bytes.
 - Page-level text density, token estimates, and image paint-operation counts
 - Signals for outlines, page labels, forms, attachments, permissions, and structure trees
 - Recommended `read_pdf` arguments for citation chunks, safety findings, tables, or OCR triage
+
+### Search PDF Evidence
+
+Use `search_pdf` when an agent needs to locate text evidence before deciding
+whether to read a whole page, crop a region, or cite a result.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-20"
+  }],
+  "query": "risk controls",
+  "whole_word": true,
+  "max_matches_per_source": 10
+}
+```
+
+**Response includes:**
+- A JSON summary with `profile: "pdf_search_results"` and effective search options
+- Page numbers, snippets, match offsets, and text-item indexes
+- Best-effort text-item bounding boxes when coordinates are available
+- Per-match provenance so agents can route hits into `render_page` or `extract_regions`
+- Bounded defaults: `max_pages` default 100 and `max_matches_per_source` default 50
 
 ### Basic Usage
 
@@ -518,6 +544,7 @@ configured local OCR command.
 ### Core Capabilities
 - ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend `read_pdf` options
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
+- ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
@@ -713,6 +740,39 @@ out of the JSON summary.
 The first content part is JSON metadata with `profile: "page_render_evidence"`.
 Rendered PNG data is returned as subsequent MCP image parts and referenced by
 `image_content_index`.
+
+### `search_pdf` Tool
+
+Search extracted PDF text using bounded literal matching and return evidence
+that agents can cite or route into visual tools.
+
+#### Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `sources` | Array | List of PDF sources to search | Required |
+| `query` | string | Literal text query to search for | Required |
+| `case_sensitive` | boolean | Use case-sensitive matching | `false` |
+| `whole_word` | boolean | Match only whole words using ASCII word boundaries | `false` |
+| `max_pages` | number | Maximum pages to search per source, capped at 1000 | `100` |
+| `max_matches_per_source` | number | Maximum matches returned per source, capped at 500 | `50` |
+| `context_chars` | number | Context characters around each match, capped at 1000 | `120` |
+
+#### Example
+
+```json
+{
+  "sources": [{ "path": "report.pdf", "pages": "1-20" }],
+  "query": "risk controls",
+  "whole_word": true,
+  "max_matches_per_source": 10
+}
+```
+
+The first content part is JSON metadata with `profile: "pdf_search_results"`.
+Matches include page number, matched text, snippet, match offsets, text-item
+index, optional text-item bounding box, and provenance. Search uses literal
+matching only; request payloads do not accept arbitrary regular expressions.
 
 ### `extract_regions` Tool
 
@@ -1300,6 +1360,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Structured element output
 - [x] Markdown rendering
 - [x] Citation-ready page, semantic, size, and table chunks
+- [x] MCP-native PDF search with snippets and bbox provenance
 - [x] Outlines, annotations, structure trees, form fields, attachment metadata, page labels, and permission signals
 - [x] Column-aware ordering for common multi-column PDFs
 - [x] Layout diagnostics with reading-order confidence

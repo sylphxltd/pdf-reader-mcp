@@ -42,7 +42,22 @@ operations, and recommends `read_pdf` arguments without decoding image bytes.
 }
 ```
 
-### 3. Use Page Ranges
+### 3. Search Before Reading Whole Sections
+
+Use `search_pdf` when an agent needs to find relevant evidence before running
+larger extraction, rendering, or crop workflows. Search is bounded by page and
+match caps.
+
+```json
+{
+  "sources": [{ "path": "doc.pdf", "pages": "1-50" }],
+  "query": "risk controls",
+  "max_pages": 50,
+  "max_matches_per_source": 10
+}
+```
+
+### 4. Use Page Ranges
 
 Instead of full text extraction, request specific pages:
 
@@ -59,7 +74,7 @@ Instead of full text extraction, request specific pages:
 }
 ```
 
-### 4. Batch Sources
+### 5. Batch Sources
 
 Process multiple PDFs in one request for better throughput:
 
@@ -77,7 +92,7 @@ Process multiple PDFs in one request for better throughput:
 }
 ```
 
-### 5. Avoid Images Unless Needed
+### 6. Avoid Images Unless Needed
 
 Image extraction involves encoding to PNG and base64, which adds overhead:
 
@@ -89,7 +104,7 @@ Image extraction involves encoding to PNG and base64, which adds overhead:
 { "include_images": false }
 ```
 
-### 6. Use The Document Map For Full Agent Navigation
+### 7. Use The Document Map For Full Agent Navigation
 
 `include_document_map` builds the richest TypeScript-first response path. It
 links pages, elements, chunks, layout diagnostics, safety findings, routing
@@ -105,7 +120,7 @@ same references themselves.
 }
 ```
 
-### 7. Render Pages With Explicit Bounds
+### 8. Render Pages With Explicit Bounds
 
 `render_page` returns PNG page evidence as MCP image parts. Rendering is more
 expensive than text extraction, so select pages, keep scale practical, and rely
@@ -120,7 +135,7 @@ on the default pixel budget unless a workflow truly needs higher resolution.
 }
 ```
 
-### 8. Crop Regions Instead Of Carrying Whole Pages
+### 9. Crop Regions Instead Of Carrying Whole Pages
 
 `extract_regions` reuses bounded page rendering but returns focused crops for
 specific PDF-coordinate bounding boxes. It is usually cheaper for downstream
@@ -141,7 +156,7 @@ vision/OCR steps than passing a whole rendered page.
 }
 ```
 
-### 9. OCR Only The Pages That Need It
+### 10. OCR Only The Pages That Need It
 
 `ocr_pages` renders selected pages and sends temporary PNGs to the configured
 local OCR provider. OCR cost depends on render scale, page count, provider
@@ -159,7 +174,7 @@ tight.
 }
 ```
 
-### 10. Use Structured Elements When You Need References
+### 11. Use Structured Elements When You Need References
 
 `include_elements` adds page-level element metadata for agent workflows. It is
 worth enabling when you need stable IDs, provenance, or best-effort coordinates,
@@ -173,7 +188,7 @@ but plain text remains the leanest response shape.
 }
 ```
 
-### 11. Add Semantic Hints Only When They Help
+### 12. Add Semantic Hints Only When They Help
 
 `include_semantic_hints` adds deterministic heading, list, and paragraph hints
 to text elements. It returns elements even when `include_elements` is omitted.
@@ -186,7 +201,7 @@ to text elements. It returns elements even when `include_elements` is omitted.
 }
 ```
 
-### 12. Use Markdown When You Need Ready-to-Use Context
+### 13. Use Markdown When You Need Ready-to-Use Context
 
 `include_markdown` creates page-aware Markdown in the JSON response. It is
 more convenient than rebuilding sections from `page_texts`, but it still
@@ -200,7 +215,7 @@ requires page extraction.
 }
 ```
 
-### 13. Use Chunks When You Need Source References
+### 14. Use Chunks When You Need Source References
 
 `include_chunks` creates citation-ready chunks with element IDs, strategy
 labels, and best-effort bounding boxes. It can split on semantic heading
@@ -217,7 +232,7 @@ citations, but it does more work than metadata-only or page-count requests.
 }
 ```
 
-### 14. Use HTML Only When Needed
+### 15. Use HTML Only When Needed
 
 `include_html` creates escaped page-aware HTML. It is useful for preview and
 export workflows, but plain text or Markdown are usually leaner for agent-only
@@ -231,7 +246,7 @@ context.
 }
 ```
 
-### 15. Use Layout Diagnostics For Routing
+### 16. Use Layout Diagnostics For Routing
 
 `include_layout_diagnostics` returns page layout profiles, reading-order
 confidence, column signals, and warnings. It uses already extracted content
@@ -247,7 +262,7 @@ before unattended RAG indexing or citation-critical summarization.
 }
 ```
 
-### 16. Use Document Signals For Bounded Structure
+### 17. Use Document Signals For Bounded Structure
 
 Outline, page labels, permissions, structure trees, form fields, attachment
 metadata, and page geometry can be requested without extracting full page text.
@@ -263,7 +278,7 @@ Annotations, structure trees, and page geometry respect selected page ranges.
 }
 ```
 
-### 17. Use Safety Findings When Agents Consume PDF Text
+### 18. Use Safety Findings When Agents Consume PDF Text
 
 `include_safety_findings` scans extracted page text for deterministic risk
 signals. It requires page text extraction, but it does not force `full_text`

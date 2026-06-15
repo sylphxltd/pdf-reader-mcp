@@ -13,6 +13,7 @@ PDF Reader MCP is built on these core principles:
 
 - **Text Extraction** - Full document or specific pages
 - **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
+- **PDF Search Evidence** - Literal search over extracted text with snippets, match offsets, text-item bounding boxes, and provenance
 - **Visual Page Evidence** - Bounded page rendering with evidence IDs, provenance, and MCP image parts for OCR routing and page inspection
 - **Region Crop Evidence** - Bbox-grounded visual crops that connect extracted structure back to focused source evidence
 - **Configured OCR Text Layer** - Optional command-provider OCR over bounded rendered pages, normalized into text, confidence, word boxes, language, and provenance
@@ -30,7 +31,7 @@ PDF Reader MCP is built on these core principles:
 
 ## 3. Simple Integration
 
-- **Focused Tools** - `inspect_pdf` plans extraction, `render_page` returns page evidence, `extract_regions` returns crop evidence, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
+- **Focused Tools** - `inspect_pdf` plans extraction, `search_pdf` finds source text evidence, `render_page` returns page evidence, `extract_regions` returns crop evidence, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
 - **Standard MCP** - Compatible with any MCP client
 - **Easy Setup** - One command installation via npx
 - **Multiple Clients** - Works with Claude Desktop, Claude Code, Cursor, and more
@@ -50,6 +51,7 @@ PDF Reader MCP is built on these core principles:
 ## 6. Agent-Ready Output
 
 - **Stable References** - Element IDs and page numbers make downstream citations easier to preserve
+- **Searchable Evidence** - Search matches carry snippets, offsets, text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
 - **Semantic Hints** - Heading, list, and paragraph hints carry confidence and signals without overstating parser certainty
 - **Cell-Level Provenance** - Table cells can carry row/column indexes and coordinates for downstream citation workflows

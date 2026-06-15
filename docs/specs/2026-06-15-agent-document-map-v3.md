@@ -129,6 +129,8 @@ Required before publishing the next package release:
 - `render_page`, `extract_regions`, and `ocr_pages` provide visual evidence,
   focused crops, and configured OCR text layers without embedding image bytes
   in JSON summaries.
+- `search_pdf` provides bounded evidence retrieval with snippets, offsets,
+  optional text-item bounding boxes, and provenance before heavier workflows.
 - Quality eval proves the map links pages, elements, chunks, safety findings,
   layout diagnostics, and geometry.
 - Handler tests prove the map does not force top-level legacy outputs.

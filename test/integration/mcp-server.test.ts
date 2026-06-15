@@ -126,6 +126,7 @@ describe('MCP Server Integration', () => {
     const toolNames = response.result?.tools?.map((t) => t.name);
     expect(toolNames).toContain('inspect_pdf');
     expect(toolNames).toContain('read_pdf');
+    expect(toolNames).toContain('search_pdf');
     expect(toolNames).toContain('render_page');
     expect(toolNames).toContain('extract_regions');
     expect(toolNames).toContain('ocr_pages');
@@ -342,8 +343,46 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should handle invalid tool arguments', async () => {
+  it('should call search_pdf tool with a test PDF', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
     const callRequest = createRequest(8, 'tools/call', {
+      name: 'search_pdf',
+      arguments: {
+        sources: [{ path: testPdfPath, pages: [1] }],
+        query: 'PDF',
+        max_pages: 1,
+        max_matches_per_source: 5,
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(8);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{ success: boolean; matches?: unknown[] }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(parsed.profile).toBe('pdf_search_results');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(Array.isArray(parsed.results[0]?.matches)).toBe(true);
+    }
+  });
+
+  it('should handle invalid tool arguments', async () => {
+    const callRequest = createRequest(9, 'tools/call', {
       name: 'read_pdf',
       arguments: {
         // Missing required 'sources' field
@@ -358,7 +397,7 @@ describe('MCP Server Integration', () => {
       error?: { code: number; message: string };
     };
 
-    expect(response.id).toBe(8);
+    expect(response.id).toBe(9);
     // SDK returns validation error as result.isError, not JSON-RPC error
     expect(response.result?.isError).toBe(true);
     expect(response.result?.content?.[0]?.text).toMatch(/sources/i);

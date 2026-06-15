@@ -1,8 +1,10 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides five tools:
+Once installed, the PDF Reader MCP server provides six tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
+- `search_pdf` searches extracted PDF text with snippets, bounding boxes, and
+  provenance.
 - `render_page` renders selected PDF pages as bounded visual evidence images.
 - `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
 - `ocr_pages` runs selected rendered pages through a configured local OCR
@@ -35,6 +37,27 @@ Typical response fields:
   structure-tree availability
 - `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
   arguments
+
+### Search For Evidence
+
+Use `search_pdf` when an agent needs to find relevant pages and source
+snippets before running heavier extraction, rendering, or region cropping.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-20"
+  }],
+  "query": "risk controls",
+  "whole_word": true,
+  "max_matches_per_source": 10
+}
+```
+
+Matches include page number, matched text, snippet, match offsets, text-item
+index, optional text-item bounding box, and provenance. Search is literal and
+bounded by `max_pages` and `max_matches_per_source`.
 
 ### Get Metadata and Page Count
 

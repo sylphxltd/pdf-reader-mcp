@@ -125,6 +125,7 @@ describe('MCP Server HTTP Transport Integration', () => {
     const toolNames = response.result?.tools?.map((t: { name: string }) => t.name);
     expect(toolNames).toContain('inspect_pdf');
     expect(toolNames).toContain('read_pdf');
+    expect(toolNames).toContain('search_pdf');
     expect(toolNames).toContain('render_page');
     expect(toolNames).toContain('extract_regions');
     expect(toolNames).toContain('ocr_pages');

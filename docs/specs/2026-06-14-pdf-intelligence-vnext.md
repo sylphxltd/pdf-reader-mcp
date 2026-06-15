@@ -40,6 +40,8 @@ engines behind one stable MCP contract.
   confident the server is.
 - Document map: one agent-facing contract that links pages, elements, chunks,
   layout diagnostics, safety findings, routing signals, and page geometry.
+- Search evidence: literal text matches with page numbers, snippets, offsets,
+  optional text-item bounding boxes, and provenance.
 - OCR text layer: normalized text, confidence, optional word boxes, language,
   and provenance produced by an explicitly configured local OCR provider.
 
@@ -145,6 +147,8 @@ Candidate engines:
    - Add layout diagnostics with reading-order confidence for agent routing.
    - Add `include_document_map` as the SSOT response shape for agent
      navigation and future optional engine enrichment.
+   - Add `search_pdf` for bounded evidence retrieval before heavier reading,
+     rendering, cropping, or citation workflows.
    - Keep legacy outputs stable.
    - Add tests for schema, JSON response shape, and no binary data in JSON.
 
@@ -190,8 +194,8 @@ Candidate engines:
   stripping.
 - Integration tests for MCP `read_pdf` with and without `include_elements`.
 - Integration tests for MCP `read_pdf` with and without `include_document_map`.
-- Integration tests confirm `inspect_pdf`, `render_page`, `extract_regions`,
-  and `ocr_pages` are exposed by the MCP server.
+- Integration tests confirm `inspect_pdf`, `search_pdf`, `render_page`,
+  `extract_regions`, and `ocr_pages` are exposed by the MCP server.
 - Quality evals for semantic chunks, table ordering, renderers, and safety
   findings.
 - Fixtures for simple text, multi-column reading order, tables, images, scans,

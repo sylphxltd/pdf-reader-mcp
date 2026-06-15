@@ -1,0 +1,89 @@
+import { describe, expect, it } from 'vitest';
+import { defaultSearchPdfOptions, resolvePagesToSearch, searchPageContentItems } from '../../src/pdf/search.js';
+import type { BoundingBox, PageContentItem, SearchPdfOptions } from '../../src/types/pdf.js';
+
+const box = (left: number, bottom: number, width: number, height: number): BoundingBox => ({
+  left,
+  bottom,
+  right: left + width,
+  top: bottom + height,
+});
+
+const textItem = (textContent: string, bounding_box?: BoundingBox): PageContentItem => ({
+  type: 'text',
+  textContent,
+  yPosition: bounding_box?.bottom ?? 0,
+  xPosition: bounding_box?.left,
+  width: bounding_box ? bounding_box.right - bounding_box.left : undefined,
+  height: bounding_box ? bounding_box.top - bounding_box.bottom : undefined,
+  ...(bounding_box ? { bounding_box } : {}),
+});
+
+const options = (overrides: Partial<SearchPdfOptions> = {}): SearchPdfOptions => ({
+  ...defaultSearchPdfOptions('risk'),
+  context_chars: 6,
+  ...overrides,
+});
+
+describe('search', () => {
+  it('resolves all pages by default while reporting invalid and truncated pages', () => {
+    expect(resolvePagesToSearch(undefined, 5, 3)).toEqual({
+      pagesToSearch: [1, 2, 3],
+      invalidPages: [],
+      truncatedPages: [4, 5],
+    });
+
+    expect(resolvePagesToSearch([2, 6, 4, 2], 5, 10)).toEqual({
+      pagesToSearch: [2, 4],
+      invalidPages: [6],
+      truncatedPages: [],
+    });
+  });
+
+  it('finds literal matches with snippets and text-item bounding boxes', () => {
+    const matches = searchPageContentItems(
+      1,
+      [
+        textItem('Executive risk controls are documented.', box(40, 700, 220, 12)),
+        textItem('No match here.', box(40, 680, 120, 12)),
+      ],
+      options(),
+      0
+    );
+
+    expect(matches).toEqual([
+      {
+        id: 'p1-match-1',
+        page: 1,
+        text: 'risk',
+        snippet: '...utive risk contr...',
+        match_start: 10,
+        match_end: 14,
+        text_item_index: 0,
+        bounding_box: { left: 40, bottom: 700, right: 260, top: 712 },
+        bounding_box_level: 'text_item',
+        provenance: {
+          engine: 'pdfjs',
+          source: 'text-content',
+        },
+      },
+    ]);
+  });
+
+  it('supports whole-word and case-sensitive matching', () => {
+    const items = [textItem('Risk controls reduce risky exposure.'), textItem('risk owners review controls.')];
+
+    expect(searchPageContentItems(1, items, options({ whole_word: true }), 0).map((m) => m.text)).toEqual([
+      'Risk',
+      'risk',
+    ]);
+    expect(
+      searchPageContentItems(1, items, options({ case_sensitive: true, query: 'Risk' }), 0).map((m) => m.text)
+    ).toEqual(['Risk']);
+  });
+
+  it('continues match IDs from the provided offset', () => {
+    const matches = searchPageContentItems(3, [textItem('risk risk')], options(), 4);
+    expect(matches.map((match) => match.id)).toEqual(['p3-match-5', 'p3-match-6']);
+  });
+});
