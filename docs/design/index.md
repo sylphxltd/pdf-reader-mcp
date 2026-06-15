@@ -12,6 +12,7 @@ PDF Reader MCP is built on these core principles:
 ## 2. Comprehensive Extraction
 
 - **Text Extraction** - Full document or specific pages
+- **Text Layer** - Optional line and word records with page-level character ranges, best-effort bounding boxes, and provenance
 - **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
 - **Document AST** - Optional semantic tree for page, section, paragraph, list item, table, and image traversal
 - **Trust Report** - Optional consolidated risk report for content safety, layout uncertainty, sparse pages, table quality, and external links
@@ -55,6 +56,7 @@ PDF Reader MCP is built on these core principles:
 ## 6. Agent-Ready Output
 
 - **Stable References** - Element IDs and page numbers make downstream citations easier to preserve
+- **Text Fidelity** - Text layers expose line IDs, word records, character ranges, and bbox coverage without requiring agents to parse plain strings
 - **Searchable Evidence** - Search matches carry snippets, offsets, text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
 - **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs and chunk IDs as evidence anchors

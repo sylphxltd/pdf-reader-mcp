@@ -1928,6 +1928,7 @@ var readPdfArgsSchema = object2({
   include_markdown: optional2(bool2(description2("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
   include_html: optional2(bool2(description2("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
   include_chunks: optional2(bool2(description2("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
+  include_text_layer: optional2(bool2(description2("Include a page text layer with line records, word records, page-level character ranges, best-effort bounding boxes, and provenance."))),
   include_outline: optional2(bool2(description2("Include document outline/bookmark entries when the PDF exposes them."))),
   include_annotations: optional2(bool2(description2("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
   include_page_labels: optional2(bool2(description2("Include PDF page labels when available, such as roman numerals or section labels."))),
@@ -3829,6 +3830,112 @@ var buildSafetyFindings = (pageContents, pageGeometry) => {
   return findings;
 };
 
+// src/pdf/textLayer.ts
+var TEXT_LAYER_VERSION = "2026-06-15";
+var estimateWordBoundingBox = (lineBox, lineText, wordStartInLine, wordEndInLine) => {
+  if (!lineBox || lineText.length === 0 || wordEndInLine <= wordStartInLine)
+    return;
+  const width = lineBox.right - lineBox.left;
+  if (!Number.isFinite(width) || width <= 0)
+    return;
+  const startRatio = Math.max(0, Math.min(1, wordStartInLine / lineText.length));
+  const endRatio = Math.max(startRatio, Math.min(1, wordEndInLine / lineText.length));
+  return {
+    left: lineBox.left + width * startRatio,
+    bottom: lineBox.bottom,
+    right: lineBox.left + width * endRatio,
+    top: lineBox.top
+  };
+};
+var buildWords = (lineText, pageCharStart, lineBox) => {
+  const words = [];
+  const matches = lineText.matchAll(/\S+/g);
+  for (const match of matches) {
+    const text4 = match[0];
+    const index = match.index ?? 0;
+    const charStart = pageCharStart + index;
+    const charEnd = charStart + text4.length;
+    const boundingBox = estimateWordBoundingBox(lineBox, lineText, index, index + text4.length);
+    words.push({
+      index: words.length,
+      text: text4,
+      char_start: charStart,
+      char_end: charEnd,
+      ...boundingBox ? { bounding_box: boundingBox, confidence: 0.68 } : {}
+    });
+  }
+  return words;
+};
+var buildPage = (pageContent, warnings) => {
+  const lines = [];
+  const textParts = [];
+  let pageCharOffset = 0;
+  for (const item of pageContent.items) {
+    if (item.type !== "text" || !item.textContent?.trim())
+      continue;
+    if (textParts.length > 0) {
+      textParts.push(`
+`);
+      pageCharOffset += 1;
+    }
+    const lineText = item.textContent;
+    const lineStart = pageCharOffset;
+    const lineEnd = lineStart + lineText.length;
+    const words = buildWords(lineText, lineStart, item.bounding_box);
+    const hasWordBoxes = words.some((word) => word.bounding_box);
+    if (!item.bounding_box) {
+      warnings.push(`Page ${String(pageContent.page)} line ${String(lines.length)} has no bounding box.`);
+    }
+    lines.push({
+      id: `p${String(pageContent.page)}-line-${String(lines.length + 1)}`,
+      index: lines.length,
+      text: lineText,
+      char_start: lineStart,
+      char_end: lineEnd,
+      ...item.bounding_box ? { bounding_box: item.bounding_box } : {},
+      words,
+      provenance: {
+        engine: "pdfjs",
+        source: "text-content",
+        bounding_box_level: hasWordBoxes ? "word_estimated" : "line"
+      }
+    });
+    textParts.push(lineText);
+    pageCharOffset = lineEnd;
+  }
+  const text4 = textParts.join("");
+  return {
+    page: pageContent.page,
+    text: text4,
+    char_count: text4.length,
+    line_count: lines.length,
+    word_count: lines.reduce((sum, line) => sum + line.words.length, 0),
+    lines
+  };
+};
+var buildTextLayer = (input) => {
+  const selectedPages = [...new Set(input.selectedPages)].sort((a, b) => a - b);
+  const warnings = [];
+  const pages = input.pageContents.filter((pageContent) => selectedPages.includes(pageContent.page)).sort((a, b) => a.page - b.page).map((pageContent) => buildPage(pageContent, warnings));
+  const lines = pages.flatMap((page) => page.lines);
+  const words = lines.flatMap((line) => line.words);
+  return {
+    version: TEXT_LAYER_VERSION,
+    profile: "pdf_text_layer",
+    pages,
+    summary: {
+      selected_pages: selectedPages,
+      page_count: pages.length,
+      line_count: lines.length,
+      word_count: words.length,
+      char_count: pages.reduce((sum, page) => sum + page.char_count, 0),
+      lines_with_bounding_boxes: lines.filter((line) => line.bounding_box).length,
+      words_with_bounding_boxes: words.filter((word) => word.bounding_box).length
+    },
+    ...warnings.length > 0 ? { warnings } : {}
+  };
+};
+
 // src/pdf/trustReport.ts
 var TRUST_REPORT_VERSION = "2026-06-15";
 var severityScore = (severity) => {
@@ -4031,7 +4138,7 @@ var processSingleSource = async (source, options) => {
     if (options.includeAttachments && structureOutput.attachments) {
       output.attachments = structureOutput.attachments;
     }
-    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport;
+    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeTextLayer || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport;
     const pageScopedMetadata = options.includeTables || options.includeDocumentMap || options.includeDocumentAst || options.includeTrustReport || options.includeAccessibilityReport || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
     const includeSelectedPageText = targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
     const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
@@ -4114,6 +4221,12 @@ var processSingleSource = async (source, options) => {
           useSemanticBoundaries: options.includeSemanticHints
         });
         output.chunks = chunks;
+      }
+      if (options.includeTextLayer && output.page_contents) {
+        output.text_layer = buildTextLayer({
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents
+        });
       }
       let safetyFindings;
       if (options.includeSafetyFindings && output.page_contents) {
@@ -4236,6 +4349,7 @@ var readPdf = tool4().description("Reads content/metadata/images from one or mor
     include_markdown,
     include_html,
     include_chunks,
+    include_text_layer,
     include_outline,
     include_annotations,
     include_page_labels,
@@ -4264,6 +4378,7 @@ var readPdf = tool4().description("Reads content/metadata/images from one or mor
     includeMarkdown: include_markdown ?? false,
     includeHtml: include_html ?? false,
     includeChunks: include_chunks ?? false,
+    includeTextLayer: include_text_layer ?? false,
     includeOutline: include_outline ?? false,
     includeAnnotations: include_annotations ?? false,
     includePageLabels: include_page_labels ?? false,

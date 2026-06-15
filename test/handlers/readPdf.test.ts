@@ -536,6 +536,96 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
+  it('should include a text layer without forcing full text output', async () => {
+    const args = {
+      sources: [{ path: 'test.pdf', pages: [1] }],
+      include_text_layer: true,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    };
+
+    const result = await handler(args);
+
+    if (result.content?.[0]) {
+      const parsed = JSON.parse(result.content[0].text) as {
+        results: Array<{
+          data?: {
+            full_text?: string;
+            page_contents?: unknown;
+            text_layer?: {
+              profile: string;
+              pages: Array<{
+                text: string;
+                lines: Array<{
+                  text: string;
+                  char_start: number;
+                  char_end: number;
+                  words: Array<{
+                    text: string;
+                    char_start: number;
+                    char_end: number;
+                    bounding_box?: { left: number; bottom: number; right: number; top: number };
+                  }>;
+                }>;
+              }>;
+              summary: {
+                line_count: number;
+                word_count: number;
+                char_count: number;
+                words_with_bounding_boxes: number;
+              };
+            };
+          };
+        }>;
+      };
+
+      const data = parsed.results[0]?.data;
+      const textLayer = data?.text_layer;
+      expect(data?.full_text).toBeUndefined();
+      expect(data?.page_contents).toBeUndefined();
+      expect(textLayer).toMatchObject({
+        profile: 'pdf_text_layer',
+        summary: {
+          line_count: 1,
+          word_count: 4,
+          char_count: 16,
+          words_with_bounding_boxes: 4,
+        },
+      });
+      expect(textLayer?.pages[0]?.lines[0]).toMatchObject({
+        text: 'Mock page text 1',
+        char_start: 0,
+        char_end: 16,
+        words: [
+          {
+            text: 'Mock',
+            char_start: 0,
+            char_end: 4,
+            bounding_box: { left: 0, bottom: 110, right: 24, top: 111 },
+          },
+          {
+            text: 'page',
+            char_start: 5,
+            char_end: 9,
+          },
+          {
+            text: 'text',
+            char_start: 10,
+            char_end: 14,
+          },
+          {
+            text: '1',
+            char_start: 15,
+            char_end: 16,
+          },
+        ],
+      });
+    } else {
+      expect.fail('result.content[0] was undefined');
+    }
+  });
+
   it('should split citation chunks on semantic heading boundaries when semantic hints are requested', async () => {
     mockGetPage.mockImplementation((pageNum: number) => {
       if (pageNum === 1) {

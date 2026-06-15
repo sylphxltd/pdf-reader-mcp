@@ -12,6 +12,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **Region crop evidence** - Crop PDF-coordinate bounding boxes as focused PNG evidence
 - **Configured OCR text layers** - Run selected rendered pages through a local OCR provider and normalize text, confidence, words, language, and provenance
 - **Full text content** - Get all text from a PDF
+- **PDF text layers** - Return line records, word records, character ranges, best-effort boxes, and provenance
 - **Page-specific text** - Extract text from specific pages or page ranges
 - **Metadata** - Author, title, creation date, and other document properties
 - **Page count** - Total number of pages
@@ -37,6 +38,9 @@ Use `inspect_pdf` to sample a PDF, identify extraction risks, and get recommende
 
 ### PDF Search
 Use `search_pdf` to find relevant pages and source snippets before deciding whether an agent should read, render, crop, or cite a region.
+
+### PDF Text Layer
+Use `include_text_layer` when agents need line and word records with page-level character ranges and best-effort bounding boxes.
 
 ### Image Extraction
 Extract embedded images from PDFs for AI vision analysis. Images are returned as base64-encoded PNG data.

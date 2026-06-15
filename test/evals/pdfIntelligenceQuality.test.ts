@@ -11,6 +11,7 @@ import {
   renderMarkdownFromPageContents,
   textElementsOnly,
 } from '../../src/pdf/documentModel.js';
+import { buildTextLayer } from '../../src/pdf/textLayer.js';
 import type {
   BoundingBox,
   ExtractedTable,
@@ -161,6 +162,10 @@ const evaluateCase = (qualityCase: QualityCase) => {
     permissions: ['copy_for_accessibility'],
     markInfo: { Marked: true, Suspects: false },
   });
+  const textLayer = buildTextLayer({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    pageContents: qualityCase.pageContents,
+  });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
 
@@ -262,6 +267,16 @@ const evaluateCase = (qualityCase: QualityCase) => {
         accessibilityReport.summary.heading_count === 2 &&
         accessibilityReport.summary.issue_count === 0,
     },
+    {
+      name: 'text layer preserves line, word, and character references',
+      pass:
+        textLayer.profile === 'pdf_text_layer' &&
+        textLayer.summary.line_count === 7 &&
+        textLayer.summary.word_count > 20 &&
+        textLayer.summary.words_with_bounding_boxes === textLayer.summary.word_count &&
+        textLayer.pages[0]?.lines[0]?.text === 'Executive Summary' &&
+        textLayer.pages[0]?.lines[0]?.words[0]?.char_start === 0,
+    },
   ];
 
   const failures = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.name);
@@ -283,8 +298,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 13,
-        total: 13,
+        passed: 14,
+        total: 14,
         score: 1,
       });
     });

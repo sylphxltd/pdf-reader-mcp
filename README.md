@@ -80,6 +80,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
+- 🧾 **PDF Text Layer** - Optional line and word records with page-level character ranges, best-effort bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page signals, layout uncertainty, sparse pages, table warnings, and external links
@@ -368,6 +369,31 @@ than reconstructing document structure from flat text items.
 - Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
 - No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
 
+### Text Layer
+
+Use `include_text_layer` when an agent needs deterministic line and word
+references instead of only full text. It exposes page text, line records, word
+records, page-level character ranges, best-effort bounding boxes, and
+provenance from the same extracted text-content pass.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-5"
+  }],
+  "include_text_layer": true,
+  "include_full_text": false
+}
+```
+
+**Response includes:**
+- A `text_layer` object with one page record per selected page
+- Line IDs, line text, page-level `char_start`/`char_end`, and line bounding boxes when available
+- Word text, page-level character ranges, and estimated word boxes when the line has geometry
+- Summary counts for pages, lines, words, characters, and bbox coverage
+- No forced `full_text` or raw `page_contents` output
+
 ### Trust Report
 
 Use `include_trust_report` when an agent needs one local risk summary before
@@ -626,6 +652,7 @@ configured local OCR command.
 - ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, table, and image traversal
 - ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, and external links
 - ✅ **Accessibility Report** - Tagged-PDF coverage, structure tree, heading, image, form, link, and permission signals
+- ✅ **PDF Text Layer** - Line records, word records, character ranges, best-effort bounding boxes, and provenance
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
@@ -963,6 +990,7 @@ tables, and document signals.
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
 | `include_html` | boolean | Include escaped page-aware HTML for preview/export workflows | `false` |
 | `include_chunks` | boolean | Include page, semantic, size, and table chunks with source references | `false` |
+| `include_text_layer` | boolean | Include line and word records with page-level character ranges, best-effort bounding boxes, and provenance | `false` |
 | `include_layout_diagnostics` | boolean | Include page layout profiles, reading-order confidence, column signals, and warnings | `false` |
 | `include_outline` | boolean | Include PDF outline/bookmarks when available | `false` |
 | `include_annotations` | boolean | Include safe annotation summaries for selected pages | `false` |

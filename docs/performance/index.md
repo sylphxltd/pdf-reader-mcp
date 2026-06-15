@@ -18,7 +18,7 @@ with average, minimum, and maximum latency for these fixed scenarios:
 | `metadata_page_count` | Fast metadata and page-count path |
 | `full_text` | Full selectable-text extraction |
 | `selected_page_text` | Single-page extraction |
-| `v3_agent_document_twin` | Document map, document AST, trust report, accessibility report, chunks, semantic hints, layout diagnostics, and tables |
+| `v3_agent_document_twin` | Document map, text layer, document AST, trust report, accessibility report, chunks, semantic hints, layout diagnostics, and tables |
 
 Treat benchmark output as machine- and fixture-specific. Public performance
 claims should cite the command, fixture, runtime, and measured output.
@@ -303,7 +303,21 @@ the full raw structure tree or annotation payload.
 }
 ```
 
-### 19. Use Safety Findings When Agents Consume PDF Text
+### 19. Use Text Layers For Line And Word Evidence
+
+`include_text_layer` keeps line and word references in structured JSON with
+page-level character ranges and best-effort bounding boxes. Prefer it when an
+agent needs text evidence anchors but does not need full raw page content.
+
+```json
+{
+  "sources": [{ "path": "doc.pdf", "pages": "1-5" }],
+  "include_text_layer": true,
+  "include_full_text": false
+}
+```
+
+### 20. Use Safety Findings When Agents Consume PDF Text
 
 `include_safety_findings` scans extracted page text for deterministic risk
 signals. It requires page text extraction, but it does not force `full_text`

@@ -29,6 +29,7 @@ import {
   extractTablesFromPageContents,
   tablesToMarkdown,
 } from '../pdf/tableExtractor.js';
+import { buildTextLayer } from '../pdf/textLayer.js';
 import { buildTrustReport } from '../pdf/trustReport.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
 import type {
@@ -66,6 +67,7 @@ const processSingleSource = async (
     includeMarkdown: boolean;
     includeHtml: boolean;
     includeChunks: boolean;
+    includeTextLayer: boolean;
     includeOutline: boolean;
     includeAnnotations: boolean;
     includePageLabels: boolean;
@@ -136,6 +138,7 @@ const processSingleSource = async (
       options.includeMarkdown ||
       options.includeHtml ||
       options.includeChunks ||
+      options.includeTextLayer ||
       options.includeImages ||
       options.includeSafetyFindings ||
       options.includeLayoutDiagnostics ||
@@ -303,6 +306,13 @@ const processSingleSource = async (
         output.chunks = chunks;
       }
 
+      if (options.includeTextLayer && output.page_contents) {
+        output.text_layer = buildTextLayer({
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents,
+        });
+      }
+
       let safetyFindings: PdfSafetyFinding[] | undefined;
       if (options.includeSafetyFindings && output.page_contents) {
         safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
@@ -460,6 +470,7 @@ export const readPdf = tool()
       include_markdown,
       include_html,
       include_chunks,
+      include_text_layer,
       include_outline,
       include_annotations,
       include_page_labels,
@@ -491,6 +502,7 @@ export const readPdf = tool()
       includeMarkdown: include_markdown ?? false,
       includeHtml: include_html ?? false,
       includeChunks: include_chunks ?? false,
+      includeTextLayer: include_text_layer ?? false,
       includeOutline: include_outline ?? false,
       includeAnnotations: include_annotations ?? false,
       includePageLabels: include_page_labels ?? false,

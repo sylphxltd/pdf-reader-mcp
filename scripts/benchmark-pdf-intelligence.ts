@@ -92,6 +92,7 @@ const main = async () => {
         include_page_count: true,
         include_tables: true,
         include_chunks: true,
+        include_text_layer: true,
         include_semantic_hints: true,
         include_layout_diagnostics: true,
         include_document_map: true,

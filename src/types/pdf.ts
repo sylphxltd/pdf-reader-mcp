@@ -425,6 +425,57 @@ export interface PdfTrustReport {
   guidance: string[];
 }
 
+export interface PdfTextLayerWord {
+  index: number;
+  text: string;
+  char_start: number;
+  char_end: number;
+  bounding_box?: BoundingBox | undefined;
+  confidence?: number | undefined;
+}
+
+export interface PdfTextLayerLine {
+  id: string;
+  index: number;
+  text: string;
+  char_start: number;
+  char_end: number;
+  bounding_box?: BoundingBox | undefined;
+  words: PdfTextLayerWord[];
+  provenance: {
+    engine: 'pdfjs';
+    source: 'text-content';
+    bounding_box_level: 'line' | 'word_estimated';
+  };
+}
+
+export interface PdfTextLayerPage {
+  page: number;
+  text: string;
+  char_count: number;
+  line_count: number;
+  word_count: number;
+  lines: PdfTextLayerLine[];
+}
+
+export interface PdfTextLayerSummary {
+  selected_pages: number[];
+  page_count: number;
+  line_count: number;
+  word_count: number;
+  char_count: number;
+  lines_with_bounding_boxes: number;
+  words_with_bounding_boxes: number;
+}
+
+export interface PdfTextLayer {
+  version: '2026-06-15';
+  profile: 'pdf_text_layer';
+  pages: PdfTextLayerPage[];
+  summary: PdfTextLayerSummary;
+  warnings?: string[] | undefined;
+}
+
 export type PdfAccessibilityGrade = 'good' | 'partial' | 'weak';
 
 export type PdfAccessibilityIssueSeverity = 'low' | 'medium' | 'high';
@@ -525,6 +576,7 @@ export interface PdfResultData {
   page_contents?: Array<{ page: number; items: PageContentItem[] }>;
   elements?: PdfDocumentElement[];
   chunks?: PdfChunk[];
+  text_layer?: PdfTextLayer;
   safety_findings?: PdfSafetyFinding[];
   layout_diagnostics?: PdfPageLayoutDiagnostics[];
   document_map?: PdfDocumentMap;
@@ -654,6 +706,7 @@ export interface ReadPdfOptions {
   include_markdown: boolean;
   include_html: boolean;
   include_chunks: boolean;
+  include_text_layer: boolean;
   include_outline: boolean;
   include_annotations: boolean;
   include_page_labels: boolean;

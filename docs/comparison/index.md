@@ -5,6 +5,7 @@
 | Feature | PDF Reader MCP | CLI Tools | Cloud APIs | Generic FS MCP |
 |---------|---------------|-----------|------------|----------------|
 | Text Extraction | ✅ | ✅ | ✅ | ❌ |
+| Text Layer With Line/Word Ranges | ✅ | ❌ | ⚠️ | ❌ |
 | Search With Evidence | ✅ | ⚠️ | ✅ | ❌ |
 | Metadata | ✅ | ✅ | ✅ | ❌ |
 | Image Extraction | ✅ | ⚠️ | ✅ | ❌ |
@@ -69,6 +70,7 @@
 - No API keys needed
 - Batch processing
 - Search with snippets, match offsets, text-item bounding boxes, and provenance
+- Text layer with line records, word records, character ranges, and best-effort bounding boxes
 - Image extraction
 - Page rendering evidence with bounded PNG image parts
 - Region crop evidence for bbox-grounded verification
@@ -85,6 +87,7 @@
 ## When to Use PDF Reader MCP
 
 - You need AI agents to read PDF content
+- You need line/word text evidence with character ranges and best-effort boxes
 - Privacy matters (local processing)
 - You want simple MCP integration
 - You need to process multiple PDFs

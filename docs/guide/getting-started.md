@@ -307,6 +307,28 @@ available.
 }
 ```
 
+### Get a Text Layer
+
+Use `include_text_layer` when an agent needs line and word references with
+page-level character ranges and best-effort bounding boxes, rather than only
+plain full text.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_text_layer": true,
+  "include_full_text": false,
+  "include_metadata": false,
+  "include_page_count": true
+}
+```
+
+Response fields include page text, lines, words, `char_start`, `char_end`,
+best-effort bounding boxes, provenance, and summary bbox coverage counts.
+
 ### Get a Document AST
 
 Use `include_document_ast` when an agent needs a semantic tree instead of flat

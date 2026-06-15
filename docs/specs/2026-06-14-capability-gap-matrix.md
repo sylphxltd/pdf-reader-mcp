@@ -25,6 +25,7 @@ neutral capability names and avoids public comparison language.
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
 | Metadata and page count | Shipped | Existing `include_metadata`, `include_page_count`. |
 | Text extraction | Shipped | Full text and selected pages. |
+| Text layer with line/word ranges | Shipped | `include_text_layer`; page text, line IDs, word records, page-level character ranges, best-effort boxes, and provenance. |
 | Image extraction | Shipped | MCP image parts plus JSON metadata. |
 | Visual page rendering | Shipped | `render_page`; selected pages render as bounded PNG MCP image parts with evidence metadata and provenance. |
 | Region crop evidence | Shipped | `extract_regions`; PDF-coordinate bounding boxes crop into focused PNG MCP image parts with evidence metadata. |

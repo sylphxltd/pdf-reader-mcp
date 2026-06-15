@@ -138,6 +138,8 @@ Candidate engines:
    - Add `include_markdown`.
    - Add `include_html`.
    - Add `include_chunks`.
+   - Add `include_text_layer` for line records, word records, character
+     ranges, best-effort bounding boxes, and provenance.
    - Add document signals: outline, annotations, page labels, page geometry,
      permissions, structure trees, form fields, and attachment metadata.
    - Add deterministic content safety findings for agent workflows.

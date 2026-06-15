@@ -89,6 +89,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_text_layer: optional(
+    bool(
+      description(
+        'Include a page text layer with line records, word records, page-level character ranges, best-effort bounding boxes, and provenance.'
+      )
+    )
+  ),
   include_outline: optional(
     bool(description('Include document outline/bookmark entries when the PDF exposes them.'))
   ),
