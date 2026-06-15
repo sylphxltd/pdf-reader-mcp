@@ -183,9 +183,9 @@ indexes, accessibility report page and issue indexes, layout diagnostics, routin
 signals, page geometry, and optional visual enrichment indexes. Enable
 `include_visual_enrichments` when a configured visual-region
 provider should analyze bounded table/image crops plus caption-derived visual
-regions for vector-drawn formulas, charts, figures, and diagrams, then fuse the
-normalized evidence into the same document twin. Image bytes are not embedded
-inside the JSON map.
+regions for vector-drawn formulas, charts, figures, and diagrams, including
+side-caption layouts, then fuse the normalized evidence into the same document
+twin. Image bytes are not embedded inside the JSON map.
 
 ### Render Page Evidence
 
@@ -412,8 +412,8 @@ bounding boxes, confidence, semantic roles, and table quality metadata where
 available. When a page break continues an active section, AST nodes expose
 `section_path` and `continued_from_section_id` without moving evidence out of
 the page that owns it. Caption nodes can expose `caption_links` to nearby
-table, image, figure, chart, formula, or diagram evidence, and linked targets
-can expose `caption_ids`.
+table, image, figure, chart, formula, or diagram evidence above, below,
+overlapping, or to the side, and linked targets can expose `caption_ids`.
 
 ```json
 {

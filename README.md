@@ -45,7 +45,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Opt-in OCR text layer fusion for `read_pdf` document maps 🧾
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, text-layer and metadata coverage, chunks, layout, safety, trust routing and signal indexes, accessibility routing and issue indexes, visual routing, and geometry 🧭
-- Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including numbered/appendix headings, rich list prefixes, equation/chart caption aliases, and caption-to-evidence links 🌳
+- Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including numbered/appendix headings, rich list prefixes, equation/chart caption aliases, and above/below/side caption-to-evidence links 🌳
 - PDF trust report for content safety, visual-spoofing, redacted evidence, layout, table, link-risk, and document-map routing 🛡️
 - Accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, headings, images, forms, links, and permissions ♿
 - Structured element output for agent workflows 🧩
@@ -85,7 +85,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧾 **OCR-Aware Document Map** - `read_pdf` can opt into OCR text layers and OCR-derived tables for sparse/scanned pages while keeping OCR separate from selectable PDF text
 - 🧾 **PDF Text Layer** - Optional direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics
 - 🧭 **Agent Document Map** - Optional page map that links elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, trust routing and signal indexes, accessibility routing and issue indexes, visual routing, and page geometry
-- 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including numbered/appendix heading recovery, richer list-prefix coverage, cross-page section context, and caption-to-evidence links
+- 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including numbered/appendix heading recovery, richer list-prefix coverage, cross-page section context, and above/below/side caption-to-evidence links
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, selected-page counters, redacted evidence snippets, layout uncertainty, sparse pages, table warnings, external links, unsafe link schemes, and document-map risk routing
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
@@ -377,7 +377,7 @@ than reconstructing document structure from flat text items.
 - A `document_ast` root with page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, and diagram nodes where available
 - Node-level `element_ids`, `chunk_ids`, visual enrichment IDs, bounding boxes, confidence, and semantic roles where available
 - `section_path` and `continued_from_section_id` metadata where page breaks continue the active section context
-- Caption nodes can expose `caption_links` to nearby table, image, figure, chart, formula, or diagram evidence; equation/formula and graph/chart caption aliases normalize to the same evidence types, and target nodes can expose `caption_ids` for reverse lookup
+- Caption nodes can expose `caption_links` to nearby table, image, figure, chart, formula, or diagram evidence above, below, overlapping, or to the side; equation/formula and graph/chart caption aliases normalize to the same evidence types, and target nodes can expose `caption_ids` for reverse lookup
 - Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
 - Optional visual enrichment payloads with provider, crop evidence ID, source bounding box, normalized table/formula/chart fields, figure or image-description text, and confidence
 - No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
@@ -740,7 +740,7 @@ distinct scanned tables without duplicating selectable-text tables.
 - ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust routing and signal indexes, accessibility routing and issue indexes, visual routing, and geometry in one contract
-- ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
+- ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and above/below/side caption-to-evidence links
 - ✅ **Trust Report** - Local risk routing for content safety, visual-spoofing, selected-page counters, redacted evidence snippets, layout uncertainty, table quality, sparse pages, external links, and unsafe link schemes
 - ✅ **Accessibility Report** - Tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, permission, issue, and page-grade signals
 - ✅ **PDF Text Layer** - Direction-aware run records, line records, word records, character records, estimated bounding boxes, provenance, and metadata coverage diagnostics
@@ -1736,10 +1736,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Opt-in OCR text layer fusion for `read_pdf`, agent document maps, and OCR-derived table structure
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
-- [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing
+- [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
+- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
 - [x] JSON benchmark artifact output for performance, deterministic quality, and installed-provider evidence reports
 - [x] SOTA release gate that blocks release artifacts until deterministic quality and installed-provider final-bar evidence are both complete
 - [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact and matching `bin`/`exports` contract
@@ -1750,14 +1750,14 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Provider quality metrics for OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
-- [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes
+- [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence
 - [x] Text-layer evidence and metadata coverage in the agent document map without forcing top-level text-layer output
 - [x] Trust report routing and signal-level evidence indexes in the agent document map without forcing raw safety, layout, annotation, or table outputs
 - [x] Accessibility report routing and issue-level evidence indexes in the agent document map without forcing raw structure-tree output
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Broader caption-link fixture diversity across real-world visual layouts
+- [ ] Broader multi-caption and multi-target fixture diversity across real-world visual layouts
 - [ ] Broader scanned-PDF and visual-region fixture accuracy benchmarks for configured providers beyond the current runtime certification fixtures
 - [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines

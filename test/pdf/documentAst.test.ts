@@ -362,6 +362,42 @@ describe('documentAst', () => {
     expect(ast.summary.caption_link_count).toBe(2);
   });
 
+  it('links side captions to nearby visual evidence with vertical overlap', () => {
+    const pageContents = [
+      {
+        page: 1,
+        items: [
+          imageItem(0, 40, 590, 160, 100),
+          textItem('Figure 2: Revenue flow diagram', 230, 632, 230, 12),
+        ],
+      },
+    ];
+
+    const elements = buildStructuredElements(pageContents, [], true);
+    const chunks = buildCitationChunks(elements, { useSemanticBoundaries: true });
+    const ast = buildDocumentAst({ selectedPages: [1], elements, chunks });
+    const nodes = flattenNodes(ast.root);
+    const sideCaption = nodes.find((node) => node.id === 'p1-text-2');
+    const imageNode = nodes.find((node) => node.id === 'p1-image-1');
+
+    expect(sideCaption?.type).toBe('caption');
+    expect(sideCaption?.caption_links?.[0]).toMatchObject({
+      node_id: 'p1-image-1',
+      element_id: 'p1-image-1',
+      type: 'image',
+      relation: 'right',
+      signals: expect.arrayContaining([
+        'same-page',
+        'vertical-overlap',
+        'caption-right',
+        'caption-prefix-figure',
+        'caption-kind-match',
+      ]),
+    });
+    expect(imageNode?.caption_ids).toEqual(['p1-text-2']);
+    expect(ast.summary.caption_link_count).toBe(1);
+  });
+
   it('links caption-derived visual enrichments as formula nodes with crop evidence', () => {
     const pageContents = [
       {

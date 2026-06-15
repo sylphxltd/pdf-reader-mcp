@@ -220,6 +220,54 @@ describe('visualEnrichment', () => {
     expect((chartBox?.top ?? 0) >= 456).toBe(true);
   });
 
+  it('derives side-caption visual regions from vertically overlapping evidence', () => {
+    const candidates = selectVisualEnrichmentCandidates(
+      [
+        {
+          id: 'p1-chart-bars',
+          type: 'text',
+          page: 1,
+          content: 'Q1 10 Q2 18 Q3 24',
+          bounding_box: { left: 96, bottom: 500, right: 220, top: 560 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+        },
+        {
+          id: 'p1-chart-caption',
+          type: 'text',
+          page: 1,
+          content: 'Graph 3: Segment revenue',
+          bounding_box: { left: 252, bottom: 520, right: 430, top: 536 },
+          provenance: { engine: 'pdfjs', source: 'text-content' },
+          semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+        },
+      ],
+      2,
+      { pageGeometry }
+    );
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      target_element_id: 'p1-chart-caption-chart-region',
+      target_element_type: 'chart',
+      source_caption_element_id: 'p1-chart-caption',
+      source_caption_text: 'Graph 3: Segment revenue',
+      candidate_signals: expect.arrayContaining([
+        'caption-prefix-chart',
+        'nearby-positioned-evidence',
+        'caption-target-left',
+      ]),
+    });
+    const sideBox = candidates[0]?.region.bounding_box;
+    const sideLeft = sideBox?.left;
+    const sideRight = sideBox?.right;
+    expect(Number.isFinite(sideLeft)).toBe(true);
+    expect(Number.isFinite(sideRight)).toBe(true);
+    expect((sideLeft ?? Number.POSITIVE_INFINITY) < 96).toBe(true);
+    expect((sideRight ?? 0) > 430).toBe(true);
+    expect((sideRight ?? 0) - (sideLeft ?? 0) > 300).toBe(true);
+  });
+
   it('does not duplicate a caption-derived region when a nearby direct visual target exists', () => {
     const candidates = selectVisualEnrichmentCandidates(
       [

@@ -222,6 +222,24 @@ const evaluateCase = (qualityCase: QualityCase) => {
       provenance: { engine: 'pdfjs', source: 'text-content' },
       semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
     },
+    {
+      id: 'p1-side-chart-bars',
+      type: 'text',
+      page: 1,
+      content: 'Q1 10 Q2 18 Q3 24',
+      bounding_box: box(96, 280, 124, 60),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+    },
+    {
+      id: 'p1-side-chart-caption',
+      type: 'text',
+      page: 1,
+      content: 'Graph 3: Segment revenue',
+      bounding_box: box(252, 304, 178, 16),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+    },
   ];
   const captionDerivedPageGeometry: PdfPageGeometry[] = [
     {
@@ -261,6 +279,39 @@ const evaluateCase = (qualityCase: QualityCase) => {
   );
   const semanticVariantHints = textElementsOnly(semanticVariantElements).map(
     (element) => element.semantic_hint
+  );
+  const sideCaptionElements = buildStructuredElements(
+    [
+      {
+        page: 1,
+        items: [textItem('Table 2: Segment revenue', 280, 616, 170, 12)],
+      },
+    ],
+    [
+      {
+        page: 1,
+        tableIndex: 0,
+        rows: [
+          ['Segment', 'Revenue'],
+          ['Enterprise', '$24m'],
+        ],
+        bounding_box: { left: 40, bottom: 590, right: 240, top: 660 },
+        rowCount: 2,
+        colCount: 2,
+        confidence: 0.88,
+      },
+    ],
+    true,
+    captionDerivedPageGeometry
+  );
+  const sideCaptionAst = buildDocumentAst({
+    selectedPages: [1],
+    elements: sideCaptionElements,
+    chunks: buildCitationChunks(sideCaptionElements, { useSemanticBoundaries: true }),
+  });
+  const sideCaptionAstNodes = flattenAstNodes(sideCaptionAst.root);
+  const sideVisualCandidate = captionDerivedVisualCandidates.find(
+    (candidate) => candidate.source_caption_element_id === 'p1-side-chart-caption'
   );
   const accessibilityReport = buildAccessibilityReport({
     selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
@@ -389,6 +440,21 @@ const evaluateCase = (qualityCase: QualityCase) => {
             signals: ['default-text'],
           },
         ]),
+    },
+    {
+      name: 'document AST links side captions to nearby evidence with vertical overlap',
+      pass:
+        sideCaptionAst.summary.caption_link_count === 1 &&
+        sideCaptionAstNodes.find((node) => node.id === 'p1-text-1')?.caption_links?.[0]?.node_id ===
+          'p1-table-1' &&
+        sideCaptionAstNodes.find((node) => node.id === 'p1-text-1')?.caption_links?.[0]
+          ?.relation === 'right' &&
+        sideCaptionAstNodes
+          .find((node) => node.id === 'p1-text-1')
+          ?.caption_links?.[0]?.signals.includes('vertical-overlap') === true &&
+        JSON.stringify(
+          sideCaptionAstNodes.find((node) => node.id === 'p1-table-1')?.caption_ids
+        ) === JSON.stringify(['p1-text-1']),
     },
     {
       name: 'table element stays in page order before later-page text',
@@ -567,10 +633,12 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentAst.root.chunk_ids !== undefined,
     },
     {
-      name: 'caption-derived visual candidates cover formula and chart regions without image objects',
+      name: 'caption-derived visual candidates cover formula, chart, and side-caption regions without image objects',
       pass:
         captionDerivedCandidateTypes.has('formula') &&
         captionDerivedCandidateTypes.has('chart') &&
+        sideVisualCandidate?.target_element_type === 'chart' &&
+        sideVisualCandidate.candidate_signals.includes('caption-target-left') &&
         captionDerivedVisualCandidates.every(
           (candidate) =>
             candidate.source_caption_element_id !== undefined &&
@@ -657,8 +725,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 20,
-        total: 20,
+        passed: 21,
+        total: 21,
         score: 1,
       });
     });

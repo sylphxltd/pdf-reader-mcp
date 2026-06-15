@@ -15,7 +15,9 @@ import { type SemanticCaptionKind, semanticCaptionKind } from './semanticPattern
 
 const DOCUMENT_AST_VERSION = '2026-06-15' as const;
 const CAPTION_TARGET_MAX_VERTICAL_GAP = 96;
+const CAPTION_TARGET_MAX_SIDE_GAP = 96;
 const CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
+const CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO = 0.32;
 
 interface BuildDocumentAstInput {
   selectedPages: number[];
@@ -319,28 +321,95 @@ const horizontalOverlapRatio = (left: BoundingBox, right: BoundingBox): number =
   return overlap / denominator;
 };
 
-const captionTargetRelation = (
+const verticalOverlapRatio = (left: BoundingBox, right: BoundingBox): number => {
+  const overlap = Math.min(left.top, right.top) - Math.max(left.bottom, right.bottom);
+  if (overlap <= 0) return 0;
+
+  const leftHeight = left.top - left.bottom;
+  const rightHeight = right.top - right.bottom;
+  const denominator = Math.min(leftHeight, rightHeight);
+  if (denominator <= 0) return 0;
+
+  return overlap / denominator;
+};
+
+interface CaptionTargetGeometry {
+  relation: PdfDocumentAstCaptionRelation;
+  gap: number;
+  maxGap: number;
+  overlapRatio: number;
+  minOverlapRatio: number;
+  overlapSignal: 'horizontal-overlap' | 'vertical-overlap';
+}
+
+const captionTargetGeometry = (
   captionBox: BoundingBox,
   targetBox: BoundingBox
-): { relation: PdfDocumentAstCaptionRelation; gap: number } => {
+): CaptionTargetGeometry => {
   if (captionBox.top <= targetBox.bottom) {
-    return { relation: 'below', gap: targetBox.bottom - captionBox.top };
+    return {
+      relation: 'below',
+      gap: targetBox.bottom - captionBox.top,
+      maxGap: CAPTION_TARGET_MAX_VERTICAL_GAP,
+      overlapRatio: horizontalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
+      overlapSignal: 'horizontal-overlap',
+    };
   }
 
   if (captionBox.bottom >= targetBox.top) {
-    return { relation: 'above', gap: captionBox.bottom - targetBox.top };
+    return {
+      relation: 'above',
+      gap: captionBox.bottom - targetBox.top,
+      maxGap: CAPTION_TARGET_MAX_VERTICAL_GAP,
+      overlapRatio: horizontalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
+      overlapSignal: 'horizontal-overlap',
+    };
   }
 
-  return { relation: 'overlapping', gap: 0 };
+  if (captionBox.right <= targetBox.left) {
+    return {
+      relation: 'left',
+      gap: targetBox.left - captionBox.right,
+      maxGap: CAPTION_TARGET_MAX_SIDE_GAP,
+      overlapRatio: verticalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO,
+      overlapSignal: 'vertical-overlap',
+    };
+  }
+
+  if (captionBox.left >= targetBox.right) {
+    return {
+      relation: 'right',
+      gap: captionBox.left - targetBox.right,
+      maxGap: CAPTION_TARGET_MAX_SIDE_GAP,
+      overlapRatio: verticalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO,
+      overlapSignal: 'vertical-overlap',
+    };
+  }
+
+  const horizontalOverlap = horizontalOverlapRatio(captionBox, targetBox);
+  const verticalOverlap = verticalOverlapRatio(captionBox, targetBox);
+  return {
+    relation: 'overlapping',
+    gap: 0,
+    maxGap: 0,
+    overlapRatio: Math.max(horizontalOverlap, verticalOverlap),
+    minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
+    overlapSignal: horizontalOverlap >= verticalOverlap ? 'horizontal-overlap' : 'vertical-overlap',
+  };
 };
 
 const captionTargetSignals = (
   kind: ReturnType<typeof captionKind>,
   relation: PdfDocumentAstCaptionRelation,
-  kindMatched: boolean
+  kindMatched: boolean,
+  overlapSignal: CaptionTargetGeometry['overlapSignal']
 ): string[] => [
   'same-page',
-  'horizontal-overlap',
+  overlapSignal,
   `caption-${relation}`,
   ...(kind ? [`caption-prefix-${kind}`] : []),
   ...(kindMatched ? ['caption-kind-match'] : []),
@@ -355,26 +424,27 @@ const buildCaptionLink = (
   const targetBox = primaryBox(target);
   if (!captionBox || !targetBox) return undefined;
 
-  const overlapRatio = horizontalOverlapRatio(captionBox, targetBox);
-  if (overlapRatio < CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-
-  const { relation, gap } = captionTargetRelation(captionBox, targetBox);
-  if (gap > CAPTION_TARGET_MAX_VERTICAL_GAP) return undefined;
+  const geometry = captionTargetGeometry(captionBox, targetBox);
+  if (geometry.overlapRatio < geometry.minOverlapRatio) return undefined;
+  if (geometry.gap > geometry.maxGap) return undefined;
 
   const kindMatched = kind !== undefined && captionKindMatchesNode(kind, target);
   const visualEnrichmentId = target.visual_enrichment_ids?.[0];
   const confidence = Math.max(
     0.5,
-    Math.min(0.95, 0.62 + overlapRatio * 0.18 + (kindMatched ? 0.12 : 0) - gap / 480)
+    Math.min(
+      0.95,
+      0.62 + geometry.overlapRatio * 0.18 + (kindMatched ? 0.12 : 0) - geometry.gap / 480
+    )
   );
 
   return {
     node_id: target.id,
     element_id: target.element_ids[0] ?? target.id,
     type: target.type,
-    relation,
+    relation: geometry.relation,
     confidence: Number(confidence.toFixed(2)),
-    signals: captionTargetSignals(kind, relation, kindMatched),
+    signals: captionTargetSignals(kind, geometry.relation, kindMatched, geometry.overlapSignal),
     ...(visualEnrichmentId ? { visual_enrichment_id: visualEnrichmentId } : {}),
   };
 };

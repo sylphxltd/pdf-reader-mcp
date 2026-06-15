@@ -484,7 +484,7 @@ export interface PdfDocumentAstSectionRef {
   page_start: number;
 }
 
-export type PdfDocumentAstCaptionRelation = 'above' | 'below' | 'overlapping';
+export type PdfDocumentAstCaptionRelation = 'above' | 'below' | 'left' | 'right' | 'overlapping';
 
 export interface PdfDocumentAstCaptionLink {
   node_id: string;

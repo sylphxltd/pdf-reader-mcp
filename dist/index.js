@@ -3974,7 +3974,9 @@ var hasSemanticCaptionPrefix = (text2) => semanticCaptionKind(text2) !== undefin
 // src/pdf/documentAst.ts
 var DOCUMENT_AST_VERSION = "2026-06-15";
 var CAPTION_TARGET_MAX_VERTICAL_GAP = 96;
+var CAPTION_TARGET_MAX_SIDE_GAP = 96;
 var CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
+var CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO = 0.32;
 var unique = (values) => [...new Set(values)];
 var sectionRef = (node) => ({
   id: node.id,
@@ -4164,18 +4166,72 @@ var horizontalOverlapRatio = (left, right) => {
     return 0;
   return overlap / denominator;
 };
-var captionTargetRelation = (captionBox, targetBox) => {
+var verticalOverlapRatio = (left, right) => {
+  const overlap = Math.min(left.top, right.top) - Math.max(left.bottom, right.bottom);
+  if (overlap <= 0)
+    return 0;
+  const leftHeight = left.top - left.bottom;
+  const rightHeight = right.top - right.bottom;
+  const denominator = Math.min(leftHeight, rightHeight);
+  if (denominator <= 0)
+    return 0;
+  return overlap / denominator;
+};
+var captionTargetGeometry = (captionBox, targetBox) => {
   if (captionBox.top <= targetBox.bottom) {
-    return { relation: "below", gap: targetBox.bottom - captionBox.top };
+    return {
+      relation: "below",
+      gap: targetBox.bottom - captionBox.top,
+      maxGap: CAPTION_TARGET_MAX_VERTICAL_GAP,
+      overlapRatio: horizontalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
+      overlapSignal: "horizontal-overlap"
+    };
   }
   if (captionBox.bottom >= targetBox.top) {
-    return { relation: "above", gap: captionBox.bottom - targetBox.top };
+    return {
+      relation: "above",
+      gap: captionBox.bottom - targetBox.top,
+      maxGap: CAPTION_TARGET_MAX_VERTICAL_GAP,
+      overlapRatio: horizontalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
+      overlapSignal: "horizontal-overlap"
+    };
   }
-  return { relation: "overlapping", gap: 0 };
+  if (captionBox.right <= targetBox.left) {
+    return {
+      relation: "left",
+      gap: targetBox.left - captionBox.right,
+      maxGap: CAPTION_TARGET_MAX_SIDE_GAP,
+      overlapRatio: verticalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO,
+      overlapSignal: "vertical-overlap"
+    };
+  }
+  if (captionBox.left >= targetBox.right) {
+    return {
+      relation: "right",
+      gap: captionBox.left - targetBox.right,
+      maxGap: CAPTION_TARGET_MAX_SIDE_GAP,
+      overlapRatio: verticalOverlapRatio(captionBox, targetBox),
+      minOverlapRatio: CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO,
+      overlapSignal: "vertical-overlap"
+    };
+  }
+  const horizontalOverlap = horizontalOverlapRatio(captionBox, targetBox);
+  const verticalOverlap = verticalOverlapRatio(captionBox, targetBox);
+  return {
+    relation: "overlapping",
+    gap: 0,
+    maxGap: 0,
+    overlapRatio: Math.max(horizontalOverlap, verticalOverlap),
+    minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
+    overlapSignal: horizontalOverlap >= verticalOverlap ? "horizontal-overlap" : "vertical-overlap"
+  };
 };
-var captionTargetSignals = (kind, relation, kindMatched) => [
+var captionTargetSignals = (kind, relation, kindMatched, overlapSignal) => [
   "same-page",
-  "horizontal-overlap",
+  overlapSignal,
   `caption-${relation}`,
   ...kind ? [`caption-prefix-${kind}`] : [],
   ...kindMatched ? ["caption-kind-match"] : []
@@ -4185,22 +4241,21 @@ var buildCaptionLink = (caption, target, kind) => {
   const targetBox = primaryBox(target);
   if (!captionBox || !targetBox)
     return;
-  const overlapRatio = horizontalOverlapRatio(captionBox, targetBox);
-  if (overlapRatio < CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO)
+  const geometry = captionTargetGeometry(captionBox, targetBox);
+  if (geometry.overlapRatio < geometry.minOverlapRatio)
     return;
-  const { relation, gap } = captionTargetRelation(captionBox, targetBox);
-  if (gap > CAPTION_TARGET_MAX_VERTICAL_GAP)
+  if (geometry.gap > geometry.maxGap)
     return;
   const kindMatched = kind !== undefined && captionKindMatchesNode(kind, target);
   const visualEnrichmentId = target.visual_enrichment_ids?.[0];
-  const confidence = Math.max(0.5, Math.min(0.95, 0.62 + overlapRatio * 0.18 + (kindMatched ? 0.12 : 0) - gap / 480));
+  const confidence = Math.max(0.5, Math.min(0.95, 0.62 + geometry.overlapRatio * 0.18 + (kindMatched ? 0.12 : 0) - geometry.gap / 480));
   return {
     node_id: target.id,
     element_id: target.element_ids[0] ?? target.id,
     type: target.type,
-    relation,
+    relation: geometry.relation,
     confidence: Number(confidence.toFixed(2)),
-    signals: captionTargetSignals(kind, relation, kindMatched),
+    signals: captionTargetSignals(kind, geometry.relation, kindMatched, geometry.overlapSignal),
     ...visualEnrichmentId ? { visual_enrichment_id: visualEnrichmentId } : {}
   };
 };
@@ -6691,11 +6746,25 @@ var horizontalOverlapRatio2 = (left, right) => {
   const denominator = Math.min(left.right - left.left, right.right - right.left);
   return denominator > 0 ? overlap / denominator : 0;
 };
+var verticalOverlapRatio2 = (left, right) => {
+  const overlap = Math.min(left.top, right.top) - Math.max(left.bottom, right.bottom);
+  if (overlap <= 0)
+    return 0;
+  const denominator = Math.min(left.top - left.bottom, right.top - right.bottom);
+  return denominator > 0 ? overlap / denominator : 0;
+};
 var verticalGap = (left, right) => {
   if (left.top < right.bottom)
     return right.bottom - left.top;
   if (right.top < left.bottom)
     return left.bottom - right.top;
+  return 0;
+};
+var horizontalGap = (left, right) => {
+  if (left.right < right.left)
+    return right.left - left.right;
+  if (right.right < left.left)
+    return left.left - right.right;
   return 0;
 };
 var isDirectKindMatch = (kind, element) => {
@@ -6705,7 +6774,7 @@ var isDirectKindMatch = (kind, element) => {
     return false;
   return element.type === "image";
 };
-var hasNearbyDirectTarget = (caption, kind, directTargets) => directTargets.some((target) => target.page === caption.page && isDirectKindMatch(kind, target) && horizontalOverlapRatio2(caption.bounding_box, target.bounding_box) >= 0.12 && verticalGap(caption.bounding_box, target.bounding_box) <= 112);
+var hasNearbyDirectTarget = (caption, kind, directTargets) => directTargets.some((target) => target.page === caption.page && isDirectKindMatch(kind, target) && (horizontalOverlapRatio2(caption.bounding_box, target.bounding_box) >= 0.12 && verticalGap(caption.bounding_box, target.bounding_box) <= 112 || verticalOverlapRatio2(caption.bounding_box, target.bounding_box) >= 0.32 && horizontalGap(caption.bounding_box, target.bounding_box) <= 112));
 var captionRegionMaxGap = (kind, pageBounds) => {
   const pageHeight = pageBounds.top - pageBounds.bottom;
   if (kind === "formula")
@@ -6713,6 +6782,12 @@ var captionRegionMaxGap = (kind, pageBounds) => {
   if (kind === "table")
     return Math.min(Math.max(128, pageHeight * 0.24), 220);
   return Math.min(Math.max(168, pageHeight * 0.32), 280);
+};
+var captionRegionMaxSideGap = (kind, pageBounds) => {
+  const pageWidth = pageBounds.right - pageBounds.left;
+  if (kind === "formula")
+    return Math.min(Math.max(72, pageWidth * 0.14), 112);
+  return Math.min(Math.max(96, pageWidth * 0.18), 160);
 };
 var visualRegionMargin = (kind, pageBounds) => {
   const pageWidth = pageBounds.right - pageBounds.left;
@@ -6729,6 +6804,7 @@ var expandAndClampBox = (box, pageBounds, margin) => ({
 var isUsefulRegionBox = (box) => box.right - box.left >= 12 && box.top - box.bottom >= 8;
 var candidateNeighborElements = (caption, elementsOnPage, pageBounds, kind) => {
   const maxGap = captionRegionMaxGap(kind, pageBounds);
+  const maxSideGap = captionRegionMaxSideGap(kind, pageBounds);
   const positioned = elementsOnPage.filter((element) => {
     if (element.id === caption.id || !element.bounding_box)
       return false;
@@ -6738,31 +6814,52 @@ var candidateNeighborElements = (caption, elementsOnPage, pageBounds, kind) => {
   });
   const above = [];
   const below = [];
+  const left = [];
+  const right = [];
   for (const element of positioned) {
     const box = element.bounding_box;
-    if (!box || horizontalOverlapRatio2(caption.bounding_box, box) < 0.06)
+    if (!box)
       continue;
-    if (box.bottom >= caption.bounding_box.top) {
-      const gap = box.bottom - caption.bounding_box.top;
-      if (gap <= maxGap)
-        above.push({ box, gap });
-    } else if (box.top <= caption.bounding_box.bottom) {
-      const gap = caption.bounding_box.bottom - box.top;
-      if (gap <= maxGap)
-        below.push({ box, gap });
-    } else if (verticalGap(caption.bounding_box, box) === 0) {
-      above.push({ box, gap: 0 });
+    if (horizontalOverlapRatio2(caption.bounding_box, box) >= 0.06) {
+      if (box.bottom >= caption.bounding_box.top) {
+        const gap = box.bottom - caption.bounding_box.top;
+        if (gap <= maxGap)
+          above.push({ box, gap });
+      } else if (box.top <= caption.bounding_box.bottom) {
+        const gap = caption.bounding_box.bottom - box.top;
+        if (gap <= maxGap)
+          below.push({ box, gap });
+      } else if (verticalGap(caption.bounding_box, box) === 0) {
+        above.push({ box, gap: 0 });
+      }
+      continue;
+    }
+    if (verticalOverlapRatio2(caption.bounding_box, box) < 0.32)
+      continue;
+    if (box.right <= caption.bounding_box.left) {
+      const gap = caption.bounding_box.left - box.right;
+      if (gap <= maxSideGap)
+        left.push({ box, gap });
+    } else if (box.left >= caption.bounding_box.right) {
+      const gap = box.left - caption.bounding_box.right;
+      if (gap <= maxSideGap)
+        right.push({ box, gap });
     }
   }
-  const minAboveGap = Math.min(...above.map((entry) => entry.gap), Number.POSITIVE_INFINITY);
-  const minBelowGap = Math.min(...below.map((entry) => entry.gap), Number.POSITIVE_INFINITY);
-  const selected = above.length > 0 && (below.length === 0 || minAboveGap <= minBelowGap + 24) ? above : below;
+  const groups = [
+    { entries: above, signal: "caption-target-above", priority: 0 },
+    { entries: below, signal: "caption-target-below", priority: 0 },
+    { entries: left, signal: "caption-target-left", priority: 1 },
+    { entries: right, signal: "caption-target-right", priority: 1 }
+  ].filter((group) => group.entries.length > 0);
+  const selectedGroup = groups.sort((first, second) => {
+    const firstGap = Math.min(...first.entries.map((entry) => entry.gap));
+    const secondGap = Math.min(...second.entries.map((entry) => entry.gap));
+    return firstGap + first.priority * 24 - (secondGap + second.priority * 24);
+  })[0];
   return {
-    boxes: selected.map((entry) => entry.box),
-    signals: selected.length > 0 ? [
-      "nearby-positioned-evidence",
-      selected === above ? "caption-target-above" : "caption-target-below"
-    ] : []
+    boxes: selectedGroup?.entries.map((entry) => entry.box) ?? [],
+    signals: selectedGroup !== undefined ? ["nearby-positioned-evidence", selectedGroup.signal] : []
   };
 };
 var fallbackCaptionRegionBox = (caption, pageBounds, kind) => {
