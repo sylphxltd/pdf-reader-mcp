@@ -18,5 +18,5 @@ direction-aware selectable-text ordering for right-to-left text runs and expose
 text-layer font, direction, transform, and end-of-line metadata coverage in the
 text layer and agent document map summaries. Add selected-page-scoped
 trust-report summary breakdowns for signal types, safety finding types, and
-page-risk counts, plus more specific routing guidance for overlapping, tiny,
-and off-page text.
+page-risk counts, redacted trust-evidence snippets for common sensitive values,
+plus more specific routing guidance for overlapping, tiny, and off-page text.

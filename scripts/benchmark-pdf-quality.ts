@@ -1960,6 +1960,24 @@ const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
       },
     ],
   });
+  const redactedTrustReport = buildTrustReport({
+    selectedPages: [1],
+    safetyFindings: [
+      {
+        type: 'prompt_injection_pattern',
+        severity: 'high',
+        page: 1,
+        message: 'Prompt-like text includes sensitive values.',
+        snippet:
+          'Email jane@example.com SSN 123-45-6789 card 4111 1111 1111 1111 token=sk-testsecretvalue1234567890 jwt eyJaaaaaaaaaaaa.eyJbbbbbbbbbbbb.cccccccccccccc key -----BEGIN PRIVATE KEY-----',
+      },
+    ],
+    layoutDiagnostics: [],
+    elements: [],
+  });
+  const redactedEvidence = redactedTrustReport.signals[0]?.evidence;
+  const redactedSnippet = redactedEvidence?.['snippet'];
+  const redactionTypes = redactedEvidence?.['redaction_types'];
   const unsafeLinkSignal = trustReport.signals.find(
     (signal) => signal.type === 'unsafe_external_link'
   );
@@ -2008,6 +2026,28 @@ const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
         scopedTrustReport.summary.signal_type_counts.unsafe_external_link === 1 &&
         scopedTrustReport.summary.safety_finding_type_counts.hidden_text === 1 &&
         scopedTrustReport.signals.every((signal) => signal.page === undefined || signal.page === 1),
+    },
+    {
+      name: 'trust report redacts sensitive evidence snippets',
+      pass:
+        redactedEvidence?.['snippet_redacted'] === true &&
+        Array.isArray(redactionTypes) &&
+        redactionTypes.includes('email') &&
+        redactionTypes.includes('ssn') &&
+        redactionTypes.includes('credit_card') &&
+        redactionTypes.includes('secret') &&
+        redactionTypes.includes('jwt') &&
+        redactionTypes.includes('private_key_marker') &&
+        typeof redactedSnippet === 'string' &&
+        redactedSnippet.includes('[REDACTED_EMAIL]') &&
+        redactedSnippet.includes('[REDACTED_JWT]') &&
+        redactedSnippet.includes('[REDACTED_PRIVATE_KEY_MARKER]') &&
+        !redactedSnippet.includes('jane@example.com') &&
+        !redactedSnippet.includes('123-45-6789') &&
+        !redactedSnippet.includes('4111 1111 1111 1111') &&
+        !redactedSnippet.includes('sk-testsecretvalue1234567890') &&
+        !redactedSnippet.includes('eyJaaaaaaaaaaaa.eyJbbbbbbbbbbbb.cccccccccccccc') &&
+        !redactedSnippet.includes('-----BEGIN PRIVATE KEY-----'),
     },
     {
       name: 'trust report gives visual-spoofing verification guidance',

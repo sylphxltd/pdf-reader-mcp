@@ -3422,7 +3422,7 @@ var readPdfArgsSchema = object({
   include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
-  include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, category-count, and page-risk signals for agent routing."))),
+  include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, selected-page category-count, page-risk, and redacted evidence signals for agent routing."))),
   include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
 });
 
@@ -6052,18 +6052,67 @@ var countBy = (values) => {
   }
   return counts;
 };
-var signalFromSafetyFinding = (finding) => ({
-  type: "content_safety",
-  severity: finding.severity === "high" ? "high" : finding.severity === "medium" ? "medium" : "low",
-  page: finding.page,
-  message: finding.message,
-  ...finding.element_id ? { element_id: finding.element_id } : {},
-  evidence: {
-    finding_type: finding.type,
-    ...finding.snippet ? { snippet: finding.snippet } : {},
-    ...finding.bounding_box ? { bounding_box: finding.bounding_box } : {}
+var addRedactionType = (types, type) => {
+  types.add(type);
+  return `[REDACTED_${type.toUpperCase()}]`;
+};
+var luhnCheck = (digits) => {
+  let sum = 0;
+  let shouldDouble = false;
+  for (let index = digits.length - 1;index >= 0; index -= 1) {
+    let digit = Number(digits[index]);
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9)
+        digit -= 9;
+    }
+    sum += digit;
+    shouldDouble = !shouldDouble;
   }
-});
+  return sum > 0 && sum % 10 === 0;
+};
+var redactTrustEvidenceText = (value) => {
+  const types = new Set;
+  let text2 = value;
+  text2 = text2.replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----/g, () => addRedactionType(types, "private_key_marker"));
+  text2 = text2.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, () => addRedactionType(types, "jwt"));
+  text2 = text2.replace(/\b(api[_-]?key|secret|token|password)\s*[:=]\s*['"]?[A-Za-z0-9._~+/=-]{12,}['"]?/gi, (_match, label) => {
+    types.add("secret");
+    return `${label}=[REDACTED_SECRET]`;
+  });
+  text2 = text2.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, () => addRedactionType(types, "email"));
+  text2 = text2.replace(/\b\d{3}-\d{2}-\d{4}\b/g, () => addRedactionType(types, "ssn"));
+  text2 = text2.replace(/\b(?:\d[ -]*?){13,19}\b/g, (match) => {
+    const digits = match.replace(/\D/g, "");
+    if (digits.length < 13 || digits.length > 19 || !luhnCheck(digits))
+      return match;
+    types.add("credit_card");
+    return `[REDACTED_CREDIT_CARD_LAST4_${digits.slice(-4)}]`;
+  });
+  return { text: text2, types: [...types] };
+};
+var signalFromSafetyFinding = (finding) => {
+  const evidence = {
+    finding_type: finding.type,
+    ...finding.bounding_box ? { bounding_box: finding.bounding_box } : {}
+  };
+  if (finding.snippet) {
+    const redactedSnippet = redactTrustEvidenceText(finding.snippet);
+    evidence["snippet"] = redactedSnippet.text;
+    if (redactedSnippet.types.length > 0) {
+      evidence["snippet_redacted"] = true;
+      evidence["redaction_types"] = redactedSnippet.types;
+    }
+  }
+  return {
+    type: "content_safety",
+    severity: finding.severity === "high" ? "high" : finding.severity === "medium" ? "medium" : "low",
+    page: finding.page,
+    message: finding.message,
+    ...finding.element_id ? { element_id: finding.element_id } : {},
+    evidence
+  };
+};
 var signalsFromLayout = (layout) => {
   const signals = [];
   if (layout.confidence < 0.7) {

@@ -313,4 +313,37 @@ describe('trustReport', () => {
       },
     ]);
   });
+
+  it('redacts sensitive values from trust evidence snippets', () => {
+    const report = buildTrustReport({
+      selectedPages: [1],
+      safetyFindings: [
+        {
+          type: 'prompt_injection_pattern',
+          severity: 'high',
+          page: 1,
+          message: 'Prompt-like text includes sensitive values.',
+          snippet:
+            'Email jane@example.com SSN 123-45-6789 card 4111 1111 1111 1111 token=sk-testsecretvalue1234567890 jwt eyJaaaaaaaaaaaa.eyJbbbbbbbbbbbb.cccccccccccccc key -----BEGIN PRIVATE KEY-----',
+        },
+      ],
+      layoutDiagnostics: [],
+      elements: [],
+    });
+
+    const evidence = report.signals[0]?.evidence ?? {};
+    expect(evidence['snippet']).toBe(
+      'Email [REDACTED_EMAIL] SSN [REDACTED_SSN] card [REDACTED_CREDIT_CARD_LAST4_1111] token=[REDACTED_SECRET] jwt [REDACTED_JWT] key [REDACTED_PRIVATE_KEY_MARKER]'
+    );
+    expect(evidence['snippet_redacted']).toBe(true);
+    expect(evidence['redaction_types']).toEqual(
+      expect.arrayContaining(['email', 'ssn', 'credit_card', 'secret', 'jwt', 'private_key_marker'])
+    );
+    expect(evidence['snippet']).not.toContain('jane@example.com');
+    expect(evidence['snippet']).not.toContain('123-45-6789');
+    expect(evidence['snippet']).not.toContain('4111 1111 1111 1111');
+    expect(evidence['snippet']).not.toContain('sk-testsecretvalue1234567890');
+    expect(evidence['snippet']).not.toContain('eyJaaaaaaaaaaaa.eyJbbbbbbbbbbbb.cccccccccccccc');
+    expect(evidence['snippet']).not.toContain('-----BEGIN PRIVATE KEY-----');
+  });
 });

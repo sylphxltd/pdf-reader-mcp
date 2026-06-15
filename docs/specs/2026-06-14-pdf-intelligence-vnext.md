@@ -184,7 +184,8 @@ Candidate engines:
 
 4. Safety and trust
    - Detect hidden, tiny, off-page, overlapping, and suspicious invisible text.
-   - Add optional sensitive data redaction.
+   - Broaden sensitive-data redaction fixtures beyond the trust-report evidence
+     redaction gate.
    - Add provenance, confidence, warnings, and trace-friendly logs.
 
 5. Advanced engines

@@ -46,7 +46,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, text-layer and metadata coverage, chunks, layout, safety, and geometry 🧭
 - Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including caption-to-evidence links 🌳
-- PDF trust report for content safety, visual-spoofing, layout, table, and link-risk routing 🛡️
+- PDF trust report for content safety, visual-spoofing, redacted evidence, layout, table, and link-risk routing 🛡️
 - Accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, headings, images, forms, links, and permissions ♿
 - Structured element output for agent workflows 🧩
 - Table quality diagnostics with inferred cell spans and continuation candidates 📊
@@ -86,7 +86,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧾 **PDF Text Layer** - Optional direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics
 - 🧭 **Agent Document Map** - Optional page map that links elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context and caption-to-evidence links
-- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, external links, and unsafe link schemes
+- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, selected-page counters, redacted evidence snippets, layout uncertainty, sparse pages, table warnings, external links, and unsafe link schemes
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
@@ -429,6 +429,7 @@ using extracted PDF content as instructions, evidence, or retrieval context.
 - Document and page-level risk scores
 - Content safety, hidden-text, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table quality, external-link, and unsafe-link signals
 - Selected-page-scoped summary counters for signal types, safety finding types, severity counts, and page-risk buckets
+- Redacted trust-evidence snippets for common sensitive values such as emails, SSNs, payment cards, secret assignments, JWTs, and private-key markers
 - Guidance for when to verify with OCR, page rendering, region crops, or caller approval before link handling
 - No forced top-level safety, layout, annotation, or table outputs unless those options are requested
 
@@ -735,7 +736,7 @@ distinct scanned tables without duplicating selectable-text tables.
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
 - ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
-- ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, external links, and unsafe link schemes
+- ✅ **Trust Report** - Local risk routing for content safety, visual-spoofing, selected-page counters, redacted evidence snippets, layout uncertainty, table quality, sparse pages, external links, and unsafe link schemes
 - ✅ **Accessibility Report** - Tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, and permission signals
 - ✅ **PDF Text Layer** - Direction-aware run records, line records, word records, character records, estimated bounding boxes, provenance, and metadata coverage diagnostics
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
@@ -1715,7 +1716,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, selected-page-scoped trust-report category summaries, visual-spoofing guidance, hidden-text/unsafe-link trust routing, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion
 - [x] Tag-to-visible-content coverage in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics

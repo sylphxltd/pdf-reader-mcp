@@ -5,6 +5,7 @@ import type {
   PdfPageLayoutDiagnostics,
   PdfSafetyFinding,
   PdfSafetyFindingType,
+  PdfTrustEvidenceRedactionType,
   PdfTrustPageReport,
   PdfTrustReport,
   PdfTrustRiskLevel,
@@ -44,18 +45,90 @@ const countBy = <T extends string>(values: T[]): Partial<Record<T, number>> => {
   return counts;
 };
 
-const signalFromSafetyFinding = (finding: PdfSafetyFinding): PdfTrustSignal => ({
-  type: 'content_safety',
-  severity: finding.severity === 'high' ? 'high' : finding.severity === 'medium' ? 'medium' : 'low',
-  page: finding.page,
-  message: finding.message,
-  ...(finding.element_id ? { element_id: finding.element_id } : {}),
-  evidence: {
+interface RedactedTrustEvidenceText {
+  text: string;
+  types: PdfTrustEvidenceRedactionType[];
+}
+
+const addRedactionType = (
+  types: Set<PdfTrustEvidenceRedactionType>,
+  type: PdfTrustEvidenceRedactionType
+): string => {
+  types.add(type);
+  return `[REDACTED_${type.toUpperCase()}]`;
+};
+
+const luhnCheck = (digits: string): boolean => {
+  let sum = 0;
+  let shouldDouble = false;
+  for (let index = digits.length - 1; index >= 0; index -= 1) {
+    let digit = Number(digits[index]);
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+  return sum > 0 && sum % 10 === 0;
+};
+
+const redactTrustEvidenceText = (value: string): RedactedTrustEvidenceText => {
+  const types = new Set<PdfTrustEvidenceRedactionType>();
+  let text = value;
+
+  text = text.replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----/g, () =>
+    addRedactionType(types, 'private_key_marker')
+  );
+  text = text.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, () =>
+    addRedactionType(types, 'jwt')
+  );
+  text = text.replace(
+    /\b(api[_-]?key|secret|token|password)\s*[:=]\s*['"]?[A-Za-z0-9._~+/=-]{12,}['"]?/gi,
+    (_match, label: string) => {
+      types.add('secret');
+      return `${label}=[REDACTED_SECRET]`;
+    }
+  );
+  text = text.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, () =>
+    addRedactionType(types, 'email')
+  );
+  text = text.replace(/\b\d{3}-\d{2}-\d{4}\b/g, () => addRedactionType(types, 'ssn'));
+  text = text.replace(/\b(?:\d[ -]*?){13,19}\b/g, (match) => {
+    const digits = match.replace(/\D/g, '');
+    if (digits.length < 13 || digits.length > 19 || !luhnCheck(digits)) return match;
+    types.add('credit_card');
+    return `[REDACTED_CREDIT_CARD_LAST4_${digits.slice(-4)}]`;
+  });
+
+  return { text, types: [...types] };
+};
+
+const signalFromSafetyFinding = (finding: PdfSafetyFinding): PdfTrustSignal => {
+  const evidence: Record<string, unknown> = {
     finding_type: finding.type,
-    ...(finding.snippet ? { snippet: finding.snippet } : {}),
     ...(finding.bounding_box ? { bounding_box: finding.bounding_box } : {}),
-  },
-});
+  };
+
+  if (finding.snippet) {
+    const redactedSnippet = redactTrustEvidenceText(finding.snippet);
+    evidence['snippet'] = redactedSnippet.text;
+    if (redactedSnippet.types.length > 0) {
+      evidence['snippet_redacted'] = true;
+      evidence['redaction_types'] = redactedSnippet.types;
+    }
+  }
+
+  return {
+    type: 'content_safety',
+    severity:
+      finding.severity === 'high' ? 'high' : finding.severity === 'medium' ? 'medium' : 'low',
+    page: finding.page,
+    message: finding.message,
+    ...(finding.element_id ? { element_id: finding.element_id } : {}),
+    evidence,
+  };
+};
 
 const signalsFromLayout = (layout: PdfPageLayoutDiagnostics): PdfTrustSignal[] => {
   const signals: PdfTrustSignal[] = [];

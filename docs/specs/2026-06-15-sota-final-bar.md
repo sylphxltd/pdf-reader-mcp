@@ -65,6 +65,9 @@ themselves.
    - Summarize selected-page-scoped trust evidence by signal type, safety
      finding type, severity, and page-risk bucket so agents can route high-risk
      PDFs without scanning every raw signal first.
+   - Redact common sensitive values from trust-report evidence snippets while
+     marking the redaction types, so routing metadata does not unnecessarily
+     expose secrets.
 
 8. Reproducible proof
    - Public benchmark commands must measure speed and quality, not just runtime.
@@ -80,8 +83,8 @@ themselves.
      OCR-derived table extraction from scanned-page word boxes,
      caption-derived visual candidate routing, visual-region command/HTTP
      normalization, search evidence, and AI-safety trust-report
-     selected-page-scoped category summaries, visual-spoofing guidance,
-     hidden-text routing, and unsafe-link routing.
+     selected-page-scoped category summaries, trust-evidence redaction,
+     visual-spoofing guidance, hidden-text routing, and unsafe-link routing.
    - `bun run benchmark:providers` is the installed-provider benchmark
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers. It reports an `ocr-text-layer` profile for OCR

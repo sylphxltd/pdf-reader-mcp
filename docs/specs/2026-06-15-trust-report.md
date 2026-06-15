@@ -19,6 +19,8 @@ annotations.
 - Page-level reports with risk, score, and signals.
 - Selected-page-scoped summary counters for signal types, safety finding types,
   severities, pages with signals, and page-risk buckets.
+- Redacted evidence snippets for common sensitive values such as emails, SSNs,
+  payment cards, secret assignments, JWTs, and private-key markers.
 - Signals for content safety, hidden or near-invisible text, layout
   uncertainty, sparse/scanned pages, table quality warnings, external links,
   and unsafe link schemes.
@@ -58,6 +60,8 @@ verification or explicit caller approval is appropriate.
   guidance.
 - Summary counters expose selected-page-scoped signal-type,
   safety-finding-type, and page-risk breakdowns.
+- Trust-report evidence snippets redact common sensitive values and expose
+  `snippet_redacted` plus `redaction_types` when redaction occurred.
 - External links become trust signals without fetching the link.
 - Unsafe URL schemes become dedicated high-severity trust signals.
 - Sparse or low-confidence layout diagnostics become routing signals.

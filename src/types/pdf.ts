@@ -509,6 +509,14 @@ export type PdfTrustSignalType =
   | 'unsafe_external_link'
   | 'external_link';
 
+export type PdfTrustEvidenceRedactionType =
+  | 'email'
+  | 'ssn'
+  | 'credit_card'
+  | 'secret'
+  | 'jwt'
+  | 'private_key_marker';
+
 export interface PdfTrustSignal {
   type: PdfTrustSignalType;
   severity: PdfTrustRiskLevel;
