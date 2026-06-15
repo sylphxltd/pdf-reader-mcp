@@ -68,7 +68,7 @@
     "docs:preview": "vitepress preview docs",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "benchmark": "bun bench",
+    "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
     "clean": "rm -rf dist coverage",
     "docs:api": "typedoc --entryPoints src/index.ts --tsconfig tsconfig.json --plugin typedoc-plugin-markdown --out docs/api --readme none",
     "prepublishOnly": "bun run clean && bun run build",

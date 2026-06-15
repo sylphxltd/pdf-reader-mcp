@@ -1352,7 +1352,7 @@ bun test             # Run the test suite
 bun run test:cov     # Run coverage
 bun run check        # Lint + format
 bun run check:fix    # Auto-fix
-bun run benchmark    # Performance tests
+bun run benchmark    # Reproducible local performance benchmark
 ```
 
 **Quality:**

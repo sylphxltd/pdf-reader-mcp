@@ -2,16 +2,26 @@
 
 PDF Reader MCP is optimized for speed and efficiency.
 
-## Benchmarks
+## Reproducible Benchmark
 
-Benchmarks run on Node.js 22, measuring operations per second.
+Run the local benchmark against the checked-in sample PDF:
 
-| Operation | Ops/sec | Notes |
-|-----------|---------|-------|
-| Metadata only | ~5,000 | Fastest extraction mode |
-| Single page text | ~5,300 | Minimal parsing |
-| Full text (10 pages) | ~4,500 | Depends on content |
-| With images | ~2,000 | Image encoding overhead |
+```bash
+bun run benchmark
+```
+
+The benchmark performs warmup iterations, then prints a table and JSON summary
+with average, minimum, and maximum latency for these fixed scenarios:
+
+| Scenario | Notes |
+|----------|-------|
+| `metadata_page_count` | Fast metadata and page-count path |
+| `full_text` | Full selectable-text extraction |
+| `selected_page_text` | Single-page extraction |
+| `v3_agent_document_twin` | Document map, document AST, trust report, chunks, semantic hints, layout diagnostics, and tables |
+
+Treat benchmark output as machine- and fixture-specific. Public performance
+claims should cite the command, fixture, runtime, and measured output.
 
 ## Optimization Tips
 
