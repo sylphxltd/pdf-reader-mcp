@@ -45,7 +45,7 @@ Typical response fields:
 ### Search For Evidence
 
 Use `search_pdf` when an agent needs to find relevant pages and source
-snippets before running heavier extraction, rendering, or region cropping.
+snippets before running heavier extraction, rendering, OCR, or region cropping.
 
 ```json
 {
@@ -55,13 +55,17 @@ snippets before running heavier extraction, rendering, or region cropping.
   }],
   "query": "risk controls",
   "whole_word": true,
+  "include_ocr_text_layer": false,
   "max_matches_per_source": 10
 }
 ```
 
 Matches include page number, matched text, snippet, match offsets, text-item
-index, optional character-derived or text-item bounding box, and provenance.
-Search is literal and bounded by `max_pages` and `max_matches_per_source`.
+index or OCR word index, optional character-derived, text-item, or OCR-word
+bounding box, and provenance. Search is literal and bounded by `max_pages` and
+`max_matches_per_source`. OCR-layer search is opt-in through
+`include_ocr_text_layer` because it renders pages and runs the configured OCR
+provider.
 
 ### Get Metadata and Page Count
 

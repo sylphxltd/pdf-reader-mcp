@@ -19,6 +19,13 @@ export const searchPdfArgsSchema = object({
   query: str(min(1), description('Literal text query to search for in extracted PDF text.')),
   case_sensitive: optional(bool(description('Use case-sensitive literal matching.'))),
   whole_word: optional(bool(description('Match only whole words using ASCII word boundaries.'))),
+  include_ocr_text_layer: optional(
+    bool(
+      description(
+        'Also search a configured local OCR text layer for selected pages. Disabled by default because it renders pages and runs the OCR provider.'
+      )
+    )
+  ),
   max_pages: optional(
     num(
       int,

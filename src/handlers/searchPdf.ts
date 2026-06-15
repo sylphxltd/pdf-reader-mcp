@@ -11,6 +11,7 @@ const buildOptions = (input: {
   query: string;
   case_sensitive?: boolean | undefined;
   whole_word?: boolean | undefined;
+  include_ocr_text_layer?: boolean | undefined;
   max_pages?: number | undefined;
   max_matches_per_source?: number | undefined;
   context_chars?: number | undefined;
@@ -18,6 +19,9 @@ const buildOptions = (input: {
   ...defaultSearchPdfOptions(input.query),
   ...(input.case_sensitive !== undefined ? { case_sensitive: input.case_sensitive } : {}),
   ...(input.whole_word !== undefined ? { whole_word: input.whole_word } : {}),
+  ...(input.include_ocr_text_layer !== undefined
+    ? { include_ocr_text_layer: input.include_ocr_text_layer }
+    : {}),
   ...(input.max_pages !== undefined ? { max_pages: input.max_pages } : {}),
   ...(input.max_matches_per_source !== undefined
     ? { max_matches_per_source: input.max_matches_per_source }

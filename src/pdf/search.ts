@@ -1,6 +1,8 @@
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   PageContentItem,
+  PdfOcrPageData,
+  PdfOcrWord,
   PdfSearchMatch,
   PdfSearchSourceResult,
   PdfSource,
@@ -10,6 +12,7 @@ import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 import { buildWarnings, extractPageContent } from './extractor.js';
 import { loadPdfDocument } from './loader.js';
+import { defaultOcrPagesOptions, ocrPdfSourcePages } from './ocr.js';
 import { getTargetPages } from './parser.js';
 
 const logger = createLogger('Search');
@@ -27,6 +30,7 @@ export const defaultSearchPdfOptions = (query: string): SearchPdfOptions => ({
   max_pages: DEFAULT_SEARCH_MAX_PAGES,
   max_matches_per_source: DEFAULT_SEARCH_MAX_MATCHES,
   context_chars: DEFAULT_SEARCH_CONTEXT_CHARS,
+  include_ocr_text_layer: false,
 });
 
 export const resolvePagesToSearch = (
@@ -92,7 +96,7 @@ const findMatchesInText = (
 };
 
 const mergeBoundingBoxes = (
-  boxes: Array<NonNullable<PageContentItem['bounding_box']> | undefined>
+  boxes: Array<NonNullable<PageContentItem['bounding_box']> | PdfOcrWord['bounding_box']>
 ): NonNullable<PageContentItem['bounding_box']> | undefined => {
   const validBoxes = boxes.filter(
     (box): box is NonNullable<PageContentItem['bounding_box']> => box !== undefined
@@ -105,6 +109,62 @@ const mergeBoundingBoxes = (
     right: Math.max(...validBoxes.map((box) => box.right)),
     top: Math.max(...validBoxes.map((box) => box.top)),
   };
+};
+
+interface OcrWordOffset {
+  word: PdfOcrWord;
+  index: number;
+  start: number;
+  end: number;
+}
+
+const buildOcrSearchText = (
+  page: PdfOcrPageData
+): { text: string; wordOffsets: OcrWordOffset[] } => {
+  if (!page.words || page.words.length === 0) {
+    return { text: page.text, wordOffsets: [] };
+  }
+
+  let cursor = 0;
+  const parts: string[] = [];
+  const wordOffsets: OcrWordOffset[] = [];
+
+  page.words.forEach((word, index) => {
+    if (parts.length > 0) {
+      parts.push(' ');
+      cursor++;
+    }
+
+    const start = cursor;
+    parts.push(word.text);
+    cursor += word.text.length;
+    wordOffsets.push({ word, index, start, end: cursor });
+  });
+
+  return { text: parts.join(''), wordOffsets };
+};
+
+const matchOcrBoundingBox = (
+  wordOffsets: OcrWordOffset[],
+  start: number,
+  end: number
+):
+  | {
+      bounding_box: NonNullable<PageContentItem['bounding_box']>;
+      first_word_index: number;
+    }
+  | undefined => {
+  const overlappingWords = wordOffsets.filter(
+    (wordOffset) => wordOffset.end > start && wordOffset.start < end
+  );
+  const boundingBox = mergeBoundingBoxes(
+    overlappingWords.map((wordOffset) => wordOffset.word.bounding_box)
+  );
+  const firstWordIndex = overlappingWords[0]?.index;
+
+  return boundingBox && firstWordIndex !== undefined
+    ? { bounding_box: boundingBox, first_word_index: firstWordIndex }
+    : undefined;
 };
 
 const matchBoundingBox = (
@@ -133,6 +193,43 @@ const matchBoundingBox = (
   }
 
   return item.bounding_box ? { bounding_box: item.bounding_box, level: 'text_item' } : undefined;
+};
+
+export const searchOcrPage = (
+  page: PdfOcrPageData,
+  options: SearchPdfOptions,
+  matchOffset: number
+): PdfSearchMatch[] => {
+  const matches: PdfSearchMatch[] = [];
+  const { text, wordOffsets } = buildOcrSearchText(page);
+  const ocrMatches = findMatchesInText(text, options.query, options);
+
+  for (const ocrMatch of ocrMatches) {
+    const matchedText = text.slice(ocrMatch.start, ocrMatch.end);
+    const matchBox = matchOcrBoundingBox(wordOffsets, ocrMatch.start, ocrMatch.end);
+    matches.push({
+      id: `p${String(page.page)}-ocr-match-${String(matchOffset + matches.length + 1)}`,
+      page: page.page,
+      text: matchedText,
+      snippet: buildSnippet(text, ocrMatch.start, ocrMatch.end, options.context_chars),
+      match_start: ocrMatch.start,
+      match_end: ocrMatch.end,
+      ...(matchBox
+        ? {
+            ocr_word_index: matchBox.first_word_index,
+            bounding_box: matchBox.bounding_box,
+            bounding_box_level: 'ocr_word',
+          }
+        : {}),
+      source_render_evidence_id: page.source_render_evidence_id,
+      provenance: {
+        engine: 'external-command',
+        source: 'ocr-provider',
+      },
+    });
+  }
+
+  return matches;
 };
 
 export const searchPageContentItems = (
@@ -225,6 +322,38 @@ export const searchPdfSource = async (
         matches.push(match);
       }
       if (truncated) break;
+    }
+
+    if (
+      !truncated &&
+      options.include_ocr_text_layer &&
+      matches.length < options.max_matches_per_source
+    ) {
+      try {
+        const ocr = await ocrPdfSourcePages(
+          { ...source, pages: pagesToSearch },
+          defaultOcrPagesOptions()
+        );
+        warnings.push(...ocr.warnings);
+
+        for (const page of ocr.pages) {
+          const pageMatches = searchOcrPage(page, options, matches.length);
+          for (const match of pageMatches) {
+            if (matches.length >= options.max_matches_per_source) {
+              truncated = true;
+              break;
+            }
+            matches.push(match);
+          }
+          if (truncated) break;
+        }
+      } catch (error: unknown) {
+        const message =
+          error instanceof PdfError
+            ? error.message
+            : 'OCR provider failed before returning searchable text.';
+        warnings.push(`OCR search unavailable: ${message}`);
+      }
     }
 
     if (truncated) {

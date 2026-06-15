@@ -5484,7 +5484,8 @@ var defaultSearchPdfOptions = (query) => ({
   whole_word: false,
   max_pages: DEFAULT_SEARCH_MAX_PAGES,
   max_matches_per_source: DEFAULT_SEARCH_MAX_MATCHES,
-  context_chars: DEFAULT_SEARCH_CONTEXT_CHARS
+  context_chars: DEFAULT_SEARCH_CONTEXT_CHARS,
+  include_ocr_text_layer: false
 });
 var resolvePagesToSearch = (targetPages, totalPages, maxPages) => {
   const requestedPages = targetPages && targetPages.length > 0 ? [...new Set(targetPages)].sort((a, b) => a - b) : Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -5536,6 +5537,31 @@ var mergeBoundingBoxes4 = (boxes) => {
     top: Math.max(...validBoxes.map((box) => box.top))
   };
 };
+var buildOcrSearchText = (page) => {
+  if (!page.words || page.words.length === 0) {
+    return { text: page.text, wordOffsets: [] };
+  }
+  let cursor = 0;
+  const parts = [];
+  const wordOffsets = [];
+  page.words.forEach((word, index) => {
+    if (parts.length > 0) {
+      parts.push(" ");
+      cursor++;
+    }
+    const start = cursor;
+    parts.push(word.text);
+    cursor += word.text.length;
+    wordOffsets.push({ word, index, start, end: cursor });
+  });
+  return { text: parts.join(""), wordOffsets };
+};
+var matchOcrBoundingBox = (wordOffsets, start, end) => {
+  const overlappingWords = wordOffsets.filter((wordOffset) => wordOffset.end > start && wordOffset.start < end);
+  const boundingBox = mergeBoundingBoxes4(overlappingWords.map((wordOffset) => wordOffset.word.bounding_box));
+  const firstWordIndex = overlappingWords[0]?.index;
+  return boundingBox && firstWordIndex !== undefined ? { bounding_box: boundingBox, first_word_index: firstWordIndex } : undefined;
+};
 var matchBoundingBox = (item, start, end) => {
   const charBoxes = (item.textRuns ?? []).flatMap((run) => run.chars).filter((char) => !char.is_whitespace && char.item_char_start >= start && char.item_char_end <= end && char.bounding_box).map((char) => char.bounding_box);
   const charBoundingBox = mergeBoundingBoxes4(charBoxes);
@@ -5543,6 +5569,34 @@ var matchBoundingBox = (item, start, end) => {
     return { bounding_box: charBoundingBox, level: "char_estimated" };
   }
   return item.bounding_box ? { bounding_box: item.bounding_box, level: "text_item" } : undefined;
+};
+var searchOcrPage = (page, options, matchOffset) => {
+  const matches = [];
+  const { text: text7, wordOffsets } = buildOcrSearchText(page);
+  const ocrMatches = findMatchesInText(text7, options.query, options);
+  for (const ocrMatch of ocrMatches) {
+    const matchedText = text7.slice(ocrMatch.start, ocrMatch.end);
+    const matchBox = matchOcrBoundingBox(wordOffsets, ocrMatch.start, ocrMatch.end);
+    matches.push({
+      id: `p${String(page.page)}-ocr-match-${String(matchOffset + matches.length + 1)}`,
+      page: page.page,
+      text: matchedText,
+      snippet: buildSnippet(text7, ocrMatch.start, ocrMatch.end, options.context_chars),
+      match_start: ocrMatch.start,
+      match_end: ocrMatch.end,
+      ...matchBox ? {
+        ocr_word_index: matchBox.first_word_index,
+        bounding_box: matchBox.bounding_box,
+        bounding_box_level: "ocr_word"
+      } : {},
+      source_render_evidence_id: page.source_render_evidence_id,
+      provenance: {
+        engine: "external-command",
+        source: "ocr-provider"
+      }
+    });
+  }
+  return matches;
 };
 var searchPageContentItems = (page, items, options, matchOffset) => {
   const matches = [];
@@ -5604,6 +5658,27 @@ var searchPdfSource = async (source, options) => {
       if (truncated)
         break;
     }
+    if (!truncated && options.include_ocr_text_layer && matches.length < options.max_matches_per_source) {
+      try {
+        const ocr = await ocrPdfSourcePages({ ...source, pages: pagesToSearch }, defaultOcrPagesOptions());
+        warnings.push(...ocr.warnings);
+        for (const page of ocr.pages) {
+          const pageMatches = searchOcrPage(page, options, matches.length);
+          for (const match of pageMatches) {
+            if (matches.length >= options.max_matches_per_source) {
+              truncated = true;
+              break;
+            }
+            matches.push(match);
+          }
+          if (truncated)
+            break;
+        }
+      } catch (error) {
+        const message = error instanceof PdfError ? error.message : "OCR provider failed before returning searchable text.";
+        warnings.push(`OCR search unavailable: ${message}`);
+      }
+    }
     if (truncated) {
       warnings.push(`Search results truncated to ${String(options.max_matches_per_source)} matches for this source.`);
     }
@@ -5652,6 +5727,7 @@ var searchPdfArgsSchema = object7({
   query: str5(min2(1), description7("Literal text query to search for in extracted PDF text.")),
   case_sensitive: optional7(bool5(description7("Use case-sensitive literal matching."))),
   whole_word: optional7(bool5(description7("Match only whole words using ASCII word boundaries."))),
+  include_ocr_text_layer: optional7(bool5(description7("Also search a configured local OCR text layer for selected pages. Disabled by default because it renders pages and runs the OCR provider."))),
   max_pages: optional7(num7(int7, gte7(1), lte6(1000), description7("Maximum pages to search per source. Defaults to 100 and is capped at 1000."))),
   max_matches_per_source: optional7(num7(int7, gte7(1), lte6(500), description7("Maximum matches returned per source. Defaults to 50 and is capped at 500."))),
   context_chars: optional7(num7(int7, gte7(0), lte6(1000), description7("Context characters to include around each match. Defaults to 120.")))
@@ -5663,6 +5739,7 @@ var buildOptions4 = (input) => ({
   ...defaultSearchPdfOptions(input.query),
   ...input.case_sensitive !== undefined ? { case_sensitive: input.case_sensitive } : {},
   ...input.whole_word !== undefined ? { whole_word: input.whole_word } : {},
+  ...input.include_ocr_text_layer !== undefined ? { include_ocr_text_layer: input.include_ocr_text_layer } : {},
   ...input.max_pages !== undefined ? { max_pages: input.max_pages } : {},
   ...input.max_matches_per_source !== undefined ? { max_matches_per_source: input.max_matches_per_source } : {},
   ...input.context_chars !== undefined ? { context_chars: input.context_chars } : {}

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSearchPdfOptions, resolvePagesToSearch, searchPageContentItems } from '../../src/pdf/search.js';
+import {
+  defaultSearchPdfOptions,
+  resolvePagesToSearch,
+  searchOcrPage,
+  searchPageContentItems,
+} from '../../src/pdf/search.js';
 import type { BoundingBox, PageContentItem, SearchPdfOptions } from '../../src/types/pdf.js';
 
 const box = (left: number, bottom: number, width: number, height: number): BoundingBox => ({
@@ -132,5 +137,47 @@ describe('search', () => {
   it('continues match IDs from the provided offset', () => {
     const matches = searchPageContentItems(3, [textItem('risk risk')], options(), 4);
     expect(matches.map((match) => match.id)).toEqual(['p3-match-5', 'p3-match-6']);
+  });
+
+  it('searches OCR page text with word bounding-box provenance', () => {
+    const matches = searchOcrPage(
+      {
+        page: 4,
+        text: 'Scanned risk controls',
+        confidence: 0.9,
+        words: [
+          { text: 'Scanned', bounding_box: box(40, 720, 50, 12), confidence: 0.9 },
+          { text: 'risk', bounding_box: box(96, 720, 28, 12), confidence: 0.91 },
+          { text: 'controls', bounding_box: box(130, 720, 60, 12), confidence: 0.92 },
+        ],
+        provider: 'command',
+        source_render_evidence_id: 'page-4-render-scale-2',
+        provenance: {
+          engine: 'external-command',
+          source: 'ocr-provider',
+        },
+      },
+      options(),
+      2
+    );
+
+    expect(matches).toEqual([
+      {
+        id: 'p4-ocr-match-3',
+        page: 4,
+        text: 'risk',
+        snippet: '...anned risk contr...',
+        match_start: 8,
+        match_end: 12,
+        ocr_word_index: 1,
+        source_render_evidence_id: 'page-4-render-scale-2',
+        bounding_box: { left: 96, bottom: 720, right: 124, top: 732 },
+        bounding_box_level: 'ocr_word',
+        provenance: {
+          engine: 'external-command',
+          source: 'ocr-provider',
+        },
+      },
+    ]);
   });
 });

@@ -77,7 +77,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
-- 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
+- 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, character-derived, text-item, or opt-in OCR-word bounding boxes, and provenance
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🧠 **Visual Region Analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
@@ -254,7 +254,7 @@ arguments without extracting image bytes.
 ### Search PDF Evidence
 
 Use `search_pdf` when an agent needs to locate text evidence before deciding
-whether to read a whole page, crop a region, or cite a result.
+whether to read a whole page, crop a region, run OCR, or cite a result.
 
 ```json
 {
@@ -264,16 +264,18 @@ whether to read a whole page, crop a region, or cite a result.
   }],
   "query": "risk controls",
   "whole_word": true,
+  "include_ocr_text_layer": false,
   "max_matches_per_source": 10
 }
 ```
 
 **Response includes:**
 - A JSON summary with `profile: "pdf_search_results"` and effective search options
-- Page numbers, snippets, match offsets, and text-item indexes
-- Estimated character-derived bounding boxes when run evidence is available, with text-item fallback
+- Page numbers, snippets, match offsets, and text-item or OCR word indexes
+- Estimated character-derived bounding boxes when run evidence is available, with text-item and OCR-word fallback
 - Per-match provenance so agents can route hits into `render_page` or `extract_regions`
 - Bounded defaults: `max_pages` default 100 and `max_matches_per_source` default 50
+- Optional OCR-layer search via `include_ocr_text_layer` when a configured local OCR provider is available
 
 ### Basic Usage
 
@@ -937,6 +939,7 @@ that agents can cite or route into visual tools.
 | `query` | string | Literal text query to search for | Required |
 | `case_sensitive` | boolean | Use case-sensitive matching | `false` |
 | `whole_word` | boolean | Match only whole words using ASCII word boundaries | `false` |
+| `include_ocr_text_layer` | boolean | Also search a configured local OCR text layer for selected pages. This renders pages and runs the OCR provider, so it is disabled by default. | `false` |
 | `max_pages` | number | Maximum pages to search per source, capped at 1000 | `100` |
 | `max_matches_per_source` | number | Maximum matches returned per source, capped at 500 | `50` |
 | `context_chars` | number | Context characters around each match, capped at 1000 | `120` |
@@ -948,15 +951,16 @@ that agents can cite or route into visual tools.
   "sources": [{ "path": "report.pdf", "pages": "1-20" }],
   "query": "risk controls",
   "whole_word": true,
+  "include_ocr_text_layer": false,
   "max_matches_per_source": 10
 }
 ```
 
 The first content part is JSON metadata with `profile: "pdf_search_results"`.
 Matches include page number, matched text, snippet, match offsets, text-item
-index, optional character-derived or text-item bounding box, and provenance.
-Search uses literal matching only; request payloads do not accept arbitrary
-regular expressions.
+index or OCR word index, optional character-derived, text-item, or OCR-word
+bounding box, and provenance. Search uses literal matching only; request
+payloads do not accept arbitrary regular expressions.
 
 ### `extract_regions` Tool
 

@@ -22,7 +22,7 @@ features:
     details: Profile unfamiliar PDFs, detect low-text or scanned pages, and get recommended extraction options for agent workflows.
   - icon: "\U0001F50E"
     title: Search Evidence
-    details: Locate literal text matches with snippets, match offsets, character-derived or text-item bounding boxes, and provenance before reading, rendering, cropping, or citing.
+    details: Locate literal text matches with snippets, match offsets, character-derived, text-item, or opt-in OCR-word bounding boxes, and provenance before reading, rendering, cropping, or citing.
   - icon: "\u26A1"
     title: High Performance
     details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing, batch operations, and recursive band/column ordering.

@@ -38,7 +38,7 @@ Choose exactly what data you need - visual page evidence, region crops, full tex
 Use `inspect_pdf` to sample a PDF, identify extraction risks, and get recommended `read_pdf` arguments before spending context or runtime on heavier extraction.
 
 ### PDF Search
-Use `search_pdf` to find relevant pages and source snippets before deciding whether an agent should read, render, crop, or cite a region.
+Use `search_pdf` to find relevant pages and source snippets before deciding whether an agent should read, render, OCR, crop, or cite a region. OCR-layer search is opt-in so fast selectable-text search stays the default.
 
 ### PDF Text Layer
 Use `include_text_layer` when agents need run, line, word, and character records with page-level ranges and estimated bounding boxes.
