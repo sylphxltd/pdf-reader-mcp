@@ -178,7 +178,7 @@ Candidate engines:
    - Add Markdown renderer using the normalized element tree.
 
 4. Safety and trust
-   - Detect hidden, tiny, off-page, and suspicious invisible text.
+   - Detect hidden, tiny, off-page, overlapping, and suspicious invisible text.
    - Add optional sensitive data redaction.
    - Add provenance, confidence, warnings, and trace-friendly logs.
 

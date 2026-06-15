@@ -4052,6 +4052,8 @@ var LAYOUT_COLUMN_MIN_GAP = 48;
 var LAYOUT_COLUMN_MIN_GAP_RATIO = 0.14;
 var LAYOUT_SPANNING_WIDTH_RATIO = 0.72;
 var LAYOUT_POSITIONED_RATIO_WARNING = 0.8;
+var SAFETY_TEXT_OVERLAP_RATIO = 0.65;
+var SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE = 10;
 var buildElementId = (page, type, index) => `p${String(page)}-${type}-${String(index)}`;
 var imageElementMetadata = (imageData) => {
   const { data: _data, ...metadata } = imageData;
@@ -4493,6 +4495,17 @@ var snippetFromText = (value) => {
   const normalized = value.replace(/\s+/g, " ").trim();
   return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
 };
+var normalizeSafetyText = (value) => value.replace(/\s+/g, " ").trim().toLowerCase();
+var mergeBoxes = (first, second) => {
+  if (!first || !second)
+    return first ?? second;
+  return {
+    left: Math.min(first.left, second.left),
+    bottom: Math.min(first.bottom, second.bottom),
+    right: Math.max(first.right, second.right),
+    top: Math.max(first.top, second.top)
+  };
+};
 var isOutsideViewBox = (box, viewBox) => {
   if (!box || !viewBox)
     return false;
@@ -4505,6 +4518,7 @@ var buildSafetyFindings = (pageContents, pageGeometry) => {
   for (const pageContent of pageContents) {
     let elementIndex = 1;
     const geometry = geometryByPage.get(pageContent.page);
+    const textCandidates = [];
     for (const item of pageContent.items) {
       const element = contentItemToElement(item, pageContent.page, elementIndex);
       if (!element) {
@@ -4513,6 +4527,14 @@ var buildSafetyFindings = (pageContents, pageGeometry) => {
       if (element.type === "text") {
         const textContent = element.content.trim();
         const snippet = snippetFromText(textContent);
+        if (element.bounding_box) {
+          textCandidates.push({
+            element_id: element.id,
+            text: textContent,
+            snippet,
+            bounding_box: element.bounding_box
+          });
+        }
         if (PROMPT_INJECTION_PATTERNS.some((pattern) => pattern.test(textContent))) {
           findings.push({
             type: "prompt_injection_pattern",
@@ -4548,6 +4570,37 @@ var buildSafetyFindings = (pageContents, pageGeometry) => {
         }
       }
       elementIndex++;
+    }
+    let overlapFindingCount = 0;
+    for (let i = 0;i < textCandidates.length; i++) {
+      if (overlapFindingCount >= SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE)
+        break;
+      for (let j = i + 1;j < textCandidates.length; j++) {
+        if (overlapFindingCount >= SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE)
+          break;
+        const first = textCandidates[i];
+        const second = textCandidates[j];
+        if (!first || !second)
+          continue;
+        const smallerArea = Math.min(boxArea(first.bounding_box), boxArea(second.bounding_box));
+        if (smallerArea <= 0)
+          continue;
+        const overlapRatio = overlapArea(first.bounding_box, second.bounding_box) / smallerArea;
+        if (overlapRatio < SAFETY_TEXT_OVERLAP_RATIO)
+          continue;
+        const differentText = normalizeSafetyText(first.text) !== normalizeSafetyText(second.text);
+        const boundingBox = mergeBoxes(first.bounding_box, second.bounding_box);
+        findings.push({
+          type: "overlapping_text",
+          severity: differentText ? "high" : "medium",
+          page: pageContent.page,
+          element_id: second.element_id,
+          message: differentText ? "Text substantially overlaps different text, which may visually spoof or obscure content." : "Text substantially overlaps another text item; verify rendered evidence before citation-critical use.",
+          snippet: snippetFromText(`${first.snippet} / ${second.snippet}`),
+          ...boundingBox ? { bounding_box: boundingBox } : {}
+        });
+        overlapFindingCount++;
+      }
     }
   }
   return findings;

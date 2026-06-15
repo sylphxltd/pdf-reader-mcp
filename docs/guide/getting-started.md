@@ -499,7 +499,7 @@ text.
 
 Use `include_safety_findings` when an agent will use PDF text as context and
 needs deterministic warnings for common prompt-injection patterns, tiny text,
-or off-page text.
+off-page text, or overlapping text that may visually spoof or obscure content.
 
 ```json
 {

@@ -51,7 +51,7 @@ neutral capability names and avoids public comparison language.
 | Accessibility report | Shipped | `include_accessibility_report`; deterministic tagged-PDF coverage, structure tree, heading, image, form, link, permission, and mark-info signals. Does not claim PDF/UA certification. |
 | Form fields | Shipped | `include_form_fields`; needs broader AcroForm fixture coverage. |
 | Attachment metadata | Shipped | `include_attachments`; metadata only, no attachment bytes by default. |
-| Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, and off-page text. |
+| Content safety findings | Shipped | `include_safety_findings`; prompt-injection patterns, tiny text, off-page text, and overlapping text that may visually spoof or obscure content. |
 | PDF trust report | Shipped | `include_trust_report`; consolidates content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals with page-level routing guidance. |
 | Rich semantic headings/paragraphs/lists | Next | Promote hints to stronger element model after fixtures/evals. |
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |

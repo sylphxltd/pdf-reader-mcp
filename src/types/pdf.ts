@@ -207,7 +207,11 @@ export interface PdfChunk {
   bounding_boxes?: BoundingBox[] | undefined;
 }
 
-export type PdfSafetyFindingType = 'prompt_injection_pattern' | 'off_page_text' | 'tiny_text';
+export type PdfSafetyFindingType =
+  | 'prompt_injection_pattern'
+  | 'off_page_text'
+  | 'tiny_text'
+  | 'overlapping_text';
 
 export type PdfSafetySeverity = 'low' | 'medium' | 'high';
 

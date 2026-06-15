@@ -42,6 +42,7 @@ status if any quality gate fails.
 | `scanned_pdf_fixture_pipeline_quality` | Runtime-generated image-only PDF fixture through `read_pdf` load, render, OCR provider, OCR text-layer fusion, document map routing, and low-confidence layout diagnostics |
 | `visual_region_analysis_quality` | Local visual-region provider normalization for table cells/spans/boxes, formula fields, chart axes/series, confidence, warnings, and crop evidence |
 | `search_evidence_quality` | Selectable text search with character-derived boxes and OCR search with word-level boxes plus render provenance |
+| `ai_safety_overlap_quality` | Overlapping text detection for visual-spoofing or obscured-content risk |
 
 This benchmark uses in-repository synthetic cases, a runtime-generated scanned
 PDF fixture, and mock local providers so it is reproducible in CI and on
@@ -348,8 +349,9 @@ content.
 ### 20. Use Safety Findings When Agents Consume PDF Text
 
 `include_safety_findings` scans extracted page text for deterministic risk
-signals. It requires page text extraction, but it does not force `full_text`
-into the JSON response.
+signals, including prompt-injection-like text, tiny text, off-page text, and
+overlapping text that may visually spoof or obscure content. It requires page
+text extraction, but it does not force `full_text` into the JSON response.
 
 ```json
 {

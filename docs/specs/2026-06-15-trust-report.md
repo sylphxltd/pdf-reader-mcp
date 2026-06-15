@@ -28,8 +28,8 @@ annotation evidence without forcing top-level `safety_findings`,
 
 ## Signal Sources
 
-- `PdfSafetyFinding` for prompt-injection patterns, tiny text, and off-page
-  text.
+- `PdfSafetyFinding` for prompt-injection patterns, tiny text, off-page text,
+  and overlapping text that may visually spoof or obscure content.
 - `PdfPageLayoutDiagnostics` for low reading-order confidence and sparse pages.
 - Table element quality metadata for sparse, merged, low-confidence, or
   continuation-candidate tables.

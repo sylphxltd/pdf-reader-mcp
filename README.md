@@ -86,7 +86,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧾 **PDF Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
-- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page signals, layout uncertainty, sparse pages, table warnings, and external links
+- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, and external links
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
@@ -826,7 +826,7 @@ The extraction pipeline separates distant same-line text into independent segmen
 
 `include_outline`, `include_annotations`, `include_page_labels`, `include_page_geometry`, `include_permissions`, `include_structure_tree`, `include_form_fields`, and `include_attachments` expose additional document signals without changing the default response shape.
 
-`include_safety_findings` adds deterministic findings for common prompt-injection patterns, tiny text, and off-page text so agents can inspect risky document content before using it as instructions.
+`include_safety_findings` adds deterministic findings for common prompt-injection patterns, tiny text, off-page text, and overlapping text that may visually spoof or obscure content so agents can inspect risky document content before using it as instructions.
 
 ### Absolute Paths Supported
 

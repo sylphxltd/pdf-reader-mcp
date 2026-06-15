@@ -872,6 +872,42 @@ const evaluateSearchEvidence = (): QualityAssertion[] => {
   ];
 };
 
+const evaluateAiSafetyOverlap = (): QualityAssertion[] => {
+  const findings = buildSafetyFindings(
+    [
+      {
+        page: 1,
+        items: [
+          textItem('Visible amount: $100', 100, 650, 120, 10),
+          textItem('Visible amount: $900', 104, 650, 120, 10),
+        ],
+      },
+    ],
+    [
+      {
+        page: 1,
+        width: 612,
+        height: 792,
+        rotation: 0,
+        view_box: { left: 0, bottom: 0, right: 612, top: 792 },
+      },
+    ]
+  );
+  const overlapFinding = findings.find((finding) => finding.type === 'overlapping_text');
+
+  return [
+    {
+      name: 'AI safety detects overlapping text visual-spoofing risk',
+      pass:
+        overlapFinding?.severity === 'high' &&
+        overlapFinding.element_id === 'p1-text-2' &&
+        overlapFinding.snippet === 'Visible amount: $100 / Visible amount: $900' &&
+        JSON.stringify(overlapFinding.bounding_box) ===
+          JSON.stringify({ left: 100, bottom: 650, right: 224, top: 660 }),
+    },
+  ];
+};
+
 const main = async () => {
   const results = [
     await runCase('agent_document_twin_semantic_quality', evaluateAgentDocumentTwin),
@@ -880,6 +916,7 @@ const main = async () => {
     await runCase('scanned_pdf_fixture_pipeline_quality', evaluateScannedPdfFixturePipeline),
     await runCase('visual_region_analysis_quality', evaluateVisualRegionAnalysis),
     await runCase('search_evidence_quality', evaluateSearchEvidence),
+    await runCase('ai_safety_overlap_quality', evaluateAiSafetyOverlap),
   ];
   const failed = results.filter((result) => result.failures.length > 0);
   const passed = results.reduce((sum, result) => sum + result.passed, 0);
