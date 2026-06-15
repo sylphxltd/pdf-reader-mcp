@@ -102,33 +102,34 @@ describe('visualEnrichment', () => {
   it('selects bounded table and image regions with stable element IDs', () => {
     const candidates = selectVisualEnrichmentCandidates(elements, 2);
 
-    expect(candidates).toEqual([
-      {
-        element: expect.objectContaining({ id: 'p1-table-1', type: 'table' }),
-        target_element_id: 'p1-table-1',
-        target_element_type: 'table',
-        candidate_signals: ['table-element', 'element-bounding-box'],
-        region: {
-          id: 'p1-table-1',
-          page: 1,
-          bounding_box: { left: 40, bottom: 600, right: 260, top: 680 },
-        },
-      },
-      {
-        element: expect.objectContaining({ id: 'p1-image-1', type: 'image' }),
-        target_element_id: 'p1-image-1',
-        target_element_type: 'image',
-        candidate_signals: ['image-element', 'element-bounding-box'],
-        region: {
-          id: 'p1-image-1',
-          page: 1,
-          bounding_box: { left: 300, bottom: 400, right: 520, top: 560 },
-        },
-      },
-    ]);
+    expect(candidates).toHaveLength(2);
+
+    const tableCandidate = candidates[0];
+    expect(tableCandidate?.element?.id).toBe('p1-table-1');
+    expect(tableCandidate?.element?.type).toBe('table');
+    expect(tableCandidate?.target_element_id).toBe('p1-table-1');
+    expect(tableCandidate?.target_element_type).toBe('table');
+    expect(tableCandidate?.candidate_signals).toEqual(['table-element', 'element-bounding-box']);
+    expect(tableCandidate?.region).toEqual({
+      id: 'p1-table-1',
+      page: 1,
+      bounding_box: { left: 40, bottom: 600, right: 260, top: 680 },
+    });
+
+    const imageCandidate = candidates[1];
+    expect(imageCandidate?.element?.id).toBe('p1-image-1');
+    expect(imageCandidate?.element?.type).toBe('image');
+    expect(imageCandidate?.target_element_id).toBe('p1-image-1');
+    expect(imageCandidate?.target_element_type).toBe('image');
+    expect(imageCandidate?.candidate_signals).toEqual(['image-element', 'element-bounding-box']);
+    expect(imageCandidate?.region).toEqual({
+      id: 'p1-image-1',
+      page: 1,
+      bounding_box: { left: 300, bottom: 400, right: 520, top: 560 },
+    });
   });
 
-  it('derives bounded formula and chart regions from semantic captions', () => {
+  it('derives bounded formula and chart regions from caption-prefixed text', () => {
     const candidates = selectVisualEnrichmentCandidates(
       [
         {
@@ -147,7 +148,6 @@ describe('visualEnrichment', () => {
           content: 'Formula 1: Mass-energy equivalence',
           bounding_box: { left: 80, bottom: 620, right: 300, top: 632 },
           provenance: { engine: 'pdfjs', source: 'text-content' },
-          semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
         },
         {
           id: 'p1-text-3',
@@ -165,7 +165,7 @@ describe('visualEnrichment', () => {
           content: 'Chart 2: Revenue trend',
           bounding_box: { left: 90, bottom: 384, right: 260, top: 396 },
           provenance: { engine: 'pdfjs', source: 'text-content' },
-          semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+          semantic_hint: { role: 'paragraph', confidence: 0.64, signals: ['default-text'] },
         },
       ],
       4,
@@ -173,7 +173,10 @@ describe('visualEnrichment', () => {
     );
 
     expect(candidates).toHaveLength(2);
-    expect(candidates[0]).toMatchObject({
+    const formulaCandidate = candidates.find(
+      (candidate) => candidate.target_element_type === 'formula'
+    );
+    expect(formulaCandidate).toMatchObject({
       target_element_id: 'p1-text-2-formula-region',
       target_element_type: 'formula',
       source_caption_element_id: 'p1-text-2',
@@ -188,7 +191,7 @@ describe('visualEnrichment', () => {
         page: 1,
       },
     });
-    const formulaBox = candidates[0]?.region.bounding_box;
+    const formulaBox = formulaCandidate?.region.bounding_box;
     expect(
       formulaBox !== undefined &&
         [formulaBox.left, formulaBox.bottom, formulaBox.right, formulaBox.top].every(
@@ -198,7 +201,10 @@ describe('visualEnrichment', () => {
     expect(typeof formulaBox?.top).toBe('number');
     expect((formulaBox?.top ?? 0) >= 680).toBe(true);
 
-    expect(candidates[1]).toMatchObject({
+    const chartCandidate = candidates.find(
+      (candidate) => candidate.target_element_type === 'chart'
+    );
+    expect(chartCandidate).toMatchObject({
       target_element_id: 'p1-text-4-chart-region',
       target_element_type: 'chart',
       source_caption_element_id: 'p1-text-4',
@@ -209,7 +215,7 @@ describe('visualEnrichment', () => {
         page: 1,
       },
     });
-    const chartBox = candidates[1]?.region.bounding_box;
+    const chartBox = chartCandidate?.region.bounding_box;
     expect(typeof chartBox?.top).toBe('number');
     expect((chartBox?.top ?? 0) >= 456).toBe(true);
   });

@@ -66,9 +66,9 @@ const captionVisualKind = (text: string): CaptionVisualKind | undefined => {
 
 const captionElement = (element: PdfDocumentElement): element is CaptionElement =>
   element.type === 'text' &&
-  element.semantic_hint?.role === 'caption' &&
   element.bounding_box !== undefined &&
-  captionVisualKind(element.content) !== undefined;
+  captionVisualKind(element.content) !== undefined &&
+  !['footer', 'header', 'heading', 'list_item'].includes(element.semantic_hint?.role ?? '');
 
 const pageBoundsFromGeometry = (geometry: PdfPageGeometry | undefined): BoundingBox | undefined => {
   if (!geometry) return undefined;

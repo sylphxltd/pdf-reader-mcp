@@ -6150,7 +6150,7 @@ var captionVisualKind = (text2) => {
     return "figure";
   return rawKind;
 };
-var captionElement = (element) => element.type === "text" && element.semantic_hint?.role === "caption" && element.bounding_box !== undefined && captionVisualKind(element.content) !== undefined;
+var captionElement = (element) => element.type === "text" && element.bounding_box !== undefined && captionVisualKind(element.content) !== undefined && !["footer", "header", "heading", "list_item"].includes(element.semantic_hint?.role ?? "");
 var pageBoundsFromGeometry2 = (geometry) => {
   if (!geometry)
     return;
