@@ -1,5 +1,6 @@
 import type {
   PageContentItem,
+  PdfAccessibilityReport,
   PdfChunk,
   PdfDocumentElement,
   PdfDocumentMap,
@@ -31,6 +32,7 @@ interface BuildDocumentMapInput {
   visualEnrichments?: PdfVisualEnrichment[] | undefined;
   textLayer?: PdfTextLayer | undefined;
   ocrTextLayer?: PdfOcrTextLayer | undefined;
+  accessibilityReport?: PdfAccessibilityReport | undefined;
   pageGeometry?: PdfPageGeometry[] | undefined;
   warnings?: string[] | undefined;
 }
@@ -64,6 +66,7 @@ const buildLayers = (
   safetyFindings: PdfSafetyFinding[],
   textLayer: PdfTextLayer | undefined,
   ocrTextLayer: PdfOcrTextLayer | undefined,
+  accessibilityReport: PdfAccessibilityReport | undefined,
   pageGeometry: PdfPageGeometry[] | undefined
 ): PdfDocumentMapLayer[] => {
   const layers = new Set<PdfDocumentMapLayer>();
@@ -81,6 +84,7 @@ const buildLayers = (
   if (chunks.length > 0) layers.add('citation_chunks');
   if (layoutDiagnostics.length > 0) layers.add('layout_diagnostics');
   if (safetyFindings.length > 0) layers.add('content_safety');
+  if (accessibilityReport) layers.add('accessibility_report');
   if ((pageGeometry?.length ?? 0) > 0) layers.add('page_geometry');
 
   return [...layers];
@@ -104,12 +108,18 @@ const pageTextStats = (items: PageContentItem[]): { textChars: number; textItemC
 const pageWarnings = (
   layout: PdfPageLayoutDiagnostics | undefined,
   safetyFindingIndexes: number[],
+  accessibilityIssueCount: number,
   tableWarnings: string[]
 ): string[] | undefined => {
   const warnings = [...(layout?.warnings ?? []), ...tableWarnings];
   if (safetyFindingIndexes.length > 0) {
     warnings.push(
       'Page has content safety findings; inspect findings before using as instructions.'
+    );
+  }
+  if (accessibilityIssueCount > 0) {
+    warnings.push(
+      'Page has accessibility report issues; inspect accessibility evidence before relying on tagged structure.'
     );
   }
   return warnings.length > 0 ? warnings : undefined;
@@ -208,6 +218,12 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
   });
+  const accessibilityPageReportIndexByPage = new Map(
+    input.accessibilityReport?.page_reports.map((pageReport, index) => [pageReport.page, index])
+  );
+  const accessibilityPageReportByPage = new Map(
+    input.accessibilityReport?.page_reports.map((pageReport) => [pageReport.page, pageReport])
+  );
   const visualEnrichmentCandidates = input.visualEnrichmentCandidates ?? [];
   const visualCandidateIndexesByPage = new Map<number, number[]>();
   visualEnrichmentCandidates.forEach((candidate, index) => {
@@ -237,6 +253,8 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
     const textLayerPageIndex = textLayerPageIndexByPage.get(page);
     const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
+    const accessibilityPageReport = accessibilityPageReportByPage.get(page);
+    const accessibilityPageReportIndex = accessibilityPageReportIndexByPage.get(page);
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === 'image').length;
     const tableElements = elements.filter((element) => element.type === 'table');
@@ -246,7 +264,12 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
         ? (element.table.quality?.warnings ?? []).map((warning) => `${element.id}: ${warning}`)
         : []
     );
-    const warnings = pageWarnings(layout, safetyFindingIndexes, tableWarnings);
+    const warnings = pageWarnings(
+      layout,
+      safetyFindingIndexes,
+      accessibilityPageReport?.issue_count ?? 0,
+      tableWarnings
+    );
 
     return {
       page,
@@ -273,6 +296,19 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       table_count: tableCount,
       visual_candidate_count: visualCandidateIndexes.length,
       visual_enrichment_count: visualEnrichmentIndexes.length,
+      ...(accessibilityPageReportIndex !== undefined
+        ? { accessibility_report_page_index: accessibilityPageReportIndex }
+        : {}),
+      ...(accessibilityPageReport
+        ? {
+            accessibility_grade: accessibilityPageReport.grade,
+            accessibility_score: accessibilityPageReport.score,
+            accessibility_issue_count: accessibilityPageReport.issue_count,
+            accessibility_high_issue_count: accessibilityPageReport.high_issue_count,
+            accessibility_medium_issue_count: accessibilityPageReport.medium_issue_count,
+            accessibility_low_issue_count: accessibilityPageReport.low_issue_count,
+          }
+        : {}),
       ...(warnings ? { warnings } : {}),
     };
   });
@@ -294,6 +330,14 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   const visualCandidatePages = [
     ...new Set(visualEnrichmentCandidates.map((candidate) => candidate.page)),
   ].sort((a, b) => a - b);
+  const accessibilityReviewPages =
+    input.accessibilityReport?.page_reports
+      .filter((pageReport) => pageReport.issue_count > 0)
+      .map((pageReport) => pageReport.page) ?? [];
+  const accessibilityHighIssuePages =
+    input.accessibilityReport?.page_reports
+      .filter((pageReport) => pageReport.high_issue_count > 0)
+      .map((pageReport) => pageReport.page) ?? [];
 
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
   const averageLayoutConfidence =
@@ -322,6 +366,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       input.safetyFindings,
       input.textLayer,
       input.ocrTextLayer,
+      input.accessibilityReport,
       input.pageGeometry
     ),
     pages,
@@ -337,6 +382,8 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       needs_ocr_pages: needsOcrPages,
       ocr_applied_pages: ocrAppliedPages,
       visual_candidate_pages: visualCandidatePages,
+      accessibility_review_pages: accessibilityReviewPages,
+      accessibility_high_issue_pages: accessibilityHighIssuePages,
     },
     summary: {
       ...(input.totalPages !== undefined ? { total_pages: input.totalPages } : {}),
@@ -371,6 +418,25 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       visual_enrichment_kind_counts: countVisualEnrichmentKinds(visualEnrichments),
       chunk_count: input.chunks.length,
       safety_finding_count: input.safetyFindings.length,
+      ...(input.accessibilityReport
+        ? {
+            accessibility_report_page_count: input.accessibilityReport.page_reports.length,
+            accessibility_score: input.accessibilityReport.score,
+            accessibility_grade: input.accessibilityReport.grade,
+            accessibility_issue_count: input.accessibilityReport.summary.issue_count,
+            accessibility_document_issue_count:
+              input.accessibilityReport.summary.document_issue_count,
+            accessibility_page_issue_count: input.accessibilityReport.summary.page_issue_count,
+            accessibility_high_issue_count: input.accessibilityReport.summary.high_issue_count,
+            accessibility_medium_issue_count: input.accessibilityReport.summary.medium_issue_count,
+            accessibility_low_issue_count: input.accessibilityReport.summary.low_issue_count,
+            accessibility_pages_with_issues_count:
+              input.accessibilityReport.summary.pages_with_issues_count,
+            accessibility_pages_with_high_issues_count:
+              input.accessibilityReport.summary.pages_with_high_issues_count,
+            accessibility_page_grade_counts: input.accessibilityReport.summary.page_grade_counts,
+          }
+        : {}),
       ...(averageLayoutConfidence !== undefined
         ? { average_layout_confidence: averageLayoutConfidence }
         : {}),

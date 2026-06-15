@@ -6,10 +6,11 @@ Status: active
 ## Goal
 
 Make PDF Reader MCP expose a single agent-native map of a PDF: pages,
-elements, selectable text-layer and metadata coverage, chunks, layout confidence, safety
-findings, routing signals, OCR evidence, and page geometry. The map is the
-stable contract that OCR, vision, formula, chart, and advanced table engines
-can enrich without forcing agents to learn a new response shape each time.
+elements, selectable text-layer and metadata coverage, chunks, layout
+confidence, safety findings, accessibility report routing, OCR evidence, visual
+evidence routing, and page geometry. The map is the stable contract that OCR,
+vision, formula, chart, accessibility, and advanced table engines can enrich
+without forcing agents to learn a new response shape each time.
 
 ## Product Positioning
 
@@ -56,6 +57,7 @@ Each successful source may include:
       "visual_enrichment",
       "layout_diagnostics",
       "content_safety",
+      "accessibility_report",
       "page_geometry"
     ],
     "pages": [
@@ -86,7 +88,11 @@ Each successful source may include:
         "image_count": 0,
         "table_count": 1,
         "visual_enrichment_indexes": [0],
-        "visual_enrichment_count": 1
+        "visual_enrichment_count": 1,
+        "accessibility_report_page_index": 0,
+        "accessibility_grade": "good",
+        "accessibility_score": 100,
+        "accessibility_issue_count": 0
       }
     ],
     "elements": [],
@@ -115,7 +121,9 @@ Each successful source may include:
       "low_confidence_pages": [],
       "image_or_sparse_pages": [],
       "needs_ocr_pages": [],
-      "ocr_applied_pages": [1]
+      "ocr_applied_pages": [1],
+      "accessibility_review_pages": [],
+      "accessibility_high_issue_pages": []
     },
     "summary": {
       "selected_pages": [1],
@@ -142,7 +150,13 @@ Each successful source may include:
       "visual_enrichment_count": 1,
       "visual_enrichment_kind_counts": { "table": 1 },
       "chunk_count": 0,
-      "safety_finding_count": 0
+      "safety_finding_count": 0,
+      "accessibility_report_page_count": 1,
+      "accessibility_score": 100,
+      "accessibility_grade": "good",
+      "accessibility_issue_count": 0,
+      "accessibility_pages_with_issues_count": 0,
+      "accessibility_page_grade_counts": { "good": 1, "partial": 0, "weak": 0 }
     }
   }
 }
@@ -160,6 +174,9 @@ Each successful source may include:
   indexes in `document_map.visual_enrichments`.
 - `document_map.pages[*].text_layer_page_index` must reference the same-page
   record in the internally built or top-level `text_layer.pages` array.
+- `document_map.pages[*].accessibility_report_page_index`, when present, must
+  reference the same-page record in the internally built or top-level
+  `accessibility_report.page_reports` array.
 - `document_map.visual_enrichments[*].target_element_id` must reference either
   the table/image element whose crop was analyzed or a stable synthetic
   caption-derived visual region ID. Caption-derived regions must include
@@ -169,10 +186,11 @@ Each successful source may include:
   flags. `text_layer` is present only when selectable text-layer evidence was
   built. `ocr_text_layer` is present only when OCR pages were returned.
 - Top-level legacy outputs remain opt-in. `include_document_map` may build
-  internal elements, chunks, text-layer and metadata coverage, safety findings, layout
-  diagnostics, page geometry, and tables for the map without forcing top-level
-  `elements`, `chunks`, `text_layer`, `safety_findings`,
-  `layout_diagnostics`, or `page_geometry`.
+  internal elements, chunks, text-layer and metadata coverage, safety findings,
+  accessibility routing summaries, layout diagnostics, page geometry, and
+  tables for the map without forcing top-level `elements`, `chunks`,
+  `text_layer`, `safety_findings`, `layout_diagnostics`, `page_geometry`, or
+  raw tagged-structure outputs.
 - JSON output must not include embedded image bytes.
 - Visual enrichment is opt-in and provider-backed. If the provider is not
   configured or fails, `read_pdf` records a warning instead of failing the
@@ -200,6 +218,11 @@ Each successful source may include:
   enrichment is requested, the map must preserve candidate indexes, target
   types, PDF-coordinate boxes, caption provenance, and routing signals even if
   the optional provider is unavailable.
+- Accessibility report summaries are first-class routing evidence. When
+  `include_accessibility_report` and `include_document_map` are both enabled,
+  the map must link page report indexes, per-page issue counts, affected-page
+  routing arrays, and document-level accessibility summary counts without
+  forcing raw structure trees into top-level output.
 
 ## v3 Capability Batch
 
@@ -217,6 +240,9 @@ Required before publishing the next package release:
   and summary totals, including run-level font, direction, transform, and
   end-of-line metadata coverage, without forcing the top-level `text_layer`
   response.
+- `include_document_map` links accessibility report routing summaries when
+  `include_accessibility_report` is also requested, without forcing raw
+  structure-tree output.
 - `read_pdf` can opt into visual enrichment fusion for bounded table/image
   regions and caption-derived formula/chart/figure/diagram regions, then link
   provider-backed table, formula, chart, figure, diagram, or image evidence
@@ -246,9 +272,10 @@ Next slices for the same v3 track:
 - `include_document_map` validates as an optional boolean.
 - `read_pdf` with `include_document_map: true` processes selected pages even
   when `include_full_text` is false.
-- The map includes semantic elements, selectable text-layer and metadata coverage, citation
-  chunks, layout diagnostics, safety findings, routing signals, page geometry,
-  and summary counts.
+- The map includes semantic elements, selectable text-layer and metadata
+  coverage, citation chunks, layout diagnostics, safety findings,
+  accessibility report routing, visual routing, page geometry, and summary
+  counts.
 - The map includes table elements when deterministic table extraction finds
   tables.
 - The map links OCR pages when `include_ocr_text_layer` returns OCR evidence,
@@ -256,6 +283,9 @@ Next slices for the same v3 track:
   structure.
 - The map links visual enrichment evidence when `include_visual_enrichments`
   returns provider-backed region analysis.
+- The map links accessibility report page indexes, issue counts, affected-page
+  routing arrays, and grade summaries when `include_accessibility_report` is
+  also enabled.
 - The AST attaches visual enrichment evidence to semantic nodes without
   duplicating table elements.
 - The AST links captions to nearby matching table, image, figure, chart,

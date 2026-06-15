@@ -77,7 +77,7 @@
 - Configured local OCR provider pipeline with opt-in `read_pdf` OCR layer fusion
 - URL support
 - Structured JSON output
-- Agent document maps with linked pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, routing signals, and geometry
+- Agent document maps with linked pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, accessibility report routing, visual evidence routing, and geometry
 - Accessibility reports with tagged-PDF coverage, tag-to-visible-content coverage, heading, image, form, link, and permission signals
 
 **Cons:**

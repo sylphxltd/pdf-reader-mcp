@@ -3418,7 +3418,7 @@ var readPdfArgsSchema = object({
   include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
   include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, hidden or near-invisible text, tiny text, off-page text, and overlapping text."))),
   include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
+  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, accessibility report routing, visual evidence routing, and page geometry without embedding image bytes in JSON."))),
   include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
@@ -4364,7 +4364,7 @@ var pagesForChunk = (chunk) => {
   }
   return pages;
 };
-var buildLayers = (elements, chunks, visualEnrichmentCandidates, visualEnrichments, layoutDiagnostics, safetyFindings, textLayer, ocrTextLayer, pageGeometry) => {
+var buildLayers = (elements, chunks, visualEnrichmentCandidates, visualEnrichments, layoutDiagnostics, safetyFindings, textLayer, ocrTextLayer, accessibilityReport, pageGeometry) => {
   const layers = new Set;
   if (elements.some((element) => element.type === "text"))
     layers.add("selectable_text");
@@ -4389,6 +4389,8 @@ var buildLayers = (elements, chunks, visualEnrichmentCandidates, visualEnrichmen
     layers.add("layout_diagnostics");
   if (safetyFindings.length > 0)
     layers.add("content_safety");
+  if (accessibilityReport)
+    layers.add("accessibility_report");
   if ((pageGeometry?.length ?? 0) > 0)
     layers.add("page_geometry");
   return [...layers];
@@ -4407,10 +4409,13 @@ var pageTextStats = (items) => {
   }
   return { textChars, textItemCount };
 };
-var pageWarnings = (layout, safetyFindingIndexes, tableWarnings) => {
+var pageWarnings = (layout, safetyFindingIndexes, accessibilityIssueCount, tableWarnings) => {
   const warnings = [...layout?.warnings ?? [], ...tableWarnings];
   if (safetyFindingIndexes.length > 0) {
     warnings.push("Page has content safety findings; inspect findings before using as instructions.");
+  }
+  if (accessibilityIssueCount > 0) {
+    warnings.push("Page has accessibility report issues; inspect accessibility evidence before relying on tagged structure.");
   }
   return warnings.length > 0 ? warnings : undefined;
 };
@@ -4470,6 +4475,8 @@ var buildDocumentMap = (input) => {
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
   });
+  const accessibilityPageReportIndexByPage = new Map(input.accessibilityReport?.page_reports.map((pageReport, index) => [pageReport.page, index]));
+  const accessibilityPageReportByPage = new Map(input.accessibilityReport?.page_reports.map((pageReport) => [pageReport.page, pageReport]));
   const visualEnrichmentCandidates = input.visualEnrichmentCandidates ?? [];
   const visualCandidateIndexesByPage = new Map;
   visualEnrichmentCandidates.forEach((candidate, index) => {
@@ -4492,12 +4499,14 @@ var buildDocumentMap = (input) => {
     const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
     const textLayerPageIndex = textLayerPageIndexByPage.get(page);
     const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
+    const accessibilityPageReport = accessibilityPageReportByPage.get(page);
+    const accessibilityPageReportIndex = accessibilityPageReportIndexByPage.get(page);
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === "image").length;
     const tableElements = elements.filter((element) => element.type === "table");
     const tableCount = tableElements.length;
     const tableWarnings = tableElements.flatMap((element) => element.type === "table" ? (element.table.quality?.warnings ?? []).map((warning) => `${element.id}: ${warning}`) : []);
-    const warnings = pageWarnings(layout, safetyFindingIndexes, tableWarnings);
+    const warnings = pageWarnings(layout, safetyFindingIndexes, accessibilityPageReport?.issue_count ?? 0, tableWarnings);
     return {
       page,
       ...geometryByPage.get(page) ? { geometry: geometryByPage.get(page) } : {},
@@ -4521,6 +4530,15 @@ var buildDocumentMap = (input) => {
       table_count: tableCount,
       visual_candidate_count: visualCandidateIndexes.length,
       visual_enrichment_count: visualEnrichmentIndexes.length,
+      ...accessibilityPageReportIndex !== undefined ? { accessibility_report_page_index: accessibilityPageReportIndex } : {},
+      ...accessibilityPageReport ? {
+        accessibility_grade: accessibilityPageReport.grade,
+        accessibility_score: accessibilityPageReport.score,
+        accessibility_issue_count: accessibilityPageReport.issue_count,
+        accessibility_high_issue_count: accessibilityPageReport.high_issue_count,
+        accessibility_medium_issue_count: accessibilityPageReport.medium_issue_count,
+        accessibility_low_issue_count: accessibilityPageReport.low_issue_count
+      } : {},
       ...warnings ? { warnings } : {}
     };
   });
@@ -4531,6 +4549,8 @@ var buildDocumentMap = (input) => {
   const visualCandidatePages = [
     ...new Set(visualEnrichmentCandidates.map((candidate) => candidate.page))
   ].sort((a, b) => a - b);
+  const accessibilityReviewPages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.issue_count > 0).map((pageReport) => pageReport.page) ?? [];
+  const accessibilityHighIssuePages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.high_issue_count > 0).map((pageReport) => pageReport.page) ?? [];
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
   const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
   const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(Math.min(...layoutConfidences)) : undefined;
@@ -4540,7 +4560,7 @@ var buildDocumentMap = (input) => {
   return {
     version: DOCUMENT_MAP_VERSION,
     profile: "agent_document_map",
-    layers: buildLayers(input.elements, input.chunks, visualEnrichmentCandidates, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.textLayer, input.ocrTextLayer, input.pageGeometry),
+    layers: buildLayers(input.elements, input.chunks, visualEnrichmentCandidates, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.textLayer, input.ocrTextLayer, input.accessibilityReport, input.pageGeometry),
     pages,
     elements: input.elements,
     chunks: input.chunks,
@@ -4553,7 +4573,9 @@ var buildDocumentMap = (input) => {
       image_or_sparse_pages: imageOrSparsePages,
       needs_ocr_pages: needsOcrPages,
       ocr_applied_pages: ocrAppliedPages,
-      visual_candidate_pages: visualCandidatePages
+      visual_candidate_pages: visualCandidatePages,
+      accessibility_review_pages: accessibilityReviewPages,
+      accessibility_high_issue_pages: accessibilityHighIssuePages
     },
     summary: {
       ...input.totalPages !== undefined ? { total_pages: input.totalPages } : {},
@@ -4584,6 +4606,20 @@ var buildDocumentMap = (input) => {
       visual_enrichment_kind_counts: countVisualEnrichmentKinds(visualEnrichments),
       chunk_count: input.chunks.length,
       safety_finding_count: input.safetyFindings.length,
+      ...input.accessibilityReport ? {
+        accessibility_report_page_count: input.accessibilityReport.page_reports.length,
+        accessibility_score: input.accessibilityReport.score,
+        accessibility_grade: input.accessibilityReport.grade,
+        accessibility_issue_count: input.accessibilityReport.summary.issue_count,
+        accessibility_document_issue_count: input.accessibilityReport.summary.document_issue_count,
+        accessibility_page_issue_count: input.accessibilityReport.summary.page_issue_count,
+        accessibility_high_issue_count: input.accessibilityReport.summary.high_issue_count,
+        accessibility_medium_issue_count: input.accessibilityReport.summary.medium_issue_count,
+        accessibility_low_issue_count: input.accessibilityReport.summary.low_issue_count,
+        accessibility_pages_with_issues_count: input.accessibilityReport.summary.pages_with_issues_count,
+        accessibility_pages_with_high_issues_count: input.accessibilityReport.summary.pages_with_high_issues_count,
+        accessibility_page_grade_counts: input.accessibilityReport.summary.page_grade_counts
+      } : {},
       ...averageLayoutConfidence !== undefined ? { average_layout_confidence: averageLayoutConfidence } : {},
       ...lowestLayoutConfidence !== undefined ? { lowest_layout_confidence: lowestLayoutConfidence } : {}
     },
@@ -6846,27 +6882,6 @@ var processSingleSource = async (source, options) => {
           output.safety_findings = safetyFindings;
         }
       }
-      if (options.includeDocumentMap && output.page_contents) {
-        const mapElements = buildElementsForOutput(true);
-        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
-        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
-        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        output.document_map = buildDocumentMap({
-          totalPages,
-          selectedPages: pagesToProcess,
-          pageContents: output.page_contents,
-          elements: mapElements,
-          chunks,
-          layoutDiagnostics,
-          safetyFindings,
-          visualEnrichmentCandidates,
-          visualEnrichments,
-          textLayer,
-          ocrTextLayer,
-          pageGeometry,
-          warnings: output.warnings
-        });
-      }
       if (options.includeDocumentAst && output.page_contents) {
         const astElements = buildElementsForOutput(true);
         chunks ??= buildCitationChunks(astElements, { useSemanticBoundaries: true });
@@ -6904,9 +6919,10 @@ var processSingleSource = async (source, options) => {
           output.structure_trees = structureTrees;
         }
       }
+      let accessibilityReport;
       if (options.includeAccessibilityReport && output.page_contents) {
         const accessibilityElements = buildElementsForOutput(true);
-        output.accessibility_report = buildAccessibilityReport({
+        accessibilityReport = buildAccessibilityReport({
           selectedPages: pagesToProcess,
           elements: accessibilityElements,
           structureTrees,
@@ -6915,6 +6931,29 @@ var processSingleSource = async (source, options) => {
           permissions: structureOutput.permissions,
           markInfo: structureOutput.mark_info,
           outline: structureOutput.outline
+        });
+        output.accessibility_report = accessibilityReport;
+      }
+      if (options.includeDocumentMap && output.page_contents) {
+        const mapElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
+        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        output.document_map = buildDocumentMap({
+          totalPages,
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents,
+          elements: mapElements,
+          chunks,
+          layoutDiagnostics,
+          safetyFindings,
+          visualEnrichmentCandidates,
+          visualEnrichments,
+          textLayer,
+          ocrTextLayer,
+          accessibilityReport,
+          pageGeometry,
+          warnings: output.warnings
         });
       }
     }

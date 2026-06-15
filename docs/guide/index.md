@@ -18,7 +18,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **Metadata** - Author, title, creation date, and other document properties
 - **Page count** - Total number of pages
 - **Embedded images** - Extract images as base64-encoded PNG data
-- **Agent document maps** - Link pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, routing signals, and geometry
+- **Agent document maps** - Link pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, accessibility report routing, visual evidence routing, and geometry
 - **Accessibility reports** - Summarize tagged-PDF coverage, tag-to-visible-content coverage, heading roles, images, forms, links, accessibility permissions, issue summaries, and page-grade routing
 - **Citation chunks** - Return stable source references for retrieval workflows
 - **Safety signals** - Surface deterministic findings before agents trust PDF text

@@ -267,9 +267,9 @@ Candidate engines:
 - Requests with `include_safety_findings: true` produce deterministic findings
   without forcing `full_text`.
 - Requests with `include_document_map: true` produce an agent map with pages,
-  elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings,
-  routing signals, page geometry, and summary counts without forcing top-level
-  legacy outputs.
+  elements, text-layer and metadata coverage, chunks, layout diagnostics,
+  safety findings, accessibility report routing, visual routing, page geometry,
+  and summary counts without forcing top-level legacy outputs.
 - JSON summary includes `elements` with stable ids, page numbers, type, content
   or metadata, and best-effort bounding boxes where available.
 - JSON summary does not include base64 image bytes.

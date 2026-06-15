@@ -178,17 +178,6 @@ const evaluateCase = (qualityCase: QualityCase) => {
     selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
     pageContents: qualityCase.pageContents,
   });
-  const documentMap = buildDocumentMap({
-    totalPages: qualityCase.pageContents.length,
-    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
-    pageContents: qualityCase.pageContents,
-    elements,
-    chunks,
-    layoutDiagnostics,
-    safetyFindings,
-    textLayer,
-    pageGeometry: qualityCase.pageGeometry,
-  });
   const documentAst = buildDocumentAst({
     selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
     elements,
@@ -291,6 +280,18 @@ const evaluateCase = (qualityCase: QualityCase) => {
     ],
     permissions: ['copy_for_accessibility'],
     markInfo: { Marked: true, Suspects: false },
+  });
+  const documentMap = buildDocumentMap({
+    totalPages: qualityCase.pageContents.length,
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    pageContents: qualityCase.pageContents,
+    elements,
+    chunks,
+    layoutDiagnostics,
+    safetyFindings,
+    textLayer,
+    accessibilityReport,
+    pageGeometry: qualityCase.pageGeometry,
   });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
@@ -413,6 +414,22 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.summary.safety_finding_count === 3,
     },
     {
+      name: 'document map links accessibility report routing into the agent twin',
+      pass:
+        documentMap.layers.includes('accessibility_report') &&
+        documentMap.pages[0]?.accessibility_report_page_index === 0 &&
+        documentMap.pages[0]?.accessibility_grade === 'good' &&
+        documentMap.pages[0]?.accessibility_issue_count === 0 &&
+        documentMap.routing.accessibility_review_pages.length === 0 &&
+        documentMap.routing.accessibility_high_issue_pages.length === 0 &&
+        documentMap.summary.accessibility_report_page_count === 2 &&
+        documentMap.summary.accessibility_score === 100 &&
+        documentMap.summary.accessibility_grade === 'good' &&
+        documentMap.summary.accessibility_issue_count === 0 &&
+        documentMap.summary.accessibility_pages_with_issues_count === 0 &&
+        documentMap.summary.accessibility_page_grade_counts?.good === 2,
+    },
+    {
       name: 'document AST exposes sections, paragraphs, lists, cross-page context, and tables',
       pass:
         documentAst.profile === 'document_ast' &&
@@ -528,8 +545,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 16,
-        total: 16,
+        passed: 17,
+        total: 17,
         score: 1,
       });
     });

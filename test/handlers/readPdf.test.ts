@@ -2110,6 +2110,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     const args = {
       sources: [{ path: 'test.pdf', pages: [1] }],
       include_accessibility_report: true,
+      include_document_map: true,
       include_metadata: false,
       include_page_count: false,
       include_full_text: false,
@@ -2126,6 +2127,38 @@ describe('handleReadPdfFunc Integration Tests', () => {
             permissions?: unknown;
             mark_info?: unknown;
             structure_trees?: unknown;
+            document_map?: {
+              layers: string[];
+              pages: Array<{
+                page: number;
+                accessibility_report_page_index?: number;
+                accessibility_grade?: string;
+                accessibility_score?: number;
+                accessibility_issue_count?: number;
+                accessibility_high_issue_count?: number;
+                accessibility_medium_issue_count?: number;
+                accessibility_low_issue_count?: number;
+                warnings?: string[];
+              }>;
+              routing: {
+                accessibility_review_pages: number[];
+                accessibility_high_issue_pages: number[];
+              };
+              summary: {
+                accessibility_report_page_count?: number;
+                accessibility_score?: number;
+                accessibility_grade?: string;
+                accessibility_issue_count?: number;
+                accessibility_document_issue_count?: number;
+                accessibility_page_issue_count?: number;
+                accessibility_high_issue_count?: number;
+                accessibility_medium_issue_count?: number;
+                accessibility_low_issue_count?: number;
+                accessibility_pages_with_issues_count?: number;
+                accessibility_pages_with_high_issues_count?: number;
+                accessibility_page_grade_counts?: Record<string, number>;
+              };
+            };
             accessibility_report?: {
               profile: string;
               grade: string;
@@ -2162,11 +2195,48 @@ describe('handleReadPdfFunc Integration Tests', () => {
 
       const data = parsed.results[0]?.data;
       const report = data?.accessibility_report;
+      const documentMap = data?.document_map;
       expect(data?.annotations).toBeUndefined();
       expect(data?.form_fields).toBeUndefined();
       expect(data?.permissions).toBeUndefined();
       expect(data?.mark_info).toBeUndefined();
       expect(data?.structure_trees).toBeUndefined();
+      expect(documentMap).toMatchObject({
+        layers: expect.arrayContaining(['accessibility_report']),
+        routing: {
+          accessibility_review_pages: [1],
+          accessibility_high_issue_pages: [],
+        },
+        summary: {
+          accessibility_report_page_count: 1,
+          accessibility_score: 39,
+          accessibility_grade: 'weak',
+          accessibility_issue_count: 3,
+          accessibility_document_issue_count: 1,
+          accessibility_page_issue_count: 2,
+          accessibility_high_issue_count: 1,
+          accessibility_medium_issue_count: 1,
+          accessibility_low_issue_count: 1,
+          accessibility_pages_with_issues_count: 1,
+          accessibility_pages_with_high_issues_count: 0,
+          accessibility_page_grade_counts: {
+            good: 0,
+            partial: 1,
+            weak: 0,
+          },
+        },
+      });
+      expect(documentMap?.pages[0]).toMatchObject({
+        page: 1,
+        accessibility_report_page_index: 0,
+        accessibility_grade: 'partial',
+        accessibility_score: 74,
+        accessibility_issue_count: 2,
+        accessibility_high_issue_count: 0,
+        accessibility_medium_issue_count: 1,
+        accessibility_low_issue_count: 1,
+        warnings: expect.arrayContaining([expect.stringContaining('accessibility report issues')]),
+      });
       expect(report).toMatchObject({
         profile: 'pdf_accessibility_report',
         tagged: true,

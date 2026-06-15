@@ -427,28 +427,6 @@ const processSingleSource = async (
         }
       }
 
-      if (options.includeDocumentMap && output.page_contents) {
-        const mapElements = buildElementsForOutput(true);
-        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
-        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
-        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        output.document_map = buildDocumentMap({
-          totalPages,
-          selectedPages: pagesToProcess,
-          pageContents: output.page_contents,
-          elements: mapElements,
-          chunks,
-          layoutDiagnostics,
-          safetyFindings,
-          visualEnrichmentCandidates,
-          visualEnrichments,
-          textLayer,
-          ocrTextLayer,
-          pageGeometry,
-          warnings: output.warnings,
-        });
-      }
-
       if (options.includeDocumentAst && output.page_contents) {
         const astElements = buildElementsForOutput(true);
         chunks ??= buildCitationChunks(astElements, { useSemanticBoundaries: true });
@@ -500,9 +478,10 @@ const processSingleSource = async (
         }
       }
 
+      let accessibilityReport: PdfResultData['accessibility_report'] | undefined;
       if (options.includeAccessibilityReport && output.page_contents) {
         const accessibilityElements = buildElementsForOutput(true);
-        output.accessibility_report = buildAccessibilityReport({
+        accessibilityReport = buildAccessibilityReport({
           selectedPages: pagesToProcess,
           elements: accessibilityElements,
           structureTrees,
@@ -511,6 +490,30 @@ const processSingleSource = async (
           permissions: structureOutput.permissions,
           markInfo: structureOutput.mark_info,
           outline: structureOutput.outline,
+        });
+        output.accessibility_report = accessibilityReport;
+      }
+
+      if (options.includeDocumentMap && output.page_contents) {
+        const mapElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
+        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        output.document_map = buildDocumentMap({
+          totalPages,
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents,
+          elements: mapElements,
+          chunks,
+          layoutDiagnostics,
+          safetyFindings,
+          visualEnrichmentCandidates,
+          visualEnrichments,
+          textLayer,
+          ocrTextLayer,
+          accessibilityReport,
+          pageGeometry,
+          warnings: output.warnings,
         });
       }
     }

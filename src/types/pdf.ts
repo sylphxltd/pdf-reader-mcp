@@ -292,6 +292,7 @@ export type PdfDocumentMapLayer =
   | 'citation_chunks'
   | 'layout_diagnostics'
   | 'content_safety'
+  | 'accessibility_report'
   | 'page_geometry';
 
 export interface PdfDocumentMapPage {
@@ -326,6 +327,13 @@ export interface PdfDocumentMapPage {
   table_count: number;
   visual_candidate_count: number;
   visual_enrichment_count: number;
+  accessibility_report_page_index?: number | undefined;
+  accessibility_grade?: PdfAccessibilityGrade | undefined;
+  accessibility_score?: number | undefined;
+  accessibility_issue_count?: number | undefined;
+  accessibility_high_issue_count?: number | undefined;
+  accessibility_medium_issue_count?: number | undefined;
+  accessibility_low_issue_count?: number | undefined;
   warnings?: string[] | undefined;
 }
 
@@ -335,6 +343,8 @@ export interface PdfDocumentMapRouting {
   needs_ocr_pages: number[];
   ocr_applied_pages: number[];
   visual_candidate_pages: number[];
+  accessibility_review_pages: number[];
+  accessibility_high_issue_pages: number[];
 }
 
 export interface PdfDocumentMapSummary {
@@ -366,6 +376,18 @@ export interface PdfDocumentMapSummary {
   visual_enrichment_kind_counts: Partial<Record<PdfRegionAnalysisKind, number>>;
   chunk_count: number;
   safety_finding_count: number;
+  accessibility_report_page_count?: number | undefined;
+  accessibility_score?: number | undefined;
+  accessibility_grade?: PdfAccessibilityGrade | undefined;
+  accessibility_issue_count?: number | undefined;
+  accessibility_document_issue_count?: number | undefined;
+  accessibility_page_issue_count?: number | undefined;
+  accessibility_high_issue_count?: number | undefined;
+  accessibility_medium_issue_count?: number | undefined;
+  accessibility_low_issue_count?: number | undefined;
+  accessibility_pages_with_issues_count?: number | undefined;
+  accessibility_pages_with_high_issues_count?: number | undefined;
+  accessibility_page_grade_counts?: Record<PdfAccessibilityGrade, number> | undefined;
   average_layout_confidence?: number | undefined;
   lowest_layout_confidence?: number | undefined;
 }
