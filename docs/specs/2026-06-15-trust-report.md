@@ -18,7 +18,7 @@ annotations.
 - Document-level `risk` and bounded score.
 - Page-level reports with risk, score, and signals.
 - Signals for content safety, layout uncertainty, sparse/scanned pages, table
-  quality warnings, and external links.
+  quality warnings, external links, and unsafe link schemes.
 - Guidance for routing to OCR, page rendering, region crops, or caller approval
   before following links.
 
@@ -48,6 +48,7 @@ verification or explicit caller approval is appropriate.
   output flags.
 - Prompt-injection findings become high-severity trust signals.
 - External links become trust signals without fetching the link.
+- Unsafe URL schemes become dedicated high-severity trust signals.
 - Sparse or low-confidence layout diagnostics become routing signals.
 - Table quality warnings become table trust signals.
 - Handler tests verify top-level raw outputs stay hidden unless requested.

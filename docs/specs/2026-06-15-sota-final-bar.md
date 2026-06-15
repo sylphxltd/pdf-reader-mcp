@@ -69,7 +69,8 @@ themselves.
      document map, accessibility tag-to-visible-content coverage,
      caption-to-evidence links, OCR normalization, a runtime-generated
      scanned-PDF OCR pipeline fixture, visual-region command/HTTP
-     normalization, and search evidence.
+     normalization, search evidence, and AI-safety trust-report unsafe-link
+     routing.
    - `bun run benchmark:providers` is the installed-provider benchmark
      for optional OCR engines such as `tesseract-tsv` and configured
      visual-region providers. It reports an `ocr-text-layer` profile for OCR

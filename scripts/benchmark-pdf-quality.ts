@@ -36,6 +36,7 @@ import {
   searchPageContentItems,
 } from '../src/pdf/search.js';
 import { buildTextLayer } from '../src/pdf/textLayer.js';
+import { buildTrustReport } from '../src/pdf/trustReport.js';
 import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
 import type {
   BoundingBox,
@@ -45,6 +46,7 @@ import type {
   PdfDocumentElement,
   PdfInspectionDocumentSignals,
   PdfInspectionPageSignal,
+  PdfPageAnnotations,
   PdfPageGeometry,
   PdfPageRenderData,
   PdfRegionCropData,
@@ -1601,7 +1603,7 @@ const evaluateSearchEvidence = (): QualityAssertion[] => {
   ];
 };
 
-const evaluateAiSafetyOverlap = (): QualityAssertion[] => {
+const evaluateAiSafetyTrustReport = (): QualityAssertion[] => {
   const findings = buildSafetyFindings(
     [
       {
@@ -1623,6 +1625,30 @@ const evaluateAiSafetyOverlap = (): QualityAssertion[] => {
     ]
   );
   const overlapFinding = findings.find((finding) => finding.type === 'overlapping_text');
+  const unsafeAnnotations: PdfPageAnnotations[] = [
+    {
+      page: 1,
+      annotations: [
+        {
+          id: 'unsafe-link-1',
+          page: 1,
+          subtype: 'Link',
+          url: 'javascript:alert(1)',
+          bounding_box: { left: 100, bottom: 620, right: 180, top: 636 },
+        },
+      ],
+    },
+  ];
+  const trustReport = buildTrustReport({
+    selectedPages: [1],
+    safetyFindings: findings,
+    layoutDiagnostics: [],
+    elements: [],
+    annotations: unsafeAnnotations,
+  });
+  const unsafeLinkSignal = trustReport.signals.find(
+    (signal) => signal.type === 'unsafe_external_link'
+  );
 
   return [
     {
@@ -1633,6 +1659,21 @@ const evaluateAiSafetyOverlap = (): QualityAssertion[] => {
         overlapFinding.snippet === 'Visible amount: $100 / Visible amount: $900' &&
         JSON.stringify(overlapFinding.bounding_box) ===
           JSON.stringify({ left: 100, bottom: 650, right: 224, top: 660 }),
+    },
+    {
+      name: 'trust report escalates unsafe PDF link schemes',
+      pass:
+        unsafeLinkSignal?.severity === 'high' &&
+        unsafeLinkSignal.annotation_id === 'unsafe-link-1' &&
+        unsafeLinkSignal.evidence?.['url'] === 'javascript:alert(1)' &&
+        trustReport.summary.high_signal_count === 2,
+    },
+    {
+      name: 'trust report gives unsafe-link routing guidance',
+      pass:
+        trustReport.risk === 'high' &&
+        trustReport.guidance.some((guidance) => guidance.includes('unsafe PDF link schemes')) &&
+        trustReport.guidance.some((guidance) => guidance.includes('Do not fetch or follow')),
     },
   ];
 };
@@ -1647,7 +1688,7 @@ const main = async () => {
     await runCase('scanned_pdf_fixture_pipeline_quality', evaluateScannedPdfFixturePipeline),
     await runCase('visual_region_analysis_quality', evaluateVisualRegionAnalysis),
     await runCase('search_evidence_quality', evaluateSearchEvidence),
-    await runCase('ai_safety_overlap_quality', evaluateAiSafetyOverlap),
+    await runCase('ai_safety_trust_report_quality', evaluateAiSafetyTrustReport),
   ];
   const failed = results.filter((result) => result.failures.length > 0);
   const passed = results.reduce((sum, result) => sum + result.passed, 0);

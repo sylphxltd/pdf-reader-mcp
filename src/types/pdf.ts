@@ -474,6 +474,7 @@ export type PdfTrustSignalType =
   | 'layout_uncertainty'
   | 'sparse_or_scanned'
   | 'table_quality'
+  | 'unsafe_external_link'
   | 'external_link';
 
 export interface PdfTrustSignal {

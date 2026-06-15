@@ -44,7 +44,7 @@ status if any quality gate fails.
 | `scanned_pdf_fixture_pipeline_quality` | Runtime-generated image-only PDF fixture through `read_pdf` load, render, OCR provider, OCR text-layer fusion, document map routing, and low-confidence layout diagnostics |
 | `visual_region_analysis_quality` | Local command and HTTP visual-region provider normalization for table cells/spans/boxes, formula fields, chart axes/series, figure and image-description evidence, confidence, warnings, and crop evidence |
 | `search_evidence_quality` | Selectable text search with character-derived boxes and OCR search with word-level boxes plus render provenance |
-| `ai_safety_overlap_quality` | Overlapping text detection for visual-spoofing or obscured-content risk |
+| `ai_safety_trust_report_quality` | Overlapping text detection for visual-spoofing or obscured-content risk, plus trust-report unsafe-link scheme routing |
 
 This benchmark uses in-repository synthetic cases, runtime-generated
 document-signal, reading-order, and scanned PDF fixtures, and mock local
@@ -395,8 +395,10 @@ content.
 
 `include_safety_findings` scans extracted page text for deterministic risk
 signals, including prompt-injection-like text, tiny text, off-page text, and
-overlapping text that may visually spoof or obscure content. It requires page
-text extraction, but it does not force `full_text` into the JSON response.
+overlapping text that may visually spoof or obscure content. `include_trust_report`
+can consolidate those text signals with annotation-derived unsafe link schemes.
+Safety findings require page text extraction, but they do not force `full_text`
+into the JSON response.
 
 ```json
 {

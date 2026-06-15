@@ -30,6 +30,9 @@
   reports now expose visible element counts, structure content-reference counts,
   and tag-content coverage, and the report can flag tagged pages whose structure
   tree does not reference enough visible content.
+- Split unsafe PDF link schemes into a dedicated trust-report signal. The
+  report now distinguishes ordinary external links from unsafe URL schemes and
+  the deterministic quality benchmark verifies unsafe-link routing guidance.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can
   receive crop image bytes and return the same normalized table, formula, chart,
   figure, image-description, confidence, warning, and provenance fields as

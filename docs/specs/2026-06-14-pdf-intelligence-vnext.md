@@ -155,7 +155,8 @@ Candidate engines:
      chunk IDs for page/section/paragraph/list/caption/header/footer/table/image
      traversal with continued section context and caption-to-evidence links.
    - Add `include_trust_report` for consolidated content safety, layout,
-     sparse-page, table quality, and external-link routing signals.
+     sparse-page, table quality, external-link, and unsafe-link routing
+     signals.
    - Add `include_accessibility_report` for deterministic tagged-PDF coverage,
      tag-to-visible-content coverage, structure tree, heading, image, form,
      link, permission, and mark-info signals without claiming PDF/UA

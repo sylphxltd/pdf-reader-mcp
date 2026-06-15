@@ -3371,7 +3371,7 @@ var readPdfArgsSchema = object({
   include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image regions and fuse normalized table, formula, chart, figure, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
-  include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing."))),
+  include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, external-link, and unsafe-link signals for agent routing."))),
   include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
 });
 
@@ -5906,18 +5906,21 @@ var isSuspiciousUrl = (annotation) => {
   const scheme = /^[a-z][a-z0-9+.-]*:/i.exec(url)?.[0]?.slice(0, -1).toLowerCase();
   return scheme !== undefined && ["javascript", "data", "file", "vbscript"].includes(scheme);
 };
-var signalsFromAnnotations = (annotations) => (annotations ?? []).flatMap((pageAnnotations2) => pageAnnotations2.annotations.filter((annotation) => annotation.url).map((annotation) => ({
-  type: "external_link",
-  severity: isSuspiciousUrl(annotation) ? "high" : "low",
-  page: pageAnnotations2.page,
-  message: isSuspiciousUrl(annotation) ? "Annotation contains a potentially unsafe URL scheme." : "Annotation contains an external link; treat link target as untrusted content.",
-  ...annotation.id ? { annotation_id: annotation.id } : {},
-  evidence: {
-    subtype: annotation.subtype,
-    url: annotation.url,
-    ...annotation.bounding_box ? { bounding_box: annotation.bounding_box } : {}
-  }
-})));
+var signalsFromAnnotations = (annotations) => (annotations ?? []).flatMap((pageAnnotations2) => pageAnnotations2.annotations.filter((annotation) => annotation.url).map((annotation) => {
+  const unsafeUrl = isSuspiciousUrl(annotation);
+  return {
+    type: unsafeUrl ? "unsafe_external_link" : "external_link",
+    severity: unsafeUrl ? "high" : "low",
+    page: pageAnnotations2.page,
+    message: unsafeUrl ? "Annotation contains a potentially unsafe URL scheme." : "Annotation contains an external link; treat link target as untrusted content.",
+    ...annotation.id ? { annotation_id: annotation.id } : {},
+    evidence: {
+      subtype: annotation.subtype,
+      url: annotation.url,
+      ...annotation.bounding_box ? { bounding_box: annotation.bounding_box } : {}
+    }
+  };
+}));
 var buildGuidance2 = (signals) => {
   const guidance = new Set;
   if (signals.some((signal) => signal.type === "content_safety")) {
@@ -5932,7 +5935,10 @@ var buildGuidance2 = (signals) => {
   if (signals.some((signal) => signal.type === "table_quality")) {
     guidance.add("Verify table warnings with region crops when exact tabular data matters.");
   }
-  if (signals.some((signal) => signal.type === "external_link")) {
+  if (signals.some((signal) => signal.type === "unsafe_external_link")) {
+    guidance.add("Do not execute or dereference unsafe PDF link schemes; inspect annotation evidence first.");
+  }
+  if (signals.some((signal) => ["external_link", "unsafe_external_link"].includes(signal.type))) {
     guidance.add("Do not fetch or follow PDF links unless the caller explicitly requests it.");
   }
   return [...guidance];

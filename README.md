@@ -86,7 +86,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧾 **PDF Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, text-layer coverage, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context and caption-to-evidence links
-- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, and external links
+- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, external links, and unsafe link schemes
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
@@ -426,7 +426,7 @@ using extracted PDF content as instructions, evidence, or retrieval context.
 
 **Response includes:**
 - Document and page-level risk scores
-- Content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals
+- Content safety, layout uncertainty, sparse/scanned-page, table quality, external-link, and unsafe-link signals
 - Guidance for when to verify with OCR, page rendering, or region crops
 - No forced top-level safety, layout, annotation, or table outputs unless those options are requested
 
@@ -728,7 +728,7 @@ OCR output remains a separate `ocr_text_layer`; it is not merged into
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
 - ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
-- ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, and external links
+- ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, external links, and unsafe link schemes
 - ✅ **Accessibility Report** - Tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, and permission signals
 - ✅ **PDF Text Layer** - Run records, line records, word records, character records, estimated bounding boxes, and provenance
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
@@ -1179,7 +1179,7 @@ tables, and document signals.
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including caption-to-evidence references | `false` |
 | `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table/image regions and fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
-| `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, and external links | `false` |
+| `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, external links, and unsafe link schemes | `false` |
 | `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph/caption/header/footer hints on text elements | `false` |

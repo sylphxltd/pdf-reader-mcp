@@ -425,8 +425,8 @@ can expose `caption_ids`.
 Use `include_trust_report` when an agent needs one risk summary before using
 PDF content as instructions, evidence, or retrieval context. The report
 consolidates content safety, layout uncertainty, sparse/scanned-page, table
-quality, and external-link signals without forcing those raw outputs into the
-top-level response.
+quality, external-link, and unsafe-link signals without forcing those raw
+outputs into the top-level response.
 
 ```json
 {
