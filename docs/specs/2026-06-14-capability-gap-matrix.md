@@ -18,7 +18,8 @@ neutral capability names and avoids public comparison language.
 
 | Capability | Status | Notes |
 |---|---:|---|
-| MCP-native PDF tool | Shipped | Single `read_pdf` tool with stdio/http transport. |
+| MCP-native PDF tools | Shipped | `inspect_pdf` and `read_pdf` with stdio/http transport. |
+| Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, and recommends `read_pdf` options. |
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
 | Metadata and page count | Shipped | Existing `include_metadata`, `include_page_count`. |
 | Text extraction | Shipped | Full text and selected pages. |

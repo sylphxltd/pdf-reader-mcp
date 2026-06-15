@@ -232,6 +232,66 @@ export interface PdfSourceResult {
   error?: string;
 }
 
+export type PdfInspectionProfile =
+  | 'digital_text'
+  | 'scanned_or_image_only'
+  | 'mixed_text_and_scan'
+  | 'low_text_or_form'
+  | 'unknown';
+
+export type PdfInspectionWorkflow =
+  | 'agentic_rag'
+  | 'metadata_review'
+  | 'scanned_pdf_triage'
+  | 'mixed_pdf_review';
+
+export interface PdfInspectionPageSignal {
+  page: number;
+  text_chars: number;
+  text_items: number;
+  estimated_tokens: number;
+  image_paint_operations: number;
+  likely_scanned: boolean;
+  low_text_density: boolean;
+}
+
+export interface PdfInspectionDocumentSignals {
+  has_outline: boolean;
+  has_page_labels: boolean;
+  has_permissions: boolean;
+  has_mark_info: boolean;
+  has_form_fields: boolean;
+  has_attachments: boolean;
+  has_structure_tree: boolean;
+}
+
+export interface PdfInspectionRecommendation {
+  workflow: PdfInspectionWorkflow;
+  needs_ocr: boolean;
+  reason: string;
+  read_pdf_arguments: Record<string, unknown>;
+}
+
+export interface PdfInspectionData {
+  profile: PdfInspectionProfile;
+  num_pages: number;
+  sampled_pages: number[];
+  page_signals: PdfInspectionPageSignal[];
+  document_signals: PdfInspectionDocumentSignals;
+  recommendation: PdfInspectionRecommendation;
+  info?: PdfInfo | undefined;
+  metadata?: PdfMetadata | undefined;
+  page_geometry?: PdfPageGeometry[] | undefined;
+  warnings?: string[] | undefined;
+}
+
+export interface PdfInspectionSourceResult {
+  source: string;
+  success: boolean;
+  data?: PdfInspectionData | undefined;
+  error?: string;
+}
+
 export interface PdfSource {
   path?: string | undefined;
   url?: string | undefined;
@@ -258,4 +318,9 @@ export interface ReadPdfOptions {
   include_attachments: boolean;
   include_structure_tree: boolean;
   include_safety_findings: boolean;
+}
+
+export interface InspectPdfOptions {
+  sample_pages: number;
+  include_metadata: boolean;
 }

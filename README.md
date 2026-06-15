@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**5-10x faster parallel processing** • **Structured element output** • **Semantic citation chunks** • **CI-backed quality**
+**PDF inspection** • **Structured element output** • **Semantic citation chunks** • **Local-first MCP**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Extract text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, then extract text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -37,6 +37,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 **The Solution:**
 ```typescript
 // PDF Reader MCP
+- Preflight PDF inspection for agent extraction planning 🔎
 - 5-10x faster parallel processing ⚡
 - Structured element output for agent workflows 🧩
 - Markdown rendering for RAG and summarization 📝
@@ -64,6 +65,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 ### Developer Experience
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
+- 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
 - 🔗 **Citation Chunks** - Optional page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
@@ -71,7 +73,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - Single tool handles all operations elegantly
+- 🎨 **Simple API** - `inspect_pdf` plans extraction, `read_pdf` performs extraction
 
 ---
 
@@ -201,6 +203,29 @@ npm install -g @sylphx/pdf-reader-mcp
 ---
 
 ## 🎯 Quick Start
+
+### Inspect Before Extraction
+
+Use `inspect_pdf` when an agent needs to decide how to process an unfamiliar
+PDF. It samples a bounded number of pages, detects selectable-text versus
+image-like pages, surfaces document signals, and recommends useful `read_pdf`
+arguments without extracting image bytes.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf"
+  }],
+  "sample_pages": 5,
+  "include_metadata": true
+}
+```
+
+**Result:**
+- PDF profile such as `digital_text`, `scanned_or_image_only`, or `mixed_text_and_scan`
+- Page-level text density, token estimates, and image paint-operation counts
+- Signals for outlines, page labels, forms, attachments, permissions, and structure trees
+- Recommended `read_pdf` arguments for citation chunks, safety findings, tables, or OCR triage
 
 ### Basic Usage
 
@@ -383,6 +408,7 @@ npm install -g @sylphx/pdf-reader-mcp
 ## ✨ Features
 
 ### Core Capabilities
+- ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend `read_pdf` options
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
@@ -407,6 +433,18 @@ npm install -g @sylphx/pdf-reader-mcp
 ---
 
 ## 🆕 Latest Improvements
+
+### Agent-Native PDF Inspection
+
+`inspect_pdf` adds a lightweight planning tool for agent workflows. It samples
+up to 20 pages per source, counts selectable text and image paint operations,
+surfaces document-level signals, and returns a recommendation with the next
+best `read_pdf` arguments.
+
+Inspection is intentionally low overhead: it does not decode image bytes and it
+does not perform OCR. When sampled pages look scanned or image-only, the tool
+marks `needs_ocr: true` so agents do not mistake an image-based PDF for a text
+extraction failure.
 
 ### Agent-Ready Structured Output
 
@@ -479,9 +517,34 @@ The extraction pipeline also separates distant same-line text into independent s
 
 ## 📖 API Reference
 
+### `inspect_pdf` Tool
+
+Plan PDF extraction before running a heavier read. This is useful for agents
+that need to choose between metadata review, citation-ready extraction, mixed
+PDF handling, or OCR-capable workflows.
+
+#### Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `sources` | Array | List of PDF sources to inspect | Required |
+| `sample_pages` | number | Maximum pages to sample per source, capped at 20 | `5` |
+| `include_metadata` | boolean | Include PDF metadata and info objects | `true` |
+
+#### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `profile` | `digital_text`, `scanned_or_image_only`, `mixed_text_and_scan`, `low_text_or_form`, or `unknown` |
+| `sampled_pages` | Pages used for the bounded inspection sample |
+| `page_signals` | Text chars, text items, token estimate, image paint operations, and scan/low-text flags |
+| `document_signals` | Outline, labels, permissions, forms, attachments, and structure-tree availability |
+| `recommendation` | Suggested workflow, OCR need, reason, and ready-to-use `read_pdf` arguments |
+
 ### `read_pdf` Tool
 
-The single tool that handles all PDF operations.
+The extraction tool that handles PDF content, structure, citations, images,
+tables, and document signals.
 
 #### Parameters
 

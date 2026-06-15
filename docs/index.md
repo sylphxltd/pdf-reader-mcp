@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: PDF Reader MCP
-  text: Extract PDF Content for AI Agents
-  tagline: A high-performance MCP server for structured, local-first PDF extraction.
+  text: Inspect and Extract PDFs for AI Agents
+  tagline: A high-performance MCP server for local-first PDF inspection, extraction, citations, and safety signals.
   image:
     src: /logo.svg
     alt: PDF Reader MCP Logo
@@ -18,8 +18,8 @@ hero:
 
 features:
   - icon: "\U0001F4C4"
-    title: Structured PDF Extraction
-    details: Extract text, metadata, tables, images, Markdown, HTML, and agent-ready elements from PDF files or URLs.
+    title: Inspect Before Extraction
+    details: Profile unfamiliar PDFs, detect low-text or scanned pages, and get recommended extraction options for agent workflows.
   - icon: "\u26A1"
     title: High Performance
     details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing, batch operations, and column-aware ordering.
