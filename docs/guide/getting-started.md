@@ -1,9 +1,10 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides three tools:
+Once installed, the PDF Reader MCP server provides four tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
 - `render_page` renders selected PDF pages as bounded visual evidence images.
+- `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
 - `read_pdf` extracts PDF content, an agent document map, structure,
   citations, tables, images, layout confidence, and signals.
 
@@ -163,6 +164,33 @@ data is returned as MCP image content parts and referenced by
 `image_content_index`. By default the tool renders the first page only when no
 page range is provided, caps each source at 5 pages, and rejects pages above a
 16MP render budget.
+
+### Extract Region Evidence
+
+Use `extract_regions` when a workflow has a bounding box from a table, figure,
+chart, formula, annotation, or citation and needs a focused crop from the
+original page.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "regions": [{
+      "id": "table-1",
+      "page": 1,
+      "bounding_box": { "left": 72, "bottom": 420, "right": 540, "top": 620 },
+      "padding": 8
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 20
+}
+```
+
+The response starts with JSON metadata for each crop, including region ID,
+source bounding box, crop pixel bounds, evidence ID, and provenance. Cropped PNG
+data is returned as MCP image content parts and referenced by
+`image_content_index`.
 
 ### Get Markdown
 

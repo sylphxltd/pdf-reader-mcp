@@ -4,11 +4,11 @@
 import { createRequire as createRequire3 } from "node:module";
 import { createServer, http, stdio } from "@sylphx/mcp-server-sdk";
 
-// src/handlers/inspectPdf.ts
-import { text, tool, toolError } from "@sylphx/mcp-server-sdk";
+// src/handlers/extractRegions.ts
+import { image, text, tool, toolError } from "@sylphx/mcp-server-sdk";
 
-// src/pdf/inspector.ts
-import { OPS as OPS2 } from "pdfjs-dist/legacy/build/pdf.mjs";
+// src/pdf/regions.ts
+import { PNG } from "pngjs";
 
 // src/utils/errors.ts
 class PdfError extends Error {
@@ -97,10 +97,868 @@ var createLogger = (component, minLevel) => {
 };
 var logger = new Logger("", 2 /* WARN */);
 
+// src/pdf/loader.ts
+import fs3 from "node:fs/promises";
+import { createRequire } from "node:module";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+
+// src/utils/config.ts
+import dns from "node:dns";
+import fs from "node:fs";
+import net from "node:net";
+import path from "node:path";
+var splitList = (value, separators) => value.split(separators).map((s) => s.trim()).filter((s) => s.length > 0);
+var canonicalizeDir = (p) => {
+  try {
+    return fs.realpathSync(p);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      const parent = path.dirname(p);
+      if (parent === p)
+        return p;
+      return path.join(canonicalizeDir(parent), path.basename(p));
+    }
+    throw err;
+  }
+};
+var parseDirs = (values) => values.map((dir) => canonicalizeDir(path.resolve(path.normalize(dir))));
+var parseBool = (value, fallback) => {
+  if (value === undefined)
+    return fallback;
+  const v = value.trim().toLowerCase();
+  if (v === "false" || v === "0" || v === "no" || v === "off")
+    return false;
+  if (v === "true" || v === "1" || v === "yes" || v === "on")
+    return true;
+  return fallback;
+};
+var parseCliFlags = (argv) => {
+  const dirs = [];
+  const hosts = [];
+  let noHttp = false;
+  let allowPrivateIps = false;
+  for (const arg of argv) {
+    if (arg.startsWith("--allow-dir=")) {
+      dirs.push(arg.slice("--allow-dir=".length));
+    } else if (arg.startsWith("--allow-host=")) {
+      hosts.push(arg.slice("--allow-host=".length).toLowerCase());
+    } else if (arg === "--no-http") {
+      noHttp = true;
+    } else if (arg === "--allow-private-ips") {
+      allowPrivateIps = true;
+    }
+  }
+  return { dirs, hosts, noHttp, allowPrivateIps };
+};
+var envList = (raw, separators, transform = (v) => v) => raw ? splitList(raw, separators).map(transform) : [];
+var readSecurityConfig = (argv = process.argv.slice(2), env = process.env) => {
+  const cli = parseCliFlags(argv);
+  const envDirs = envList(env["MCP_PDF_ALLOWED_DIRS"], /[:,]/);
+  const envHosts = envList(env["MCP_PDF_ALLOWED_HOSTS"], /,/, (h) => h.toLowerCase());
+  const mergedDirs = [...cli.dirs, ...envDirs];
+  const mergedHosts = [...cli.hosts, ...envHosts];
+  return {
+    allowedDirs: mergedDirs.length > 0 ? parseDirs(mergedDirs) : null,
+    allowHttp: cli.noHttp ? false : parseBool(env["MCP_PDF_ALLOW_HTTP"], true),
+    allowedHosts: mergedHosts.length > 0 ? mergedHosts : null,
+    allowPrivateIps: cli.allowPrivateIps || parseBool(env["MCP_PDF_ALLOW_PRIVATE_IPS"], false)
+  };
+};
+var cached = null;
+var getSecurityConfig = () => {
+  if (cached === null) {
+    cached = readSecurityConfig();
+  }
+  return cached;
+};
+var isPathAllowed = (absPath, allowedDirs) => {
+  if (allowedDirs === null)
+    return true;
+  if (allowedDirs.length === 0)
+    return false;
+  const normalized = path.resolve(absPath);
+  return allowedDirs.some((dir) => {
+    const rel = path.relative(dir, normalized);
+    if (rel === "")
+      return true;
+    if (rel.startsWith(".."))
+      return false;
+    if (path.isAbsolute(rel))
+      return false;
+    return true;
+  });
+};
+var isUrlAllowed = (urlString, config) => {
+  if (!config.allowHttp)
+    return false;
+  let parsed;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    return false;
+  if (config.allowedHosts === null)
+    return true;
+  return config.allowedHosts.includes(parsed.hostname.toLowerCase());
+};
+var PRIVATE_IPV4_PREDICATES = [
+  (a) => a === 10,
+  (a, b) => a === 172 && b >= 16 && b <= 31,
+  (a, b) => a === 192 && b === 168,
+  (a) => a === 127,
+  (a, b) => a === 169 && b === 254,
+  (a) => a === 0,
+  (a, b) => a === 100 && b >= 64 && b <= 127,
+  (a) => a >= 224
+];
+var isPrivateIpv4 = (ip) => {
+  const parts = ip.split(".").map((s) => Number.parseInt(s, 10));
+  const a = parts[0];
+  const b = parts[1];
+  if (a === undefined || b === undefined)
+    return true;
+  return PRIVATE_IPV4_PREDICATES.some((pred) => pred(a, b));
+};
+var isPrivateIpv6 = (ip) => {
+  const lower = ip.toLowerCase();
+  if (lower === "::1" || lower === "::")
+    return true;
+  if (lower.startsWith("fc") || lower.startsWith("fd"))
+    return true;
+  if (lower.startsWith("fe80"))
+    return true;
+  if (lower.startsWith("ff"))
+    return true;
+  if (lower.startsWith("::ffff:")) {
+    const tail = lower.slice("::ffff:".length);
+    if (net.isIPv4(tail))
+      return isPrivateIpv4(tail);
+  }
+  return false;
+};
+var isPrivateIp = (ip) => {
+  if (net.isIPv4(ip))
+    return isPrivateIpv4(ip);
+  if (net.isIPv6(ip))
+    return isPrivateIpv6(ip);
+  return true;
+};
+var assertUrlNotPrivate = async (hostname) => {
+  if (net.isIP(hostname)) {
+    if (isPrivateIp(hostname)) {
+      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
+    }
+    return;
+  }
+  let addresses;
+  try {
+    addresses = await dns.promises.lookup(hostname, { all: true });
+  } catch {
+    throw new Error(`URL host '${hostname}' could not be resolved.`);
+  }
+  if (addresses.length === 0) {
+    throw new Error(`URL host '${hostname}' resolved to no addresses.`);
+  }
+  for (const { address } of addresses) {
+    if (isPrivateIp(address)) {
+      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
+    }
+  }
+};
+
+// src/utils/pathUtils.ts
+import fs2 from "node:fs";
+import path2 from "node:path";
+var PROJECT_ROOT = process.cwd();
+var canonicalize = (p) => {
+  try {
+    return fs2.realpathSync(p);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      const parent = path2.dirname(p);
+      if (parent === p)
+        return p;
+      return path2.join(canonicalize(parent), path2.basename(p));
+    }
+    throw err;
+  }
+};
+var resolvePath = (userPath) => {
+  if (typeof userPath !== "string") {
+    throw new PdfError(-32602 /* InvalidParams */, "Path must be a string.");
+  }
+  const normalizedUserPath = path2.normalize(userPath);
+  const resolved = path2.isAbsolute(normalizedUserPath) ? normalizedUserPath : path2.resolve(PROJECT_ROOT, normalizedUserPath);
+  const canonical = canonicalize(resolved);
+  const { allowedDirs } = getSecurityConfig();
+  if (!isPathAllowed(canonical, allowedDirs)) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: path '${userPath}' is outside the allowed directories.`);
+  }
+  return canonical;
+};
+
+// src/pdf/loader.ts
+var logger2 = createLogger("Loader");
+var require2 = createRequire(import.meta.url);
+var PDFJS_ROOT = require2.resolve("pdfjs-dist/package.json").replace("package.json", "");
+var CMAP_URL = `${PDFJS_ROOT}cmaps/`;
+var STANDARD_FONT_DATA_URL = `${PDFJS_ROOT}standard_fonts/`;
+var WASM_URL = `${PDFJS_ROOT}wasm/`;
+var ICC_URL = `${PDFJS_ROOT}iccs/`;
+var MAX_PDF_SIZE = 100 * 1024 * 1024;
+var URL_FETCH_TIMEOUT_MS = 30000;
+var MAX_REDIRECTS = 5;
+var formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(0)}MB`;
+var sanitizeSourceDescription = (description) => description.length > 200 ? `${description.slice(0, 197)}...` : description;
+var loadLocalFile = async (userPath) => {
+  const safePath = resolvePath(userPath);
+  let stats;
+  try {
+    stats = await fs3.stat(safePath);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT") {
+      throw new PdfError(-32600 /* InvalidRequest */, `File not found at '${userPath}'.`, {
+        cause: err instanceof Error ? err : undefined
+      });
+    }
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to access file at '${userPath}'.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  }
+  if (!stats.isFile()) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Path '${userPath}' is not a regular file.`);
+  }
+  if (stats.size > MAX_PDF_SIZE) {
+    throw new PdfError(-32600 /* InvalidRequest */, `PDF file exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}. File size: ${formatBytes(stats.size)}.`);
+  }
+  const buffer = await fs3.readFile(safePath);
+  return new Uint8Array(buffer);
+};
+var validateUrlHop = async (urlString, config) => {
+  if (!isUrlAllowed(urlString, config)) {
+    const reason = config.allowHttp ? "host is not in the allowed list or scheme is not http(s)" : "HTTP access is disabled";
+    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: URL '${urlString}' rejected (${reason}).`);
+  }
+  if (!config.allowPrivateIps) {
+    let hostname;
+    try {
+      hostname = new URL(urlString).hostname;
+    } catch {
+      throw new PdfError(-32600 /* InvalidRequest */, `Invalid URL: '${urlString}'.`);
+    }
+    try {
+      await assertUrlNotPrivate(hostname);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "SSRF check failed";
+      throw new PdfError(-32600 /* InvalidRequest */, `Access denied: ${reason}`);
+    }
+  }
+};
+var fetchUrlBody = async (url, config) => {
+  let currentUrl = url;
+  const controller = new AbortController;
+  const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
+  try {
+    for (let hop = 0;hop <= MAX_REDIRECTS; hop++) {
+      await validateUrlHop(currentUrl, config);
+      const response = await fetch(currentUrl, {
+        redirect: "manual",
+        signal: controller.signal
+      });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) {
+          throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: redirect without Location header.`);
+        }
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+      if (!response.ok) {
+        throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed with HTTP ${String(response.status)}.`);
+      }
+      const contentLengthHeader = response.headers.get("content-length");
+      if (contentLengthHeader !== null) {
+        const declared = Number.parseInt(contentLengthHeader, 10);
+        if (Number.isFinite(declared) && declared > MAX_PDF_SIZE) {
+          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} (Content-Length: ${formatBytes(declared)}).`);
+        }
+      }
+      if (!response.body) {
+        const ab = await response.arrayBuffer();
+        if (ab.byteLength > MAX_PDF_SIZE) {
+          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}.`);
+        }
+        return new Uint8Array(ab);
+      }
+      const reader = response.body.getReader();
+      const chunks = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        if (value) {
+          total += value.byteLength;
+          if (total > MAX_PDF_SIZE) {
+            await reader.cancel().catch(() => {});
+            throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} during streaming.`);
+          }
+          chunks.push(value);
+        }
+      }
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return combined;
+    }
+    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: exceeded redirect limit (${String(MAX_REDIRECTS)}).`);
+  } catch (err) {
+    if (err instanceof PdfError)
+      throw err;
+    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
+      throw new PdfError(-32600 /* InvalidRequest */, `URL fetch timed out after ${String(URL_FETCH_TIMEOUT_MS / 1000)}s.`, { cause: err });
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    logger2.warn("URL fetch failed", { url, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed for '${url}'.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+var loadPdfDocument = async (source, sourceDescription) => {
+  const safeSource = sanitizeSourceDescription(sourceDescription);
+  let pdfData;
+  try {
+    if (source.path) {
+      pdfData = await loadLocalFile(source.path);
+    } else if (source.url) {
+      const config = getSecurityConfig();
+      pdfData = await fetchUrlBody(source.url, config);
+    } else {
+      throw new PdfError(-32602 /* InvalidParams */, `Source ${safeSource} missing 'path' or 'url'.`);
+    }
+  } catch (err) {
+    if (err instanceof PdfError) {
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    logger2.error("Unexpected error preparing PDF source", {
+      sourceDescription: safeSource,
+      error: message
+    });
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to prepare PDF source ${safeSource}.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  }
+  const loadingTask = getDocument({
+    data: pdfData,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true,
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+    wasmUrl: WASM_URL,
+    iccUrl: ICC_URL
+  });
+  try {
+    return await loadingTask.promise;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger2.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${safeSource}.`, { cause: err instanceof Error ? err : undefined });
+  }
+};
+
+// src/pdf/renderer.ts
+import { createRequire as createRequire2 } from "node:module";
+import { pathToFileURL } from "node:url";
+
+// src/pdf/parser.ts
+var logger3 = createLogger("Parser");
+var MAX_RANGE_SIZE = 1e4;
+var parseRangePart = (part, pages) => {
+  const trimmedPart = part.trim();
+  if (trimmedPart.includes("-")) {
+    const splitResult = trimmedPart.split("-");
+    const startStr = splitResult[0] || "";
+    const endStr = splitResult[1];
+    const start = parseInt(startStr, 10);
+    const end = endStr === "" || endStr === undefined ? Infinity : parseInt(endStr, 10);
+    if (Number.isNaN(start) || Number.isNaN(end) || start <= 0 || start > end) {
+      throw new Error(`Invalid page range values: ${trimmedPart}`);
+    }
+    const practicalEnd = Math.min(end, start + MAX_RANGE_SIZE);
+    for (let i = start;i <= practicalEnd; i++) {
+      pages.add(i);
+    }
+    if (end === Infinity && practicalEnd === start + MAX_RANGE_SIZE) {
+      logger3.warn("Open-ended range truncated", { start, practicalEnd });
+    }
+  } else {
+    const page = parseInt(trimmedPart, 10);
+    if (Number.isNaN(page) || page <= 0) {
+      throw new Error(`Invalid page number: ${trimmedPart}`);
+    }
+    pages.add(page);
+  }
+};
+var parsePageRanges = (ranges) => {
+  const pages = new Set;
+  const parts = ranges.split(",");
+  for (const part of parts) {
+    parseRangePart(part, pages);
+  }
+  if (pages.size === 0) {
+    throw new Error("Page range string resulted in zero valid pages.");
+  }
+  return Array.from(pages).sort((a, b) => a - b);
+};
+var getTargetPages = (sourcePages, sourceDescription) => {
+  if (!sourcePages) {
+    return;
+  }
+  try {
+    if (typeof sourcePages === "string") {
+      return parsePageRanges(sourcePages);
+    }
+    if (sourcePages.some((p) => !Number.isInteger(p) || p <= 0)) {
+      throw new Error("Page numbers in array must be positive integers.");
+    }
+    const uniquePages = [...new Set(sourcePages)].sort((a, b) => a - b);
+    if (uniquePages.length === 0) {
+      throw new Error("Page specification resulted in an empty set of pages.");
+    }
+    return uniquePages;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new PdfError(-32602 /* InvalidParams */, `Invalid page specification for source ${sourceDescription}: ${message}`);
+  }
+};
+var determinePagesToProcess = (targetPages, totalPages, includeFullText) => {
+  if (targetPages) {
+    const pagesToProcess = targetPages.filter((p) => p <= totalPages);
+    const invalidPages = targetPages.filter((p) => p > totalPages);
+    return { pagesToProcess, invalidPages };
+  }
+  if (includeFullText) {
+    const pagesToProcess = Array.from({ length: totalPages }, (_, i) => i + 1);
+    return { pagesToProcess, invalidPages: [] };
+  }
+  return { pagesToProcess: [], invalidPages: [] };
+};
+
+// src/pdf/renderer.ts
+var DEFAULT_RENDER_SCALE = 2;
+var DEFAULT_MAX_RENDER_PAGES = 5;
+var DEFAULT_MAX_RENDER_PIXELS = 16000000;
+var logger4 = createLogger("Renderer");
+var require3 = createRequire2(import.meta.url);
+var requireFromPdfjs = createRequire2(require3.resolve("pdfjs-dist/package.json"));
+var loadCanvasModule = async () => {
+  try {
+    const canvasEntry = requireFromPdfjs.resolve("@napi-rs/canvas");
+    const imported = await import(pathToFileURL(canvasEntry).href);
+    const canvasModule = "createCanvas" in imported ? imported : imported.default;
+    if (!canvasModule || typeof canvasModule.createCanvas !== "function") {
+      throw new Error("Canvas backend does not expose createCanvas.");
+    }
+    return canvasModule;
+  } catch (error) {
+    throw new PdfError(-32600 /* InvalidRequest */, "Page rendering requires the optional pdfjs native canvas backend. Install with optional dependencies enabled, or use inspect_pdf/read_pdf without visual rendering.", { cause: error instanceof Error ? error : undefined });
+  }
+};
+var formatPixels = (pixels) => `${(pixels / 1e6).toFixed(1)}MP`;
+var finitePositiveNumber = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
+var resolvePagesToRender = (targetPages, totalPages, maxPages) => {
+  const requestedPages = targetPages && targetPages.length > 0 ? [...new Set(targetPages)].sort((a, b) => a - b) : totalPages > 0 ? [1] : [];
+  const validPages = requestedPages.filter((page) => page <= totalPages);
+  const invalidPages = requestedPages.filter((page) => page > totalPages);
+  const pagesToRender = validPages.slice(0, maxPages);
+  const truncatedPages = validPages.slice(maxPages);
+  return { pagesToRender, invalidPages, truncatedPages };
+};
+var buildRenderWarnings = (invalidPages, truncatedPages, totalPages, maxPages) => {
+  const warnings = [];
+  if (invalidPages.length > 0) {
+    warnings.push(`Requested pages ${invalidPages.join(", ")} exceed document page count ${String(totalPages)}.`);
+  }
+  if (truncatedPages.length > 0) {
+    warnings.push(`Rendered first ${String(maxPages)} selected pages; skipped ${truncatedPages.join(", ")} due to max_pages.`);
+  }
+  return warnings;
+};
+var assertRenderableDimensions = (width, height, maxPixels, pageNumber, scale) => {
+  if (!finitePositiveNumber(width) || !finitePositiveNumber(height)) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Page ${String(pageNumber)} has invalid render dimensions.`);
+  }
+  const pixelCount = width * height;
+  if (pixelCount > maxPixels) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Page ${String(pageNumber)} would render ${formatPixels(pixelCount)} at scale ${String(scale)}, exceeding max_pixels_per_page ${formatPixels(maxPixels)}. Lower scale or raise max_pixels_per_page.`);
+  }
+};
+var renderPdfPage = async (pdfDocument, pageNumber, options) => {
+  const canvasModule = await loadCanvasModule();
+  const page = await pdfDocument.getPage(pageNumber);
+  const viewport = page.getViewport({ scale: options.scale });
+  const width = Math.ceil(viewport.width);
+  const height = Math.ceil(viewport.height);
+  assertRenderableDimensions(width, height, options.max_pixels_per_page, pageNumber, options.scale);
+  const canvas = canvasModule.createCanvas(width, height);
+  const canvasContext = canvas.getContext("2d");
+  await page.render({ canvasContext, viewport }).promise;
+  const buffer = canvas.toBuffer("image/png");
+  const pixelCount = width * height;
+  return {
+    page: pageNumber,
+    evidence_id: `page-${String(pageNumber)}-render-scale-${String(options.scale)}`,
+    width,
+    height,
+    scale: options.scale,
+    pixel_count: pixelCount,
+    byte_length: buffer.byteLength,
+    format: "png",
+    mime_type: "image/png",
+    rotation: page.rotate ?? viewport.rotation ?? 0,
+    provenance: {
+      engine: "pdfjs",
+      renderer: "@napi-rs/canvas",
+      source: "page-render"
+    },
+    data: buffer.toString("base64")
+  };
+};
+var renderPdfSourcePages = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  let pdfDocument = null;
+  try {
+    const targetPages = getTargetPages(source.pages, sourceDescription);
+    const { pages: _pages, ...loadArgs } = source;
+    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    const totalPages = pdfDocument.numPages;
+    const { pagesToRender, invalidPages, truncatedPages } = resolvePagesToRender(targetPages, totalPages, options.max_pages);
+    if (pagesToRender.length === 0) {
+      throw new PdfError(-32600 /* InvalidRequest */, `No valid pages to render for source ${sourceDescription}.`);
+    }
+    const warnings = buildRenderWarnings(invalidPages, truncatedPages, totalPages, options.max_pages);
+    const pages = [];
+    for (const pageNumber of pagesToRender) {
+      pages.push(await renderPdfPage(pdfDocument, pageNumber, {
+        scale: options.scale,
+        max_pixels_per_page: options.max_pixels_per_page
+      }));
+    }
+    return { source: sourceDescription, numPages: totalPages, pages, warnings };
+  } finally {
+    const loadingTask = pdfDocument?.loadingTask;
+    if (loadingTask && typeof loadingTask.destroy === "function") {
+      try {
+        await loadingTask.destroy();
+      } catch (destroyError) {
+        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
+        logger4.warn("Error destroying rendered PDF document", {
+          sourceDescription,
+          error: message
+        });
+      }
+    }
+  }
+};
+
+// src/pdf/regions.ts
+var DEFAULT_MAX_REGIONS = 20;
+var logger5 = createLogger("Regions");
+var clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+var validBoundingBox = (box) => Number.isFinite(box.left) && Number.isFinite(box.bottom) && Number.isFinite(box.right) && Number.isFinite(box.top) && box.right > box.left && box.top > box.bottom;
+var buildRegionWarnings = (invalidPages, truncatedCount, totalPages, maxRegions) => {
+  const warnings = [];
+  if (invalidPages.length > 0) {
+    warnings.push(`Requested region pages ${[...new Set(invalidPages)].sort((a, b) => a - b).join(", ")} exceed document page count ${String(totalPages)}.`);
+  }
+  if (truncatedCount > 0) {
+    warnings.push(`Cropped first ${String(maxRegions)} valid regions; skipped ${String(truncatedCount)} due to max_regions.`);
+  }
+  return warnings;
+};
+var selectRegionsToCrop = (regions, totalPages, maxRegions) => {
+  const validRegions = [];
+  const invalidPages = [];
+  regions.forEach((region, index) => {
+    if (region.page > totalPages) {
+      invalidPages.push(region.page);
+      return;
+    }
+    validRegions.push({ ...region, regionIndex: index + 1 });
+  });
+  return {
+    regionsToCrop: validRegions.slice(0, maxRegions),
+    invalidPages,
+    truncatedCount: Math.max(0, validRegions.length - maxRegions)
+  };
+};
+var cropPixelsForBoundingBox = (page, box, padding = 0) => {
+  if (!validBoundingBox(box)) {
+    throw new PdfError(-32600 /* InvalidRequest */, "Region bounding_box must have right > left and top > bottom.");
+  }
+  const left = Math.floor((box.left - padding) * page.scale);
+  const right = Math.ceil((box.right + padding) * page.scale);
+  const top = Math.floor(page.height - (box.top + padding) * page.scale);
+  const bottom = Math.ceil(page.height - (box.bottom - padding) * page.scale);
+  const clampedLeft = clamp(left, 0, page.width);
+  const clampedTop = clamp(top, 0, page.height);
+  const clampedRight = clamp(right, 0, page.width);
+  const clampedBottom = clamp(bottom, 0, page.height);
+  const width = clampedRight - clampedLeft;
+  const height = clampedBottom - clampedTop;
+  if (width <= 0 || height <= 0) {
+    throw new PdfError(-32600 /* InvalidRequest */, "Region bounding_box does not intersect the rendered page.");
+  }
+  return {
+    left: clampedLeft,
+    top: clampedTop,
+    width,
+    height
+  };
+};
+var cropRenderedPagePng = (page, crop) => {
+  const source = PNG.sync.read(Buffer.from(page.data, "base64"));
+  const target = new PNG({ width: crop.width, height: crop.height });
+  for (let y = 0;y < crop.height; y++) {
+    const sourceStart = ((crop.top + y) * source.width + crop.left) * 4;
+    const targetStart = y * crop.width * 4;
+    source.data.copy(target.data, targetStart, sourceStart, sourceStart + crop.width * 4);
+  }
+  const buffer = PNG.sync.write(target);
+  return { data: buffer.toString("base64"), byteLength: buffer.byteLength };
+};
+var groupRegionsByPage = (regions) => {
+  const byPage = new Map;
+  for (const region of regions) {
+    const pageRegions = byPage.get(region.page);
+    if (pageRegions) {
+      pageRegions.push(region);
+    } else {
+      byPage.set(region.page, [region]);
+    }
+  }
+  return byPage;
+};
+var cropRegionsFromRenderedPage = (renderedPage, regions) => regions.map((region) => {
+  const cropPixels = cropPixelsForBoundingBox(renderedPage, region.bounding_box, region.padding ?? 0);
+  const crop = cropRenderedPagePng(renderedPage, cropPixels);
+  const regionId = region.id ?? `region-${String(region.regionIndex)}`;
+  return {
+    region_id: regionId,
+    page: region.page,
+    evidence_id: `page-${String(region.page)}-${regionId}-crop-scale-${String(renderedPage.scale)}`,
+    source_bounding_box: region.bounding_box,
+    crop_pixels: cropPixels,
+    scale: renderedPage.scale,
+    byte_length: crop.byteLength,
+    format: "png",
+    mime_type: "image/png",
+    provenance: {
+      engine: "pdfjs",
+      renderer: "@napi-rs/canvas",
+      source: "region-crop",
+      page_render_evidence_id: renderedPage.evidence_id
+    },
+    data: crop.data
+  };
+});
+var extractRegionCropsFromSource = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  let pdfDocument = null;
+  try {
+    pdfDocument = await loadPdfDocument({ path: source.path, url: source.url }, sourceDescription);
+    const totalPages = pdfDocument.numPages;
+    const { regionsToCrop, invalidPages, truncatedCount } = selectRegionsToCrop(source.regions, totalPages, options.max_regions);
+    if (regionsToCrop.length === 0) {
+      throw new PdfError(-32600 /* InvalidRequest */, `No valid regions to crop for source ${sourceDescription}.`);
+    }
+    const warnings = buildRegionWarnings(invalidPages, truncatedCount, totalPages, options.max_regions);
+    const crops = [];
+    for (const [pageNumber, pageRegions] of groupRegionsByPage(regionsToCrop)) {
+      const renderedPage = await renderPdfPage(pdfDocument, pageNumber, {
+        scale: options.scale,
+        max_pixels_per_page: options.max_pixels_per_page
+      });
+      crops.push(...cropRegionsFromRenderedPage(renderedPage, pageRegions));
+    }
+    return { source: sourceDescription, numPages: totalPages, regions: crops, warnings };
+  } finally {
+    const loadingTask = pdfDocument?.loadingTask;
+    if (loadingTask && typeof loadingTask.destroy === "function") {
+      try {
+        await loadingTask.destroy();
+      } catch (destroyError) {
+        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
+        logger5.warn("Error destroying region crop PDF document", {
+          sourceDescription,
+          error: message
+        });
+      }
+    }
+  }
+};
+var defaultExtractRegionsOptions = () => ({
+  scale: DEFAULT_RENDER_SCALE,
+  max_regions: DEFAULT_MAX_REGIONS,
+  max_pixels_per_page: DEFAULT_MAX_RENDER_PIXELS,
+  include_image: true
+});
+
+// src/schemas/extractRegions.ts
+import {
+  array,
+  bool,
+  description,
+  gte,
+  int,
+  lte,
+  num,
+  object,
+  optional,
+  str
+} from "@sylphx/vex";
+var regionBoundingBoxSchema = object({
+  left: num(gte(0), description("Left PDF coordinate of the region bounding box.")),
+  bottom: num(gte(0), description("Bottom PDF coordinate of the region bounding box.")),
+  right: num(gte(0), description("Right PDF coordinate of the region bounding box.")),
+  top: num(gte(0), description("Top PDF coordinate of the region bounding box."))
+});
+var pdfRegionSchema = object({
+  id: optional(str(description("Optional caller-provided region ID for stable evidence mapping."))),
+  page: num(int, gte(1), description("1-indexed PDF page containing the region.")),
+  bounding_box: regionBoundingBoxSchema,
+  padding: optional(num(gte(0), lte(200), description("Padding around the region in PDF points before scaling. Defaults to 0.")))
+});
+var pdfRegionSourceSchema = object({
+  path: optional(str(description("Path to the local PDF file (absolute or relative to cwd)."))),
+  url: optional(str(description("URL of the PDF file."))),
+  regions: array(pdfRegionSchema)
+});
+var extractRegionsArgsSchema = object({
+  sources: array(pdfRegionSourceSchema),
+  scale: optional(num(gte(0.25), lte(4), description("Render scale relative to PDF points. Defaults to 2."))),
+  max_regions: optional(num(int, gte(1), lte(100), description("Maximum regions to crop per source. Defaults to 20 and is capped at 100."))),
+  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page before cropping. Defaults to 16,000,000."))),
+  include_image: optional(bool(description("Return cropped regions as MCP image parts. Defaults to true; JSON metadata is always returned.")))
+});
+
+// src/handlers/extractRegions.ts
+var logger6 = createLogger("ExtractRegions");
+var buildOptions = (input) => ({
+  ...defaultExtractRegionsOptions(),
+  ...input.scale !== undefined ? { scale: input.scale } : {},
+  ...input.max_regions !== undefined ? { max_regions: input.max_regions } : {},
+  ...input.max_pixels_per_page !== undefined ? { max_pixels_per_page: input.max_pixels_per_page } : {},
+  ...input.include_image !== undefined ? { include_image: input.include_image } : {}
+});
+var summarizeRegion = (region, imageContentIndex) => {
+  const { data: _data, ...summary } = region;
+  return {
+    ...summary,
+    ...imageContentIndex !== undefined ? { image_content_index: imageContentIndex } : {}
+  };
+};
+var processSource = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  try {
+    const cropped = await extractRegionCropsFromSource(source, options);
+    return {
+      result: {
+        source: cropped.source,
+        success: true,
+        num_pages: cropped.numPages,
+        regions: [],
+        ...cropped.warnings.length > 0 ? { warnings: cropped.warnings } : {}
+      },
+      regions: cropped.regions
+    };
+  } catch (error) {
+    let errorMessage;
+    if (error instanceof PdfError) {
+      errorMessage = error.message;
+    } else {
+      const detail = error instanceof Error ? error.message : String(error);
+      logger6.error("Unexpected error extracting PDF regions", {
+        sourceDescription,
+        error: detail
+      });
+      errorMessage = `Failed to extract regions from ${sourceDescription}.`;
+    }
+    return {
+      result: {
+        source: sourceDescription,
+        success: false,
+        error: errorMessage
+      },
+      regions: []
+    };
+  }
+};
+var attachRegionSummaries = (outputs, includeImage) => {
+  let nextImageContentIndex = 1;
+  return outputs.map(({ result, regions }) => {
+    if (!result.success)
+      return result;
+    return {
+      ...result,
+      regions: regions.map((region) => {
+        const imageContentIndex = includeImage ? nextImageContentIndex++ : undefined;
+        return summarizeRegion(region, imageContentIndex);
+      })
+    };
+  });
+};
+var buildContent = (outputs, results, options) => {
+  const content = [
+    text(JSON.stringify({
+      profile: "region_crop_evidence",
+      crop_options: options,
+      results
+    }, null, 2))
+  ];
+  if (!options.include_image)
+    return content;
+  for (const output of outputs) {
+    if (!output.result.success)
+      continue;
+    for (const region of output.regions) {
+      content.push(image(region.data, region.mime_type));
+    }
+  }
+  return content;
+};
+var extractRegions = tool().description("Extracts bounded visual crops from selected PDF page regions using PDF-coordinate bounding boxes.").input(extractRegionsArgsSchema).handler(async ({ input }) => {
+  const options = buildOptions(input);
+  const outputs = [];
+  for (const source of input.sources) {
+    outputs.push(await processSource(source, options));
+  }
+  const results = attachRegionSummaries(outputs, options.include_image);
+  if (results.every((result) => !result.success)) {
+    const errorMessages = results.map((result) => result.error).join("; ");
+    return toolError(`All PDF sources failed region extraction: ${errorMessages}`);
+  }
+  return buildContent(outputs, results, options);
+});
+
+// src/handlers/inspectPdf.ts
+import { text as text2, tool as tool2, toolError as toolError2 } from "@sylphx/mcp-server-sdk";
+
+// src/pdf/inspector.ts
+import { OPS as OPS2 } from "pdfjs-dist/legacy/build/pdf.mjs";
+
 // src/pdf/extractor.ts
 import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { PNG } from "pngjs";
-var logger2 = createLogger("Extractor");
+import { PNG as PNG2 } from "pngjs";
+var logger7 = createLogger("Extractor");
 var TEXT_SEGMENT_GAP_THRESHOLD = 48;
 var COLUMN_CUT_MIN_GAP = 48;
 var COLUMN_CUT_MIN_WIDTH_RATIO = 0.12;
@@ -311,7 +1169,7 @@ var sortPageContentItems = (items) => {
   ];
 };
 var encodePixelsToPNG = (pixelData, width, height, channels) => {
-  const png = new PNG({ width, height });
+  const png = new PNG2({ width, height });
   if (channels === 4) {
     png.data = Buffer.from(pixelData);
   } else if (channels === 3) {
@@ -333,7 +1191,7 @@ var encodePixelsToPNG = (pixelData, width, height, channels) => {
       png.data[dstIdx + 3] = 255;
     }
   }
-  const pngBuffer = PNG.sync.write(png);
+  const pngBuffer = PNG2.sync.write(png);
   return pngBuffer.toString("base64");
 };
 var processImageData = (imageData, pageNum, arrayIndex) => {
@@ -365,7 +1223,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error getting image from commonObjs", { imageName, error: message });
+      logger7.warn("Error getting image from commonObjs", { imageName, error: message });
     }
   }
   try {
@@ -375,7 +1233,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger2.warn("Sync image get failed, trying async", { imageName, error: message });
+    logger7.warn("Sync image get failed, trying async", { imageName, error: message });
   }
   return new Promise((resolve) => {
     let resolved = false;
@@ -390,7 +1248,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
       if (!resolved) {
         resolved = true;
         cleanup();
-        logger2.warn("Image extraction timeout", { imageName, pageNum });
+        logger7.warn("Image extraction timeout", { imageName, pageNum });
         resolve(null);
       }
     }, 1e4);
@@ -407,7 +1265,7 @@ var retrieveImageData = async (page, imageName, pageNum) => {
         resolved = true;
         cleanup();
         const message = error instanceof Error ? error.message : String(error);
-        logger2.warn("Error in async image get", { imageName, error: message });
+        logger7.warn("Error in async image get", { imageName, error: message });
         resolve(null);
       }
     }
@@ -439,7 +1297,7 @@ var extractMetadataAndPageCount = async (pdfDocument, includeMetadata, includePa
       }
     } catch (metaError) {
       const message = metaError instanceof Error ? metaError.message : String(metaError);
-      logger2.warn("Error extracting metadata", { error: message });
+      logger7.warn("Error extracting metadata", { error: message });
     }
   }
   return output;
@@ -455,7 +1313,7 @@ var extractDocumentStructure = async (pdfDocument, options) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting outline", { error: message });
+      logger7.warn("Error extracting outline", { error: message });
     }
   }
   if (options.includePageLabels && typeof documentWithStructure.getPageLabels === "function") {
@@ -466,7 +1324,7 @@ var extractDocumentStructure = async (pdfDocument, options) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting page labels", { error: message });
+      logger7.warn("Error extracting page labels", { error: message });
     }
   }
   if (options.includePermissions && typeof documentWithStructure.getPermissions === "function") {
@@ -477,7 +1335,7 @@ var extractDocumentStructure = async (pdfDocument, options) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting permissions", { error: message });
+      logger7.warn("Error extracting permissions", { error: message });
     }
   }
   if (options.includePermissions && typeof documentWithStructure.getMarkInfo === "function") {
@@ -488,7 +1346,7 @@ var extractDocumentStructure = async (pdfDocument, options) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting mark info", { error: message });
+      logger7.warn("Error extracting mark info", { error: message });
     }
   }
   if (options.includeFormFields && typeof documentWithStructure.getFieldObjects === "function") {
@@ -505,7 +1363,7 @@ var extractDocumentStructure = async (pdfDocument, options) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting form fields", { error: message });
+      logger7.warn("Error extracting form fields", { error: message });
     }
   }
   if (options.includeAttachments && typeof documentWithStructure.getAttachments === "function") {
@@ -527,7 +1385,7 @@ var extractDocumentStructure = async (pdfDocument, options) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting attachments", { error: message });
+      logger7.warn("Error extracting attachments", { error: message });
     }
   }
   return output;
@@ -612,7 +1470,7 @@ var extractAnnotations = async (pdfDocument, pagesToProcess) => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting annotations from page", { pageNum, error: message });
+      logger7.warn("Error extracting annotations from page", { pageNum, error: message });
     }
   }
   return pageAnnotations;
@@ -633,7 +1491,7 @@ var extractStructureTrees = async (pdfDocument, pagesToProcess) => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting structure tree", { pageNum, error: message });
+      logger7.warn("Error extracting structure tree", { pageNum, error: message });
     }
   }
   return pageStructureTrees;
@@ -648,7 +1506,7 @@ var extractPageGeometry = async (pdfDocument, pagesToProcess) => {
       const width = finiteNumber(viewport.width) ? viewport.width : viewBox ? viewBox.right - viewBox.left : undefined;
       const height = finiteNumber(viewport.height) ? viewport.height : viewBox ? viewBox.top - viewBox.bottom : undefined;
       if (!finiteNumber(width) || !finiteNumber(height)) {
-        logger2.warn("Skipping page geometry with invalid dimensions", { pageNum });
+        logger7.warn("Skipping page geometry with invalid dimensions", { pageNum });
         continue;
       }
       pageGeometry.push({
@@ -661,7 +1519,7 @@ var extractPageGeometry = async (pdfDocument, pagesToProcess) => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger2.warn("Error extracting page geometry", { pageNum, error: message });
+      logger7.warn("Error extracting page geometry", { pageNum, error: message });
     }
   }
   return pageGeometry;
@@ -760,7 +1618,7 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger2.warn("Error extracting page content", {
+    logger7.warn("Error extracting page content", {
       pageNum,
       sourceDescription,
       error: message
@@ -776,459 +1634,8 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
   return sortPageContentItems(contentItems);
 };
 
-// src/pdf/loader.ts
-import fs3 from "node:fs/promises";
-import { createRequire } from "node:module";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-
-// src/utils/config.ts
-import dns from "node:dns";
-import fs from "node:fs";
-import net from "node:net";
-import path from "node:path";
-var splitList = (value, separators) => value.split(separators).map((s) => s.trim()).filter((s) => s.length > 0);
-var canonicalizeDir = (p) => {
-  try {
-    return fs.realpathSync(p);
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
-      const parent = path.dirname(p);
-      if (parent === p)
-        return p;
-      return path.join(canonicalizeDir(parent), path.basename(p));
-    }
-    throw err;
-  }
-};
-var parseDirs = (values) => values.map((dir) => canonicalizeDir(path.resolve(path.normalize(dir))));
-var parseBool = (value, fallback) => {
-  if (value === undefined)
-    return fallback;
-  const v = value.trim().toLowerCase();
-  if (v === "false" || v === "0" || v === "no" || v === "off")
-    return false;
-  if (v === "true" || v === "1" || v === "yes" || v === "on")
-    return true;
-  return fallback;
-};
-var parseCliFlags = (argv) => {
-  const dirs = [];
-  const hosts = [];
-  let noHttp = false;
-  let allowPrivateIps = false;
-  for (const arg of argv) {
-    if (arg.startsWith("--allow-dir=")) {
-      dirs.push(arg.slice("--allow-dir=".length));
-    } else if (arg.startsWith("--allow-host=")) {
-      hosts.push(arg.slice("--allow-host=".length).toLowerCase());
-    } else if (arg === "--no-http") {
-      noHttp = true;
-    } else if (arg === "--allow-private-ips") {
-      allowPrivateIps = true;
-    }
-  }
-  return { dirs, hosts, noHttp, allowPrivateIps };
-};
-var envList = (raw, separators, transform = (v) => v) => raw ? splitList(raw, separators).map(transform) : [];
-var readSecurityConfig = (argv = process.argv.slice(2), env = process.env) => {
-  const cli = parseCliFlags(argv);
-  const envDirs = envList(env["MCP_PDF_ALLOWED_DIRS"], /[:,]/);
-  const envHosts = envList(env["MCP_PDF_ALLOWED_HOSTS"], /,/, (h) => h.toLowerCase());
-  const mergedDirs = [...cli.dirs, ...envDirs];
-  const mergedHosts = [...cli.hosts, ...envHosts];
-  return {
-    allowedDirs: mergedDirs.length > 0 ? parseDirs(mergedDirs) : null,
-    allowHttp: cli.noHttp ? false : parseBool(env["MCP_PDF_ALLOW_HTTP"], true),
-    allowedHosts: mergedHosts.length > 0 ? mergedHosts : null,
-    allowPrivateIps: cli.allowPrivateIps || parseBool(env["MCP_PDF_ALLOW_PRIVATE_IPS"], false)
-  };
-};
-var cached = null;
-var getSecurityConfig = () => {
-  if (cached === null) {
-    cached = readSecurityConfig();
-  }
-  return cached;
-};
-var isPathAllowed = (absPath, allowedDirs) => {
-  if (allowedDirs === null)
-    return true;
-  if (allowedDirs.length === 0)
-    return false;
-  const normalized = path.resolve(absPath);
-  return allowedDirs.some((dir) => {
-    const rel = path.relative(dir, normalized);
-    if (rel === "")
-      return true;
-    if (rel.startsWith(".."))
-      return false;
-    if (path.isAbsolute(rel))
-      return false;
-    return true;
-  });
-};
-var isUrlAllowed = (urlString, config) => {
-  if (!config.allowHttp)
-    return false;
-  let parsed;
-  try {
-    parsed = new URL(urlString);
-  } catch {
-    return false;
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
-    return false;
-  if (config.allowedHosts === null)
-    return true;
-  return config.allowedHosts.includes(parsed.hostname.toLowerCase());
-};
-var PRIVATE_IPV4_PREDICATES = [
-  (a) => a === 10,
-  (a, b) => a === 172 && b >= 16 && b <= 31,
-  (a, b) => a === 192 && b === 168,
-  (a) => a === 127,
-  (a, b) => a === 169 && b === 254,
-  (a) => a === 0,
-  (a, b) => a === 100 && b >= 64 && b <= 127,
-  (a) => a >= 224
-];
-var isPrivateIpv4 = (ip) => {
-  const parts = ip.split(".").map((s) => Number.parseInt(s, 10));
-  const a = parts[0];
-  const b = parts[1];
-  if (a === undefined || b === undefined)
-    return true;
-  return PRIVATE_IPV4_PREDICATES.some((pred) => pred(a, b));
-};
-var isPrivateIpv6 = (ip) => {
-  const lower = ip.toLowerCase();
-  if (lower === "::1" || lower === "::")
-    return true;
-  if (lower.startsWith("fc") || lower.startsWith("fd"))
-    return true;
-  if (lower.startsWith("fe80"))
-    return true;
-  if (lower.startsWith("ff"))
-    return true;
-  if (lower.startsWith("::ffff:")) {
-    const tail = lower.slice("::ffff:".length);
-    if (net.isIPv4(tail))
-      return isPrivateIpv4(tail);
-  }
-  return false;
-};
-var isPrivateIp = (ip) => {
-  if (net.isIPv4(ip))
-    return isPrivateIpv4(ip);
-  if (net.isIPv6(ip))
-    return isPrivateIpv6(ip);
-  return true;
-};
-var assertUrlNotPrivate = async (hostname) => {
-  if (net.isIP(hostname)) {
-    if (isPrivateIp(hostname)) {
-      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
-    }
-    return;
-  }
-  let addresses;
-  try {
-    addresses = await dns.promises.lookup(hostname, { all: true });
-  } catch {
-    throw new Error(`URL host '${hostname}' could not be resolved.`);
-  }
-  if (addresses.length === 0) {
-    throw new Error(`URL host '${hostname}' resolved to no addresses.`);
-  }
-  for (const { address } of addresses) {
-    if (isPrivateIp(address)) {
-      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
-    }
-  }
-};
-
-// src/utils/pathUtils.ts
-import fs2 from "node:fs";
-import path2 from "node:path";
-var PROJECT_ROOT = process.cwd();
-var canonicalize = (p) => {
-  try {
-    return fs2.realpathSync(p);
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
-      const parent = path2.dirname(p);
-      if (parent === p)
-        return p;
-      return path2.join(canonicalize(parent), path2.basename(p));
-    }
-    throw err;
-  }
-};
-var resolvePath = (userPath) => {
-  if (typeof userPath !== "string") {
-    throw new PdfError(-32602 /* InvalidParams */, "Path must be a string.");
-  }
-  const normalizedUserPath = path2.normalize(userPath);
-  const resolved = path2.isAbsolute(normalizedUserPath) ? normalizedUserPath : path2.resolve(PROJECT_ROOT, normalizedUserPath);
-  const canonical = canonicalize(resolved);
-  const { allowedDirs } = getSecurityConfig();
-  if (!isPathAllowed(canonical, allowedDirs)) {
-    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: path '${userPath}' is outside the allowed directories.`);
-  }
-  return canonical;
-};
-
-// src/pdf/loader.ts
-var logger3 = createLogger("Loader");
-var require2 = createRequire(import.meta.url);
-var PDFJS_ROOT = require2.resolve("pdfjs-dist/package.json").replace("package.json", "");
-var CMAP_URL = `${PDFJS_ROOT}cmaps/`;
-var STANDARD_FONT_DATA_URL = `${PDFJS_ROOT}standard_fonts/`;
-var WASM_URL = `${PDFJS_ROOT}wasm/`;
-var ICC_URL = `${PDFJS_ROOT}iccs/`;
-var MAX_PDF_SIZE = 100 * 1024 * 1024;
-var URL_FETCH_TIMEOUT_MS = 30000;
-var MAX_REDIRECTS = 5;
-var formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(0)}MB`;
-var sanitizeSourceDescription = (description) => description.length > 200 ? `${description.slice(0, 197)}...` : description;
-var loadLocalFile = async (userPath) => {
-  const safePath = resolvePath(userPath);
-  let stats;
-  try {
-    stats = await fs3.stat(safePath);
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT") {
-      throw new PdfError(-32600 /* InvalidRequest */, `File not found at '${userPath}'.`, {
-        cause: err instanceof Error ? err : undefined
-      });
-    }
-    throw new PdfError(-32600 /* InvalidRequest */, `Failed to access file at '${userPath}'.`, {
-      cause: err instanceof Error ? err : undefined
-    });
-  }
-  if (!stats.isFile()) {
-    throw new PdfError(-32600 /* InvalidRequest */, `Path '${userPath}' is not a regular file.`);
-  }
-  if (stats.size > MAX_PDF_SIZE) {
-    throw new PdfError(-32600 /* InvalidRequest */, `PDF file exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}. File size: ${formatBytes(stats.size)}.`);
-  }
-  const buffer = await fs3.readFile(safePath);
-  return new Uint8Array(buffer);
-};
-var validateUrlHop = async (urlString, config) => {
-  if (!isUrlAllowed(urlString, config)) {
-    const reason = config.allowHttp ? "host is not in the allowed list or scheme is not http(s)" : "HTTP access is disabled";
-    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: URL '${urlString}' rejected (${reason}).`);
-  }
-  if (!config.allowPrivateIps) {
-    let hostname;
-    try {
-      hostname = new URL(urlString).hostname;
-    } catch {
-      throw new PdfError(-32600 /* InvalidRequest */, `Invalid URL: '${urlString}'.`);
-    }
-    try {
-      await assertUrlNotPrivate(hostname);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : "SSRF check failed";
-      throw new PdfError(-32600 /* InvalidRequest */, `Access denied: ${reason}`);
-    }
-  }
-};
-var fetchUrlBody = async (url, config) => {
-  let currentUrl = url;
-  const controller = new AbortController;
-  const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
-  try {
-    for (let hop = 0;hop <= MAX_REDIRECTS; hop++) {
-      await validateUrlHop(currentUrl, config);
-      const response = await fetch(currentUrl, {
-        redirect: "manual",
-        signal: controller.signal
-      });
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get("location");
-        if (!location) {
-          throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: redirect without Location header.`);
-        }
-        currentUrl = new URL(location, currentUrl).toString();
-        continue;
-      }
-      if (!response.ok) {
-        throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed with HTTP ${String(response.status)}.`);
-      }
-      const contentLengthHeader = response.headers.get("content-length");
-      if (contentLengthHeader !== null) {
-        const declared = Number.parseInt(contentLengthHeader, 10);
-        if (Number.isFinite(declared) && declared > MAX_PDF_SIZE) {
-          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} (Content-Length: ${formatBytes(declared)}).`);
-        }
-      }
-      if (!response.body) {
-        const ab = await response.arrayBuffer();
-        if (ab.byteLength > MAX_PDF_SIZE) {
-          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}.`);
-        }
-        return new Uint8Array(ab);
-      }
-      const reader = response.body.getReader();
-      const chunks = [];
-      let total = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done)
-          break;
-        if (value) {
-          total += value.byteLength;
-          if (total > MAX_PDF_SIZE) {
-            await reader.cancel().catch(() => {});
-            throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} during streaming.`);
-          }
-          chunks.push(value);
-        }
-      }
-      const combined = new Uint8Array(total);
-      let offset = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      return combined;
-    }
-    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: exceeded redirect limit (${String(MAX_REDIRECTS)}).`);
-  } catch (err) {
-    if (err instanceof PdfError)
-      throw err;
-    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
-      throw new PdfError(-32600 /* InvalidRequest */, `URL fetch timed out after ${String(URL_FETCH_TIMEOUT_MS / 1000)}s.`, { cause: err });
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    logger3.warn("URL fetch failed", { url, error: message });
-    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed for '${url}'.`, {
-      cause: err instanceof Error ? err : undefined
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-var loadPdfDocument = async (source, sourceDescription) => {
-  const safeSource = sanitizeSourceDescription(sourceDescription);
-  let pdfData;
-  try {
-    if (source.path) {
-      pdfData = await loadLocalFile(source.path);
-    } else if (source.url) {
-      const config = getSecurityConfig();
-      pdfData = await fetchUrlBody(source.url, config);
-    } else {
-      throw new PdfError(-32602 /* InvalidParams */, `Source ${safeSource} missing 'path' or 'url'.`);
-    }
-  } catch (err) {
-    if (err instanceof PdfError) {
-      throw err;
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    logger3.error("Unexpected error preparing PDF source", {
-      sourceDescription: safeSource,
-      error: message
-    });
-    throw new PdfError(-32600 /* InvalidRequest */, `Failed to prepare PDF source ${safeSource}.`, {
-      cause: err instanceof Error ? err : undefined
-    });
-  }
-  const loadingTask = getDocument({
-    data: pdfData,
-    cMapUrl: CMAP_URL,
-    cMapPacked: true,
-    standardFontDataUrl: STANDARD_FONT_DATA_URL,
-    wasmUrl: WASM_URL,
-    iccUrl: ICC_URL
-  });
-  try {
-    return await loadingTask.promise;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    logger3.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
-    throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${safeSource}.`, { cause: err instanceof Error ? err : undefined });
-  }
-};
-
-// src/pdf/parser.ts
-var logger4 = createLogger("Parser");
-var MAX_RANGE_SIZE = 1e4;
-var parseRangePart = (part, pages) => {
-  const trimmedPart = part.trim();
-  if (trimmedPart.includes("-")) {
-    const splitResult = trimmedPart.split("-");
-    const startStr = splitResult[0] || "";
-    const endStr = splitResult[1];
-    const start = parseInt(startStr, 10);
-    const end = endStr === "" || endStr === undefined ? Infinity : parseInt(endStr, 10);
-    if (Number.isNaN(start) || Number.isNaN(end) || start <= 0 || start > end) {
-      throw new Error(`Invalid page range values: ${trimmedPart}`);
-    }
-    const practicalEnd = Math.min(end, start + MAX_RANGE_SIZE);
-    for (let i = start;i <= practicalEnd; i++) {
-      pages.add(i);
-    }
-    if (end === Infinity && practicalEnd === start + MAX_RANGE_SIZE) {
-      logger4.warn("Open-ended range truncated", { start, practicalEnd });
-    }
-  } else {
-    const page = parseInt(trimmedPart, 10);
-    if (Number.isNaN(page) || page <= 0) {
-      throw new Error(`Invalid page number: ${trimmedPart}`);
-    }
-    pages.add(page);
-  }
-};
-var parsePageRanges = (ranges) => {
-  const pages = new Set;
-  const parts = ranges.split(",");
-  for (const part of parts) {
-    parseRangePart(part, pages);
-  }
-  if (pages.size === 0) {
-    throw new Error("Page range string resulted in zero valid pages.");
-  }
-  return Array.from(pages).sort((a, b) => a - b);
-};
-var getTargetPages = (sourcePages, sourceDescription) => {
-  if (!sourcePages) {
-    return;
-  }
-  try {
-    if (typeof sourcePages === "string") {
-      return parsePageRanges(sourcePages);
-    }
-    if (sourcePages.some((p) => !Number.isInteger(p) || p <= 0)) {
-      throw new Error("Page numbers in array must be positive integers.");
-    }
-    const uniquePages = [...new Set(sourcePages)].sort((a, b) => a - b);
-    if (uniquePages.length === 0) {
-      throw new Error("Page specification resulted in an empty set of pages.");
-    }
-    return uniquePages;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new PdfError(-32602 /* InvalidParams */, `Invalid page specification for source ${sourceDescription}: ${message}`);
-  }
-};
-var determinePagesToProcess = (targetPages, totalPages, includeFullText) => {
-  if (targetPages) {
-    const pagesToProcess = targetPages.filter((p) => p <= totalPages);
-    const invalidPages = targetPages.filter((p) => p > totalPages);
-    return { pagesToProcess, invalidPages };
-  }
-  if (includeFullText) {
-    const pagesToProcess = Array.from({ length: totalPages }, (_, i) => i + 1);
-    return { pagesToProcess, invalidPages: [] };
-  }
-  return { pagesToProcess: [], invalidPages: [] };
-};
-
 // src/pdf/inspector.ts
-var logger5 = createLogger("Inspector");
+var logger8 = createLogger("Inspector");
 var DEFAULT_SAMPLE_PAGES = 5;
 var MAX_SAMPLE_PAGES = 20;
 var LOW_TEXT_CHAR_THRESHOLD = 20;
@@ -1297,7 +1704,7 @@ var countImagePaintOperations = async (page) => {
     return operatorList.fnArray.filter((op) => op === OPS2.paintImageXObject || op === OPS2.paintXObject).length;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger5.warn("Error counting image paint operations", { error: message });
+    logger8.warn("Error counting image paint operations", { error: message });
     return 0;
   }
 };
@@ -1447,7 +1854,7 @@ var inspectPdfSource = async (source, options) => {
       return { source: sourceDescription, success: false, error: error.message };
     }
     const message = error instanceof Error ? error.message : String(error);
-    logger5.error("Unexpected error inspecting PDF source", {
+    logger8.error("Unexpected error inspecting PDF source", {
       sourceDescription,
       error: message
     });
@@ -1463,7 +1870,7 @@ var inspectPdfSource = async (source, options) => {
         await loadingTask.destroy();
       } catch (destroyError) {
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger5.warn("Error destroying PDF document after inspection", {
+        logger8.warn("Error destroying PDF document after inspection", {
           sourceDescription,
           error: message
         });
@@ -1478,72 +1885,72 @@ var defaultInspectPdfOptions = () => ({
 
 // src/schemas/inspectPdf.ts
 import {
+  array as array3,
+  bool as bool3,
+  description as description3,
+  gte as gte3,
+  int as int3,
+  lte as lte2,
+  num as num3,
+  object as object3,
+  optional as optional3
+} from "@sylphx/vex";
+
+// src/schemas/readPdf.ts
+import {
   array as array2,
   bool as bool2,
   description as description2,
   gte as gte2,
   int as int2,
-  lte,
+  min,
   num as num2,
   object as object2,
-  optional as optional2
-} from "@sylphx/vex";
-
-// src/schemas/readPdf.ts
-import {
-  array,
-  bool,
-  description,
-  gte,
-  int,
-  min,
-  num,
-  object,
-  optional,
-  str,
+  optional as optional2,
+  str as str2,
   union
 } from "@sylphx/vex";
-var pageSpecifierSchema = union(array(num(int, gte(1))), str(min(1)));
-var pdfSourceSchema = object({
-  path: optional(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
-  url: optional(str(min(1), description("URL of the PDF file."))),
-  pages: optional(pageSpecifierSchema)
+var pageSpecifierSchema = union(array2(num2(int2, gte2(1))), str2(min(1)));
+var pdfSourceSchema = object2({
+  path: optional2(str2(min(1), description2("Path to the local PDF file (absolute or relative to cwd)."))),
+  url: optional2(str2(min(1), description2("URL of the PDF file."))),
+  pages: optional2(pageSpecifierSchema)
 });
-var readPdfArgsSchema = object({
-  sources: array(pdfSourceSchema),
-  include_full_text: optional(bool(description("Include the full text content of each PDF (only if 'pages' is not specified for that source)."))),
-  include_metadata: optional(bool(description("Include metadata and info objects for each PDF."))),
-  include_page_count: optional(bool(description("Include the total number of pages for each PDF."))),
-  include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
-  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures."))),
-  include_elements: optional(bool(description("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
-  include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, or paragraph."))),
-  include_markdown: optional(bool(description("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
-  include_html: optional(bool(description("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
-  include_chunks: optional(bool(description("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
-  include_outline: optional(bool(description("Include document outline/bookmark entries when the PDF exposes them."))),
-  include_annotations: optional(bool(description("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
-  include_page_labels: optional(bool(description("Include PDF page labels when available, such as roman numerals or section labels."))),
-  include_page_geometry: optional(bool(description("Include page viewport geometry such as width, height, rotation, user unit, and view box."))),
-  include_permissions: optional(bool(description("Include PDF permission and marking signals when exposed by the parser."))),
-  include_form_fields: optional(bool(description("Include PDF form field summaries when AcroForm fields are exposed."))),
-  include_attachments: optional(bool(description("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
-  include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
-  include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
-  include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON.")))
+var readPdfArgsSchema = object2({
+  sources: array2(pdfSourceSchema),
+  include_full_text: optional2(bool2(description2("Include the full text content of each PDF (only if 'pages' is not specified for that source)."))),
+  include_metadata: optional2(bool2(description2("Include metadata and info objects for each PDF."))),
+  include_page_count: optional2(bool2(description2("Include the total number of pages for each PDF."))),
+  include_images: optional2(bool2(description2("Extract and include embedded images from the PDF pages as base64-encoded data."))),
+  include_tables: optional2(bool2(description2("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures."))),
+  include_elements: optional2(bool2(description2("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
+  include_semantic_hints: optional2(bool2(description2("Include deterministic semantic hints on text elements, such as heading, list item, or paragraph."))),
+  include_markdown: optional2(bool2(description2("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
+  include_html: optional2(bool2(description2("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
+  include_chunks: optional2(bool2(description2("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
+  include_outline: optional2(bool2(description2("Include document outline/bookmark entries when the PDF exposes them."))),
+  include_annotations: optional2(bool2(description2("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
+  include_page_labels: optional2(bool2(description2("Include PDF page labels when available, such as roman numerals or section labels."))),
+  include_page_geometry: optional2(bool2(description2("Include page viewport geometry such as width, height, rotation, user unit, and view box."))),
+  include_permissions: optional2(bool2(description2("Include PDF permission and marking signals when exposed by the parser."))),
+  include_form_fields: optional2(bool2(description2("Include PDF form field summaries when AcroForm fields are exposed."))),
+  include_attachments: optional2(bool2(description2("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
+  include_structure_tree: optional2(bool2(description2("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
+  include_safety_findings: optional2(bool2(description2("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
+  include_layout_diagnostics: optional2(bool2(description2("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
+  include_document_map: optional2(bool2(description2("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON.")))
 });
 
 // src/schemas/inspectPdf.ts
-var inspectPdfArgsSchema = object2({
-  sources: array2(pdfSourceSchema),
-  sample_pages: optional2(num2(int2, gte2(1), lte(20), description2("Maximum number of pages to sample per source for bounded PDF profiling. Defaults to 5."))),
-  include_metadata: optional2(bool2(description2("Include PDF metadata and info objects in the inspection response.")))
+var inspectPdfArgsSchema = object3({
+  sources: array3(pdfSourceSchema),
+  sample_pages: optional3(num3(int3, gte3(1), lte2(20), description3("Maximum number of pages to sample per source for bounded PDF profiling. Defaults to 5."))),
+  include_metadata: optional3(bool3(description3("Include PDF metadata and info objects in the inspection response.")))
 });
 
 // src/handlers/inspectPdf.ts
 var MAX_CONCURRENT_SOURCES = 3;
-var inspectPdf = tool().description("Inspects one or more PDFs and recommends the best read_pdf options for agentic extraction, citations, safety, and OCR triage.").input(inspectPdfArgsSchema).handler(async ({ input }) => {
+var inspectPdf = tool2().description("Inspects one or more PDFs and recommends the best read_pdf options for agentic extraction, citations, safety, and OCR triage.").input(inspectPdfArgsSchema).handler(async ({ input }) => {
   const options = {
     ...defaultInspectPdfOptions(),
     ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
@@ -1557,13 +1964,13 @@ var inspectPdf = tool().description("Inspects one or more PDFs and recommends th
   }
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError(`All PDF sources failed inspection: ${errorMessages}`);
+    return toolError2(`All PDF sources failed inspection: ${errorMessages}`);
   }
-  return text(JSON.stringify({ results }, null, 2));
+  return text2(JSON.stringify({ results }, null, 2));
 });
 
 // src/handlers/readPdf.ts
-import { image, text as text2, tool as tool2, toolError as toolError2 } from "@sylphx/mcp-server-sdk";
+import { image as image2, text as text3, tool as tool3, toolError as toolError3 } from "@sylphx/mcp-server-sdk";
 
 // src/pdf/documentMap.ts
 var DOCUMENT_MAP_VERSION = "2026-06-15";
@@ -1611,10 +2018,10 @@ var pageTextStats = (items) => {
   for (const item of items) {
     if (item.type !== "text")
       continue;
-    const text2 = item.textContent?.trim();
-    if (!text2)
+    const text3 = item.textContent?.trim();
+    if (!text3)
       continue;
-    textChars += text2.length;
+    textChars += text3.length;
     textItemCount++;
   }
   return { textChars, textItemCount };
@@ -1710,7 +2117,7 @@ var buildDocumentMap = (input) => {
 };
 
 // src/pdf/tableExtractor.ts
-var logger6 = createLogger("TableExtractor");
+var logger9 = createLogger("TableExtractor");
 var Y_TOLERANCE = 5;
 var COLUMN_GAP_THRESHOLD = 15;
 var MIN_ROWS = 2;
@@ -1980,11 +2387,11 @@ var extractTablesFromTextItems = (textItems, pageNum) => {
   return tables;
 };
 var textItemsFromPageContent = (items) => items.map((item) => {
-  const text2 = item.type === "text" ? item.textContent?.trim() : undefined;
-  if (!text2 || item.xPosition === undefined || item.width === undefined)
+  const text3 = item.type === "text" ? item.textContent?.trim() : undefined;
+  if (!text3 || item.xPosition === undefined || item.width === undefined)
     return;
   return {
-    text: text2,
+    text: text3,
     x: item.xPosition,
     y: item.yPosition,
     width: item.width,
@@ -1998,7 +2405,7 @@ var extractTablesFromPage = async (page, pageNum) => {
     return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger6.warn("Error extracting tables from page", { pageNum, error: message });
+    logger9.warn("Error extracting tables from page", { pageNum, error: message });
     return [];
   }
 };
@@ -2011,7 +2418,7 @@ var extractTables = async (pdfDocument, pagesToProcess) => {
       allTables.push(...pageTables);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger6.warn("Error getting page for table extraction", { pageNum, error: message });
+      logger9.warn("Error getting page for table extraction", { pageNum, error: message });
     }
   }
   return allTables;
@@ -2559,7 +2966,7 @@ var buildSafetyFindings = (pageContents, pageGeometry) => {
 };
 
 // src/handlers/readPdf.ts
-var logger7 = createLogger("ReadPdf");
+var logger10 = createLogger("ReadPdf");
 var processSingleSource = async (source, options) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
   let individualResult = { source: sourceDescription, success: false };
@@ -2712,7 +3119,7 @@ var processSingleSource = async (source, options) => {
       errorMessage = error.message;
     } else {
       const detail = error instanceof Error ? error.message : String(error);
-      logger7.error("Unexpected error processing PDF source", {
+      logger10.error("Unexpected error processing PDF source", {
         sourceDescription,
         error: detail
       });
@@ -2728,13 +3135,13 @@ var processSingleSource = async (source, options) => {
         await loadingTask.destroy();
       } catch (destroyError) {
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger7.warn("Error destroying PDF document", { sourceDescription, error: message });
+        logger10.warn("Error destroying PDF document", { sourceDescription, error: message });
       }
     }
   }
   return individualResult;
 };
-var readPdf = tool2().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
+var readPdf = tool3().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
   const {
     sources,
     include_full_text,
@@ -2792,7 +3199,7 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
   const allFailed = results.every((r) => !r.success);
   if (allFailed) {
     const errorMessages = results.map((r) => r.error).join("; ");
-    return toolError2(`All PDF sources failed to process: ${errorMessages}`);
+    return toolError3(`All PDF sources failed to process: ${errorMessages}`);
   }
   const content = [];
   const resultsForJson = results.map((result) => {
@@ -2823,7 +3230,7 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
     }
     return result;
   });
-  content.push(text2(JSON.stringify({ results: resultsForJson }, null, 2)));
+  content.push(text3(JSON.stringify({ results: resultsForJson }, null, 2)));
   for (const result of results) {
     if (!result.success || !result.data?.page_contents)
       continue;
@@ -2838,12 +3245,12 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
         }
       }
       if (pageTextParts.length > 0) {
-        content.push(text2(`[Page ${pageContent.page}]
+        content.push(text3(`[Page ${pageContent.page}]
 ${pageTextParts.join(`
 `)}`));
       }
       for (const img of pageImages) {
-        content.push(image(img.data, "image/png"));
+        content.push(image2(img.data, "image/png"));
       }
     }
   }
@@ -2856,156 +3263,37 @@ ${pageTextParts.join(`
     }
     if (allTables.length > 0) {
       const markdownTables = tablesToMarkdown(allTables);
-      content.push(text2(markdownTables));
+      content.push(text3(markdownTables));
     }
   }
   return content;
 });
 
 // src/handlers/renderPage.ts
-import { image as image2, text as text3, tool as tool3, toolError as toolError3 } from "@sylphx/mcp-server-sdk";
-
-// src/pdf/renderer.ts
-import { createRequire as createRequire2 } from "node:module";
-import { pathToFileURL } from "node:url";
-var DEFAULT_RENDER_SCALE = 2;
-var DEFAULT_MAX_RENDER_PAGES = 5;
-var DEFAULT_MAX_RENDER_PIXELS = 16000000;
-var logger8 = createLogger("Renderer");
-var require3 = createRequire2(import.meta.url);
-var requireFromPdfjs = createRequire2(require3.resolve("pdfjs-dist/package.json"));
-var loadCanvasModule = async () => {
-  try {
-    const canvasEntry = requireFromPdfjs.resolve("@napi-rs/canvas");
-    const imported = await import(pathToFileURL(canvasEntry).href);
-    const canvasModule = "createCanvas" in imported ? imported : imported.default;
-    if (!canvasModule || typeof canvasModule.createCanvas !== "function") {
-      throw new Error("Canvas backend does not expose createCanvas.");
-    }
-    return canvasModule;
-  } catch (error) {
-    throw new PdfError(-32600 /* InvalidRequest */, "Page rendering requires the optional pdfjs native canvas backend. Install with optional dependencies enabled, or use inspect_pdf/read_pdf without visual rendering.", { cause: error instanceof Error ? error : undefined });
-  }
-};
-var formatPixels = (pixels) => `${(pixels / 1e6).toFixed(1)}MP`;
-var finitePositiveNumber = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
-var resolvePagesToRender = (targetPages, totalPages, maxPages) => {
-  const requestedPages = targetPages && targetPages.length > 0 ? [...new Set(targetPages)].sort((a, b) => a - b) : totalPages > 0 ? [1] : [];
-  const validPages = requestedPages.filter((page) => page <= totalPages);
-  const invalidPages = requestedPages.filter((page) => page > totalPages);
-  const pagesToRender = validPages.slice(0, maxPages);
-  const truncatedPages = validPages.slice(maxPages);
-  return { pagesToRender, invalidPages, truncatedPages };
-};
-var buildRenderWarnings = (invalidPages, truncatedPages, totalPages, maxPages) => {
-  const warnings = [];
-  if (invalidPages.length > 0) {
-    warnings.push(`Requested pages ${invalidPages.join(", ")} exceed document page count ${String(totalPages)}.`);
-  }
-  if (truncatedPages.length > 0) {
-    warnings.push(`Rendered first ${String(maxPages)} selected pages; skipped ${truncatedPages.join(", ")} due to max_pages.`);
-  }
-  return warnings;
-};
-var assertRenderableDimensions = (width, height, maxPixels, pageNumber, scale) => {
-  if (!finitePositiveNumber(width) || !finitePositiveNumber(height)) {
-    throw new PdfError(-32600 /* InvalidRequest */, `Page ${String(pageNumber)} has invalid render dimensions.`);
-  }
-  const pixelCount = width * height;
-  if (pixelCount > maxPixels) {
-    throw new PdfError(-32600 /* InvalidRequest */, `Page ${String(pageNumber)} would render ${formatPixels(pixelCount)} at scale ${String(scale)}, exceeding max_pixels_per_page ${formatPixels(maxPixels)}. Lower scale or raise max_pixels_per_page.`);
-  }
-};
-var renderPdfPage = async (pdfDocument, pageNumber, options) => {
-  const canvasModule = await loadCanvasModule();
-  const page = await pdfDocument.getPage(pageNumber);
-  const viewport = page.getViewport({ scale: options.scale });
-  const width = Math.ceil(viewport.width);
-  const height = Math.ceil(viewport.height);
-  assertRenderableDimensions(width, height, options.max_pixels_per_page, pageNumber, options.scale);
-  const canvas = canvasModule.createCanvas(width, height);
-  const canvasContext = canvas.getContext("2d");
-  await page.render({ canvasContext, viewport }).promise;
-  const buffer = canvas.toBuffer("image/png");
-  const pixelCount = width * height;
-  return {
-    page: pageNumber,
-    evidence_id: `page-${String(pageNumber)}-render-scale-${String(options.scale)}`,
-    width,
-    height,
-    scale: options.scale,
-    pixel_count: pixelCount,
-    byte_length: buffer.byteLength,
-    format: "png",
-    mime_type: "image/png",
-    rotation: page.rotate ?? viewport.rotation ?? 0,
-    provenance: {
-      engine: "pdfjs",
-      renderer: "@napi-rs/canvas",
-      source: "page-render"
-    },
-    data: buffer.toString("base64")
-  };
-};
-var renderPdfSourcePages = async (source, options) => {
-  const sourceDescription = source.path ?? source.url ?? "unknown source";
-  let pdfDocument = null;
-  try {
-    const targetPages = getTargetPages(source.pages, sourceDescription);
-    const { pages: _pages, ...loadArgs } = source;
-    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
-    const totalPages = pdfDocument.numPages;
-    const { pagesToRender, invalidPages, truncatedPages } = resolvePagesToRender(targetPages, totalPages, options.max_pages);
-    if (pagesToRender.length === 0) {
-      throw new PdfError(-32600 /* InvalidRequest */, `No valid pages to render for source ${sourceDescription}.`);
-    }
-    const warnings = buildRenderWarnings(invalidPages, truncatedPages, totalPages, options.max_pages);
-    const pages = [];
-    for (const pageNumber of pagesToRender) {
-      pages.push(await renderPdfPage(pdfDocument, pageNumber, {
-        scale: options.scale,
-        max_pixels_per_page: options.max_pixels_per_page
-      }));
-    }
-    return { source: sourceDescription, numPages: totalPages, pages, warnings };
-  } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === "function") {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger8.warn("Error destroying rendered PDF document", {
-          sourceDescription,
-          error: message
-        });
-      }
-    }
-  }
-};
+import { image as image3, text as text4, tool as tool4, toolError as toolError4 } from "@sylphx/mcp-server-sdk";
 
 // src/schemas/renderPage.ts
 import {
-  array as array3,
-  bool as bool3,
-  description as description3,
-  gte as gte3,
-  int as int3,
-  lte as lte2,
-  num as num3,
-  object as object3,
-  optional as optional3
+  array as array4,
+  bool as bool4,
+  description as description4,
+  gte as gte4,
+  int as int4,
+  lte as lte3,
+  num as num4,
+  object as object4,
+  optional as optional4
 } from "@sylphx/vex";
-var renderPageArgsSchema = object3({
-  sources: array3(pdfSourceSchema),
-  scale: optional3(num3(gte3(0.25), lte2(4), description3("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
-  max_pages: optional3(num3(int3, gte3(1), lte2(20), description3("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
-  max_pixels_per_page: optional3(num3(int3, gte3(1e4), lte2(64000000), description3("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
-  include_image: optional3(bool3(description3("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
+var renderPageArgsSchema = object4({
+  sources: array4(pdfSourceSchema),
+  scale: optional4(num4(gte4(0.25), lte3(4), description4("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
+  max_pages: optional4(num4(int4, gte4(1), lte3(20), description4("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
+  max_pixels_per_page: optional4(num4(int4, gte4(1e4), lte3(64000000), description4("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
+  include_image: optional4(bool4(description4("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
 });
 
 // src/handlers/renderPage.ts
-var logger9 = createLogger("RenderPage");
+var logger11 = createLogger("RenderPage");
 var buildRenderOptions = (input) => ({
   scale: input.scale ?? DEFAULT_RENDER_SCALE,
   max_pages: input.max_pages ?? DEFAULT_MAX_RENDER_PAGES,
@@ -3039,7 +3327,7 @@ var renderSourceForTool = async (source, options) => {
       errorMessage = error.message;
     } else {
       const detail = error instanceof Error ? error.message : String(error);
-      logger9.error("Unexpected error rendering PDF source", {
+      logger11.error("Unexpected error rendering PDF source", {
         sourceDescription,
         error: detail
       });
@@ -3071,7 +3359,7 @@ var attachRenderSummaries = (outputs, includeImage) => {
 };
 var buildRenderContent = (outputs, results, options) => {
   const content = [
-    text3(JSON.stringify({
+    text4(JSON.stringify({
       profile: "page_render_evidence",
       render_options: options,
       results
@@ -3083,12 +3371,12 @@ var buildRenderContent = (outputs, results, options) => {
     if (!output.result.success)
       continue;
     for (const page of output.pages) {
-      content.push(image2(page.data, page.mime_type));
+      content.push(image3(page.data, page.mime_type));
     }
   }
   return content;
 };
-var renderPage = tool3().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
+var renderPage = tool4().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
   const options = buildRenderOptions(input);
   const outputs = [];
   for (const source of input.sources) {
@@ -3097,7 +3385,7 @@ var renderPage = tool3().description("Renders selected PDF pages as bounded PNG 
   const results = attachRenderSummaries(outputs, options.include_image);
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError3(`All PDF sources failed to render: ${errorMessages}`);
+    return toolError4(`All PDF sources failed to render: ${errorMessages}`);
   }
   return buildRenderContent(outputs, results, options);
 });
@@ -3123,8 +3411,13 @@ function createTransport() {
 var server = createServer({
   name: "pdf-reader-mcp",
   version: packageJson.version,
-  instructions: "MCP Server for inspecting PDF files, rendering visual page evidence, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
-  tools: { inspect_pdf: inspectPdf, read_pdf: readPdf, render_page: renderPage },
+  instructions: "MCP Server for inspecting PDF files, rendering visual page evidence, cropping visual regions, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
+  tools: {
+    inspect_pdf: inspectPdf,
+    read_pdf: readPdf,
+    render_page: renderPage,
+    extract_regions: extractRegions
+  },
   transport: createTransport()
 });
 async function main() {

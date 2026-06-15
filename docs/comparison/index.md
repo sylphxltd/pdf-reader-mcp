@@ -8,6 +8,7 @@
 | Metadata | ✅ | ✅ | ✅ | ❌ |
 | Image Extraction | ✅ | ⚠️ | ✅ | ❌ |
 | Page Rendering Evidence | ✅ | ⚠️ | ✅ | ❌ |
+| Region Crop Evidence | ✅ | ❌ | ✅ | ❌ |
 | Page Ranges | ✅ | ⚠️ | ✅ | ❌ |
 | Batch Processing | ✅ | ❌ | ✅ | ❌ |
 | URL Support | ✅ | ❌ | ✅ | ❌ |
@@ -66,6 +67,7 @@
 - Batch processing
 - Image extraction
 - Page rendering evidence with bounded PNG image parts
+- Region crop evidence for bbox-grounded verification
 - URL support
 - Structured JSON output
 - Agent document maps with linked pages, elements, chunks, layout confidence, safety findings, routing signals, and geometry
@@ -82,5 +84,6 @@
 - You need to process multiple PDFs
 - You need image extraction
 - You need page images for visual verification or OCR routing
+- You need focused crops from table, figure, chart, formula, or citation bounding boxes
 - You want structured, parseable output
 - You want agents to navigate PDF evidence through stable references

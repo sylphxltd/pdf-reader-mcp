@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **Agent document map** • **Visual evidence** • **Semantic citation chunks**
+**PDF inspection** • **Agent document map** • **Visual evidence** • **Region crops**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, render page-level visual evidence, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, render page-level visual evidence, crop bbox-grounded page regions, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -39,6 +39,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 // PDF Reader MCP
 - Preflight PDF inspection for agent extraction planning 🔎
 - Bounded page rendering for visual evidence and OCR routing 🖼️
+- Bbox-grounded region crops for source evidence 🔍
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Structured element output for agent workflows 🧩
@@ -70,6 +71,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
+- 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
@@ -79,7 +81,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - `inspect_pdf` plans extraction, `render_page` returns visual evidence, `read_pdf` performs extraction
+- 🎨 **Simple API** - `inspect_pdf` plans extraction, `render_page` returns visual evidence, `extract_regions` crops source evidence, `read_pdf` performs extraction
 
 ---
 
@@ -329,6 +331,33 @@ prepare OCR routing, or verify visual layout without stuffing base64 into JSON.
 - PNG pages as MCP image content parts when `include_image` is true
 - Bounded defaults: first page by default, `max_pages` default 5, and `max_pixels_per_page` default 16MP
 - No rendered page base64 duplicated inside the first JSON content part
+
+### Extract Region Evidence
+
+Use `extract_regions` when an agent has a table, figure, chart, formula, or
+citation bounding box and needs a focused crop from the original page.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "regions": [{
+      "id": "table-1",
+      "page": 1,
+      "bounding_box": { "left": 72, "bottom": 420, "right": 540, "top": 620 },
+      "padding": 8
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 20
+}
+```
+
+**Response includes:**
+- A JSON summary with region ID, source bounding box, crop pixel bounds, evidence ID, and provenance
+- PNG region crops as MCP image content parts when `include_image` is true
+- Bounded defaults: `max_regions` default 20 and `max_pixels_per_page` default 16MP
+- No cropped image base64 duplicated inside the first JSON content part
 
 ### Markdown for RAG and Summaries
 
@@ -642,6 +671,37 @@ out of the JSON summary.
 The first content part is JSON metadata with `profile: "page_render_evidence"`.
 Rendered PNG data is returned as subsequent MCP image parts and referenced by
 `image_content_index`.
+
+### `extract_regions` Tool
+
+Crop selected PDF-coordinate page regions as PNG visual evidence. This is useful
+when an agent has bounding boxes from the document map, table detector, or
+downstream layout workflow and needs focused source evidence.
+
+#### Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `sources` | Array | List of PDF sources with `regions` to crop | Required |
+| `scale` | number | Render scale used before cropping, from 0.25 to 4 | `2` |
+| `max_regions` | number | Maximum regions to crop per source, capped at 100 | `20` |
+| `max_pixels_per_page` | number | Maximum rendered pixels per page before cropping, capped at 64MP | `16000000` |
+| `include_image` | boolean | Return cropped regions as MCP image parts | `true` |
+
+Each region uses PDF coordinates:
+
+```json
+{
+  "id": "figure-1",
+  "page": 1,
+  "bounding_box": { "left": 72, "bottom": 420, "right": 540, "top": 620 },
+  "padding": 8
+}
+```
+
+The first content part is JSON metadata with `profile:
+"region_crop_evidence"`. Cropped PNG data is returned as subsequent MCP image
+parts and referenced by `image_content_index`.
 
 ### `read_pdf` Tool
 

@@ -120,7 +120,28 @@ on the default pixel budget unless a workflow truly needs higher resolution.
 }
 ```
 
-### 8. Use Structured Elements When You Need References
+### 8. Crop Regions Instead Of Carrying Whole Pages
+
+`extract_regions` reuses bounded page rendering but returns focused crops for
+specific PDF-coordinate bounding boxes. It is usually cheaper for downstream
+vision/OCR steps than passing a whole rendered page.
+
+```json
+{
+  "sources": [{
+    "path": "doc.pdf",
+    "regions": [{
+      "id": "table-1",
+      "page": 1,
+      "bounding_box": { "left": 72, "bottom": 420, "right": 540, "top": 620 }
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 20
+}
+```
+
+### 9. Use Structured Elements When You Need References
 
 `include_elements` adds page-level element metadata for agent workflows. It is
 worth enabling when you need stable IDs, provenance, or best-effort coordinates,
@@ -134,7 +155,7 @@ but plain text remains the leanest response shape.
 }
 ```
 
-### 9. Add Semantic Hints Only When They Help
+### 10. Add Semantic Hints Only When They Help
 
 `include_semantic_hints` adds deterministic heading, list, and paragraph hints
 to text elements. It returns elements even when `include_elements` is omitted.
@@ -147,7 +168,7 @@ to text elements. It returns elements even when `include_elements` is omitted.
 }
 ```
 
-### 10. Use Markdown When You Need Ready-to-Use Context
+### 11. Use Markdown When You Need Ready-to-Use Context
 
 `include_markdown` creates page-aware Markdown in the JSON response. It is
 more convenient than rebuilding sections from `page_texts`, but it still
@@ -161,7 +182,7 @@ requires page extraction.
 }
 ```
 
-### 11. Use Chunks When You Need Source References
+### 12. Use Chunks When You Need Source References
 
 `include_chunks` creates citation-ready chunks with element IDs, strategy
 labels, and best-effort bounding boxes. It can split on semantic heading
@@ -178,7 +199,7 @@ citations, but it does more work than metadata-only or page-count requests.
 }
 ```
 
-### 12. Use HTML Only When Needed
+### 13. Use HTML Only When Needed
 
 `include_html` creates escaped page-aware HTML. It is useful for preview and
 export workflows, but plain text or Markdown are usually leaner for agent-only
@@ -192,7 +213,7 @@ context.
 }
 ```
 
-### 13. Use Layout Diagnostics For Routing
+### 14. Use Layout Diagnostics For Routing
 
 `include_layout_diagnostics` returns page layout profiles, reading-order
 confidence, column signals, and warnings. It uses already extracted content

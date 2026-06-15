@@ -76,7 +76,8 @@ The JSON summary must not include rendered page base64.
 
 ## Follow-On Work
 
-- Region crop evidence for element and table bounding boxes.
+- Optional OCR adapter that consumes rendered pages.
+- Advanced viewport transforms for rotated-page crop evidence.
 - Optional OCR adapter that consumes rendered pages or crops.
 - Optional chart, formula, and visual table adapters behind provider
   interfaces.

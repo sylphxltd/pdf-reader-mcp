@@ -121,6 +121,7 @@ describe('MCP Server Integration', () => {
     expect(toolNames).toContain('inspect_pdf');
     expect(toolNames).toContain('read_pdf');
     expect(toolNames).toContain('render_page');
+    expect(toolNames).toContain('extract_regions');
   });
 
   it('should call inspect_pdf tool with a test PDF', async () => {
@@ -233,8 +234,66 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should handle invalid tool arguments', async () => {
+  it('should call extract_regions tool with a test PDF', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
     const callRequest = createRequest(6, 'tools/call', {
+      name: 'extract_regions',
+      arguments: {
+        sources: [
+          {
+            path: testPdfPath,
+            regions: [
+              {
+                id: 'bottom-left',
+                page: 1,
+                bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+              },
+            ],
+          },
+        ],
+        scale: 1,
+        max_regions: 1,
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: {
+        content?: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+        isError?: boolean;
+      };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(6);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{
+          success: boolean;
+          regions?: Array<{ data?: string; image_content_index?: number; region_id?: string }>;
+        }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(response.result?.content?.[1]?.type).toBe('image');
+      expect(response.result?.content?.[1]?.mimeType).toBe('image/png');
+      expect(parsed.profile).toBe('region_crop_evidence');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(parsed.results[0]?.regions?.[0]?.region_id).toBe('bottom-left');
+      expect(parsed.results[0]?.regions?.[0]?.data).toBeUndefined();
+      expect(parsed.results[0]?.regions?.[0]?.image_content_index).toBe(1);
+    }
+  });
+
+  it('should handle invalid tool arguments', async () => {
+    const callRequest = createRequest(7, 'tools/call', {
       name: 'read_pdf',
       arguments: {
         // Missing required 'sources' field
@@ -249,7 +308,7 @@ describe('MCP Server Integration', () => {
       error?: { code: number; message: string };
     };
 
-    expect(response.id).toBe(6);
+    expect(response.id).toBe(7);
     // SDK returns validation error as result.isError, not JSON-RPC error
     expect(response.result?.isError).toBe(true);
     expect(response.result?.content?.[0]?.text).toMatch(/sources/i);
