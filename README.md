@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **Layout confidence** • **Semantic citation chunks** • **Local-first MCP**
+**PDF inspection** • **Agent document map** • **Layout confidence** • **Semantic citation chunks**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, then extract text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -39,6 +39,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 // PDF Reader MCP
 - Preflight PDF inspection for agent extraction planning 🔎
 - 5-10x faster parallel processing ⚡
+- Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Structured element output for agent workflows 🧩
 - Markdown rendering for RAG and summarization 📝
 - Citation-ready semantic/table/page chunks 🔗
@@ -61,12 +62,13 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🚀 **5-10x faster** than sequential with automatic parallelization
 - ⚡ **12,933 ops/sec** error handling, 5,575 ops/sec text extraction
 - 💨 **Process 50-page PDFs** in seconds with multi-core utilization
-- 📦 **Lightweight** with minimal dependencies
+- 📦 **TypeScript-first** with performance-bounded local execution
 
 ### Developer Experience
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
+- 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
 - 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
@@ -281,6 +283,29 @@ arguments without extracting image bytes.
 - Text, image metadata, and table elements without embedding image bytes in the JSON summary
 - Table elements include best-effort table and cell bounding boxes when coordinates are available
 
+### Agent Document Map
+
+Use `include_document_map` when an agent needs one navigable PDF structure
+instead of separate page, element, chunk, layout, and safety outputs.
+
+```json
+{
+  "sources": [{
+    "path": "documents/report.pdf",
+    "pages": "1-5"
+  }],
+  "include_document_map": true,
+  "include_full_text": false
+}
+```
+
+**Response includes:**
+- Page records with element IDs, chunk IDs, safety finding indexes, text density, image count, table count, and page geometry
+- Semantic elements and citation chunks derived from the same stable IDs
+- Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
+- Safety findings linked back to page and element evidence
+- No embedded image bytes inside the JSON document map
+
 ### Markdown for RAG and Summaries
 
 ```json
@@ -413,6 +438,7 @@ arguments without extracting image bytes.
 - ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend `read_pdf` options
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
+- ✅ **Agent Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
 - ✅ **Citation Chunks** - Page, semantic, size, and table chunks with source references for downstream retrieval
@@ -436,9 +462,21 @@ arguments without extracting image bytes.
 
 ## 🆕 Latest Improvements
 
+### Agent Document Map
+
+`include_document_map` returns a single agent-ready map that links pages,
+structured elements, citation chunks, layout diagnostics, content safety
+findings, routing signals, and page geometry. It is designed for agents that
+need to navigate the original PDF evidence without manually stitching together
+separate response fields.
+
+The map is performance-bounded: it reuses the same extraction path, keeps image
+bytes out of JSON, and provides page-level routing signals such as
+low-confidence pages and pages that likely need OCR.
+
 ### Agent-Native PDF Inspection
 
-`inspect_pdf` adds a lightweight planning tool for agent workflows. It samples
+`inspect_pdf` adds a bounded planning tool for agent workflows. It samples
 up to 20 pages per source, counts selectable text and image paint operations,
 surfaces document-level signals, and returns a recommendation with the next
 best `read_pdf` arguments.
@@ -480,7 +518,7 @@ The extraction pipeline also separates distant same-line text into independent s
 
 `include_chunks` adds citation-ready chunks with stable IDs, strategy labels, element references, and best-effort bounding boxes for downstream retrieval and citation workflows. When `include_semantic_hints` is also enabled, chunks split on deterministic heading boundaries; table chunks are emitted when table extraction is requested.
 
-`include_outline`, `include_annotations`, `include_page_labels`, `include_page_geometry`, `include_permissions`, `include_structure_tree`, `include_form_fields`, and `include_attachments` expose additional document signals without changing the default lightweight response shape.
+`include_outline`, `include_annotations`, `include_page_labels`, `include_page_geometry`, `include_permissions`, `include_structure_tree`, `include_form_fields`, and `include_attachments` expose additional document signals without changing the default response shape.
 
 `include_safety_findings` adds deterministic findings for common prompt-injection patterns, tiny text, and off-page text so agents can inspect risky document content before using it as instructions.
 
@@ -566,6 +604,7 @@ tables, and document signals.
 | `include_page_count` | boolean | Include total page count | `true` |
 | `include_images` | boolean | Extract embedded images | `false` |
 | `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, and best-effort geometry | `false` |
+| `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph hints on text elements | `false` |
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
@@ -635,6 +674,19 @@ tables, and document signals.
 
 Elements are designed for agent workflows that need stable page references, provenance, and best-effort coordinates for citation-ready downstream processing.
 
+**Agent document map:**
+```json
+{
+  "sources": [{ "path": "report.pdf", "pages": "1-5" }],
+  "include_document_map": true,
+  "include_full_text": false
+}
+```
+
+The document map is designed for agents that need one navigable structure for
+pages, elements, chunks, layout confidence, safety findings, routing signals,
+and page geometry without embedding image bytes in JSON.
+
 ---
 
 ## 🔧 Advanced Usage
@@ -644,7 +696,7 @@ Elements are designed for agent workflows that need stable page references, prov
 
 <br/>
 
-Content is returned in natural reading order using Y-coordinates plus lightweight column segmentation:
+Content is returned in natural reading order using Y-coordinates plus deterministic column segmentation:
 
 ```
 Document Layout:

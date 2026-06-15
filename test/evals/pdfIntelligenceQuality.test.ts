@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildDocumentMap } from '../../src/pdf/documentMap.js';
 import {
   buildCitationChunks,
   buildLayoutDiagnostics,
@@ -121,6 +122,16 @@ const evaluateCase = (qualityCase: QualityCase) => {
   });
   const safetyFindings = buildSafetyFindings(qualityCase.pageContents, qualityCase.pageGeometry);
   const layoutDiagnostics = buildLayoutDiagnostics(qualityCase.pageContents);
+  const documentMap = buildDocumentMap({
+    totalPages: qualityCase.pageContents.length,
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    pageContents: qualityCase.pageContents,
+    elements,
+    chunks,
+    layoutDiagnostics,
+    safetyFindings,
+    pageGeometry: qualityCase.pageGeometry,
+  });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
 
@@ -184,6 +195,23 @@ const evaluateCase = (qualityCase: QualityCase) => {
         layoutDiagnostics[0].confidence >= 0.8 &&
         layoutDiagnostics[0].signals.includes('positioned-items'),
     },
+    {
+      name: 'document map links pages to elements, chunks, safety, and geometry',
+      pass:
+        documentMap.profile === 'agent_document_map' &&
+        documentMap.layers.includes('selectable_text') &&
+        documentMap.layers.includes('table_structure') &&
+        documentMap.layers.includes('semantic_hints') &&
+        documentMap.layers.includes('citation_chunks') &&
+        documentMap.layers.includes('layout_diagnostics') &&
+        documentMap.layers.includes('content_safety') &&
+        documentMap.layers.includes('page_geometry') &&
+        documentMap.pages[0]?.element_ids.includes('p1-table-1') === true &&
+        (documentMap.pages[0]?.chunk_ids.length ?? 0) > 0 &&
+        JSON.stringify(documentMap.pages[0]?.safety_finding_indexes) === JSON.stringify([0, 1, 2]) &&
+        documentMap.summary.table_element_count === 1 &&
+        documentMap.summary.safety_finding_count === 3,
+    },
   ];
 
   const failures = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.name);
@@ -205,8 +233,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 10,
-        total: 10,
+        passed: 11,
+        total: 11,
         score: 1,
       });
     });

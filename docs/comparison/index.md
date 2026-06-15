@@ -14,6 +14,7 @@
 | Local Processing | ✅ | ✅ | ❌ | ✅ |
 | No API Keys | ✅ | ✅ | ❌ | ✅ |
 | Structured Output | ✅ | ❌ | ✅ | ❌ |
+| Agent Document Map | ✅ | ❌ | ⚠️ | ❌ |
 
 ## Detailed Comparison
 
@@ -65,6 +66,7 @@
 - Image extraction
 - URL support
 - Structured JSON output
+- Agent document maps with linked pages, elements, chunks, layout confidence, safety findings, routing signals, and geometry
 
 **Cons:**
 - PDF-specific (not general file access)
@@ -78,3 +80,4 @@
 - You need to process multiple PDFs
 - You need image extraction
 - You want structured, parseable output
+- You want agents to navigate PDF evidence through stable references

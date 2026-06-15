@@ -1,0 +1,219 @@
+import type {
+  PageContentItem,
+  PdfChunk,
+  PdfDocumentElement,
+  PdfDocumentMap,
+  PdfDocumentMapLayer,
+  PdfDocumentMapPage,
+  PdfPageGeometry,
+  PdfPageLayoutDiagnostics,
+  PdfSafetyFinding,
+} from '../types/pdf.js';
+
+const DOCUMENT_MAP_VERSION = '2026-06-15' as const;
+const LOW_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
+
+interface BuildDocumentMapInput {
+  totalPages?: number | undefined;
+  selectedPages: number[];
+  pageContents: Array<{ page: number; items: PageContentItem[] }>;
+  elements: PdfDocumentElement[];
+  chunks: PdfChunk[];
+  layoutDiagnostics: PdfPageLayoutDiagnostics[];
+  safetyFindings: PdfSafetyFinding[];
+  pageGeometry?: PdfPageGeometry[] | undefined;
+  warnings?: string[] | undefined;
+}
+
+const roundRatio = (value: number): number => Math.round(value * 100) / 100;
+
+const pushToMap = <TValue>(map: Map<number, TValue[]>, key: number, value: TValue) => {
+  const values = map.get(key);
+  if (values) {
+    values.push(value);
+    return;
+  }
+
+  map.set(key, [value]);
+};
+
+const pagesForChunk = (chunk: PdfChunk): number[] => {
+  const pages: number[] = [];
+  for (let page = chunk.page_start; page <= chunk.page_end; page++) {
+    pages.push(page);
+  }
+  return pages;
+};
+
+const buildLayers = (
+  elements: PdfDocumentElement[],
+  chunks: PdfChunk[],
+  layoutDiagnostics: PdfPageLayoutDiagnostics[],
+  safetyFindings: PdfSafetyFinding[],
+  pageGeometry: PdfPageGeometry[] | undefined
+): PdfDocumentMapLayer[] => {
+  const layers = new Set<PdfDocumentMapLayer>();
+
+  if (elements.some((element) => element.type === 'text')) layers.add('selectable_text');
+  if (elements.some((element) => element.type === 'image')) layers.add('image_metadata');
+  if (elements.some((element) => element.type === 'table')) layers.add('table_structure');
+  if (elements.some((element) => element.type === 'text' && element.semantic_hint !== undefined)) {
+    layers.add('semantic_hints');
+  }
+  if (chunks.length > 0) layers.add('citation_chunks');
+  if (layoutDiagnostics.length > 0) layers.add('layout_diagnostics');
+  if (safetyFindings.length > 0) layers.add('content_safety');
+  if ((pageGeometry?.length ?? 0) > 0) layers.add('page_geometry');
+
+  return [...layers];
+};
+
+const pageTextStats = (items: PageContentItem[]): { textChars: number; textItemCount: number } => {
+  let textChars = 0;
+  let textItemCount = 0;
+
+  for (const item of items) {
+    if (item.type !== 'text') continue;
+    const text = item.textContent?.trim();
+    if (!text) continue;
+    textChars += text.length;
+    textItemCount++;
+  }
+
+  return { textChars, textItemCount };
+};
+
+const pageWarnings = (
+  layout: PdfPageLayoutDiagnostics | undefined,
+  safetyFindingIndexes: number[]
+): string[] | undefined => {
+  const warnings = [...(layout?.warnings ?? [])];
+  if (safetyFindingIndexes.length > 0) {
+    warnings.push(
+      'Page has content safety findings; inspect findings before using as instructions.'
+    );
+  }
+  return warnings.length > 0 ? warnings : undefined;
+};
+
+export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap => {
+  const elementsByPage = new Map<number, PdfDocumentElement[]>();
+  for (const element of input.elements) {
+    pushToMap(elementsByPage, element.page, element);
+  }
+
+  const chunksByPage = new Map<number, PdfChunk[]>();
+  for (const chunk of input.chunks) {
+    for (const page of pagesForChunk(chunk)) {
+      pushToMap(chunksByPage, page, chunk);
+    }
+  }
+
+  const pageContentByPage = new Map(
+    input.pageContents.map((pageContent) => [pageContent.page, pageContent])
+  );
+  const layoutByPage = new Map(input.layoutDiagnostics.map((layout) => [layout.page, layout]));
+  const geometryByPage = new Map(input.pageGeometry?.map((geometry) => [geometry.page, geometry]));
+  const safetyFindingIndexesByPage = new Map<number, number[]>();
+  input.safetyFindings.forEach((finding, index) => {
+    pushToMap(safetyFindingIndexesByPage, finding.page, index);
+  });
+
+  const selectedPages =
+    input.selectedPages.length > 0
+      ? [...new Set(input.selectedPages)].sort((a, b) => a - b)
+      : [...new Set(input.pageContents.map((pageContent) => pageContent.page))].sort(
+          (a, b) => a - b
+        );
+
+  const pages: PdfDocumentMapPage[] = selectedPages.map((page): PdfDocumentMapPage => {
+    const pageContent = pageContentByPage.get(page);
+    const elements = elementsByPage.get(page) ?? [];
+    const chunks = chunksByPage.get(page) ?? [];
+    const layout = layoutByPage.get(page);
+    const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
+    const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
+    const imageCount = elements.filter((element) => element.type === 'image').length;
+    const tableCount = elements.filter((element) => element.type === 'table').length;
+    const warnings = pageWarnings(layout, safetyFindingIndexes);
+
+    return {
+      page,
+      ...(geometryByPage.get(page) ? { geometry: geometryByPage.get(page) } : {}),
+      ...(layout ? { layout } : {}),
+      element_ids: elements.map((element) => element.id),
+      chunk_ids: chunks.map((chunk) => chunk.id),
+      safety_finding_indexes: safetyFindingIndexes,
+      text_chars: textChars,
+      text_item_count: textItemCount,
+      image_count: imageCount,
+      table_count: tableCount,
+      ...(warnings ? { warnings } : {}),
+    };
+  });
+
+  const lowConfidencePages = input.layoutDiagnostics
+    .filter((layout) => layout.confidence < LOW_LAYOUT_CONFIDENCE_THRESHOLD)
+    .map((layout) => layout.page);
+  const imageOrSparsePages = input.layoutDiagnostics
+    .filter((layout) => layout.profile === 'image_or_sparse')
+    .map((layout) => layout.page);
+  const needsOcrPages = input.layoutDiagnostics
+    .filter((layout) => layout.profile === 'image_or_sparse' && layout.text_item_count === 0)
+    .map((layout) => layout.page);
+
+  const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
+  const averageLayoutConfidence =
+    layoutConfidences.length > 0
+      ? roundRatio(
+          layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) /
+            layoutConfidences.length
+        )
+      : undefined;
+  const lowestLayoutConfidence =
+    layoutConfidences.length > 0 ? roundRatio(Math.min(...layoutConfidences)) : undefined;
+
+  const textElementCount = input.elements.filter((element) => element.type === 'text').length;
+  const imageElementCount = input.elements.filter((element) => element.type === 'image').length;
+  const tableElementCount = input.elements.filter((element) => element.type === 'table').length;
+
+  return {
+    version: DOCUMENT_MAP_VERSION,
+    profile: 'agent_document_map',
+    layers: buildLayers(
+      input.elements,
+      input.chunks,
+      input.layoutDiagnostics,
+      input.safetyFindings,
+      input.pageGeometry
+    ),
+    pages,
+    elements: input.elements,
+    chunks: input.chunks,
+    layout_diagnostics: input.layoutDiagnostics,
+    safety_findings: input.safetyFindings,
+    routing: {
+      low_confidence_pages: lowConfidencePages,
+      image_or_sparse_pages: imageOrSparsePages,
+      needs_ocr_pages: needsOcrPages,
+    },
+    summary: {
+      ...(input.totalPages !== undefined ? { total_pages: input.totalPages } : {}),
+      selected_pages: selectedPages,
+      processed_page_count: pages.length,
+      element_count: input.elements.length,
+      text_element_count: textElementCount,
+      image_element_count: imageElementCount,
+      table_element_count: tableElementCount,
+      chunk_count: input.chunks.length,
+      safety_finding_count: input.safetyFindings.length,
+      ...(averageLayoutConfidence !== undefined
+        ? { average_layout_confidence: averageLayoutConfidence }
+        : {}),
+      ...(lowestLayoutConfidence !== undefined
+        ? { lowest_layout_confidence: lowestLayoutConfidence }
+        : {}),
+    },
+    ...(input.warnings && input.warnings.length > 0 ? { warnings: input.warnings } : {}),
+  };
+};

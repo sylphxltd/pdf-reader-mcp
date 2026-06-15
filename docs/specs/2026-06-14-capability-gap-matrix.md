@@ -26,6 +26,7 @@ neutral capability names and avoids public comparison language.
 | Image extraction | Shipped | MCP image parts plus JSON metadata. |
 | Table extraction | Shipped | Spatial clustering with rows, confidence, and best-effort cell geometry. |
 | Structured element output | Shipped | `include_elements`. |
+| Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry in one agent-ready contract. |
 | Deterministic semantic hints | Shipped | `include_semantic_hints`; heading, list item, paragraph hints with confidence. |
 | Markdown rendering | Shipped | `include_markdown`. |
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
@@ -60,10 +61,12 @@ neutral capability names and avoids public comparison language.
    findings.
 2. Expand extraction quality evals: multi-column, layout diagnostics, tables,
    annotations, forms, hidden/off-page text, scanned PDFs.
-3. Add deterministic semantic model: headings, paragraphs, lists, captions,
+3. Harden the agent document map as the SSOT for pages, elements, chunks,
+   layout, safety, page geometry, and optional engine enrichment.
+4. Add deterministic semantic model: headings, paragraphs, lists, captions,
    richer tables.
-4. Add optional advanced engines behind provider interfaces.
-5. Add OCR/formula/chart/tagged-PDF capabilities only through optional engines
+5. Add optional advanced engines behind provider interfaces.
+6. Add OCR/formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 
 ## Public Messaging Rule

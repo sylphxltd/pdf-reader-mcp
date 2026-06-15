@@ -38,6 +38,8 @@ engines behind one stable MCP contract.
   Markdown, MCP text parts, or image parts.
 - Provenance: metadata describing which engine produced an element and how
   confident the server is.
+- Document map: one agent-facing contract that links pages, elements, chunks,
+  layout diagnostics, safety findings, routing signals, and page geometry.
 
 ## Invariants
 
@@ -138,6 +140,8 @@ Candidate engines:
    - Add best-effort table and table-cell geometry.
    - Add semantic, size, and table-aware chunk strategies.
    - Add layout diagnostics with reading-order confidence for agent routing.
+   - Add `include_document_map` as the SSOT response shape for agent
+     navigation and future optional engine enrichment.
    - Keep legacy outputs stable.
    - Add tests for schema, JSON response shape, and no binary data in JSON.
 
@@ -179,6 +183,7 @@ Candidate engines:
 - Unit tests for schema, element construction, page ordering, and binary
   stripping.
 - Integration tests for MCP `read_pdf` with and without `include_elements`.
+- Integration tests for MCP `read_pdf` with and without `include_document_map`.
 - Quality evals for semantic chunks, table ordering, renderers, and safety
   findings.
 - Fixtures for simple text, multi-column reading order, tables, images, scans,
@@ -207,6 +212,7 @@ Candidate engines:
 - Document signal flags validate as optional booleans.
 - `include_structure_tree` validates as an optional boolean.
 - `include_safety_findings` validates as an optional boolean.
+- `include_document_map` validates as an optional boolean.
 - Requests with `include_elements: true` process selected pages even when
   `include_full_text` is false.
 - Requests with `include_semantic_hints: true` return text elements with
@@ -225,6 +231,9 @@ Candidate engines:
   trees without forcing text extraction when tagged structure is available.
 - Requests with `include_safety_findings: true` produce deterministic findings
   without forcing `full_text`.
+- Requests with `include_document_map: true` produce an agent map with pages,
+  elements, chunks, layout diagnostics, safety findings, routing signals, page
+  geometry, and summary counts without forcing top-level legacy outputs.
 - JSON summary includes `elements` with stable ids, page numbers, type, content
   or metadata, and best-effort bounding boxes where available.
 - JSON summary does not include base64 image bytes.

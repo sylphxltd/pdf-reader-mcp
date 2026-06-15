@@ -3,8 +3,8 @@
 Once installed, the PDF Reader MCP server provides two tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
-- `read_pdf` extracts PDF content, structure, citations, tables, images, layout
-  confidence, and signals.
+- `read_pdf` extracts PDF content, an agent document map, structure,
+  citations, tables, images, layout confidence, and signals.
 
 ## Basic Usage
 
@@ -117,6 +117,28 @@ and best-effort coordinates instead of plain text alone.
   "include_images": false
 }
 ```
+
+### Get An Agent Document Map
+
+Use `include_document_map` when an agent needs one navigable structure for the
+PDF instead of separate page, element, chunk, layout, and safety outputs.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/document.pdf",
+    "pages": "1-5"
+  }],
+  "include_document_map": true,
+  "include_full_text": false,
+  "include_metadata": true,
+  "include_page_count": true
+}
+```
+
+The map links pages to element IDs, chunk IDs, safety finding indexes, layout
+diagnostics, routing signals, and page geometry. Image bytes are not embedded
+inside the JSON map.
 
 ### Get Markdown
 
@@ -294,6 +316,45 @@ Process multiple PDFs in a single request:
             }
           }
         ],
+        "document_map": {
+          "version": "2026-06-15",
+          "profile": "agent_document_map",
+          "layers": [
+            "selectable_text",
+            "semantic_hints",
+            "citation_chunks",
+            "layout_diagnostics",
+            "content_safety",
+            "page_geometry"
+          ],
+          "pages": [
+            {
+              "page": 1,
+              "element_ids": ["p1-text-1"],
+              "chunk_ids": ["p1-chunk-1"],
+              "safety_finding_indexes": [],
+              "text_chars": 120,
+              "text_item_count": 3,
+              "image_count": 0,
+              "table_count": 0
+            }
+          ],
+          "routing": {
+            "low_confidence_pages": [],
+            "image_or_sparse_pages": [],
+            "needs_ocr_pages": []
+          },
+          "summary": {
+            "selected_pages": [1],
+            "processed_page_count": 1,
+            "element_count": 1,
+            "text_element_count": 1,
+            "image_element_count": 0,
+            "table_element_count": 0,
+            "chunk_count": 1,
+            "safety_finding_count": 0
+          }
+        },
         "image_info": [
           {
             "page": 1,

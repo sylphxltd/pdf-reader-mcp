@@ -89,7 +89,23 @@ Image extraction involves encoding to PNG and base64, which adds overhead:
 { "include_images": false }
 ```
 
-### 6. Use Structured Elements When You Need References
+### 6. Use The Document Map For Full Agent Navigation
+
+`include_document_map` builds the richest TypeScript-first response path. It
+links pages, elements, chunks, layout diagnostics, safety findings, routing
+signals, and page geometry without embedding image bytes in JSON. It does more
+work than metadata-only extraction, but it prevents agents from rebuilding the
+same references themselves.
+
+```json
+{
+  "sources": [{ "path": "doc.pdf", "pages": "1-5" }],
+  "include_document_map": true,
+  "include_full_text": false
+}
+```
+
+### 7. Use Structured Elements When You Need References
 
 `include_elements` adds page-level element metadata for agent workflows. It is
 worth enabling when you need stable IDs, provenance, or best-effort coordinates,
@@ -103,7 +119,7 @@ but plain text remains the leanest response shape.
 }
 ```
 
-### 7. Add Semantic Hints Only When They Help
+### 8. Add Semantic Hints Only When They Help
 
 `include_semantic_hints` adds deterministic heading, list, and paragraph hints
 to text elements. It returns elements even when `include_elements` is omitted.
@@ -116,7 +132,7 @@ to text elements. It returns elements even when `include_elements` is omitted.
 }
 ```
 
-### 8. Use Markdown When You Need Ready-to-Use Context
+### 9. Use Markdown When You Need Ready-to-Use Context
 
 `include_markdown` creates page-aware Markdown in the JSON response. It is
 more convenient than rebuilding sections from `page_texts`, but it still
@@ -130,7 +146,7 @@ requires page extraction.
 }
 ```
 
-### 9. Use Chunks When You Need Source References
+### 10. Use Chunks When You Need Source References
 
 `include_chunks` creates citation-ready chunks with element IDs, strategy
 labels, and best-effort bounding boxes. It can split on semantic heading
@@ -147,7 +163,7 @@ citations, but it does more work than metadata-only or page-count requests.
 }
 ```
 
-### 10. Use HTML Only When Needed
+### 11. Use HTML Only When Needed
 
 `include_html` creates escaped page-aware HTML. It is useful for preview and
 export workflows, but plain text or Markdown are usually leaner for agent-only
@@ -161,7 +177,7 @@ context.
 }
 ```
 
-### 11. Use Layout Diagnostics For Routing
+### 12. Use Layout Diagnostics For Routing
 
 `include_layout_diagnostics` returns page layout profiles, reading-order
 confidence, column signals, and warnings. It uses already extracted content
@@ -177,7 +193,7 @@ before unattended RAG indexing or citation-critical summarization.
 }
 ```
 
-### 12. Use Document Signals For Lightweight Structure
+### 13. Use Document Signals For Bounded Structure
 
 Outline, page labels, permissions, structure trees, form fields, attachment
 metadata, and page geometry can be requested without extracting full page text.
@@ -193,7 +209,7 @@ Annotations, structure trees, and page geometry respect selected page ranges.
 }
 ```
 
-### 13. Use Safety Findings When Agents Consume PDF Text
+### 14. Use Safety Findings When Agents Consume PDF Text
 
 `include_safety_findings` scans extracted page text for deterministic risk
 signals. It requires page text extraction, but it does not force `full_text`

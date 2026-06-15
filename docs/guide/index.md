@@ -12,6 +12,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **Metadata** - Author, title, creation date, and other document properties
 - **Page count** - Total number of pages
 - **Embedded images** - Extract images as base64-encoded PNG data
+- **Agent document maps** - Link pages, elements, chunks, layout confidence, safety findings, routing signals, and geometry
 - **Citation chunks** - Return stable source references for retrieval workflows
 - **Safety signals** - Surface deterministic findings before agents trust PDF text
 
@@ -24,7 +25,7 @@ Process PDFs from local files or URLs in a single request. Mix and match sources
 Send multiple PDF sources in one request. The server processes them concurrently for optimal performance.
 
 ### Flexible Extraction
-Choose exactly what data you need - full text, specific pages, metadata only, or everything including images.
+Choose exactly what data you need - full text, specific pages, metadata only, an agent document map, or everything including images.
 
 ### Agent-Native Inspection
 Use `inspect_pdf` to sample a PDF, identify extraction risks, and get recommended `read_pdf` arguments before spending context or runtime on heavier extraction.

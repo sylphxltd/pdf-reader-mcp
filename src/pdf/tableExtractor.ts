@@ -1,7 +1,7 @@
 // Table extraction from PDF using spatial clustering of text coordinates
 
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { BoundingBox, ExtractedTable, TableCell } from '../types/pdf.js';
+import type { BoundingBox, ExtractedTable, PageContentItem, TableCell } from '../types/pdf.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('TableExtractor');
@@ -390,6 +390,83 @@ const identifyTableRegions = (rows: TextRow[]): TableRegion[] => {
   return regions;
 };
 
+export const extractTablesFromTextItems = (
+  textItems: TextItemWithPosition[],
+  pageNum: number
+): ExtractedTable[] => {
+  const tables: ExtractedTable[] = [];
+
+  if (textItems.length === 0) {
+    return tables;
+  }
+
+  const rows = clusterByY(textItems);
+  const tableRegions = identifyTableRegions(rows);
+
+  for (let tableIndex = 0; tableIndex < tableRegions.length; tableIndex++) {
+    const region = tableRegions[tableIndex];
+    if (!region) continue;
+
+    const tableRows: string[][] = [];
+    const tableCells: TableCell[] = [];
+
+    for (let rowIndex = 0; rowIndex < region.rows.length; rowIndex++) {
+      const row = region.rows[rowIndex];
+      if (!row) continue;
+      const assigned = assignToTableCells(row, rowIndex, region.columnBoundaries);
+      tableRows.push(assigned.rowValues);
+      tableCells.push(...assigned.cells);
+    }
+
+    const confidence = calculateConfidence(region.rows, region.columnBoundaries);
+    const tableBoundingBox = mergeBoundingBoxes(
+      tableCells
+        .map((cell) => cell.bounding_box)
+        .filter((box): box is BoundingBox => box !== undefined)
+    );
+
+    // Only include tables with reasonable confidence
+    if (confidence >= 0.3) {
+      tables.push({
+        page: pageNum,
+        tableIndex,
+        rows: tableRows,
+        cells: tableCells,
+        ...(tableBoundingBox ? { bounding_box: tableBoundingBox } : {}),
+        rowCount: tableRows.length,
+        colCount: region.columnBoundaries.length,
+        confidence: Math.round(confidence * 100) / 100,
+      });
+    }
+  }
+
+  return tables;
+};
+
+const textItemsFromPageContent = (items: PageContentItem[]): TextItemWithPosition[] =>
+  items
+    .map((item): TextItemWithPosition | undefined => {
+      const text = item.type === 'text' ? item.textContent?.trim() : undefined;
+      if (!text || item.xPosition === undefined || item.width === undefined) return undefined;
+
+      return {
+        text,
+        x: item.xPosition,
+        y: item.yPosition,
+        width: item.width,
+        ...(item.height !== undefined ? { height: item.height } : {}),
+        ...(item.bounding_box ? { bounding_box: item.bounding_box } : {}),
+      };
+    })
+    .filter((item): item is TextItemWithPosition => item !== undefined);
+
+export const extractTablesFromPageContents = (
+  pageContents: Array<{ page: number; items: PageContentItem[] }>
+): ExtractedTable[] =>
+  pageContents.flatMap((pageContent) =>
+    extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page)
+  );
+
 /**
  * Extract tables from a single PDF page
  */
@@ -397,60 +474,13 @@ export const extractTablesFromPage = async (
   page: pdfjsLib.PDFPageProxy,
   pageNum: number
 ): Promise<ExtractedTable[]> => {
-  const tables: ExtractedTable[] = [];
-
   try {
-    const textItems = await extractTextItemsWithPositions(page);
-
-    if (textItems.length === 0) {
-      return tables;
-    }
-
-    const rows = clusterByY(textItems);
-    const tableRegions = identifyTableRegions(rows);
-
-    for (let tableIndex = 0; tableIndex < tableRegions.length; tableIndex++) {
-      const region = tableRegions[tableIndex];
-      if (!region) continue;
-
-      const tableRows: string[][] = [];
-      const tableCells: TableCell[] = [];
-
-      for (let rowIndex = 0; rowIndex < region.rows.length; rowIndex++) {
-        const row = region.rows[rowIndex];
-        if (!row) continue;
-        const assigned = assignToTableCells(row, rowIndex, region.columnBoundaries);
-        tableRows.push(assigned.rowValues);
-        tableCells.push(...assigned.cells);
-      }
-
-      const confidence = calculateConfidence(region.rows, region.columnBoundaries);
-      const tableBoundingBox = mergeBoundingBoxes(
-        tableCells
-          .map((cell) => cell.bounding_box)
-          .filter((box): box is BoundingBox => box !== undefined)
-      );
-
-      // Only include tables with reasonable confidence
-      if (confidence >= 0.3) {
-        tables.push({
-          page: pageNum,
-          tableIndex,
-          rows: tableRows,
-          cells: tableCells,
-          ...(tableBoundingBox ? { bounding_box: tableBoundingBox } : {}),
-          rowCount: tableRows.length,
-          colCount: region.columnBoundaries.length,
-          confidence: Math.round(confidence * 100) / 100,
-        });
-      }
-    }
+    return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn('Error extracting tables from page', { pageNum, error: message });
+    return [];
   }
-
-  return tables;
 };
 
 /**

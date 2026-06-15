@@ -83,6 +83,7 @@ describe('inspector', () => {
         workflow: 'agentic_rag',
         needs_ocr: false,
         read_pdf_arguments: {
+          include_document_map: true,
           include_chunks: true,
           include_semantic_hints: true,
           include_safety_findings: true,

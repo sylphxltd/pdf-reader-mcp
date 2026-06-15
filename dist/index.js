@@ -1354,6 +1354,7 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
   }
   if (profile === "mixed_text_and_scan") {
     Object.assign(readPdfArguments, {
+      include_document_map: true,
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
@@ -1370,6 +1371,7 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
   }
   if (profile === "digital_text") {
     Object.assign(readPdfArguments, {
+      include_document_map: true,
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
@@ -1380,7 +1382,7 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
     return {
       workflow: "agentic_rag",
       needs_ocr: false,
-      reason: "Sampled pages expose selectable text; citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.",
+      reason: "Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.",
       read_pdf_arguments: readPdfArguments
     };
   }
@@ -1528,13 +1530,14 @@ var readPdfArgsSchema = object({
   include_attachments: optional(bool(description("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
   include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
   include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
-  include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing.")))
+  include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
+  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON.")))
 });
 
 // src/schemas/inspectPdf.ts
 var inspectPdfArgsSchema = object2({
   sources: array2(pdfSourceSchema),
-  sample_pages: optional2(num2(int2, gte2(1), lte(20), description2("Maximum number of pages to sample per source for lightweight PDF profiling. Defaults to 5."))),
+  sample_pages: optional2(num2(int2, gte2(1), lte(20), description2("Maximum number of pages to sample per source for bounded PDF profiling. Defaults to 5."))),
   include_metadata: optional2(bool2(description2("Include PDF metadata and info objects in the inspection response.")))
 });
 
@@ -1561,6 +1564,150 @@ var inspectPdf = tool().description("Inspects one or more PDFs and recommends th
 
 // src/handlers/readPdf.ts
 import { image, text as text2, tool as tool2, toolError as toolError2 } from "@sylphx/mcp-server-sdk";
+
+// src/pdf/documentMap.ts
+var DOCUMENT_MAP_VERSION = "2026-06-15";
+var LOW_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
+var roundRatio = (value) => Math.round(value * 100) / 100;
+var pushToMap = (map, key, value) => {
+  const values = map.get(key);
+  if (values) {
+    values.push(value);
+    return;
+  }
+  map.set(key, [value]);
+};
+var pagesForChunk = (chunk) => {
+  const pages = [];
+  for (let page = chunk.page_start;page <= chunk.page_end; page++) {
+    pages.push(page);
+  }
+  return pages;
+};
+var buildLayers = (elements, chunks, layoutDiagnostics, safetyFindings, pageGeometry) => {
+  const layers = new Set;
+  if (elements.some((element) => element.type === "text"))
+    layers.add("selectable_text");
+  if (elements.some((element) => element.type === "image"))
+    layers.add("image_metadata");
+  if (elements.some((element) => element.type === "table"))
+    layers.add("table_structure");
+  if (elements.some((element) => element.type === "text" && element.semantic_hint !== undefined)) {
+    layers.add("semantic_hints");
+  }
+  if (chunks.length > 0)
+    layers.add("citation_chunks");
+  if (layoutDiagnostics.length > 0)
+    layers.add("layout_diagnostics");
+  if (safetyFindings.length > 0)
+    layers.add("content_safety");
+  if ((pageGeometry?.length ?? 0) > 0)
+    layers.add("page_geometry");
+  return [...layers];
+};
+var pageTextStats = (items) => {
+  let textChars = 0;
+  let textItemCount = 0;
+  for (const item of items) {
+    if (item.type !== "text")
+      continue;
+    const text2 = item.textContent?.trim();
+    if (!text2)
+      continue;
+    textChars += text2.length;
+    textItemCount++;
+  }
+  return { textChars, textItemCount };
+};
+var pageWarnings = (layout, safetyFindingIndexes) => {
+  const warnings = [...layout?.warnings ?? []];
+  if (safetyFindingIndexes.length > 0) {
+    warnings.push("Page has content safety findings; inspect findings before using as instructions.");
+  }
+  return warnings.length > 0 ? warnings : undefined;
+};
+var buildDocumentMap = (input) => {
+  const elementsByPage = new Map;
+  for (const element of input.elements) {
+    pushToMap(elementsByPage, element.page, element);
+  }
+  const chunksByPage = new Map;
+  for (const chunk of input.chunks) {
+    for (const page of pagesForChunk(chunk)) {
+      pushToMap(chunksByPage, page, chunk);
+    }
+  }
+  const pageContentByPage = new Map(input.pageContents.map((pageContent) => [pageContent.page, pageContent]));
+  const layoutByPage = new Map(input.layoutDiagnostics.map((layout) => [layout.page, layout]));
+  const geometryByPage = new Map(input.pageGeometry?.map((geometry) => [geometry.page, geometry]));
+  const safetyFindingIndexesByPage = new Map;
+  input.safetyFindings.forEach((finding, index) => {
+    pushToMap(safetyFindingIndexesByPage, finding.page, index);
+  });
+  const selectedPages = input.selectedPages.length > 0 ? [...new Set(input.selectedPages)].sort((a, b) => a - b) : [...new Set(input.pageContents.map((pageContent) => pageContent.page))].sort((a, b) => a - b);
+  const pages = selectedPages.map((page) => {
+    const pageContent = pageContentByPage.get(page);
+    const elements = elementsByPage.get(page) ?? [];
+    const chunks = chunksByPage.get(page) ?? [];
+    const layout = layoutByPage.get(page);
+    const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
+    const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
+    const imageCount = elements.filter((element) => element.type === "image").length;
+    const tableCount = elements.filter((element) => element.type === "table").length;
+    const warnings = pageWarnings(layout, safetyFindingIndexes);
+    return {
+      page,
+      ...geometryByPage.get(page) ? { geometry: geometryByPage.get(page) } : {},
+      ...layout ? { layout } : {},
+      element_ids: elements.map((element) => element.id),
+      chunk_ids: chunks.map((chunk) => chunk.id),
+      safety_finding_indexes: safetyFindingIndexes,
+      text_chars: textChars,
+      text_item_count: textItemCount,
+      image_count: imageCount,
+      table_count: tableCount,
+      ...warnings ? { warnings } : {}
+    };
+  });
+  const lowConfidencePages = input.layoutDiagnostics.filter((layout) => layout.confidence < LOW_LAYOUT_CONFIDENCE_THRESHOLD).map((layout) => layout.page);
+  const imageOrSparsePages = input.layoutDiagnostics.filter((layout) => layout.profile === "image_or_sparse").map((layout) => layout.page);
+  const needsOcrPages = input.layoutDiagnostics.filter((layout) => layout.profile === "image_or_sparse" && layout.text_item_count === 0).map((layout) => layout.page);
+  const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
+  const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
+  const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio(Math.min(...layoutConfidences)) : undefined;
+  const textElementCount = input.elements.filter((element) => element.type === "text").length;
+  const imageElementCount = input.elements.filter((element) => element.type === "image").length;
+  const tableElementCount = input.elements.filter((element) => element.type === "table").length;
+  return {
+    version: DOCUMENT_MAP_VERSION,
+    profile: "agent_document_map",
+    layers: buildLayers(input.elements, input.chunks, input.layoutDiagnostics, input.safetyFindings, input.pageGeometry),
+    pages,
+    elements: input.elements,
+    chunks: input.chunks,
+    layout_diagnostics: input.layoutDiagnostics,
+    safety_findings: input.safetyFindings,
+    routing: {
+      low_confidence_pages: lowConfidencePages,
+      image_or_sparse_pages: imageOrSparsePages,
+      needs_ocr_pages: needsOcrPages
+    },
+    summary: {
+      ...input.totalPages !== undefined ? { total_pages: input.totalPages } : {},
+      selected_pages: selectedPages,
+      processed_page_count: pages.length,
+      element_count: input.elements.length,
+      text_element_count: textElementCount,
+      image_element_count: imageElementCount,
+      table_element_count: tableElementCount,
+      chunk_count: input.chunks.length,
+      safety_finding_count: input.safetyFindings.length,
+      ...averageLayoutConfidence !== undefined ? { average_layout_confidence: averageLayoutConfidence } : {},
+      ...lowestLayoutConfidence !== undefined ? { lowest_layout_confidence: lowestLayoutConfidence } : {}
+    },
+    ...input.warnings && input.warnings.length > 0 ? { warnings: input.warnings } : {}
+  };
+};
 
 // src/pdf/tableExtractor.ts
 var logger6 = createLogger("TableExtractor");
@@ -1794,49 +1941,66 @@ var identifyTableRegions = (rows) => {
   }
   return regions;
 };
-var extractTablesFromPage = async (page, pageNum) => {
+var extractTablesFromTextItems = (textItems, pageNum) => {
   const tables = [];
-  try {
-    const textItems = await extractTextItemsWithPositions(page);
-    if (textItems.length === 0) {
-      return tables;
-    }
-    const rows = clusterByY(textItems);
-    const tableRegions = identifyTableRegions(rows);
-    for (let tableIndex = 0;tableIndex < tableRegions.length; tableIndex++) {
-      const region = tableRegions[tableIndex];
-      if (!region)
+  if (textItems.length === 0) {
+    return tables;
+  }
+  const rows = clusterByY(textItems);
+  const tableRegions = identifyTableRegions(rows);
+  for (let tableIndex = 0;tableIndex < tableRegions.length; tableIndex++) {
+    const region = tableRegions[tableIndex];
+    if (!region)
+      continue;
+    const tableRows = [];
+    const tableCells = [];
+    for (let rowIndex = 0;rowIndex < region.rows.length; rowIndex++) {
+      const row = region.rows[rowIndex];
+      if (!row)
         continue;
-      const tableRows = [];
-      const tableCells = [];
-      for (let rowIndex = 0;rowIndex < region.rows.length; rowIndex++) {
-        const row = region.rows[rowIndex];
-        if (!row)
-          continue;
-        const assigned = assignToTableCells(row, rowIndex, region.columnBoundaries);
-        tableRows.push(assigned.rowValues);
-        tableCells.push(...assigned.cells);
-      }
-      const confidence = calculateConfidence(region.rows, region.columnBoundaries);
-      const tableBoundingBox = mergeBoundingBoxes2(tableCells.map((cell) => cell.bounding_box).filter((box) => box !== undefined));
-      if (confidence >= 0.3) {
-        tables.push({
-          page: pageNum,
-          tableIndex,
-          rows: tableRows,
-          cells: tableCells,
-          ...tableBoundingBox ? { bounding_box: tableBoundingBox } : {},
-          rowCount: tableRows.length,
-          colCount: region.columnBoundaries.length,
-          confidence: Math.round(confidence * 100) / 100
-        });
-      }
+      const assigned = assignToTableCells(row, rowIndex, region.columnBoundaries);
+      tableRows.push(assigned.rowValues);
+      tableCells.push(...assigned.cells);
     }
+    const confidence = calculateConfidence(region.rows, region.columnBoundaries);
+    const tableBoundingBox = mergeBoundingBoxes2(tableCells.map((cell) => cell.bounding_box).filter((box) => box !== undefined));
+    if (confidence >= 0.3) {
+      tables.push({
+        page: pageNum,
+        tableIndex,
+        rows: tableRows,
+        cells: tableCells,
+        ...tableBoundingBox ? { bounding_box: tableBoundingBox } : {},
+        rowCount: tableRows.length,
+        colCount: region.columnBoundaries.length,
+        confidence: Math.round(confidence * 100) / 100
+      });
+    }
+  }
+  return tables;
+};
+var textItemsFromPageContent = (items) => items.map((item) => {
+  const text2 = item.type === "text" ? item.textContent?.trim() : undefined;
+  if (!text2 || item.xPosition === undefined || item.width === undefined)
+    return;
+  return {
+    text: text2,
+    x: item.xPosition,
+    y: item.yPosition,
+    width: item.width,
+    ...item.height !== undefined ? { height: item.height } : {},
+    ...item.bounding_box ? { bounding_box: item.bounding_box } : {}
+  };
+}).filter((item) => item !== undefined);
+var extractTablesFromPageContents = (pageContents) => pageContents.flatMap((pageContent) => extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page));
+var extractTablesFromPage = async (page, pageNum) => {
+  try {
+    return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger6.warn("Error extracting tables from page", { pageNum, error: message });
+    return [];
   }
-  return tables;
 };
 var extractTables = async (pdfDocument, pagesToProcess) => {
   const allTables = [];
@@ -2180,8 +2344,8 @@ var buildCitationChunks = (elements, options) => {
   pushCurrent();
   return chunks;
 };
-var roundRatio = (value) => Math.round(value * 100) / 100;
-var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio(value)));
+var roundRatio2 = (value) => Math.round(value * 100) / 100;
+var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio2(value)));
 var boxWidth = (box) => box ? Math.max(0, box.right - box.left) : 0;
 var boxArea = (box) => {
   if (!box)
@@ -2268,7 +2432,7 @@ var buildLayoutDiagnostics = (pageContents) => pageContents.map((pageContent) =>
   const textItemCount = pageContent.items.filter((item) => item.type === "text").length;
   const imageItemCount = pageContent.items.filter((item) => item.type === "image").length;
   const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
-  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio(positionedItems.length / itemCount);
+  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio2(positionedItems.length / itemCount);
   const columns = detectLayoutColumns(positionedItems);
   const left = positionedItems.length ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0)) : 0;
   const right = positionedItems.length ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0)) : 0;
@@ -2415,8 +2579,8 @@ var processSingleSource = async (source, options) => {
       includeAttachments: options.includeAttachments
     });
     Object.assign(output, structureOutput);
-    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics;
-    const pageScopedMetadata = options.includeTables || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
+    const explicitPageContent = options.includeFullText || options.includeElements || options.includeSemanticHints || options.includeMarkdown || options.includeHtml || options.includeChunks || options.includeImages || options.includeSafetyFindings || options.includeLayoutDiagnostics || options.includeDocumentMap;
+    const pageScopedMetadata = options.includeTables || options.includeDocumentMap || options.includeAnnotations || options.includePageGeometry || options.includeStructureTree;
     const includeSelectedPageText = targetPages !== undefined && !explicitPageContent && !pageScopedMetadata;
     const shouldSelectPages = explicitPageContent || includeSelectedPageText || pageScopedMetadata;
     const { pagesToProcess, invalidPages } = determinePagesToProcess(targetPages, totalPages, shouldSelectPages);
@@ -2427,7 +2591,7 @@ var processSingleSource = async (source, options) => {
     if (pagesToProcess.length > 0) {
       const needsPageContent = explicitPageContent || includeSelectedPageText;
       let pageGeometry;
-      if (options.includePageGeometry || options.includeSafetyFindings) {
+      if (options.includePageGeometry || options.includeSafetyFindings || options.includeDocumentMap) {
         pageGeometry = await extractPageGeometry(pdfDocument, pagesToProcess);
         if (pageGeometry.length > 0 && options.includePageGeometry) {
           output.page_geometry = pageGeometry;
@@ -2466,15 +2630,24 @@ var processSingleSource = async (source, options) => {
           }
         }
       }
-      if (options.includeTables) {
-        const extractedTables = await extractTables(pdfDocument, pagesToProcess);
+      if (options.includeTables || options.includeDocumentMap) {
+        const extractedTables = output.page_contents ? extractTablesFromPageContents(output.page_contents) : await extractTables(pdfDocument, pagesToProcess);
         if (extractedTables.length > 0) {
           output.tables = extractedTables;
         }
       }
-      const buildElementsForOutput = () => buildStructuredElements(output.page_contents ?? [], output.tables, options.includeSemanticHints);
+      let plainElements;
+      let semanticElements;
+      const buildElementsForOutput = (includeSemanticHints) => {
+        if (includeSemanticHints) {
+          semanticElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, true);
+          return semanticElements;
+        }
+        plainElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, false);
+        return plainElements;
+      };
       if ((options.includeElements || options.includeSemanticHints) && output.page_contents) {
-        output.elements = buildElementsForOutput();
+        output.elements = buildElementsForOutput(options.includeSemanticHints);
       }
       if (options.includeMarkdown && output.page_contents) {
         output.markdown = renderMarkdownFromPageContents(output.page_contents, output.tables);
@@ -2482,20 +2655,42 @@ var processSingleSource = async (source, options) => {
       if (options.includeHtml && output.page_contents) {
         output.html = renderHtmlFromPageContents(output.page_contents, output.tables);
       }
+      let chunks;
       if (options.includeChunks && output.page_contents) {
-        const chunkElements = output.elements ?? buildElementsForOutput();
-        output.chunks = buildCitationChunks(chunkElements, {
+        const chunkElements = output.elements ?? buildElementsForOutput(options.includeSemanticHints);
+        chunks = buildCitationChunks(chunkElements, {
           useSemanticBoundaries: options.includeSemanticHints
         });
+        output.chunks = chunks;
       }
+      let safetyFindings;
       if (options.includeSafetyFindings && output.page_contents) {
-        const safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
+        safetyFindings = buildSafetyFindings(output.page_contents, pageGeometry);
         if (safetyFindings.length > 0) {
           output.safety_findings = safetyFindings;
         }
       }
+      let layoutDiagnostics;
       if (options.includeLayoutDiagnostics && output.page_contents) {
-        output.layout_diagnostics = buildLayoutDiagnostics(output.page_contents);
+        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
+        output.layout_diagnostics = layoutDiagnostics;
+      }
+      if (options.includeDocumentMap && output.page_contents) {
+        const mapElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
+        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        output.document_map = buildDocumentMap({
+          totalPages,
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents,
+          elements: mapElements,
+          chunks,
+          layoutDiagnostics,
+          safetyFindings,
+          pageGeometry,
+          warnings: output.warnings
+        });
       }
       if (options.includeAnnotations) {
         const annotations = await extractAnnotations(pdfDocument, pagesToProcess);
@@ -2561,7 +2756,8 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
     include_attachments,
     include_structure_tree,
     include_safety_findings,
-    include_layout_diagnostics
+    include_layout_diagnostics,
+    include_document_map
   } = input;
   const MAX_CONCURRENT_SOURCES2 = 3;
   const results = [];
@@ -2585,7 +2781,8 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
     includeAttachments: include_attachments ?? false,
     includeStructureTree: include_structure_tree ?? false,
     includeSafetyFindings: include_safety_findings ?? false,
-    includeLayoutDiagnostics: include_layout_diagnostics ?? false
+    includeLayoutDiagnostics: include_layout_diagnostics ?? false,
+    includeDocumentMap: include_document_map ?? false
   };
   for (let i = 0;i < sources.length; i += MAX_CONCURRENT_SOURCES2) {
     const batch = sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
@@ -2611,7 +2808,7 @@ var readPdf = tool2().description("Reads content/metadata/images from one or mor
           format: img.format
         }));
       }
-      if (tables && tables.length > 0) {
+      if (options.includeTables && tables && tables.length > 0) {
         processedData["table_info"] = tables.map((tbl) => ({
           page: tbl.page,
           tableIndex: tbl.tableIndex,

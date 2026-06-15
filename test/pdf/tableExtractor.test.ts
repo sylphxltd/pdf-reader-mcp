@@ -5,6 +5,7 @@ import {
   detectColumnBoundaries,
   extractTables,
   extractTablesFromPage,
+  extractTablesFromPageContents,
   extractTextItemsWithPositions,
   type TextItemWithPosition,
   tablesToMarkdown,
@@ -199,6 +200,93 @@ describe('tableExtractor', () => {
   });
 
   describe('extractTablesFromPage', () => {
+    it('should extract tables from already extracted page contents', () => {
+      const result = extractTablesFromPageContents([
+        {
+          page: 1,
+          items: [
+            {
+              type: 'text',
+              textContent: 'Name',
+              xPosition: 50,
+              yPosition: 700,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 700, right: 80, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Age',
+              xPosition: 150,
+              yPosition: 700,
+              width: 20,
+              height: 10,
+              bounding_box: { left: 150, bottom: 700, right: 170, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Alice',
+              xPosition: 50,
+              yPosition: 680,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 680, right: 80, top: 690 },
+            },
+            {
+              type: 'text',
+              textContent: '30',
+              xPosition: 150,
+              yPosition: 680,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 680, right: 165, top: 690 },
+            },
+          ],
+        },
+      ]);
+
+      expect(result).toEqual([
+        {
+          page: 1,
+          tableIndex: 0,
+          rows: [
+            ['Name', 'Age'],
+            ['Alice', '30'],
+          ],
+          cells: [
+            {
+              text: 'Name',
+              rowIndex: 0,
+              colIndex: 0,
+              bounding_box: { left: 50, bottom: 700, right: 80, top: 710 },
+            },
+            {
+              text: 'Age',
+              rowIndex: 0,
+              colIndex: 1,
+              bounding_box: { left: 150, bottom: 700, right: 170, top: 710 },
+            },
+            {
+              text: 'Alice',
+              rowIndex: 1,
+              colIndex: 0,
+              bounding_box: { left: 50, bottom: 680, right: 80, top: 690 },
+            },
+            {
+              text: '30',
+              rowIndex: 1,
+              colIndex: 1,
+              bounding_box: { left: 150, bottom: 680, right: 165, top: 690 },
+            },
+          ],
+          bounding_box: { left: 50, bottom: 680, right: 170, top: 710 },
+          rowCount: 2,
+          colCount: 2,
+          confidence: 1,
+        },
+      ]);
+    });
+
     it('should extract tables from a page with tabular data', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({

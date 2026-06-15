@@ -20,7 +20,7 @@ export const inspectPdfArgsSchema = object({
       gte(1),
       lte(20),
       description(
-        'Maximum number of pages to sample per source for lightweight PDF profiling. Defaults to 5.'
+        'Maximum number of pages to sample per source for bounded PDF profiling. Defaults to 5.'
       )
     )
   ),

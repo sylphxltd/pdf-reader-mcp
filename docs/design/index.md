@@ -12,6 +12,7 @@ PDF Reader MCP is built on these core principles:
 ## 2. Comprehensive Extraction
 
 - **Text Extraction** - Full document or specific pages
+- **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - **Semantic Hints** - Optional deterministic heading, list, and paragraph hints on text elements
 - **Table Geometry** - Optional table elements include row data, cell metadata, confidence, and best-effort coordinates
@@ -46,6 +47,7 @@ PDF Reader MCP is built on these core principles:
 ## 6. Agent-Ready Output
 
 - **Stable References** - Element IDs and page numbers make downstream citations easier to preserve
+- **Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry are linked from one response shape
 - **Semantic Hints** - Heading, list, and paragraph hints carry confidence and signals without overstating parser certainty
 - **Cell-Level Provenance** - Table cells can carry row/column indexes and coordinates for downstream citation workflows
 - **Retrieval-Ready Chunks** - Page, semantic, size, and table chunks carry source references without requiring a separate indexing pass

@@ -147,6 +147,13 @@ export const readPdfArgsSchema = object({
       )
     )
   ),
+  include_document_map: optional(
+    bool(
+      description(
+        'Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON.'
+      )
+    )
+  ),
 });
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;

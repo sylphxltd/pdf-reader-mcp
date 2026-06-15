@@ -186,6 +186,7 @@ export const buildInspectionRecommendation = (
 
   if (profile === 'mixed_text_and_scan') {
     Object.assign(readPdfArguments, {
+      include_document_map: true,
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
@@ -204,6 +205,7 @@ export const buildInspectionRecommendation = (
 
   if (profile === 'digital_text') {
     Object.assign(readPdfArguments, {
+      include_document_map: true,
       include_chunks: true,
       include_semantic_hints: true,
       include_safety_findings: true,
@@ -215,7 +217,7 @@ export const buildInspectionRecommendation = (
       workflow: 'agentic_rag',
       needs_ocr: false,
       reason:
-        'Sampled pages expose selectable text; citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.',
+        'Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, and safety findings are the highest-value next read_pdf options.',
       read_pdf_arguments: readPdfArguments,
     };
   }
