@@ -1,7 +1,14 @@
 import * as realFsPromises from 'node:fs/promises';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type Schema, safeParse } from '../../src/schema.js';
-import type { PdfDocumentElement, PdfRegionRequest } from '../../src/types/pdf.js';
+import type {
+  BoundingBox,
+  PdfDocumentElement,
+  PdfPageGeometry,
+  PdfRegionAnalysisKind,
+  PdfRegionRequest,
+  PdfVisualEnrichmentTargetType,
+} from '../../src/types/pdf.js';
 import { ErrorCode, PdfError } from '../../src/utils/errors.js';
 import * as pathUtils from '../../src/utils/pathUtils.js'; // Import the module itself for spying
 import { resolvePath } from '../../src/utils/pathUtils.js';
@@ -30,30 +37,190 @@ type VisualTargetElement = Extract<PdfDocumentElement, { type: 'image' | 'table'
   bounding_box: NonNullable<PdfDocumentElement['bounding_box']>;
 };
 
+type CaptionElement = Extract<PdfDocumentElement, { type: 'text' }> & {
+  bounding_box: NonNullable<PdfDocumentElement['bounding_box']>;
+};
+
+type CaptionVisualKind = Extract<
+  PdfRegionAnalysisKind,
+  'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram'
+>;
+
 interface VisualEnrichmentCandidate {
-  element: VisualTargetElement;
+  element?: VisualTargetElement | undefined;
   region: PdfRegionRequest;
+  target_element_id: string;
+  target_element_type: PdfVisualEnrichmentTargetType;
+  source_caption_element_id?: string | undefined;
+  source_caption_text?: string | undefined;
+  candidate_signals?: string[] | undefined;
 }
 
 const isVisualTargetElement = (element: PdfDocumentElement): element is VisualTargetElement =>
   (element.type === 'image' || element.type === 'table') && element.bounding_box !== undefined;
 
+const captionVisualKind = (text: string): CaptionVisualKind | undefined => {
+  const match = text.trim().match(/^(fig(?:ure)?|table|chart|formula|image|diagram)\b/iu);
+  const rawKind = match?.[1]?.toLowerCase();
+  if (!rawKind) return undefined;
+  if (rawKind === 'fig') return 'figure';
+  return rawKind as CaptionVisualKind;
+};
+
+const isCaptionElement = (element: PdfDocumentElement): element is CaptionElement =>
+  element.type === 'text' &&
+  element.bounding_box !== undefined &&
+  captionVisualKind(element.content) !== undefined &&
+  !['footer', 'header', 'heading', 'list_item'].includes(element.semantic_hint?.role ?? '');
+
+const pageBoundsFromGeometry = (geometry: PdfPageGeometry | undefined): BoundingBox | undefined =>
+  geometry
+    ? {
+        left: geometry.view_box?.left ?? 0,
+        bottom: geometry.view_box?.bottom ?? 0,
+        right: geometry.view_box?.right ?? geometry.width,
+        top: geometry.view_box?.top ?? geometry.height,
+      }
+    : undefined;
+
+const unionBox = (boxes: BoundingBox[]): BoundingBox | undefined =>
+  boxes.length === 0
+    ? undefined
+    : {
+        left: Math.min(...boxes.map((box) => box.left)),
+        bottom: Math.min(...boxes.map((box) => box.bottom)),
+        right: Math.max(...boxes.map((box) => box.right)),
+        top: Math.max(...boxes.map((box) => box.top)),
+      };
+
+const horizontalOverlapRatio = (left: BoundingBox, right: BoundingBox): number => {
+  const overlap = Math.min(left.right, right.right) - Math.max(left.left, right.left);
+  if (overlap <= 0) return 0;
+  const denominator = Math.min(left.right - left.left, right.right - right.left);
+  return denominator > 0 ? overlap / denominator : 0;
+};
+
+const verticalGap = (left: BoundingBox, right: BoundingBox): number => {
+  if (left.top < right.bottom) return right.bottom - left.top;
+  if (right.top < left.bottom) return left.bottom - right.top;
+  return 0;
+};
+
+const mockPageBounds = (
+  elements: PdfDocumentElement[],
+  page: number,
+  pageGeometry: PdfPageGeometry[] | undefined
+): BoundingBox | undefined =>
+  pageBoundsFromGeometry(pageGeometry?.find((geometry) => geometry.page === page)) ??
+  unionBox(
+    elements
+      .filter((element) => element.page === page)
+      .flatMap((element) => (element.bounding_box ? [element.bounding_box] : []))
+  );
+
+const mockDirectKindMatch = (kind: CaptionVisualKind, element: VisualTargetElement): boolean => {
+  if (kind === 'table') return element.type === 'table';
+  if (kind === 'formula') return false;
+  return element.type === 'image';
+};
+
+const mockHasNearbyDirectTarget = (
+  caption: CaptionElement,
+  kind: CaptionVisualKind,
+  directTargets: VisualTargetElement[]
+): boolean =>
+  directTargets.some(
+    (target) =>
+      target.page === caption.page &&
+      mockDirectKindMatch(kind, target) &&
+      horizontalOverlapRatio(caption.bounding_box, target.bounding_box) >= 0.12 &&
+      verticalGap(caption.bounding_box, target.bounding_box) <= 112
+  );
+
+const selectMockCaptionEvidenceBoxes = (
+  caption: CaptionElement,
+  elements: PdfDocumentElement[],
+  pageBounds: BoundingBox
+): BoundingBox[] => {
+  const pageHeight = pageBounds.top - pageBounds.bottom;
+  const maxGap = Math.min(Math.max(96, pageHeight * 0.22), 180);
+  return elements
+    .filter(
+      (element) =>
+        element.id !== caption.id &&
+        element.page === caption.page &&
+        element.bounding_box !== undefined &&
+        horizontalOverlapRatio(caption.bounding_box, element.bounding_box) >= 0.06 &&
+        verticalGap(caption.bounding_box, element.bounding_box) <= maxGap &&
+        (element.type !== 'text' ||
+          !['caption', 'footer', 'header'].includes(element.semantic_hint?.role ?? ''))
+    )
+    .map((element) => element.bounding_box as BoundingBox);
+};
+
+const expandMockBox = (box: BoundingBox, pageBounds: BoundingBox): BoundingBox => ({
+  left: Math.max(pageBounds.left, box.left - 18),
+  bottom: Math.max(pageBounds.bottom, box.bottom - 18),
+  right: Math.min(pageBounds.right, box.right + 18),
+  top: Math.min(pageBounds.top, box.top + 18),
+});
+
 const selectMockVisualEnrichmentCandidates = (
   elements: PdfDocumentElement[],
-  maxVisualEnrichments: number
+  maxVisualEnrichments: number,
+  options: { pageGeometry?: PdfPageGeometry[] | undefined } = {}
 ): VisualEnrichmentCandidate[] => {
+  const directTargets = elements.filter(isVisualTargetElement);
   const candidates: VisualEnrichmentCandidate[] = [];
 
   for (const element of elements) {
-    if (!isVisualTargetElement(element)) continue;
-    candidates.push({
-      element,
-      region: {
-        id: element.id,
-        page: element.page,
-        bounding_box: element.bounding_box,
-      },
-    });
+    if (isVisualTargetElement(element)) {
+      candidates.push({
+        element,
+        target_element_id: element.id,
+        target_element_type: element.type,
+        candidate_signals: [`${element.type}-element`, 'element-bounding-box'],
+        region: {
+          id: element.id,
+          page: element.page,
+          bounding_box: element.bounding_box,
+        },
+      });
+    } else if (isCaptionElement(element)) {
+      const kind = captionVisualKind(element.content);
+      const pageBounds = mockPageBounds(elements, element.page, options.pageGeometry);
+      if (!kind || !pageBounds || mockHasNearbyDirectTarget(element, kind, directTargets)) continue;
+
+      const evidenceBoxes = selectMockCaptionEvidenceBoxes(element, elements, pageBounds);
+      const sourceBox =
+        unionBox([element.bounding_box, ...evidenceBoxes]) ??
+        ({
+          left: element.bounding_box.left,
+          bottom: Math.max(pageBounds.bottom, element.bounding_box.bottom - 84),
+          right: element.bounding_box.right,
+          top: Math.min(pageBounds.top, element.bounding_box.top + 84),
+        } satisfies BoundingBox);
+      const regionId = `${element.id}-${kind}-region`;
+      candidates.push({
+        target_element_id: regionId,
+        target_element_type: kind,
+        source_caption_element_id: element.id,
+        source_caption_text: element.content.trim(),
+        candidate_signals: [
+          `caption-prefix-${kind}`,
+          'caption-bounding-box',
+          ...(evidenceBoxes.length > 0
+            ? ['nearby-positioned-evidence', 'caption-target-above']
+            : ['caption-region-expansion']),
+        ],
+        region: {
+          id: regionId,
+          page: element.page,
+          bounding_box: expandMockBox(sourceBox, pageBounds),
+        },
+      });
+    }
+
     if (candidates.length >= maxVisualEnrichments) break;
   }
 
