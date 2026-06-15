@@ -167,7 +167,7 @@ export const readPdfArgsSchema = object({
   include_document_map: optional(
     bool(
       description(
-        'Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing, accessibility report routing, visual evidence routing, and page geometry without embedding image bytes in JSON.'
+        'Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing, visual evidence routing, and page geometry without embedding image bytes in JSON.'
       )
     )
   ),

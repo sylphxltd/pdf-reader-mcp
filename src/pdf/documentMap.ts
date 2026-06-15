@@ -232,6 +232,12 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   const trustPageReportByPage = new Map(
     input.trustReport?.page_reports.map((pageReport) => [pageReport.page, pageReport])
   );
+  const trustSignalIndexesByPage = new Map<number, number[]>();
+  input.trustReport?.signals.forEach((signal, index) => {
+    if (signal.page !== undefined) {
+      pushToMap(trustSignalIndexesByPage, signal.page, index);
+    }
+  });
   const accessibilityPageReportIndexByPage = new Map(
     input.accessibilityReport?.page_reports.map((pageReport, index) => [pageReport.page, index])
   );
@@ -269,6 +275,16 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
     const trustPageReport = trustPageReportByPage.get(page);
     const trustPageReportIndex = trustPageReportIndexByPage.get(page);
+    const trustSignalIndexes = trustSignalIndexesByPage.get(page) ?? [];
+    const trustHighSignalIndexes = trustSignalIndexes.filter(
+      (index) => input.trustReport?.signals[index]?.severity === 'high'
+    );
+    const trustMediumSignalIndexes = trustSignalIndexes.filter(
+      (index) => input.trustReport?.signals[index]?.severity === 'medium'
+    );
+    const trustLowSignalIndexes = trustSignalIndexes.filter(
+      (index) => input.trustReport?.signals[index]?.severity === 'low'
+    );
     const accessibilityPageReport = accessibilityPageReportByPage.get(page);
     const accessibilityPageReportIndex = accessibilityPageReportIndexByPage.get(page);
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
@@ -283,7 +299,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const warnings = pageWarnings(
       layout,
       safetyFindingIndexes,
-      trustPageReport?.signals.length ?? 0,
+      trustSignalIndexes.length,
       accessibilityPageReport?.issue_count ?? 0,
       tableWarnings
     );
@@ -318,6 +334,10 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
         : {}),
       ...(trustPageReport
         ? {
+            trust_signal_indexes: trustSignalIndexes,
+            trust_high_signal_indexes: trustHighSignalIndexes,
+            trust_medium_signal_indexes: trustMediumSignalIndexes,
+            trust_low_signal_indexes: trustLowSignalIndexes,
             trust_risk: trustPageReport.risk,
             trust_score: trustPageReport.score,
             trust_signal_count: trustPageReport.signals.length,
@@ -378,6 +398,10 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     input.trustReport?.page_reports
       .filter((pageReport) => pageReport.signals.length > 0)
       .map((pageReport) => pageReport.page) ?? [];
+  const trustHighSignalPages =
+    input.trustReport?.page_reports
+      .filter((pageReport) => pageReport.signals.some((signal) => signal.severity === 'high'))
+      .map((pageReport) => pageReport.page) ?? [];
   const trustHighRiskPages =
     input.trustReport?.page_reports
       .filter((pageReport) => pageReport.risk === 'high')
@@ -434,6 +458,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       accessibility_review_pages: accessibilityReviewPages,
       accessibility_high_issue_pages: accessibilityHighIssuePages,
       trust_review_pages: trustReviewPages,
+      trust_high_signal_pages: trustHighSignalPages,
       trust_high_risk_pages: trustHighRiskPages,
       trust_medium_risk_pages: trustMediumRiskPages,
     },

@@ -336,6 +336,10 @@ export interface PdfDocumentMapPage {
   accessibility_medium_issue_count?: number | undefined;
   accessibility_low_issue_count?: number | undefined;
   trust_report_page_index?: number | undefined;
+  trust_signal_indexes?: number[] | undefined;
+  trust_high_signal_indexes?: number[] | undefined;
+  trust_medium_signal_indexes?: number[] | undefined;
+  trust_low_signal_indexes?: number[] | undefined;
   trust_risk?: PdfTrustRiskLevel | undefined;
   trust_score?: number | undefined;
   trust_signal_count?: number | undefined;
@@ -354,6 +358,7 @@ export interface PdfDocumentMapRouting {
   accessibility_review_pages: number[];
   accessibility_high_issue_pages: number[];
   trust_review_pages: number[];
+  trust_high_signal_pages: number[];
   trust_high_risk_pages: number[];
   trust_medium_risk_pages: number[];
 }

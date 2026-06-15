@@ -29,6 +29,6 @@ features are requested, including page report indexes, issue counts,
 affected-page routing arrays, and grade summaries without forcing raw
 structure-tree output.
 Link trust report routing into the agent document map when both features are
-requested, including page report indexes, risk, score, signal counts,
-high/medium-risk routing arrays, and trust summary counts without forcing raw
-safety, layout, annotation, or table outputs.
+requested, including page report indexes, signal indexes, risk, score, signal
+counts, high-signal routing, high/medium-risk routing arrays, and trust summary
+counts without forcing raw safety, layout, annotation, or table outputs.

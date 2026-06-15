@@ -31,9 +31,9 @@ The trust report can compute required internal safety, layout, table, and
 annotation evidence without forcing top-level `safety_findings`,
 `layout_diagnostics`, `annotations`, `elements`, or `tables` into the response.
 When `include_document_map` is also enabled, the agent document map links trust
-page indexes, page risk, scores, signal counts, high/medium-risk routing
-arrays, and summary counters without exposing those raw evidence arrays unless
-the caller requested them.
+page indexes, signal indexes, page risk, scores, signal counts, high-signal
+routing arrays, high/medium-risk routing arrays, and summary counters without
+exposing those raw evidence arrays unless the caller requested them.
 
 ## Signal Sources
 
@@ -64,9 +64,9 @@ verification or explicit caller approval is appropriate.
   guidance.
 - Summary counters expose selected-page-scoped signal-type,
   safety-finding-type, and page-risk breakdowns.
-- `include_document_map` links trust report page indexes, risk, scores,
-  signal counts, high/medium-risk routing arrays, and summary counters when
-  both features are requested.
+- `include_document_map` links trust report page indexes, signal indexes, risk,
+  scores, signal counts, high-signal routing arrays, high/medium-risk routing
+  arrays, and summary counters when both features are requested.
 - Trust-report evidence snippets redact common sensitive values and expose
   `snippet_redacted` plus `redaction_types` when redaction occurred.
 - External links become trust signals without fetching the link.

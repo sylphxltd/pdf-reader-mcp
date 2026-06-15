@@ -457,6 +457,20 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.summary.trust_signal_type_counts?.content_safety === safetyFindings.length,
     },
     {
+      name: 'document map links trust signal indexes for direct evidence routing',
+      pass:
+        (documentMap.pages[0]?.trust_signal_indexes?.length ?? 0) ===
+          (trustReport.page_reports[0]?.signals.length ?? 0) &&
+        JSON.stringify(documentMap.pages[0]?.trust_high_signal_indexes ?? []) ===
+          JSON.stringify(
+            trustReport.signals
+              .map((signal, index) => ({ signal, index }))
+              .filter(({ signal }) => signal.page === 1 && signal.severity === 'high')
+              .map(({ index }) => index)
+          ) &&
+        documentMap.routing.trust_high_signal_pages.includes(1),
+    },
+    {
       name: 'document AST exposes sections, paragraphs, lists, cross-page context, and tables',
       pass:
         documentAst.profile === 'document_ast' &&
@@ -572,8 +586,8 @@ describe('PDF intelligence quality evals', () => {
 
       expect(result.failures).toEqual([]);
       expect(result).toMatchObject({
-        passed: 18,
-        total: 18,
+        passed: 19,
+        total: 19,
         score: 1,
       });
     });

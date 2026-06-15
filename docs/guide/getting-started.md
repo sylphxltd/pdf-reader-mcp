@@ -177,9 +177,9 @@ outputs.
 ```
 
 The map links pages to element IDs, text-layer page indexes and coverage
-counts, chunk IDs, safety finding indexes, trust report page indexes,
-accessibility report page indexes, layout diagnostics, routing signals, page
-geometry, and optional visual enrichment indexes. Enable
+counts, chunk IDs, safety finding indexes, trust report page and signal
+indexes, accessibility report page indexes, layout diagnostics, routing
+signals, page geometry, and optional visual enrichment indexes. Enable
 `include_visual_enrichments` when a configured visual-region
 provider should analyze bounded table/image crops plus caption-derived visual
 regions for vector-drawn formulas, charts, figures, and diagrams, then fuse the
@@ -437,8 +437,9 @@ by finding type, severities, and page-risk buckets so agents can route high-risk
 PDFs without scanning every signal first. Trust evidence snippets redact common
 sensitive values before they appear in the routing report.
 When `include_document_map` is also enabled, the document map carries trust
-page indexes, risk, scores, signal counts, high/medium-risk routing arrays, and
-summary counters in the same agent navigation contract.
+page indexes, signal indexes, risk, scores, signal counts, high-signal routing
+arrays, high/medium-risk routing arrays, and summary counters in the same agent
+navigation contract.
 
 ```json
 {

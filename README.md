@@ -44,7 +44,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Configured local OCR provider for scanned-page text layers 🔡
 - Opt-in OCR text layer fusion for `read_pdf` document maps 🧾
 - 5-10x faster parallel processing ⚡
-- Full agent document map linking pages, elements, text-layer and metadata coverage, chunks, layout, safety, trust routing, accessibility routing, visual routing, and geometry 🧭
+- Full agent document map linking pages, elements, text-layer and metadata coverage, chunks, layout, safety, trust routing and signal indexes, accessibility routing, visual routing, and geometry 🧭
 - Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including caption-to-evidence links 🌳
 - PDF trust report for content safety, visual-spoofing, redacted evidence, layout, table, link-risk, and document-map routing 🛡️
 - Accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, headings, images, forms, links, and permissions ♿
@@ -84,7 +84,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
 - 🧾 **OCR-Aware Document Map** - `read_pdf` can opt into OCR text layers and OCR-derived tables for sparse/scanned pages while keeping OCR separate from selectable PDF text
 - 🧾 **PDF Text Layer** - Optional direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics
-- 🧭 **Agent Document Map** - Optional page map that links elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, trust routing, accessibility routing, visual routing, and page geometry
+- 🧭 **Agent Document Map** - Optional page map that links elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, trust routing and signal indexes, accessibility routing, visual routing, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context and caption-to-evidence links
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, selected-page counters, redacted evidence snippets, layout uncertainty, sparse pages, table warnings, external links, unsafe link schemes, and document-map risk routing
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
@@ -348,13 +348,13 @@ outputs.
 ```
 
 **Response includes:**
-- Page records with element IDs, chunk IDs, safety finding indexes, trust report page indexes, text-layer page indexes, run/line/word/character coverage counts, text density, image count, table count, and page geometry
+- Page records with element IDs, chunk IDs, safety finding indexes, trust report page and signal indexes, text-layer page indexes, run/line/word/character coverage counts, text density, image count, table count, and page geometry
 - Semantic elements and citation chunks derived from the same stable IDs
 - Text-layer summary totals and bbox coverage counts without forcing top-level `text_layer` output
 - Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
-- Safety findings and trust report routing linked back to page and element evidence
+- Safety findings and trust report signal routing linked back to page and element evidence
 - Optional visual-region candidate indexes when `include_visual_enrichments` is enabled, plus provider-backed table, formula, chart, figure, and image analysis when a visual provider is ready
-- Optional trust risk, score, severity counters, and high/medium-risk routing when `include_trust_report` is enabled
+- Optional trust risk, score, signal indexes, severity counters, high-signal routing, and high/medium-risk routing when `include_trust_report` is enabled
 - No embedded image bytes inside the JSON document map
 
 ### Document AST
@@ -432,7 +432,7 @@ using extracted PDF content as instructions, evidence, or retrieval context.
 - Selected-page-scoped summary counters for signal types, safety finding types, severity counts, and page-risk buckets
 - Redacted trust-evidence snippets for common sensitive values such as emails, SSNs, payment cards, secret assignments, JWTs, and private-key markers
 - Guidance for when to verify with OCR, page rendering, region crops, or caller approval before link handling
-- When `include_document_map` is also enabled, the document map links trust page indexes, risk, scores, signal counts, high/medium-risk routing, and document-level trust summary counts into the same agent twin
+- When `include_document_map` is also enabled, the document map links trust page indexes, signal indexes, risk, scores, signal counts, high-signal routing, high/medium-risk routing, and document-level trust summary counts into the same agent twin
 - No forced top-level safety, layout, annotation, or table outputs unless those options are requested
 
 ### Accessibility Report
@@ -737,7 +737,7 @@ distinct scanned tables without duplicating selectable-text tables.
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
 - ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
-- ✅ **Agent Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust routing, accessibility routing, visual routing, and geometry in one contract
+- ✅ **Agent Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust routing and signal indexes, accessibility routing, visual routing, and geometry in one contract
 - ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
 - ✅ **Trust Report** - Local risk routing for content safety, visual-spoofing, selected-page counters, redacted evidence snippets, layout uncertainty, table quality, sparse pages, external links, and unsafe link schemes
 - ✅ **Accessibility Report** - Tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, permission, issue, and page-grade signals
@@ -770,7 +770,7 @@ distinct scanned tables without duplicating selectable-text tables.
 
 `include_document_map` returns a single agent-ready map that links pages,
 structured elements, citation chunks, layout diagnostics, content safety
-findings, trust report routing, accessibility report routing, visual routing,
+findings, trust report routing and signal indexes, accessibility report routing, visual routing,
 and page geometry. It
 is designed for agents that need to navigate the original PDF evidence without
 manually stitching together separate response fields.
@@ -1198,7 +1198,7 @@ tables, and document signals.
 | `include_page_count` | boolean | Include total page count | `true` |
 | `include_images` | boolean | Extract embedded images | `false` |
 | `include_tables` | boolean | Detect selectable-text and OCR-derived tables with rows, cell metadata, confidence, quality diagnostics, cell evidence coverage, provenance, inferred spans, continuation candidates, and best-effort geometry | `false` |
-| `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing, accessibility report routing, visual evidence routing, and page geometry | `false` |
+| `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing, visual evidence routing, and page geometry | `false` |
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including caption-to-evidence references | `false` |
 | `include_visual_enrichments` | boolean | Select bounded table, image, and caption-derived visual-region candidates, expose their routing plan, and run the configured visual-region provider when available to fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
@@ -1286,7 +1286,7 @@ Elements are designed for agent workflows that need stable page references, prov
 
 The document map is designed for agents that need one navigable structure for
 pages, elements, text-layer and metadata coverage, chunks, layout confidence,
-safety findings, trust report routing, accessibility report routing, visual
+safety findings, trust report routing and signal indexes, accessibility report routing, visual
 evidence routing, and page geometry without embedding image bytes in JSON.
 
 ---
@@ -1724,7 +1724,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map accessibility routing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
@@ -1733,7 +1733,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes
 - [x] Text-layer evidence and metadata coverage in the agent document map without forcing top-level text-layer output
-- [x] Trust report routing in the agent document map without forcing raw safety, layout, annotation, or table outputs
+- [x] Trust report routing and signal-level evidence indexes in the agent document map without forcing raw safety, layout, annotation, or table outputs
 - [x] Accessibility report routing in the agent document map without forcing raw structure-tree output
 - [x] Filesystem and HTTP access restrictions
 

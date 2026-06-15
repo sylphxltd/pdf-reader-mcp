@@ -2003,6 +2003,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
               pages: Array<{
                 page: number;
                 trust_report_page_index?: number;
+                trust_signal_indexes?: number[];
+                trust_high_signal_indexes?: number[];
+                trust_medium_signal_indexes?: number[];
+                trust_low_signal_indexes?: number[];
                 trust_risk?: string;
                 trust_score?: number;
                 trust_signal_count?: number;
@@ -2013,6 +2017,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
               }>;
               routing: {
                 trust_review_pages: number[];
+                trust_high_signal_pages: number[];
                 trust_high_risk_pages: number[];
                 trust_medium_risk_pages: number[];
               };
@@ -2060,6 +2065,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
         layers: expect.arrayContaining(['trust_report']),
         routing: {
           trust_review_pages: [1],
+          trust_high_signal_pages: [1],
           trust_high_risk_pages: [],
           trust_medium_risk_pages: [1],
         },
@@ -2083,6 +2089,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
       expect(documentMap?.pages[0]).toMatchObject({
         page: 1,
         trust_report_page_index: 0,
+        trust_signal_indexes: [0, 1],
+        trust_high_signal_indexes: [0],
+        trust_medium_signal_indexes: [],
+        trust_low_signal_indexes: [1],
         trust_risk: 'medium',
         trust_score: 48,
         trust_signal_count: 2,
