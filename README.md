@@ -1656,6 +1656,9 @@ bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
 bun run benchmark:providers # Optional OCR/visual-provider certification benchmark; skips missing engines by default
 bun run benchmark:all # Performance + quality + provider benchmarks
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate # Verify SOTA release gate
+bun run package:smoke # Verify the packed package includes the runtime artifact
+bun run release:preflight # Full publish preflight; requires certified local providers
 ```
 
 **Quality:**
@@ -1668,6 +1671,8 @@ MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ JSON benchmark artifact output for release evidence
+- ✅ SOTA release gate over benchmark artifacts
+- ✅ Package tarball smoke check for published runtime integrity
 
 </details>
 
@@ -1735,6 +1740,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
 - [x] JSON benchmark artifact output for performance, deterministic quality, and installed-provider evidence reports
+- [x] SOTA release gate that blocks release artifacts until deterministic quality and installed-provider final-bar evidence are both complete
+- [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact and matching `bin`/`exports` contract
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics

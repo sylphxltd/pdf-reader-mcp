@@ -132,9 +132,13 @@ bun run check
 bun run typecheck
 bun run test:cov
 bun run build
+bun run package:smoke
 bun run docs:build
 bun run benchmark:quality
 bun run benchmark:providers
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate
+bun run release:preflight
 ```
 
 Set `MCP_PDF_BENCHMARK_OUTPUT_DIR` to persist benchmark JSON artifacts for
@@ -143,6 +147,14 @@ release review:
 ```bash
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all
 ```
+
+`benchmark:release-gate` reads those artifacts and fails until deterministic
+final-bar coverage and installed-provider final-bar evidence are both complete.
+`package:smoke` packs the package locally and verifies that the tarball contains
+the executable `dist/index.js` runtime artifact with matching `bin` and
+`exports` metadata.
+`release:preflight` runs the full publish gate and requires strict installed
+provider certification before publishing can proceed.
 
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider

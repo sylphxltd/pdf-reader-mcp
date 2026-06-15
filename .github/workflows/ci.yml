@@ -35,11 +35,20 @@ jobs:
       - name: Check Code Quality (Biome)
         run: bun run check
 
+      - name: Typecheck
+        run: bun run typecheck
+
       - name: Build package
         run: bun run build
 
+      - name: Verify package tarball
+        run: bun run package:smoke
+
       - name: Run Tests and Check Coverage
         run: bun run test:cov
+
+      - name: Build docs
+        run: bun run docs:build
 
       - name: Detect coverage reports
         id: coverage

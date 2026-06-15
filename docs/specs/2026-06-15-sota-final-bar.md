@@ -114,9 +114,14 @@ themselves.
    - Provider-specific OCR, table, formula, chart, and image-description
      accuracy beyond the certification fixtures still requires public
      scanned/visual fixture benchmarks before any model-quality claim.
-   - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all`
-     writes profile-named JSON artifacts for performance, deterministic
-     quality, and installed-provider evidence reports.
+   - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all`
+     writes profile-named release artifacts for performance, deterministic
+     quality, and strict installed-provider evidence reports.
+   - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate`
+     reads those artifacts and must pass before a SOTA release can be treated
+     as complete. It fails if deterministic final-bar coverage is incomplete,
+     if any quality area still needs provider-backed evidence, or if the
+     provider artifact was not produced with strict provider requirements.
 
 9. Public contract integrity
    - README, docs, changelog, release notes, and package metadata may describe
@@ -132,7 +137,10 @@ A new major release should not be treated as complete until:
   evidence.
 - CI runs those checks or a documented local benchmark command produces a
   reproducible artifact.
+- `bun run benchmark:release-gate` passes against the release benchmark
+  artifacts.
+- `bun run package:smoke` passes against the packed package tarball.
 - Public docs match the verified behavior without competitor references or
   unproven superiority claims.
-- The published npm package smoke test proves the released package exposes the
-  expected MCP tools and contract version.
+- The package smoke test proves the release tarball exposes the executable
+  runtime artifact and the expected `bin`/`exports` contract.

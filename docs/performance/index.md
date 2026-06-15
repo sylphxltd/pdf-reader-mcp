@@ -32,11 +32,29 @@ artifacts for release review:
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all
 ```
 
+Release artifacts should be produced with provider requirements enabled:
+
+```bash
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all
+```
+
 `benchmark:all` writes one artifact per report profile:
 `pdf_performance_benchmark.json`, `pdf_quality_benchmark.json`, and
 `pdf_provider_benchmark.json`. Individual benchmark scripts also accept
 `--output <path>` for a single report file or `--output-dir <dir>` for a
 profile-named report file.
+
+Run the release gate after writing artifacts:
+
+```bash
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate
+```
+
+The release gate writes `pdf_sota_release_gate.json` when artifact output is
+enabled. It exits non-zero until deterministic quality coverage is complete,
+all quality areas that require installed-provider evidence are certified by
+`benchmark:providers`, and the provider benchmark artifact was produced with
+strict provider requirements enabled.
 
 ## Quality Benchmark
 

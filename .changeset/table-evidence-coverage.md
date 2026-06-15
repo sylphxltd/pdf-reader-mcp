@@ -46,3 +46,9 @@ capability areas they can certify when local providers are installed.
 Add shared benchmark artifact output support so performance, deterministic
 quality, and installed-provider reports can be written as profile-named JSON
 files for release evidence.
+Add a SOTA release gate over benchmark artifacts so release review fails until
+deterministic final-bar coverage and installed-provider final-bar evidence are
+both complete.
+Add a package smoke gate and release preflight so the packed package must
+include the executable runtime artifact and matching package contract before
+publishing.

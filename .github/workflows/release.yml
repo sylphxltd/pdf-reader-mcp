@@ -38,8 +38,51 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check Code Quality (Biome)
+        run: bun run check
+
+      - name: Typecheck
+        run: bun run typecheck
+
       - name: Build package
         run: bun run build
+
+      - name: Verify package tarball
+        run: bun run package:smoke
+
+      - name: Run Tests and Check Coverage
+        run: bun run test:cov
+
+      - name: Build docs
+        run: bun run docs:build
+
+      - name: Build release benchmark artifacts
+        id: release-benchmarks
+        continue-on-error: true
+        env:
+          MCP_PDF_BENCHMARK_OUTPUT_DIR: benchmark-artifacts
+          MCP_PDF_PROVIDER_BENCHMARK_REQUIRED: 'true'
+        run: |
+          bun run benchmark
+          bun run benchmark:quality
+          bun run benchmark:providers
+
+      - name: Run SOTA release gate
+        env:
+          MCP_PDF_BENCHMARK_OUTPUT_DIR: benchmark-artifacts
+        run: bun run benchmark:release-gate
+
+      - name: Fail on release benchmark command failure
+        if: ${{ steps.release-benchmarks.outcome == 'failure' }}
+        run: exit 1
+
+      - name: Upload benchmark artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-benchmark-artifacts
+          path: benchmark-artifacts/
+          if-no-files-found: ignore
 
       - name: Create release PR or publish
         id: changesets
