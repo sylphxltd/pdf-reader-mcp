@@ -1590,7 +1590,7 @@ bun run check        # Lint + format
 bun run check:fix    # Auto-fix
 bun run benchmark    # Reproducible local performance benchmark
 bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
-bun run benchmark:providers # Optional installed-provider benchmark; skips missing engines by default
+bun run benchmark:providers # Optional OCR/visual-provider benchmark; skips missing engines by default
 bun run benchmark:all # Performance + quality + provider benchmarks
 ```
 
@@ -1600,7 +1600,7 @@ bun run benchmark:all # Performance + quality + provider benchmarks
 - ✅ Strict TypeScript
 - ✅ Zero lint errors
 - ✅ Reproducible quality benchmark
-- ✅ Optional installed-provider benchmark with strict mode
+- ✅ Optional OCR and visual-provider benchmark with strict mode
 
 </details>
 
@@ -1666,7 +1666,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, reading order, scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual region normalization, and search evidence
-- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box accuracy/latency smoke checks
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box and configured visual-region smoke checks
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**

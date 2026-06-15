@@ -6,8 +6,8 @@
   normalizes page text, confidence, language, and word-level bounding boxes
   into the OCR text layer.
 - Add `bun run benchmark:providers`, an optional installed-provider benchmark
-  for the Tesseract TSV OCR path. It reports skipped providers explicitly by
-  default and can be made blocking with
+  for the Tesseract TSV OCR path and configured visual-region providers. It
+  reports skipped providers explicitly by default and can be made blocking with
   `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can
   receive crop image bytes and return the same normalized table, formula, chart,
@@ -18,7 +18,7 @@
   `analyze_regions`, or `ocr_pages` with executable arguments, missing inputs,
   and provider requirements made explicit.
 - Update public docs to distinguish deterministic PDF intelligence quality
-  gates from installed-provider OCR accuracy/latency smoke checks.
+  gates from installed-provider OCR and visual-region smoke checks.
 
 ## 2.6.0
 

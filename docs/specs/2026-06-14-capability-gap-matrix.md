@@ -84,7 +84,8 @@ neutral capability names and avoids public comparison language.
    provider normalization and the installed Tesseract TSV smoke benchmark.
 8. Harden optional visual region providers for table, formula, chart, and
    image-description engines with broader fixtures and accuracy/latency
-   reporting beyond deterministic mock provider normalization.
+   reporting beyond deterministic mock provider normalization and the installed
+   visual-region provider smoke benchmark.
 9. Add formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 

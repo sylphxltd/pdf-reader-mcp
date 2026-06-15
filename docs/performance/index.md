@@ -53,19 +53,24 @@ scanned/visual fixture runs.
 
 ## Provider Benchmark
 
-Run the optional installed-provider benchmark when the local machine has the
-provider binary installed:
+Run the optional installed-provider benchmark when the local machine has OCR or
+visual-region providers installed:
 
 ```bash
 bun run benchmark:providers
 ```
 
-The provider benchmark currently exercises the `tesseract-tsv` OCR preset over
-a runtime-generated PDF rendered through `read_pdf` OCR fusion. It checks
-recognized tokens, word-level bounding boxes, and document-map OCR provenance.
-If `tesseract` is not available on `PATH`, the case reports `skipped` and exits
-successfully by default. Release or provider-certification environments can
-make skipped providers fail with:
+The provider benchmark exercises the `tesseract-tsv` OCR preset over a
+runtime-generated PDF rendered through `read_pdf` OCR fusion, and it can
+exercise a configured `analyze_regions` command or HTTP provider over a
+synthetic visual-region crop. It checks OCR tokens, word-level boxes,
+document-map OCR provenance, visual-region crop provenance, typed visual
+evidence, and structured table/chart/formula fields when providers are
+configured.
+
+Unavailable providers report `skipped` and exit successfully by default.
+Release or provider-certification environments can make skipped providers fail
+with:
 
 ```bash
 MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:providers

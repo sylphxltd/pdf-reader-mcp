@@ -68,8 +68,9 @@ themselves.
      order, OCR normalization, a runtime-generated scanned-PDF OCR pipeline
      fixture, visual-region command/HTTP normalization, and search evidence.
    - `bun run benchmark:providers` is the installed-provider smoke benchmark
-     for optional OCR engines such as `tesseract-tsv`; skipped providers are
-     explicit and can be made blocking with
+     for optional OCR engines such as `tesseract-tsv` and configured
+     visual-region providers; skipped providers are explicit and can be made
+     blocking with
      `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
    - Provider-specific OCR, table, formula, chart, and image-description
      accuracy still requires public scanned/visual fixture benchmarks before any
