@@ -69,7 +69,7 @@ describe('trustReport', () => {
             id: 'link-1',
             page: 1,
             subtype: 'Link',
-            url: 'javascript:alert(1)',
+            url: 'vbscript:msgbox(1)',
           },
         ],
       },

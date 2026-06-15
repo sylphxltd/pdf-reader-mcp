@@ -3660,7 +3660,8 @@ var isSuspiciousUrl = (annotation) => {
   const url = annotation.url?.trim().toLowerCase();
   if (!url)
     return false;
-  return url.startsWith("javascript:") || url.startsWith("data:") || url.startsWith("file:");
+  const scheme = /^[a-z][a-z0-9+.-]*:/i.exec(url)?.[0]?.slice(0, -1).toLowerCase();
+  return scheme !== undefined && ["javascript", "data", "file", "vbscript"].includes(scheme);
 };
 var signalsFromAnnotations = (annotations) => (annotations ?? []).flatMap((pageAnnotations) => pageAnnotations.annotations.filter((annotation) => annotation.url).map((annotation) => ({
   type: "external_link",
