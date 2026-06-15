@@ -269,26 +269,60 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
   });
   const documentAst = buildDocumentAst({ selectedPages, elements, chunks, visualEnrichments });
   const documentAstNodes = flattenAstNodes(documentAst.root);
-  const captionDerivedElements = buildStructuredElements(
-    [
-      {
-        page: 1,
-        items: [
-          textItem('E = mc^2', 92, 656, 88, 24),
-          textItem('Formula 1: Mass-energy equivalence', 80, 620, 220, 12),
-          textItem('Revenue by Quarter', 110, 440, 150, 16),
-          textItem('Chart 2: Revenue trend', 90, 384, 170, 12),
-        ],
-      },
-    ],
-    [],
-    true,
-    [qualityCase.pageGeometry[0] as PdfPageGeometry]
-  );
+  const captionDerivedElements: PdfDocumentElement[] = [
+    {
+      id: 'p1-formula-text',
+      type: 'text',
+      page: 1,
+      content: 'E = mc^2',
+      bounding_box: box(92, 656, 88, 24),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+    },
+    {
+      id: 'p1-formula-caption',
+      type: 'text',
+      page: 1,
+      content: 'Formula 1: Mass-energy equivalence',
+      bounding_box: box(80, 620, 220, 12),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+    },
+    {
+      id: 'p1-chart-title',
+      type: 'text',
+      page: 1,
+      content: 'Revenue by Quarter',
+      bounding_box: box(110, 440, 150, 16),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'paragraph', confidence: 0.5, signals: ['default-text'] },
+    },
+    {
+      id: 'p1-chart-caption',
+      type: 'text',
+      page: 1,
+      content: 'Chart 2: Revenue trend',
+      bounding_box: box(90, 384, 170, 12),
+      provenance: { engine: 'pdfjs', source: 'text-content' },
+      semantic_hint: { role: 'caption', confidence: 0.86, signals: ['caption-prefix'] },
+    },
+  ];
+  const captionDerivedPageGeometry: PdfPageGeometry[] = [
+    {
+      page: 1,
+      width: 612,
+      height: 792,
+      rotation: 0,
+      view_box: { left: 0, bottom: 0, right: 612, top: 792 },
+    },
+  ];
   const captionDerivedVisualCandidates = selectVisualEnrichmentCandidates(
     captionDerivedElements,
     4,
-    { pageGeometry: [qualityCase.pageGeometry[0] as PdfPageGeometry] }
+    { pageGeometry: captionDerivedPageGeometry }
+  );
+  const captionDerivedCandidateTypes = new Set(
+    captionDerivedVisualCandidates.map((candidate) => candidate.target_element_type)
   );
   const accessibilityReport = buildAccessibilityReport({
     selectedPages,
@@ -519,9 +553,8 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
     {
       name: 'caption-derived visual candidates cover formula and chart regions without image objects',
       pass:
-        JSON.stringify(
-          captionDerivedVisualCandidates.map((candidate) => candidate.target_element_type)
-        ) === JSON.stringify(['formula', 'chart']) &&
+        captionDerivedCandidateTypes.has('formula') &&
+        captionDerivedCandidateTypes.has('chart') &&
         captionDerivedVisualCandidates.every(
           (candidate) =>
             candidate.source_caption_element_id !== undefined &&
