@@ -2211,6 +2211,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
               pages: Array<{
                 page: number;
                 accessibility_report_page_index?: number;
+                accessibility_issue_indexes?: number[];
+                accessibility_high_issue_indexes?: number[];
+                accessibility_medium_issue_indexes?: number[];
+                accessibility_low_issue_indexes?: number[];
                 accessibility_grade?: string;
                 accessibility_score?: number;
                 accessibility_issue_count?: number;
@@ -2222,6 +2226,8 @@ describe('handleReadPdfFunc Integration Tests', () => {
               routing: {
                 accessibility_review_pages: number[];
                 accessibility_high_issue_pages: number[];
+                accessibility_medium_issue_pages: number[];
+                accessibility_low_issue_pages: number[];
               };
               summary: {
                 accessibility_report_page_count?: number;
@@ -2285,6 +2291,8 @@ describe('handleReadPdfFunc Integration Tests', () => {
         routing: {
           accessibility_review_pages: [1],
           accessibility_high_issue_pages: [],
+          accessibility_medium_issue_pages: [1],
+          accessibility_low_issue_pages: [1],
         },
         summary: {
           accessibility_report_page_count: 1,
@@ -2308,6 +2316,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
       expect(documentMap?.pages[0]).toMatchObject({
         page: 1,
         accessibility_report_page_index: 0,
+        accessibility_issue_indexes: [1, 2],
+        accessibility_high_issue_indexes: [],
+        accessibility_medium_issue_indexes: [1],
+        accessibility_low_issue_indexes: [2],
         accessibility_grade: 'partial',
         accessibility_score: 74,
         accessibility_issue_count: 2,

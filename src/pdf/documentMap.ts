@@ -244,6 +244,12 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   const accessibilityPageReportByPage = new Map(
     input.accessibilityReport?.page_reports.map((pageReport) => [pageReport.page, pageReport])
   );
+  const accessibilityIssueIndexesByPage = new Map<number, number[]>();
+  input.accessibilityReport?.issues.forEach((issue, index) => {
+    if (issue.page !== undefined) {
+      pushToMap(accessibilityIssueIndexesByPage, issue.page, index);
+    }
+  });
   const visualEnrichmentCandidates = input.visualEnrichmentCandidates ?? [];
   const visualCandidateIndexesByPage = new Map<number, number[]>();
   visualEnrichmentCandidates.forEach((candidate, index) => {
@@ -287,6 +293,16 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     );
     const accessibilityPageReport = accessibilityPageReportByPage.get(page);
     const accessibilityPageReportIndex = accessibilityPageReportIndexByPage.get(page);
+    const accessibilityIssueIndexes = accessibilityIssueIndexesByPage.get(page) ?? [];
+    const accessibilityHighIssueIndexes = accessibilityIssueIndexes.filter(
+      (index) => input.accessibilityReport?.issues[index]?.severity === 'high'
+    );
+    const accessibilityMediumIssueIndexes = accessibilityIssueIndexes.filter(
+      (index) => input.accessibilityReport?.issues[index]?.severity === 'medium'
+    );
+    const accessibilityLowIssueIndexes = accessibilityIssueIndexes.filter(
+      (index) => input.accessibilityReport?.issues[index]?.severity === 'low'
+    );
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === 'image').length;
     const tableElements = elements.filter((element) => element.type === 'table');
@@ -357,6 +373,10 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
         : {}),
       ...(accessibilityPageReport
         ? {
+            accessibility_issue_indexes: accessibilityIssueIndexes,
+            accessibility_high_issue_indexes: accessibilityHighIssueIndexes,
+            accessibility_medium_issue_indexes: accessibilityMediumIssueIndexes,
+            accessibility_low_issue_indexes: accessibilityLowIssueIndexes,
             accessibility_grade: accessibilityPageReport.grade,
             accessibility_score: accessibilityPageReport.score,
             accessibility_issue_count: accessibilityPageReport.issue_count,
@@ -393,6 +413,14 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   const accessibilityHighIssuePages =
     input.accessibilityReport?.page_reports
       .filter((pageReport) => pageReport.high_issue_count > 0)
+      .map((pageReport) => pageReport.page) ?? [];
+  const accessibilityMediumIssuePages =
+    input.accessibilityReport?.page_reports
+      .filter((pageReport) => pageReport.medium_issue_count > 0)
+      .map((pageReport) => pageReport.page) ?? [];
+  const accessibilityLowIssuePages =
+    input.accessibilityReport?.page_reports
+      .filter((pageReport) => pageReport.low_issue_count > 0)
       .map((pageReport) => pageReport.page) ?? [];
   const trustReviewPages =
     input.trustReport?.page_reports
@@ -457,6 +485,8 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       visual_candidate_pages: visualCandidatePages,
       accessibility_review_pages: accessibilityReviewPages,
       accessibility_high_issue_pages: accessibilityHighIssuePages,
+      accessibility_medium_issue_pages: accessibilityMediumIssuePages,
+      accessibility_low_issue_pages: accessibilityLowIssuePages,
       trust_review_pages: trustReviewPages,
       trust_high_signal_pages: trustHighSignalPages,
       trust_high_risk_pages: trustHighRiskPages,

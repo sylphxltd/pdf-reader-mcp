@@ -329,6 +329,10 @@ export interface PdfDocumentMapPage {
   visual_candidate_count: number;
   visual_enrichment_count: number;
   accessibility_report_page_index?: number | undefined;
+  accessibility_issue_indexes?: number[] | undefined;
+  accessibility_high_issue_indexes?: number[] | undefined;
+  accessibility_medium_issue_indexes?: number[] | undefined;
+  accessibility_low_issue_indexes?: number[] | undefined;
   accessibility_grade?: PdfAccessibilityGrade | undefined;
   accessibility_score?: number | undefined;
   accessibility_issue_count?: number | undefined;
@@ -357,6 +361,8 @@ export interface PdfDocumentMapRouting {
   visual_candidate_pages: number[];
   accessibility_review_pages: number[];
   accessibility_high_issue_pages: number[];
+  accessibility_medium_issue_pages: number[];
+  accessibility_low_issue_pages: number[];
   trust_review_pages: number[];
   trust_high_signal_pages: number[];
   trust_high_risk_pages: number[];

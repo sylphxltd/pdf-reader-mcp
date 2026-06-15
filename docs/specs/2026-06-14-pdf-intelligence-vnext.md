@@ -41,7 +41,7 @@ engines behind one stable MCP contract.
 - Document map: one agent-facing contract that links pages, elements,
   text-layer and metadata coverage, chunks, layout diagnostics, safety
   findings, trust report routing and signal indexes, accessibility report
-  routing, visual routing, and page geometry.
+  routing and issue indexes, visual routing, and page geometry.
 - Search evidence: literal text matches with page numbers, snippets, offsets,
   optional character-derived or text-item bounding boxes, and provenance.
 - OCR text layer: normalized text, confidence, optional word boxes, language,
@@ -270,8 +270,8 @@ Candidate engines:
 - Requests with `include_document_map: true` produce an agent map with pages,
   elements, text-layer and metadata coverage, chunks, layout diagnostics,
   safety findings, trust report routing and signal indexes, accessibility
-  report routing, visual routing, page geometry, and summary counts without
-  forcing top-level legacy outputs.
+  report routing and issue indexes, visual routing, page geometry, and summary
+  counts without forcing top-level legacy outputs.
 - JSON summary includes `elements` with stable ids, page numbers, type, content
   or metadata, and best-effort bounding boxes where available.
 - JSON summary does not include base64 image bytes.

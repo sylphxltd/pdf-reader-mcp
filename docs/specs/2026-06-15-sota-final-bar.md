@@ -80,7 +80,8 @@ themselves.
      Agent Document Twin semantics, inspection tool routing, real PDF document
      signals, real PDF reading order, text-layer evidence and metadata coverage in the
      document map, document-map trust routing, document-map trust signal
-     indexing, document-map accessibility routing,
+     indexing, document-map accessibility routing, document-map accessibility
+     issue indexing,
      accessibility tag-to-visible-content coverage, accessibility
      issue/page-grade summaries, table cell evidence coverage,
      caption-to-evidence links, OCR

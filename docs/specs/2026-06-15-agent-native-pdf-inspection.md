@@ -88,7 +88,7 @@ Output is a JSON text part:
               "tool": "read_pdf",
               "priority": 1,
               "ready": true,
-              "purpose": "Build citation-ready agent context with document map, text-layer and metadata coverage, chunks, semantic hints, tables, layout diagnostics, safety findings, trust routing, and accessibility routing.",
+              "purpose": "Build citation-ready agent context with document map, text-layer and metadata coverage, chunks, semantic hints, tables, layout diagnostics, safety findings, trust signal routing, and accessibility issue routing.",
               "when": "Use first when sampled pages already expose selectable text.",
               "arguments": {
                 "sources": [{ "path": "report.pdf", "pages": "1-5" }],

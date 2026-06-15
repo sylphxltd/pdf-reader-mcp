@@ -25,8 +25,8 @@ document-vs-page issue totals, page-grade buckets, and affected-page counts so
 agents can route tagged-PDF accessibility risks without scanning every raw
 issue first.
 Link accessibility report routing into the agent document map when both
-features are requested, including page report indexes, issue counts,
-affected-page routing arrays, and grade summaries without forcing raw
+features are requested, including page report indexes, issue indexes, issue
+counts, affected-page routing arrays, and grade summaries without forcing raw
 structure-tree output.
 Link trust report routing into the agent document map when both features are
 requested, including page report indexes, signal indexes, risk, score, signal

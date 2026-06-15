@@ -567,10 +567,14 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
       pass:
         documentMap.layers.includes('accessibility_report') &&
         documentMap.pages[0]?.accessibility_report_page_index === 0 &&
+        JSON.stringify(documentMap.pages[0]?.accessibility_issue_indexes ?? []) ===
+          JSON.stringify([]) &&
         documentMap.pages[0]?.accessibility_grade === 'good' &&
         documentMap.pages[0]?.accessibility_issue_count === 0 &&
         documentMap.routing.accessibility_review_pages.length === 0 &&
         documentMap.routing.accessibility_high_issue_pages.length === 0 &&
+        documentMap.routing.accessibility_medium_issue_pages.length === 0 &&
+        documentMap.routing.accessibility_low_issue_pages.length === 0 &&
         documentMap.summary.accessibility_report_page_count === 2 &&
         documentMap.summary.accessibility_score === 100 &&
         documentMap.summary.accessibility_grade === 'good' &&

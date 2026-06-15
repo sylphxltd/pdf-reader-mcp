@@ -3418,7 +3418,7 @@ var readPdfArgsSchema = object({
   include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
   include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, hidden or near-invisible text, tiny text, off-page text, and overlapping text."))),
   include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing, visual evidence routing, and page geometry without embedding image bytes in JSON."))),
+  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and page geometry without embedding image bytes in JSON."))),
   include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
@@ -4490,6 +4490,12 @@ var buildDocumentMap = (input) => {
   });
   const accessibilityPageReportIndexByPage = new Map(input.accessibilityReport?.page_reports.map((pageReport, index) => [pageReport.page, index]));
   const accessibilityPageReportByPage = new Map(input.accessibilityReport?.page_reports.map((pageReport) => [pageReport.page, pageReport]));
+  const accessibilityIssueIndexesByPage = new Map;
+  input.accessibilityReport?.issues.forEach((issue, index) => {
+    if (issue.page !== undefined) {
+      pushToMap(accessibilityIssueIndexesByPage, issue.page, index);
+    }
+  });
   const visualEnrichmentCandidates = input.visualEnrichmentCandidates ?? [];
   const visualCandidateIndexesByPage = new Map;
   visualEnrichmentCandidates.forEach((candidate, index) => {
@@ -4520,6 +4526,10 @@ var buildDocumentMap = (input) => {
     const trustLowSignalIndexes = trustSignalIndexes.filter((index) => input.trustReport?.signals[index]?.severity === "low");
     const accessibilityPageReport = accessibilityPageReportByPage.get(page);
     const accessibilityPageReportIndex = accessibilityPageReportIndexByPage.get(page);
+    const accessibilityIssueIndexes = accessibilityIssueIndexesByPage.get(page) ?? [];
+    const accessibilityHighIssueIndexes = accessibilityIssueIndexes.filter((index) => input.accessibilityReport?.issues[index]?.severity === "high");
+    const accessibilityMediumIssueIndexes = accessibilityIssueIndexes.filter((index) => input.accessibilityReport?.issues[index]?.severity === "medium");
+    const accessibilityLowIssueIndexes = accessibilityIssueIndexes.filter((index) => input.accessibilityReport?.issues[index]?.severity === "low");
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === "image").length;
     const tableElements = elements.filter((element) => element.type === "table");
@@ -4564,6 +4574,10 @@ var buildDocumentMap = (input) => {
       } : {},
       ...accessibilityPageReportIndex !== undefined ? { accessibility_report_page_index: accessibilityPageReportIndex } : {},
       ...accessibilityPageReport ? {
+        accessibility_issue_indexes: accessibilityIssueIndexes,
+        accessibility_high_issue_indexes: accessibilityHighIssueIndexes,
+        accessibility_medium_issue_indexes: accessibilityMediumIssueIndexes,
+        accessibility_low_issue_indexes: accessibilityLowIssueIndexes,
         accessibility_grade: accessibilityPageReport.grade,
         accessibility_score: accessibilityPageReport.score,
         accessibility_issue_count: accessibilityPageReport.issue_count,
@@ -4583,6 +4597,8 @@ var buildDocumentMap = (input) => {
   ].sort((a, b) => a - b);
   const accessibilityReviewPages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.issue_count > 0).map((pageReport) => pageReport.page) ?? [];
   const accessibilityHighIssuePages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.high_issue_count > 0).map((pageReport) => pageReport.page) ?? [];
+  const accessibilityMediumIssuePages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.medium_issue_count > 0).map((pageReport) => pageReport.page) ?? [];
+  const accessibilityLowIssuePages = input.accessibilityReport?.page_reports.filter((pageReport) => pageReport.low_issue_count > 0).map((pageReport) => pageReport.page) ?? [];
   const trustReviewPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.signals.length > 0).map((pageReport) => pageReport.page) ?? [];
   const trustHighSignalPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.signals.some((signal) => signal.severity === "high")).map((pageReport) => pageReport.page) ?? [];
   const trustHighRiskPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.risk === "high").map((pageReport) => pageReport.page) ?? [];
@@ -4612,6 +4628,8 @@ var buildDocumentMap = (input) => {
       visual_candidate_pages: visualCandidatePages,
       accessibility_review_pages: accessibilityReviewPages,
       accessibility_high_issue_pages: accessibilityHighIssuePages,
+      accessibility_medium_issue_pages: accessibilityMediumIssuePages,
+      accessibility_low_issue_pages: accessibilityLowIssuePages,
       trust_review_pages: trustReviewPages,
       trust_high_signal_pages: trustHighSignalPages,
       trust_high_risk_pages: trustHighRiskPages,

@@ -8,10 +8,10 @@ Status: active
 Make PDF Reader MCP expose a single agent-native map of a PDF: pages,
 elements, selectable text-layer and metadata coverage, chunks, layout
 confidence, safety findings, trust report routing and signal indexes,
-accessibility report routing, OCR evidence, visual evidence routing, and page
-geometry. The map is the stable contract that OCR, vision, formula, chart,
-accessibility, trust, and advanced table engines can enrich without forcing
-agents to learn a new response shape each time.
+accessibility report routing and issue indexes, OCR evidence, visual evidence
+routing, and page geometry. The map is the stable contract that OCR, vision,
+formula, chart, accessibility, trust, and advanced table engines can enrich
+without forcing agents to learn a new response shape each time.
 
 ## Product Positioning
 
@@ -103,6 +103,10 @@ Each successful source may include:
         "trust_medium_signal_count": 0,
         "trust_low_signal_count": 1,
         "accessibility_report_page_index": 0,
+        "accessibility_issue_indexes": [],
+        "accessibility_high_issue_indexes": [],
+        "accessibility_medium_issue_indexes": [],
+        "accessibility_low_issue_indexes": [],
         "accessibility_grade": "good",
         "accessibility_score": 100,
         "accessibility_issue_count": 0
@@ -140,7 +144,9 @@ Each successful source may include:
       "trust_high_risk_pages": [],
       "trust_medium_risk_pages": [1],
       "accessibility_review_pages": [],
-      "accessibility_high_issue_pages": []
+      "accessibility_high_issue_pages": [],
+      "accessibility_medium_issue_pages": [],
+      "accessibility_low_issue_pages": []
     },
     "summary": {
       "selected_pages": [1],
@@ -218,11 +224,11 @@ Each successful source may include:
   built. `ocr_text_layer` is present only when OCR pages were returned.
 - Top-level legacy outputs remain opt-in. `include_document_map` may build
   internal elements, chunks, text-layer and metadata coverage, safety findings,
-  trust routing summaries, accessibility routing summaries, layout
-  diagnostics, page geometry, and tables for the map without forcing top-level
-  `elements`, `chunks`, `text_layer`, `safety_findings`,
-  `layout_diagnostics`, `page_geometry`, `annotations`, `tables`, or raw
-  tagged-structure outputs.
+  trust routing summaries, accessibility routing summaries, accessibility
+  issue indexes, layout diagnostics, page geometry, and tables for the map
+  without forcing top-level `elements`, `chunks`, `text_layer`,
+  `safety_findings`, `layout_diagnostics`, `page_geometry`, `annotations`,
+  `tables`, or raw tagged-structure outputs.
 - JSON output must not include embedded image bytes.
 - Visual enrichment is opt-in and provider-backed. If the provider is not
   configured or fails, `read_pdf` records a warning instead of failing the
@@ -252,9 +258,9 @@ Each successful source may include:
   the optional provider is unavailable.
 - Accessibility report summaries are first-class routing evidence. When
   `include_accessibility_report` and `include_document_map` are both enabled,
-  the map must link page report indexes, per-page issue counts, affected-page
-  routing arrays, and document-level accessibility summary counts without
-  forcing raw structure trees into top-level output.
+  the map must link page report indexes, issue indexes, per-page issue counts,
+  affected-page routing arrays, and document-level accessibility summary counts
+  without forcing raw structure trees into top-level output.
 - Trust report summaries are first-class routing evidence. When
   `include_trust_report` and `include_document_map` are both enabled, the map
   must link page report indexes, signal indexes, page risk, score, signal
@@ -280,7 +286,8 @@ Required before publishing the next package release:
   response.
 - `include_document_map` links accessibility report routing summaries when
   `include_accessibility_report` is also requested, without forcing raw
-  structure-tree output.
+  structure-tree output. Page records include issue indexes for direct evidence
+  routing into `accessibility_report.issues`.
 - `include_document_map` links trust report routing summaries when
   `include_trust_report` is also requested, including signal indexes for direct
   evidence routing, without forcing raw safety, layout, annotation, or table
@@ -317,8 +324,8 @@ Next slices for the same v3 track:
   when `include_full_text` is false.
 - The map includes semantic elements, selectable text-layer and metadata
   coverage, citation chunks, layout diagnostics, safety findings,
-  trust report routing and signal indexes, accessibility report routing,
-  visual routing, page geometry, and summary counts.
+  trust report routing and signal indexes, accessibility report routing and
+  issue indexes, visual routing, page geometry, and summary counts.
 - The map includes table elements when deterministic table extraction finds
   tables.
 - The map links OCR pages when `include_ocr_text_layer` returns OCR evidence,
@@ -327,8 +334,8 @@ Next slices for the same v3 track:
 - The map links visual enrichment evidence when `include_visual_enrichments`
   returns provider-backed region analysis.
 - The map links accessibility report page indexes, issue counts, affected-page
-  routing arrays, and grade summaries when `include_accessibility_report` is
-  also enabled.
+  routing arrays, issue indexes, and grade summaries when
+  `include_accessibility_report` is also enabled.
 - The map links trust report page indexes, risk, scores, signal counts,
   signal indexes, high-signal routing arrays, high/medium-risk routing arrays,
   and signal summaries when

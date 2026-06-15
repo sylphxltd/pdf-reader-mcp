@@ -13,7 +13,7 @@ PDF Reader MCP is built on these core principles:
 
 - **Text Extraction** - Full document or specific pages
 - **Text Layer** - Optional direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics
-- **Agent Document Map** - One navigable contract linking pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing, visual evidence routing, and page geometry
+- **Agent Document Map** - One navigable contract linking pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and page geometry
 - **Document AST** - Optional semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
 - **Trust Report** - Optional consolidated risk report for content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse pages, table quality, external links, unsafe link schemes, selected-page counters, and redacted evidence snippets
 - **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, accessibility permissions, issue summaries, and page-grade routing
@@ -61,7 +61,7 @@ PDF Reader MCP is built on these core principles:
 - **Tool Routing** - Inspection recommendations expose ordered `next_tools`, executable arguments, missing inputs, and provider requirements so agents can choose the next MCP call without parsing prose
 - **Text Fidelity** - Text layers expose run metadata, line IDs, word records, character records, character ranges, and bbox coverage without requiring agents to parse plain strings
 - **Searchable Evidence** - Search matches carry snippets, offsets, character-derived or text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
-- **Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing, visual evidence routing, and geometry are linked from one response shape
+- **Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and geometry are linked from one response shape
 - **Semantic Tree** - The document AST gives agents a hierarchy for traversal while keeping element IDs, chunk IDs, continued section context, and caption links as evidence anchors
 - **Trust Routing** - The trust report turns hidden text, visual-spoofing, tiny/off-page text, layout, table, annotation, unsafe-link, selected-page category counts, and redacted snippet signals into page-level routing guidance
 - **Accessibility Routing** - The accessibility report turns tagged structure, tag-to-visible-content coverage, headings, images, forms, links, permissions, issue types, severities, and page grades into page-level quality guidance

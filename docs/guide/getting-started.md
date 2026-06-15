@@ -178,7 +178,7 @@ outputs.
 
 The map links pages to element IDs, text-layer page indexes and coverage
 counts, chunk IDs, safety finding indexes, trust report page and signal
-indexes, accessibility report page indexes, layout diagnostics, routing
+indexes, accessibility report page and issue indexes, layout diagnostics, routing
 signals, page geometry, and optional visual enrichment indexes. Enable
 `include_visual_enrichments` when a configured visual-region
 provider should analyze bounded table/image crops plus caption-derived visual
