@@ -52,6 +52,35 @@ The server communicates via stdio. Run with:
 npx @sylphx/pdf-reader-mcp
 ```
 
+## Optional OCR Provider
+
+`ocr_pages` is disabled until a local OCR command is configured. Set
+`MCP_PDF_OCR_COMMAND` to the OCR executable or wrapper you want the server to
+run. Optionally set `MCP_PDF_OCR_ARGS_JSON` to a JSON string array with
+`{input}`, `{page}`, `{source}`, `{language}`, and `{languages}` placeholders.
+The argument template must include `{input}` so the provider receives the
+temporary rendered PNG.
+
+Example:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"],
+      "env": {
+        "MCP_PDF_OCR_COMMAND": "your-ocr-wrapper",
+        "MCP_PDF_OCR_ARGS_JSON": "[\"{input}\", \"--languages\", \"{languages}\"]"
+      }
+    }
+  }
+}
+```
+
+Provider stdout may be plain text or JSON with `text`, `confidence`,
+`language`, and `words`. The default package does not bundle an OCR model.
+
 ## Development Setup
 
 1. Clone the repository:

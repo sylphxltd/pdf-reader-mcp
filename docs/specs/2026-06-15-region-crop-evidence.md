@@ -78,4 +78,6 @@ The JSON summary must not include cropped region base64.
 
 - Rotation-aware viewport mapping for PDFs with rotated pages.
 - Direct integration from document-map element IDs to region crop requests.
-- Optional OCR, chart, formula, and visual table adapters that consume crops.
+- Optional chart, formula, and visual table adapters that consume crops.
+- Optional crop-level OCR routing after page-level provider benchmarks are
+  stable.

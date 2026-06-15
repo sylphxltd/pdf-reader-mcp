@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **Agent document map** • **Visual evidence** • **Region crops**
+**PDF inspection** • **Agent document map** • **Visual evidence** • **Region crops** • **Configured OCR**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, render page-level visual evidence, crop bbox-grounded page regions, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -40,6 +40,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Preflight PDF inspection for agent extraction planning 🔎
 - Bounded page rendering for visual evidence and OCR routing 🖼️
 - Bbox-grounded region crops for source evidence 🔍
+- Configured local OCR provider for scanned-page text layers 🔡
 - 5-10x faster parallel processing ⚡
 - Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
 - Structured element output for agent workflows 🧩
@@ -72,6 +73,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
+- 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
 - 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
@@ -81,7 +83,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - `inspect_pdf` plans extraction, `render_page` returns visual evidence, `extract_regions` crops source evidence, `read_pdf` performs extraction
+- 🎨 **Simple API** - `inspect_pdf` plans extraction, `render_page` returns visual evidence, `extract_regions` crops source evidence, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
 
 ---
 
@@ -359,6 +361,32 @@ citation bounding box and needs a focused crop from the original page.
 - Bounded defaults: `max_regions` default 20 and `max_pixels_per_page` default 16MP
 - No cropped image base64 duplicated inside the first JSON content part
 
+### OCR Selected Pages
+
+Use `ocr_pages` after `inspect_pdf` flags scanned or sparse pages, or when an
+agent needs a text layer from pages that have little selectable text. The
+server renders bounded page images and passes each temporary PNG to the
+configured local OCR command.
+
+```json
+{
+  "sources": [{
+    "path": "documents/scanned-report.pdf",
+    "pages": "1-3"
+  }],
+  "scale": 2,
+  "max_pages": 3,
+  "languages": ["eng"]
+}
+```
+
+**Response includes:**
+- A JSON summary with `profile: "ocr_text_layer"` and the effective OCR options
+- Page-level OCR text, confidence, optional word bounding boxes, language, and provenance
+- `source_render_evidence_id` linking each OCR page back to the page render used as OCR input
+- Bounded defaults: `max_pages` default 5, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per page
+- No rendered image base64 duplicated inside the JSON response
+
 ### Markdown for RAG and Summaries
 
 ```json
@@ -492,6 +520,7 @@ citation bounding box and needs a focused crop from the original page.
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
 - ✅ **Agent Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
+- ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
 - ✅ **Citation Chunks** - Page, semantic, size, and table chunks with source references for downstream retrieval
@@ -526,6 +555,19 @@ separate response fields.
 The map is performance-bounded: it reuses the same extraction path, keeps image
 bytes out of JSON, and provides page-level routing signals such as
 low-confidence pages and pages that likely need OCR.
+
+### Configured OCR Text Layer
+
+`ocr_pages` renders selected PDF pages and sends those temporary PNGs to a
+local OCR command configured by environment variables. This keeps the default
+TypeScript package private and dependency-bounded while giving teams a real
+scanned PDF path when they already run Tesseract, PaddleOCR, a local HTTP shim,
+or an internal OCR binary.
+
+The OCR provider is env-only, not request-controlled. Tool responses normalize
+provider output into page text, confidence, optional word boxes, language,
+render evidence IDs, and provenance. Image bytes are not embedded in the JSON
+response.
 
 ### Agent-Native PDF Inspection
 
@@ -702,6 +744,51 @@ Each region uses PDF coordinates:
 The first content part is JSON metadata with `profile:
 "region_crop_evidence"`. Cropped PNG data is returned as subsequent MCP image
 parts and referenced by `image_content_index`.
+
+### `ocr_pages` Tool
+
+Run selected rendered pages through a configured local OCR provider and return
+a normalized OCR text layer. The provider is configured through environment
+variables so an MCP request cannot choose arbitrary commands.
+
+#### Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `sources` | Array | List of PDF sources to OCR | Required |
+| `scale` | number | Render scale used before OCR, from 0.25 to 4 | `2` |
+| `max_pages` | number | Maximum pages to OCR per source, capped at 20 | `5` |
+| `max_pixels_per_page` | number | Maximum rendered pixels per page before OCR, capped at 64MP | `16000000` |
+| `timeout_ms` | number | Timeout per OCR page in milliseconds, capped at 300000 | `60000` |
+| `max_output_chars` | number | Maximum OCR text characters returned per page | `200000` |
+| `languages` | string[] | Optional OCR language tags passed to the configured provider | - |
+
+#### Provider Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `MCP_PDF_OCR_COMMAND` | Absolute or PATH-resolved command used for OCR. Required to enable `ocr_pages`. |
+| `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{language}`, and `{languages}` placeholders. Defaults to `["{input}"]`. |
+
+Provider stdout may be plain text or JSON:
+
+```json
+{
+  "text": "Recognized text",
+  "confidence": 0.93,
+  "language": "eng",
+  "words": [{
+    "text": "Recognized",
+    "confidence": 0.95,
+    "bounding_box": { "left": 10, "bottom": 20, "right": 90, "top": 40 }
+  }]
+}
+```
+
+The first content part is JSON metadata with `profile: "ocr_text_layer"`.
+OCR results reference the render evidence ID used to create each temporary page
+image. The default package does not bundle an OCR model or call a cloud OCR
+service.
 
 ### `read_pdf` Tool
 
@@ -1061,6 +1148,8 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_HTTP_PORT` | `8080` | HTTP server port |
 | `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server hostname |
 | `MCP_API_KEY` | - | Optional API key for authentication |
+| `MCP_PDF_OCR_COMMAND` | - | Optional local OCR command used by `ocr_pages` |
+| `MCP_PDF_OCR_ARGS_JSON` | `["{input}"]` | Optional JSON string array of OCR command arguments. Must include `{input}`. |
 
 ### Docker Deployment
 
@@ -1214,12 +1303,13 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Outlines, annotations, structure trees, form fields, attachment metadata, page labels, and permission signals
 - [x] Column-aware ordering for common multi-column PDFs
 - [x] Layout diagnostics with reading-order confidence
+- [x] Configured local OCR provider for scanned-page text layers
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] OCR for scanned PDFs
 - [ ] Richer semantic layout detection
+- [ ] Built-in OCR provider presets and fixture-backed OCR accuracy benchmarks
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming
 - [ ] Advanced caching

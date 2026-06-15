@@ -16,7 +16,8 @@ response shape each time.
 This is a capability release track, not a one-feature patch track. Public
 messaging should describe the shipped outcome as full-fidelity, agent-ready PDF
 understanding with performance-bounded local execution. Do not mention external
-projects or imply unshipped OCR, formula, chart, or tagged-PDF generation.
+projects or imply built-in OCR models, formula, chart, or tagged-PDF
+generation before those capabilities are shipped and validated.
 
 ## Non-Goals
 
@@ -125,16 +126,18 @@ Required before publishing the next package release:
 - `include_document_map` public schema, handler, types, tests, docs.
 - Inspector recommendations include `include_document_map` for digital and
   mixed PDFs.
+- `render_page`, `extract_regions`, and `ocr_pages` provide visual evidence,
+  focused crops, and configured OCR text layers without embedding image bytes
+  in JSON summaries.
 - Quality eval proves the map links pages, elements, chunks, safety findings,
   layout diagnostics, and geometry.
 - Handler tests prove the map does not force top-level legacy outputs.
-- Public docs describe the map and keep advanced OCR/VLM capabilities in
-  roadmap language only.
+- Public docs describe shipped configured OCR accurately and keep built-in OCR
+  model, VLM, formula, chart, and PDF/UA capabilities in roadmap language only.
 
 Next slices for the same v3 track:
 
-- Region crop evidence API for bbox-grounded visual snippets.
-- Optional OCR provider interface for scanned pages.
+- OCR provider presets, scanned fixtures, and accuracy/latency benchmarks.
 - Optional layout/table/formula/chart provider interfaces.
 - Benchmark harness with accuracy and latency reported separately.
 - Broader fixtures for multi-column, forms, tables, scanned pages, hidden text,

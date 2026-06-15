@@ -15,6 +15,7 @@ PDF Reader MCP is built on these core principles:
 - **Agent Document Map** - One navigable contract linking pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry
 - **Visual Page Evidence** - Bounded page rendering with evidence IDs, provenance, and MCP image parts for OCR routing and page inspection
 - **Region Crop Evidence** - Bbox-grounded visual crops that connect extracted structure back to focused source evidence
+- **Configured OCR Text Layer** - Optional command-provider OCR over bounded rendered pages, normalized into text, confidence, word boxes, language, and provenance
 - **Structured Elements** - Optional agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - **Semantic Hints** - Optional deterministic heading, list, and paragraph hints on text elements
 - **Table Geometry** - Optional table elements include row data, cell metadata, confidence, and best-effort coordinates
@@ -29,7 +30,7 @@ PDF Reader MCP is built on these core principles:
 
 ## 3. Simple Integration
 
-- **Focused Tools** - `inspect_pdf` plans extraction, `render_page` returns page evidence, `extract_regions` returns crop evidence, and `read_pdf` handles structured extraction
+- **Focused Tools** - `inspect_pdf` plans extraction, `render_page` returns page evidence, `extract_regions` returns crop evidence, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
 - **Standard MCP** - Compatible with any MCP client
 - **Easy Setup** - One command installation via npx
 - **Multiple Clients** - Works with Claude Desktop, Claude Code, Cursor, and more
@@ -57,10 +58,12 @@ PDF Reader MCP is built on these core principles:
 - **Layout Provenance** - Page geometry and best-effort bounding boxes make extracted content easier to trace back to source pages
 - **Visual Evidence** - Rendered pages give agents a bounded way to inspect original page appearance without duplicating base64 in JSON
 - **Focused Evidence** - Region crops let agents verify tables, figures, charts, formulas, annotations, and citations without carrying whole-page images
+- **OCR Provenance** - OCR text layers point back to the render evidence ID used as provider input, so scanned-page text remains tied to source pixels
 - **Safety Findings** - Deterministic content warnings help agents treat risky PDF text as data, not instructions
 - **Column-Aware Ordering** - Distant same-line text is segmented before ordering to improve common multi-column PDFs
 - **Structured JSON First** - Machine-readable summaries come before large text or image parts
 - **Binary Discipline** - Image bytes are delivered as MCP image content, not duplicated into JSON summaries
+- **Provider Boundaries** - Optional engines are enabled through explicit local provider configuration instead of bundled heavy dependencies or request-selected commands
 - **Extensible Model** - The response model can grow toward headings, tables, citations, and richer layout without breaking existing callers
 
 ## Technical Stack

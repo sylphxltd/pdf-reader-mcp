@@ -18,7 +18,7 @@ neutral capability names and avoids public comparison language.
 
 | Capability | Status | Notes |
 |---|---:|---|
-| MCP-native PDF tools | Shipped | `inspect_pdf`, `render_page`, `extract_regions`, and `read_pdf` with stdio/http transport. |
+| MCP-native PDF tools | Shipped | `inspect_pdf`, `render_page`, `extract_regions`, `ocr_pages`, and `read_pdf` with stdio/http transport. |
 | Agent-native PDF inspection | Shipped | `inspect_pdf` profiles PDFs, samples pages, flags OCR needs, and recommends `read_pdf` options. |
 | Local path and URL sources | Shipped | Includes filesystem and HTTP restrictions. |
 | Metadata and page count | Shipped | Existing `include_metadata`, `include_page_count`. |
@@ -49,7 +49,7 @@ neutral capability names and avoids public comparison language.
 | Rich table spans and multi-page links | Next | Row spans, column spans, cross-page continuity, stronger confidence model. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
 | Quality eval harness | Shipped | Regression eval covers semantic chunks, table order, renderers, and safety findings. |
-| OCR for scanned PDFs | Advanced | Optional provider; must not bloat default install. |
+| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages. No default OCR model is bundled. |
 | Formula extraction | Advanced | Optional provider or external engine. |
 | Chart/image descriptions | Advanced | Optional vision enrichment. |
 | Tagged PDF generation | Advanced | Requires separate design and validation. |
@@ -67,8 +67,10 @@ neutral capability names and avoids public comparison language.
    layout, safety, page geometry, and optional engine enrichment.
 4. Add deterministic semantic model: headings, paragraphs, lists, captions,
    richer tables.
-5. Add optional advanced engines behind provider interfaces.
-6. Add OCR/formula/chart/tagged-PDF capabilities only through optional engines
+5. Harden the optional OCR provider with real scanned fixtures, provider
+   presets, and accuracy/latency reporting.
+6. Add optional advanced engines behind provider interfaces.
+7. Add formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.
 
 ## Public Messaging Rule

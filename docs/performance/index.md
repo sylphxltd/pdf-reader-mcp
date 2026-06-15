@@ -141,7 +141,25 @@ vision/OCR steps than passing a whole rendered page.
 }
 ```
 
-### 9. Use Structured Elements When You Need References
+### 9. OCR Only The Pages That Need It
+
+`ocr_pages` renders selected pages and sends temporary PNGs to the configured
+local OCR provider. OCR cost depends on render scale, page count, provider
+runtime, and output size, so use `inspect_pdf` first and keep page selections
+tight.
+
+```json
+{
+  "sources": [{ "path": "scan.pdf", "pages": "1-3" }],
+  "scale": 2,
+  "max_pages": 3,
+  "timeout_ms": 60000,
+  "max_output_chars": 200000,
+  "languages": ["eng"]
+}
+```
+
+### 10. Use Structured Elements When You Need References
 
 `include_elements` adds page-level element metadata for agent workflows. It is
 worth enabling when you need stable IDs, provenance, or best-effort coordinates,
@@ -155,7 +173,7 @@ but plain text remains the leanest response shape.
 }
 ```
 
-### 10. Add Semantic Hints Only When They Help
+### 11. Add Semantic Hints Only When They Help
 
 `include_semantic_hints` adds deterministic heading, list, and paragraph hints
 to text elements. It returns elements even when `include_elements` is omitted.
@@ -168,7 +186,7 @@ to text elements. It returns elements even when `include_elements` is omitted.
 }
 ```
 
-### 11. Use Markdown When You Need Ready-to-Use Context
+### 12. Use Markdown When You Need Ready-to-Use Context
 
 `include_markdown` creates page-aware Markdown in the JSON response. It is
 more convenient than rebuilding sections from `page_texts`, but it still
@@ -182,7 +200,7 @@ requires page extraction.
 }
 ```
 
-### 12. Use Chunks When You Need Source References
+### 13. Use Chunks When You Need Source References
 
 `include_chunks` creates citation-ready chunks with element IDs, strategy
 labels, and best-effort bounding boxes. It can split on semantic heading
@@ -199,7 +217,7 @@ citations, but it does more work than metadata-only or page-count requests.
 }
 ```
 
-### 13. Use HTML Only When Needed
+### 14. Use HTML Only When Needed
 
 `include_html` creates escaped page-aware HTML. It is useful for preview and
 export workflows, but plain text or Markdown are usually leaner for agent-only
@@ -213,7 +231,7 @@ context.
 }
 ```
 
-### 14. Use Layout Diagnostics For Routing
+### 15. Use Layout Diagnostics For Routing
 
 `include_layout_diagnostics` returns page layout profiles, reading-order
 confidence, column signals, and warnings. It uses already extracted content
@@ -229,7 +247,7 @@ before unattended RAG indexing or citation-critical summarization.
 }
 ```
 
-### 13. Use Document Signals For Bounded Structure
+### 16. Use Document Signals For Bounded Structure
 
 Outline, page labels, permissions, structure trees, form fields, attachment
 metadata, and page geometry can be requested without extracting full page text.
@@ -245,7 +263,7 @@ Annotations, structure trees, and page geometry respect selected page ranges.
 }
 ```
 
-### 14. Use Safety Findings When Agents Consume PDF Text
+### 17. Use Safety Findings When Agents Consume PDF Text
 
 `include_safety_findings` scans extracted page text for deterministic risk
 signals. It requires page text extraction, but it does not force `full_text`

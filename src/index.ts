@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { createServer, http, stdio } from '@sylphx/mcp-server-sdk';
 import { extractRegions } from './handlers/extractRegions.js';
 import { inspectPdf } from './handlers/inspectPdf.js';
+import { ocrPages } from './handlers/ocrPages.js';
 import { readPdf } from './handlers/readPdf.js';
 import { renderPage } from './handlers/renderPage.js';
 
@@ -40,12 +41,13 @@ const server = createServer({
   name: 'pdf-reader-mcp',
   version: packageJson.version,
   instructions:
-    'MCP Server for inspecting PDF files, rendering visual page evidence, cropping visual regions, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.',
+    'MCP Server for inspecting PDF files, rendering visual page evidence, cropping visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.',
   tools: {
     inspect_pdf: inspectPdf,
     read_pdf: readPdf,
     render_page: renderPage,
     extract_regions: extractRegions,
+    ocr_pages: ocrPages,
   },
   transport: createTransport(),
 });

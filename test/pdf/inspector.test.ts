@@ -68,6 +68,7 @@ describe('inspector', () => {
         workflow: 'scanned_pdf_triage',
         needs_ocr: true,
       });
+      expect(recommendation.reason).toContain('ocr_pages');
       expect(recommendation.read_pdf_arguments).not.toHaveProperty('include_full_text');
       expect(recommendation.read_pdf_arguments).not.toHaveProperty('include_chunks');
     });

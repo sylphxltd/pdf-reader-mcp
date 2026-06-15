@@ -9,6 +9,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **PDF profiles** - Detect text-rich, low-text, mixed, or scanned/image-like PDFs before extraction
 - **Visual page evidence** - Render selected pages as bounded PNG MCP image parts with provenance
 - **Region crop evidence** - Crop PDF-coordinate bounding boxes as focused PNG evidence
+- **Configured OCR text layers** - Run selected rendered pages through a local OCR provider and normalize text, confidence, words, language, and provenance
 - **Full text content** - Get all text from a PDF
 - **Page-specific text** - Extract text from specific pages or page ranges
 - **Metadata** - Author, title, creation date, and other document properties
@@ -40,6 +41,9 @@ Render selected pages as visual evidence for layout inspection, OCR routing, and
 
 ### Region Cropping
 Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figures, charts, formulas, annotations, and citation verification.
+
+### OCR Provider Pipeline
+Run selected rendered pages through a configured local OCR command when scanned or sparse pages need a text layer. OCR commands are environment-configured, so request payloads cannot choose arbitrary executables.
 
 ## Supported Clients
 

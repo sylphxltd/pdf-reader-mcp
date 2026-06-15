@@ -76,9 +76,8 @@ The JSON summary must not include rendered page base64.
 
 ## Follow-On Work
 
-- Optional OCR adapter that consumes rendered pages.
+- OCR provider hardening with scanned fixtures and provider presets.
 - Advanced viewport transforms for rotated-page crop evidence.
-- Optional OCR adapter that consumes rendered pages or crops.
 - Optional chart, formula, and visual table adapters behind provider
   interfaces.
 - Benchmark fixtures for scanned, sparse, mixed-layout, and visually dense

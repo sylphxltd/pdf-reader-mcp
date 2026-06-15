@@ -1,10 +1,12 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides four tools:
+Once installed, the PDF Reader MCP server provides five tools:
 
 - `inspect_pdf` profiles a PDF and recommends the best extraction options.
 - `render_page` renders selected PDF pages as bounded visual evidence images.
 - `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
+- `ocr_pages` runs selected rendered pages through a configured local OCR
+  provider and returns a normalized OCR text layer.
 - `read_pdf` extracts PDF content, an agent document map, structure,
   citations, tables, images, layout confidence, and signals.
 
@@ -191,6 +193,35 @@ The response starts with JSON metadata for each crop, including region ID,
 source bounding box, crop pixel bounds, evidence ID, and provenance. Cropped PNG
 data is returned as MCP image content parts and referenced by
 `image_content_index`.
+
+### OCR Selected Pages
+
+Use `ocr_pages` after `inspect_pdf` flags scanned or sparse pages, or when a
+workflow needs a text layer from pages with little selectable text. The OCR
+provider is configured by environment variables, not by request arguments.
+
+```json
+{
+  "sources": [{
+    "path": "/path/to/scanned-document.pdf",
+    "pages": "1-3"
+  }],
+  "scale": 2,
+  "max_pages": 3,
+  "languages": ["eng"]
+}
+```
+
+Set `MCP_PDF_OCR_COMMAND` to enable the tool. Optionally set
+`MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes `{input}` and may
+also use `{page}`, `{source}`, `{language}`, and `{languages}` placeholders.
+The provider can return plain text or JSON with `text`, `confidence`,
+`language`, and `words`.
+
+The response starts with JSON metadata using `profile: "ocr_text_layer"`.
+Each page includes normalized OCR text, confidence when supplied, optional word
+boxes, language, provenance, and a `source_render_evidence_id` that points back
+to the temporary page render used as OCR input.
 
 ### Get Markdown
 

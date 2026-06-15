@@ -1755,7 +1755,7 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
     return {
       workflow: "scanned_pdf_triage",
       needs_ocr: true,
-      reason: "Sampled pages contain little selectable text and visible image paint operations; OCR or an optional advanced engine is likely required for text extraction.",
+      reason: "Sampled pages contain little selectable text and visible image paint operations; use ocr_pages with a configured OCR provider or an optional advanced engine for text extraction.",
       read_pdf_arguments: readPdfArguments
     };
   }
@@ -1772,7 +1772,7 @@ var buildInspectionRecommendation = (source, profile, documentSignals) => {
     return {
       workflow: "mixed_pdf_review",
       needs_ocr: true,
-      reason: "Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and OCR for scanned pages.",
+      reason: "Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and ocr_pages with a configured OCR provider for scanned pages.",
       read_pdf_arguments: readPdfArguments
     };
   }
@@ -1830,7 +1830,7 @@ var inspectPdfSource = async (source, options) => {
       warnings.push("No requested pages are inside the document page range.");
     }
     if (recommendation.needs_ocr) {
-      warnings.push("Default PDF Reader MCP does not perform OCR; use an optional OCR-capable engine for scanned pages.");
+      warnings.push("read_pdf does not perform OCR; use ocr_pages with a configured OCR provider for scanned pages.");
     }
     const data = {
       profile,
@@ -1969,8 +1969,255 @@ var inspectPdf = tool2().description("Inspects one or more PDFs and recommends t
   return text2(JSON.stringify({ results }, null, 2));
 });
 
+// src/handlers/ocrPages.ts
+import { text as text3, tool as tool3, toolError as toolError3 } from "@sylphx/mcp-server-sdk";
+
+// src/pdf/ocr.ts
+import { execFile } from "node:child_process";
+import fs4 from "node:fs/promises";
+import os from "node:os";
+import path3 from "node:path";
+import { promisify } from "node:util";
+var execFileAsync = promisify(execFile);
+var logger9 = createLogger("Ocr");
+var DEFAULT_OCR_TIMEOUT_MS = 60000;
+var DEFAULT_OCR_MAX_OUTPUT_CHARS = 200000;
+var OCR_COMMAND_ENV = "MCP_PDF_OCR_COMMAND";
+var OCR_ARGS_ENV = "MCP_PDF_OCR_ARGS_JSON";
+var defaultOcrPagesOptions = () => ({
+  scale: DEFAULT_RENDER_SCALE,
+  max_pages: DEFAULT_MAX_RENDER_PAGES,
+  max_pixels_per_page: DEFAULT_MAX_RENDER_PIXELS,
+  timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
+  max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
+});
+var readCommandProviderConfig = () => {
+  const command = process.env[OCR_COMMAND_ENV]?.trim();
+  if (!command) {
+    throw new PdfError(-32600 /* InvalidRequest */, "OCR provider is not configured. Set MCP_PDF_OCR_COMMAND and optional MCP_PDF_OCR_ARGS_JSON to enable ocr_pages.");
+  }
+  const rawArgs = process.env[OCR_ARGS_ENV];
+  if (!rawArgs)
+    return { command, argsTemplate: ["{input}"] };
+  let parsed;
+  try {
+    parsed = JSON.parse(rawArgs);
+  } catch (error) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.", {
+      cause: error instanceof Error ? error : undefined
+    });
+  }
+  if (!Array.isArray(parsed) || parsed.some((arg) => typeof arg !== "string")) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.");
+  }
+  if (!parsed.some((arg) => arg.includes("{input}"))) {
+    throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must include the {input} placeholder so the OCR provider receives the rendered page image.");
+  }
+  return { command, argsTemplate: parsed };
+};
+var replacePlaceholders = (template, context) => template.replaceAll("{input}", context.inputPath).replaceAll("{page}", String(context.page)).replaceAll("{source}", context.source).replaceAll("{language}", context.languages?.[0] ?? "").replaceAll("{languages}", context.languages?.join(",") ?? "");
+var normalizeConfidence = (value) => {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return;
+  return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
+};
+var normalizeBoundingBox = (value) => {
+  if (typeof value !== "object" || value === null)
+    return;
+  const candidate = value;
+  const left = candidate.left;
+  const bottom = candidate.bottom;
+  const right = candidate.right;
+  const top = candidate.top;
+  if (typeof left !== "number" || !Number.isFinite(left) || typeof bottom !== "number" || !Number.isFinite(bottom) || typeof right !== "number" || !Number.isFinite(right) || typeof top !== "number" || !Number.isFinite(top) || right <= left || top <= bottom) {
+    return;
+  }
+  return { left, bottom, right, top };
+};
+var normalizeWords = (value) => {
+  if (!Array.isArray(value))
+    return;
+  const words = value.map((word) => {
+    if (typeof word !== "object" || word === null)
+      return;
+    const candidate = word;
+    if (typeof candidate.text !== "string" || candidate.text.trim().length === 0) {
+      return;
+    }
+    const confidence = normalizeConfidence(candidate.confidence);
+    const boundingBox = normalizeBoundingBox(candidate.bounding_box);
+    return {
+      text: candidate.text,
+      ...confidence !== undefined ? { confidence } : {},
+      ...boundingBox ? { bounding_box: boundingBox } : {}
+    };
+  }).filter((word) => word !== undefined);
+  return words.length > 0 ? words : undefined;
+};
+var parseOcrOutput = (stdout, options) => {
+  const trimmed = stdout.trim();
+  let parsed;
+  try {
+    const maybeJson = JSON.parse(trimmed);
+    if (typeof maybeJson === "object" && maybeJson !== null) {
+      parsed = maybeJson;
+    }
+  } catch {
+    parsed = undefined;
+  }
+  const rawText = parsed && typeof parsed.text === "string" ? parsed.text : trimmed;
+  const text3 = rawText.length > options.max_output_chars ? rawText.slice(0, options.max_output_chars) : rawText;
+  const warnings = rawText.length > options.max_output_chars ? [`OCR output truncated to ${String(options.max_output_chars)} characters.`] : undefined;
+  const confidence = normalizeConfidence(parsed?.confidence);
+  const words = normalizeWords(parsed?.words);
+  return {
+    text: text3,
+    ...confidence !== undefined ? { confidence } : {},
+    ...words ? { words } : {},
+    ...typeof parsed?.language === "string" ? { language: parsed.language } : options.languages?.[0] ? { language: options.languages[0] } : {},
+    ...warnings ? { warnings } : {}
+  };
+};
+var ocrRenderedPageWithCommandProvider = async (page, context, options) => {
+  const config = readCommandProviderConfig();
+  const tempDir = await fs4.mkdtemp(path3.join(os.tmpdir(), "pdf-reader-mcp-ocr-"));
+  const inputPath = path3.join(tempDir, `page-${String(page.page)}.png`);
+  try {
+    await fs4.writeFile(inputPath, Buffer.from(page.data, "base64"));
+    const args = config.argsTemplate.map((arg) => replacePlaceholders(arg, {
+      inputPath,
+      page: page.page,
+      source: context.source,
+      languages: context.languages
+    }));
+    const { stdout } = await execFileAsync(config.command, args, {
+      timeout: options.timeout_ms,
+      maxBuffer: Math.max(options.max_output_chars * 4, 1024 * 1024),
+      windowsHide: true
+    });
+    const normalized = parseOcrOutput(stdout, options);
+    return {
+      page: page.page,
+      ...normalized,
+      provider: "command",
+      source_render_evidence_id: page.evidence_id,
+      provenance: {
+        engine: "external-command",
+        source: "ocr-provider"
+      }
+    };
+  } catch (error) {
+    if (error instanceof PdfError)
+      throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    logger9.warn("OCR provider command failed", { page: page.page, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `OCR provider command failed for page ${String(page.page)}.`);
+  } finally {
+    await fs4.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+};
+var ocrPdfSourcePages = async (source, options) => {
+  const rendered = await renderPdfSourcePages(source, {
+    scale: options.scale,
+    max_pages: options.max_pages,
+    max_pixels_per_page: options.max_pixels_per_page,
+    include_image: false
+  });
+  const pages = [];
+  for (const page of rendered.pages) {
+    pages.push(await ocrRenderedPageWithCommandProvider(page, { source: rendered.source, languages: options.languages }, options));
+  }
+  return {
+    source: rendered.source,
+    numPages: rendered.numPages,
+    pages,
+    warnings: rendered.warnings
+  };
+};
+
+// src/schemas/ocrPages.ts
+import {
+  array as array4,
+  description as description4,
+  gte as gte4,
+  int as int4,
+  lte as lte3,
+  num as num4,
+  object as object4,
+  optional as optional4,
+  str as str3
+} from "@sylphx/vex";
+var ocrPagesArgsSchema = object4({
+  sources: array4(pdfSourceSchema),
+  scale: optional4(num4(gte4(0.25), lte3(4), description4("Render scale used before OCR. Defaults to 2."))),
+  max_pages: optional4(num4(int4, gte4(1), lte3(20), description4("Maximum pages to OCR per source. Defaults to 5 and is capped at 20."))),
+  max_pixels_per_page: optional4(num4(int4, gte4(1e4), lte3(64000000), description4("Maximum rendered pixels per page before OCR. Defaults to 16,000,000."))),
+  timeout_ms: optional4(num4(int4, gte4(1000), lte3(300000), description4("Timeout per OCR page in milliseconds. Defaults to 60,000."))),
+  max_output_chars: optional4(num4(int4, gte4(1000), lte3(1e6), description4("Maximum OCR text characters returned per page. Defaults to 200,000."))),
+  languages: optional4(array4(str3(description4("Optional OCR language tags passed to the configured provider."))))
+});
+
+// src/handlers/ocrPages.ts
+var logger10 = createLogger("OcrPages");
+var buildOptions2 = (input) => ({
+  ...defaultOcrPagesOptions(),
+  ...input.scale !== undefined ? { scale: input.scale } : {},
+  ...input.max_pages !== undefined ? { max_pages: input.max_pages } : {},
+  ...input.max_pixels_per_page !== undefined ? { max_pixels_per_page: input.max_pixels_per_page } : {},
+  ...input.timeout_ms !== undefined ? { timeout_ms: input.timeout_ms } : {},
+  ...input.max_output_chars !== undefined ? { max_output_chars: input.max_output_chars } : {},
+  ...input.languages !== undefined ? { languages: input.languages } : {}
+});
+var processSource2 = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  try {
+    const ocr = await ocrPdfSourcePages(source, options);
+    return {
+      source: ocr.source,
+      success: true,
+      num_pages: ocr.numPages,
+      ocr_pages: ocr.pages,
+      ...ocr.warnings.length > 0 ? { warnings: ocr.warnings } : {}
+    };
+  } catch (error) {
+    let errorMessage;
+    if (error instanceof PdfError) {
+      errorMessage = error.message;
+    } else {
+      const detail = error instanceof Error ? error.message : String(error);
+      logger10.error("Unexpected error running OCR pages", {
+        sourceDescription,
+        error: detail
+      });
+      errorMessage = `Failed to OCR pages from ${sourceDescription}.`;
+    }
+    return {
+      source: sourceDescription,
+      success: false,
+      error: errorMessage
+    };
+  }
+};
+var buildOcrResponse = (options, results) => text3(JSON.stringify({
+  profile: "ocr_text_layer",
+  ocr_options: options,
+  results
+}, null, 2));
+var ocrPages = tool3().description("Runs selected rendered PDF pages through a configured local OCR provider and returns normalized text with provenance.").input(ocrPagesArgsSchema).handler(async ({ input }) => {
+  const options = buildOptions2(input);
+  const results = [];
+  for (const source of input.sources) {
+    results.push(await processSource2(source, options));
+  }
+  if (results.every((result) => !result.success)) {
+    const errorMessages = results.map((result) => result.error).join("; ");
+    return toolError3(`All PDF sources failed OCR: ${errorMessages}`);
+  }
+  return buildOcrResponse(options, results);
+});
+
 // src/handlers/readPdf.ts
-import { image as image2, text as text3, tool as tool3, toolError as toolError3 } from "@sylphx/mcp-server-sdk";
+import { image as image2, text as text4, tool as tool4, toolError as toolError4 } from "@sylphx/mcp-server-sdk";
 
 // src/pdf/documentMap.ts
 var DOCUMENT_MAP_VERSION = "2026-06-15";
@@ -2018,10 +2265,10 @@ var pageTextStats = (items) => {
   for (const item of items) {
     if (item.type !== "text")
       continue;
-    const text3 = item.textContent?.trim();
-    if (!text3)
+    const text4 = item.textContent?.trim();
+    if (!text4)
       continue;
-    textChars += text3.length;
+    textChars += text4.length;
     textItemCount++;
   }
   return { textChars, textItemCount };
@@ -2117,7 +2364,7 @@ var buildDocumentMap = (input) => {
 };
 
 // src/pdf/tableExtractor.ts
-var logger9 = createLogger("TableExtractor");
+var logger11 = createLogger("TableExtractor");
 var Y_TOLERANCE = 5;
 var COLUMN_GAP_THRESHOLD = 15;
 var MIN_ROWS = 2;
@@ -2387,11 +2634,11 @@ var extractTablesFromTextItems = (textItems, pageNum) => {
   return tables;
 };
 var textItemsFromPageContent = (items) => items.map((item) => {
-  const text3 = item.type === "text" ? item.textContent?.trim() : undefined;
-  if (!text3 || item.xPosition === undefined || item.width === undefined)
+  const text4 = item.type === "text" ? item.textContent?.trim() : undefined;
+  if (!text4 || item.xPosition === undefined || item.width === undefined)
     return;
   return {
-    text: text3,
+    text: text4,
     x: item.xPosition,
     y: item.yPosition,
     width: item.width,
@@ -2405,7 +2652,7 @@ var extractTablesFromPage = async (page, pageNum) => {
     return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger9.warn("Error extracting tables from page", { pageNum, error: message });
+    logger11.warn("Error extracting tables from page", { pageNum, error: message });
     return [];
   }
 };
@@ -2418,7 +2665,7 @@ var extractTables = async (pdfDocument, pagesToProcess) => {
       allTables.push(...pageTables);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger9.warn("Error getting page for table extraction", { pageNum, error: message });
+      logger11.warn("Error getting page for table extraction", { pageNum, error: message });
     }
   }
   return allTables;
@@ -2966,7 +3213,7 @@ var buildSafetyFindings = (pageContents, pageGeometry) => {
 };
 
 // src/handlers/readPdf.ts
-var logger10 = createLogger("ReadPdf");
+var logger12 = createLogger("ReadPdf");
 var processSingleSource = async (source, options) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
   let individualResult = { source: sourceDescription, success: false };
@@ -3119,7 +3366,7 @@ var processSingleSource = async (source, options) => {
       errorMessage = error.message;
     } else {
       const detail = error instanceof Error ? error.message : String(error);
-      logger10.error("Unexpected error processing PDF source", {
+      logger12.error("Unexpected error processing PDF source", {
         sourceDescription,
         error: detail
       });
@@ -3135,13 +3382,13 @@ var processSingleSource = async (source, options) => {
         await loadingTask.destroy();
       } catch (destroyError) {
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger10.warn("Error destroying PDF document", { sourceDescription, error: message });
+        logger12.warn("Error destroying PDF document", { sourceDescription, error: message });
       }
     }
   }
   return individualResult;
 };
-var readPdf = tool3().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
+var readPdf = tool4().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
   const {
     sources,
     include_full_text,
@@ -3199,7 +3446,7 @@ var readPdf = tool3().description("Reads content/metadata/images from one or mor
   const allFailed = results.every((r) => !r.success);
   if (allFailed) {
     const errorMessages = results.map((r) => r.error).join("; ");
-    return toolError3(`All PDF sources failed to process: ${errorMessages}`);
+    return toolError4(`All PDF sources failed to process: ${errorMessages}`);
   }
   const content = [];
   const resultsForJson = results.map((result) => {
@@ -3230,7 +3477,7 @@ var readPdf = tool3().description("Reads content/metadata/images from one or mor
     }
     return result;
   });
-  content.push(text3(JSON.stringify({ results: resultsForJson }, null, 2)));
+  content.push(text4(JSON.stringify({ results: resultsForJson }, null, 2)));
   for (const result of results) {
     if (!result.success || !result.data?.page_contents)
       continue;
@@ -3245,7 +3492,7 @@ var readPdf = tool3().description("Reads content/metadata/images from one or mor
         }
       }
       if (pageTextParts.length > 0) {
-        content.push(text3(`[Page ${pageContent.page}]
+        content.push(text4(`[Page ${pageContent.page}]
 ${pageTextParts.join(`
 `)}`));
       }
@@ -3263,37 +3510,37 @@ ${pageTextParts.join(`
     }
     if (allTables.length > 0) {
       const markdownTables = tablesToMarkdown(allTables);
-      content.push(text3(markdownTables));
+      content.push(text4(markdownTables));
     }
   }
   return content;
 });
 
 // src/handlers/renderPage.ts
-import { image as image3, text as text4, tool as tool4, toolError as toolError4 } from "@sylphx/mcp-server-sdk";
+import { image as image3, text as text5, tool as tool5, toolError as toolError5 } from "@sylphx/mcp-server-sdk";
 
 // src/schemas/renderPage.ts
 import {
-  array as array4,
+  array as array5,
   bool as bool4,
-  description as description4,
-  gte as gte4,
-  int as int4,
-  lte as lte3,
-  num as num4,
-  object as object4,
-  optional as optional4
+  description as description5,
+  gte as gte5,
+  int as int5,
+  lte as lte4,
+  num as num5,
+  object as object5,
+  optional as optional5
 } from "@sylphx/vex";
-var renderPageArgsSchema = object4({
-  sources: array4(pdfSourceSchema),
-  scale: optional4(num4(gte4(0.25), lte3(4), description4("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
-  max_pages: optional4(num4(int4, gte4(1), lte3(20), description4("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
-  max_pixels_per_page: optional4(num4(int4, gte4(1e4), lte3(64000000), description4("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
-  include_image: optional4(bool4(description4("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
+var renderPageArgsSchema = object5({
+  sources: array5(pdfSourceSchema),
+  scale: optional5(num5(gte5(0.25), lte4(4), description5("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
+  max_pages: optional5(num5(int5, gte5(1), lte4(20), description5("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
+  max_pixels_per_page: optional5(num5(int5, gte5(1e4), lte4(64000000), description5("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
+  include_image: optional5(bool4(description5("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
 });
 
 // src/handlers/renderPage.ts
-var logger11 = createLogger("RenderPage");
+var logger13 = createLogger("RenderPage");
 var buildRenderOptions = (input) => ({
   scale: input.scale ?? DEFAULT_RENDER_SCALE,
   max_pages: input.max_pages ?? DEFAULT_MAX_RENDER_PAGES,
@@ -3327,7 +3574,7 @@ var renderSourceForTool = async (source, options) => {
       errorMessage = error.message;
     } else {
       const detail = error instanceof Error ? error.message : String(error);
-      logger11.error("Unexpected error rendering PDF source", {
+      logger13.error("Unexpected error rendering PDF source", {
         sourceDescription,
         error: detail
       });
@@ -3359,7 +3606,7 @@ var attachRenderSummaries = (outputs, includeImage) => {
 };
 var buildRenderContent = (outputs, results, options) => {
   const content = [
-    text4(JSON.stringify({
+    text5(JSON.stringify({
       profile: "page_render_evidence",
       render_options: options,
       results
@@ -3376,7 +3623,7 @@ var buildRenderContent = (outputs, results, options) => {
   }
   return content;
 };
-var renderPage = tool4().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
+var renderPage = tool5().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
   const options = buildRenderOptions(input);
   const outputs = [];
   for (const source of input.sources) {
@@ -3385,7 +3632,7 @@ var renderPage = tool4().description("Renders selected PDF pages as bounded PNG 
   const results = attachRenderSummaries(outputs, options.include_image);
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError4(`All PDF sources failed to render: ${errorMessages}`);
+    return toolError5(`All PDF sources failed to render: ${errorMessages}`);
   }
   return buildRenderContent(outputs, results, options);
 });
@@ -3411,12 +3658,13 @@ function createTransport() {
 var server = createServer({
   name: "pdf-reader-mcp",
   version: packageJson.version,
-  instructions: "MCP Server for inspecting PDF files, rendering visual page evidence, cropping visual regions, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
+  instructions: "MCP Server for inspecting PDF files, rendering visual page evidence, cropping visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
   tools: {
     inspect_pdf: inspectPdf,
     read_pdf: readPdf,
     render_page: renderPage,
-    extract_regions: extractRegions
+    extract_regions: extractRegions,
+    ocr_pages: ocrPages
   },
   transport: createTransport()
 });

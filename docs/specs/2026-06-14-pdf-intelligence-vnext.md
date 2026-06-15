@@ -40,6 +40,8 @@ engines behind one stable MCP contract.
   confident the server is.
 - Document map: one agent-facing contract that links pages, elements, chunks,
   layout diagnostics, safety findings, routing signals, and page geometry.
+- OCR text layer: normalized text, confidence, optional word boxes, language,
+  and provenance produced by an explicitly configured local OCR provider.
 
 ## Invariants
 
@@ -120,7 +122,8 @@ Candidate engines:
 
 - `pdfjs`: default, local, current dependency set.
 - `external-cli`: optional adapter for high-accuracy local parsers.
-- `ocr`: optional local or service-backed OCR for scanned PDFs.
+- `ocr`: optional local provider for scanned PDFs, enabled explicitly outside
+  request payloads.
 - `vision`: optional enrichment for charts, figures, and formulas.
 
 ## Phased Roadmap
@@ -165,7 +168,10 @@ Candidate engines:
 
 5. Advanced engines
    - Add optional provider interface for high-accuracy local engines.
-   - Add optional OCR, formula, chart, and image description enrichment.
+   - Add `ocr_pages` as the first optional OCR provider interface over bounded
+     rendered pages.
+   - Add formula, chart, and image description enrichment behind optional
+     providers.
    - Keep the default package lightweight.
 
 6. Agent workflows
@@ -184,6 +190,8 @@ Candidate engines:
   stripping.
 - Integration tests for MCP `read_pdf` with and without `include_elements`.
 - Integration tests for MCP `read_pdf` with and without `include_document_map`.
+- Integration tests confirm `inspect_pdf`, `render_page`, `extract_regions`,
+  and `ocr_pages` are exposed by the MCP server.
 - Quality evals for semantic chunks, table ordering, renderers, and safety
   findings.
 - Fixtures for simple text, multi-column reading order, tables, images, scans,
@@ -198,8 +206,8 @@ Candidate engines:
 - Do not mention external projects when describing improvements.
 - Use neutral language: "structured", "agent-ready", "local-first",
   "citation-ready", "safe by default", "optional advanced engines".
-- Do not imply unshipped OCR, formula extraction, chart description, or PDF/UA
-  support.
+- Do not imply built-in OCR models, formula extraction, chart description, or
+  PDF/UA support before they are shipped and validated.
 - Prefer measurable claims tied to tests, fixtures, or benchmarks in this repo.
 
 ## Acceptance Criteria For First Slice

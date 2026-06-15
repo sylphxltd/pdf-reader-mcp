@@ -64,10 +64,16 @@ describe('MCP Server Integration', () => {
   beforeAll(async () => {
     // Start the MCP server
     const serverPath = path.resolve(__dirname, '../../dist/index.js');
+    const mockOcrProviderPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
     // Must use bun as SDK uses Bun APIs
     serverProc = spawn('bun', [serverPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        MCP_PDF_OCR_COMMAND: process.execPath,
+        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([mockOcrProviderPath, '{input}', '{page}', '{languages}']),
+      },
     });
 
     // Wait for the server to boot. The module graph eagerly imports
@@ -122,6 +128,7 @@ describe('MCP Server Integration', () => {
     expect(toolNames).toContain('read_pdf');
     expect(toolNames).toContain('render_page');
     expect(toolNames).toContain('extract_regions');
+    expect(toolNames).toContain('ocr_pages');
   });
 
   it('should call inspect_pdf tool with a test PDF', async () => {
@@ -292,8 +299,51 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should handle invalid tool arguments', async () => {
+  it('should call ocr_pages tool with a configured OCR provider', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
     const callRequest = createRequest(7, 'tools/call', {
+      name: 'ocr_pages',
+      arguments: {
+        sources: [{ path: testPdfPath, pages: [1] }],
+        scale: 1,
+        max_pages: 1,
+        languages: ['eng'],
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+      error?: { message: string };
+    };
+
+    expect(response.id).toBe(7);
+
+    if (response.error || response.result?.isError) {
+      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
+    } else {
+      const textContent = response.result?.content?.[0]?.text ?? '';
+      const parsed = JSON.parse(textContent) as {
+        profile: string;
+        results: Array<{
+          success: boolean;
+          ocr_pages?: Array<{ text?: string; provider?: string; data?: string }>;
+        }>;
+      };
+
+      expect(response.result?.content?.[0]?.type).toBe('text');
+      expect(parsed.profile).toBe('ocr_text_layer');
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(parsed.results[0]?.ocr_pages?.[0]?.text).toBe('Mock OCR text for page 1');
+      expect(parsed.results[0]?.ocr_pages?.[0]?.provider).toBe('command');
+      expect(parsed.results[0]?.ocr_pages?.[0]?.data).toBeUndefined();
+    }
+  });
+
+  it('should handle invalid tool arguments', async () => {
+    const callRequest = createRequest(8, 'tools/call', {
       name: 'read_pdf',
       arguments: {
         // Missing required 'sources' field
@@ -308,7 +358,7 @@ describe('MCP Server Integration', () => {
       error?: { code: number; message: string };
     };
 
-    expect(response.id).toBe(7);
+    expect(response.id).toBe(8);
     // SDK returns validation error as result.isError, not JSON-RPC error
     expect(response.result?.isError).toBe(true);
     expect(response.result?.content?.[0]?.text).toMatch(/sources/i);

@@ -179,7 +179,7 @@ export const buildInspectionRecommendation = (
       workflow: 'scanned_pdf_triage',
       needs_ocr: true,
       reason:
-        'Sampled pages contain little selectable text and visible image paint operations; OCR or an optional advanced engine is likely required for text extraction.',
+        'Sampled pages contain little selectable text and visible image paint operations; use ocr_pages with a configured OCR provider or an optional advanced engine for text extraction.',
       read_pdf_arguments: readPdfArguments,
     };
   }
@@ -198,7 +198,7 @@ export const buildInspectionRecommendation = (
       workflow: 'mixed_pdf_review',
       needs_ocr: true,
       reason:
-        'Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and OCR for scanned pages.',
+        'Some sampled pages look text-based while others look image-only; use read_pdf for selectable-text pages and ocr_pages with a configured OCR provider for scanned pages.',
       read_pdf_arguments: readPdfArguments,
     };
   }
@@ -282,7 +282,7 @@ export const inspectPdfSource = async (
     }
     if (recommendation.needs_ocr) {
       warnings.push(
-        'Default PDF Reader MCP does not perform OCR; use an optional OCR-capable engine for scanned pages.'
+        'read_pdf does not perform OCR; use ocr_pages with a configured OCR provider for scanned pages.'
       );
     }
 
