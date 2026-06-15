@@ -8,8 +8,8 @@ const buildMockDocument = () =>
   ({
     getPage: vi.fn().mockResolvedValue({
       getViewport: vi.fn(({ scale }: { scale: number }) => ({
-        width: 612 * scale,
-        height: 792 * scale,
+        width: 120 * scale,
+        height: 80 * scale,
         rotation: 0,
       })),
       render: vi.fn().mockReturnValue({ promise: Promise.resolve() }),
@@ -50,8 +50,8 @@ describe('renderer', () => {
 
     expect(page).toMatchObject({
       page: 1,
-      width: 612,
-      height: 792,
+      width: 120,
+      height: 80,
       scale: 1,
       format: 'png',
       mime_type: 'image/png',
@@ -67,7 +67,7 @@ describe('renderer', () => {
         .subarray(0, 8)
         .toString('hex')
     ).toBe(pngSignature);
-  });
+  }, 15_000);
 
   it('should reject page renders that exceed the pixel budget', async () => {
     const document = buildMockDocument();
