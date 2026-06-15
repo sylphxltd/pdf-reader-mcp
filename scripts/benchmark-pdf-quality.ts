@@ -1,7 +1,10 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PNG } from 'pngjs';
+import { readPdf } from '../src/handlers/readPdf.js';
 import { buildAccessibilityReport } from '../src/pdf/accessibilityReport.js';
 import { buildDocumentAst } from '../src/pdf/documentAst.js';
 import { buildDocumentMap } from '../src/pdf/documentMap.js';
@@ -30,6 +33,7 @@ import {
   searchPageContentItems,
 } from '../src/pdf/search.js';
 import { buildTextLayer } from '../src/pdf/textLayer.js';
+import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
 import type {
   BoundingBox,
   ExtractedTable,
@@ -522,6 +526,184 @@ const evaluateOcrTextLayer = async (): Promise<QualityAssertion[]> => {
   ];
 };
 
+const byteLength = (value: string): number => Buffer.byteLength(value, 'utf8');
+
+const serializePdf = (objects: string[]): string => {
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [];
+
+  objects.forEach((object, index) => {
+    offsets.push(byteLength(body));
+    body += `${String(index + 1)} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = byteLength(body);
+  body += `xref\n0 ${String(objects.length + 1)}\n`;
+  body += '0000000000 65535 f \n';
+  offsets.forEach((offset) => {
+    body += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  });
+  body += `trailer\n<< /Size ${String(objects.length + 1)} /Root 1 0 R >>\n`;
+  body += `startxref\n${String(xrefOffset)}\n%%EOF\n`;
+
+  return body;
+};
+
+const writeScannedImagePdfFixture = async (directory: string): Promise<string> => {
+  const contentStream = 'q\n160 0 0 160 20 20 cm\n/Im1 Do\nQ\n';
+  const imageData = 'FF000000FF000000FFFF00>';
+  const pdf = serializePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    [
+      '<< /Type /Page',
+      '/Parent 2 0 R',
+      '/MediaBox [0 0 200 200]',
+      '/Resources << /XObject << /Im1 5 0 R >> >>',
+      '/Contents 4 0 R',
+      '>>',
+    ].join(' '),
+    `<< /Length ${String(byteLength(contentStream))} >>\nstream\n${contentStream}endstream`,
+    [
+      '<< /Type /XObject',
+      '/Subtype /Image',
+      '/Width 2',
+      '/Height 2',
+      '/ColorSpace /DeviceRGB',
+      '/BitsPerComponent 8',
+      '/Filter /ASCIIHexDecode',
+      `/Length ${String(byteLength(imageData))}`,
+      '>>',
+      'stream',
+      imageData,
+      'endstream',
+    ].join('\n'),
+  ]);
+  const fixturePath = path.join(directory, 'scanned-image-only.pdf');
+  await fs.writeFile(fixturePath, pdf);
+
+  return fixturePath;
+};
+
+const parseReadPdfResult = async (input: ReadPdfArgs): Promise<Record<string, unknown>> => {
+  const result = await readPdf.handler({ input, ctx: {} as unknown });
+  if (result && typeof result === 'object' && 'isError' in result && result.isError) {
+    const content = result.content as Array<{ text?: string }>;
+    throw new Error(content[0]?.text ?? 'read_pdf returned an error');
+  }
+
+  const content = result.content as Array<{ text?: string }>;
+  const textPayload = content[0]?.text;
+  if (!textPayload) {
+    throw new Error('read_pdf did not return a JSON text payload');
+  }
+
+  return JSON.parse(textPayload) as Record<string, unknown>;
+};
+
+const firstReadPdfData = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const results = payload.results;
+  if (!Array.isArray(results)) {
+    throw new Error('read_pdf payload did not include results');
+  }
+  const first = results[0];
+  if (typeof first !== 'object' || first === null) {
+    throw new Error('read_pdf payload did not include a first result');
+  }
+  const data = (first as { data?: unknown }).data;
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('read_pdf first result did not include data');
+  }
+
+  return data as Record<string, unknown>;
+};
+
+const evaluateScannedPdfFixturePipeline = async (): Promise<QualityAssertion[]> => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-quality-'));
+
+  try {
+    const fixturePath = await writeScannedImagePdfFixture(tempDir);
+    const scriptPath = path.resolve(process.cwd(), 'test/fixtures/mock-ocr-provider.mjs');
+    const payload = await withEnv(
+      {
+        MCP_PDF_OCR_COMMAND: process.execPath,
+        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([scriptPath, '{input}', '{page}', '{languages}']),
+        MCP_PDF_OCR_PRESET: undefined,
+      },
+      () =>
+        parseReadPdfResult({
+          sources: [{ path: fixturePath, pages: [1] }],
+          include_page_count: true,
+          include_full_text: false,
+          include_ocr_text_layer: true,
+          include_layout_diagnostics: true,
+          include_document_map: true,
+          include_page_geometry: true,
+        })
+    );
+    const data = firstReadPdfData(payload);
+    const ocrTextLayer = data.ocr_text_layer as
+      | {
+          pages?: Array<{ text?: string; source_render_evidence_id?: string }>;
+          summary?: {
+            page_count?: number;
+            word_count?: number;
+            source_render_count?: number;
+          };
+        }
+      | undefined;
+    const documentMap = data.document_map as
+      | {
+          layers?: string[];
+          pages?: Array<{ ocr_text_chars?: number; ocr_source_render_evidence_id?: string }>;
+          routing?: { ocr_applied_pages?: number[]; needs_ocr_pages?: number[] };
+          summary?: { ocr_page_count?: number; ocr_text_chars?: number };
+        }
+      | undefined;
+    const layoutDiagnostics = data.layout_diagnostics as
+      | Array<{
+          page?: number;
+          confidence?: number;
+          signals?: string[];
+          text_item_count?: number;
+        }>
+      | undefined;
+
+    return [
+      {
+        name: 'scanned PDF fixture reaches OCR text layer through read_pdf render pipeline',
+        pass:
+          ocrTextLayer?.summary?.page_count === 1 &&
+          ocrTextLayer.summary.word_count === 1 &&
+          ocrTextLayer.summary.source_render_count === 1 &&
+          ocrTextLayer.pages?.[0]?.text === 'Mock OCR text for page 1' &&
+          ocrTextLayer.pages[0]?.source_render_evidence_id === 'page-1-render-scale-2',
+      },
+      {
+        name: 'scanned PDF fixture fuses OCR provenance into the document map',
+        pass:
+          documentMap?.layers?.includes('ocr_text_layer') === true &&
+          documentMap.summary?.ocr_page_count === 1 &&
+          documentMap.summary.ocr_text_chars === 24 &&
+          documentMap.pages?.[0]?.ocr_text_chars === 24 &&
+          documentMap.pages[0]?.ocr_source_render_evidence_id === 'page-1-render-scale-2' &&
+          documentMap.routing?.ocr_applied_pages?.includes(1) === true,
+      },
+      {
+        name: 'scanned PDF fixture exposes empty-page diagnostics for OCR routing',
+        pass:
+          layoutDiagnostics?.[0]?.page === 1 &&
+          layoutDiagnostics[0]?.text_item_count === 0 &&
+          (layoutDiagnostics[0]?.confidence ?? 1) <= 0.3 &&
+          layoutDiagnostics[0]?.signals?.includes('empty-page-content') === true &&
+          documentMap?.routing?.needs_ocr_pages?.includes(1) === true,
+      },
+    ];
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+};
+
 const buildRegionCrop = (): PdfRegionCropData => {
   const png = buildPngData(3, 3);
 
@@ -695,6 +877,7 @@ const main = async () => {
     await runCase('agent_document_twin_semantic_quality', evaluateAgentDocumentTwin),
     await runCase('recursive_reading_order_quality', evaluateRecursiveReadingOrder),
     await runCase('ocr_text_layer_quality', evaluateOcrTextLayer),
+    await runCase('scanned_pdf_fixture_pipeline_quality', evaluateScannedPdfFixturePipeline),
     await runCase('visual_region_analysis_quality', evaluateVisualRegionAnalysis),
     await runCase('search_evidence_quality', evaluateSearchEvidence),
   ];
@@ -704,7 +887,8 @@ const main = async () => {
   const report = {
     profile: 'pdf_quality_benchmark',
     generated_at: new Date().toISOString(),
-    fixture_scope: 'deterministic in-repository synthetic cases and local mock providers',
+    fixture_scope:
+      'deterministic in-repository synthetic cases, runtime-generated scanned PDF fixture, and local mock providers',
     passed,
     total,
     score: total === 0 ? 0 : round(passed / total),

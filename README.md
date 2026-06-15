@@ -1648,7 +1648,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Tesseract OCR provider preset without bundling OCR model assets
 - [x] Configured local visual region analysis provider for table, chart, formula, figure, and image-description enrichment
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, reading order, OCR normalization, visual region normalization, and search evidence
+- [x] Public deterministic quality benchmark for Agent Document Twin, reading order, scanned-PDF OCR pipeline routing, OCR normalization, visual region normalization, and search evidence
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**

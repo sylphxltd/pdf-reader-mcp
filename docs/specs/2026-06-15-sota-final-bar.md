@@ -65,7 +65,8 @@ themselves.
      and tagged PDFs.
    - `bun run benchmark:quality` is the deterministic contract-quality gate for
      Agent Document Twin semantics, recursive reading order, OCR normalization,
-     visual-region normalization, and search evidence.
+     a runtime-generated scanned-PDF OCR pipeline fixture, visual-region
+     normalization, and search evidence.
    - Provider-specific OCR, table, formula, chart, and image-description
      accuracy still requires public scanned/visual fixture benchmarks before any
      model-quality claim.
