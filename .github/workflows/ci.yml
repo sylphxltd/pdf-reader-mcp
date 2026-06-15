@@ -41,8 +41,30 @@ jobs:
       - name: Run Tests and Check Coverage
         run: bun run test:cov
 
+      - name: Detect coverage reports
+        id: coverage
+        shell: bash
+        run: |
+          if [[ -d coverage ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -f coverage/lcov.info ]]; then
+            echo "lcov=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "lcov=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if compgen -G "coverage/*.xml" > /dev/null; then
+            echo "test_results=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "test_results=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload coverage to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.coverage.outputs.lcov == 'true' }}
         continue-on-error: true
         uses: codecov/codecov-action@v6.0.1
         with:
@@ -51,13 +73,17 @@ jobs:
           fail_ci_if_error: false
 
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.coverage.outputs.test_results == 'true' }}
         continue-on-error: true
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v6.0.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/*.xml
+          report_type: test_results
+          fail_ci_if_error: false
 
       - name: Upload coverage reports
+        if: ${{ !cancelled() && steps.coverage.outputs.available == 'true' }}
         uses: actions/upload-artifact@v7.0.1
         with:
           name: coverage-report
