@@ -39,7 +39,7 @@ engines behind one stable MCP contract.
 - Provenance: metadata describing which engine produced an element and how
   confident the server is.
 - Document map: one agent-facing contract that links pages, elements,
-  text-layer coverage, chunks, layout diagnostics, safety findings, routing
+  text-layer and metadata coverage, chunks, layout diagnostics, safety findings, routing
   signals, and page geometry.
 - Search evidence: literal text matches with page numbers, snippets, offsets,
   optional character-derived or text-item bounding boxes, and provenance.
@@ -265,7 +265,7 @@ Candidate engines:
 - Requests with `include_safety_findings: true` produce deterministic findings
   without forcing `full_text`.
 - Requests with `include_document_map: true` produce an agent map with pages,
-  elements, text-layer coverage, chunks, layout diagnostics, safety findings,
+  elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings,
   routing signals, page geometry, and summary counts without forcing top-level
   legacy outputs.
 - JSON summary includes `elements` with stable ids, page numbers, type, content

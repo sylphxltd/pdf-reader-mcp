@@ -151,6 +151,10 @@ const textLayerPageStats = (
       text_layer_lines_with_bounding_boxes: number;
       text_layer_words_with_bounding_boxes: number;
       text_layer_chars_with_bounding_boxes: number;
+      text_layer_runs_with_font_metadata: number;
+      text_layer_runs_with_direction_metadata: number;
+      text_layer_runs_with_transform_metadata: number;
+      text_layer_runs_with_eol_metadata: number;
     }
   | undefined => {
   if (!page) return undefined;
@@ -168,6 +172,12 @@ const textLayerPageStats = (
     text_layer_lines_with_bounding_boxes: page.lines.filter((line) => line.bounding_box).length,
     text_layer_words_with_bounding_boxes: words.filter((word) => word.bounding_box).length,
     text_layer_chars_with_bounding_boxes: chars.filter((char) => char.bounding_box).length,
+    text_layer_runs_with_font_metadata: runs.filter((run) => run.font_name !== undefined).length,
+    text_layer_runs_with_direction_metadata: runs.filter((run) => run.direction !== undefined)
+      .length,
+    text_layer_runs_with_transform_metadata: runs.filter((run) => run.transform !== undefined)
+      .length,
+    text_layer_runs_with_eol_metadata: runs.filter((run) => run.has_eol !== undefined).length,
   };
 };
 
@@ -343,6 +353,12 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       text_layer_lines_with_bounding_boxes: input.textLayer?.summary.lines_with_bounding_boxes ?? 0,
       text_layer_words_with_bounding_boxes: input.textLayer?.summary.words_with_bounding_boxes ?? 0,
       text_layer_chars_with_bounding_boxes: input.textLayer?.summary.chars_with_bounding_boxes ?? 0,
+      text_layer_runs_with_font_metadata: input.textLayer?.summary.runs_with_font_metadata ?? 0,
+      text_layer_runs_with_direction_metadata:
+        input.textLayer?.summary.runs_with_direction_metadata ?? 0,
+      text_layer_runs_with_transform_metadata:
+        input.textLayer?.summary.runs_with_transform_metadata ?? 0,
+      text_layer_runs_with_eol_metadata: input.textLayer?.summary.runs_with_eol_metadata ?? 0,
       ocr_page_count: input.ocrTextLayer?.summary.page_count ?? 0,
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,

@@ -1934,9 +1934,32 @@ var splitTextPartsIntoSegments = (parts) => {
   if (currentSegment.length > 0) {
     segments.push(currentSegment);
   }
-  return segments;
+  const orderedSegments = segments.map(orderTextPartsByDirection);
+  return dominantTextPartDirection(parts) === "rtl" ? orderedSegments.reverse() : orderedSegments;
 };
-var sortByYThenX = (items) => [...items].sort((a, b) => b.yPosition - a.yPosition || (a.xPosition ?? 0) - (b.xPosition ?? 0));
+var normalizeTextDirection = (direction) => {
+  const normalized = direction?.toLowerCase();
+  return normalized === "rtl" || normalized === "ltr" ? normalized : undefined;
+};
+var dominantDirection = (directions) => {
+  const ltrCount = directions.filter((direction) => direction === "ltr").length;
+  const rtlCount = directions.filter((direction) => direction === "rtl").length;
+  if (ltrCount === 0 && rtlCount === 0)
+    return;
+  return rtlCount > ltrCount ? "rtl" : "ltr";
+};
+var dominantTextPartDirection = (parts) => dominantDirection(parts.map((part) => normalizeTextDirection(part.direction)));
+var dominantContentItemDirection = (item) => dominantDirection((item.textRuns ?? []).map((run) => normalizeTextDirection(run.direction)));
+var dominantPageContentDirection = (items) => dominantDirection(items.flatMap((item) => item.textRuns ?? []).map((run) => normalizeTextDirection(run.direction)));
+var orderTextPartsByDirection = (parts) => dominantTextPartDirection(parts) === "rtl" ? [...parts].sort((a, b) => b.x - a.x) : parts;
+var compareXForReadingOrder = (a, b) => {
+  const aDirection = dominantContentItemDirection(a);
+  const bDirection = dominantContentItemDirection(b);
+  const aX = a.xPosition ?? 0;
+  const bX = b.xPosition ?? 0;
+  return aDirection === "rtl" && bDirection === "rtl" ? bX - aX : aX - bX;
+};
+var sortByYThenX = (items) => [...items].sort((a, b) => b.yPosition - a.yPosition || compareXForReadingOrder(a, b));
 var pageContentBounds = (items) => mergeBoundingBoxes(items.map((item) => item.bounding_box));
 var findHorizontalWhitespaceCut = (items) => {
   const boxedItems = items.filter((item) => item.bounding_box !== undefined);
@@ -2082,8 +2105,13 @@ var sortPageContentItems = (items, depth = 0) => {
   const remainingSpanning = spanning.filter((item) => (item.bounding_box?.top ?? item.yPosition) < highestColumnTop);
   return [
     ...sortByYThenX(topSpanning),
-    ...sortPageContentItems(leftColumn, depth + 1),
-    ...sortPageContentItems(rightColumn, depth + 1),
+    ...dominantPageContentDirection(columnItems) === "rtl" ? [
+      ...sortPageContentItems(rightColumn, depth + 1),
+      ...sortPageContentItems(leftColumn, depth + 1)
+    ] : [
+      ...sortPageContentItems(leftColumn, depth + 1),
+      ...sortPageContentItems(rightColumn, depth + 1)
+    ],
     ...sortByYThenX(remainingSpanning)
   ];
 };
@@ -4358,7 +4386,11 @@ var textLayerPageStats = (page) => {
     text_layer_runs_with_bounding_boxes: runs.filter((run) => run.bounding_box).length,
     text_layer_lines_with_bounding_boxes: page.lines.filter((line) => line.bounding_box).length,
     text_layer_words_with_bounding_boxes: words.filter((word) => word.bounding_box).length,
-    text_layer_chars_with_bounding_boxes: chars.filter((char) => char.bounding_box).length
+    text_layer_chars_with_bounding_boxes: chars.filter((char) => char.bounding_box).length,
+    text_layer_runs_with_font_metadata: runs.filter((run) => run.font_name !== undefined).length,
+    text_layer_runs_with_direction_metadata: runs.filter((run) => run.direction !== undefined).length,
+    text_layer_runs_with_transform_metadata: runs.filter((run) => run.transform !== undefined).length,
+    text_layer_runs_with_eol_metadata: runs.filter((run) => run.has_eol !== undefined).length
   };
 };
 var buildDocumentMap = (input) => {
@@ -4482,6 +4514,10 @@ var buildDocumentMap = (input) => {
       text_layer_lines_with_bounding_boxes: input.textLayer?.summary.lines_with_bounding_boxes ?? 0,
       text_layer_words_with_bounding_boxes: input.textLayer?.summary.words_with_bounding_boxes ?? 0,
       text_layer_chars_with_bounding_boxes: input.textLayer?.summary.chars_with_bounding_boxes ?? 0,
+      text_layer_runs_with_font_metadata: input.textLayer?.summary.runs_with_font_metadata ?? 0,
+      text_layer_runs_with_direction_metadata: input.textLayer?.summary.runs_with_direction_metadata ?? 0,
+      text_layer_runs_with_transform_metadata: input.textLayer?.summary.runs_with_transform_metadata ?? 0,
+      text_layer_runs_with_eol_metadata: input.textLayer?.summary.runs_with_eol_metadata ?? 0,
       ocr_page_count: input.ocrTextLayer?.summary.page_count ?? 0,
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
@@ -5982,7 +6018,11 @@ var buildTextLayer = (input) => {
       chars_with_bounding_boxes: chars.filter((char) => char.bounding_box).length,
       runs_with_bounding_boxes: runs.filter((run) => run.bounding_box).length,
       lines_with_bounding_boxes: lines.filter((line) => line.bounding_box).length,
-      words_with_bounding_boxes: words.filter((word) => word.bounding_box).length
+      words_with_bounding_boxes: words.filter((word) => word.bounding_box).length,
+      runs_with_font_metadata: runs.filter((run) => run.font_name !== undefined).length,
+      runs_with_direction_metadata: runs.filter((run) => run.direction !== undefined).length,
+      runs_with_transform_metadata: runs.filter((run) => run.transform !== undefined).length,
+      runs_with_eol_metadata: runs.filter((run) => run.has_eol !== undefined).length
     },
     ...warnings.length > 0 ? { warnings } : {}
   };

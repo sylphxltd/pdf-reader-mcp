@@ -44,7 +44,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Configured local OCR provider for scanned-page text layers 🔡
 - Opt-in OCR text layer fusion for `read_pdf` document maps 🧾
 - 5-10x faster parallel processing ⚡
-- Full agent document map linking pages, elements, text-layer coverage, chunks, layout, safety, and geometry 🧭
+- Full agent document map linking pages, elements, text-layer and metadata coverage, chunks, layout, safety, and geometry 🧭
 - Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including caption-to-evidence links 🌳
 - PDF trust report for content safety, layout, table, and link-risk routing 🛡️
 - Accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, headings, images, forms, links, and permissions ♿
@@ -83,8 +83,8 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 🧠 **Visual Region Analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
 - 🧾 **OCR-Aware Document Map** - `read_pdf` can opt into OCR text layers and OCR-derived tables for sparse/scanned pages while keeping OCR separate from selectable PDF text
-- 🧾 **PDF Text Layer** - Optional run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance
-- 🧭 **Agent Document Map** - Optional page map that links elements, text-layer coverage, chunks, layout confidence, safety findings, routing signals, and page geometry
+- 🧾 **PDF Text Layer** - Optional direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics
+- 🧭 **Agent Document Map** - Optional page map that links elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, routing signals, and page geometry
 - 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including cross-page section context and caption-to-evidence links
 - 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, layout uncertainty, sparse pages, table warnings, external links, and unsafe link schemes
 - ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
@@ -386,7 +386,8 @@ than reconstructing document structure from flat text items.
 Use `include_text_layer` when an agent needs deterministic run, line, word, and
 character references instead of only full text. It exposes page text, normalized
 PDF.js text-run metadata, page-level character ranges, estimated character and
-word boxes, and provenance from the same extracted text-content pass.
+word boxes, direction-aware row ordering for right-to-left text runs, and
+provenance from the same extracted text-content pass.
 
 ```json
 {
@@ -405,7 +406,7 @@ word boxes, and provenance from the same extracted text-content pass.
 - Line IDs, line text, page-level `char_start`/`char_end`, and line bounding boxes when available
 - Character records with page-level offsets, whitespace flags, and estimated character boxes when the run has geometry
 - Word text, page-level character ranges, and boxes merged from estimated character evidence when available
-- Summary counts for pages, runs, lines, words, characters, and bbox coverage
+- Summary counts for pages, runs, lines, words, characters, bbox coverage, and run-level metadata coverage
 - No forced `full_text` or raw `page_contents` output
 
 ### Trust Report
@@ -731,11 +732,11 @@ distinct scanned tables without duplicating selectable-text tables.
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
 - ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
-- ✅ **Agent Document Map** - Pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
+- ✅ **Agent Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
 - ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and caption-to-evidence links
 - ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, external links, and unsafe link schemes
 - ✅ **Accessibility Report** - Tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, and permission signals
-- ✅ **PDF Text Layer** - Run records, line records, word records, character records, estimated bounding boxes, and provenance
+- ✅ **PDF Text Layer** - Direction-aware run records, line records, word records, character records, estimated bounding boxes, provenance, and metadata coverage diagnostics
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
@@ -1187,7 +1188,7 @@ tables, and document signals.
 | `include_page_count` | boolean | Include total page count | `true` |
 | `include_images` | boolean | Extract embedded images | `false` |
 | `include_tables` | boolean | Detect selectable-text and OCR-derived tables with rows, cell metadata, confidence, quality diagnostics, cell evidence coverage, provenance, inferred spans, continuation candidates, and best-effort geometry | `false` |
-| `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
+| `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including caption-to-evidence references | `false` |
 | `include_visual_enrichments` | boolean | Select bounded table, image, and caption-derived visual-region candidates, expose their routing plan, and run the configured visual-region provider when available to fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
@@ -1198,7 +1199,7 @@ tables, and document signals.
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
 | `include_html` | boolean | Include escaped page-aware HTML for preview/export workflows | `false` |
 | `include_chunks` | boolean | Include page, semantic, size, and table chunks with source references | `false` |
-| `include_text_layer` | boolean | Include run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance | `false` |
+| `include_text_layer` | boolean | Include direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage counts | `false` |
 | `include_ocr_text_layer` | boolean | Run the configured local OCR provider for selected sparse/scanned pages and include a separate OCR text layer with render provenance and optional OCR-derived table evidence | `false` |
 | `include_layout_diagnostics` | boolean | Include page layout profiles, reading-order confidence, column signals, and warnings | `false` |
 | `include_outline` | boolean | Include PDF outline/bookmarks when available | `false` |
@@ -1274,7 +1275,7 @@ Elements are designed for agent workflows that need stable page references, prov
 ```
 
 The document map is designed for agents that need one navigable structure for
-pages, elements, text-layer coverage, chunks, layout confidence, safety
+pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety
 findings, routing signals, and page geometry without embedding image bytes in
 JSON.
 
@@ -1721,7 +1722,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Deterministic semantic hints and AST nodes for captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes
-- [x] Text-layer evidence coverage in the agent document map without forcing top-level text-layer output
+- [x] Text-layer evidence and metadata coverage in the agent document map without forcing top-level text-layer output
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**

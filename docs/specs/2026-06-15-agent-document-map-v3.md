@@ -6,7 +6,7 @@ Status: active
 ## Goal
 
 Make PDF Reader MCP expose a single agent-native map of a PDF: pages,
-elements, selectable text-layer coverage, chunks, layout confidence, safety
+elements, selectable text-layer and metadata coverage, chunks, layout confidence, safety
 findings, routing signals, OCR evidence, and page geometry. The map is the
 stable contract that OCR, vision, formula, chart, and advanced table engines
 can enrich without forcing agents to learn a new response shape each time.
@@ -73,6 +73,10 @@ Each successful source may include:
         "text_layer_lines_with_bounding_boxes": 24,
         "text_layer_words_with_bounding_boxes": 180,
         "text_layer_chars_with_bounding_boxes": 1200,
+        "text_layer_runs_with_font_metadata": 30,
+        "text_layer_runs_with_direction_metadata": 30,
+        "text_layer_runs_with_transform_metadata": 30,
+        "text_layer_runs_with_eol_metadata": 30,
         "text_chars": 1200,
         "text_item_count": 30,
         "ocr_text_chars": 128,
@@ -127,6 +131,10 @@ Each successful source may include:
       "text_layer_lines_with_bounding_boxes": 24,
       "text_layer_words_with_bounding_boxes": 180,
       "text_layer_chars_with_bounding_boxes": 1200,
+      "text_layer_runs_with_font_metadata": 30,
+      "text_layer_runs_with_direction_metadata": 30,
+      "text_layer_runs_with_transform_metadata": 30,
+      "text_layer_runs_with_eol_metadata": 30,
       "ocr_page_count": 1,
       "ocr_text_chars": 128,
       "image_element_count": 0,
@@ -161,7 +169,7 @@ Each successful source may include:
   flags. `text_layer` is present only when selectable text-layer evidence was
   built. `ocr_text_layer` is present only when OCR pages were returned.
 - Top-level legacy outputs remain opt-in. `include_document_map` may build
-  internal elements, chunks, text-layer coverage, safety findings, layout
+  internal elements, chunks, text-layer and metadata coverage, safety findings, layout
   diagnostics, page geometry, and tables for the map without forcing top-level
   `elements`, `chunks`, `text_layer`, `safety_findings`,
   `layout_diagnostics`, or `page_geometry`.
@@ -206,7 +214,9 @@ Required before publishing the next package release:
 - `read_pdf` can opt into OCR text layer fusion for sparse/scanned pages and
   link applied OCR pages into the document map.
 - `include_document_map` links selectable text-layer coverage into page records
-  and summary totals without forcing the top-level `text_layer` response.
+  and summary totals, including run-level font, direction, transform, and
+  end-of-line metadata coverage, without forcing the top-level `text_layer`
+  response.
 - `read_pdf` can opt into visual enrichment fusion for bounded table/image
   regions and caption-derived formula/chart/figure/diagram regions, then link
   provider-backed table, formula, chart, figure, diagram, or image evidence
@@ -214,7 +224,7 @@ Required before publishing the next package release:
 - `search_pdf` provides bounded evidence retrieval with snippets, offsets,
   optional character-derived or text-item bounding boxes, and provenance before
   heavier workflows.
-- Quality eval proves the map links pages, elements, text-layer coverage,
+- Quality eval proves the map links pages, elements, text-layer and metadata coverage,
   chunks, safety findings, layout diagnostics, and geometry.
 - Handler tests prove the map does not force top-level legacy outputs.
 - Public docs describe shipped configured OCR and configured visual enrichment
@@ -236,7 +246,7 @@ Next slices for the same v3 track:
 - `include_document_map` validates as an optional boolean.
 - `read_pdf` with `include_document_map: true` processes selected pages even
   when `include_full_text` is false.
-- The map includes semantic elements, selectable text-layer coverage, citation
+- The map includes semantic elements, selectable text-layer and metadata coverage, citation
   chunks, layout diagnostics, safety findings, routing signals, page geometry,
   and summary counts.
 - The map includes table elements when deterministic table extraction finds

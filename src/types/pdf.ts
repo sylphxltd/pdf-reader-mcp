@@ -312,6 +312,10 @@ export interface PdfDocumentMapPage {
   text_layer_lines_with_bounding_boxes?: number | undefined;
   text_layer_words_with_bounding_boxes?: number | undefined;
   text_layer_chars_with_bounding_boxes?: number | undefined;
+  text_layer_runs_with_font_metadata?: number | undefined;
+  text_layer_runs_with_direction_metadata?: number | undefined;
+  text_layer_runs_with_transform_metadata?: number | undefined;
+  text_layer_runs_with_eol_metadata?: number | undefined;
   text_chars: number;
   text_item_count: number;
   ocr_text_chars?: number | undefined;
@@ -348,6 +352,10 @@ export interface PdfDocumentMapSummary {
   text_layer_lines_with_bounding_boxes: number;
   text_layer_words_with_bounding_boxes: number;
   text_layer_chars_with_bounding_boxes: number;
+  text_layer_runs_with_font_metadata: number;
+  text_layer_runs_with_direction_metadata: number;
+  text_layer_runs_with_transform_metadata: number;
+  text_layer_runs_with_eol_metadata: number;
   ocr_page_count: number;
   ocr_text_chars: number;
   image_element_count: number;
@@ -617,6 +625,10 @@ export interface PdfTextLayerSummary {
   runs_with_bounding_boxes: number;
   lines_with_bounding_boxes: number;
   words_with_bounding_boxes: number;
+  runs_with_font_metadata: number;
+  runs_with_direction_metadata: number;
+  runs_with_transform_metadata: number;
+  runs_with_eol_metadata: number;
 }
 
 export interface PdfTextLayer {

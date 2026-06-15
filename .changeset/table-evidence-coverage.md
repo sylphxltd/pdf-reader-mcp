@@ -13,4 +13,7 @@ objects, and preserve those candidate regions in `read_pdf` and
 crop or retry the same evidence regions. Add dedicated hidden-text trust
 routing for selectable text with zero
 or near-zero geometry. Replace the empty generated API reference with a
-maintained MCP API reference and remove unused TypeDoc docs tooling.
+maintained MCP API reference and remove unused TypeDoc docs tooling. Add
+direction-aware selectable-text ordering for right-to-left text runs and expose
+text-layer font, direction, transform, and end-of-line metadata coverage in the
+text layer and agent document map summaries.

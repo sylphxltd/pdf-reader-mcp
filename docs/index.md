@@ -31,10 +31,10 @@ features:
     details: Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. One command to install.
   - icon: "\U0001F5BC\uFE0F"
     title: Agent-Ready Context
-    details: Return an agent document map, text layer, semantic document AST, trust report, and accessibility report with stable element IDs, text-layer coverage, caption links, citation chunks, table quality diagnostics, layout confidence, hidden-text and unsafe-link signals, page geometry, provenance, and best-effort coordinates.
+    details: Return an agent document map, text layer, semantic document AST, trust report, and accessibility report with stable element IDs, text-layer and metadata coverage, caption links, citation chunks, table quality diagnostics, layout confidence, hidden-text and unsafe-link signals, page geometry, provenance, and best-effort coordinates.
   - icon: "\U0001F9FE"
     title: Text Layer Fidelity
-    details: Expose run, line, word, and character records with page-level ranges, estimated bounding boxes, and provenance for citation and extraction workflows.
+    details: Expose direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics for citation and extraction workflows.
   - icon: "\U0001F5BC\uFE0F"
     title: Visual Evidence
     details: Render selected pages as bounded PNG MCP image parts with JSON provenance, evidence IDs, and pixel budgets for OCR routing and page inspection.

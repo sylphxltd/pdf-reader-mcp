@@ -35,15 +35,48 @@ const textItem = (
   bottom: number,
   width: number,
   height: number
-): PageContentItem => ({
-  type: 'text',
-  textContent,
-  xPosition: left,
-  yPosition: bottom,
-  width,
-  height,
-  bounding_box: box(left, bottom, width, height),
-});
+): PageContentItem => {
+  const boundingBox = box(left, bottom, width, height);
+  return {
+    type: 'text',
+    textContent,
+    xPosition: left,
+    yPosition: bottom,
+    width,
+    height,
+    bounding_box: boundingBox,
+    textRuns: [
+      {
+        index: 0,
+        text: textContent,
+        item_char_start: 0,
+        item_char_end: textContent.length,
+        bounding_box: boundingBox,
+        font_name: 'eval_f1',
+        direction: 'ltr',
+        transform: [1, 0, 0, height, left, bottom],
+        has_eol: false,
+        chars: Array.from(textContent).map((text, index) => {
+          const charWidth = width / textContent.length;
+          return {
+            index,
+            text,
+            item_char_start: index,
+            item_char_end: index + 1,
+            is_whitespace: /\s/u.test(text),
+            bounding_box: {
+              left: left + charWidth * index,
+              bottom,
+              right: left + charWidth * (index + 1),
+              top: bottom + height,
+            },
+            confidence: 0.74,
+          };
+        }),
+      },
+    ],
+  };
+};
 
 const flattenAstNodes = (node: PdfDocumentAstNode): PdfDocumentAstNode[] => [
   node,
@@ -355,11 +388,25 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.pages[0]?.text_layer_word_count === textLayer.pages[0]?.word_count &&
         documentMap.pages[0]?.text_layer_words_with_bounding_boxes ===
           textLayer.pages[0]?.word_count &&
+        documentMap.pages[0]?.text_layer_runs_with_font_metadata ===
+          textLayer.pages[0]?.line_count &&
+        documentMap.pages[0]?.text_layer_runs_with_direction_metadata ===
+          textLayer.pages[0]?.line_count &&
+        documentMap.pages[0]?.text_layer_runs_with_transform_metadata ===
+          textLayer.pages[0]?.line_count &&
+        documentMap.pages[0]?.text_layer_runs_with_eol_metadata ===
+          textLayer.pages[0]?.line_count &&
         documentMap.summary.text_layer_page_count === textLayer.summary.page_count &&
         documentMap.summary.text_layer_line_count === textLayer.summary.line_count &&
         documentMap.summary.text_layer_word_count === textLayer.summary.word_count &&
         documentMap.summary.text_layer_chars_with_bounding_boxes ===
           textLayer.summary.chars_with_bounding_boxes &&
+        documentMap.summary.text_layer_runs_with_font_metadata === textLayer.summary.run_count &&
+        documentMap.summary.text_layer_runs_with_direction_metadata ===
+          textLayer.summary.run_count &&
+        documentMap.summary.text_layer_runs_with_transform_metadata ===
+          textLayer.summary.run_count &&
+        documentMap.summary.text_layer_runs_with_eol_metadata === textLayer.summary.run_count &&
         JSON.stringify(documentMap.pages[0]?.safety_finding_indexes) ===
           JSON.stringify([0, 1, 2]) &&
         documentMap.summary.table_element_count === 1 &&
@@ -424,9 +471,16 @@ const evaluateCase = (qualityCase: QualityCase) => {
         textLayer.summary.word_count > 20 &&
         textLayer.summary.chars_with_bounding_boxes > textLayer.summary.word_count &&
         textLayer.summary.words_with_bounding_boxes === textLayer.summary.word_count &&
+        textLayer.summary.runs_with_font_metadata === textLayer.summary.run_count &&
+        textLayer.summary.runs_with_direction_metadata === textLayer.summary.run_count &&
+        textLayer.summary.runs_with_transform_metadata === textLayer.summary.run_count &&
+        textLayer.summary.runs_with_eol_metadata === textLayer.summary.run_count &&
         textLayer.pages[0]?.lines[0]?.text === 'Confidential Report' &&
         textLayer.pages[0]?.lines[1]?.text === 'Executive Summary' &&
         textLayer.pages[0]?.lines[1]?.runs[0]?.text === 'Executive Summary' &&
+        textLayer.pages[0]?.lines[1]?.runs[0]?.font_name === 'eval_f1' &&
+        textLayer.pages[0]?.lines[1]?.runs[0]?.direction === 'ltr' &&
+        textLayer.pages[0]?.lines[1]?.runs[0]?.has_eol === false &&
         textLayer.pages[0]?.lines[1]?.chars[0]?.text === 'E' &&
         textLayer.pages[0]?.lines[0]?.chars[0]?.bounding_box_level === 'char_estimated' &&
         textLayer.pages[0]?.lines[0]?.words[0]?.char_start === 0 &&

@@ -63,7 +63,7 @@ private-IP, and size policies documented in the guide.
 | `include_markdown` | boolean | `false` | Markdown rendering. |
 | `include_html` | boolean | `false` | HTML rendering. |
 | `include_chunks` | boolean | `false` | Citation-ready chunks. |
-| `include_text_layer` | boolean | `false` | Run, line, word, and character evidence. |
+| `include_text_layer` | boolean | `false` | Direction-aware run, line, word, and character evidence with metadata coverage counts. |
 | `include_layout_diagnostics` | boolean | `false` | Reading-order and page-layout confidence. |
 | `include_document_map` | boolean | `false` | Page, element, chunk, OCR, visual candidate, visual enrichment, safety, and routing map. |
 | `include_document_ast` | boolean | `false` | Semantic AST for page, section, paragraph, list, table, image, chart, formula, and figure nodes. |

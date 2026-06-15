@@ -5,7 +5,7 @@
 | Feature | PDF Reader MCP | CLI Tools | Cloud APIs | Generic FS MCP |
 |---------|---------------|-----------|------------|----------------|
 | Text Extraction | ✅ | ✅ | ✅ | ❌ |
-| Text Layer With Line/Word Ranges | ✅ | ❌ | ⚠️ | ❌ |
+| Direction-Aware Text Layer With Metadata Coverage | ✅ | ❌ | ⚠️ | ❌ |
 | Search With Evidence | ✅ | ⚠️ | ✅ | ❌ |
 | Metadata | ✅ | ✅ | ✅ | ❌ |
 | Image Extraction | ✅ | ⚠️ | ✅ | ❌ |
@@ -70,14 +70,14 @@
 - No API keys needed
 - Batch processing
 - Search with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
-- Text layer with run records, line records, word records, character records, estimated bounding boxes, and provenance
+- Direction-aware text layer with run records, line records, word records, character records, estimated bounding boxes, provenance, and metadata coverage diagnostics
 - Image extraction
 - Page rendering evidence with bounded PNG image parts
 - Region crop evidence for bbox-grounded verification
 - Configured local OCR provider pipeline with opt-in `read_pdf` OCR layer fusion
 - URL support
 - Structured JSON output
-- Agent document maps with linked pages, elements, text-layer coverage, chunks, layout confidence, safety findings, routing signals, and geometry
+- Agent document maps with linked pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, routing signals, and geometry
 - Accessibility reports with tagged-PDF coverage, tag-to-visible-content coverage, heading, image, form, link, and permission signals
 
 **Cons:**
@@ -87,7 +87,7 @@
 ## When to Use PDF Reader MCP
 
 - You need AI agents to read PDF content
-- You need line/word text evidence with character ranges and best-effort boxes
+- You need direction-aware line/word text evidence with character ranges, metadata coverage, and best-effort boxes
 - Privacy matters (local processing)
 - You want simple MCP integration
 - You need to process multiple PDFs

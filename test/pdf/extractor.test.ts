@@ -301,6 +301,76 @@ describe('extractor', () => {
       expect(result[1]?.bounding_box).toEqual({ left: 50, bottom: 700, right: 100, top: 710 });
     });
 
+    it('should preserve right-to-left text-run order within rows and columns', async () => {
+      const mockPage = {
+        getTextContent: vi.fn().mockResolvedValue({
+          items: [
+            {
+              str: 'left top',
+              transform: [1, 0, 0, 10, 40, 700],
+              width: 60,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'right top',
+              transform: [1, 0, 0, 10, 240, 700],
+              width: 70,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'left lower',
+              transform: [1, 0, 0, 10, 40, 680],
+              width: 70,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'right lower',
+              transform: [1, 0, 0, 10, 240, 680],
+              width: 80,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'row left',
+              transform: [1, 0, 0, 10, 40, 650],
+              width: 64,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'row right',
+              transform: [1, 0, 0, 10, 118, 650],
+              width: 70,
+              height: 10,
+              dir: 'rtl',
+            },
+          ],
+        }),
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageContent(mockDocument, 1, false, 'rtl-layout.pdf');
+
+      expect(result.map((item) => item.textContent)).toEqual([
+        'right top',
+        'right lower',
+        'left top',
+        'left lower',
+        'row rightrow left',
+      ]);
+      expect(result[4]?.textRuns?.map((run) => run.text)).toEqual(['row right', 'row left']);
+    });
+
     it('should preserve recursive reading order across spanning section bands', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({

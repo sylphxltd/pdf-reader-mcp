@@ -19,6 +19,10 @@ themselves.
 1. Lossless selectable-text evidence
    - Preserve text runs, font/direction metadata where exposed, line records,
      word records, character records, page offsets, and provenance.
+   - Use exposed text direction for right-to-left row and same-direction column
+     ordering instead of forcing all selectable text into left-to-right order.
+   - Report run-level font, direction, transform, and end-of-line metadata
+     coverage in text-layer and document-map summaries.
    - Provide bounding boxes at run, line, word, character, table, cell, image,
      crop, and page levels when the source exposes enough geometry.
    - Label estimated geometry explicitly; never imply glyph-perfect geometry
@@ -66,7 +70,7 @@ themselves.
      and tagged PDFs.
    - `bun run benchmark:quality` is the deterministic contract-quality gate for
      Agent Document Twin semantics, inspection tool routing, real PDF document
-     signals, real PDF reading order, text-layer evidence coverage in the
+     signals, real PDF reading order, text-layer evidence and metadata coverage in the
      document map, accessibility tag-to-visible-content coverage,
      table cell evidence coverage, caption-to-evidence links, OCR
      normalization, a runtime-generated scanned-PDF OCR pipeline fixture,

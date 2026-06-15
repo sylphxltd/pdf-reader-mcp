@@ -13,12 +13,12 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **Visual region analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - **Configured OCR text layers** - Run selected rendered pages through a local OCR provider and normalize text, confidence, words, language, and provenance
 - **Full text content** - Get all text from a PDF
-- **PDF text layers** - Return run records, line records, word records, character records, estimated boxes, and provenance
+- **PDF text layers** - Return direction-aware run records, line records, word records, character records, estimated boxes, provenance, and metadata coverage diagnostics
 - **Page-specific text** - Extract text from specific pages or page ranges
 - **Metadata** - Author, title, creation date, and other document properties
 - **Page count** - Total number of pages
 - **Embedded images** - Extract images as base64-encoded PNG data
-- **Agent document maps** - Link pages, elements, text-layer coverage, chunks, layout confidence, safety findings, routing signals, and geometry
+- **Agent document maps** - Link pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, routing signals, and geometry
 - **Accessibility reports** - Summarize tagged-PDF coverage, tag-to-visible-content coverage, heading roles, images, forms, links, and accessibility permissions
 - **Citation chunks** - Return stable source references for retrieval workflows
 - **Safety signals** - Surface deterministic findings before agents trust PDF text
@@ -44,7 +44,7 @@ context or runtime on heavier extraction.
 Use `search_pdf` to find relevant pages and source snippets before deciding whether an agent should read, render, OCR, crop, or cite a region. OCR-layer search is opt-in so fast selectable-text search stays the default.
 
 ### PDF Text Layer
-Use `include_text_layer` when agents need run, line, word, and character records with page-level ranges and estimated bounding boxes.
+Use `include_text_layer` when agents need direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, and metadata coverage counts.
 
 ### Image Extraction
 Extract embedded images from PDFs for AI vision analysis. Images are returned as base64-encoded PNG data.

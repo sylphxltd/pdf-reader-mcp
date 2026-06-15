@@ -378,8 +378,9 @@ available.
 ### Get a Text Layer
 
 Use `include_text_layer` when an agent needs run, line, word, and character
-references with page-level ranges and estimated bounding boxes, rather than
-only plain full text.
+references with page-level ranges, estimated bounding boxes, direction-aware
+right-to-left run ordering, and metadata coverage counts, rather than only
+plain full text.
 
 ```json
 {
@@ -396,7 +397,7 @@ only plain full text.
 
 Response fields include page text, runs, lines, words, characters,
 `char_start`, `char_end`, estimated bounding boxes, provenance, and summary
-bbox coverage counts.
+bbox and run-metadata coverage counts.
 
 ### Get a Document AST
 

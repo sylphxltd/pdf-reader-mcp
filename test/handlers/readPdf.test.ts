@@ -410,6 +410,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
               {
                 str: `Mock page text ${String(pageNum)}`,
                 transform: [1, 0, 0, 1, 0, 100 + pageNum * 10],
+                fontName: 'g_d0_f1',
+                dir: 'ltr',
+                hasEOL: false,
               },
             ],
           }),
@@ -855,6 +858,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 word_count: number;
                 char_count: number;
                 words_with_bounding_boxes: number;
+                runs_with_font_metadata: number;
+                runs_with_direction_metadata: number;
+                runs_with_transform_metadata: number;
+                runs_with_eol_metadata: number;
               };
             };
           };
@@ -872,6 +879,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
           word_count: 4,
           char_count: 16,
           words_with_bounding_boxes: 4,
+          runs_with_font_metadata: 1,
+          runs_with_direction_metadata: 1,
+          runs_with_transform_metadata: 1,
+          runs_with_eol_metadata: 1,
         },
       });
       expect(textLayer?.pages[0]?.lines[0]).toMatchObject({
@@ -1182,6 +1193,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 text_layer_lines_with_bounding_boxes?: number;
                 text_layer_words_with_bounding_boxes?: number;
                 text_layer_chars_with_bounding_boxes?: number;
+                text_layer_runs_with_font_metadata?: number;
+                text_layer_runs_with_direction_metadata?: number;
+                text_layer_runs_with_transform_metadata?: number;
+                text_layer_runs_with_eol_metadata?: number;
                 geometry?: { width: number; height: number };
               }>;
               elements: Array<{
@@ -1208,6 +1223,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 text_layer_lines_with_bounding_boxes: number;
                 text_layer_words_with_bounding_boxes: number;
                 text_layer_chars_with_bounding_boxes: number;
+                text_layer_runs_with_font_metadata: number;
+                text_layer_runs_with_direction_metadata: number;
+                text_layer_runs_with_transform_metadata: number;
+                text_layer_runs_with_eol_metadata: number;
                 chunk_count: number;
                 safety_finding_count: number;
               };
@@ -1258,6 +1277,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
           text_layer_lines_with_bounding_boxes: 4,
           text_layer_words_with_bounding_boxes: 6,
           text_layer_chars_with_bounding_boxes: 42,
+          text_layer_runs_with_font_metadata: 0,
+          text_layer_runs_with_direction_metadata: 0,
+          text_layer_runs_with_transform_metadata: 4,
+          text_layer_runs_with_eol_metadata: 0,
           chunk_count: 2,
           safety_finding_count: 1,
         },
@@ -1275,6 +1298,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
         text_layer_lines_with_bounding_boxes: 4,
         text_layer_words_with_bounding_boxes: 6,
         text_layer_chars_with_bounding_boxes: 42,
+        text_layer_runs_with_font_metadata: 0,
+        text_layer_runs_with_direction_metadata: 0,
+        text_layer_runs_with_transform_metadata: 4,
+        text_layer_runs_with_eol_metadata: 0,
         geometry: { width: 612, height: 792 },
       });
       expect(documentMap?.pages[0]?.chunk_ids.length).toBeGreaterThan(0);

@@ -49,6 +49,8 @@ interface TextRowPart {
   chars: PageTextRunCharEvidence[];
 }
 
+type TextDirection = 'ltr' | 'rtl';
+
 interface RawOutlineItem {
   title?: string;
   bold?: boolean;
@@ -367,11 +369,48 @@ const splitTextPartsIntoSegments = (parts: TextRowPart[]): TextRowPart[][] => {
     segments.push(currentSegment);
   }
 
-  return segments;
+  const orderedSegments = segments.map(orderTextPartsByDirection);
+  return dominantTextPartDirection(parts) === 'rtl' ? orderedSegments.reverse() : orderedSegments;
+};
+
+const normalizeTextDirection = (direction: string | undefined): TextDirection | undefined => {
+  const normalized = direction?.toLowerCase();
+  return normalized === 'rtl' || normalized === 'ltr' ? normalized : undefined;
+};
+
+const dominantDirection = (
+  directions: Array<TextDirection | undefined>
+): TextDirection | undefined => {
+  const ltrCount = directions.filter((direction) => direction === 'ltr').length;
+  const rtlCount = directions.filter((direction) => direction === 'rtl').length;
+  if (ltrCount === 0 && rtlCount === 0) return undefined;
+  return rtlCount > ltrCount ? 'rtl' : 'ltr';
+};
+
+const dominantTextPartDirection = (parts: TextRowPart[]): TextDirection | undefined =>
+  dominantDirection(parts.map((part) => normalizeTextDirection(part.direction)));
+
+const dominantContentItemDirection = (item: PageContentItem): TextDirection | undefined =>
+  dominantDirection((item.textRuns ?? []).map((run) => normalizeTextDirection(run.direction)));
+
+const dominantPageContentDirection = (items: PageContentItem[]): TextDirection | undefined =>
+  dominantDirection(
+    items.flatMap((item) => item.textRuns ?? []).map((run) => normalizeTextDirection(run.direction))
+  );
+
+const orderTextPartsByDirection = (parts: TextRowPart[]): TextRowPart[] =>
+  dominantTextPartDirection(parts) === 'rtl' ? [...parts].sort((a, b) => b.x - a.x) : parts;
+
+const compareXForReadingOrder = (a: PageContentItem, b: PageContentItem): number => {
+  const aDirection = dominantContentItemDirection(a);
+  const bDirection = dominantContentItemDirection(b);
+  const aX = a.xPosition ?? 0;
+  const bX = b.xPosition ?? 0;
+  return aDirection === 'rtl' && bDirection === 'rtl' ? bX - aX : aX - bX;
 };
 
 const sortByYThenX = (items: PageContentItem[]): PageContentItem[] =>
-  [...items].sort((a, b) => b.yPosition - a.yPosition || (a.xPosition ?? 0) - (b.xPosition ?? 0));
+  [...items].sort((a, b) => b.yPosition - a.yPosition || compareXForReadingOrder(a, b));
 
 const pageContentBounds = (items: PageContentItem[]): BoundingBox | undefined =>
   mergeBoundingBoxes(items.map((item) => item.bounding_box));
@@ -556,8 +595,15 @@ const sortPageContentItems = (items: PageContentItem[], depth = 0): PageContentI
 
   return [
     ...sortByYThenX(topSpanning),
-    ...sortPageContentItems(leftColumn, depth + 1),
-    ...sortPageContentItems(rightColumn, depth + 1),
+    ...(dominantPageContentDirection(columnItems) === 'rtl'
+      ? [
+          ...sortPageContentItems(rightColumn, depth + 1),
+          ...sortPageContentItems(leftColumn, depth + 1),
+        ]
+      : [
+          ...sortPageContentItems(leftColumn, depth + 1),
+          ...sortPageContentItems(rightColumn, depth + 1),
+        ]),
     ...sortByYThenX(remainingSpanning),
   ];
 };

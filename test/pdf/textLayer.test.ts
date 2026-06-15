@@ -23,6 +23,33 @@ const textItem = (
   },
 });
 
+const textItemWithRunMetadata = (
+  textContent: string,
+  left: number,
+  bottom: number,
+  width: number,
+  height: number
+): PageContentItem => {
+  const item = textItem(textContent, left, bottom, width, height);
+  return {
+    ...item,
+    textRuns: [
+      {
+        index: 0,
+        text: textContent,
+        item_char_start: 0,
+        item_char_end: textContent.length,
+        bounding_box: item.bounding_box,
+        font_name: 'g_d0_f1',
+        direction: 'rtl',
+        transform: [1, 0, 0, height, left, bottom],
+        has_eol: false,
+        chars: [],
+      },
+    ],
+  };
+};
+
 describe('textLayer', () => {
   it('builds run, line, word, and character records with page-level ranges and estimated boxes', () => {
     const layer = buildTextLayer({
@@ -125,5 +152,34 @@ describe('textLayer', () => {
       confidence: 0.6,
     });
     expect(layer.pages[0]?.lines[1]?.char_start).toBe(15);
+  });
+
+  it('summarizes PDF.js text-run metadata coverage', () => {
+    const layer = buildTextLayer({
+      selectedPages: [1],
+      pageContents: [
+        {
+          page: 1,
+          items: [
+            textItemWithRunMetadata('Evidence run', 40, 700, 120, 12),
+            textItem('Fallback run', 40, 680, 120, 12),
+          ],
+        },
+      ],
+    });
+
+    expect(layer.summary).toMatchObject({
+      run_count: 2,
+      runs_with_font_metadata: 1,
+      runs_with_direction_metadata: 1,
+      runs_with_transform_metadata: 1,
+      runs_with_eol_metadata: 1,
+    });
+    expect(layer.pages[0]?.lines[0]?.runs[0]).toMatchObject({
+      font_name: 'g_d0_f1',
+      direction: 'rtl',
+      transform: [1, 0, 0, 12, 40, 700],
+      has_eol: false,
+    });
   });
 });

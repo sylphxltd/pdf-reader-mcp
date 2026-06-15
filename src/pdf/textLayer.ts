@@ -297,6 +297,10 @@ export const buildTextLayer = (input: BuildTextLayerInput): PdfTextLayer => {
       runs_with_bounding_boxes: runs.filter((run) => run.bounding_box).length,
       lines_with_bounding_boxes: lines.filter((line) => line.bounding_box).length,
       words_with_bounding_boxes: words.filter((word) => word.bounding_box).length,
+      runs_with_font_metadata: runs.filter((run) => run.font_name !== undefined).length,
+      runs_with_direction_metadata: runs.filter((run) => run.direction !== undefined).length,
+      runs_with_transform_metadata: runs.filter((run) => run.transform !== undefined).length,
+      runs_with_eol_metadata: runs.filter((run) => run.has_eol !== undefined).length,
     },
     ...(warnings.length > 0 ? { warnings } : {}),
   };

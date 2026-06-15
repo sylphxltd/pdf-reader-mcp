@@ -36,7 +36,7 @@ status if any quality gate fails.
 
 | Scenario | Quality gate |
 |----------|--------------|
-| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; cross-page section context; document-map text-layer coverage; caption-to-evidence links; citation chunks; table ordering; safety findings; Markdown/HTML rendering; text-layer evidence; document map; document AST; accessibility report tag-content coverage; and inspection tool routing |
+| `agent_document_twin_semantic_quality` | Semantic roles for headings, lists, paragraphs, captions, headers, and footers; cross-page section context; document-map text-layer and metadata coverage; caption-to-evidence links; citation chunks; table ordering; safety findings; Markdown/HTML rendering; direction-aware text-layer evidence; document map; document AST; accessibility report tag-content coverage; and inspection tool routing |
 | `document_signal_fixture_quality` | Runtime-generated real PDF fixture through `read_pdf` for outline, page labels, mark info, link and widget annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure tree roles/content references, and accessibility report fusion |
 | `real_reading_order_fixture_quality` | Runtime-generated real multi-column PDF through `read_pdf` for spanning headers, independently ordered columns, short footer placement, text-layer line order, and mixed-layout diagnostics |
 | `recursive_reading_order_quality` | Spanning header, independent column bands, and footer reading sequence |
@@ -182,7 +182,7 @@ Image extraction involves encoding to PNG and base64, which adds overhead:
 ### 7. Use The Document Map For Full Agent Navigation
 
 `include_document_map` builds the richest TypeScript-first response path. It
-links pages, elements, selectable text-layer coverage, chunks, layout
+links pages, elements, selectable text-layer and metadata coverage, chunks, layout
 diagnostics, safety findings, routing signals, and page geometry without
 embedding image bytes in JSON. It does more work than metadata-only extraction,
 but it prevents agents from rebuilding the same references themselves.
@@ -384,9 +384,10 @@ payload.
 ### 19. Use Text Layers For Run, Line, Word, And Character Evidence
 
 `include_text_layer` keeps run, line, word, and character references in
-structured JSON with page-level ranges and estimated bounding boxes. Prefer it
-when an agent needs text evidence anchors but does not need full raw page
-content.
+structured JSON with page-level ranges, estimated bounding boxes,
+direction-aware right-to-left ordering, and run-metadata coverage counts.
+Prefer it when an agent needs text evidence anchors but does not need full raw
+page content.
 
 ```json
 {
