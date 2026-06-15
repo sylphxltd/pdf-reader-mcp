@@ -64,3 +64,7 @@ Make the release artifact script respect `MCP_PDF_BENCHMARK_OUTPUT_DIR` while
 preserving `benchmark-artifacts` as the default output directory.
 Add multi-caption and multi-target visual-layout fixture coverage for
 independent formula, chart, figure, and side-caption routing.
+Expand the installed-provider benchmark to score multiple runtime OCR fixtures
+and 10 visual-region certification fixtures across core and diverse visual
+profiles, with fixture-level expected and observed evidence in the provider
+quality report.

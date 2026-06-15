@@ -37,6 +37,8 @@ interface ProviderBenchmarkResult {
     formula_formats?: number | undefined;
     figure_count?: number | undefined;
     image_description_count?: number | undefined;
+    fixture_count?: number | undefined;
+    region_count?: number | undefined;
     text_chars?: number | undefined;
     word_count?: number | undefined;
     words_with_bounding_boxes?: number | undefined;
@@ -117,6 +119,7 @@ interface ProviderBenchmarkReport {
 
 interface OcrTextLayerBenchmarkView {
   pages?: Array<{
+    page?: number;
     text?: string;
     confidence?: number;
     words?: Array<{ bounding_box?: unknown }>;
@@ -137,7 +140,56 @@ interface DocumentMapBenchmarkView {
 
 const execFileAsync = promisify(execFile);
 const STRICT_PROVIDER_BENCHMARK_ENV = 'MCP_PDF_PROVIDER_BENCHMARK_REQUIRED';
-const EXPECTED_TOKENS = ['HELLO', 'WORLD'];
+interface OcrProviderFixture {
+  id: string;
+  file_name: string;
+  tokens: string[];
+}
+
+interface TesseractTsvEvidence {
+  fixture_id: string;
+  expected_tokens: string[];
+  ocrTextLayer: OcrTextLayerBenchmarkView | undefined;
+  documentMap: DocumentMapBenchmarkView | undefined;
+  page: NonNullable<OcrTextLayerBenchmarkView['pages']>[number] | undefined;
+  normalizedText: string;
+}
+
+type VisualProviderFixture = {
+  id: string;
+  kind: Exclude<PdfRegionAnalysisKind, 'unknown'>;
+  region: PdfRegionRequest;
+  expected: {
+    min_cell_boxes?: number | undefined;
+    min_formula_formats?: number | undefined;
+    chart_components?: number | undefined;
+    terms?: string[] | undefined;
+  };
+};
+
+interface VisualProviderFixtureSet {
+  id: string;
+  file_name: string;
+  content_stream: string;
+  fixtures: VisualProviderFixture[];
+}
+
+const OCR_PROVIDER_FIXTURES: OcrProviderFixture[] = [
+  {
+    id: 'cert-ocr-simple',
+    file_name: 'provider-ocr-simple-fixture.pdf',
+    tokens: ['HELLO', 'WORLD'],
+  },
+  {
+    id: 'cert-ocr-agent',
+    file_name: 'provider-ocr-agent-fixture.pdf',
+    tokens: ['AGENT', 'READY'],
+  },
+];
+const EXPECTED_OCR_TOKEN_COUNT = OCR_PROVIDER_FIXTURES.reduce(
+  (sum, fixture) => sum + fixture.tokens.length,
+  0
+);
 const PROVIDER_CERTIFICATION_PROFILES = {
   'tesseract-tsv': 'ocr-text-layer',
   'region-analysis': 'visual-full-fidelity',
@@ -216,7 +268,7 @@ const FINAL_BAR_PROVIDER_EVIDENCE_REQUIREMENTS: FinalBarProviderEvidenceRequirem
     ],
   },
 ];
-const VISUAL_PROVIDER_FIXTURES = [
+const CORE_VISUAL_PROVIDER_FIXTURES: VisualProviderFixture[] = [
   {
     id: 'cert-table',
     kind: 'table',
@@ -226,6 +278,7 @@ const VISUAL_PROVIDER_FIXTURES = [
       bounding_box: { left: 50, bottom: 545, right: 435, top: 735 },
       padding: 8,
     },
+    expected: { min_cell_boxes: 4 },
   },
   {
     id: 'cert-formula',
@@ -236,6 +289,7 @@ const VISUAL_PROVIDER_FIXTURES = [
       bounding_box: { left: 50, bottom: 430, right: 435, top: 530 },
       padding: 8,
     },
+    expected: { min_formula_formats: 2 },
   },
   {
     id: 'cert-chart',
@@ -246,6 +300,7 @@ const VISUAL_PROVIDER_FIXTURES = [
       bounding_box: { left: 50, bottom: 160, right: 535, top: 415 },
       padding: 8,
     },
+    expected: { chart_components: 3 },
   },
   {
     id: 'cert-figure',
@@ -256,6 +311,7 @@ const VISUAL_PROVIDER_FIXTURES = [
       bounding_box: { left: 50, bottom: 40, right: 300, top: 145 },
       padding: 8,
     },
+    expected: { terms: ['pipeline', 'figure'] },
   },
   {
     id: 'cert-image',
@@ -266,28 +322,220 @@ const VISUAL_PROVIDER_FIXTURES = [
       bounding_box: { left: 330, bottom: 40, right: 585, top: 145 },
       padding: 8,
     },
+    expected: { terms: ['office', 'landscape'] },
   },
-] satisfies Array<{
-  id: string;
-  kind: Exclude<PdfRegionAnalysisKind, 'unknown'>;
-  region: PdfRegionRequest;
-}>;
+] satisfies VisualProviderFixture[];
+
+const DIVERSE_VISUAL_PROVIDER_FIXTURES: VisualProviderFixture[] = [
+  {
+    id: 'cert-table-status',
+    kind: 'table',
+    region: {
+      id: 'cert-table-status',
+      page: 1,
+      bounding_box: { left: 50, bottom: 560, right: 520, top: 735 },
+      padding: 8,
+    },
+    expected: { min_cell_boxes: 6 },
+  },
+  {
+    id: 'cert-formula-pythagorean',
+    kind: 'formula',
+    region: {
+      id: 'cert-formula-pythagorean',
+      page: 1,
+      bounding_box: { left: 50, bottom: 440, right: 435, top: 535 },
+      padding: 8,
+    },
+    expected: { min_formula_formats: 2 },
+  },
+  {
+    id: 'cert-chart-latency',
+    kind: 'chart',
+    region: {
+      id: 'cert-chart-latency',
+      page: 1,
+      bounding_box: { left: 50, bottom: 170, right: 560, top: 420 },
+      padding: 8,
+    },
+    expected: { chart_components: 3 },
+  },
+  {
+    id: 'cert-figure-decision',
+    kind: 'figure',
+    region: {
+      id: 'cert-figure-decision',
+      page: 1,
+      bounding_box: { left: 50, bottom: 45, right: 300, top: 150 },
+      padding: 8,
+    },
+    expected: { terms: ['decision', 'flow'] },
+  },
+  {
+    id: 'cert-image-dashboard',
+    kind: 'image',
+    region: {
+      id: 'cert-image-dashboard',
+      page: 1,
+      bounding_box: { left: 330, bottom: 45, right: 585, top: 150 },
+      padding: 8,
+    },
+    expected: { terms: ['dashboard', 'heatmap'] },
+  },
+] satisfies VisualProviderFixture[];
+
+const VISUAL_PROVIDER_FIXTURE_SETS: VisualProviderFixtureSet[] = [
+  {
+    id: 'core-visual-evidence',
+    file_name: 'provider-visual-core-fixture.pdf',
+    fixtures: CORE_VISUAL_PROVIDER_FIXTURES,
+    content_stream: [
+      'q',
+      '0 0 0 RG',
+      '1 w',
+      '60 720 m 420 720 l 420 560 l 60 560 l h S',
+      '60 680 m 420 680 l S',
+      '60 640 m 420 640 l S',
+      '60 600 m 420 600 l S',
+      '240 720 m 240 560 l S',
+      'BT',
+      '/F1 16 Tf',
+      '72 694 Td (Metric) Tj',
+      '180 0 Td (Value) Tj',
+      '-180 -40 Td (Revenue) Tj',
+      '180 0 Td ($1.2M) Tj',
+      '-180 -40 Td (Users) Tj',
+      '180 0 Td (4200) Tj',
+      'ET',
+      'BT',
+      '/F1 24 Tf',
+      '72 480 Td (E = mc^2) Tj',
+      'ET',
+      '0 0 0 RG',
+      '1.5 w',
+      '72 205 m 72 380 l 500 205 l S',
+      '0.24 0.47 0.86 rg',
+      '100 205 54 72 re f',
+      '190 205 54 108 re f',
+      '280 205 54 144 re f',
+      'BT',
+      '/F1 12 Tf',
+      '105 185 Td (Q1) Tj',
+      '90 0 Td (Q2) Tj',
+      '90 0 Td (Q3) Tj',
+      '-260 205 Td (Revenue by Quarter) Tj',
+      'ET',
+      '0 0 0 RG',
+      '1 w',
+      '80 70 m 140 115 l 220 70 l S',
+      '80 70 m 220 70 l S',
+      'BT',
+      '/F1 12 Tf',
+      '72 118 Td (Pipeline figure) Tj',
+      'ET',
+      '0.85 0.90 0.96 rg',
+      '345 58 210 72 re f',
+      '0 0 0 RG',
+      '1 w',
+      '345 58 210 72 re S',
+      '360 72 m 410 108 l 458 76 l 510 120 l S',
+      'BT',
+      '/F1 12 Tf',
+      '360 118 Td (Office image) Tj',
+      'ET',
+      'Q',
+    ].join('\n'),
+  },
+  {
+    id: 'diverse-visual-evidence',
+    file_name: 'provider-visual-diverse-fixture.pdf',
+    fixtures: DIVERSE_VISUAL_PROVIDER_FIXTURES,
+    content_stream: [
+      'q',
+      '0 0 0 RG',
+      '1 w',
+      '60 720 m 500 720 l 500 575 l 60 575 l h S',
+      '60 685 m 500 685 l S',
+      '60 650 m 500 650 l S',
+      '60 615 m 500 615 l S',
+      '205 720 m 205 575 l S',
+      '355 720 m 355 575 l S',
+      'BT',
+      '/F1 15 Tf',
+      '72 697 Td (Task) Tj',
+      '145 0 Td (Owner) Tj',
+      '150 0 Td (Status) Tj',
+      '-295 -35 Td (Extract) Tj',
+      '145 0 Td (Agent) Tj',
+      '150 0 Td (Ready) Tj',
+      '-295 -35 Td (Cite) Tj',
+      '145 0 Td (Reviewer) Tj',
+      '150 0 Td (Passed) Tj',
+      'ET',
+      'BT',
+      '/F1 24 Tf',
+      '72 490 Td (a^2 + b^2 = c^2) Tj',
+      'ET',
+      '0 0 0 RG',
+      '1.5 w',
+      '72 210 m 72 385 l 520 210 l S',
+      '0.10 0.62 0.45 rg',
+      '105 210 58 130 re f',
+      '210 210 58 88 re f',
+      '315 210 58 52 re f',
+      'BT',
+      '/F1 12 Tf',
+      '100 190 Td (Parse) Tj',
+      '102 0 Td (Index) Tj',
+      '104 0 Td (Answer) Tj',
+      '-270 205 Td (Latency by Stage) Tj',
+      'ET',
+      '0 0 0 RG',
+      '1 w',
+      '75 92 32 18 re S',
+      '150 92 32 18 re S',
+      '225 92 32 18 re S',
+      '107 101 m 150 101 l S',
+      '182 101 m 225 101 l S',
+      'BT',
+      '/F1 12 Tf',
+      '72 124 Td (Decision flow) Tj',
+      'ET',
+      '0.94 0.90 0.70 rg',
+      '345 60 210 76 re f',
+      '0 0 0 RG',
+      '1 w',
+      '345 60 210 76 re S',
+      '362 78 30 30 re S',
+      '405 78 30 30 re S',
+      '448 78 30 30 re S',
+      '491 78 30 30 re S',
+      'BT',
+      '/F1 12 Tf',
+      '360 124 Td (Dashboard heatmap) Tj',
+      'ET',
+      'Q',
+    ].join('\n'),
+  },
+];
+const VISUAL_PROVIDER_FIXTURES = VISUAL_PROVIDER_FIXTURE_SETS.flatMap((set) => set.fixtures);
 const TESSERACT_TSV_QUALITY_METRICS = [
   {
     id: 'ocr_token_recall',
     capability: TESSERACT_TSV_CAPABILITIES[0],
-    expected: { tokens: EXPECTED_TOKENS },
+    expected: { fixtures: OCR_PROVIDER_FIXTURES.map(({ id, tokens }) => ({ id, tokens })) },
   },
   {
     id: 'ocr_word_box_coverage',
     capability: TESSERACT_TSV_CAPABILITIES[1],
-    expected: { min_word_boxes: EXPECTED_TOKENS.length },
+    expected: { min_word_boxes: EXPECTED_OCR_TOKEN_COUNT },
   },
   {
     id: 'ocr_document_map_fusion',
     capability: TESSERACT_TSV_CAPABILITIES[2],
     expected: {
       layer: 'ocr_text_layer',
+      fixture_count: OCR_PROVIDER_FIXTURES.length,
       ocr_applied_page: 1,
       source_render_evidence_id: 'page-1-render-scale-2',
     },
@@ -307,27 +555,54 @@ const VISUAL_REGION_QUALITY_METRICS = [
   {
     id: 'visual_table_cell_box_coverage',
     capability: VISUAL_REGION_CAPABILITIES[2],
-    expected: { region_id: 'cert-table', min_cell_boxes: 4 },
+    expected: {
+      fixture_ids: VISUAL_PROVIDER_FIXTURES.filter((fixture) => fixture.kind === 'table').map(
+        (fixture) => fixture.id
+      ),
+      min_cell_boxes_per_fixture: true,
+    },
   },
   {
     id: 'visual_formula_format_coverage',
     capability: VISUAL_REGION_CAPABILITIES[3],
-    expected: { region_id: 'cert-formula', min_formula_formats: 2 },
+    expected: {
+      fixture_ids: VISUAL_PROVIDER_FIXTURES.filter((fixture) => fixture.kind === 'formula').map(
+        (fixture) => fixture.id
+      ),
+      min_formula_formats_per_fixture: true,
+    },
   },
   {
     id: 'visual_chart_data_coverage',
     capability: VISUAL_REGION_CAPABILITIES[4],
-    expected: { region_id: 'cert-chart', x_axis: true, y_axis: true, series_or_points: true },
+    expected: {
+      fixture_ids: VISUAL_PROVIDER_FIXTURES.filter((fixture) => fixture.kind === 'chart').map(
+        (fixture) => fixture.id
+      ),
+      x_axis: true,
+      y_axis: true,
+      series_or_points: true,
+    },
   },
   {
     id: 'visual_figure_text_coverage',
     capability: VISUAL_REGION_CAPABILITIES[5],
-    expected: { region_id: 'cert-figure', terms: ['pipeline', 'Pipeline figure'] },
+    expected: {
+      fixture_ids: VISUAL_PROVIDER_FIXTURES.filter((fixture) => fixture.kind === 'figure').map(
+        (fixture) => fixture.id
+      ),
+      terms_per_fixture: true,
+    },
   },
   {
     id: 'visual_image_description_coverage',
     capability: VISUAL_REGION_CAPABILITIES[6],
-    expected: { region_id: 'cert-image', terms: ['office image', 'Office image'] },
+    expected: {
+      fixture_ids: VISUAL_PROVIDER_FIXTURES.filter((fixture) => fixture.kind === 'image').map(
+        (fixture) => fixture.id
+      ),
+      terms_per_fixture: true,
+    },
   },
 ] as const;
 
@@ -335,8 +610,6 @@ const round = (value: number): number => Math.round(value * 100) / 100;
 
 const ratioScore = (numerator: number, denominator: number): number =>
   denominator > 0 ? round(Math.min(1, Math.max(0, numerator / denominator))) : 0;
-
-const booleanScore = (value: boolean): number => (value ? 1 : 0);
 
 const buildQualityMetric = ({
   id,
@@ -422,8 +695,11 @@ const serializePdf = (objects: string[]): string => {
 const escapePdfText = (text: string): string =>
   text.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
 
-const writeProviderFixture = async (directory: string): Promise<string> => {
-  const contentStream = `BT\n/F1 48 Tf\n60 130 Td\n(${escapePdfText(EXPECTED_TOKENS.join(' '))}) Tj\nET\n`;
+const writeProviderFixture = async (
+  directory: string,
+  fixture: OcrProviderFixture
+): Promise<string> => {
+  const contentStream = `BT\n/F1 48 Tf\n60 130 Td\n(${escapePdfText(fixture.tokens.join(' '))}) Tj\nET\n`;
   const pdf = serializePdf([
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -438,69 +714,16 @@ const writeProviderFixture = async (directory: string): Promise<string> => {
     `<< /Length ${String(byteLength(contentStream))} >>\nstream\n${contentStream}endstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]);
-  const fixturePath = path.join(directory, 'provider-ocr-fixture.pdf');
+  const fixturePath = path.join(directory, fixture.file_name);
   await fs.writeFile(fixturePath, pdf);
 
   return fixturePath;
 };
 
-const writeVisualProviderFixture = async (directory: string): Promise<string> => {
-  const contentStream = [
-    'q',
-    '0 0 0 RG',
-    '1 w',
-    '60 720 m 420 720 l 420 560 l 60 560 l h S',
-    '60 680 m 420 680 l S',
-    '60 640 m 420 640 l S',
-    '60 600 m 420 600 l S',
-    '240 720 m 240 560 l S',
-    'BT',
-    '/F1 16 Tf',
-    '72 694 Td (Metric) Tj',
-    '180 0 Td (Value) Tj',
-    '-180 -40 Td (Revenue) Tj',
-    '180 0 Td ($1.2M) Tj',
-    '-180 -40 Td (Users) Tj',
-    '180 0 Td (4200) Tj',
-    'ET',
-    'BT',
-    '/F1 24 Tf',
-    '72 480 Td (E = mc^2) Tj',
-    'ET',
-    '0 0 0 RG',
-    '1.5 w',
-    '72 205 m 72 380 l 500 205 l S',
-    '0.24 0.47 0.86 rg',
-    '100 205 54 72 re f',
-    '190 205 54 108 re f',
-    '280 205 54 144 re f',
-    'BT',
-    '/F1 12 Tf',
-    '105 185 Td (Q1) Tj',
-    '90 0 Td (Q2) Tj',
-    '90 0 Td (Q3) Tj',
-    '-260 205 Td (Revenue by Quarter) Tj',
-    'ET',
-    '0 0 0 RG',
-    '1 w',
-    '80 70 m 140 115 l 220 70 l S',
-    '80 70 m 220 70 l S',
-    'BT',
-    '/F1 12 Tf',
-    '72 118 Td (Pipeline figure) Tj',
-    'ET',
-    '0.85 0.90 0.96 rg',
-    '345 58 210 72 re f',
-    '0 0 0 RG',
-    '1 w',
-    '345 58 210 72 re S',
-    '360 72 m 410 108 l 458 76 l 510 120 l S',
-    'BT',
-    '/F1 12 Tf',
-    '360 118 Td (Office image) Tj',
-    'ET',
-    'Q',
-  ].join('\n');
+const writeVisualProviderFixture = async (
+  directory: string,
+  fixtureSet: VisualProviderFixtureSet
+): Promise<string> => {
   const pdf = serializePdf([
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -512,10 +735,10 @@ const writeVisualProviderFixture = async (directory: string): Promise<string> =>
       '/Contents 4 0 R',
       '>>',
     ].join(' '),
-    `<< /Length ${String(byteLength(contentStream))} >>\nstream\n${contentStream}\nendstream`,
+    `<< /Length ${String(byteLength(fixtureSet.content_stream))} >>\nstream\n${fixtureSet.content_stream}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]);
-  const fixturePath = path.join(directory, 'provider-visual-fixture.pdf');
+  const fixturePath = path.join(directory, fixtureSet.file_name);
   await fs.writeFile(fixturePath, pdf);
 
   return fixturePath;
@@ -638,18 +861,16 @@ const hasTesseract = async (): Promise<boolean> => {
 const normalizeText = (value: string): string => value.toUpperCase().replace(/[^A-Z0-9]+/gu, ' ');
 
 const extractTesseractTsvEvidence = (
-  data: Record<string, unknown>
-): {
-  ocrTextLayer: OcrTextLayerBenchmarkView | undefined;
-  documentMap: DocumentMapBenchmarkView | undefined;
-  page: NonNullable<OcrTextLayerBenchmarkView['pages']>[number] | undefined;
-  normalizedText: string;
-} => {
+  data: Record<string, unknown>,
+  fixture: OcrProviderFixture
+): TesseractTsvEvidence => {
   const ocrTextLayer = data.ocr_text_layer as OcrTextLayerBenchmarkView | undefined;
   const documentMap = data.document_map as DocumentMapBenchmarkView | undefined;
   const page = ocrTextLayer?.pages?.[0];
 
   return {
+    fixture_id: fixture.id,
+    expected_tokens: fixture.tokens,
     ocrTextLayer,
     documentMap,
     page,
@@ -657,74 +878,109 @@ const extractTesseractTsvEvidence = (
   };
 };
 
-export const buildTesseractTsvQuality = ({
-  ocrTextLayer,
-  documentMap,
-  page,
-  normalizedText,
-}: ReturnType<typeof extractTesseractTsvEvidence>): ProviderBenchmarkQuality => {
-  const matchedTokens = EXPECTED_TOKENS.filter((token) => normalizedText.includes(token));
-  const wordsWithBoundingBoxes =
-    page?.words?.filter((word) => word.bounding_box !== undefined).length ??
-    ocrTextLayer?.summary?.words_with_bounding_boxes ??
-    0;
-  const documentMapFused =
-    documentMap?.layers?.includes('ocr_text_layer') === true &&
-    documentMap.routing?.ocr_applied_pages?.includes(1) === true &&
-    page?.source_render_evidence_id === 'page-1-render-scale-2';
+export const buildTesseractTsvQuality = (
+  input: TesseractTsvEvidence | TesseractTsvEvidence[]
+): ProviderBenchmarkQuality => {
+  const evidence = Array.isArray(input) ? input : [input];
+  const matchedTokensByFixture = evidence.map((item) => ({
+    fixture_id: item.fixture_id,
+    matched_tokens: item.expected_tokens.filter((token) => item.normalizedText.includes(token)),
+    expected_tokens: item.expected_tokens,
+    normalized_text: item.normalizedText,
+  }));
+  const matchedTokenCount = matchedTokensByFixture.reduce(
+    (sum, fixture) => sum + fixture.matched_tokens.length,
+    0
+  );
+  const expectedTokenCount = evidence.reduce((sum, item) => sum + item.expected_tokens.length, 0);
+  const wordsWithBoundingBoxes = evidence.reduce(
+    (sum, item) =>
+      sum +
+      (item.page?.words?.filter((word) => word.bounding_box !== undefined).length ??
+        item.ocrTextLayer?.summary?.words_with_bounding_boxes ??
+        0),
+    0
+  );
+  const documentMapFusedFixtureIds = evidence
+    .filter(
+      (item) =>
+        item.documentMap?.layers?.includes('ocr_text_layer') === true &&
+        item.documentMap.routing?.ocr_applied_pages?.includes(1) === true &&
+        item.page?.source_render_evidence_id === 'page-1-render-scale-2'
+    )
+    .map((item) => item.fixture_id);
 
-  return buildQualitySummary('ocr-text-layer', 1, [
+  return buildQualitySummary('ocr-text-layer', evidence.length, [
     buildQualityMetric({
       id: TESSERACT_TSV_QUALITY_METRICS[0].id,
       capability: TESSERACT_TSV_QUALITY_METRICS[0].capability,
-      score: ratioScore(matchedTokens.length, EXPECTED_TOKENS.length),
+      score: ratioScore(matchedTokenCount, expectedTokenCount),
       expected: TESSERACT_TSV_QUALITY_METRICS[0].expected,
-      observed: { matched_tokens: matchedTokens, normalized_text: normalizedText },
+      observed: {
+        matched_token_count: matchedTokenCount,
+        expected_token_count: expectedTokenCount,
+        fixtures: matchedTokensByFixture,
+      },
     }),
     buildQualityMetric({
       id: TESSERACT_TSV_QUALITY_METRICS[1].id,
       capability: TESSERACT_TSV_QUALITY_METRICS[1].capability,
-      score: ratioScore(wordsWithBoundingBoxes, EXPECTED_TOKENS.length),
+      score: ratioScore(wordsWithBoundingBoxes, expectedTokenCount),
       expected: TESSERACT_TSV_QUALITY_METRICS[1].expected,
       observed: {
         words_with_bounding_boxes: wordsWithBoundingBoxes,
-        summary_words_with_bounding_boxes: ocrTextLayer?.summary?.words_with_bounding_boxes,
+        expected_token_count: expectedTokenCount,
+        summary_words_with_bounding_boxes: evidence.map((item) => ({
+          fixture_id: item.fixture_id,
+          words_with_bounding_boxes: item.ocrTextLayer?.summary?.words_with_bounding_boxes,
+        })),
       },
     }),
     buildQualityMetric({
       id: TESSERACT_TSV_QUALITY_METRICS[2].id,
       capability: TESSERACT_TSV_QUALITY_METRICS[2].capability,
-      score: booleanScore(documentMapFused),
+      score: ratioScore(documentMapFusedFixtureIds.length, evidence.length),
       expected: TESSERACT_TSV_QUALITY_METRICS[2].expected,
       observed: {
-        layers: documentMap?.layers ?? [],
-        ocr_applied_pages: documentMap?.routing?.ocr_applied_pages ?? [],
-        source_render_evidence_id: page?.source_render_evidence_id,
+        fused_fixture_ids: documentMapFusedFixtureIds,
+        fixtures: evidence.map((item) => ({
+          fixture_id: item.fixture_id,
+          layers: item.documentMap?.layers ?? [],
+          ocr_applied_pages: item.documentMap?.routing?.ocr_applied_pages ?? [],
+          source_render_evidence_id: item.page?.source_render_evidence_id,
+        })),
       },
     }),
   ]);
 };
 
-const evaluateTesseractTsvEvidence = ({
-  ocrTextLayer,
-  documentMap,
-  page,
-  normalizedText,
-}: ReturnType<typeof extractTesseractTsvEvidence>): Array<{ name: string; pass: boolean }> =>
-  buildTesseractTsvQuality({ ocrTextLayer, documentMap, page, normalizedText }).metrics.map(
-    (metric) => ({
-      name: metric.capability,
-      pass: metric.status === 'passed',
-    })
-  );
+const evaluateTesseractTsvEvidence = (
+  evidence: TesseractTsvEvidence[]
+): Array<{ name: string; pass: boolean }> =>
+  buildTesseractTsvQuality(evidence).metrics.map((metric) => ({
+    name: metric.capability,
+    pass: metric.status === 'passed',
+  }));
 
 const buildProviderMetrics = (
-  ocrTextLayer: OcrTextLayerBenchmarkView | undefined
+  evidence: TesseractTsvEvidence[]
 ): ProviderBenchmarkResult['metrics'] => ({
-  text_chars: ocrTextLayer?.summary?.text_chars,
-  word_count: ocrTextLayer?.summary?.word_count,
-  words_with_bounding_boxes: ocrTextLayer?.summary?.words_with_bounding_boxes,
-  average_confidence: ocrTextLayer?.summary?.average_confidence,
+  fixture_count: evidence.length,
+  text_chars: evidence.reduce((sum, item) => sum + (item.ocrTextLayer?.summary?.text_chars ?? 0), 0),
+  word_count: evidence.reduce((sum, item) => sum + (item.ocrTextLayer?.summary?.word_count ?? 0), 0),
+  words_with_bounding_boxes: evidence.reduce(
+    (sum, item) => sum + (item.ocrTextLayer?.summary?.words_with_bounding_boxes ?? 0),
+    0
+  ),
+  average_confidence:
+    evidence.length > 0
+      ? round(
+          evidence.reduce(
+            (sum, item) => sum + (item.ocrTextLayer?.summary?.average_confidence ?? 0),
+            0
+          ) / evidence.length
+        )
+      : undefined,
 });
 
 const countFormulaFormats = (result: PdfRegionAnalysisData): number =>
@@ -743,6 +999,7 @@ const includesAllTerms = (value: string | undefined, terms: string[]): string[] 
 export const buildRegionAnalysisQuality = (
   results: PdfRegionAnalysisData[]
 ): ProviderBenchmarkQuality => {
+  const resultByRegionId = new Map(results.map((result) => [result.region_id, result]));
   const matchedFixtureIds = VISUAL_PROVIDER_FIXTURES.filter((fixture) =>
     results.some((result) => result.region_id === fixture.id)
   ).map((fixture) => fixture.id);
@@ -753,28 +1010,93 @@ export const buildRegionAnalysisQuality = (
       result.provenance.source === 'region-analysis-provider' &&
       result.source_bounding_box.left > 0
   );
-  const tableResult = results.find((result) => result.region_id === 'cert-table');
-  const tableCellBoxCount =
-    tableResult?.table?.cells?.filter((cell) => cell.bounding_box !== undefined).length ?? 0;
-  const formulaResult = results.find((result) => result.region_id === 'cert-formula');
-  const formulaFormatCount = formulaResult ? countFormulaFormats(formulaResult) : 0;
-  const chartResult = results.find((result) => result.region_id === 'cert-chart');
-  const chartComponents = [
-    chartResult?.chart?.x_axis !== undefined,
-    chartResult?.chart?.y_axis !== undefined,
-    (chartResult?.chart?.series?.length ?? 0) > 0 ||
-      (chartResult?.chart?.data_points?.length ?? 0) >= 3,
-  ].filter(Boolean).length;
-  const figureResult = results.find((result) => result.region_id === 'cert-figure');
-  const figureMatchedTerms = includesAllTerms(
-    `${figureResult?.description ?? ''} ${figureResult?.text ?? ''}`,
-    ['pipeline', 'Pipeline figure']
-  );
-  const imageResult = results.find((result) => result.region_id === 'cert-image');
-  const imageMatchedTerms = includesAllTerms(
-    `${imageResult?.description ?? ''} ${imageResult?.text ?? ''}`,
-    ['office image', 'Office image']
-  );
+  const tableFixtureObservations = VISUAL_PROVIDER_FIXTURES.filter(
+    (fixture) => fixture.kind === 'table'
+  ).map((fixture) => {
+    const result = resultByRegionId.get(fixture.id);
+    const cellBoxes =
+      result?.table?.cells?.filter((cell) => cell.bounding_box !== undefined).length ?? 0;
+    const minCellBoxes = fixture.expected.min_cell_boxes ?? 1;
+    return {
+      fixture_id: fixture.id,
+      kind: result?.kind,
+      row_count: result?.table?.row_count,
+      column_count: result?.table?.column_count,
+      cell_boxes: cellBoxes,
+      min_cell_boxes: minCellBoxes,
+      passed: cellBoxes >= minCellBoxes,
+    };
+  });
+  const formulaFixtureObservations = VISUAL_PROVIDER_FIXTURES.filter(
+    (fixture) => fixture.kind === 'formula'
+  ).map((fixture) => {
+    const result = resultByRegionId.get(fixture.id);
+    const formulaFormats = result ? countFormulaFormats(result) : 0;
+    const minFormulaFormats = fixture.expected.min_formula_formats ?? 1;
+    return {
+      fixture_id: fixture.id,
+      kind: result?.kind,
+      formula_formats: formulaFormats,
+      min_formula_formats: minFormulaFormats,
+      passed: formulaFormats >= minFormulaFormats,
+    };
+  });
+  const chartFixtureObservations = VISUAL_PROVIDER_FIXTURES.filter(
+    (fixture) => fixture.kind === 'chart'
+  ).map((fixture) => {
+    const result = resultByRegionId.get(fixture.id);
+    const components = [
+      result?.chart?.x_axis !== undefined,
+      result?.chart?.y_axis !== undefined,
+      (result?.chart?.series?.length ?? 0) > 0 || (result?.chart?.data_points?.length ?? 0) >= 3,
+    ].filter(Boolean).length;
+    const requiredComponents = fixture.expected.chart_components ?? 3;
+    return {
+      fixture_id: fixture.id,
+      kind: result?.kind,
+      components,
+      required_components: requiredComponents,
+      x_axis: result?.chart?.x_axis !== undefined,
+      y_axis: result?.chart?.y_axis !== undefined,
+      series_count: result?.chart?.series?.length ?? 0,
+      data_point_count: result?.chart?.data_points?.length ?? 0,
+      passed: components >= requiredComponents,
+    };
+  });
+  const figureFixtureObservations = VISUAL_PROVIDER_FIXTURES.filter(
+    (fixture) => fixture.kind === 'figure'
+  ).map((fixture) => {
+    const result = resultByRegionId.get(fixture.id);
+    const terms = fixture.expected.terms ?? [];
+    const matchedTerms = includesAllTerms(
+      `${result?.description ?? ''} ${result?.text ?? ''}`,
+      terms
+    );
+    return {
+      fixture_id: fixture.id,
+      kind: result?.kind,
+      terms,
+      matched_terms: matchedTerms,
+      passed: matchedTerms.length >= terms.length,
+    };
+  });
+  const imageFixtureObservations = VISUAL_PROVIDER_FIXTURES.filter(
+    (fixture) => fixture.kind === 'image'
+  ).map((fixture) => {
+    const result = resultByRegionId.get(fixture.id);
+    const terms = fixture.expected.terms ?? [];
+    const matchedTerms = includesAllTerms(
+      `${result?.description ?? ''} ${result?.text ?? ''}`,
+      terms
+    );
+    return {
+      fixture_id: fixture.id,
+      kind: result?.kind,
+      terms,
+      matched_terms: matchedTerms,
+      passed: matchedTerms.length >= terms.length,
+    };
+  });
 
   return buildQualitySummary('visual-full-fidelity', VISUAL_PROVIDER_FIXTURES.length, [
     buildQualityMetric({
@@ -797,48 +1119,52 @@ export const buildRegionAnalysisQuality = (
     buildQualityMetric({
       id: VISUAL_REGION_QUALITY_METRICS[2].id,
       capability: VISUAL_REGION_QUALITY_METRICS[2].capability,
-      score: ratioScore(tableCellBoxCount, 4),
+      score: ratioScore(
+        tableFixtureObservations.filter((observation) => observation.passed).length,
+        tableFixtureObservations.length
+      ),
       expected: VISUAL_REGION_QUALITY_METRICS[2].expected,
-      observed: {
-        kind: tableResult?.kind,
-        row_count: tableResult?.table?.row_count,
-        column_count: tableResult?.table?.column_count,
-        cell_boxes: tableCellBoxCount,
-      },
+      observed: { fixtures: tableFixtureObservations },
     }),
     buildQualityMetric({
       id: VISUAL_REGION_QUALITY_METRICS[3].id,
       capability: VISUAL_REGION_QUALITY_METRICS[3].capability,
-      score: ratioScore(formulaFormatCount, 2),
+      score: ratioScore(
+        formulaFixtureObservations.filter((observation) => observation.passed).length,
+        formulaFixtureObservations.length
+      ),
       expected: VISUAL_REGION_QUALITY_METRICS[3].expected,
-      observed: { kind: formulaResult?.kind, formula_formats: formulaFormatCount },
+      observed: { fixtures: formulaFixtureObservations },
     }),
     buildQualityMetric({
       id: VISUAL_REGION_QUALITY_METRICS[4].id,
       capability: VISUAL_REGION_QUALITY_METRICS[4].capability,
-      score: ratioScore(chartComponents, 3),
+      score: ratioScore(
+        chartFixtureObservations.filter((observation) => observation.passed).length,
+        chartFixtureObservations.length
+      ),
       expected: VISUAL_REGION_QUALITY_METRICS[4].expected,
-      observed: {
-        kind: chartResult?.kind,
-        x_axis: chartResult?.chart?.x_axis !== undefined,
-        y_axis: chartResult?.chart?.y_axis !== undefined,
-        series_count: chartResult?.chart?.series?.length ?? 0,
-        data_point_count: chartResult?.chart?.data_points?.length ?? 0,
-      },
+      observed: { fixtures: chartFixtureObservations },
     }),
     buildQualityMetric({
       id: VISUAL_REGION_QUALITY_METRICS[5].id,
       capability: VISUAL_REGION_QUALITY_METRICS[5].capability,
-      score: ratioScore(figureMatchedTerms.length, 2),
+      score: ratioScore(
+        figureFixtureObservations.filter((observation) => observation.passed).length,
+        figureFixtureObservations.length
+      ),
       expected: VISUAL_REGION_QUALITY_METRICS[5].expected,
-      observed: { kind: figureResult?.kind, matched_terms: figureMatchedTerms },
+      observed: { fixtures: figureFixtureObservations },
     }),
     buildQualityMetric({
       id: VISUAL_REGION_QUALITY_METRICS[6].id,
       capability: VISUAL_REGION_QUALITY_METRICS[6].capability,
-      score: ratioScore(imageMatchedTerms.length, 2),
+      score: ratioScore(
+        imageFixtureObservations.filter((observation) => observation.passed).length,
+        imageFixtureObservations.length
+      ),
       expected: VISUAL_REGION_QUALITY_METRICS[6].expected,
-      observed: { kind: imageResult?.kind, matched_terms: imageMatchedTerms },
+      observed: { fixtures: imageFixtureObservations },
     }),
   ]);
 };
@@ -855,6 +1181,8 @@ const buildRegionAnalysisMetrics = (
   results: PdfRegionAnalysisData[]
 ): ProviderBenchmarkResult['metrics'] => ({
   adapter: results[0]?.provider,
+  fixture_count: VISUAL_PROVIDER_FIXTURES.length,
+  region_count: results.length,
   kind: results.map((result) => result.kind).join(','),
   confidence:
     results.length > 0
@@ -1008,35 +1336,44 @@ const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
       },
       certification: buildSkippedCertificationSummary(
         'ocr-text-layer',
-        1,
+        OCR_PROVIDER_FIXTURES.length,
         TESSERACT_TSV_CAPABILITIES
       ),
-      quality: buildSkippedQualitySummary('ocr-text-layer', 1, TESSERACT_TSV_QUALITY_METRICS),
+      quality: buildSkippedQualitySummary(
+        'ocr-text-layer',
+        OCR_PROVIDER_FIXTURES.length,
+        TESSERACT_TSV_QUALITY_METRICS
+      ),
     };
   }
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-provider-'));
 
   try {
-    const fixturePath = await writeProviderFixture(tempDir);
-    const payload = await withEnv(
+    const evidence = await withEnv(
       {
         MCP_PDF_OCR_COMMAND: undefined,
         MCP_PDF_OCR_ARGS_JSON: undefined,
         MCP_PDF_OCR_PRESET: 'tesseract-tsv',
       },
-      () =>
-        parseReadPdfResult({
-          sources: [{ path: fixturePath, pages: [1] }],
-          include_full_text: false,
-          include_ocr_text_layer: true,
-          include_document_map: true,
-          include_layout_diagnostics: true,
-          include_page_geometry: true,
-        })
+      async () => {
+        const fixtureEvidence: TesseractTsvEvidence[] = [];
+        for (const fixture of OCR_PROVIDER_FIXTURES) {
+          const fixturePath = await writeProviderFixture(tempDir, fixture);
+          const payload = await parseReadPdfResult({
+            sources: [{ path: fixturePath, pages: [1] }],
+            include_full_text: false,
+            include_ocr_text_layer: true,
+            include_document_map: true,
+            include_layout_diagnostics: true,
+            include_page_geometry: true,
+          });
+          const data = firstResultData(payload);
+          fixtureEvidence.push(extractTesseractTsvEvidence(data, fixture));
+        }
+        return fixtureEvidence;
+      }
     );
-    const data = firstResultData(payload);
-    const evidence = extractTesseractTsvEvidence(data);
     const assertions = evaluateTesseractTsvEvidence(evidence);
     const quality = buildTesseractTsvQuality(evidence);
 
@@ -1048,8 +1385,12 @@ const runTesseractTsvBenchmark = async (): Promise<ProviderBenchmarkResult> => {
       provider_status: {
         ocr_pages: providerStatus,
       },
-      metrics: buildProviderMetrics(evidence.ocrTextLayer),
-      certification: buildCertificationSummary('ocr-text-layer', 1, assertions),
+      metrics: buildProviderMetrics(evidence),
+      certification: buildCertificationSummary(
+        'ocr-text-layer',
+        OCR_PROVIDER_FIXTURES.length,
+        assertions
+      ),
       quality,
     };
   } catch (error: unknown) {
@@ -1106,20 +1447,24 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-visual-provider-'));
 
   try {
-    const fixturePath = await writeVisualProviderFixture(tempDir);
-    const analyzed = await analyzePdfRegionsFromSource(
-      {
-        path: fixturePath,
-        regions: VISUAL_PROVIDER_FIXTURES.map((fixture) => fixture.region),
-      },
-      {
-        ...defaultAnalyzeRegionsOptions(),
-        max_regions: VISUAL_PROVIDER_FIXTURES.length,
-        languages: ['eng'],
-      }
-    );
-    const assertions = evaluateRegionAnalysisEvidence(analyzed.analyses);
-    const quality = buildRegionAnalysisQuality(analyzed.analyses);
+    const analyses: PdfRegionAnalysisData[] = [];
+    for (const fixtureSet of VISUAL_PROVIDER_FIXTURE_SETS) {
+      const fixturePath = await writeVisualProviderFixture(tempDir, fixtureSet);
+      const analyzed = await analyzePdfRegionsFromSource(
+        {
+          path: fixturePath,
+          regions: fixtureSet.fixtures.map((fixture) => fixture.region),
+        },
+        {
+          ...defaultAnalyzeRegionsOptions(),
+          max_regions: fixtureSet.fixtures.length,
+          languages: ['eng'],
+        }
+      );
+      analyses.push(...analyzed.analyses);
+    }
+    const assertions = evaluateRegionAnalysisEvidence(analyses);
+    const quality = buildRegionAnalysisQuality(analyses);
     return {
       provider: 'region-analysis',
       status: assertions.every((assertion) => assertion.pass) ? 'passed' : 'failed',
@@ -1128,7 +1473,7 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
       provider_status: {
         analyze_regions: status,
       },
-      metrics: buildRegionAnalysisMetrics(analyzed.analyses),
+      metrics: buildRegionAnalysisMetrics(analyses),
       certification: buildCertificationSummary(
         'visual-full-fidelity',
         VISUAL_PROVIDER_FIXTURES.length,
@@ -1169,6 +1514,8 @@ export const main = async () => {
       provider: result.provider,
       status: result.status,
       duration_ms: result.duration_ms,
+      fixtures: result.certification?.fixture_count ?? result.metrics?.fixture_count ?? '-',
+      regions: result.metrics?.region_count ?? '-',
       text_chars: result.metrics?.text_chars ?? '-',
       word_count: result.metrics?.word_count ?? '-',
       word_boxes: result.metrics?.words_with_bounding_boxes ?? '-',

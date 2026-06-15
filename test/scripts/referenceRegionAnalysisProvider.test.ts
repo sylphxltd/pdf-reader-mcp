@@ -30,6 +30,11 @@ describe('reference region analysis provider', () => {
     const chart = await runReferenceProvider('cert-chart');
     const figure = await runReferenceProvider('cert-figure');
     const image = await runReferenceProvider('cert-image');
+    const statusTable = await runReferenceProvider('cert-table-status');
+    const pythagoreanFormula = await runReferenceProvider('cert-formula-pythagorean');
+    const latencyChart = await runReferenceProvider('cert-chart-latency');
+    const decisionFigure = await runReferenceProvider('cert-figure-decision');
+    const dashboardImage = await runReferenceProvider('cert-image-dashboard');
 
     expect(table).toMatchObject({
       kind: 'table',
@@ -63,6 +68,39 @@ describe('reference region analysis provider', () => {
     expect(image).toMatchObject({
       kind: 'image',
       text: expect.stringContaining('Office image'),
+    });
+    expect(statusTable).toMatchObject({
+      kind: 'table',
+      table: {
+        row_count: 3,
+        column_count: 3,
+      },
+    });
+    expect(
+      Array.isArray((statusTable.table as { cells?: unknown[] }).cells) &&
+        ((statusTable.table as { cells: unknown[] }).cells?.length ?? 0) >= 6
+    ).toBe(true);
+    expect(pythagoreanFormula).toMatchObject({
+      kind: 'formula',
+      formula: {
+        latex: 'a^2 + b^2 = c^2',
+        asciimath: 'a^2 + b^2 = c^2',
+      },
+    });
+    expect(latencyChart).toMatchObject({
+      kind: 'chart',
+      chart: {
+        x_axis: { label: 'Stage' },
+        y_axis: { label: 'Latency' },
+      },
+    });
+    expect(decisionFigure).toMatchObject({
+      kind: 'figure',
+      text: expect.stringContaining('Decision flow'),
+    });
+    expect(dashboardImage).toMatchObject({
+      kind: 'image',
+      text: expect.stringContaining('Dashboard heatmap'),
     });
   });
 });

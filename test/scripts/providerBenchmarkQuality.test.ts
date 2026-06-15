@@ -51,41 +51,81 @@ describe('provider benchmark quality metrics', () => {
   });
 
   test('scores OCR token recall, word boxes, and document-map fusion', () => {
-    const quality = buildTesseractTsvQuality({
-      ocrTextLayer: {
-        pages: [
-          {
-            text: 'Hello World',
-            words: [
-              { bounding_box: { left: 0, bottom: 0, right: 10, top: 10 } },
-              { bounding_box: { left: 10, bottom: 0, right: 20, top: 10 } },
-            ],
-            source_render_evidence_id: 'page-1-render-scale-2',
+    const quality = buildTesseractTsvQuality([
+      {
+        fixture_id: 'cert-ocr-simple',
+        expected_tokens: ['HELLO', 'WORLD'],
+        ocrTextLayer: {
+          pages: [
+            {
+              text: 'Hello World',
+              words: [
+                { bounding_box: { left: 0, bottom: 0, right: 10, top: 10 } },
+                { bounding_box: { left: 10, bottom: 0, right: 20, top: 10 } },
+              ],
+              source_render_evidence_id: 'page-1-render-scale-2',
+            },
+          ],
+          summary: {
+            text_chars: 11,
+            word_count: 2,
+            words_with_bounding_boxes: 2,
+            average_confidence: 91,
           },
-        ],
-        summary: {
-          text_chars: 11,
-          word_count: 2,
-          words_with_bounding_boxes: 2,
-          average_confidence: 91,
         },
+        documentMap: {
+          layers: ['ocr_text_layer'],
+          routing: { ocr_applied_pages: [1] },
+        },
+        page: {
+          text: 'Hello World',
+          words: [
+            { bounding_box: { left: 0, bottom: 0, right: 10, top: 10 } },
+            { bounding_box: { left: 10, bottom: 0, right: 20, top: 10 } },
+          ],
+          source_render_evidence_id: 'page-1-render-scale-2',
+        },
+        normalizedText: 'HELLO WORLD',
       },
-      documentMap: {
-        layers: ['ocr_text_layer'],
-        routing: { ocr_applied_pages: [1] },
+      {
+        fixture_id: 'cert-ocr-agent',
+        expected_tokens: ['AGENT', 'READY'],
+        ocrTextLayer: {
+          pages: [
+            {
+              text: 'Agent Ready',
+              words: [
+                { bounding_box: { left: 0, bottom: 0, right: 10, top: 10 } },
+                { bounding_box: { left: 10, bottom: 0, right: 20, top: 10 } },
+              ],
+              source_render_evidence_id: 'page-1-render-scale-2',
+            },
+          ],
+          summary: {
+            text_chars: 11,
+            word_count: 2,
+            words_with_bounding_boxes: 2,
+            average_confidence: 92,
+          },
+        },
+        documentMap: {
+          layers: ['ocr_text_layer'],
+          routing: { ocr_applied_pages: [1] },
+        },
+        page: {
+          text: 'Agent Ready',
+          words: [
+            { bounding_box: { left: 0, bottom: 0, right: 10, top: 10 } },
+            { bounding_box: { left: 10, bottom: 0, right: 20, top: 10 } },
+          ],
+          source_render_evidence_id: 'page-1-render-scale-2',
+        },
+        normalizedText: 'AGENT READY',
       },
-      page: {
-        text: 'Hello World',
-        words: [
-          { bounding_box: { left: 0, bottom: 0, right: 10, top: 10 } },
-          { bounding_box: { left: 10, bottom: 0, right: 20, top: 10 } },
-        ],
-        source_render_evidence_id: 'page-1-render-scale-2',
-      },
-      normalizedText: 'HELLO WORLD',
-    });
+    ]);
 
     expect(quality.score).toBe(1);
+    expect(quality.fixture_count).toBe(2);
     expect(quality.passed_metric_count).toBe(3);
     expect(quality.metrics.map((metric) => metric.id)).toEqual([
       'ocr_token_recall',
@@ -147,9 +187,76 @@ describe('provider benchmark quality metrics', () => {
         description: 'Certification office image.',
         text: 'Office image: framed landscape.',
       }),
+      baseRegion('cert-table-status', 'table', {
+        table: {
+          row_count: 3,
+          column_count: 3,
+          cells: [
+            {
+              text: 'Task',
+              row_index: 0,
+              column_index: 0,
+              bounding_box: { left: 1, bottom: 2, right: 2, top: 3 },
+            },
+            {
+              text: 'Owner',
+              row_index: 0,
+              column_index: 1,
+              bounding_box: { left: 2, bottom: 2, right: 3, top: 3 },
+            },
+            {
+              text: 'Status',
+              row_index: 0,
+              column_index: 2,
+              bounding_box: { left: 3, bottom: 2, right: 4, top: 3 },
+            },
+            {
+              text: 'Extract',
+              row_index: 1,
+              column_index: 0,
+              bounding_box: { left: 1, bottom: 1, right: 2, top: 2 },
+            },
+            {
+              text: 'Agent',
+              row_index: 1,
+              column_index: 1,
+              bounding_box: { left: 2, bottom: 1, right: 3, top: 2 },
+            },
+            {
+              text: 'Ready',
+              row_index: 1,
+              column_index: 2,
+              bounding_box: { left: 3, bottom: 1, right: 4, top: 2 },
+            },
+          ],
+        },
+      }),
+      baseRegion('cert-formula-pythagorean', 'formula', {
+        formula: {
+          latex: 'a^2+b^2=c^2',
+          mathml: '<math />',
+          text: 'a squared plus b squared equals c squared',
+        },
+      }),
+      baseRegion('cert-chart-latency', 'chart', {
+        chart: {
+          x_axis: { label: 'Stage' },
+          y_axis: { label: 'Latency' },
+          series: [{ name: 'Latency', data_points: [{ stage: 'Parse', value: 130 }] }],
+        },
+      }),
+      baseRegion('cert-figure-decision', 'figure', {
+        description: 'Certification decision flow graphic.',
+        text: 'Decision flow: parse, verify, cite.',
+      }),
+      baseRegion('cert-image-dashboard', 'image', {
+        description: 'Certification dashboard heatmap image.',
+        text: 'Dashboard heatmap: four highlighted cells.',
+      }),
     ]);
 
     expect(quality.score).toBe(1);
+    expect(quality.fixture_count).toBe(10);
     expect(quality.passed_metric_count).toBe(7);
     expect(quality.metrics.map((metric) => metric.id)).toEqual([
       'visual_fixture_coverage',
@@ -164,7 +271,10 @@ describe('provider benchmark quality metrics', () => {
     expect(
       quality.metrics.find((metric) => metric.id === 'visual_table_cell_box_coverage')?.observed
     ).toMatchObject({
-      cell_boxes: 4,
+      fixtures: expect.arrayContaining([
+        expect.objectContaining({ fixture_id: 'cert-table', cell_boxes: 4 }),
+        expect.objectContaining({ fixture_id: 'cert-table-status', cell_boxes: 6 }),
+      ]),
     });
   });
 });

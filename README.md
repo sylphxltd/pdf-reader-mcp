@@ -540,18 +540,19 @@ by request arguments.
 - Bounded defaults: `max_regions` default 20, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per region
 - No cropped image base64 duplicated inside the JSON response
 
-Provider quality can be checked with `bun run benchmark:providers`. When a
-visual-region provider is configured, the benchmark renders a runtime PDF
-fixture with separate table, formula, chart, figure, and image-description
-regions, sends those crops through `analyze_regions`, and reports a
-`visual-full-fidelity` certification profile covering crop provenance, table
-cell boxes, formula formats, chart axes or series, figure descriptions, and
-image-description text. Its JSON report also includes a final-bar provider
-evidence matrix that separates certified installed-provider evidence from
-capabilities that still require provider benchmark runs. The repository ships
-`scripts/reference-region-analysis-provider.mjs` as a deterministic
-certification adapter for the runtime visual fixtures; it is not a bundled
-general-purpose vision model.
+Provider quality can be checked with `bun run benchmark:providers`. The
+provider benchmark renders multiple runtime OCR fixtures for the installed
+Tesseract TSV path and two visual-region fixture profiles with table, formula,
+chart, figure, and image-description regions. When a visual-region provider is
+configured, those crops are sent through `analyze_regions`, then reported as a
+`visual-full-fidelity` certification profile covering fixture coverage, crop
+provenance, table cell boxes, formula formats, chart axes or series, figure
+descriptions, and image-description text. Its JSON report also includes a
+final-bar provider evidence matrix that separates certified installed-provider
+evidence from capabilities that still require provider benchmark runs. The
+repository ships `scripts/reference-region-analysis-provider.mjs` as a
+deterministic certification adapter for the runtime visual fixtures; it is not
+a bundled general-purpose vision model.
 
 ### OCR Selected Pages
 
@@ -1656,8 +1657,8 @@ bun run check        # Lint + format
 bun run check:fix    # Auto-fix
 bun run benchmark    # Reproducible local performance benchmark
 bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
-bun run benchmark:providers # Optional OCR/visual-provider certification benchmark; skips missing engines by default
-MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the visual fixture contract with the reference provider
+bun run benchmark:providers # Optional multi-fixture OCR/visual-provider certification benchmark; skips missing engines by default
+MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the multi-fixture visual contract with the reference provider
 bun run benchmark:all # Performance + quality + provider benchmarks
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_OCR_PRESET=tesseract-tsv MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:release-artifacts # Write strict release artifacts
@@ -1675,7 +1676,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Machine-readable SOTA final-bar coverage matrix in `benchmark:quality`
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
-- ✅ Provider quality metrics with thresholds, scores, expected evidence, and observed evidence
+- ✅ Provider quality metrics with thresholds, scores, fixture-level expected evidence, and observed evidence
 - ✅ CI and release workflows install Tesseract and configure the reference visual-region provider before running strict provider evidence gates
 - ✅ JSON benchmark artifact output for release evidence
 - ✅ SOTA release gate over benchmark artifacts
@@ -1752,8 +1753,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
 - [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
-- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks and configured visual-region `visual-full-fidelity` certification over runtime table, formula, chart, figure, and image-description PDF fixtures, with a deterministic reference visual provider and machine-readable final-bar provider evidence summaries
-- [x] Provider quality metrics for OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks over multiple runtime OCR fixtures and configured visual-region `visual-full-fidelity` certification over 10 runtime table, formula, chart, figure, and image-description PDF fixtures, with a deterministic reference visual provider and machine-readable final-bar provider evidence summaries
+- [x] Provider quality metrics for fixture-level OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence
@@ -1764,7 +1765,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Broader scanned-PDF and visual-region fixture accuracy benchmarks for configured providers beyond the current runtime certification fixtures
+- [ ] Public real-world scanned-PDF and visual-region provider accuracy corpus beyond synthetic runtime certification fixtures
 - [ ] Engine-specific visual region provider presets
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming
