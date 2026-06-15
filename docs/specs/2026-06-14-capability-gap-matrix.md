@@ -40,7 +40,7 @@ neutral capability names and avoids public comparison language.
 | Markdown rendering | Shipped | `include_markdown`. |
 | HTML rendering | Shipped | `include_html`; escaped page-aware HTML. |
 | Citation-ready chunks | Shipped | `include_chunks`; page, semantic, size, and table strategies with stable element references. |
-| Column-aware reading order | Shipped | Handles common two-column text segmentation. Needs broader fixtures. |
+| Recursive reading order | Shipped | Handles common two-column text segmentation plus spanning-header, independent column-band, and footer ordering. Needs broader fixtures. |
 | Layout diagnostics and confidence | Shipped | `include_layout_diagnostics`; page profile, reading-order model, confidence, column signals, and warnings. |
 | Outline/bookmark extraction | Shipped | `include_outline`; best-effort when exposed by PDF.js. |
 | Annotation extraction | Shipped | `include_annotations`; safe summary fields. |

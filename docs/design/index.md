@@ -75,7 +75,7 @@ PDF Reader MCP is built on these core principles:
 - **Region Enrichment** - Region analysis lets local table, chart, formula, and caption providers return normalized fields tied to crop evidence IDs
 - **OCR Provenance** - OCR text layers point back to the render evidence ID used as provider input, so scanned-page text remains tied to source pixels
 - **Safety Findings** - Deterministic content warnings help agents treat risky PDF text as data, not instructions
-- **Column-Aware Ordering** - Distant same-line text is segmented before ordering to improve common multi-column PDFs
+- **Recursive Reading Order** - Distant same-line text is segmented, then conservative band and column segmentation improves common multi-column PDFs with spanning headers or footers
 - **Structured JSON First** - Machine-readable summaries come before large text or image parts
 - **Binary Discipline** - Image bytes are delivered as MCP image content, not duplicated into JSON summaries
 - **Provider Boundaries** - Optional engines are enabled through explicit local provider configuration instead of bundled heavy dependencies or request-selected commands

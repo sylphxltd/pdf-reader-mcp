@@ -31,6 +31,10 @@ const TEXT_SEGMENT_GAP_THRESHOLD = 48;
 const COLUMN_CUT_MIN_GAP = 48;
 const COLUMN_CUT_MIN_WIDTH_RATIO = 0.12;
 const SPANNING_WIDTH_RATIO = 0.72;
+const XY_CUT_MAX_DEPTH = 8;
+const XY_CUT_MIN_ITEMS = 4;
+const XY_CUT_MIN_HORIZONTAL_GAP = 36;
+const XY_CUT_MIN_HORIZONTAL_GAP_RATIO = 0.04;
 
 interface TextRowPart {
   text: string;
@@ -368,6 +372,62 @@ const splitTextPartsIntoSegments = (parts: TextRowPart[]): TextRowPart[][] => {
 const sortByYThenX = (items: PageContentItem[]): PageContentItem[] =>
   [...items].sort((a, b) => b.yPosition - a.yPosition || (a.xPosition ?? 0) - (b.xPosition ?? 0));
 
+const pageContentBounds = (items: PageContentItem[]): BoundingBox | undefined =>
+  mergeBoundingBoxes(items.map((item) => item.bounding_box));
+
+const findHorizontalWhitespaceCut = (items: PageContentItem[]): number | undefined => {
+  const boxedItems = items.filter((item) => item.bounding_box !== undefined);
+  if (boxedItems.length < XY_CUT_MIN_ITEMS) return undefined;
+
+  const bounds = pageContentBounds(boxedItems);
+  if (!bounds) return undefined;
+
+  const pageHeight = bounds.top - bounds.bottom;
+  if (!Number.isFinite(pageHeight) || pageHeight <= 0) return undefined;
+
+  const sorted = [...boxedItems].sort(
+    (a, b) =>
+      (b.bounding_box?.top ?? b.yPosition) - (a.bounding_box?.top ?? a.yPosition) ||
+      (a.bounding_box?.left ?? a.xPosition ?? 0) - (b.bounding_box?.left ?? b.xPosition ?? 0)
+  );
+
+  let upperClusterBottom = sorted[0]?.bounding_box?.bottom;
+  if (upperClusterBottom === undefined) return undefined;
+
+  const candidates: Array<{ gap: number; cutPosition: number }> = [];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const nextBox = sorted[i]?.bounding_box;
+    if (!nextBox) continue;
+
+    const gap = upperClusterBottom - nextBox.top;
+    if (gap > 0) {
+      candidates.push({ gap, cutPosition: (upperClusterBottom + nextBox.top) / 2 });
+    }
+
+    upperClusterBottom = Math.min(upperClusterBottom, nextBox.bottom);
+  }
+
+  const minGap = Math.max(XY_CUT_MIN_HORIZONTAL_GAP, pageHeight * XY_CUT_MIN_HORIZONTAL_GAP_RATIO);
+  const viableCandidates = candidates
+    .filter((candidate) => candidate.gap >= minGap)
+    .sort((a, b) => b.gap - a.gap);
+
+  for (const candidate of viableCandidates) {
+    const upperCount = boxedItems.filter(
+      (item) => (item.bounding_box?.bottom ?? 0) >= candidate.cutPosition
+    ).length;
+    const lowerCount = boxedItems.filter(
+      (item) => (item.bounding_box?.top ?? 0) <= candidate.cutPosition
+    ).length;
+    if (upperCount > 0 && lowerCount >= 2) {
+      return candidate.cutPosition;
+    }
+  }
+
+  return undefined;
+};
+
 const findVerticalColumnCut = (items: PageContentItem[]): number | undefined => {
   const boxedItems = items.filter((item) => item.bounding_box !== undefined);
   if (boxedItems.length < 4) return undefined;
@@ -420,7 +480,39 @@ const findVerticalColumnCut = (items: PageContentItem[]): number | undefined => 
   return leftCount >= 2 && rightCount >= 2 ? cutPosition : undefined;
 };
 
-const sortPageContentItems = (items: PageContentItem[]): PageContentItem[] => {
+const sortPageContentItems = (items: PageContentItem[], depth = 0): PageContentItem[] => {
+  if (items.length < XY_CUT_MIN_ITEMS || depth >= XY_CUT_MAX_DEPTH) {
+    return sortByYThenX(items);
+  }
+
+  const horizontalCut = findHorizontalWhitespaceCut(items);
+  if (horizontalCut !== undefined) {
+    const upper: PageContentItem[] = [];
+    const lower: PageContentItem[] = [];
+    const crossing: PageContentItem[] = [];
+
+    for (const item of items) {
+      const box = item.bounding_box;
+      if (!box) {
+        crossing.push(item);
+      } else if (box.bottom >= horizontalCut) {
+        upper.push(item);
+      } else if (box.top <= horizontalCut) {
+        lower.push(item);
+      } else {
+        crossing.push(item);
+      }
+    }
+
+    if (upper.length > 0 && lower.length > 0) {
+      return [
+        ...sortPageContentItems(upper, depth + 1),
+        ...sortByYThenX(crossing),
+        ...sortPageContentItems(lower, depth + 1),
+      ];
+    }
+  }
+
   const cutPosition = findVerticalColumnCut(items);
   if (cutPosition === undefined) return sortByYThenX(items);
 
@@ -463,8 +555,8 @@ const sortPageContentItems = (items: PageContentItem[]): PageContentItem[] => {
 
   return [
     ...sortByYThenX(topSpanning),
-    ...sortByYThenX(leftColumn),
-    ...sortByYThenX(rightColumn),
+    ...sortPageContentItems(leftColumn, depth + 1),
+    ...sortPageContentItems(rightColumn, depth + 1),
     ...sortByYThenX(remainingSpanning),
   ];
 };

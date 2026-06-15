@@ -53,7 +53,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - Citation-ready semantic/table/page chunks 🔗
 - Layout diagnostics with reading-order confidence 📐
 - Outlines, annotations, structure trees, forms, attachments, labels, and permission signals 🗂️
-- Column-aware reading order 📐
+- Recursive band and column reading order 📐
 - Flexible path support (absolute/relative) 🎯
 - Per-page error resilience 🛡️
 - CI-backed quality ✅
@@ -92,7 +92,7 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 - 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
 - 🔗 **Citation Chunks** - Optional page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
 - 🗂️ **Document Signals** - Optional outlines, page labels, annotations, structure trees, forms, attachments, permissions, and mark info
-- 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
+- 🖼️ **Smart Ordering** - Recursive band and column segmentation improves natural reading flow for common mixed layouts
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
 - 🎨 **Simple API** - `inspect_pdf` plans extraction, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `analyze_regions` enriches visual regions, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
@@ -654,7 +654,7 @@ configured local OCR command.
 ```
 
 **Response includes:**
-- Text and images in **Y-coordinate reading order**
+- Text and images in deterministic **visual reading order**
 - Base64-encoded images with metadata (width, height, format)
 - Natural reading flow preserved for AI comprehension
 
@@ -692,7 +692,7 @@ configured local OCR command.
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
 - ✅ **Citation Chunks** - Page, semantic, size, and table chunks with source references for downstream retrieval
 - ✅ **Document Signals** - Outlines, annotations, structure trees, forms, attachments, page labels, permissions, and mark info when exposed by the PDF
-- ✅ **Content Ordering** - Column-aware layout preservation for natural reading flow
+- ✅ **Content Ordering** - Recursive band and column layout preservation for natural reading flow
 - ✅ **Metadata Extraction** - Author, title, creation date, and custom properties
 - ✅ **Page Counting** - Fast enumeration without loading full content
 - ✅ **Dual Sources** - Local files (absolute or relative paths) and HTTP/HTTPS URLs
@@ -786,7 +786,7 @@ Elements include stable IDs, page numbers, provenance, and best-effort bounding 
 
 `include_html` adds an escaped HTML rendering for previews, export workflows, and downstream conversion.
 
-The extraction pipeline also separates distant same-line text into independent segments before ordering, which improves multi-column PDFs without requiring any extra configuration.
+The extraction pipeline separates distant same-line text into independent segments, then applies conservative recursive band and column segmentation. This improves common multi-column pages with spanning headings or footers without requiring extra configuration.
 
 `include_chunks` adds citation-ready chunks with stable IDs, strategy labels, element references, and best-effort bounding boxes for downstream retrieval and citation workflows. When `include_semantic_hints` is also enabled, chunks split on deterministic heading boundaries; table chunks are emitted when table extraction is requested.
 
@@ -1168,11 +1168,11 @@ and page geometry without embedding image bytes in JSON.
 ## 🔧 Advanced Usage
 
 <details>
-<summary><strong>📐 Column-Aware Content Ordering</strong></summary>
+<summary><strong>📐 Recursive Reading Order</strong></summary>
 
 <br/>
 
-Content is returned in natural reading order using Y-coordinates plus deterministic column segmentation:
+Content is returned in natural reading order using Y-coordinates plus deterministic recursive band and column segmentation:
 
 ```
 Document Layout:
@@ -1584,7 +1584,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Citation-ready page, semantic, size, and table chunks
 - [x] MCP-native PDF search with snippets and bbox provenance
 - [x] Outlines, annotations, structure trees, form fields, attachment metadata, page labels, and permission signals
-- [x] Column-aware ordering for common multi-column PDFs
+- [x] Recursive band and column ordering for common multi-column PDFs
 - [x] Layout diagnostics with reading-order confidence
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Tesseract OCR provider preset without bundling OCR model assets

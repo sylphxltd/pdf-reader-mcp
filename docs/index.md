@@ -25,7 +25,7 @@ features:
     details: Locate literal text matches with snippets, match offsets, character-derived or text-item bounding boxes, and provenance before reading, rendering, cropping, or citing.
   - icon: "\u26A1"
     title: High Performance
-    details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing, batch operations, and column-aware ordering.
+    details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing, batch operations, and recursive band/column ordering.
   - icon: "\U0001F50C"
     title: Easy Integration
     details: Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. One command to install.

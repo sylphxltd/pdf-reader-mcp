@@ -441,7 +441,9 @@ forcing those raw outputs into the top-level response.
 Use `include_layout_diagnostics` when an agent needs to know whether local
 reading order is likely reliable before indexing, citing, or summarizing a
 page. Diagnostics are deterministic and use existing extracted item geometry;
-they do not add OCR, vision, or a heavy parser dependency.
+they do not add OCR, vision, or a heavy parser dependency. The extractor uses
+conservative recursive band and column segmentation so common spanning headers,
+multi-column sections, and footers are ordered by visual reading sequence.
 
 ```json
 {

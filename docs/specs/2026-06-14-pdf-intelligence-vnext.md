@@ -165,8 +165,9 @@ Candidate engines:
 2. Layout accuracy
    - Add page geometry and real bounding boxes where available.
    - Add layout-aware reading order beyond simple Y sorting.
-   - Split distant same-line text into independent segments for common
-     multi-column PDFs.
+   - Split distant same-line text into independent segments, then apply
+     conservative recursive band and column segmentation for common
+     multi-column PDFs with spanning headers or footers.
    - Add page-level layout profiles, confidence scores, and warnings.
    - Add fixtures for multi-column pages, sidebars, headers, and footers.
 

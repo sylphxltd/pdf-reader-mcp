@@ -248,6 +248,50 @@ describe('extractor', () => {
       expect(result[1]?.bounding_box).toEqual({ left: 50, bottom: 700, right: 100, top: 710 });
     });
 
+    it('should preserve recursive reading order across spanning section bands', async () => {
+      const mockPage = {
+        getTextContent: vi.fn().mockResolvedValue({
+          items: [
+            { str: 'Title', transform: [1, 0, 0, 12, 50, 760], width: 500, height: 12 },
+            { str: 'A Left 1', transform: [1, 0, 0, 10, 50, 700], width: 70, height: 10 },
+            { str: 'A Right 1', transform: [1, 0, 0, 10, 300, 700], width: 75, height: 10 },
+            { str: 'A Left 2', transform: [1, 0, 0, 10, 50, 680], width: 70, height: 10 },
+            { str: 'A Right 2', transform: [1, 0, 0, 10, 300, 680], width: 75, height: 10 },
+            { str: 'Section B', transform: [1, 0, 0, 12, 50, 610], width: 500, height: 12 },
+            { str: 'B Left 1', transform: [1, 0, 0, 10, 50, 550], width: 70, height: 10 },
+            { str: 'B Right 1', transform: [1, 0, 0, 10, 300, 550], width: 75, height: 10 },
+            { str: 'B Left 2', transform: [1, 0, 0, 10, 50, 530], width: 70, height: 10 },
+            { str: 'B Right 2', transform: [1, 0, 0, 10, 300, 530], width: 75, height: 10 },
+            { str: 'Footer', transform: [1, 0, 0, 10, 50, 80], width: 500, height: 10 },
+          ],
+        }),
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageContent(mockDocument, 1, false, 'recursive-layout.pdf');
+
+      expect(result.map((item) => item.textContent)).toEqual([
+        'Title',
+        'A Left 1',
+        'A Left 2',
+        'A Right 1',
+        'A Right 2',
+        'Section B',
+        'B Left 1',
+        'B Left 2',
+        'B Right 1',
+        'B Right 2',
+        'Footer',
+      ]);
+    });
+
     it('should preserve text-run and estimated character evidence from PDF.js text items', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({
