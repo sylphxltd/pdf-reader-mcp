@@ -55,7 +55,7 @@ neutral capability names and avoids public comparison language.
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; full visual spans and non-repeated continuation require an optional visual table engine. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
 | Quality eval harness | Shipped | Regression eval covers semantic chunks, table order, renderers, and safety findings. |
-| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages. No default OCR model is bundled. |
+| OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract`. No default OCR model is bundled. |
 | Formula extraction | Advanced | Optional provider or external engine. |
 | Chart/image descriptions | Advanced | Optional vision enrichment. |
 | Tagged PDF generation | Advanced | Requires separate design and validation. |
@@ -74,8 +74,8 @@ neutral capability names and avoids public comparison language.
 4. Add deterministic semantic model: headings, paragraphs, lists, captions,
    AST traversal, and richer table trust signals.
 5. Harden trust reports with redaction and broader adversarial fixtures.
-6. Harden the optional OCR provider with real scanned fixtures, provider
-   presets, and accuracy/latency reporting.
+6. Harden the optional OCR provider with real scanned fixtures, additional
+   provider presets, and accuracy/latency reporting.
 7. Add optional advanced engines behind provider interfaces.
 8. Add formula/chart/tagged-PDF capabilities only through optional engines
    or separately installable modules.

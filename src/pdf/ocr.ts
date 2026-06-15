@@ -26,11 +26,23 @@ export const DEFAULT_OCR_TIMEOUT_MS = 60_000;
 export const DEFAULT_OCR_MAX_OUTPUT_CHARS = 200_000;
 const OCR_COMMAND_ENV = 'MCP_PDF_OCR_COMMAND';
 const OCR_ARGS_ENV = 'MCP_PDF_OCR_ARGS_JSON';
+const OCR_PRESET_ENV = 'MCP_PDF_OCR_PRESET';
 
 interface CommandOcrProviderConfig {
   command: string;
   argsTemplate: string[];
+  preset?: OcrProviderPreset | undefined;
 }
+
+type OcrProviderPreset = 'tesseract';
+
+const OCR_PROVIDER_PRESETS: Record<OcrProviderPreset, CommandOcrProviderConfig> = {
+  tesseract: {
+    command: 'tesseract',
+    argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}'],
+    preset: 'tesseract',
+  },
+};
 
 interface RawOcrOutput {
   text?: unknown;
@@ -47,19 +59,36 @@ export const defaultOcrPagesOptions = (): OcrPagesOptions => ({
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS,
 });
 
-export const isOcrProviderConfigured = (): boolean => Boolean(process.env[OCR_COMMAND_ENV]?.trim());
+export const isOcrProviderConfigured = (): boolean =>
+  Boolean(process.env[OCR_COMMAND_ENV]?.trim() || process.env[OCR_PRESET_ENV]?.trim());
 
-const readCommandProviderConfig = (): CommandOcrProviderConfig => {
-  const command = process.env[OCR_COMMAND_ENV]?.trim();
+const readOcrProviderPreset = (): CommandOcrProviderConfig | undefined => {
+  const preset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
+  if (!preset) return undefined;
+
+  if (preset !== 'tesseract') {
+    throw new PdfError(
+      ErrorCode.InvalidRequest,
+      'Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract.'
+    );
+  }
+
+  return OCR_PROVIDER_PRESETS[preset];
+};
+
+export const readCommandProviderConfig = (): CommandOcrProviderConfig => {
+  const preset = readOcrProviderPreset();
+  const command = process.env[OCR_COMMAND_ENV]?.trim() || preset?.command;
   if (!command) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      'OCR provider is not configured. Set MCP_PDF_OCR_COMMAND and optional MCP_PDF_OCR_ARGS_JSON to enable ocr_pages.'
+      'OCR provider is not configured. Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages.'
     );
   }
 
   const rawArgs = process.env[OCR_ARGS_ENV];
-  if (!rawArgs) return { command, argsTemplate: ['{input}'] };
+  if (!rawArgs)
+    return { command, argsTemplate: preset?.argsTemplate ?? ['{input}'], preset: preset?.preset };
 
   let parsed: unknown;
   try {
@@ -88,7 +117,7 @@ const readCommandProviderConfig = (): CommandOcrProviderConfig => {
     );
   }
 
-  return { command, argsTemplate: parsed };
+  return { command, argsTemplate: parsed, preset: preset?.preset };
 };
 
 const replacePlaceholders = (
@@ -105,7 +134,8 @@ const replacePlaceholders = (
     .replaceAll('{page}', String(context.page))
     .replaceAll('{source}', context.source)
     .replaceAll('{language}', context.languages?.[0] ?? '')
-    .replaceAll('{languages}', context.languages?.join(',') ?? '');
+    .replaceAll('{languages}', context.languages?.join(',') ?? '')
+    .replaceAll('{languages_tesseract}', context.languages?.join('+') || 'eng');
 
 const normalizeConfidence = (value: unknown): number | undefined => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;

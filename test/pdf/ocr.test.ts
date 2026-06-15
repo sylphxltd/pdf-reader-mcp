@@ -5,13 +5,18 @@ import {
   defaultOcrPagesOptions,
   isOcrProviderConfigured,
   ocrRenderedPageWithCommandProvider,
+  readCommandProviderConfig,
 } from '../../src/pdf/ocr.js';
 import type { PdfPageRenderData } from '../../src/types/pdf.js';
 
 const originalCommand = process.env['MCP_PDF_OCR_COMMAND'];
 const originalArgs = process.env['MCP_PDF_OCR_ARGS_JSON'];
+const originalPreset = process.env['MCP_PDF_OCR_PRESET'];
 
-const restoreEnv = (name: 'MCP_PDF_OCR_COMMAND' | 'MCP_PDF_OCR_ARGS_JSON', value: string | undefined) => {
+const restoreEnv = (
+  name: 'MCP_PDF_OCR_COMMAND' | 'MCP_PDF_OCR_ARGS_JSON' | 'MCP_PDF_OCR_PRESET',
+  value: string | undefined
+) => {
   if (value === undefined) {
     Reflect.deleteProperty(process.env, name);
     return;
@@ -48,14 +53,39 @@ describe('ocr', () => {
   afterEach(() => {
     restoreEnv('MCP_PDF_OCR_COMMAND', originalCommand);
     restoreEnv('MCP_PDF_OCR_ARGS_JSON', originalArgs);
+    restoreEnv('MCP_PDF_OCR_PRESET', originalPreset);
   });
 
   it('should report whether the command OCR provider is configured', () => {
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_PRESET');
     expect(isOcrProviderConfigured()).toBe(false);
 
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
     expect(isOcrProviderConfigured()).toBe(true);
+
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract';
+    expect(isOcrProviderConfigured()).toBe(true);
+  });
+
+  it('should resolve the tesseract OCR preset without custom command args', () => {
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_ARGS_JSON');
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract';
+
+    expect(readCommandProviderConfig()).toEqual({
+      command: 'tesseract',
+      argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}'],
+      preset: 'tesseract',
+    });
+  });
+
+  it('should reject unsupported OCR provider presets', () => {
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
+    process.env['MCP_PDF_OCR_PRESET'] = 'unknown';
+
+    expect(() => readCommandProviderConfig()).toThrow(/Unsupported MCP_PDF_OCR_PRESET/);
   });
 
   it('should run the configured command OCR provider and normalize JSON output', async () => {

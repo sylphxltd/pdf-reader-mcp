@@ -676,7 +676,8 @@ certification or forcing raw structure outputs into top-level JSON.
 local OCR command configured by environment variables. This keeps the default
 TypeScript package private and dependency-bounded while giving teams a real
 scanned PDF path when they already run Tesseract, PaddleOCR, a local HTTP shim,
-or an internal OCR binary.
+or an internal OCR binary. `MCP_PDF_OCR_PRESET=tesseract` provides a built-in
+Tesseract command template without bundling an OCR model.
 
 The OCR provider is env-only, not request-controlled. Tool responses normalize
 provider output into page text, confidence, optional word boxes, language,
@@ -914,8 +915,9 @@ variables so an MCP request cannot choose arbitrary commands.
 
 | Variable | Description |
 |----------|-------------|
-| `MCP_PDF_OCR_COMMAND` | Absolute or PATH-resolved command used for OCR. Required to enable `ocr_pages`. |
-| `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{language}`, and `{languages}` placeholders. Defaults to `["{input}"]`. |
+| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported value: `tesseract`. |
+| `MCP_PDF_OCR_COMMAND` | Absolute or PATH-resolved command used for OCR. Required unless `MCP_PDF_OCR_PRESET` is set. Overrides the preset command when both are set. |
+| `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{language}`, `{languages}`, and `{languages_tesseract}` placeholders. Defaults to the preset template or `["{input}"]`. |
 
 Provider stdout may be plain text or JSON:
 
@@ -1298,6 +1300,7 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_HTTP_PORT` | `8080` | HTTP server port |
 | `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server hostname |
 | `MCP_API_KEY` | - | Optional API key for authentication |
+| `MCP_PDF_OCR_PRESET` | - | Optional OCR preset. Supported value: `tesseract` |
 | `MCP_PDF_OCR_COMMAND` | - | Optional local OCR command used by `ocr_pages` |
 | `MCP_PDF_OCR_ARGS_JSON` | `["{input}"]` | Optional JSON string array of OCR command arguments. Must include `{input}`. |
 
@@ -1459,13 +1462,14 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Column-aware ordering for common multi-column PDFs
 - [x] Layout diagnostics with reading-order confidence
 - [x] Configured local OCR provider for scanned-page text layers
+- [x] Tesseract OCR provider preset without bundling OCR model assets
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
 - [ ] Richer semantic layout detection
 - [ ] Optional visual table recognizer provider
-- [ ] Built-in OCR provider presets and fixture-backed OCR accuracy benchmarks
+- [ ] Fixture-backed OCR accuracy benchmarks
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming
 - [ ] Advanced caching

@@ -1987,6 +1987,14 @@ var DEFAULT_OCR_TIMEOUT_MS = 60000;
 var DEFAULT_OCR_MAX_OUTPUT_CHARS = 200000;
 var OCR_COMMAND_ENV = "MCP_PDF_OCR_COMMAND";
 var OCR_ARGS_ENV = "MCP_PDF_OCR_ARGS_JSON";
+var OCR_PRESET_ENV = "MCP_PDF_OCR_PRESET";
+var OCR_PROVIDER_PRESETS = {
+  tesseract: {
+    command: "tesseract",
+    argsTemplate: ["{input}", "stdout", "-l", "{languages_tesseract}"],
+    preset: "tesseract"
+  }
+};
 var defaultOcrPagesOptions = () => ({
   scale: DEFAULT_RENDER_SCALE,
   max_pages: DEFAULT_MAX_RENDER_PAGES,
@@ -1994,14 +2002,24 @@ var defaultOcrPagesOptions = () => ({
   timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
 });
+var readOcrProviderPreset = () => {
+  const preset = process.env[OCR_PRESET_ENV]?.trim().toLowerCase();
+  if (!preset)
+    return;
+  if (preset !== "tesseract") {
+    throw new PdfError(-32600 /* InvalidRequest */, "Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract.");
+  }
+  return OCR_PROVIDER_PRESETS[preset];
+};
 var readCommandProviderConfig = () => {
-  const command = process.env[OCR_COMMAND_ENV]?.trim();
+  const preset = readOcrProviderPreset();
+  const command = process.env[OCR_COMMAND_ENV]?.trim() || preset?.command;
   if (!command) {
-    throw new PdfError(-32600 /* InvalidRequest */, "OCR provider is not configured. Set MCP_PDF_OCR_COMMAND and optional MCP_PDF_OCR_ARGS_JSON to enable ocr_pages.");
+    throw new PdfError(-32600 /* InvalidRequest */, "OCR provider is not configured. Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages.");
   }
   const rawArgs = process.env[OCR_ARGS_ENV];
   if (!rawArgs)
-    return { command, argsTemplate: ["{input}"] };
+    return { command, argsTemplate: preset?.argsTemplate ?? ["{input}"], preset: preset?.preset };
   let parsed;
   try {
     parsed = JSON.parse(rawArgs);
@@ -2016,9 +2034,9 @@ var readCommandProviderConfig = () => {
   if (!parsed.some((arg) => arg.includes("{input}"))) {
     throw new PdfError(-32600 /* InvalidRequest */, "MCP_PDF_OCR_ARGS_JSON must include the {input} placeholder so the OCR provider receives the rendered page image.");
   }
-  return { command, argsTemplate: parsed };
+  return { command, argsTemplate: parsed, preset: preset?.preset };
 };
-var replacePlaceholders = (template, context) => template.replaceAll("{input}", context.inputPath).replaceAll("{page}", String(context.page)).replaceAll("{source}", context.source).replaceAll("{language}", context.languages?.[0] ?? "").replaceAll("{languages}", context.languages?.join(",") ?? "");
+var replacePlaceholders = (template, context) => template.replaceAll("{input}", context.inputPath).replaceAll("{page}", String(context.page)).replaceAll("{source}", context.source).replaceAll("{language}", context.languages?.[0] ?? "").replaceAll("{languages}", context.languages?.join(",") ?? "").replaceAll("{languages_tesseract}", context.languages?.join("+") || "eng");
 var normalizeConfidence = (value) => {
   if (typeof value !== "number" || !Number.isFinite(value))
     return;

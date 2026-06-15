@@ -79,8 +79,9 @@ The command provider is enabled by process environment:
 
 | Variable | Meaning |
 |---|---|
-| `MCP_PDF_OCR_COMMAND` | Required command path or executable name. |
-| `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array. Must include `{input}`. Defaults to `["{input}"]`. |
+| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported value: `tesseract`. |
+| `MCP_PDF_OCR_COMMAND` | Required command path or executable name unless a preset is set. Overrides the preset command when both are set. |
+| `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array. Must include `{input}`. Defaults to the preset template or `["{input}"]`. |
 
 Arguments support these placeholders:
 
@@ -91,6 +92,7 @@ Arguments support these placeholders:
 | `{source}` | Source path or URL string. |
 | `{language}` | First requested language tag, or an empty string. |
 | `{languages}` | Comma-separated requested language tags, or an empty string. |
+| `{languages_tesseract}` | `+`-separated requested language tags, or `eng` when no language is requested. |
 
 Provider stdout may be plain text or JSON with `text`, `confidence`,
 `language`, and `words`. Confidence values above 1 are treated as percentages
@@ -98,8 +100,12 @@ and normalized to 0-1.
 
 ## Invariants
 
-- OCR is disabled unless `MCP_PDF_OCR_COMMAND` is set.
+- OCR is disabled unless `MCP_PDF_OCR_COMMAND` or a supported
+  `MCP_PDF_OCR_PRESET` is set.
 - Command execution uses `execFile`, not shell interpolation.
+- `MCP_PDF_OCR_PRESET=tesseract` resolves to
+  `tesseract {input} stdout -l {languages_tesseract}` without bundling
+  Tesseract or language data.
 - Temporary rendered PNG files are written under the OS temp directory and
   removed after each page attempt.
 - `max_pages` defaults to 5 and is capped by schema at 20 per source.
@@ -112,7 +118,7 @@ and normalized to 0-1.
 
 ## Follow-On Work
 
-- Provider presets for common local engines such as Tesseract and PaddleOCR
+- Additional provider presets for common local engines such as PaddleOCR
   wrappers, without making them default dependencies.
 - Scanned PDF fixtures with expected text and confidence envelopes.
 - OCR accuracy and latency benchmarks reported separately from parser speed.
