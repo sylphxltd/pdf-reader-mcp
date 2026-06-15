@@ -174,11 +174,21 @@ const evaluateCase = (qualityCase: QualityCase) => {
       name: 'semantic roles preserve heading/list/paragraph signals',
       pass:
         JSON.stringify(textElements.map((element) => element.semantic_hint?.role)) ===
-        JSON.stringify(['heading', 'paragraph', 'list_item', 'paragraph', 'paragraph', 'heading', 'paragraph']),
+        JSON.stringify([
+          'heading',
+          'paragraph',
+          'list_item',
+          'paragraph',
+          'paragraph',
+          'heading',
+          'paragraph',
+        ]),
     },
     {
       name: 'table element stays in page order before later-page text',
-      pass: elements.findIndex((element) => element.id === 'p1-table-1') < firstElementIndexOnPage(elements, 2),
+      pass:
+        elements.findIndex((element) => element.id === 'p1-table-1') <
+        firstElementIndexOnPage(elements, 2),
     },
     {
       name: 'semantic chunks split by headings',
@@ -242,7 +252,8 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.layers.includes('page_geometry') &&
         documentMap.pages[0]?.element_ids.includes('p1-table-1') === true &&
         (documentMap.pages[0]?.chunk_ids.length ?? 0) > 0 &&
-        JSON.stringify(documentMap.pages[0]?.safety_finding_indexes) === JSON.stringify([0, 1, 2]) &&
+        JSON.stringify(documentMap.pages[0]?.safety_finding_indexes) ===
+          JSON.stringify([0, 1, 2]) &&
         documentMap.summary.table_element_count === 1 &&
         documentMap.summary.safety_finding_count === 3,
     },
@@ -285,7 +296,9 @@ const evaluateCase = (qualityCase: QualityCase) => {
     },
   ];
 
-  const failures = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.name);
+  const failures = assertions
+    .filter((assertion) => !assertion.pass)
+    .map((assertion) => assertion.name);
   return {
     failures,
     passed: assertions.length - failures.length,

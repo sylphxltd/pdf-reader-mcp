@@ -1544,8 +1544,8 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 |:----------|:-----------|
 | **Runtime** | Node.js 22+ ESM |
 | **PDF Engine** | PDF.js (Mozilla) |
-| **Validation** | Vex + JSON Schema |
-| **Protocol** | MCP SDK |
+| **Validation** | Zod + JSON Schema |
+| **Protocol** | Official Model Context Protocol TypeScript SDK |
 | **Language** | TypeScript (strict) |
 | **Testing** | Bun test suite |
 | **Quality** | Biome (50x faster) |
@@ -1730,18 +1730,11 @@ MIT © [Sylphx](https://sylphx.com)
 
 Built with:
 - [PDF.js](https://mozilla.github.io/pdf.js/) - Mozilla PDF engine
+- [Model Context Protocol TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) - MCP transport and protocol implementation
+- [Zod](https://zod.dev/) - Runtime schema validation
 - [Bun](https://bun.sh) - Fast JavaScript runtime
 
-Special thanks to the open source community ❤️
-
-## Powered by Sylphx
-
-This project uses the following [@sylphx](https://github.com/SylphxAI) packages:
-
-- [@sylphx/mcp-server-sdk](https://github.com/SylphxAI/mcp-server-sdk) - MCP server framework
-- [@sylphx/vex](https://github.com/SylphxAI/vex) - Schema validation
-- [@sylphx/biome-config](https://github.com/SylphxAI/biome-config) - Biome configuration
-- [@sylphx/tsconfig](https://github.com/SylphxAI/tsconfig) - TypeScript configuration
+Special thanks to the open source community.
 
 ---
 

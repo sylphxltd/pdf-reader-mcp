@@ -82,7 +82,9 @@ describe('loader', () => {
       // 200MB > 100MB cap
       fs.stat.mockResolvedValue(buildStats(200 * 1024 * 1024));
 
-      await expect(loadPdfDocument({ path: 'huge.pdf' }, 'huge.pdf')).rejects.toThrow(/exceeds maximum size/i);
+      await expect(loadPdfDocument({ path: 'huge.pdf' }, 'huge.pdf')).rejects.toThrow(
+        /exceeds maximum size/i
+      );
       // Crucially, fs.readFile must NOT be called — the whole point of the
       // pre-check is to avoid buffering oversized data.
       expect(fs.readFile).not.toHaveBeenCalled();
@@ -98,7 +100,10 @@ describe('loader', () => {
         promise: Promise.resolve(mockDocument as unknown as pdfjsLib.PDFDocumentProxy),
       } as pdfjsLib.PDFDocumentLoadingTask);
 
-      const result = await loadPdfDocument({ url: 'https://example.com/test.pdf' }, 'https://example.com/test.pdf');
+      const result = await loadPdfDocument(
+        { url: 'https://example.com/test.pdf' },
+        'https://example.com/test.pdf'
+      );
 
       expect(result).toBe(mockDocument);
       expect(fetchMock).toHaveBeenCalledWith(
@@ -118,7 +123,10 @@ describe('loader', () => {
       globalThis.fetch = vi.fn() as typeof globalThis.fetch;
 
       await expect(
-        loadPdfDocument({ url: 'http://169.254.169.254/latest/meta-data/' }, 'http://169.254.169.254/')
+        loadPdfDocument(
+          { url: 'http://169.254.169.254/latest/meta-data/' },
+          'http://169.254.169.254/'
+        )
       ).rejects.toThrow(/non-public address|SSRF/);
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
@@ -194,7 +202,9 @@ describe('loader', () => {
 
     it('should throw PdfError when neither path nor url provided', async () => {
       await expect(loadPdfDocument({}, 'unknown')).rejects.toThrow(PdfError);
-      await expect(loadPdfDocument({}, 'unknown')).rejects.toThrow("Source unknown missing 'path' or 'url'.");
+      await expect(loadPdfDocument({}, 'unknown')).rejects.toThrow(
+        "Source unknown missing 'path' or 'url'."
+      );
     });
 
     it('should handle file not found error (ENOENT)', async () => {
@@ -203,7 +213,9 @@ describe('loader', () => {
       pathUtils.resolvePath.mockReturnValue('/safe/path/missing.pdf');
       fs.stat.mockRejectedValue(enoentError);
 
-      await expect(loadPdfDocument({ path: 'missing.pdf' }, 'missing.pdf')).rejects.toThrow(PdfError);
+      await expect(loadPdfDocument({ path: 'missing.pdf' }, 'missing.pdf')).rejects.toThrow(
+        PdfError
+      );
       await expect(loadPdfDocument({ path: 'missing.pdf' }, 'missing.pdf')).rejects.toThrow(
         "File not found at 'missing.pdf'."
       );
@@ -216,8 +228,12 @@ describe('loader', () => {
       fs.stat.mockRejectedValue(Object.assign(new Error('Permission denied'), { code: 'EACCES' }));
 
       await expect(loadPdfDocument({ path: 'error.pdf' }, 'error.pdf')).rejects.toThrow(PdfError);
-      await expect(loadPdfDocument({ path: 'error.pdf' }, 'error.pdf')).rejects.toThrow(/Failed to access file/);
-      await expect(loadPdfDocument({ path: 'error.pdf' }, 'error.pdf')).rejects.not.toThrow(/Permission denied/);
+      await expect(loadPdfDocument({ path: 'error.pdf' }, 'error.pdf')).rejects.toThrow(
+        /Failed to access file/
+      );
+      await expect(loadPdfDocument({ path: 'error.pdf' }, 'error.pdf')).rejects.not.toThrow(
+        /Permission denied/
+      );
     });
 
     it('should reject non-regular files such as directories', async () => {
@@ -250,7 +266,9 @@ describe('loader', () => {
         'Failed to load PDF document from bad.pdf.'
       );
       // The internal path must NOT make it into the surfaced error.
-      await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.not.toThrow(/private\/internal/);
+      await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.not.toThrow(
+        /private\/internal/
+      );
 
       // Logger still records the raw details for operators.
       expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('PDF.js loading error'));
@@ -262,7 +280,9 @@ describe('loader', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const body = new TextEncoder().encode('pdf body');
-      globalThis.fetch = vi.fn().mockImplementation(async () => buildResponse(body)) as typeof globalThis.fetch;
+      globalThis.fetch = vi
+        .fn()
+        .mockImplementation(async () => buildResponse(body)) as typeof globalThis.fetch;
 
       // Build the rejected promise lazily inside mockImplementation so each
       // call gets a fresh rejection without leaving an unhandled one parked

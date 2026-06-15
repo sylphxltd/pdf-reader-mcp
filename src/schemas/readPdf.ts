@@ -1,4 +1,4 @@
-// Vex validation schemas for PDF reading
+// Validation schemas for PDF reading
 
 import {
   array,
@@ -13,7 +13,7 @@ import {
   optional,
   str,
   union,
-} from '@sylphx/vex';
+} from '../schema.js';
 
 // Schema for page specification (array of numbers or range string)
 export const pageSpecifierSchema = union(array(num(int, gte(1))), str(min(1)));

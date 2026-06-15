@@ -1,4 +1,4 @@
-import { text, tool, toolError } from '@sylphx/mcp-server-sdk';
+import { text, tool, toolError } from '../mcp.js';
 import { defaultInspectPdfOptions, inspectPdfSource } from '../pdf/inspector.js';
 import { inspectPdfArgsSchema } from '../schemas/inspectPdf.js';
 import type { PdfInspectionSourceResult } from '../types/pdf.js';

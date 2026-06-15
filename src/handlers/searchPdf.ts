@@ -1,4 +1,4 @@
-import { text, tool, toolError } from '@sylphx/mcp-server-sdk';
+import { text, tool, toolError } from '../mcp.js';
 import { defaultSearchPdfOptions, searchPdfSource } from '../pdf/search.js';
 import { searchPdfArgsSchema } from '../schemas/searchPdf.js';
 import type { PdfSearchSourceResult, SearchPdfOptions } from '../types/pdf.js';

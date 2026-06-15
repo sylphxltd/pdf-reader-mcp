@@ -1,6 +1,10 @@
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { describe, expect, it, vi } from 'vitest';
-import { buildRenderWarnings, renderPdfPage, resolvePagesToRender } from '../../src/pdf/renderer.js';
+import {
+  buildRenderWarnings,
+  renderPdfPage,
+  resolvePagesToRender,
+} from '../../src/pdf/renderer.js';
 
 const pngSignature = '89504e470d0a1a0a';
 

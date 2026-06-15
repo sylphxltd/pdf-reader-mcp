@@ -50,7 +50,8 @@ describe('documentModel', () => {
         severity: 'high',
         page: 1,
         element_id: 'p1-text-2',
-        message: 'Text substantially overlaps different text, which may visually spoof or obscure content.',
+        message:
+          'Text substantially overlaps different text, which may visually spoof or obscure content.',
         snippet: 'Visible amount: $100 / Visible amount: $900',
         bounding_box: { left: 100, bottom: 650, right: 224, top: 660 },
       },

@@ -10,7 +10,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const TEST_PORT = 18080; // Use a high port to avoid conflicts
 const BASE_URL = `http://localhost:${TEST_PORT}/mcp`;
-const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')) as {
+const packageJson = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')
+) as {
   version: string;
 };
 

@@ -869,15 +869,23 @@ const writeScannedImagePdfFixture = async (directory: string): Promise<string> =
   return fixturePath;
 };
 
+const contentBlocksFromHandlerResult = (
+  result: Awaited<ReturnType<typeof readPdf.handler>>
+): Array<{ type?: string; text?: string }> => {
+  if (Array.isArray(result)) return result;
+  if ('content' in result) return result.content;
+  return [result];
+};
+
 const parseReadPdfResult = async (input: ReadPdfArgs): Promise<Record<string, unknown>> => {
   const result = await readPdf.handler({ input, ctx: {} as unknown });
   if (result && typeof result === 'object' && 'isError' in result && result.isError) {
-    const content = result.content as Array<{ text?: string }>;
+    const content = contentBlocksFromHandlerResult(result);
     throw new Error(content[0]?.text ?? 'read_pdf returned an error');
   }
 
-  const content = result.content as Array<{ text?: string }>;
-  const textPayload = content[0]?.text;
+  const textPayload = contentBlocksFromHandlerResult(result).find((block) => block.type === 'text')
+    ?.text;
   if (!textPayload) {
     throw new Error('read_pdf did not return a JSON text payload');
   }

@@ -10,7 +10,7 @@ import {
   object,
   optional,
   str,
-} from '@sylphx/vex';
+} from '../schema.js';
 
 const regionBoundingBoxSchema = object({
   left: num(gte(0), description('Left PDF coordinate of the region bounding box.')),

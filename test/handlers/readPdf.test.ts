@@ -1,6 +1,6 @@
 import * as realFsPromises from 'node:fs/promises';
-import { type Schema, safeParse } from '@sylphx/vex';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Schema, safeParse } from '../../src/schema.js';
 import { ErrorCode, PdfError } from '../../src/utils/errors.js';
 import * as pathUtils from '../../src/utils/pathUtils.js'; // Import the module itself for spying
 import { resolvePath } from '../../src/utils/pathUtils.js';
@@ -39,19 +39,9 @@ vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
   },
 }));
 
-// The mock must expose every named export the transitive import graph
-// touches, not just the ones this test uses. Gust-server (pulled in via
-// @sylphx/mcp-server-sdk) does `import { readFile, stat } from "node:fs/promises"`;
-// if `stat` is missing when bun resolves that import, loading this test in
-// isolation — or in any order where gust-server hasn't been pre-evaluated
-// — blows up with `SyntaxError: Export named 'stat' not found in module
-// 'node:fs/promises'`. That manifests as a flaky CI failure when bun test
-// happens to process this file before one that loads fs/promises for real.
-//
-// The safe pattern: forward every real export through the mock, then
-// override only the functions we actually need to intercept. `realFsPromises`
-// is captured at module top so the mock factory (which bun hoists) can
-// reference it as a closure value.
+// Forward every real export through the mock, then override only the
+// filesystem calls this handler test needs to intercept. `realFsPromises` is
+// captured at module top so the mock factory can reference it after hoisting.
 vi.mock('node:fs/promises', () => ({
   ...realFsPromises,
   default: {
@@ -89,7 +79,7 @@ beforeAll(async () => {
   // The tool is created with .handler() which returns a function
   // We need to wrap it to match the expected interface
   handler = async (args: unknown) => {
-    // Validate input with Vex first (as the server would do)
+    // Validate input first, matching the server-side tool registration path.
     const parseResult = safeParse(readPdfSchema)(args);
     if (!parseResult.success) {
       throw new PdfError(ErrorCode.InvalidParams, `Invalid arguments: ${parseResult.error}`);
@@ -99,7 +89,10 @@ beforeAll(async () => {
     const result = await readPdf.handler({ input: parsedArgs, ctx: {} as unknown });
     // Handle toolError case - it returns { content: [...], isError: true }
     if (result && typeof result === 'object' && 'isError' in result && result.isError) {
-      throw new PdfError(ErrorCode.InvalidRequest, (result as { content: { text: string }[] }).content[0].text);
+      throw new PdfError(
+        ErrorCode.InvalidRequest,
+        (result as { content: { text: string }[] }).content[0].text
+      );
     }
     // Convert array result to expected format
     if (Array.isArray(result)) {
@@ -492,7 +485,12 @@ describe('handleReadPdfFunc Integration Tests', () => {
       const data = parsed.results[0]?.data;
       expect(data?.full_text).toBeUndefined();
       expect(data?.html).toBe(
-        ['<section data-page="1">', '<h2>Page 1</h2>', '<p>Mock &lt;page&gt; text 1</p>', '</section>'].join('\n')
+        [
+          '<section data-page="1">',
+          '<h2>Page 1</h2>',
+          '<p>Mock &lt;page&gt; text 1</p>',
+          '</section>',
+        ].join('\n')
       );
     } else {
       expect.fail('result.content[0] was undefined');
@@ -816,7 +814,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
         ],
       });
       expect(diagnostics?.[0]?.confidence).toBeGreaterThanOrEqual(0.8);
-      expect(diagnostics?.[0]?.signals).toEqual(expect.arrayContaining(['positioned-items', 'two-column-layout']));
+      expect(diagnostics?.[0]?.signals).toEqual(
+        expect.arrayContaining(['positioned-items', 'two-column-layout'])
+      );
     } else {
       expect.fail('result.content[0] was undefined');
     }
@@ -1111,7 +1111,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
         ocr_word_count: 1,
         ocr_source_render_evidence_id: 'page-1-render-scale-2',
       });
-      expect(data?.warnings).toContain('Rendered page 1 for OCR without embedding image bytes in JSON.');
+      expect(data?.warnings).toContain(
+        'Rendered page 1 for OCR without embedding image bytes in JSON.'
+      );
       expect(result.content[1]?.text).toBe('[Page 1 OCR]\nOCR recovered page text');
     } else {
       expect.fail('result.content[0] was undefined');
@@ -1194,7 +1196,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 chunk_ids?: string[];
                 children?: Array<{
                   type: string;
-                  children?: Array<{ type: string; title?: string; children?: Array<{ type: string }> }>;
+                  children?: Array<{
+                    type: string;
+                    title?: string;
+                    children?: Array<{ type: string }>;
+                  }>;
                 }>;
               };
               summary: {
@@ -1285,7 +1291,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
             trust_report?: {
               profile: string;
               risk: string;
-              summary: { signal_count: number; high_signal_count: number; low_signal_count: number };
+              summary: {
+                signal_count: number;
+                high_signal_count: number;
+                low_signal_count: number;
+              };
               signals: Array<{ type: string; severity: string; page?: number }>;
               guidance: string[];
             };
@@ -1442,7 +1452,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
         ])
       );
       expect(report?.guidance).toEqual(
-        expect.arrayContaining([expect.stringContaining('permissions'), expect.stringContaining('form field labels')])
+        expect.arrayContaining([
+          expect.stringContaining('permissions'),
+          expect.stringContaining('form field labels'),
+        ])
       );
     } else {
       expect.fail('result.content[0] was undefined');
@@ -1678,7 +1691,12 @@ describe('handleReadPdfFunc Integration Tests', () => {
               page: number;
               tree: {
                 role: string;
-                children?: Array<{ role?: string; type?: string; id?: string; children?: unknown[] }>;
+                children?: Array<{
+                  role?: string;
+                  type?: string;
+                  id?: string;
+                  children?: unknown[];
+                }>;
               };
             }>;
           };
@@ -1988,7 +2006,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
         iccUrl: expect.stringContaining('iccs'),
       })
     );
-    expect(globalThis.fetch).toHaveBeenCalledWith(testUrl, expect.objectContaining({ redirect: 'manual' }));
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      testUrl,
+      expect.objectContaining({ redirect: 'manual' })
+    );
     expect(mockGetMetadata).toHaveBeenCalled();
     expect(mockGetPage).not.toHaveBeenCalled();
     // Add check for content existence and access safely
@@ -2109,7 +2130,10 @@ describe('handleReadPdfFunc Integration Tests', () => {
         iccUrl: expect.stringContaining('iccs'),
       })
     );
-    expect(globalThis.fetch).toHaveBeenCalledWith(urlSource, expect.objectContaining({ redirect: 'manual' }));
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      urlSource,
+      expect.objectContaining({ redirect: 'manual' })
+    );
     expect(mockGetPage).toHaveBeenCalledTimes(1); // Should be called once for local.pdf page 1
     expect(secondMockGetPage).toHaveBeenCalledTimes(2);
     // Add check for content existence and access safely
@@ -2146,10 +2170,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     await expect(handler(args)).rejects.not.toThrow(/private\/etc\/leak/);
   });
 
-  it('should throw PdfError for invalid input arguments (Vex error)', async () => {
+  it('should throw PdfError for invalid input arguments (Zod error)', async () => {
     const args = { sources: [{ path: 'test.pdf' }], include_full_text: 'yes' };
     await expect(handler(args)).rejects.toThrow(PdfError);
-    // Vex format: "include_full_text: Expected boolean"
     await expect(handler(args)).rejects.toThrow(/include_full_text.*boolean/i);
     await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
@@ -2163,20 +2186,17 @@ describe('handleReadPdfFunc Integration Tests', () => {
     await expect(handler(invalidArgs)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
 
-  // Skipped: Vex does not support custom regex validation like Zod's .refine()
+  // Skipped: this schema intentionally leaves page-range grammar validation to parser logic.
   // Invalid page strings like "1,abc,3" will be caught at processing time instead
-  it.skip('should throw PdfError for invalid page specification string (removed - no refine in Vex)', async () => {
+  it.skip('should throw PdfError for invalid page specification string', async () => {
     const args = { sources: [{ path: 'test.pdf', pages: '1,abc,3' }] };
     await expect(handler(args)).rejects.toThrow(PdfError);
   });
 
-  // Vex validates that page numbers are >= 1 via gte(1) constraint
-  // Since pages is a union (array | string), validation failure shows union error
-  it('should throw PdfError for invalid page specification array (non-positive - Vex)', async () => {
+  it('should throw PdfError for invalid page specification array (non-positive - Zod)', async () => {
     const args = { sources: [{ path: 'test.pdf', pages: [1, 0, 3] }] };
     await expect(handler(args)).rejects.toThrow(PdfError);
-    // Vex format: "pages: Value does not match any type in union"
-    await expect(handler(args)).rejects.toThrow(/pages.*union/i);
+    await expect(handler(args)).rejects.toThrow(/pages.*>=1/i);
     await expect(handler(args)).rejects.toHaveProperty('code', ErrorCode.InvalidParams);
   });
 
@@ -2372,23 +2392,20 @@ describe('handleReadPdfFunc Integration Tests', () => {
     await expect(handler(args)).rejects.toThrow(/Invalid page range values: 5-3/);
   });
 
-  // Skipped: Vex does not support custom regex validation like Zod's .refine()
-  // Invalid page strings are caught at processing time instead of schema validation
-  it.skip('should throw PdfError for invalid page number string (removed - no refine in Vex)', async () => {
+  // Invalid page strings are caught at processing time instead of schema validation.
+  it.skip('should throw PdfError for invalid page number string', async () => {
     const args = { sources: [{ path: 'test.pdf', pages: '1,a,3' }] };
     await expect(handler(args)).rejects.toThrow(PdfError);
   });
 
-  // Skipped: Vex does not support .refine() for XOR validation
-  // These cases are caught at processing time when the loader fails
-  it.skip('should throw PdfError if source has both path and url (removed - no refine in Vex)', async () => {
+  // These cases are caught at processing time when the loader fails.
+  it.skip('should throw PdfError if source has both path and url', async () => {
     const args = { sources: [{ path: 'test.pdf', url: 'http://example.com' }] };
     await expect(handler(args)).rejects.toThrow(PdfError);
   });
 
-  // Skipped: Vex does not support .refine() for XOR validation
-  // These cases are caught at processing time when the loader fails
-  it.skip('should throw PdfError if source has neither path nor url (removed - no refine in Vex)', async () => {
+  // These cases are caught at processing time when the loader fails.
+  it.skip('should throw PdfError if source has neither path nor url', async () => {
     const args = { sources: [{ pages: [1] }] }; // Missing path and url
     await expect(handler(args)).rejects.toThrow(PdfError);
   });
@@ -2438,7 +2455,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89], // OPS.paintImageXObject value
         argsArray: [['img1', [1, 0, 0, 1, 0, 50]]],
@@ -2495,7 +2514,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'Page text', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'Page text', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89],
         argsArray: [['img1', [1, 0, 0, 1, 0, 50]]],
@@ -2536,7 +2557,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     vi.spyOn(pathUtils, 'resolvePath').mockImplementation((p) => p);
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89], // OPS.paintImageXObject
         argsArray: [['hanging_img']],
@@ -2598,7 +2621,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89, 89, 89], // Three images
         argsArray: [['img1'], ['img2'], ['img3']],
@@ -2654,7 +2679,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89, 89, 89, 89], // Four images
         argsArray: [['valid_img'], ['no_data'], ['no_width'], ['invalid']],
@@ -2766,7 +2793,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89],
         argsArray: [['g_image1']], // Image with g_ prefix
@@ -2811,7 +2840,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89],
         argsArray: [['img1']],
@@ -2861,7 +2892,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     };
 
     const mockPage = {
-      getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
+      getTextContent: vi
+        .fn()
+        .mockResolvedValue({ items: [{ str: 'test', transform: [1, 0, 0, 1, 0, 100] }] }),
       getOperatorList: vi.fn().mockResolvedValue({
         fnArray: [89],
         argsArray: [['img1']],
@@ -2969,7 +3002,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
 
     // Check for markdown tables in content
-    const markdownContent = result.content.find((c) => c.type === 'text' && c.text.includes('## Extracted Tables'));
+    const markdownContent = result.content.find(
+      (c) => c.type === 'text' && c.text.includes('## Extracted Tables')
+    );
     if (markdownContent) {
       expect(markdownContent.text).toContain('|');
       expect(markdownContent.text).toContain('---');
@@ -3014,7 +3049,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(parsed.results[0]?.data?.table_info).toBeUndefined();
 
     // Should NOT have markdown tables
-    const markdownContent = result.content.find((c) => c.type === 'text' && c.text.includes('## Extracted Tables'));
+    const markdownContent = result.content.find(
+      (c) => c.type === 'text' && c.text.includes('## Extracted Tables')
+    );
     expect(markdownContent).toBeUndefined();
   });
 
@@ -3023,7 +3060,11 @@ describe('handleReadPdfFunc Integration Tests', () => {
       getTextContent: vi.fn().mockResolvedValue({
         items: [
           // Non-tabular content
-          { str: 'This is just a paragraph of text without any tables.', transform: [1, 0, 0, 1, 50, 700], width: 300 },
+          {
+            str: 'This is just a paragraph of text without any tables.',
+            transform: [1, 0, 0, 1, 50, 700],
+            width: 300,
+          },
         ],
       }),
       getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
@@ -3054,7 +3095,9 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(parsed.results[0]?.data?.table_info).toBeUndefined();
 
     // Should NOT have markdown tables section
-    const markdownContent = result.content.find((c) => c.type === 'text' && c.text.includes('## Extracted Tables'));
+    const markdownContent = result.content.find(
+      (c) => c.type === 'text' && c.text.includes('## Extracted Tables')
+    );
     expect(markdownContent).toBeUndefined();
   });
 }); // End top-level describe

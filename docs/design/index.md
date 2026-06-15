@@ -87,6 +87,6 @@ PDF Reader MCP is built on these core principles:
 - **Runtime**: Node.js 22+
 - **PDF Parsing**: pdfjs-dist
 - **Image Encoding**: pngjs
-- **Schema Validation**: @sylphx/vex
-- **MCP SDK**: @sylphx/mcp-server-sdk
+- **Schema Validation**: Zod
+- **MCP SDK**: Official Model Context Protocol TypeScript SDK
 - **Build Tool**: bunup

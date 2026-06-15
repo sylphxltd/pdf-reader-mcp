@@ -1,4 +1,4 @@
-import { text, tool, toolError } from '@sylphx/mcp-server-sdk';
+import { text, tool, toolError } from '../mcp.js';
 import {
   analyzePdfRegionsFromSource,
   defaultAnalyzeRegionsOptions,

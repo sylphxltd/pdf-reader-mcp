@@ -1,7 +1,10 @@
 import path from 'node:path';
 import { PNG } from 'pngjs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { analyzeRegionCropWithCommandProvider, defaultAnalyzeRegionsOptions } from '../../src/pdf/regionAnalysis.js';
+import {
+  analyzeRegionCropWithCommandProvider,
+  defaultAnalyzeRegionsOptions,
+} from '../../src/pdf/regionAnalysis.js';
 import type { PdfRegionCropData } from '../../src/types/pdf.js';
 
 const originalCommand = process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'];

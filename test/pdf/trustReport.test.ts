@@ -52,7 +52,9 @@ describe('trustReport', () => {
             missingCellCount: 1,
             mergedCellCandidateCount: 0,
             signals: ['missing_cells', 'low_confidence'],
-            warnings: ['Detected empty inferred cells; table may contain sparse or merged structure.'],
+            warnings: [
+              'Detected empty inferred cells; table may contain sparse or merged structure.',
+            ],
           },
         },
         provenance: {

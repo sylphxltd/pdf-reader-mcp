@@ -65,7 +65,10 @@ describe('MCP Server Integration', () => {
     // Start the MCP server
     const serverPath = path.resolve(__dirname, '../../dist/index.js');
     const mockOcrProviderPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
-    const mockRegionAnalysisProviderPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
+    const mockRegionAnalysisProviderPath = path.resolve(
+      __dirname,
+      '../fixtures/mock-region-analysis-provider.mjs'
+    );
     // Must use bun as SDK uses Bun APIs
     serverProc = spawn('bun', [serverPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -73,7 +76,12 @@ describe('MCP Server Integration', () => {
         ...process.env,
         NODE_ENV: 'test',
         MCP_PDF_OCR_COMMAND: process.execPath,
-        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([mockOcrProviderPath, '{input}', '{page}', '{languages}']),
+        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([
+          mockOcrProviderPath,
+          '{input}',
+          '{page}',
+          '{languages}',
+        ]),
         MCP_PDF_REGION_ANALYSIS_COMMAND: process.execPath,
         MCP_PDF_REGION_ANALYSIS_ARGS_JSON: JSON.stringify([
           mockRegionAnalysisProviderPath,
@@ -377,7 +385,9 @@ describe('MCP Server Integration', () => {
       expect(response.result?.content?.[0]?.type).toBe('text');
       expect(parsed.profile).toBe('region_analysis');
       expect(parsed.results[0]?.success).toBe(true);
-      expect(parsed.results[0]?.region_analyses?.[0]?.description).toContain('Mock region analysis');
+      expect(parsed.results[0]?.region_analyses?.[0]?.description).toContain(
+        'Mock region analysis'
+      );
       expect(parsed.results[0]?.region_analyses?.[0]?.kind).toBe('table');
       expect(parsed.results[0]?.region_analyses?.[0]?.provider).toBe('command');
     }

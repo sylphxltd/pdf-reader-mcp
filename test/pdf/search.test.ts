@@ -123,14 +123,18 @@ describe('search', () => {
   });
 
   it('supports whole-word and case-sensitive matching', () => {
-    const items = [textItem('Risk controls reduce risky exposure.'), textItem('risk owners review controls.')];
+    const items = [
+      textItem('Risk controls reduce risky exposure.'),
+      textItem('risk owners review controls.'),
+    ];
 
-    expect(searchPageContentItems(1, items, options({ whole_word: true }), 0).map((m) => m.text)).toEqual([
-      'Risk',
-      'risk',
-    ]);
     expect(
-      searchPageContentItems(1, items, options({ case_sensitive: true, query: 'Risk' }), 0).map((m) => m.text)
+      searchPageContentItems(1, items, options({ whole_word: true }), 0).map((m) => m.text)
+    ).toEqual(['Risk', 'risk']);
+    expect(
+      searchPageContentItems(1, items, options({ case_sensitive: true, query: 'Risk' }), 0).map(
+        (m) => m.text
+      )
     ).toEqual(['Risk']);
   });
 

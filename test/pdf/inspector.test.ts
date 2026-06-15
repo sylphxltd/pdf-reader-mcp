@@ -6,7 +6,11 @@ import {
 } from '../../src/pdf/inspector.js';
 import type { PdfInspectionDocumentSignals, PdfInspectionPageSignal } from '../../src/types/pdf.js';
 
-const signal = (page: number, textChars: number, imagePaintOperations = 0): PdfInspectionPageSignal => ({
+const signal = (
+  page: number,
+  textChars: number,
+  imagePaintOperations = 0
+): PdfInspectionPageSignal => ({
   page,
   text_chars: textChars,
   text_items: textChars > 0 ? 4 : 0,
@@ -16,7 +20,9 @@ const signal = (page: number, textChars: number, imagePaintOperations = 0): PdfI
   low_text_density: textChars < 80,
 });
 
-const documentSignals = (overrides: Partial<PdfInspectionDocumentSignals> = {}): PdfInspectionDocumentSignals => ({
+const documentSignals = (
+  overrides: Partial<PdfInspectionDocumentSignals> = {}
+): PdfInspectionDocumentSignals => ({
   has_outline: false,
   has_page_labels: false,
   has_permissions: false,
@@ -48,11 +54,15 @@ describe('inspector', () => {
     });
 
     it('classifies image-only samples as scanned or image-only', () => {
-      expect(classifyPdfInspectionProfile([signal(1, 0, 2), signal(2, 3, 1)])).toBe('scanned_or_image_only');
+      expect(classifyPdfInspectionProfile([signal(1, 0, 2), signal(2, 3, 1)])).toBe(
+        'scanned_or_image_only'
+      );
     });
 
     it('classifies mixed selectable text and scanned pages', () => {
-      expect(classifyPdfInspectionProfile([signal(1, 420), signal(2, 0, 1)])).toBe('mixed_text_and_scan');
+      expect(classifyPdfInspectionProfile([signal(1, 420), signal(2, 0, 1)])).toBe(
+        'mixed_text_and_scan'
+      );
     });
   });
 

@@ -58,7 +58,9 @@ describe('accessibilityReport', () => {
         annotations: [{ id: 'link-1', page: 1, subtype: 'Link', url: 'https://example.com' }],
       },
     ];
-    const formFields: PdfFormField[] = [{ id: 'field-1', name: 'field1', page: 1, type: 'Tx', required: true }];
+    const formFields: PdfFormField[] = [
+      { id: 'field-1', name: 'field1', page: 1, type: 'Tx', required: true },
+    ];
 
     const report = buildAccessibilityReport({
       selectedPages: [2, 1],

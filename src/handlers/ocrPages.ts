@@ -1,4 +1,4 @@
-import { text, tool, toolError } from '@sylphx/mcp-server-sdk';
+import { text, tool, toolError } from '../mcp.js';
 import { defaultOcrPagesOptions, ocrPdfSourcePages } from '../pdf/ocr.js';
 import { ocrPagesArgsSchema } from '../schemas/ocrPages.js';
 import type { OcrPagesOptions, PdfOcrSourceResult } from '../types/pdf.js';

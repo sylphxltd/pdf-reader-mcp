@@ -9,7 +9,7 @@ import {
   num,
   object,
   optional,
-} from '@sylphx/vex';
+} from '../schema.js';
 import { pdfSourceSchema } from './readPdf.js';
 
 export const renderPageArgsSchema = object({

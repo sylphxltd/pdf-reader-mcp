@@ -30,7 +30,10 @@ describe('textLayer', () => {
       pageContents: [
         {
           page: 1,
-          items: [textItem('Revenue growth', 40, 700, 140, 12), textItem('24% year over year', 40, 680, 170, 12)],
+          items: [
+            textItem('Revenue growth', 40, 700, 140, 12),
+            textItem('24% year over year', 40, 680, 170, 12),
+          ],
         },
       ],
     });

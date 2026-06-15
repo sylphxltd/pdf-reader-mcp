@@ -11,7 +11,7 @@ import {
   object,
   optional,
   str,
-} from '@sylphx/vex';
+} from '../schema.js';
 import { pdfSourceSchema } from './readPdf.js';
 
 export const searchPdfArgsSchema = object({

@@ -1,7 +1,7 @@
 // PDF reading handler - orchestrates PDF processing workflow
 
-import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { image, text, tool, toolError } from '../mcp.js';
 import { buildAccessibilityReport } from '../pdf/accessibilityReport.js';
 import { buildDocumentAst } from '../pdf/documentAst.js';
 import { buildDocumentMap } from '../pdf/documentMap.js';

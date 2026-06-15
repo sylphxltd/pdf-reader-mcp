@@ -2,10 +2,164 @@
 
 // src/index.ts
 import { createRequire as createRequire3 } from "node:module";
-import { createServer, http, stdio } from "@sylphx/mcp-server-sdk";
 
-// src/handlers/analyzeRegions.ts
-import { text, tool, toolError } from "@sylphx/mcp-server-sdk";
+// src/mcp.ts
+import { createServer as createHttpServer } from "node:http";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { z } from "zod";
+var text = (value) => ({ type: "text", text: value });
+var image = (data, mimeType) => ({
+  type: "image",
+  data,
+  mimeType
+});
+var toolError = (message) => ({
+  content: [text(message)],
+  isError: true
+});
+
+class ToolBuilder {
+  #description;
+  #inputSchema;
+  constructor(descriptionValue, inputSchema) {
+    this.#description = descriptionValue;
+    this.#inputSchema = inputSchema;
+  }
+  description(value) {
+    return new ToolBuilder(value, this.#inputSchema);
+  }
+  input(schema) {
+    return new ToolBuilder(this.#description, schema);
+  }
+  handler(handler) {
+    return {
+      description: this.#description ?? "",
+      inputSchema: this.#inputSchema ?? z.object({}),
+      handler
+    };
+  }
+}
+var tool = () => new ToolBuilder;
+var stdio = () => ({ kind: "stdio" });
+var http = (config) => ({ kind: "http", ...config });
+var isCallToolResult = (result) => typeof result === "object" && result !== null && ("content" in result);
+var isContentArray = (result) => Array.isArray(result);
+var normalizeToolResult = (result) => {
+  if (isContentArray(result))
+    return { content: [...result] };
+  if (isCallToolResult(result))
+    return result;
+  return { content: [result] };
+};
+var withCors = (res, origin) => {
+  if (!origin)
+    return;
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id, X-API-Key");
+};
+var ensureStreamableAcceptHeader = (req) => {
+  const accept = req.headers.accept;
+  const acceptValues = Array.isArray(accept) ? accept.join(", ") : accept ?? "";
+  if (acceptValues.includes("application/json") && acceptValues.includes("text/event-stream")) {
+    return;
+  }
+  req.headers.accept = "application/json, text/event-stream";
+  const rawAcceptIndex = req.rawHeaders.findIndex((value, index) => index % 2 === 0 && value.toLowerCase() === "accept");
+  if (rawAcceptIndex >= 0) {
+    req.rawHeaders[rawAcceptIndex + 1] = "application/json, text/event-stream";
+    return;
+  }
+  req.rawHeaders.push("Accept", "application/json, text/event-stream");
+};
+var startHttpServer = async (serverInfo, transportConfig) => {
+  const mcpServer = buildMcpServer(serverInfo);
+  const httpServer = createHttpServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? transportConfig.hostname}`);
+    withCors(res, transportConfig.cors);
+    if (url.pathname === "/mcp/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok" }));
+      return;
+    }
+    if (url.pathname !== "/mcp") {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
+      return;
+    }
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    ensureStreamableAcceptHeader(req);
+    const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
+    try {
+      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res);
+    } finally {
+      await mcpServer.close();
+    }
+  });
+  await new Promise((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(transportConfig.port, transportConfig.hostname, () => {
+      httpServer.off("error", reject);
+      resolve();
+    });
+  });
+  return { mcpServer, httpServer };
+};
+var buildMcpServer = ({
+  name,
+  version,
+  instructions,
+  tools
+}) => {
+  const mcpServer = new McpServer({ name, version }, {
+    ...instructions ? { instructions } : {}
+  });
+  for (const [name2, definition] of Object.entries(tools)) {
+    mcpServer.registerTool(name2, {
+      description: definition.description,
+      inputSchema: definition.inputSchema
+    }, async (input, ctx) => normalizeToolResult(await definition.handler({ input, ctx })));
+  }
+  return mcpServer;
+};
+var createServer = (options) => {
+  let mcpServer;
+  let httpServer;
+  return {
+    async start() {
+      if (options.transport.kind === "stdio") {
+        mcpServer = buildMcpServer(options);
+        await mcpServer.connect(new StdioServerTransport);
+        return;
+      }
+      const started = await startHttpServer(options, options.transport);
+      mcpServer = started.mcpServer;
+      httpServer = started.httpServer;
+    },
+    async close() {
+      await mcpServer?.close();
+      const serverToClose = httpServer;
+      if (!serverToClose)
+        return;
+      await new Promise((resolve, reject) => {
+        serverToClose.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
+  };
+};
 
 // src/pdf/regionAnalysis.ts
 import { execFile } from "node:child_process";
@@ -1022,7 +1176,7 @@ var normalizeTableCells = (value, maxLength) => {
     if (typeof cell !== "object" || cell === null)
       return;
     const candidate = cell;
-    const text = normalizeString(candidate.text, maxLength) ?? "";
+    const text2 = normalizeString(candidate.text, maxLength) ?? "";
     const rowIndex = normalizeZeroBasedInteger(candidate.row_index ?? candidate.row);
     const columnIndex = normalizeZeroBasedInteger(candidate.column_index ?? candidate.column);
     if (rowIndex === undefined || columnIndex === undefined)
@@ -1032,7 +1186,7 @@ var normalizeTableCells = (value, maxLength) => {
     const confidence = normalizeConfidence(candidate.confidence);
     const boundingBox = normalizeBoundingBox(candidate.bounding_box ?? candidate.bbox);
     return {
-      text,
+      text: text2,
       row_index: rowIndex,
       column_index: columnIndex,
       ...rowSpan !== undefined ? { row_span: rowSpan } : {},
@@ -1096,15 +1250,15 @@ var normalizeFormula = (value, maxLength) => {
   const latex = normalizeString(candidate.latex, maxLength);
   const mathml = normalizeString(candidate.mathml, maxLength);
   const asciimath = normalizeString(candidate.asciimath ?? candidate.ascii_math, maxLength);
-  const text = normalizeString(candidate.text, maxLength);
+  const text2 = normalizeString(candidate.text, maxLength);
   const confidence = normalizeConfidence(candidate.confidence);
-  if (!latex && !mathml && !asciimath && !text && confidence === undefined)
+  if (!latex && !mathml && !asciimath && !text2 && confidence === undefined)
     return;
   return {
     ...latex ? { latex } : {},
     ...mathml ? { mathml } : {},
     ...asciimath ? { asciimath } : {},
-    ...text ? { text } : {},
+    ...text2 ? { text: text2 } : {},
     ...confidence !== undefined ? { confidence } : {}
   };
 };
@@ -1211,7 +1365,7 @@ var parseRegionAnalysisOutput = (stdout, options) => {
   warnings.push(...normalizeWarnings(parsed.warnings));
   const kind = normalizeKind(parsed.kind, warnings);
   const description = normalizeString(parsed.description, options.max_output_chars);
-  const text = normalizeString(parsed.text, options.max_output_chars);
+  const text2 = normalizeString(parsed.text, options.max_output_chars);
   const markdown = normalizeString(parsed.markdown, options.max_output_chars);
   const confidence = normalizeConfidence(parsed.confidence);
   const table = normalizeTable(parsed.table, options.max_output_chars);
@@ -1220,7 +1374,7 @@ var parseRegionAnalysisOutput = (stdout, options) => {
   return {
     kind,
     ...description ? { description } : {},
-    ...text ? { text } : {},
+    ...text2 ? { text: text2 } : {},
     ...markdown ? { markdown } : {},
     ...confidence !== undefined ? { confidence } : {},
     ...table ? { table } : {},
@@ -1366,32 +1520,33 @@ var analyzePdfRegionsFromSource = async (source, options) => {
   };
 };
 
-// src/schemas/analyzeRegions.ts
-import {
-  array as array2,
-  description as description2,
-  gte as gte2,
-  int as int2,
-  lte as lte2,
-  num as num2,
-  object as object2,
-  optional as optional2,
-  str as str2
-} from "@sylphx/vex";
+// src/schema.ts
+import { z as z2 } from "zod";
+var applyActions = (schema, actions) => actions.reduce((current, action) => action(current), schema);
+var expectNumberSchema = (schema, actionName) => {
+  if (schema instanceof z2.ZodNumber)
+    return schema;
+  throw new TypeError(`${actionName} can only be applied to a number schema.`);
+};
+var expectStringSchema = (schema, actionName) => {
+  if (schema instanceof z2.ZodString)
+    return schema;
+  throw new TypeError(`${actionName} can only be applied to a string schema.`);
+};
+var description = (value) => (schema) => schema.describe(value);
+var gte = (value) => (schema) => expectNumberSchema(schema, "gte").min(value);
+var lte = (value) => (schema) => expectNumberSchema(schema, "lte").max(value);
+var min = (value) => (schema) => expectStringSchema(schema, "min").min(value);
+var int = (schema) => expectNumberSchema(schema, "int").int();
+var str = (...actions) => applyActions(z2.string(), actions);
+var num = (...actions) => applyActions(z2.number(), actions);
+var bool = (...actions) => applyActions(z2.boolean(), actions);
+var array = (schema, ...actions) => applyActions(z2.array(schema), actions);
+var object = (shape, ...actions) => applyActions(z2.object(shape), actions);
+var optional = (schema) => schema.optional();
+var union = (...schemas) => z2.union(schemas);
 
 // src/schemas/extractRegions.ts
-import {
-  array,
-  bool,
-  description,
-  gte,
-  int,
-  lte,
-  num,
-  object,
-  optional,
-  str
-} from "@sylphx/vex";
 var regionBoundingBoxSchema = object({
   left: num(gte(0), description("Left PDF coordinate of the region bounding box.")),
   bottom: num(gte(0), description("Bottom PDF coordinate of the region bounding box.")),
@@ -1418,14 +1573,14 @@ var extractRegionsArgsSchema = object({
 });
 
 // src/schemas/analyzeRegions.ts
-var analyzeRegionsArgsSchema = object2({
-  sources: array2(pdfRegionSourceSchema),
-  scale: optional2(num2(gte2(0.25), lte2(4), description2("Render scale used before cropping and region analysis. Defaults to 2."))),
-  max_regions: optional2(num2(int2, gte2(1), lte2(100), description2("Maximum regions to analyze per source. Defaults to 20 and is capped at 100."))),
-  max_pixels_per_page: optional2(num2(int2, gte2(1e4), lte2(64000000), description2("Maximum rendered pixels per page before cropping. Defaults to 16,000,000."))),
-  timeout_ms: optional2(num2(int2, gte2(1000), lte2(300000), description2("Timeout per analyzed region in milliseconds. Defaults to 60,000."))),
-  max_output_chars: optional2(num2(int2, gte2(1000), lte2(1e6), description2("Maximum provider output characters returned per analyzed region. Defaults to 200,000."))),
-  languages: optional2(array2(str2(description2("Optional language tags passed to the configured region analysis provider."))))
+var analyzeRegionsArgsSchema = object({
+  sources: array(pdfRegionSourceSchema),
+  scale: optional(num(gte(0.25), lte(4), description("Render scale used before cropping and region analysis. Defaults to 2."))),
+  max_regions: optional(num(int, gte(1), lte(100), description("Maximum regions to analyze per source. Defaults to 20 and is capped at 100."))),
+  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page before cropping. Defaults to 16,000,000."))),
+  timeout_ms: optional(num(int, gte(1000), lte(300000), description("Timeout per analyzed region in milliseconds. Defaults to 60,000."))),
+  max_output_chars: optional(num(int, gte(1000), lte(1e6), description("Maximum provider output characters returned per analyzed region. Defaults to 200,000."))),
+  languages: optional(array(str(description("Optional language tags passed to the configured region analysis provider."))))
 });
 
 // src/handlers/analyzeRegions.ts
@@ -1488,7 +1643,6 @@ var analyzeRegions = tool().description("Analyzes selected PDF visual regions wi
 });
 
 // src/handlers/extractRegions.ts
-import { image, text as text2, tool as tool2, toolError as toolError2 } from "@sylphx/mcp-server-sdk";
 var logger8 = createLogger("ExtractRegions");
 var buildOptions2 = (input) => ({
   ...defaultExtractRegionsOptions(),
@@ -1556,7 +1710,7 @@ var attachRegionSummaries = (outputs, includeImage) => {
 };
 var buildContent = (outputs, results, options) => {
   const content = [
-    text2(JSON.stringify({
+    text(JSON.stringify({
       profile: "region_crop_evidence",
       crop_options: options,
       results
@@ -1573,7 +1727,7 @@ var buildContent = (outputs, results, options) => {
   }
   return content;
 };
-var extractRegions = tool2().description("Extracts bounded visual crops from selected PDF page regions using PDF-coordinate bounding boxes.").input(extractRegionsArgsSchema).handler(async ({ input }) => {
+var extractRegions = tool().description("Extracts bounded visual crops from selected PDF page regions using PDF-coordinate bounding boxes.").input(extractRegionsArgsSchema).handler(async ({ input }) => {
   const options = buildOptions2(input);
   const outputs = [];
   for (const source of input.sources) {
@@ -1582,13 +1736,10 @@ var extractRegions = tool2().description("Extracts bounded visual crops from sel
   const results = attachRegionSummaries(outputs, options.include_image);
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError2(`All PDF sources failed region extraction: ${errorMessages}`);
+    return toolError(`All PDF sources failed region extraction: ${errorMessages}`);
   }
   return buildContent(outputs, results, options);
 });
-
-// src/handlers/inspectPdf.ts
-import { text as text3, tool as tool3, toolError as toolError3 } from "@sylphx/mcp-server-sdk";
 
 // src/pdf/inspector.ts
 import { OPS as OPS2 } from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -1659,16 +1810,16 @@ var estimateCharacterBoundingBox = (runBox, textLength, charStart, charEnd) => {
     top: runBox.top
   };
 };
-var buildRunChars = (text3, runBox) => {
+var buildRunChars = (text2, runBox) => {
   const chars = [];
-  for (let cursor = 0;cursor < text3.length; ) {
-    const codePoint = text3.codePointAt(cursor);
-    const char = codePoint === undefined ? text3[cursor] : String.fromCodePoint(codePoint);
+  for (let cursor = 0;cursor < text2.length; ) {
+    const codePoint = text2.codePointAt(cursor);
+    const char = codePoint === undefined ? text2[cursor] : String.fromCodePoint(codePoint);
     if (char === undefined)
       break;
     const charStart = cursor;
     const charEnd = cursor + char.length;
-    const boundingBox = estimateCharacterBoundingBox(runBox, text3.length, charStart, charEnd);
+    const boundingBox = estimateCharacterBoundingBox(runBox, text2.length, charStart, charEnd);
     chars.push({
       index: chars.length,
       text: char,
@@ -2603,10 +2754,10 @@ var requiredTsvColumnIndexes = (headers) => {
   };
   return Object.values(columns).some((value) => value < 0) ? undefined : columns;
 };
-var truncateOcrText = (text3, maxOutputChars) => text3.length > maxOutputChars ? {
-  text: text3.slice(0, maxOutputChars),
+var truncateOcrText = (text2, maxOutputChars) => text2.length > maxOutputChars ? {
+  text: text2.slice(0, maxOutputChars),
   warnings: [`OCR output truncated to ${String(maxOutputChars)} characters.`]
-} : { text: text3 };
+} : { text: text2 };
 var parseTesseractTsvOutput = (stdout, options, imageHeight) => {
   const lines = stdout.trim().split(/\r?\n/u);
   const headers = lines[0]?.split("\t");
@@ -2629,8 +2780,8 @@ var parseTesseractTsvOutput = (stdout, options, imageHeight) => {
       continue;
     const values = rawLine.split("\t");
     const level = parseFiniteNumber(values[columns.level]);
-    const text3 = values.slice(columns.text).join("\t").trim();
-    if (level !== 5 || text3.length === 0)
+    const text2 = values.slice(columns.text).join("\t").trim();
+    if (level !== 5 || text2.length === 0)
       continue;
     const left = parseFiniteNumber(values[columns.left]);
     const top = parseFiniteNumber(values[columns.top]);
@@ -2643,7 +2794,7 @@ var parseTesseractTsvOutput = (stdout, options, imageHeight) => {
       values[columns.lineNum] ?? "0"
     ].join(":");
     const line = lineTexts.get(lineKey) ?? [];
-    line.push(text3);
+    line.push(text2);
     lineTexts.set(lineKey, line);
     const boundingBox = left !== undefined && top !== undefined && width !== undefined && height !== undefined && width > 0 && height > 0 ? {
       left,
@@ -2652,7 +2803,7 @@ var parseTesseractTsvOutput = (stdout, options, imageHeight) => {
       top: imageHeight - top
     } : undefined;
     words.push({
-      text: text3,
+      text: text2,
       ...confidence2 !== undefined ? { confidence: confidence2 } : {},
       ...boundingBox ? { bounding_box: boundingBox } : {}
     });
@@ -3174,79 +3325,53 @@ var defaultInspectPdfOptions = () => ({
   include_metadata: true
 });
 
-// src/schemas/inspectPdf.ts
-import {
-  array as array4,
-  bool as bool3,
-  description as description4,
-  gte as gte4,
-  int as int4,
-  lte as lte3,
-  num as num4,
-  object as object4,
-  optional as optional4
-} from "@sylphx/vex";
-
 // src/schemas/readPdf.ts
-import {
-  array as array3,
-  bool as bool2,
-  description as description3,
-  gte as gte3,
-  int as int3,
-  min,
-  num as num3,
-  object as object3,
-  optional as optional3,
-  str as str3,
-  union
-} from "@sylphx/vex";
-var pageSpecifierSchema = union(array3(num3(int3, gte3(1))), str3(min(1)));
-var pdfSourceSchema = object3({
-  path: optional3(str3(min(1), description3("Path to the local PDF file (absolute or relative to cwd)."))),
-  url: optional3(str3(min(1), description3("URL of the PDF file."))),
-  pages: optional3(pageSpecifierSchema)
+var pageSpecifierSchema = union(array(num(int, gte(1))), str(min(1)));
+var pdfSourceSchema = object({
+  path: optional(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
+  url: optional(str(min(1), description("URL of the PDF file."))),
+  pages: optional(pageSpecifierSchema)
 });
-var readPdfArgsSchema = object3({
-  sources: array3(pdfSourceSchema),
-  include_full_text: optional3(bool2(description3("Include the full text content of each PDF (only if 'pages' is not specified for that source)."))),
-  include_metadata: optional3(bool2(description3("Include metadata and info objects for each PDF."))),
-  include_page_count: optional3(bool2(description3("Include the total number of pages for each PDF."))),
-  include_images: optional3(bool2(description3("Extract and include embedded images from the PDF pages as base64-encoded data."))),
-  include_tables: optional3(bool2(description3("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures."))),
-  include_elements: optional3(bool2(description3("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
-  include_semantic_hints: optional3(bool2(description3("Include deterministic semantic hints on text elements, such as heading, list item, or paragraph."))),
-  include_markdown: optional3(bool2(description3("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
-  include_html: optional3(bool2(description3("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
-  include_chunks: optional3(bool2(description3("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
-  include_text_layer: optional3(bool2(description3("Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance."))),
-  include_ocr_text_layer: optional3(bool2(description3("Run the configured local OCR provider for selected sparse/scanned pages and include a normalized OCR text layer with render provenance."))),
-  include_outline: optional3(bool2(description3("Include document outline/bookmark entries when the PDF exposes them."))),
-  include_annotations: optional3(bool2(description3("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
-  include_page_labels: optional3(bool2(description3("Include PDF page labels when available, such as roman numerals or section labels."))),
-  include_page_geometry: optional3(bool2(description3("Include page viewport geometry such as width, height, rotation, user unit, and view box."))),
-  include_permissions: optional3(bool2(description3("Include PDF permission and marking signals when exposed by the parser."))),
-  include_form_fields: optional3(bool2(description3("Include PDF form field summaries when AcroForm fields are exposed."))),
-  include_attachments: optional3(bool2(description3("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
-  include_structure_tree: optional3(bool2(description3("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
-  include_safety_findings: optional3(bool2(description3("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
-  include_layout_diagnostics: optional3(bool2(description3("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional3(bool2(description3("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
-  include_document_ast: optional3(bool2(description3("Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence."))),
-  include_trust_report: optional3(bool2(description3("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing."))),
-  include_accessibility_report: optional3(bool2(description3("Include a deterministic accessibility report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
+var readPdfArgsSchema = object({
+  sources: array(pdfSourceSchema),
+  include_full_text: optional(bool(description("Include the full text content of each PDF (only if 'pages' is not specified for that source)."))),
+  include_metadata: optional(bool(description("Include metadata and info objects for each PDF."))),
+  include_page_count: optional(bool(description("Include the total number of pages for each PDF."))),
+  include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
+  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures."))),
+  include_elements: optional(bool(description("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
+  include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, or paragraph."))),
+  include_markdown: optional(bool(description("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
+  include_html: optional(bool(description("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
+  include_chunks: optional(bool(description("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
+  include_text_layer: optional(bool(description("Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance."))),
+  include_ocr_text_layer: optional(bool(description("Run the configured local OCR provider for selected sparse/scanned pages and include a normalized OCR text layer with render provenance."))),
+  include_outline: optional(bool(description("Include document outline/bookmark entries when the PDF exposes them."))),
+  include_annotations: optional(bool(description("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
+  include_page_labels: optional(bool(description("Include PDF page labels when available, such as roman numerals or section labels."))),
+  include_page_geometry: optional(bool(description("Include page viewport geometry such as width, height, rotation, user unit, and view box."))),
+  include_permissions: optional(bool(description("Include PDF permission and marking signals when exposed by the parser."))),
+  include_form_fields: optional(bool(description("Include PDF form field summaries when AcroForm fields are exposed."))),
+  include_attachments: optional(bool(description("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
+  include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
+  include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
+  include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
+  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
+  include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence."))),
+  include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing."))),
+  include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.")))
 });
 
 // src/schemas/inspectPdf.ts
-var inspectPdfArgsSchema = object4({
-  sources: array4(pdfSourceSchema),
-  sample_pages: optional4(num4(int4, gte4(1), lte3(20), description4("Maximum number of pages to sample per source for bounded PDF profiling. Defaults to 5."))),
-  include_metadata: optional4(bool3(description4("Include PDF metadata and info objects in the inspection response.")))
+var inspectPdfArgsSchema = object({
+  sources: array(pdfSourceSchema),
+  sample_pages: optional(num(int, gte(1), lte(20), description("Maximum number of pages to sample per source for bounded PDF profiling. Defaults to 5."))),
+  include_metadata: optional(bool(description("Include PDF metadata and info objects in the inspection response.")))
 });
 
 // src/handlers/inspectPdf.ts
 var MAX_CONCURRENT_SOURCES = 3;
-var inspectPdf = tool3().description("Inspects one or more PDFs and recommends ordered MCP tool routing plus read_pdf options for agentic extraction, citations, safety, and OCR triage.").input(inspectPdfArgsSchema).handler(async ({ input }) => {
+var inspectPdf = tool().description("Inspects one or more PDFs and recommends ordered MCP tool routing plus read_pdf options for agentic extraction, citations, safety, and OCR triage.").input(inspectPdfArgsSchema).handler(async ({ input }) => {
   const options = {
     ...defaultInspectPdfOptions(),
     ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
@@ -3260,34 +3385,20 @@ var inspectPdf = tool3().description("Inspects one or more PDFs and recommends o
   }
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError3(`All PDF sources failed inspection: ${errorMessages}`);
+    return toolError(`All PDF sources failed inspection: ${errorMessages}`);
   }
-  return text3(JSON.stringify({ results }, null, 2));
+  return text(JSON.stringify({ results }, null, 2));
 });
 
-// src/handlers/ocrPages.ts
-import { text as text4, tool as tool4, toolError as toolError4 } from "@sylphx/mcp-server-sdk";
-
 // src/schemas/ocrPages.ts
-import {
-  array as array5,
-  description as description5,
-  gte as gte5,
-  int as int5,
-  lte as lte4,
-  num as num5,
-  object as object5,
-  optional as optional5,
-  str as str4
-} from "@sylphx/vex";
-var ocrPagesArgsSchema = object5({
-  sources: array5(pdfSourceSchema),
-  scale: optional5(num5(gte5(0.25), lte4(4), description5("Render scale used before OCR. Defaults to 2."))),
-  max_pages: optional5(num5(int5, gte5(1), lte4(20), description5("Maximum pages to OCR per source. Defaults to 5 and is capped at 20."))),
-  max_pixels_per_page: optional5(num5(int5, gte5(1e4), lte4(64000000), description5("Maximum rendered pixels per page before OCR. Defaults to 16,000,000."))),
-  timeout_ms: optional5(num5(int5, gte5(1000), lte4(300000), description5("Timeout per OCR page in milliseconds. Defaults to 60,000."))),
-  max_output_chars: optional5(num5(int5, gte5(1000), lte4(1e6), description5("Maximum OCR text characters returned per page. Defaults to 200,000."))),
-  languages: optional5(array5(str4(description5("Optional OCR language tags passed to the configured provider."))))
+var ocrPagesArgsSchema = object({
+  sources: array(pdfSourceSchema),
+  scale: optional(num(gte(0.25), lte(4), description("Render scale used before OCR. Defaults to 2."))),
+  max_pages: optional(num(int, gte(1), lte(20), description("Maximum pages to OCR per source. Defaults to 5 and is capped at 20."))),
+  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page before OCR. Defaults to 16,000,000."))),
+  timeout_ms: optional(num(int, gte(1000), lte(300000), description("Timeout per OCR page in milliseconds. Defaults to 60,000."))),
+  max_output_chars: optional(num(int, gte(1000), lte(1e6), description("Maximum OCR text characters returned per page. Defaults to 200,000."))),
+  languages: optional(array(str(description("Optional OCR language tags passed to the configured provider."))))
 });
 
 // src/handlers/ocrPages.ts
@@ -3331,12 +3442,12 @@ var processSource3 = async (source, options) => {
     };
   }
 };
-var buildOcrResponse = (options, results) => text4(JSON.stringify({
+var buildOcrResponse = (options, results) => text(JSON.stringify({
   profile: "ocr_text_layer",
   ocr_options: options,
   results
 }, null, 2));
-var ocrPages = tool4().description("Runs selected rendered PDF pages through a configured local OCR provider and returns normalized text with provenance.").input(ocrPagesArgsSchema).handler(async ({ input }) => {
+var ocrPages = tool().description("Runs selected rendered PDF pages through a configured local OCR provider and returns normalized text with provenance.").input(ocrPagesArgsSchema).handler(async ({ input }) => {
   const options = buildOptions3(input);
   const results = [];
   for (const source of input.sources) {
@@ -3344,13 +3455,10 @@ var ocrPages = tool4().description("Runs selected rendered PDF pages through a c
   }
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError4(`All PDF sources failed OCR: ${errorMessages}`);
+    return toolError(`All PDF sources failed OCR: ${errorMessages}`);
   }
   return buildOcrResponse(options, results);
 });
-
-// src/handlers/readPdf.ts
-import { image as image2, text as text5, tool as tool5, toolError as toolError5 } from "@sylphx/mcp-server-sdk";
 
 // src/pdf/accessibilityReport.ts
 var ACCESSIBILITY_REPORT_VERSION = "2026-06-15";
@@ -3838,10 +3946,10 @@ var pageTextStats = (items) => {
   for (const item of items) {
     if (item.type !== "text")
       continue;
-    const text5 = item.textContent?.trim();
-    if (!text5)
+    const text2 = item.textContent?.trim();
+    if (!text2)
       continue;
-    textChars += text5.length;
+    textChars += text2.length;
     textItemCount++;
   }
   return { textChars, textItemCount };
@@ -4375,11 +4483,11 @@ var extractTablesFromTextItems = (textItems, pageNum) => {
   return tables;
 };
 var textItemsFromPageContent = (items) => items.map((item) => {
-  const text5 = item.type === "text" ? item.textContent?.trim() : undefined;
-  if (!text5 || item.xPosition === undefined || item.width === undefined)
+  const text2 = item.type === "text" ? item.textContent?.trim() : undefined;
+  if (!text2 || item.xPosition === undefined || item.width === undefined)
     return;
   return {
-    text: text5,
+    text: text2,
     x: item.xPosition,
     y: item.yPosition,
     width: item.width,
@@ -5120,16 +5228,16 @@ var buildWords = (lineText, pageCharStart, lineBox, chars) => {
   const words = [];
   const matches = lineText.matchAll(/\S+/g);
   for (const match of matches) {
-    const text5 = match[0];
+    const text2 = match[0];
     const index = match.index ?? 0;
     const charStart = pageCharStart + index;
-    const charEnd = charStart + text5.length;
+    const charEnd = charStart + text2.length;
     const charBoxes = chars.filter((char) => !char.is_whitespace && char.char_start >= charStart && char.char_end <= charEnd && char.bounding_box).map((char) => char.bounding_box);
     const charDerivedBoundingBox = mergeBoundingBoxes3(charBoxes);
-    const boundingBox = charDerivedBoundingBox ?? estimateWordBoundingBox(lineBox, lineText, index, index + text5.length);
+    const boundingBox = charDerivedBoundingBox ?? estimateWordBoundingBox(lineBox, lineText, index, index + text2.length);
     words.push({
       index: words.length,
-      text: text5,
+      text: text2,
       char_start: charStart,
       char_end: charEnd,
       ...boundingBox ? {
@@ -5183,11 +5291,11 @@ var buildPage = (pageContent, warnings) => {
     textParts.push(lineText);
     pageCharOffset = lineEnd;
   }
-  const text5 = textParts.join("");
+  const text2 = textParts.join("");
   return {
     page: pageContent.page,
-    text: text5,
-    char_count: text5.length,
+    text: text2,
+    char_count: text2.length,
     line_count: lines.length,
     word_count: lines.reduce((sum, line) => sum + line.words.length, 0),
     lines
@@ -5653,7 +5761,7 @@ var processSingleSource = async (source, options) => {
   }
   return individualResult;
 };
-var readPdf = tool5().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
+var readPdf = tool().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
   const {
     sources,
     include_full_text,
@@ -5721,7 +5829,7 @@ var readPdf = tool5().description("Reads content/metadata/images from one or mor
   const allFailed = results.every((r) => !r.success);
   if (allFailed) {
     const errorMessages = results.map((r) => r.error).join("; ");
-    return toolError5(`All PDF sources failed to process: ${errorMessages}`);
+    return toolError(`All PDF sources failed to process: ${errorMessages}`);
   }
   const content = [];
   const resultsForJson = results.map((result) => {
@@ -5754,7 +5862,7 @@ var readPdf = tool5().description("Reads content/metadata/images from one or mor
     }
     return result;
   });
-  content.push(text5(JSON.stringify({ results: resultsForJson }, null, 2)));
+  content.push(text(JSON.stringify({ results: resultsForJson }, null, 2)));
   for (const result of results) {
     if (!result.success || !result.data?.page_contents)
       continue;
@@ -5769,12 +5877,12 @@ var readPdf = tool5().description("Reads content/metadata/images from one or mor
         }
       }
       if (pageTextParts.length > 0) {
-        content.push(text5(`[Page ${pageContent.page}]
+        content.push(text(`[Page ${pageContent.page}]
 ${pageTextParts.join(`
 `)}`));
       }
       for (const img of pageImages2) {
-        content.push(image2(img.data, "image/png"));
+        content.push(image(img.data, "image/png"));
       }
     }
   }
@@ -5783,7 +5891,7 @@ ${pageTextParts.join(`
       continue;
     for (const page of result.data.ocr_text_layer.pages) {
       if (page.text.trim().length > 0) {
-        content.push(text5(`[Page ${String(page.page)} OCR]
+        content.push(text(`[Page ${String(page.page)} OCR]
 ${page.text}`));
       }
     }
@@ -5797,33 +5905,19 @@ ${page.text}`));
     }
     if (allTables.length > 0) {
       const markdownTables = tablesToMarkdown(allTables);
-      content.push(text5(markdownTables));
+      content.push(text(markdownTables));
     }
   }
   return content;
 });
 
-// src/handlers/renderPage.ts
-import { image as image3, text as text6, tool as tool6, toolError as toolError6 } from "@sylphx/mcp-server-sdk";
-
 // src/schemas/renderPage.ts
-import {
-  array as array6,
-  bool as bool4,
-  description as description6,
-  gte as gte6,
-  int as int6,
-  lte as lte5,
-  num as num6,
-  object as object6,
-  optional as optional6
-} from "@sylphx/vex";
-var renderPageArgsSchema = object6({
-  sources: array6(pdfSourceSchema),
-  scale: optional6(num6(gte6(0.25), lte5(4), description6("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
-  max_pages: optional6(num6(int6, gte6(1), lte5(20), description6("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
-  max_pixels_per_page: optional6(num6(int6, gte6(1e4), lte5(64000000), description6("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
-  include_image: optional6(bool4(description6("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
+var renderPageArgsSchema = object({
+  sources: array(pdfSourceSchema),
+  scale: optional(num(gte(0.25), lte(4), description("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
+  max_pages: optional(num(int, gte(1), lte(20), description("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
+  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
+  include_image: optional(bool(description("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
 });
 
 // src/handlers/renderPage.ts
@@ -5893,7 +5987,7 @@ var attachRenderSummaries = (outputs, includeImage) => {
 };
 var buildRenderContent = (outputs, results, options) => {
   const content = [
-    text6(JSON.stringify({
+    text(JSON.stringify({
       profile: "page_render_evidence",
       render_options: options,
       results
@@ -5905,12 +5999,12 @@ var buildRenderContent = (outputs, results, options) => {
     if (!output.result.success)
       continue;
     for (const page of output.pages) {
-      content.push(image3(page.data, page.mime_type));
+      content.push(image(page.data, page.mime_type));
     }
   }
   return content;
 };
-var renderPage = tool6().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
+var renderPage = tool().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
   const options = buildRenderOptions(input);
   const outputs = [];
   for (const source of input.sources) {
@@ -5919,13 +6013,10 @@ var renderPage = tool6().description("Renders selected PDF pages as bounded PNG 
   const results = attachRenderSummaries(outputs, options.include_image);
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError6(`All PDF sources failed to render: ${errorMessages}`);
+    return toolError(`All PDF sources failed to render: ${errorMessages}`);
   }
   return buildRenderContent(outputs, results, options);
 });
-
-// src/handlers/searchPdf.ts
-import { text as text7, tool as tool7, toolError as toolError7 } from "@sylphx/mcp-server-sdk";
 
 // src/pdf/search.ts
 var logger16 = createLogger("Search");
@@ -5953,19 +6044,19 @@ var resolvePagesToSearch = (targetPages, totalPages, maxPages) => {
   };
 };
 var isWordChar = (value) => value !== undefined && ASCII_WORD.test(value);
-var isWholeWordMatch = (text7, start, end) => !isWordChar(text7[start - 1]) && !isWordChar(text7[end]);
+var isWholeWordMatch = (text2, start, end) => !isWordChar(text2[start - 1]) && !isWordChar(text2[end]);
 var normalizeForSearch = (value, caseSensitive) => caseSensitive ? value : value.toLocaleLowerCase();
-var buildSnippet = (text7, start, end, contextChars) => {
+var buildSnippet = (text2, start, end, contextChars) => {
   const snippetStart = Math.max(0, start - contextChars);
-  const snippetEnd = Math.min(text7.length, end + contextChars);
+  const snippetEnd = Math.min(text2.length, end + contextChars);
   const prefix = snippetStart > 0 ? "..." : "";
-  const suffix = snippetEnd < text7.length ? "..." : "";
-  return `${prefix}${text7.slice(snippetStart, snippetEnd)}${suffix}`;
+  const suffix = snippetEnd < text2.length ? "..." : "";
+  return `${prefix}${text2.slice(snippetStart, snippetEnd)}${suffix}`;
 };
-var findMatchesInText = (text7, query, options) => {
+var findMatchesInText = (text2, query, options) => {
   if (query.length === 0)
     return [];
-  const searchableText = normalizeForSearch(text7, options.case_sensitive);
+  const searchableText = normalizeForSearch(text2, options.case_sensitive);
   const searchableQuery = normalizeForSearch(query, options.case_sensitive);
   const matches = [];
   let searchFrom = 0;
@@ -6027,16 +6118,16 @@ var matchBoundingBox = (item, start, end) => {
 };
 var searchOcrPage = (page, options, matchOffset) => {
   const matches = [];
-  const { text: text7, wordOffsets } = buildOcrSearchText(page);
-  const ocrMatches = findMatchesInText(text7, options.query, options);
+  const { text: text2, wordOffsets } = buildOcrSearchText(page);
+  const ocrMatches = findMatchesInText(text2, options.query, options);
   for (const ocrMatch of ocrMatches) {
-    const matchedText = text7.slice(ocrMatch.start, ocrMatch.end);
+    const matchedText = text2.slice(ocrMatch.start, ocrMatch.end);
     const matchBox = matchOcrBoundingBox(wordOffsets, ocrMatch.start, ocrMatch.end);
     matches.push({
       id: `p${String(page.page)}-ocr-match-${String(matchOffset + matches.length + 1)}`,
       page: page.page,
       text: matchedText,
-      snippet: buildSnippet(text7, ocrMatch.start, ocrMatch.end, options.context_chars),
+      snippet: buildSnippet(text2, ocrMatch.start, ocrMatch.end, options.context_chars),
       match_start: ocrMatch.start,
       match_end: ocrMatch.end,
       ...matchBox ? {
@@ -6164,28 +6255,15 @@ var searchPdfSource = async (source, options) => {
 };
 
 // src/schemas/searchPdf.ts
-import {
-  array as array7,
-  bool as bool5,
-  description as description7,
-  gte as gte7,
-  int as int7,
-  lte as lte6,
-  min as min2,
-  num as num7,
-  object as object7,
-  optional as optional7,
-  str as str5
-} from "@sylphx/vex";
-var searchPdfArgsSchema = object7({
-  sources: array7(pdfSourceSchema),
-  query: str5(min2(1), description7("Literal text query to search for in extracted PDF text.")),
-  case_sensitive: optional7(bool5(description7("Use case-sensitive literal matching."))),
-  whole_word: optional7(bool5(description7("Match only whole words using ASCII word boundaries."))),
-  include_ocr_text_layer: optional7(bool5(description7("Also search a configured local OCR text layer for selected pages. Disabled by default because it renders pages and runs the OCR provider."))),
-  max_pages: optional7(num7(int7, gte7(1), lte6(1000), description7("Maximum pages to search per source. Defaults to 100 and is capped at 1000."))),
-  max_matches_per_source: optional7(num7(int7, gte7(1), lte6(500), description7("Maximum matches returned per source. Defaults to 50 and is capped at 500."))),
-  context_chars: optional7(num7(int7, gte7(0), lte6(1000), description7("Context characters to include around each match. Defaults to 120.")))
+var searchPdfArgsSchema = object({
+  sources: array(pdfSourceSchema),
+  query: str(min(1), description("Literal text query to search for in extracted PDF text.")),
+  case_sensitive: optional(bool(description("Use case-sensitive literal matching."))),
+  whole_word: optional(bool(description("Match only whole words using ASCII word boundaries."))),
+  include_ocr_text_layer: optional(bool(description("Also search a configured local OCR text layer for selected pages. Disabled by default because it renders pages and runs the OCR provider."))),
+  max_pages: optional(num(int, gte(1), lte(1000), description("Maximum pages to search per source. Defaults to 100 and is capped at 1000."))),
+  max_matches_per_source: optional(num(int, gte(1), lte(500), description("Maximum matches returned per source. Defaults to 50 and is capped at 500."))),
+  context_chars: optional(num(int, gte(0), lte(1000), description("Context characters to include around each match. Defaults to 120.")))
 });
 
 // src/handlers/searchPdf.ts
@@ -6222,7 +6300,7 @@ var processSource4 = async (source, options) => {
     };
   }
 };
-var searchPdf = tool7().description("Searches extracted PDF text with page, snippet, bounding-box, and provenance evidence for agent retrieval.").input(searchPdfArgsSchema).handler(async ({ input }) => {
+var searchPdf = tool().description("Searches extracted PDF text with page, snippet, bounding-box, and provenance evidence for agent retrieval.").input(searchPdfArgsSchema).handler(async ({ input }) => {
   const options = buildOptions4(input);
   const results = [];
   for (const source of input.sources) {
@@ -6230,9 +6308,9 @@ var searchPdf = tool7().description("Searches extracted PDF text with page, snip
   }
   if (results.every((result) => !result.success)) {
     const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError7(`All PDF sources failed search: ${errorMessages}`);
+    return toolError(`All PDF sources failed search: ${errorMessages}`);
   }
-  return text7(JSON.stringify({
+  return text(JSON.stringify({
     profile: "pdf_search_results",
     search_options: options,
     results

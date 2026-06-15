@@ -194,7 +194,12 @@ describe('regionAnalysis', () => {
   it('should normalize plain-text provider output as an unknown region description', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
     process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
-    process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([scriptPath, '{input}', '{page}', '{region_id}']);
+    process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([
+      scriptPath,
+      '{input}',
+      '{page}',
+      '{region_id}',
+    ]);
 
     const result = await analyzeRegionCropWithCommandProvider(
       buildRegionCrop('plain'),
@@ -246,7 +251,8 @@ describe('regionAnalysis', () => {
       }
       Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_COMMAND');
       Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON');
-      process.env['MCP_PDF_REGION_ANALYSIS_HTTP_URL'] = `http://127.0.0.1:${String(address.port)}/analyze`;
+      process.env['MCP_PDF_REGION_ANALYSIS_HTTP_URL'] =
+        `http://127.0.0.1:${String(address.port)}/analyze`;
       process.env['MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON'] = JSON.stringify({
         'x-provider-test': 'enabled',
       });
@@ -297,7 +303,12 @@ describe('regionAnalysis', () => {
   it('should normalize unsupported provider kinds and percentage confidence', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
     process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
-    process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([scriptPath, '{input}', '{page}', '{region_id}']);
+    process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([
+      scriptPath,
+      '{input}',
+      '{page}',
+      '{region_id}',
+    ]);
 
     const result = await analyzeRegionCropWithCommandProvider(
       buildRegionCrop('unsupported-kind'),
@@ -319,7 +330,11 @@ describe('regionAnalysis', () => {
     Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_HTTP_URL');
 
     await expect(
-      analyzeRegionCropWithCommandProvider(buildRegionCrop(), { source: 'mock.pdf' }, defaultAnalyzeRegionsOptions())
+      analyzeRegionCropWithCommandProvider(
+        buildRegionCrop(),
+        { source: 'mock.pdf' },
+        defaultAnalyzeRegionsOptions()
+      )
     ).rejects.toThrow(/Region analysis provider is not configured/);
   });
 

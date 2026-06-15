@@ -541,7 +541,9 @@ describe('tableExtractor', () => {
     it('should return empty array for page with non-tabular data', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({
-          items: [{ str: 'Single paragraph of text.', transform: [1, 0, 0, 1, 50, 700], width: 150 }],
+          items: [
+            { str: 'Single paragraph of text.', transform: [1, 0, 0, 1, 50, 700], width: 150 },
+          ],
         }),
       } as unknown as pdfjsLib.PDFPageProxy;
 
@@ -560,7 +562,9 @@ describe('tableExtractor', () => {
       const result = await extractTablesFromPage(mockPage, 1);
 
       expect(result).toEqual([]);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error extracting tables from page'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error extracting tables from page')
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -602,7 +606,9 @@ describe('tableExtractor', () => {
       const result = await extractTables(mockDocument, [1]);
 
       expect(result).toEqual([]);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error getting page for table extraction'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error getting page for table extraction')
+      );
 
       consoleWarnSpy.mockRestore();
     });

@@ -136,7 +136,12 @@ describe('ocr', () => {
   it('should run the configured command OCR provider and normalize JSON output', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
-    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([scriptPath, '{input}', '{page}', '{languages}']);
+    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([
+      scriptPath,
+      '{input}',
+      '{page}',
+      '{languages}',
+    ]);
 
     const result = await ocrRenderedPageWithCommandProvider(
       buildRenderedPage(),
@@ -169,7 +174,12 @@ describe('ocr', () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-tesseract-tsv-provider.mjs');
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
     process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
-    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([scriptPath, '{input}', '{page}', '{languages}']);
+    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([
+      scriptPath,
+      '{input}',
+      '{page}',
+      '{languages}',
+    ]);
 
     const result = await ocrRenderedPageWithCommandProvider(
       buildRenderedPage(),
@@ -249,7 +259,11 @@ describe('ocr', () => {
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_ARGS_JSON');
 
     await expect(
-      ocrRenderedPageWithCommandProvider(buildRenderedPage(), { source: 'mock.pdf' }, defaultOcrPagesOptions())
+      ocrRenderedPageWithCommandProvider(
+        buildRenderedPage(),
+        { source: 'mock.pdf' },
+        defaultOcrPagesOptions()
+      )
     ).rejects.toThrow(/OCR provider is not configured/);
   });
 
@@ -258,7 +272,11 @@ describe('ocr', () => {
     process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify(['--version']);
 
     await expect(
-      ocrRenderedPageWithCommandProvider(buildRenderedPage(), { source: 'mock.pdf' }, defaultOcrPagesOptions())
+      ocrRenderedPageWithCommandProvider(
+        buildRenderedPage(),
+        { source: 'mock.pdf' },
+        defaultOcrPagesOptions()
+      )
     ).rejects.toThrow(/\{input\} placeholder/);
   });
 });
