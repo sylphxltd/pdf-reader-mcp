@@ -4280,7 +4280,7 @@ var pagesForChunk = (chunk) => {
   }
   return pages;
 };
-var buildLayers = (elements, chunks, visualEnrichments, layoutDiagnostics, safetyFindings, textLayer, ocrTextLayer, pageGeometry) => {
+var buildLayers = (elements, chunks, visualEnrichmentCandidates, visualEnrichments, layoutDiagnostics, safetyFindings, textLayer, ocrTextLayer, pageGeometry) => {
   const layers = new Set;
   if (elements.some((element) => element.type === "text"))
     layers.add("selectable_text");
@@ -4292,6 +4292,8 @@ var buildLayers = (elements, chunks, visualEnrichments, layoutDiagnostics, safet
     layers.add("image_metadata");
   if (elements.some((element) => element.type === "table"))
     layers.add("table_structure");
+  if (visualEnrichmentCandidates.length > 0)
+    layers.add("visual_region_candidates");
   if (visualEnrichments.length > 0)
     layers.add("visual_enrichment");
   if (elements.some((element) => element.type === "text" && element.semantic_hint !== undefined)) {
@@ -4335,6 +4337,13 @@ var countVisualEnrichmentKinds = (visualEnrichments) => {
   }
   return counts;
 };
+var countVisualCandidateKinds = (candidates) => {
+  const counts = {};
+  for (const candidate of candidates) {
+    counts[candidate.target_element_type] = (counts[candidate.target_element_type] ?? 0) + 1;
+  }
+  return counts;
+};
 var textLayerPageStats = (page) => {
   if (!page)
     return;
@@ -4373,6 +4382,11 @@ var buildDocumentMap = (input) => {
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
   });
+  const visualEnrichmentCandidates = input.visualEnrichmentCandidates ?? [];
+  const visualCandidateIndexesByPage = new Map;
+  visualEnrichmentCandidates.forEach((candidate, index) => {
+    pushToMap(visualCandidateIndexesByPage, candidate.page, index);
+  });
   const visualEnrichments = input.visualEnrichments ?? [];
   const visualEnrichmentIndexesByPage = new Map;
   visualEnrichments.forEach((enrichment, index) => {
@@ -4386,6 +4400,7 @@ var buildDocumentMap = (input) => {
     const layout = layoutByPage.get(page);
     const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
+    const visualCandidateIndexes = visualCandidateIndexesByPage.get(page) ?? [];
     const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
     const textLayerPageIndex = textLayerPageIndexByPage.get(page);
     const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
@@ -4402,6 +4417,7 @@ var buildDocumentMap = (input) => {
       element_ids: elements.map((element) => element.id),
       chunk_ids: chunks.map((chunk) => chunk.id),
       safety_finding_indexes: safetyFindingIndexes,
+      visual_candidate_indexes: visualCandidateIndexes,
       visual_enrichment_indexes: visualEnrichmentIndexes,
       ...textLayerPageIndex !== undefined ? { text_layer_page_index: textLayerPageIndex } : {},
       ...textLayerStats ? textLayerStats : {},
@@ -4415,6 +4431,7 @@ var buildDocumentMap = (input) => {
       } : {},
       image_count: imageCount,
       table_count: tableCount,
+      visual_candidate_count: visualCandidateIndexes.length,
       visual_enrichment_count: visualEnrichmentIndexes.length,
       ...warnings ? { warnings } : {}
     };
@@ -4423,6 +4440,9 @@ var buildDocumentMap = (input) => {
   const imageOrSparsePages = input.layoutDiagnostics.filter((layout) => layout.profile === "image_or_sparse").map((layout) => layout.page);
   const needsOcrPages = input.layoutDiagnostics.filter((layout) => (layout.profile === "image_or_sparse" || layout.item_count === 0) && layout.text_item_count === 0).map((layout) => layout.page);
   const ocrAppliedPages = input.ocrTextLayer?.pages.map((page) => page.page) ?? [];
+  const visualCandidatePages = [
+    ...new Set(visualEnrichmentCandidates.map((candidate) => candidate.page))
+  ].sort((a, b) => a - b);
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
   const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
   const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(Math.min(...layoutConfidences)) : undefined;
@@ -4432,10 +4452,11 @@ var buildDocumentMap = (input) => {
   return {
     version: DOCUMENT_MAP_VERSION,
     profile: "agent_document_map",
-    layers: buildLayers(input.elements, input.chunks, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.textLayer, input.ocrTextLayer, input.pageGeometry),
+    layers: buildLayers(input.elements, input.chunks, visualEnrichmentCandidates, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.textLayer, input.ocrTextLayer, input.pageGeometry),
     pages,
     elements: input.elements,
     chunks: input.chunks,
+    visual_enrichment_candidates: visualEnrichmentCandidates,
     visual_enrichments: visualEnrichments,
     layout_diagnostics: input.layoutDiagnostics,
     safety_findings: input.safetyFindings,
@@ -4443,7 +4464,8 @@ var buildDocumentMap = (input) => {
       low_confidence_pages: lowConfidencePages,
       image_or_sparse_pages: imageOrSparsePages,
       needs_ocr_pages: needsOcrPages,
-      ocr_applied_pages: ocrAppliedPages
+      ocr_applied_pages: ocrAppliedPages,
+      visual_candidate_pages: visualCandidatePages
     },
     summary: {
       ...input.totalPages !== undefined ? { total_pages: input.totalPages } : {},
@@ -4464,6 +4486,8 @@ var buildDocumentMap = (input) => {
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
       table_element_count: tableElementCount,
+      visual_enrichment_candidate_count: visualEnrichmentCandidates.length,
+      visual_enrichment_candidate_kind_counts: countVisualCandidateKinds(visualEnrichmentCandidates),
       visual_enrichment_count: visualEnrichments.length,
       visual_enrichment_kind_counts: countVisualEnrichmentKinds(visualEnrichments),
       chunk_count: input.chunks.length,
@@ -6375,10 +6399,24 @@ function selectVisualEnrichmentCandidates(elements, maxVisualEnrichments, option
   }
   return candidates.sort((left, right) => left.order - right.order).slice(0, maxCandidates).map(({ order: _order, ...candidate }) => candidate);
 }
+var toPdfVisualEnrichmentCandidate = (candidate) => ({
+  id: candidate.region.id ?? candidate.target_element_id,
+  page: candidate.region.page,
+  region: candidate.region,
+  target_element_id: candidate.target_element_id,
+  target_element_type: candidate.target_element_type,
+  ...candidate.element ? { source_element_id: candidate.element.id } : {},
+  ...candidate.source_caption_element_id ? { source_caption_element_id: candidate.source_caption_element_id } : {},
+  ...candidate.source_caption_text ? { source_caption_text: candidate.source_caption_text } : {},
+  candidate_signals: candidate.candidate_signals ?? []
+});
 var buildVisualEnrichmentsForSource = async (input) => {
+  const candidates = selectVisualEnrichmentCandidates(input.elements, Math.max(1, input.maxVisualEnrichments), { pageGeometry: input.pageGeometry });
+  const visualEnrichmentCandidates = candidates.map(toPdfVisualEnrichmentCandidate);
   const providerStatus = getRegionAnalysisProviderStatus();
   if (providerStatus.readiness !== "ready") {
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: [],
       warnings: [
         `Visual enrichment skipped: analyze_regions provider is ${providerStatus.readiness}.`,
@@ -6386,9 +6424,9 @@ var buildVisualEnrichmentsForSource = async (input) => {
       ]
     };
   }
-  const candidates = selectVisualEnrichmentCandidates(input.elements, Math.max(1, input.maxVisualEnrichments), { pageGeometry: input.pageGeometry });
   if (candidates.length === 0) {
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: [],
       warnings: [
         "Visual enrichment requested, but no table, image, or caption-derived visual regions with bounding boxes were available."
@@ -6407,6 +6445,7 @@ var buildVisualEnrichmentsForSource = async (input) => {
       regions: candidates.map((candidate) => candidate.region)
     }, options);
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: analyzed.analyses.map((analysis) => {
         const candidate = candidatesByRegionId.get(analysis.region_id);
         const targetElement = candidate?.element;
@@ -6425,6 +6464,7 @@ var buildVisualEnrichmentsForSource = async (input) => {
   } catch (error) {
     const message = error instanceof PdfError ? error.message : String(error);
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: [],
       warnings: [`Visual enrichment unavailable for ${input.sourceDescription}: ${message}`]
     };
@@ -6600,6 +6640,7 @@ var processSingleSource = async (source, options) => {
           output.text_layer = textLayer;
         }
       }
+      let visualEnrichmentCandidates;
       let visualEnrichments;
       if (options.includeVisualEnrichments && output.page_contents) {
         const visualElements = buildElementsForOutput(true);
@@ -6610,6 +6651,10 @@ var processSingleSource = async (source, options) => {
           pageGeometry,
           maxVisualEnrichments: options.maxVisualEnrichments
         });
+        visualEnrichmentCandidates = enriched.visualEnrichmentCandidates;
+        if (visualEnrichmentCandidates.length > 0) {
+          output.visual_enrichment_candidates = visualEnrichmentCandidates;
+        }
         visualEnrichments = enriched.visualEnrichments;
         if (visualEnrichments.length > 0) {
           output.visual_enrichments = visualEnrichments;
@@ -6636,6 +6681,7 @@ var processSingleSource = async (source, options) => {
           chunks,
           layoutDiagnostics,
           safetyFindings,
+          visualEnrichmentCandidates,
           visualEnrichments,
           textLayer,
           ocrTextLayer,

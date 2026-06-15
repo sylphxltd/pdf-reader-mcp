@@ -12,6 +12,8 @@ import type {
   PdfTextLayer,
   PdfTextLayerPage,
   PdfVisualEnrichment,
+  PdfVisualEnrichmentCandidate,
+  PdfVisualEnrichmentTargetType,
 } from '../types/pdf.js';
 
 const DOCUMENT_MAP_VERSION = '2026-06-15' as const;
@@ -25,6 +27,7 @@ interface BuildDocumentMapInput {
   chunks: PdfChunk[];
   layoutDiagnostics: PdfPageLayoutDiagnostics[];
   safetyFindings: PdfSafetyFinding[];
+  visualEnrichmentCandidates?: PdfVisualEnrichmentCandidate[] | undefined;
   visualEnrichments?: PdfVisualEnrichment[] | undefined;
   textLayer?: PdfTextLayer | undefined;
   ocrTextLayer?: PdfOcrTextLayer | undefined;
@@ -55,6 +58,7 @@ const pagesForChunk = (chunk: PdfChunk): number[] => {
 const buildLayers = (
   elements: PdfDocumentElement[],
   chunks: PdfChunk[],
+  visualEnrichmentCandidates: PdfVisualEnrichmentCandidate[],
   visualEnrichments: PdfVisualEnrichment[],
   layoutDiagnostics: PdfPageLayoutDiagnostics[],
   safetyFindings: PdfSafetyFinding[],
@@ -69,6 +73,7 @@ const buildLayers = (
   if ((ocrTextLayer?.pages.length ?? 0) > 0) layers.add('ocr_text_layer');
   if (elements.some((element) => element.type === 'image')) layers.add('image_metadata');
   if (elements.some((element) => element.type === 'table')) layers.add('table_structure');
+  if (visualEnrichmentCandidates.length > 0) layers.add('visual_region_candidates');
   if (visualEnrichments.length > 0) layers.add('visual_enrichment');
   if (elements.some((element) => element.type === 'text' && element.semantic_hint !== undefined)) {
     layers.add('semantic_hints');
@@ -117,6 +122,18 @@ const countVisualEnrichmentKinds = (
 
   for (const enrichment of visualEnrichments) {
     counts[enrichment.kind] = (counts[enrichment.kind] ?? 0) + 1;
+  }
+
+  return counts;
+};
+
+const countVisualCandidateKinds = (
+  candidates: PdfVisualEnrichmentCandidate[]
+): Partial<Record<PdfVisualEnrichmentTargetType, number>> => {
+  const counts: Partial<Record<PdfVisualEnrichmentTargetType, number>> = {};
+
+  for (const candidate of candidates) {
+    counts[candidate.target_element_type] = (counts[candidate.target_element_type] ?? 0) + 1;
   }
 
   return counts;
@@ -181,6 +198,11 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   input.safetyFindings.forEach((finding, index) => {
     pushToMap(safetyFindingIndexesByPage, finding.page, index);
   });
+  const visualEnrichmentCandidates = input.visualEnrichmentCandidates ?? [];
+  const visualCandidateIndexesByPage = new Map<number, number[]>();
+  visualEnrichmentCandidates.forEach((candidate, index) => {
+    pushToMap(visualCandidateIndexesByPage, candidate.page, index);
+  });
   const visualEnrichments = input.visualEnrichments ?? [];
   const visualEnrichmentIndexesByPage = new Map<number, number[]>();
   visualEnrichments.forEach((enrichment, index) => {
@@ -201,6 +223,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const layout = layoutByPage.get(page);
     const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
+    const visualCandidateIndexes = visualCandidateIndexesByPage.get(page) ?? [];
     const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
     const textLayerPageIndex = textLayerPageIndexByPage.get(page);
     const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
@@ -222,6 +245,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       element_ids: elements.map((element) => element.id),
       chunk_ids: chunks.map((chunk) => chunk.id),
       safety_finding_indexes: safetyFindingIndexes,
+      visual_candidate_indexes: visualCandidateIndexes,
       visual_enrichment_indexes: visualEnrichmentIndexes,
       ...(textLayerPageIndex !== undefined ? { text_layer_page_index: textLayerPageIndex } : {}),
       ...(textLayerStats ? textLayerStats : {}),
@@ -237,6 +261,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
         : {}),
       image_count: imageCount,
       table_count: tableCount,
+      visual_candidate_count: visualCandidateIndexes.length,
       visual_enrichment_count: visualEnrichmentIndexes.length,
       ...(warnings ? { warnings } : {}),
     };
@@ -256,6 +281,9 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     )
     .map((layout) => layout.page);
   const ocrAppliedPages = input.ocrTextLayer?.pages.map((page) => page.page) ?? [];
+  const visualCandidatePages = [
+    ...new Set(visualEnrichmentCandidates.map((candidate) => candidate.page)),
+  ].sort((a, b) => a - b);
 
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
   const averageLayoutConfidence =
@@ -278,6 +306,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     layers: buildLayers(
       input.elements,
       input.chunks,
+      visualEnrichmentCandidates,
       visualEnrichments,
       input.layoutDiagnostics,
       input.safetyFindings,
@@ -288,6 +317,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     pages,
     elements: input.elements,
     chunks: input.chunks,
+    visual_enrichment_candidates: visualEnrichmentCandidates,
     visual_enrichments: visualEnrichments,
     layout_diagnostics: input.layoutDiagnostics,
     safety_findings: input.safetyFindings,
@@ -296,6 +326,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       image_or_sparse_pages: imageOrSparsePages,
       needs_ocr_pages: needsOcrPages,
       ocr_applied_pages: ocrAppliedPages,
+      visual_candidate_pages: visualCandidatePages,
     },
     summary: {
       ...(input.totalPages !== undefined ? { total_pages: input.totalPages } : {}),
@@ -316,6 +347,10 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
       table_element_count: tableElementCount,
+      visual_enrichment_candidate_count: visualEnrichmentCandidates.length,
+      visual_enrichment_candidate_kind_counts: countVisualCandidateKinds(
+        visualEnrichmentCandidates
+      ),
       visual_enrichment_count: visualEnrichments.length,
       visual_enrichment_kind_counts: countVisualEnrichmentKinds(visualEnrichments),
       chunk_count: input.chunks.length,

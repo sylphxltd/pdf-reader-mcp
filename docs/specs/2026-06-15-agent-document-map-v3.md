@@ -188,6 +188,10 @@ Each successful source may include:
 - `include_visual_enrichments` is the explicit opt-in for visual-region
   provider fusion. It must respect `max_visual_enrichments`, avoid embedding
   crop image bytes in JSON, and attach crop evidence IDs to the document twin.
+- Visual-region candidates are first-class routing evidence. When visual
+  enrichment is requested, the map must preserve candidate indexes, target
+  types, PDF-coordinate boxes, caption provenance, and routing signals even if
+  the optional provider is unavailable.
 
 ## v3 Capability Batch
 

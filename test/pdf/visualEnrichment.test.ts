@@ -257,6 +257,20 @@ describe('visualEnrichment', () => {
       maxVisualEnrichments: 2,
     });
 
+    expect(result.visualEnrichmentCandidates.map((candidate) => candidate.id)).toEqual([
+      'p1-table-1',
+      'p1-image-1',
+    ]);
+    expect(result.visualEnrichmentCandidates[0]).toMatchObject({
+      target_element_id: 'p1-table-1',
+      target_element_type: 'table',
+      source_element_id: 'p1-table-1',
+      candidate_signals: ['table-element', 'element-bounding-box'],
+      region: {
+        id: 'p1-table-1',
+        page: 1,
+      },
+    });
     expect(result.visualEnrichments).toEqual([]);
     expect(result.warnings[0]).toBe(
       'Visual enrichment skipped: analyze_regions provider is not_configured.'

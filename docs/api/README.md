@@ -65,13 +65,13 @@ private-IP, and size policies documented in the guide.
 | `include_chunks` | boolean | `false` | Citation-ready chunks. |
 | `include_text_layer` | boolean | `false` | Run, line, word, and character evidence. |
 | `include_layout_diagnostics` | boolean | `false` | Reading-order and page-layout confidence. |
-| `include_document_map` | boolean | `false` | Page, element, chunk, OCR, visual, safety, and routing map. |
+| `include_document_map` | boolean | `false` | Page, element, chunk, OCR, visual candidate, visual enrichment, safety, and routing map. |
 | `include_document_ast` | boolean | `false` | Semantic AST for page, section, paragraph, list, table, image, chart, formula, and figure nodes. |
 | `include_safety_findings` | boolean | `false` | Prompt-injection, hidden or near-invisible text geometry, and visual-spoofing findings. |
 | `include_trust_report` | boolean | `false` | Consolidated risk report with page-level signals and guidance. |
 | `include_accessibility_report` | boolean | `false` | Tagged-PDF, image-alt, form, permission, and tag-visible coverage signals. |
 | `include_ocr_text_layer` | boolean | `false` | OCR page text and PDF-coordinate word boxes from a configured OCR provider. OCR word boxes can also feed table extraction when `include_tables` is enabled. |
-| `include_visual_enrichments` | boolean | `false` | Provider-normalized table/image and caption-derived visual region evidence fused into the document twin. |
+| `include_visual_enrichments` | boolean | `false` | Bbox-grounded visual-region candidates plus provider-normalized table/image and caption-derived visual region evidence when a provider is configured. |
 
 ## Table Quality
 
@@ -107,6 +107,11 @@ making cell-level claims.
 
 The server does not bundle OCR, formula, chart, or vision models. It provides
 stable local adapters so deployments can choose their own engines.
+
+When `include_visual_enrichments` is enabled without a configured visual
+provider, `read_pdf` still returns `visual_enrichment_candidates`. These records
+contain stable region IDs, PDF-coordinate boxes, target types, caption evidence,
+and routing signals for follow-up `extract_regions` or `analyze_regions` calls.
 
 | Capability | Configuration |
 | --- | --- |

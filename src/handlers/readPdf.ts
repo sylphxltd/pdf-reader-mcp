@@ -55,6 +55,7 @@ import type {
   PdfSourceResult,
   PdfTextLayer,
   PdfVisualEnrichment,
+  PdfVisualEnrichmentCandidate,
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
@@ -396,6 +397,7 @@ const processSingleSource = async (
         }
       }
 
+      let visualEnrichmentCandidates: PdfVisualEnrichmentCandidate[] | undefined;
       let visualEnrichments: PdfVisualEnrichment[] | undefined;
       if (options.includeVisualEnrichments && output.page_contents) {
         const visualElements = buildElementsForOutput(true);
@@ -406,6 +408,10 @@ const processSingleSource = async (
           pageGeometry,
           maxVisualEnrichments: options.maxVisualEnrichments,
         });
+        visualEnrichmentCandidates = enriched.visualEnrichmentCandidates;
+        if (visualEnrichmentCandidates.length > 0) {
+          output.visual_enrichment_candidates = visualEnrichmentCandidates;
+        }
         visualEnrichments = enriched.visualEnrichments;
         if (visualEnrichments.length > 0) {
           output.visual_enrichments = visualEnrichments;
@@ -434,6 +440,7 @@ const processSingleSource = async (
           chunks,
           layoutDiagnostics,
           safetyFindings,
+          visualEnrichmentCandidates,
           visualEnrichments,
           textLayer,
           ocrTextLayer,

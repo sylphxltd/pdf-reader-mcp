@@ -6,6 +6,7 @@ import type {
   PdfRegionRequest,
   PdfSource,
   PdfVisualEnrichment,
+  PdfVisualEnrichmentCandidate,
   PdfVisualEnrichmentTargetType,
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
@@ -49,6 +50,7 @@ export interface BuildVisualEnrichmentsInput {
 }
 
 export interface BuildVisualEnrichmentsOutput {
+  visualEnrichmentCandidates: PdfVisualEnrichmentCandidate[];
   visualEnrichments: PdfVisualEnrichment[];
   warnings: string[];
 }
@@ -377,12 +379,36 @@ export function selectVisualEnrichmentCandidates(
     .map(({ order: _order, ...candidate }) => candidate);
 }
 
+const toPdfVisualEnrichmentCandidate = (
+  candidate: VisualEnrichmentCandidate
+): PdfVisualEnrichmentCandidate => ({
+  id: candidate.region.id ?? candidate.target_element_id,
+  page: candidate.region.page,
+  region: candidate.region,
+  target_element_id: candidate.target_element_id,
+  target_element_type: candidate.target_element_type,
+  ...(candidate.element ? { source_element_id: candidate.element.id } : {}),
+  ...(candidate.source_caption_element_id
+    ? { source_caption_element_id: candidate.source_caption_element_id }
+    : {}),
+  ...(candidate.source_caption_text ? { source_caption_text: candidate.source_caption_text } : {}),
+  candidate_signals: candidate.candidate_signals ?? [],
+});
+
 export const buildVisualEnrichmentsForSource = async (
   input: BuildVisualEnrichmentsInput
 ): Promise<BuildVisualEnrichmentsOutput> => {
+  const candidates = selectVisualEnrichmentCandidates(
+    input.elements,
+    Math.max(1, input.maxVisualEnrichments),
+    { pageGeometry: input.pageGeometry }
+  );
+  const visualEnrichmentCandidates = candidates.map(toPdfVisualEnrichmentCandidate);
+
   const providerStatus = getRegionAnalysisProviderStatus();
   if (providerStatus.readiness !== 'ready') {
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: [],
       warnings: [
         `Visual enrichment skipped: analyze_regions provider is ${providerStatus.readiness}.`,
@@ -391,13 +417,9 @@ export const buildVisualEnrichmentsForSource = async (
     };
   }
 
-  const candidates = selectVisualEnrichmentCandidates(
-    input.elements,
-    Math.max(1, input.maxVisualEnrichments),
-    { pageGeometry: input.pageGeometry }
-  );
   if (candidates.length === 0) {
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: [],
       warnings: [
         'Visual enrichment requested, but no table, image, or caption-derived visual regions with bounding boxes were available.',
@@ -424,6 +446,7 @@ export const buildVisualEnrichmentsForSource = async (
     );
 
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: analyzed.analyses.map((analysis): PdfVisualEnrichment => {
         const candidate = candidatesByRegionId.get(analysis.region_id);
         const targetElement = candidate?.element;
@@ -455,6 +478,7 @@ export const buildVisualEnrichmentsForSource = async (
   } catch (error: unknown) {
     const message = error instanceof PdfError ? error.message : String(error);
     return {
+      visualEnrichmentCandidates,
       visualEnrichments: [],
       warnings: [`Visual enrichment unavailable for ${input.sourceDescription}: ${message}`],
     };

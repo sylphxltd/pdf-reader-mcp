@@ -353,7 +353,7 @@ outputs.
 - Text-layer summary totals and bbox coverage counts without forcing top-level `text_layer` output
 - Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
 - Safety findings linked back to page and element evidence
-- Optional visual enrichment indexes when `include_visual_enrichments` is enabled, linking provider-backed table, formula, chart, figure, and image analysis back to crop evidence
+- Optional visual-region candidate indexes when `include_visual_enrichments` is enabled, plus provider-backed table, formula, chart, figure, and image analysis when a visual provider is ready
 - No embedded image bytes inside the JSON document map
 
 ### Document AST
@@ -785,7 +785,10 @@ instead of trusting detached summaries.
 
 The provider is configured by environment variables and is never selected by
 the request. If no provider is configured, `read_pdf` returns a warning instead
-of failing the whole document read.
+of failing the whole document read. It still emits
+`visual_enrichment_candidates` with stable region IDs, PDF-coordinate bounding
+boxes, target types, caption provenance, and routing signals so agents can pass
+the same regions to `extract_regions` or a later `analyze_regions` call.
 
 ### Accessibility Report
 
@@ -1186,7 +1189,7 @@ tables, and document signals.
 | `include_tables` | boolean | Detect selectable-text and OCR-derived tables with rows, cell metadata, confidence, quality diagnostics, cell evidence coverage, provenance, inferred spans, continuation candidates, and best-effort geometry | `false` |
 | `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
 | `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including caption-to-evidence references | `false` |
-| `include_visual_enrichments` | boolean | Run the configured visual-region provider over bounded table, image, and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
+| `include_visual_enrichments` | boolean | Select bounded table, image, and caption-derived visual-region candidates, expose their routing plan, and run the configured visual-region provider when available to fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, external links, and unsafe link schemes | `false` |
 | `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
@@ -1708,6 +1711,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Opt-in OCR text layer fusion for `read_pdf`, agent document maps, and OCR-derived table structure
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
 - [x] Configured local visual region analysis providers over command or HTTP adapters for table, chart, formula, figure, and image-description enrichment, including caption-derived formula/chart/figure candidate routing
+- [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Public deterministic quality benchmark for Agent Document Twin, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP visual region normalization, table evidence coverage, hidden-text/unsafe-link trust routing, and search evidence
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion

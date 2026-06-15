@@ -286,6 +286,7 @@ export type PdfDocumentMapLayer =
   | 'ocr_text_layer'
   | 'image_metadata'
   | 'table_structure'
+  | 'visual_region_candidates'
   | 'visual_enrichment'
   | 'semantic_hints'
   | 'citation_chunks'
@@ -300,6 +301,7 @@ export interface PdfDocumentMapPage {
   element_ids: string[];
   chunk_ids: string[];
   safety_finding_indexes: number[];
+  visual_candidate_indexes: number[];
   visual_enrichment_indexes: number[];
   text_layer_page_index?: number | undefined;
   text_layer_run_count?: number | undefined;
@@ -318,6 +320,7 @@ export interface PdfDocumentMapPage {
   ocr_source_render_evidence_id?: string | undefined;
   image_count: number;
   table_count: number;
+  visual_candidate_count: number;
   visual_enrichment_count: number;
   warnings?: string[] | undefined;
 }
@@ -327,6 +330,7 @@ export interface PdfDocumentMapRouting {
   image_or_sparse_pages: number[];
   needs_ocr_pages: number[];
   ocr_applied_pages: number[];
+  visual_candidate_pages: number[];
 }
 
 export interface PdfDocumentMapSummary {
@@ -348,6 +352,8 @@ export interface PdfDocumentMapSummary {
   ocr_text_chars: number;
   image_element_count: number;
   table_element_count: number;
+  visual_enrichment_candidate_count: number;
+  visual_enrichment_candidate_kind_counts: Partial<Record<PdfVisualEnrichmentTargetType, number>>;
   visual_enrichment_count: number;
   visual_enrichment_kind_counts: Partial<Record<PdfRegionAnalysisKind, number>>;
   chunk_count: number;
@@ -363,6 +369,7 @@ export interface PdfDocumentMap {
   pages: PdfDocumentMapPage[];
   elements: PdfDocumentElement[];
   chunks: PdfChunk[];
+  visual_enrichment_candidates: PdfVisualEnrichmentCandidate[];
   visual_enrichments: PdfVisualEnrichment[];
   layout_diagnostics: PdfPageLayoutDiagnostics[];
   safety_findings: PdfSafetyFinding[];
@@ -757,6 +764,7 @@ export interface PdfResultData {
   ocr_text_layer?: PdfOcrTextLayer;
   safety_findings?: PdfSafetyFinding[];
   layout_diagnostics?: PdfPageLayoutDiagnostics[];
+  visual_enrichment_candidates?: PdfVisualEnrichmentCandidate[];
   visual_enrichments?: PdfVisualEnrichment[];
   document_map?: PdfDocumentMap;
   document_ast?: PdfDocumentAst;
@@ -1178,6 +1186,18 @@ export type PdfVisualEnrichmentTargetType =
   | 'formula'
   | 'diagram'
   | 'visual_region';
+
+export interface PdfVisualEnrichmentCandidate {
+  id: string;
+  page: number;
+  region: PdfRegionRequest;
+  target_element_id: string;
+  target_element_type: PdfVisualEnrichmentTargetType;
+  source_element_id?: string | undefined;
+  source_caption_element_id?: string | undefined;
+  source_caption_text?: string | undefined;
+  candidate_signals: string[];
+}
 
 export interface PdfVisualEnrichment extends PdfRegionAnalysisData {
   id: string;

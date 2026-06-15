@@ -6,8 +6,7 @@ import type {
   PdfDocumentElement,
   PdfPageGeometry,
   PdfRegionAnalysisKind,
-  PdfRegionRequest,
-  PdfVisualEnrichmentTargetType,
+  PdfVisualEnrichmentCandidate,
 } from '../../src/types/pdf.js';
 import { ErrorCode, PdfError } from '../../src/utils/errors.js';
 import * as pathUtils from '../../src/utils/pathUtils.js'; // Import the module itself for spying
@@ -46,14 +45,8 @@ type CaptionVisualKind = Extract<
   'table' | 'figure' | 'chart' | 'formula' | 'image' | 'diagram'
 >;
 
-interface VisualEnrichmentCandidate {
+interface VisualEnrichmentCandidate extends PdfVisualEnrichmentCandidate {
   element?: VisualTargetElement | undefined;
-  region: PdfRegionRequest;
-  target_element_id: string;
-  target_element_type: PdfVisualEnrichmentTargetType;
-  source_caption_element_id?: string | undefined;
-  source_caption_text?: string | undefined;
-  candidate_signals?: string[] | undefined;
 }
 
 const isVisualTargetElement = (element: PdfDocumentElement): element is VisualTargetElement =>
@@ -176,9 +169,12 @@ const selectMockVisualEnrichmentCandidates = (
   for (const element of elements) {
     if (isVisualTargetElement(element)) {
       candidates.push({
+        id: element.id,
+        page: element.page,
         element,
         target_element_id: element.id,
         target_element_type: element.type,
+        source_element_id: element.id,
         candidate_signals: [`${element.type}-element`, 'element-bounding-box'],
         region: {
           id: element.id,
@@ -202,6 +198,8 @@ const selectMockVisualEnrichmentCandidates = (
         } satisfies BoundingBox);
       const regionId = `${element.id}-${kind}-region`;
       candidates.push({
+        id: regionId,
+        page: element.page,
         target_element_id: regionId,
         target_element_type: kind,
         source_caption_element_id: element.id,
@@ -226,6 +224,11 @@ const selectMockVisualEnrichmentCandidates = (
 
   return candidates;
 };
+
+const publicMockVisualCandidates = (
+  candidates: VisualEnrichmentCandidate[]
+): PdfVisualEnrichmentCandidate[] =>
+  candidates.map(({ element: _element, ...candidate }) => candidate);
 
 const resetVisualEnrichmentMock = () => {
   mockBuildVisualEnrichmentsForSource.mockReset();
@@ -267,10 +270,21 @@ vi.mock('../../src/pdf/visualEnrichment.js', () => ({
   buildVisualEnrichmentsForSource: async (
     input: Parameters<typeof mockBuildVisualEnrichmentsForSource>[0]
   ) =>
-    (await mockBuildVisualEnrichmentsForSource(input)) ?? {
-      visualEnrichments: [],
-      warnings: ['Visual enrichment skipped: analyze_regions provider is not_configured.'],
-    },
+    (await mockBuildVisualEnrichmentsForSource(input)) ??
+    (() => {
+      const candidates = selectMockVisualEnrichmentCandidates(
+        input.elements,
+        input.maxVisualEnrichments,
+        {
+          pageGeometry: input.pageGeometry,
+        }
+      );
+      return {
+        visualEnrichmentCandidates: publicMockVisualCandidates(candidates),
+        visualEnrichments: [],
+        warnings: ['Visual enrichment skipped: analyze_regions provider is not_configured.'],
+      };
+    })(),
 }));
 
 // Dynamically import the handler *once* after mocks are defined
@@ -1601,6 +1615,21 @@ describe('handleReadPdfFunc Integration Tests', () => {
       objs: { get: vi.fn() },
     });
     mockBuildVisualEnrichmentsForSource.mockResolvedValue({
+      visualEnrichmentCandidates: [
+        {
+          id: 'p1-table-1',
+          page: 1,
+          target_element_id: 'p1-table-1',
+          target_element_type: 'table',
+          source_element_id: 'p1-table-1',
+          candidate_signals: ['table-element', 'element-bounding-box'],
+          region: {
+            id: 'p1-table-1',
+            page: 1,
+            bounding_box: { left: 40, bottom: 700, right: 220, top: 730 },
+          },
+        },
+      ],
       visualEnrichments: [
         {
           id: 'visual-p1-table-1',
@@ -1670,14 +1699,28 @@ describe('handleReadPdfFunc Integration Tests', () => {
               kind: string;
               source_crop_evidence_id: string;
             }>;
+            visual_enrichment_candidates?: Array<{
+              id: string;
+              target_element_id: string;
+              target_element_type: string;
+              source_element_id?: string;
+            }>;
             document_map?: {
               layers: string[];
               pages: Array<{
+                visual_candidate_indexes: number[];
+                visual_candidate_count: number;
                 visual_enrichment_indexes: number[];
                 visual_enrichment_count: number;
               }>;
+              visual_enrichment_candidates: Array<{ id: string; target_element_id: string }>;
               visual_enrichments: Array<{ id: string; target_element_id: string }>;
+              routing: {
+                visual_candidate_pages: number[];
+              };
               summary: {
+                visual_enrichment_candidate_count: number;
+                visual_enrichment_candidate_kind_counts: Record<string, number>;
                 visual_enrichment_count: number;
                 visual_enrichment_kind_counts: Record<string, number>;
               };
@@ -1708,18 +1751,39 @@ describe('handleReadPdfFunc Integration Tests', () => {
         kind: 'table',
         source_crop_evidence_id: 'page-1-p1-table-1-crop-scale-2',
       });
+      expect(data?.visual_enrichment_candidates?.[0]).toMatchObject({
+        id: 'p1-table-1',
+        target_element_id: 'p1-table-1',
+        target_element_type: 'table',
+        source_element_id: 'p1-table-1',
+      });
       expect(data?.document_map).toMatchObject({
-        layers: expect.arrayContaining(['visual_enrichment', 'table_structure']),
+        layers: expect.arrayContaining([
+          'visual_region_candidates',
+          'visual_enrichment',
+          'table_structure',
+        ]),
         pages: [
           expect.objectContaining({
+            visual_candidate_indexes: [0],
+            visual_candidate_count: 1,
             visual_enrichment_indexes: [0],
             visual_enrichment_count: 1,
           }),
         ],
+        routing: {
+          visual_candidate_pages: [1],
+        },
         summary: {
+          visual_enrichment_candidate_count: 1,
+          visual_enrichment_candidate_kind_counts: { table: 1 },
           visual_enrichment_count: 1,
           visual_enrichment_kind_counts: { table: 1 },
         },
+      });
+      expect(data?.document_map?.visual_enrichment_candidates[0]).toMatchObject({
+        id: 'p1-table-1',
+        target_element_id: 'p1-table-1',
       });
       expect(data?.document_map?.visual_enrichments[0]).toMatchObject({
         id: 'visual-p1-table-1',
