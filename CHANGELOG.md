@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.3
+
+### Patch Changes
+
+- [#305](https://github.com/SylphxAI/pdf-reader-mcp/pull/305) [`f556e48`](https://github.com/SylphxAI/pdf-reader-mcp/commit/f556e486b69fcf89ff79bd7daf9273bbb71690a3) Thanks [@shtse8](https://github.com/shtse8)! - Use a scoped release bot token for automated Changesets release pull requests and publishing.
+
 ## 2.5.2
 
 ### Patch Changes
