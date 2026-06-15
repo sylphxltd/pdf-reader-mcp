@@ -51,6 +51,7 @@ import type {
   PdfSafetyFinding,
   PdfSource,
   PdfSourceResult,
+  PdfTextLayer,
   PdfVisualEnrichment,
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
@@ -344,11 +345,15 @@ const processSingleSource = async (
         output.chunks = chunks;
       }
 
-      if (options.includeTextLayer && output.page_contents) {
-        output.text_layer = buildTextLayer({
+      let textLayer: PdfTextLayer | undefined;
+      if ((options.includeTextLayer || options.includeDocumentMap) && output.page_contents) {
+        textLayer = buildTextLayer({
           selectedPages: pagesToProcess,
           pageContents: output.page_contents,
         });
+        if (options.includeTextLayer) {
+          output.text_layer = textLayer;
+        }
       }
 
       let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
@@ -425,6 +430,7 @@ const processSingleSource = async (
           layoutDiagnostics,
           safetyFindings,
           visualEnrichments,
+          textLayer,
           ocrTextLayer,
           pageGeometry,
           warnings: output.warnings,

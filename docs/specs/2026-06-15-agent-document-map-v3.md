@@ -6,10 +6,10 @@ Status: active
 ## Goal
 
 Make PDF Reader MCP expose a single agent-native map of a PDF: pages,
-elements, chunks, layout confidence, safety findings, routing signals, OCR
-evidence, and page geometry. The map is the stable contract that OCR, vision,
-formula, chart, and advanced table engines can enrich without forcing agents to
-learn a new response shape each time.
+elements, selectable text-layer coverage, chunks, layout confidence, safety
+findings, routing signals, OCR evidence, and page geometry. The map is the
+stable contract that OCR, vision, formula, chart, and advanced table engines
+can enrich without forcing agents to learn a new response shape each time.
 
 ## Product Positioning
 
@@ -48,6 +48,7 @@ Each successful source may include:
     "profile": "agent_document_map",
     "layers": [
       "selectable_text",
+      "text_layer",
       "ocr_text_layer",
       "table_structure",
       "semantic_hints",
@@ -63,6 +64,15 @@ Each successful source may include:
         "element_ids": ["p1-text-1", "p1-table-1"],
         "chunk_ids": ["p1-chunk-1", "p1-chunk-2"],
         "safety_finding_indexes": [0],
+        "text_layer_page_index": 0,
+        "text_layer_run_count": 30,
+        "text_layer_line_count": 24,
+        "text_layer_word_count": 180,
+        "text_layer_char_count": 1200,
+        "text_layer_runs_with_bounding_boxes": 30,
+        "text_layer_lines_with_bounding_boxes": 24,
+        "text_layer_words_with_bounding_boxes": 180,
+        "text_layer_chars_with_bounding_boxes": 1200,
         "text_chars": 1200,
         "text_item_count": 30,
         "ocr_text_chars": 128,
@@ -108,6 +118,15 @@ Each successful source may include:
       "processed_page_count": 1,
       "element_count": 0,
       "text_element_count": 0,
+      "text_layer_page_count": 1,
+      "text_layer_run_count": 30,
+      "text_layer_line_count": 24,
+      "text_layer_word_count": 180,
+      "text_layer_char_count": 1200,
+      "text_layer_runs_with_bounding_boxes": 30,
+      "text_layer_lines_with_bounding_boxes": 24,
+      "text_layer_words_with_bounding_boxes": 180,
+      "text_layer_chars_with_bounding_boxes": 1200,
       "ocr_page_count": 1,
       "ocr_text_chars": 128,
       "image_element_count": 0,
@@ -131,14 +150,18 @@ Each successful source may include:
   in `document_map.safety_findings`.
 - `document_map.pages[*].visual_enrichment_indexes` must reference array
   indexes in `document_map.visual_enrichments`.
+- `document_map.pages[*].text_layer_page_index` must reference the same-page
+  record in the internally built or top-level `text_layer.pages` array.
 - `document_map.visual_enrichments[*].target_element_id` must reference the
   table or image element whose crop was analyzed.
 - `document_map.layers` must be derived from actual emitted layers, not user
-  flags. `ocr_text_layer` is present only when OCR pages were returned.
+  flags. `text_layer` is present only when selectable text-layer evidence was
+  built. `ocr_text_layer` is present only when OCR pages were returned.
 - Top-level legacy outputs remain opt-in. `include_document_map` may build
-  internal elements, chunks, safety findings, layout diagnostics, page geometry,
-  and tables for the map without forcing top-level `elements`, `chunks`,
-  `safety_findings`, `layout_diagnostics`, or `page_geometry`.
+  internal elements, chunks, text-layer coverage, safety findings, layout
+  diagnostics, page geometry, and tables for the map without forcing top-level
+  `elements`, `chunks`, `text_layer`, `safety_findings`,
+  `layout_diagnostics`, or `page_geometry`.
 - JSON output must not include embedded image bytes.
 - Visual enrichment is opt-in and provider-backed. If the provider is not
   configured or fails, `read_pdf` records a warning instead of failing the
@@ -149,7 +172,8 @@ Each successful source may include:
 ## Performance Constraints
 
 - The map must reuse page content, table, layout, safety, chunk, and geometry
-  data already produced in the request path.
+  data already produced in the request path. Text-layer coverage must be
+  derived from the same text-layer builder used by `include_text_layer`.
 - The builder itself must be linear in emitted pages, elements, chunks, and
   findings.
 - Page extraction remains batched; document map construction must not increase
@@ -174,14 +198,16 @@ Required before publishing the next package release:
   text layers without embedding image bytes in JSON summaries.
 - `read_pdf` can opt into OCR text layer fusion for sparse/scanned pages and
   link applied OCR pages into the document map.
+- `include_document_map` links selectable text-layer coverage into page records
+  and summary totals without forcing the top-level `text_layer` response.
 - `read_pdf` can opt into visual enrichment fusion for bounded table/image
   regions and link provider-backed table, formula, chart, figure, diagram, or
   image evidence into the document map and AST.
 - `search_pdf` provides bounded evidence retrieval with snippets, offsets,
   optional character-derived or text-item bounding boxes, and provenance before
   heavier workflows.
-- Quality eval proves the map links pages, elements, chunks, safety findings,
-  layout diagnostics, and geometry.
+- Quality eval proves the map links pages, elements, text-layer coverage,
+  chunks, safety findings, layout diagnostics, and geometry.
 - Handler tests prove the map does not force top-level legacy outputs.
 - Public docs describe shipped configured OCR and configured visual enrichment
   accurately, and keep built-in OCR model, bundled VLM, and PDF/UA generation
@@ -202,8 +228,9 @@ Next slices for the same v3 track:
 - `include_document_map` validates as an optional boolean.
 - `read_pdf` with `include_document_map: true` processes selected pages even
   when `include_full_text` is false.
-- The map includes semantic elements, citation chunks, layout diagnostics,
-  safety findings, routing signals, page geometry, and summary counts.
+- The map includes semantic elements, selectable text-layer coverage, citation
+  chunks, layout diagnostics, safety findings, routing signals, page geometry,
+  and summary counts.
 - The map includes table elements when deterministic table extraction finds
   tables.
 - The map links OCR pages when `include_ocr_text_layer` returns OCR evidence.

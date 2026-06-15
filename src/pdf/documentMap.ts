@@ -9,6 +9,8 @@ import type {
   PdfPageGeometry,
   PdfPageLayoutDiagnostics,
   PdfSafetyFinding,
+  PdfTextLayer,
+  PdfTextLayerPage,
   PdfVisualEnrichment,
 } from '../types/pdf.js';
 
@@ -24,6 +26,7 @@ interface BuildDocumentMapInput {
   layoutDiagnostics: PdfPageLayoutDiagnostics[];
   safetyFindings: PdfSafetyFinding[];
   visualEnrichments?: PdfVisualEnrichment[] | undefined;
+  textLayer?: PdfTextLayer | undefined;
   ocrTextLayer?: PdfOcrTextLayer | undefined;
   pageGeometry?: PdfPageGeometry[] | undefined;
   warnings?: string[] | undefined;
@@ -55,12 +58,14 @@ const buildLayers = (
   visualEnrichments: PdfVisualEnrichment[],
   layoutDiagnostics: PdfPageLayoutDiagnostics[],
   safetyFindings: PdfSafetyFinding[],
+  textLayer: PdfTextLayer | undefined,
   ocrTextLayer: PdfOcrTextLayer | undefined,
   pageGeometry: PdfPageGeometry[] | undefined
 ): PdfDocumentMapLayer[] => {
   const layers = new Set<PdfDocumentMapLayer>();
 
   if (elements.some((element) => element.type === 'text')) layers.add('selectable_text');
+  if ((textLayer?.pages.length ?? 0) > 0) layers.add('text_layer');
   if ((ocrTextLayer?.pages.length ?? 0) > 0) layers.add('ocr_text_layer');
   if (elements.some((element) => element.type === 'image')) layers.add('image_metadata');
   if (elements.some((element) => element.type === 'table')) layers.add('table_structure');
@@ -117,6 +122,38 @@ const countVisualEnrichmentKinds = (
   return counts;
 };
 
+const textLayerPageStats = (
+  page: PdfTextLayerPage | undefined
+):
+  | {
+      text_layer_run_count: number;
+      text_layer_line_count: number;
+      text_layer_word_count: number;
+      text_layer_char_count: number;
+      text_layer_runs_with_bounding_boxes: number;
+      text_layer_lines_with_bounding_boxes: number;
+      text_layer_words_with_bounding_boxes: number;
+      text_layer_chars_with_bounding_boxes: number;
+    }
+  | undefined => {
+  if (!page) return undefined;
+
+  const runs = page.lines.flatMap((line) => line.runs);
+  const words = page.lines.flatMap((line) => line.words);
+  const chars = page.lines.flatMap((line) => line.chars);
+
+  return {
+    text_layer_run_count: runs.length,
+    text_layer_line_count: page.line_count,
+    text_layer_word_count: page.word_count,
+    text_layer_char_count: page.char_count,
+    text_layer_runs_with_bounding_boxes: runs.filter((run) => run.bounding_box).length,
+    text_layer_lines_with_bounding_boxes: page.lines.filter((line) => line.bounding_box).length,
+    text_layer_words_with_bounding_boxes: words.filter((word) => word.bounding_box).length,
+    text_layer_chars_with_bounding_boxes: chars.filter((char) => char.bounding_box).length,
+  };
+};
+
 export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap => {
   const elementsByPage = new Map<number, PdfDocumentElement[]>();
   for (const element of input.elements) {
@@ -135,6 +172,10 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
   );
   const layoutByPage = new Map(input.layoutDiagnostics.map((layout) => [layout.page, layout]));
   const geometryByPage = new Map(input.pageGeometry?.map((geometry) => [geometry.page, geometry]));
+  const textLayerPageIndexByPage = new Map(
+    input.textLayer?.pages.map((page, index) => [page.page, index])
+  );
+  const textLayerPageByPage = new Map(input.textLayer?.pages.map((page) => [page.page, page]));
   const ocrPageByPage = new Map(input.ocrTextLayer?.pages.map((page) => [page.page, page]));
   const safetyFindingIndexesByPage = new Map<number, number[]>();
   input.safetyFindings.forEach((finding, index) => {
@@ -161,6 +202,8 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
     const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
     const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
+    const textLayerPageIndex = textLayerPageIndexByPage.get(page);
+    const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === 'image').length;
     const tableElements = elements.filter((element) => element.type === 'table');
@@ -180,6 +223,8 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       chunk_ids: chunks.map((chunk) => chunk.id),
       safety_finding_indexes: safetyFindingIndexes,
       visual_enrichment_indexes: visualEnrichmentIndexes,
+      ...(textLayerPageIndex !== undefined ? { text_layer_page_index: textLayerPageIndex } : {}),
+      ...(textLayerStats ? textLayerStats : {}),
       text_chars: textChars,
       text_item_count: textItemCount,
       ...(ocrPage
@@ -236,6 +281,7 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       visualEnrichments,
       input.layoutDiagnostics,
       input.safetyFindings,
+      input.textLayer,
       input.ocrTextLayer,
       input.pageGeometry
     ),
@@ -257,6 +303,15 @@ export const buildDocumentMap = (input: BuildDocumentMapInput): PdfDocumentMap =
       processed_page_count: pages.length,
       element_count: input.elements.length,
       text_element_count: textElementCount,
+      text_layer_page_count: input.textLayer?.summary.page_count ?? 0,
+      text_layer_run_count: input.textLayer?.summary.run_count ?? 0,
+      text_layer_line_count: input.textLayer?.summary.line_count ?? 0,
+      text_layer_word_count: input.textLayer?.summary.word_count ?? 0,
+      text_layer_char_count: input.textLayer?.summary.char_count ?? 0,
+      text_layer_runs_with_bounding_boxes: input.textLayer?.summary.runs_with_bounding_boxes ?? 0,
+      text_layer_lines_with_bounding_boxes: input.textLayer?.summary.lines_with_bounding_boxes ?? 0,
+      text_layer_words_with_bounding_boxes: input.textLayer?.summary.words_with_bounding_boxes ?? 0,
+      text_layer_chars_with_bounding_boxes: input.textLayer?.summary.chars_with_bounding_boxes ?? 0,
       ocr_page_count: input.ocrTextLayer?.summary.page_count ?? 0,
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,

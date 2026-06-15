@@ -266,6 +266,7 @@ export type PdfDocumentMapVersion = '2026-06-15';
 
 export type PdfDocumentMapLayer =
   | 'selectable_text'
+  | 'text_layer'
   | 'ocr_text_layer'
   | 'image_metadata'
   | 'table_structure'
@@ -284,6 +285,15 @@ export interface PdfDocumentMapPage {
   chunk_ids: string[];
   safety_finding_indexes: number[];
   visual_enrichment_indexes: number[];
+  text_layer_page_index?: number | undefined;
+  text_layer_run_count?: number | undefined;
+  text_layer_line_count?: number | undefined;
+  text_layer_word_count?: number | undefined;
+  text_layer_char_count?: number | undefined;
+  text_layer_runs_with_bounding_boxes?: number | undefined;
+  text_layer_lines_with_bounding_boxes?: number | undefined;
+  text_layer_words_with_bounding_boxes?: number | undefined;
+  text_layer_chars_with_bounding_boxes?: number | undefined;
   text_chars: number;
   text_item_count: number;
   ocr_text_chars?: number | undefined;
@@ -309,6 +319,15 @@ export interface PdfDocumentMapSummary {
   processed_page_count: number;
   element_count: number;
   text_element_count: number;
+  text_layer_page_count: number;
+  text_layer_run_count: number;
+  text_layer_line_count: number;
+  text_layer_word_count: number;
+  text_layer_char_count: number;
+  text_layer_runs_with_bounding_boxes: number;
+  text_layer_lines_with_bounding_boxes: number;
+  text_layer_words_with_bounding_boxes: number;
+  text_layer_chars_with_bounding_boxes: number;
   ocr_page_count: number;
   ocr_text_chars: number;
   image_element_count: number;

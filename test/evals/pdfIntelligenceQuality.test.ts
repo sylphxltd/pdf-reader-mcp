@@ -140,6 +140,10 @@ const evaluateCase = (qualityCase: QualityCase) => {
   });
   const safetyFindings = buildSafetyFindings(qualityCase.pageContents, qualityCase.pageGeometry);
   const layoutDiagnostics = buildLayoutDiagnostics(qualityCase.pageContents);
+  const textLayer = buildTextLayer({
+    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
+    pageContents: qualityCase.pageContents,
+  });
   const documentMap = buildDocumentMap({
     totalPages: qualityCase.pageContents.length,
     selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
@@ -148,6 +152,7 @@ const evaluateCase = (qualityCase: QualityCase) => {
     chunks,
     layoutDiagnostics,
     safetyFindings,
+    textLayer,
     pageGeometry: qualityCase.pageGeometry,
   });
   const documentAst = buildDocumentAst({
@@ -177,10 +182,6 @@ const evaluateCase = (qualityCase: QualityCase) => {
     ],
     permissions: ['copy_for_accessibility'],
     markInfo: { Marked: true, Suspects: false },
-  });
-  const textLayer = buildTextLayer({
-    selectedPages: qualityCase.pageContents.map((pageContent) => pageContent.page),
-    pageContents: qualityCase.pageContents,
   });
   const markdown = renderMarkdownFromPageContents(qualityCase.pageContents, qualityCase.tables);
   const html = renderHtmlFromPageContents(qualityCase.pageContents, qualityCase.tables);
@@ -264,6 +265,7 @@ const evaluateCase = (qualityCase: QualityCase) => {
       pass:
         documentMap.profile === 'agent_document_map' &&
         documentMap.layers.includes('selectable_text') &&
+        documentMap.layers.includes('text_layer') &&
         documentMap.layers.includes('table_structure') &&
         documentMap.layers.includes('semantic_hints') &&
         documentMap.layers.includes('citation_chunks') &&
@@ -272,6 +274,16 @@ const evaluateCase = (qualityCase: QualityCase) => {
         documentMap.layers.includes('page_geometry') &&
         documentMap.pages[0]?.element_ids.includes('p1-table-1') === true &&
         (documentMap.pages[0]?.chunk_ids.length ?? 0) > 0 &&
+        documentMap.pages[0]?.text_layer_page_index === 0 &&
+        documentMap.pages[0]?.text_layer_line_count === textLayer.pages[0]?.line_count &&
+        documentMap.pages[0]?.text_layer_word_count === textLayer.pages[0]?.word_count &&
+        documentMap.pages[0]?.text_layer_words_with_bounding_boxes ===
+          textLayer.pages[0]?.word_count &&
+        documentMap.summary.text_layer_page_count === textLayer.summary.page_count &&
+        documentMap.summary.text_layer_line_count === textLayer.summary.line_count &&
+        documentMap.summary.text_layer_word_count === textLayer.summary.word_count &&
+        documentMap.summary.text_layer_chars_with_bounding_boxes ===
+          textLayer.summary.chars_with_bounding_boxes &&
         JSON.stringify(documentMap.pages[0]?.safety_finding_indexes) ===
           JSON.stringify([0, 1, 2]) &&
         documentMap.summary.table_element_count === 1 &&

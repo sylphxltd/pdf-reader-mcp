@@ -981,6 +981,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
             page_geometry?: unknown;
             layout_diagnostics?: unknown;
             safety_findings?: unknown;
+            text_layer?: unknown;
             table_info?: unknown;
             document_map?: {
               version: string;
@@ -991,6 +992,15 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 element_ids: string[];
                 chunk_ids: string[];
                 safety_finding_indexes: number[];
+                text_layer_page_index?: number;
+                text_layer_run_count?: number;
+                text_layer_line_count?: number;
+                text_layer_word_count?: number;
+                text_layer_char_count?: number;
+                text_layer_runs_with_bounding_boxes?: number;
+                text_layer_lines_with_bounding_boxes?: number;
+                text_layer_words_with_bounding_boxes?: number;
+                text_layer_chars_with_bounding_boxes?: number;
                 geometry?: { width: number; height: number };
               }>;
               elements: Array<{
@@ -1008,6 +1018,15 @@ describe('handleReadPdfFunc Integration Tests', () => {
                 processed_page_count: number;
                 element_count: number;
                 table_element_count: number;
+                text_layer_page_count: number;
+                text_layer_run_count: number;
+                text_layer_line_count: number;
+                text_layer_word_count: number;
+                text_layer_char_count: number;
+                text_layer_runs_with_bounding_boxes: number;
+                text_layer_lines_with_bounding_boxes: number;
+                text_layer_words_with_bounding_boxes: number;
+                text_layer_chars_with_bounding_boxes: number;
                 chunk_count: number;
                 safety_finding_count: number;
               };
@@ -1024,6 +1043,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
       expect(data?.page_geometry).toBeUndefined();
       expect(data?.layout_diagnostics).toBeUndefined();
       expect(data?.safety_findings).toBeUndefined();
+      expect(data?.text_layer).toBeUndefined();
       expect(data?.table_info).toBeUndefined();
       expect(documentMap).toBeDefined();
       expect(documentMap).toMatchObject({
@@ -1031,6 +1051,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
         profile: 'agent_document_map',
         layers: expect.arrayContaining([
           'selectable_text',
+          'text_layer',
           'table_structure',
           'semantic_hints',
           'citation_chunks',
@@ -1047,6 +1068,15 @@ describe('handleReadPdfFunc Integration Tests', () => {
           processed_page_count: 1,
           element_count: 5,
           table_element_count: 1,
+          text_layer_page_count: 1,
+          text_layer_run_count: 4,
+          text_layer_line_count: 4,
+          text_layer_word_count: 6,
+          text_layer_char_count: 45,
+          text_layer_runs_with_bounding_boxes: 4,
+          text_layer_lines_with_bounding_boxes: 4,
+          text_layer_words_with_bounding_boxes: 6,
+          text_layer_chars_with_bounding_boxes: 42,
           chunk_count: 2,
           safety_finding_count: 1,
         },
@@ -1055,6 +1085,15 @@ describe('handleReadPdfFunc Integration Tests', () => {
         page: 1,
         element_ids: ['p1-text-1', 'p1-text-2', 'p1-text-3', 'p1-text-4', 'p1-table-1'],
         safety_finding_indexes: [0],
+        text_layer_page_index: 0,
+        text_layer_run_count: 4,
+        text_layer_line_count: 4,
+        text_layer_word_count: 6,
+        text_layer_char_count: 45,
+        text_layer_runs_with_bounding_boxes: 4,
+        text_layer_lines_with_bounding_boxes: 4,
+        text_layer_words_with_bounding_boxes: 6,
+        text_layer_chars_with_bounding_boxes: 42,
         geometry: { width: 612, height: 792 },
       });
       expect(documentMap?.pages[0]?.chunk_ids.length).toBeGreaterThan(0);

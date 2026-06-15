@@ -34,7 +34,7 @@ neutral capability names and avoids public comparison language.
 | Table extraction | Shipped | Spatial clustering with rows, confidence, and best-effort cell geometry. |
 | Table quality diagnostics | Shipped | Completeness, non-empty cell ratio, row alignment, row spacing consistency, missing-cell count, inferred merged-cell candidates, warnings, and repeated-header continuation candidates. |
 | Structured element output | Shipped | `include_elements`. |
-| Agent document map | Shipped | `include_document_map`; links pages, elements, chunks, layout diagnostics, safety findings, routing signals, OCR evidence, visual enrichment indexes, and page geometry in one agent-ready contract. |
+| Agent document map | Shipped | `include_document_map`; links pages, elements, selectable text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, OCR evidence, visual enrichment indexes, and page geometry in one agent-ready contract. |
 | Semantic document AST | Shipped | `include_document_ast`; page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, diagram, and visual-region nodes linked to element IDs, visual enrichment IDs, chunk IDs, bounding boxes, confidence, section-path context, caption-to-evidence links, and table quality metadata. |
 | Deterministic semantic hints | Shipped | `include_semantic_hints`; heading, list item, paragraph, caption, header, and footer hints with confidence. Header/footer detection uses page-edge geometry and avoids off-page text. |
 | Markdown rendering | Shipped | `include_markdown`. |
@@ -57,7 +57,7 @@ neutral capability names and avoids public comparison language.
 | Table cell geometry | Shipped | Table and cell bounding boxes plus row/column indexes where coordinates are available. |
 | Rich table spans and multi-page links | In progress | Deterministic header/span hints and repeated-header continuation candidates are shipped; visual provider output can now preserve cell spans and boxes; non-repeated continuation still needs broader fixtures. |
 | Semantic chunking | Shipped | Splits chunks on deterministic heading hints when `include_semantic_hints` is enabled. |
-| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, inspection routing, recursive reading order, visual-region normalization, document-twin visual enrichment fusion, caption-to-evidence links, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, inspection tool routing, real PDF document signals, real PDF reading order, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. `bun run benchmark:providers` reports installed-provider certification profiles for OCR text-layer word boxes and visual table/formula/chart crop evidence when providers are configured. |
+| Quality eval and benchmark harness | Shipped | Regression evals cover semantic chunks, table order, renderers, safety findings, inspection routing, recursive reading order, visual-region normalization, document-twin visual enrichment fusion, document-map text-layer coverage, caption-to-evidence links, and search evidence. `bun run benchmark:quality` publishes deterministic quality gates for Agent Document Twin semantics, inspection tool routing, real PDF document signals, real PDF reading order, runtime-generated scanned-PDF OCR pipeline routing, OCR normalization, command/HTTP visual-region normalization, and evidence search. `bun run benchmark:providers` reports installed-provider certification profiles for OCR text-layer word boxes and visual table/formula/chart crop evidence when providers are configured. |
 | OCR for scanned PDFs | Shipped | `ocr_pages`; optional env-configured command provider over bounded rendered pages plus `MCP_PDF_OCR_PRESET=tesseract` and `tesseract-tsv`. `read_pdf` can opt into `include_ocr_text_layer` and link OCR evidence into `document_map`; TSV output is normalized into word boxes and confidence. No default OCR model is bundled. |
 | Formula extraction | Shipped | `analyze_regions` can normalize LaTeX, MathML, AsciiMath, text, confidence, and provenance from a configured provider; `read_pdf` can opt into `include_visual_enrichments` and attach formula evidence to the document twin. Accuracy depends on the configured local engine. |
 | Chart/image descriptions | Shipped | `analyze_regions` can normalize chart data points, axes, series, figure, and image-description provider output; `read_pdf` can opt into `include_visual_enrichments` and attach visual evidence to the document twin. Accuracy depends on the configured local engine. |
@@ -75,8 +75,9 @@ neutral capability names and avoids public comparison language.
    adversarial fixtures still need broader coverage.
 2. Expand extraction quality evals and benchmarks: multi-column, layout
    diagnostics, tables, annotations, forms, hidden/off-page text, scanned PDFs.
-3. Harden the agent document map as the SSOT for pages, elements, chunks,
-   layout, safety, page geometry, and optional engine enrichment.
+3. Harden the agent document map as the SSOT for pages, elements, text-layer
+   coverage, chunks, layout, safety, page geometry, and optional engine
+   enrichment.
 4. Promote run/character evidence into the shared document map and benchmark
    retrieval quality against fixture expectations.
 5. Continue broadening the deterministic semantic model beyond shipped

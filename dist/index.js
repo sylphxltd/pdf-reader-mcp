@@ -3367,7 +3367,7 @@ var readPdfArgsSchema = object({
   include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
   include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text."))),
   include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
+  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON."))),
   include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image regions and fuse normalized table, formula, chart, figure, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
@@ -4195,10 +4195,12 @@ var pagesForChunk = (chunk) => {
   }
   return pages;
 };
-var buildLayers = (elements, chunks, visualEnrichments, layoutDiagnostics, safetyFindings, ocrTextLayer, pageGeometry) => {
+var buildLayers = (elements, chunks, visualEnrichments, layoutDiagnostics, safetyFindings, textLayer, ocrTextLayer, pageGeometry) => {
   const layers = new Set;
   if (elements.some((element) => element.type === "text"))
     layers.add("selectable_text");
+  if ((textLayer?.pages.length ?? 0) > 0)
+    layers.add("text_layer");
   if ((ocrTextLayer?.pages.length ?? 0) > 0)
     layers.add("ocr_text_layer");
   if (elements.some((element) => element.type === "image"))
@@ -4248,6 +4250,23 @@ var countVisualEnrichmentKinds = (visualEnrichments) => {
   }
   return counts;
 };
+var textLayerPageStats = (page) => {
+  if (!page)
+    return;
+  const runs = page.lines.flatMap((line) => line.runs);
+  const words = page.lines.flatMap((line) => line.words);
+  const chars = page.lines.flatMap((line) => line.chars);
+  return {
+    text_layer_run_count: runs.length,
+    text_layer_line_count: page.line_count,
+    text_layer_word_count: page.word_count,
+    text_layer_char_count: page.char_count,
+    text_layer_runs_with_bounding_boxes: runs.filter((run) => run.bounding_box).length,
+    text_layer_lines_with_bounding_boxes: page.lines.filter((line) => line.bounding_box).length,
+    text_layer_words_with_bounding_boxes: words.filter((word) => word.bounding_box).length,
+    text_layer_chars_with_bounding_boxes: chars.filter((char) => char.bounding_box).length
+  };
+};
 var buildDocumentMap = (input) => {
   const elementsByPage = new Map;
   for (const element of input.elements) {
@@ -4262,6 +4281,8 @@ var buildDocumentMap = (input) => {
   const pageContentByPage = new Map(input.pageContents.map((pageContent) => [pageContent.page, pageContent]));
   const layoutByPage = new Map(input.layoutDiagnostics.map((layout) => [layout.page, layout]));
   const geometryByPage = new Map(input.pageGeometry?.map((geometry) => [geometry.page, geometry]));
+  const textLayerPageIndexByPage = new Map(input.textLayer?.pages.map((page, index) => [page.page, index]));
+  const textLayerPageByPage = new Map(input.textLayer?.pages.map((page) => [page.page, page]));
   const ocrPageByPage = new Map(input.ocrTextLayer?.pages.map((page) => [page.page, page]));
   const safetyFindingIndexesByPage = new Map;
   input.safetyFindings.forEach((finding, index) => {
@@ -4281,6 +4302,8 @@ var buildDocumentMap = (input) => {
     const ocrPage = ocrPageByPage.get(page);
     const safetyFindingIndexes = safetyFindingIndexesByPage.get(page) ?? [];
     const visualEnrichmentIndexes = visualEnrichmentIndexesByPage.get(page) ?? [];
+    const textLayerPageIndex = textLayerPageIndexByPage.get(page);
+    const textLayerStats = textLayerPageStats(textLayerPageByPage.get(page));
     const { textChars, textItemCount } = pageTextStats(pageContent?.items ?? []);
     const imageCount = elements.filter((element) => element.type === "image").length;
     const tableElements = elements.filter((element) => element.type === "table");
@@ -4295,6 +4318,8 @@ var buildDocumentMap = (input) => {
       chunk_ids: chunks.map((chunk) => chunk.id),
       safety_finding_indexes: safetyFindingIndexes,
       visual_enrichment_indexes: visualEnrichmentIndexes,
+      ...textLayerPageIndex !== undefined ? { text_layer_page_index: textLayerPageIndex } : {},
+      ...textLayerStats ? textLayerStats : {},
       text_chars: textChars,
       text_item_count: textItemCount,
       ...ocrPage ? {
@@ -4322,7 +4347,7 @@ var buildDocumentMap = (input) => {
   return {
     version: DOCUMENT_MAP_VERSION,
     profile: "agent_document_map",
-    layers: buildLayers(input.elements, input.chunks, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.ocrTextLayer, input.pageGeometry),
+    layers: buildLayers(input.elements, input.chunks, visualEnrichments, input.layoutDiagnostics, input.safetyFindings, input.textLayer, input.ocrTextLayer, input.pageGeometry),
     pages,
     elements: input.elements,
     chunks: input.chunks,
@@ -4341,6 +4366,15 @@ var buildDocumentMap = (input) => {
       processed_page_count: pages.length,
       element_count: input.elements.length,
       text_element_count: textElementCount,
+      text_layer_page_count: input.textLayer?.summary.page_count ?? 0,
+      text_layer_run_count: input.textLayer?.summary.run_count ?? 0,
+      text_layer_line_count: input.textLayer?.summary.line_count ?? 0,
+      text_layer_word_count: input.textLayer?.summary.word_count ?? 0,
+      text_layer_char_count: input.textLayer?.summary.char_count ?? 0,
+      text_layer_runs_with_bounding_boxes: input.textLayer?.summary.runs_with_bounding_boxes ?? 0,
+      text_layer_lines_with_bounding_boxes: input.textLayer?.summary.lines_with_bounding_boxes ?? 0,
+      text_layer_words_with_bounding_boxes: input.textLayer?.summary.words_with_bounding_boxes ?? 0,
+      text_layer_chars_with_bounding_boxes: input.textLayer?.summary.chars_with_bounding_boxes ?? 0,
       ocr_page_count: input.ocrTextLayer?.summary.page_count ?? 0,
       ocr_text_chars: input.ocrTextLayer?.summary.text_chars ?? 0,
       image_element_count: imageElementCount,
@@ -6089,11 +6123,15 @@ var processSingleSource = async (source, options) => {
         });
         output.chunks = chunks;
       }
-      if (options.includeTextLayer && output.page_contents) {
-        output.text_layer = buildTextLayer({
+      let textLayer;
+      if ((options.includeTextLayer || options.includeDocumentMap) && output.page_contents) {
+        textLayer = buildTextLayer({
           selectedPages: pagesToProcess,
           pageContents: output.page_contents
         });
+        if (options.includeTextLayer) {
+          output.text_layer = textLayer;
+        }
       }
       let layoutDiagnostics;
       if (options.includeLayoutDiagnostics && output.page_contents) {
@@ -6158,6 +6196,7 @@ var processSingleSource = async (source, options) => {
           layoutDiagnostics,
           safetyFindings,
           visualEnrichments,
+          textLayer,
           ocrTextLayer,
           pageGeometry,
           warnings: output.warnings

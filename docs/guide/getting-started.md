@@ -160,7 +160,8 @@ and best-effort coordinates instead of plain text alone.
 ### Get An Agent Document Map
 
 Use `include_document_map` when an agent needs one navigable structure for the
-PDF instead of separate page, element, chunk, layout, and safety outputs.
+PDF instead of separate page, element, text-layer, chunk, layout, and safety
+outputs.
 
 ```json
 {
@@ -175,7 +176,8 @@ PDF instead of separate page, element, chunk, layout, and safety outputs.
 }
 ```
 
-The map links pages to element IDs, chunk IDs, safety finding indexes, layout
+The map links pages to element IDs, text-layer page indexes and coverage
+counts, chunk IDs, safety finding indexes, layout
 diagnostics, routing signals, page geometry, and optional visual enrichment
 indexes. Enable `include_visual_enrichments` when a configured visual-region
 provider should analyze bounded table/image crops and fuse table, formula,
@@ -588,6 +590,7 @@ Process multiple PDFs in a single request:
           "profile": "agent_document_map",
           "layers": [
             "selectable_text",
+            "text_layer",
             "semantic_hints",
             "citation_chunks",
             "layout_diagnostics",
@@ -600,6 +603,10 @@ Process multiple PDFs in a single request:
               "element_ids": ["p1-text-1"],
               "chunk_ids": ["p1-chunk-1"],
               "safety_finding_indexes": [],
+              "text_layer_page_index": 0,
+              "text_layer_line_count": 3,
+              "text_layer_word_count": 18,
+              "text_layer_chars_with_bounding_boxes": 120,
               "text_chars": 120,
               "text_item_count": 3,
               "image_count": 0,

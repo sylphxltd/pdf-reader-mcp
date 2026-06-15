@@ -22,6 +22,10 @@
   diagram evidence with `caption_links`, target-side `caption_ids`, confidence,
   relation, and signals so agents can keep captions attached to source-backed
   visual or tabular evidence.
+- Link selectable text-layer evidence into `document_map`. Page records now
+  expose text-layer page indexes plus run, line, word, character, and bounding
+  box coverage counts, and the map summary reports text-layer totals without
+  forcing top-level `text_layer` output.
 - Add an env-only HTTP adapter for `analyze_regions` so local model servers can
   receive crop image bytes and return the same normalized table, formula, chart,
   figure, image-description, confidence, warning, and provenance fields as
