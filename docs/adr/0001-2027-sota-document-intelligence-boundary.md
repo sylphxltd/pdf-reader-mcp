@@ -45,6 +45,23 @@ If a hosted PDF/document-intelligence product is created, it must be a separate
 service with its own ADR/spec and commercial controls. This package may become
 the engine or SDK for that service, but it remains usable as a local package.
 
+## Portfolio Integration Boundary
+
+Sylphx Gateway, Spiron, Platform, or another product may register this package
+as an external MCP tool source or consume its schemas through an adapter, but
+that integration does not move the package boundary:
+
+- `pdf-reader-mcp` remains the SSOT for local document-intelligence MCP tool
+  schemas, provenance contracts, provider adapters, benchmarks, and release
+  evidence.
+- Gateway owns any model-facing manifest, native late-loading projection,
+  tenant policy, hosted execution, cache diagnostics, and billing surface around
+  registered tools.
+- Product apps own product permissions, credential handles, audit, and durable
+  state created after using the tool.
+- Hosted multi-tenant document intelligence still requires a separate service
+  ADR with auth, billing, storage, retention, quota, and privacy controls.
+
 ## SOTA Invariants
 
 - The MCP schema is the public contract and must be versioned, documented, and
