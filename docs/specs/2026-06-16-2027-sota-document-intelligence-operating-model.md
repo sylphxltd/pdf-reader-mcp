@@ -35,6 +35,17 @@ local-first privacy and a clean boundary from hosted Platform services.
 | Security/privacy | Path handling, URL handling, file size limits, remote-processing opt-in, no secret logging. |
 | Release quality | Typecheck, tests, benchmark gate, docs build, changelog, npm package smoke, compatibility smoke. |
 
+## Portfolio Integration Rules
+
+- Gateway may register this package as an external MCP tool source, but Gateway
+  owns any model-facing manifest, native late-loading projection, tenant policy,
+  hosted execution, cache diagnostics, billing, and usage surface around that
+  registration.
+- Product apps own product permissions, credential handles, audit, and durable
+  outcomes created after using these tools.
+- A hosted multi-tenant document-intelligence product is a separate service,
+  not a mutation of this local MCP package.
+
 ## Provider Boundary
 
 Provider adapters may exist for OCR, vision, or layout analysis, but they must:
