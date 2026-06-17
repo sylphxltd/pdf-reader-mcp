@@ -92,8 +92,12 @@ wrapper that accepts a temporary cropped PNG, or set
 `MCP_PDF_REGION_ANALYSIS_HTTP_URL` to an env-configured local model server.
 For local Ollama vision models, set `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`
 and `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`; the generate endpoint defaults to
-`http://127.0.0.1:11434/api/generate`. Command providers take precedence when
-both are configured. Optionally set
+`http://127.0.0.1:11434/api/generate`. For local or private
+OpenAI-compatible chat-completions vision servers, set
+`MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`,
+`MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`, and
+`MCP_PDF_REGION_ANALYSIS_OPENAI_URL`; no remote endpoint is used by default.
+Command providers take precedence when both are configured. Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array with `{input}`,
 `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`,
 `{right}`, `{top}`, `{language}`, and `{languages}` placeholders. The command
@@ -102,7 +106,9 @@ region crop. HTTP providers receive JSON with `image_base64`, `mime_type`,
 page/region metadata, crop coordinates, scale, and languages; optional headers
 come from `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`. The Ollama preset sends
 `images: [base64Crop]`, `stream: false`, and `format: "json"` to `/api/generate`
-and normalizes the JSON object in the `response` field.
+and normalizes the JSON object in the `response` field. The OpenAI-compatible
+preset sends a chat-completions request with a JSON-only prompt plus an
+`image_url` data URL and normalizes `choices[0].message.content`.
 
 Example:
 
@@ -135,6 +141,24 @@ For Ollama:
       "env": {
         "MCP_PDF_REGION_ANALYSIS_PRESET": "ollama",
         "MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL": "llama3.2-vision"
+      }
+    }
+  }
+}
+```
+
+For an OpenAI-compatible local server:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"],
+      "env": {
+        "MCP_PDF_REGION_ANALYSIS_PRESET": "openai-compatible",
+        "MCP_PDF_REGION_ANALYSIS_OPENAI_URL": "http://127.0.0.1:1234/v1/chat/completions",
+        "MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL": "local-vision"
       }
     }
   }

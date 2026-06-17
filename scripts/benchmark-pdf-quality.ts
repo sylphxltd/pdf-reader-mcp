@@ -262,14 +262,15 @@ const FINAL_BAR_COVERAGE_REQUIREMENTS: FinalBarCoverageRequirement[] = [
       'agent_document_twin_semantic_quality',
       'visual_region_analysis_quality',
     ],
-      evidence: [
-        'caption-derived visual-region routing',
-        'formula normalization',
-        'chart axis/series normalization',
-        'figure and image-description normalization',
-        'crop provenance through visual-region provider adapters',
-        'Ollama preset crop-image request and response JSON normalization',
-      ],
+    evidence: [
+      'caption-derived visual-region routing',
+      'formula normalization',
+      'chart axis/series normalization',
+      'figure and image-description normalization',
+      'crop provenance through visual-region provider adapters',
+      'Ollama preset crop-image request and response JSON normalization',
+      'OpenAI-compatible preset data-URL request and chat response JSON normalization',
+    ],
     provider_benchmark_required: true,
   },
   {
@@ -2120,6 +2121,9 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
       MCP_PDF_REGION_ANALYSIS_PRESET: undefined,
       MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: undefined,
       MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: undefined,
+      MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
+      MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
+      MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
     },
     () =>
       Promise.all([
@@ -2178,6 +2182,9 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         MCP_PDF_REGION_ANALYSIS_PRESET: undefined,
         MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: undefined,
         MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
       },
       () =>
         analyzeRegionCropWithConfiguredProvider(
@@ -2237,6 +2244,9 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
           address.port
         )}/api/generate`,
         MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: 'llama3.2-vision',
+        MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
       },
       () =>
         analyzeRegionCropWithConfiguredProvider(
@@ -2248,6 +2258,80 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
   } finally {
     await new Promise<void>((resolve, reject) => {
       ollamaServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
+  const openAiRequests: Array<{
+    headers: Record<string, string | string[] | undefined>;
+    body: Record<string, unknown>;
+  }> = [];
+  const openAiServer = createServer(async (request, response) => {
+    const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+    openAiRequests.push({ headers: request.headers, body });
+    response.setHeader('Content-Type', 'application/json');
+    response.end(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                kind: 'chart',
+                description: 'OpenAI-compatible quality chart crop',
+                confidence: 0.93,
+                chart: {
+                  title: 'OpenAI Compatible Quality Chart',
+                  data_points: [{ label: 'Parse', value: 4 }],
+                  x_axis: { label: 'Stage' },
+                  y_axis: { label: 'Latency', min: 0, max: 10 },
+                  confidence: 0.9,
+                },
+              }),
+            },
+          },
+        ],
+      })
+    );
+  });
+
+  await new Promise<void>((resolve) => {
+    openAiServer.listen(0, '127.0.0.1', resolve);
+  });
+
+  let openAiResult: Awaited<ReturnType<typeof analyzeRegionCropWithConfiguredProvider>>;
+  try {
+    const address = openAiServer.address();
+    if (typeof address !== 'object' || address === null) {
+      throw new Error('OpenAI-compatible quality server did not expose a port');
+    }
+
+    openAiResult = await withEnv(
+      {
+        MCP_PDF_REGION_ANALYSIS_COMMAND: undefined,
+        MCP_PDF_REGION_ANALYSIS_ARGS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON: JSON.stringify({
+          authorization: 'Bearer stale-key',
+          'x-provider-test': 'enabled',
+        }),
+        MCP_PDF_REGION_ANALYSIS_PRESET: 'openai-compatible',
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_URL: `http://127.0.0.1:${String(
+          address.port
+        )}/v1/chat/completions`,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: 'local-vision',
+        MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: 'test-key',
+      },
+      () =>
+        analyzeRegionCropWithConfiguredProvider(
+          buildRegionCrop('chart-openai'),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        )
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      openAiServer.close((error) => (error ? reject(error) : resolve()));
     });
   }
 
@@ -2314,6 +2398,26 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         ollamaRequests[0]?.body.stream === false &&
         ollamaRequests[0]?.body.format === 'json' &&
         String(ollamaRequests[0]?.body.prompt).includes('Region ID: formula-1'),
+    },
+    {
+      name: 'visual OpenAI-compatible preset sends data URLs and normalizes chat JSON',
+      pass:
+        openAiResult.provider === 'http' &&
+        openAiResult.kind === 'chart' &&
+        openAiResult.description === 'OpenAI-compatible quality chart crop' &&
+        openAiResult.chart?.title === 'OpenAI Compatible Quality Chart' &&
+        openAiResult.chart.y_axis?.label === 'Latency' &&
+        openAiResult.source_crop_evidence_id === 'page-2-chart-openai-crop-scale-1' &&
+        openAiResult.provenance.engine === 'external-http' &&
+        openAiRequests[0]?.headers.authorization === 'Bearer test-key' &&
+        openAiRequests[0]?.body.model === 'local-vision' &&
+        openAiRequests[0]?.body.temperature === 0 &&
+        String(JSON.stringify(openAiRequests[0]?.body.messages)).includes(
+          'data:image/png;base64,'
+        ) &&
+        String(JSON.stringify(openAiRequests[0]?.body.messages)).includes(
+          'Region ID: chart-openai'
+        ),
     },
   ];
 };

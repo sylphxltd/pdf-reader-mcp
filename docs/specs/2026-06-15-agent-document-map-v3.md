@@ -312,8 +312,8 @@ Next slices for the same v3 track:
 - Additional OCR provider presets, scanned fixtures, and accuracy/latency
   benchmarks.
 - Additional engine-specific layout, table, formula, and chart provider presets
-  plus accuracy/latency fixtures beyond the shipped Ollama request/response
-  preset.
+  plus accuracy/latency fixtures beyond the shipped Ollama and
+  OpenAI-compatible request/response presets.
 - Benchmark harness with accuracy and latency reported separately.
 - Broader fixtures for multi-column, forms, tables, scanned pages, hidden text,
   charts, and formulas.

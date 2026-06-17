@@ -73,3 +73,6 @@ archetypes, then require that corpus evidence in the SOTA release gate.
 Add an Ollama visual-region provider preset that sends crop images to the local
 `/api/generate` endpoint with JSON-only output and normalizes the returned
 evidence through the existing table/formula/chart/figure contract.
+Add an OpenAI-compatible visual-region provider preset that sends crop images as
+chat-completions `image_url` data URLs, supports optional bearer auth, and
+normalizes returned message content through the same evidence contract.

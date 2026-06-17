@@ -996,7 +996,7 @@ export interface PdfRegionAnalysisProviderStatus {
   health: PdfOptionalProviderHealth;
   health_check: 'not_checked';
   http_configured?: boolean | undefined;
-  preset?: 'ollama' | 'unsupported' | undefined;
+  preset?: 'ollama' | 'openai-compatible' | 'unsupported' | undefined;
   model?: string | undefined;
   warnings?: string[] | undefined;
 }

@@ -153,7 +153,7 @@ Output is a JSON text part:
             "health": "not_checked",
             "health_check": "not_checked",
             "warnings": [
-              "Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama to enable analyze_regions."
+              "Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible to enable analyze_regions."
             ]
           }
         }

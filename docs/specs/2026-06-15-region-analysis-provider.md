@@ -25,6 +25,10 @@ executable or endpoint. Operators enable providers with environment variables:
 - `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`
 - `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`
 - `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL`
+- `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`
+- `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`
+- `MCP_PDF_REGION_ANALYSIS_OPENAI_URL`
+- `MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY`
 
 Command providers take precedence when both command and HTTP providers are
 configured. The args template must include `{input}` and may also use `{page}`, `{source}`,
@@ -56,6 +60,16 @@ the cropped PNG as a base64 entry in `images`, sets `stream: false`, requests
 local model name with `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`; the endpoint
 defaults to `http://127.0.0.1:11434/api/generate`. The package does not bundle
 Ollama or a model.
+
+The OpenAI-compatible preset targets local or private chat-completions vision
+servers. Operators must provide `MCP_PDF_REGION_ANALYSIS_OPENAI_URL` and
+`MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`; there is no remote default endpoint.
+The request body uses a `messages` array with a JSON-only text prompt and an
+`image_url` data URL for the cropped PNG. If
+`MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY` is set, it is sent as the bearer token
+and replaces any `authorization` entry from
+`MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`. The response parser normalizes
+`choices[0].message.content` into the same evidence contract.
 
 ## Request
 
@@ -213,9 +227,10 @@ workflows use it to prove the visual provider contract and crop-provenance
 normalization path. It is intentionally fixture-scoped and does not bundle or
 claim a general vision model.
 
-The Ollama preset is covered by unit tests for request shape, prompt routing,
-and `response` normalization. Model-specific quality still requires provider
-benchmark runs that name the Ollama model and fixture corpus.
+The Ollama and OpenAI-compatible presets are covered by unit tests for request
+shape, prompt routing, credential/header handling, and response normalization.
+Model-specific quality still requires provider benchmark runs that name the
+configured model and fixture corpus.
 
 ## Non-Goals
 

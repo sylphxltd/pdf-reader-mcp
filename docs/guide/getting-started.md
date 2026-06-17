@@ -267,7 +267,12 @@ or wrapper you want the server to run, or set
 For Ollama, set `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` plus
 `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`; the server sends the crop through
 Ollama `/api/generate` with a JSON-only prompt and normalizes the returned
-`response` JSON. Command providers take precedence when both are configured.
+`response` JSON. For local or private OpenAI-compatible chat-completions vision
+servers, set `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`,
+`MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`, and
+`MCP_PDF_REGION_ANALYSIS_OPENAI_URL`; the server sends a JSON-only prompt plus
+an `image_url` data URL and normalizes `choices[0].message.content`. Command
+providers take precedence when both are configured.
 Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array that includes
 `{input}` and may also use `{page}`, `{source}`, `{region_id}`,

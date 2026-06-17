@@ -19,6 +19,9 @@ const originalHttpHeaders = process.env['MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JS
 const originalPreset = process.env['MCP_PDF_REGION_ANALYSIS_PRESET'];
 const originalOllamaUrl = process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_URL'];
 const originalOllamaModel = process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL'];
+const originalOpenAiUrl = process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_URL'];
+const originalOpenAiModel = process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL'];
+const originalOpenAiApiKey = process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY'];
 
 const restoreEnv = (
   name:
@@ -28,7 +31,10 @@ const restoreEnv = (
     | 'MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON'
     | 'MCP_PDF_REGION_ANALYSIS_PRESET'
     | 'MCP_PDF_REGION_ANALYSIS_OLLAMA_URL'
-    | 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL',
+    | 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL'
+    | 'MCP_PDF_REGION_ANALYSIS_OPENAI_URL'
+    | 'MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL'
+    | 'MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY',
   value: string | undefined
 ) => {
   if (value === undefined) {
@@ -80,6 +86,9 @@ describe('regionAnalysis', () => {
     restoreEnv('MCP_PDF_REGION_ANALYSIS_PRESET', originalPreset);
     restoreEnv('MCP_PDF_REGION_ANALYSIS_OLLAMA_URL', originalOllamaUrl);
     restoreEnv('MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL', originalOllamaModel);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_OPENAI_URL', originalOpenAiUrl);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL', originalOpenAiModel);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY', originalOpenAiApiKey);
   });
 
   it('should report whether the command region analysis provider is configured', () => {
@@ -135,6 +144,28 @@ describe('regionAnalysis', () => {
       http_configured: true,
       preset: 'ollama',
       model: 'llama3.2-vision',
+    });
+
+    Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL');
+    process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'openai-compatible';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'invalid_configuration',
+      provider: 'http',
+      preset: 'openai-compatible',
+      warnings: [
+        'Set MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL to use the OpenAI-compatible preset.',
+        'Set MCP_PDF_REGION_ANALYSIS_OPENAI_URL to use the OpenAI-compatible preset.',
+      ],
+    });
+
+    process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL'] = 'local-vision';
+    process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_URL'] = 'http://127.0.0.1:1234/v1/chat/completions';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'http',
+      http_configured: true,
+      preset: 'openai-compatible',
+      model: 'local-vision',
     });
   });
 
@@ -459,6 +490,123 @@ describe('regionAnalysis', () => {
       });
       expect(String(requests[0]?.body.prompt)).toContain('Region ID: formula-1');
       expect(String(requests[0]?.body.prompt)).toContain('Return only one JSON object');
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it('should run the OpenAI-compatible preset through the chat completions contract', async () => {
+    const requests: Array<{
+      headers: Record<string, string | string[] | undefined>;
+      body: Record<string, unknown>;
+    }> = [];
+    const server = createServer(async (request, response) => {
+      const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+      requests.push({ headers: request.headers, body });
+      response.setHeader('Content-Type', 'application/json');
+      response.end(
+        JSON.stringify({
+          id: 'chatcmpl-region-analysis',
+          object: 'chat.completion',
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: JSON.stringify({
+                  kind: 'chart',
+                  description: 'OpenAI-compatible chart crop analysis',
+                  confidence: 0.92,
+                  chart: {
+                    title: 'Latency by stage',
+                    x_axis: { label: 'Stage' },
+                    y_axis: { label: 'Latency', min: 0, max: 10 },
+                    data_points: [{ label: 'Parse', value: 4 }],
+                    confidence: 0.9,
+                  },
+                }),
+              },
+              finish_reason: 'stop',
+            },
+          ],
+        })
+      );
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (typeof address !== 'object' || address === null) {
+        throw new Error('HTTP test server did not expose a port');
+      }
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_COMMAND');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_HTTP_URL');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_OLLAMA_URL');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL');
+      process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'openai-compatible';
+      process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_URL'] =
+        `http://127.0.0.1:${String(address.port)}/v1/chat/completions`;
+      process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL'] = 'local-vision';
+      process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY'] = 'test-key';
+      process.env['MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON'] = JSON.stringify({
+        authorization: 'Bearer stale-key',
+        'x-provider-test': 'enabled',
+      });
+
+      const result = await analyzeRegionCropWithConfiguredProvider(
+        buildRegionCrop('chart-openai'),
+        { source: 'mock.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      );
+
+      expect(result).toMatchObject({
+        region_id: 'chart-openai',
+        page: 2,
+        kind: 'chart',
+        description: 'OpenAI-compatible chart crop analysis',
+        confidence: 0.92,
+        provider: 'http',
+        source_crop_evidence_id: 'page-2-chart-openai-crop-scale-1',
+        provenance: {
+          engine: 'external-http',
+          source: 'region-analysis-provider',
+        },
+        chart: {
+          title: 'Latency by stage',
+          x_axis: { label: 'Stage' },
+          y_axis: { label: 'Latency', min: 0, max: 10 },
+          data_points: [{ label: 'Parse', value: 4 }],
+          confidence: 0.9,
+        },
+      });
+      expect(requests[0]?.headers.authorization).toBe('Bearer test-key');
+      expect(requests[0]?.headers['x-provider-test']).toBe('enabled');
+      expect(requests[0]?.body).toMatchObject({
+        model: 'local-vision',
+        temperature: 0,
+      });
+      const messages = requests[0]?.body.messages as Array<Record<string, unknown>>;
+      expect(messages[0]).toMatchObject({
+        role: 'system',
+        content: expect.stringContaining('Return only one JSON object'),
+      });
+      const userContent = messages[1]?.content as Array<Record<string, unknown>>;
+      expect(userContent[0]).toMatchObject({
+        type: 'text',
+        text: expect.stringContaining('Region ID: chart-openai'),
+      });
+      expect(userContent[1]).toMatchObject({
+        type: 'image_url',
+        image_url: {
+          url: `data:image/png;base64,${buildRegionCrop('chart-openai').data}`,
+        },
+      });
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
