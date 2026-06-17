@@ -79,3 +79,6 @@ normalizes returned message content through the same evidence contract.
 Add LM Studio and llama.cpp visual-region provider presets that reuse the
 chat-completions crop data URL contract with local default endpoints, explicit
 model env vars, and deterministic benchmark coverage.
+Add external corpus manifest support to `benchmark:corpus` so teams can include
+operator-supplied real PDFs in the same corpus artifact without making release
+CI depend on bundled external files or network downloads.

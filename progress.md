@@ -24,11 +24,11 @@
 - [x] Local visual-region analysis providers over command, HTTP, Ollama `/api/generate`, OpenAI-compatible chat completions, LM Studio, and llama.cpp presets
 - [x] Formula, chart, figure, image-description, and table evidence normalization from visual-region providers
 - [x] Deterministic quality, corpus, provider, package smoke, and SOTA release-gate evidence
+- [x] External corpus manifest support for operator-supplied real PDF benchmark evidence
 
 ## In Progress
 - [ ] Publish the PDF Intelligence vNext release through the Changesets version PR flow
-- [ ] Expand the public real-world scanned-PDF and visual-region accuracy corpus
-- [ ] Add more engine-specific visual-region provider presets
+- [ ] Expand shared public scanned-PDF and visual-region accuracy manifests
 
 ## Planned
 - [ ] Optional redaction and safety policy controls

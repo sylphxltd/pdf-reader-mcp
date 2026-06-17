@@ -181,7 +181,10 @@ SOTA final-bar capabilities that require installed-provider evidence.
 sample PDF plus runtime-generated reading-order, scanned-OCR routing, and
 OCR-derived table archetypes. The release gate requires all corpus archetypes,
 checked-in and runtime-generated fixture diversity, and passing per-case
-assertions.
+assertions. It can also include operator-supplied real PDFs through
+`--corpus-manifest` or `MCP_PDF_CORPUS_MANIFEST`; those external cases are
+reported in the same artifact but are not required by the deterministic CI
+release gate.
 
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar

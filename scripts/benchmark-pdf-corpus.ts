@@ -1,4 +1,4 @@
-import fs from 'node:fs/promises';
+import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -15,7 +15,7 @@ interface CorpusAssertion {
 
 interface CorpusCaseResult {
   id: string;
-  fixture_type: 'checked-in' | 'runtime-generated';
+  fixture_type: 'checked-in' | 'runtime-generated' | 'external';
   document_archetype: string;
   duration_ms: number;
   assertion_count: number;
@@ -29,11 +29,58 @@ interface CorpusBenchmarkReport {
   profile: 'pdf_corpus_benchmark';
   generated_at: string;
   corpus_scope: string;
+  manifest_path?: string | undefined;
+  external_case_count?: number | undefined;
   case_count: number;
   assertion_count: number;
   passed_assertion_count: number;
   score: number;
   cases: CorpusCaseResult[];
+}
+
+interface ExternalCorpusExpected {
+  contains_text?: string[] | undefined;
+  min_text_chars?: number | undefined;
+  min_pages?: number | undefined;
+  min_chunks?: number | undefined;
+  min_tables?: number | undefined;
+  min_ocr_words?: number | undefined;
+  min_visual_enrichment_candidates?: number | undefined;
+  min_visual_enrichments?: number | undefined;
+  required_document_map_layers?: string[] | undefined;
+}
+
+interface ExternalCorpusCase {
+  id: string;
+  path: string;
+  pages?: ReadPdfArgs['sources'][number]['pages'] | undefined;
+  document_archetype: string;
+  expected: ExternalCorpusExpected;
+  read_pdf_options?: Partial<
+    Pick<
+      ReadPdfArgs,
+      | 'include_full_text'
+      | 'include_metadata'
+      | 'include_page_count'
+      | 'include_text_layer'
+      | 'include_chunks'
+      | 'include_tables'
+      | 'include_ocr_text_layer'
+      | 'include_visual_enrichments'
+      | 'include_document_map'
+      | 'include_document_ast'
+      | 'include_layout_diagnostics'
+      | 'include_page_geometry'
+    >
+  >;
+}
+
+interface ExternalCorpusManifest {
+  cases: ExternalCorpusCase[];
+}
+
+interface BuildCorpusBenchmarkReportOptions {
+  manifestPath?: string | undefined;
 }
 
 const round = (value: number): number => Math.round(value * 100) / 100;
@@ -264,6 +311,149 @@ const withEnv = async <T>(
       }
     }
   }
+};
+
+const stringArray = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : undefined))
+    .filter((entry): entry is string => Boolean(entry));
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const positiveNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+
+const booleanOption = (value: unknown): boolean | undefined =>
+  typeof value === 'boolean' ? value : undefined;
+
+const parseExternalCorpusExpected = (value: unknown): ExternalCorpusExpected => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const record = value as Record<string, unknown>;
+
+  return {
+    contains_text: stringArray(record.contains_text),
+    min_text_chars: positiveNumber(record.min_text_chars),
+    min_pages: positiveNumber(record.min_pages),
+    min_chunks: positiveNumber(record.min_chunks),
+    min_tables: positiveNumber(record.min_tables),
+    min_ocr_words: positiveNumber(record.min_ocr_words),
+    min_visual_enrichment_candidates: positiveNumber(record.min_visual_enrichment_candidates),
+    min_visual_enrichments: positiveNumber(record.min_visual_enrichments),
+    required_document_map_layers: stringArray(record.required_document_map_layers),
+  };
+};
+
+const parseExternalCorpusPages = (value: unknown): ExternalCorpusCase['pages'] | undefined => {
+  if (value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  if (
+    Array.isArray(value) &&
+    value.every((page) => typeof page === 'number' && Number.isInteger(page) && page > 0)
+  ) {
+    return value;
+  }
+  throw new Error('External corpus case pages must be a page range string or positive integer array.');
+};
+
+const parseExternalCorpusReadOptions = (
+  value: unknown
+): ExternalCorpusCase['read_pdf_options'] | undefined => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const options: ExternalCorpusCase['read_pdf_options'] = {};
+  const optionKeys = [
+    'include_full_text',
+    'include_metadata',
+    'include_page_count',
+    'include_text_layer',
+    'include_chunks',
+    'include_tables',
+    'include_ocr_text_layer',
+    'include_visual_enrichments',
+    'include_document_map',
+    'include_document_ast',
+    'include_layout_diagnostics',
+    'include_page_geometry',
+  ] as const;
+
+  for (const key of optionKeys) {
+    const valueForKey = booleanOption(record[key]);
+    if (valueForKey !== undefined) {
+      options[key] = valueForKey;
+    }
+  }
+
+  return Object.keys(options).length > 0 ? options : undefined;
+};
+
+const readExternalCorpusManifest = async (
+  manifestPath: string
+): Promise<ExternalCorpusManifest> => {
+  const absoluteManifestPath = path.resolve(manifestPath);
+  const raw = await fs.readFile(absoluteManifestPath, 'utf8');
+  const parsed = JSON.parse(raw) as unknown;
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('External corpus manifest must be a JSON object.');
+  }
+
+  const cases = (parsed as { cases?: unknown }).cases;
+  if (!Array.isArray(cases)) {
+    throw new Error('External corpus manifest must include a cases array.');
+  }
+
+  const manifestDirectory = path.dirname(absoluteManifestPath);
+  return {
+    cases: cases.map((entry, index): ExternalCorpusCase => {
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+        throw new Error(`External corpus case ${String(index + 1)} must be a JSON object.`);
+      }
+
+      const record = entry as Record<string, unknown>;
+      const id =
+        typeof record.id === 'string' && record.id.trim().length > 0
+          ? record.id.trim()
+          : `external-${String(index + 1)}`;
+      if (typeof record.path !== 'string' || record.path.trim().length === 0) {
+        throw new Error(`External corpus case ${id} must include a path.`);
+      }
+
+      const sourcePath = path.isAbsolute(record.path)
+        ? record.path
+        : path.resolve(manifestDirectory, record.path);
+
+      return {
+        id,
+        path: sourcePath,
+        pages: parseExternalCorpusPages(record.pages),
+        document_archetype:
+          typeof record.document_archetype === 'string' &&
+          record.document_archetype.trim().length > 0
+            ? record.document_archetype.trim()
+            : 'external PDF',
+        expected: parseExternalCorpusExpected(record.expected),
+        read_pdf_options: parseExternalCorpusReadOptions(record.read_pdf_options),
+      };
+    }),
+  };
+};
+
+export const resolveCorpusManifestPath = (
+  argv: string[] = process.argv.slice(2),
+  env: NodeJS.ProcessEnv = process.env
+): string | undefined => {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--corpus-manifest') {
+      const next = argv[index + 1];
+      return next && !next.startsWith('--') ? next : undefined;
+    }
+    if (arg.startsWith('--corpus-manifest=')) {
+      return arg.slice('--corpus-manifest='.length);
+    }
+  }
+
+  return env.MCP_PDF_CORPUS_MANIFEST;
 };
 
 const buildCaseResult = async ({
@@ -729,14 +919,195 @@ const evaluateOcrTableEvidence = async (tempDir: string): Promise<CorpusCaseResu
     },
   });
 
-export const buildCorpusBenchmarkReport = async (): Promise<CorpusBenchmarkReport> => {
+const textFromData = (data: Record<string, unknown>): string => {
+  const fullText = typeof data.full_text === 'string' ? data.full_text : '';
+  const pageText = Array.isArray(data.page_texts)
+    ? data.page_texts
+        .map((page) =>
+          typeof page === 'object' && page !== null && typeof (page as { text?: unknown }).text === 'string'
+            ? (page as { text: string }).text
+            : ''
+        )
+        .join('\n')
+    : '';
+  return `${fullText}\n${pageText}`.trim();
+};
+
+const evaluateExternalCorpusCase = async (entry: ExternalCorpusCase): Promise<CorpusCaseResult> =>
+  buildCaseResult({
+    id: entry.id,
+    fixtureType: 'external',
+    documentArchetype: entry.document_archetype,
+    run: async () => {
+      const expected = entry.expected;
+      const readOptions = entry.read_pdf_options ?? {};
+      const payload = await parseReadPdfResult({
+        sources: [{ path: entry.path, ...(entry.pages ? { pages: entry.pages } : {}) }],
+        include_full_text: true,
+        include_metadata: true,
+        include_page_count: true,
+        include_text_layer: true,
+        include_chunks: true,
+        include_tables: true,
+        include_document_map: true,
+        include_document_ast: true,
+        include_layout_diagnostics: true,
+        include_page_geometry: true,
+        ...(expected.min_ocr_words !== undefined ? { include_ocr_text_layer: true } : {}),
+        ...(expected.min_visual_enrichment_candidates !== undefined ||
+        expected.min_visual_enrichments !== undefined
+          ? { include_visual_enrichments: true }
+          : {}),
+        ...readOptions,
+      });
+      const data = firstResultData(payload);
+      const text = textFromData(data);
+      const chunks = data.chunks as unknown[] | undefined;
+      const tableInfo = data.table_info as unknown[] | undefined;
+      const documentMap = data.document_map as
+        | {
+            layers?: string[];
+            summary?: {
+              ocr_word_count?: number;
+              visual_enrichment_candidate_count?: number;
+              visual_enrichment_count?: number;
+            };
+          }
+        | undefined;
+      const visualCandidates = data.visual_enrichment_candidates as unknown[] | undefined;
+      const visualEnrichments = data.visual_enrichments as unknown[] | undefined;
+      const ocrTextLayer = data.ocr_text_layer as
+        | { summary?: { word_count?: number; text_chars?: number } }
+        | undefined;
+
+      const metrics = {
+        pages: typeof data.num_pages === 'number' ? data.num_pages : 0,
+        text_chars: text.length,
+        chunk_count: getArrayLength(chunks),
+        table_count: getArrayLength(tableInfo),
+        ocr_word_count:
+          ocrTextLayer?.summary?.word_count ?? documentMap?.summary?.ocr_word_count ?? 0,
+        visual_enrichment_candidate_count:
+          documentMap?.summary?.visual_enrichment_candidate_count ??
+          getArrayLength(visualCandidates),
+        visual_enrichment_count:
+          documentMap?.summary?.visual_enrichment_count ?? getArrayLength(visualEnrichments),
+      };
+
+      const assertions: CorpusAssertion[] = [
+        {
+          id: `${entry.id}:read-pdf-success`,
+          pass: true,
+          expected: { parseable_pdf: true },
+          observed: { source: entry.path },
+        },
+      ];
+
+      if (expected.min_pages !== undefined) {
+        assertions.push({
+          id: `${entry.id}:min-pages`,
+          pass: metrics.pages >= expected.min_pages,
+          expected: { min_pages: expected.min_pages },
+          observed: { pages: metrics.pages },
+        });
+      }
+      if (expected.min_text_chars !== undefined) {
+        assertions.push({
+          id: `${entry.id}:min-text-chars`,
+          pass: metrics.text_chars >= expected.min_text_chars,
+          expected: { min_text_chars: expected.min_text_chars },
+          observed: { text_chars: metrics.text_chars },
+        });
+      }
+      for (const textNeedle of expected.contains_text ?? []) {
+        assertions.push({
+          id: `${entry.id}:contains:${textNeedle.slice(0, 32)}`,
+          pass: text.includes(textNeedle),
+          expected: { contains_text: textNeedle },
+          observed: { matched: text.includes(textNeedle) },
+        });
+      }
+      if (expected.min_chunks !== undefined) {
+        assertions.push({
+          id: `${entry.id}:min-chunks`,
+          pass: metrics.chunk_count >= expected.min_chunks,
+          expected: { min_chunks: expected.min_chunks },
+          observed: { chunk_count: metrics.chunk_count },
+        });
+      }
+      if (expected.min_tables !== undefined) {
+        assertions.push({
+          id: `${entry.id}:min-tables`,
+          pass: metrics.table_count >= expected.min_tables,
+          expected: { min_tables: expected.min_tables },
+          observed: { table_count: metrics.table_count },
+        });
+      }
+      if (expected.min_ocr_words !== undefined) {
+        assertions.push({
+          id: `${entry.id}:min-ocr-words`,
+          pass: metrics.ocr_word_count >= expected.min_ocr_words,
+          expected: { min_ocr_words: expected.min_ocr_words },
+          observed: { ocr_word_count: metrics.ocr_word_count },
+        });
+      }
+      if (expected.min_visual_enrichment_candidates !== undefined) {
+        assertions.push({
+          id: `${entry.id}:min-visual-candidates`,
+          pass:
+            metrics.visual_enrichment_candidate_count >=
+            expected.min_visual_enrichment_candidates,
+          expected: {
+            min_visual_enrichment_candidates: expected.min_visual_enrichment_candidates,
+          },
+          observed: {
+            visual_enrichment_candidate_count: metrics.visual_enrichment_candidate_count,
+          },
+        });
+      }
+      if (expected.min_visual_enrichments !== undefined) {
+        assertions.push({
+          id: `${entry.id}:min-visual-enrichments`,
+          pass: metrics.visual_enrichment_count >= expected.min_visual_enrichments,
+          expected: { min_visual_enrichments: expected.min_visual_enrichments },
+          observed: { visual_enrichment_count: metrics.visual_enrichment_count },
+        });
+      }
+      if (expected.required_document_map_layers) {
+        const layers = documentMap?.layers ?? [];
+        assertions.push({
+          id: `${entry.id}:document-map-layers`,
+          pass: expected.required_document_map_layers.every((layer) => layers.includes(layer)),
+          expected: { required_document_map_layers: expected.required_document_map_layers },
+          observed: { layers },
+        });
+      }
+
+      return { metrics, assertions };
+    },
+  });
+
+const evaluateExternalCorpusManifest = async (
+  manifestPath: string
+): Promise<CorpusCaseResult[]> => {
+  const manifest = await readExternalCorpusManifest(manifestPath);
+  return Promise.all(manifest.cases.map((entry) => evaluateExternalCorpusCase(entry)));
+};
+
+export const buildCorpusBenchmarkReport = async (
+  options: BuildCorpusBenchmarkReportOptions = {}
+): Promise<CorpusBenchmarkReport> => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-corpus-'));
   try {
+    const externalCases = options.manifestPath
+      ? await evaluateExternalCorpusManifest(options.manifestPath)
+      : [];
     const cases = [
       await evaluateCheckedInSample(),
       await evaluateReadingOrderReport(tempDir),
       await evaluateScannedOcrRouting(tempDir),
       await evaluateOcrTableEvidence(tempDir),
+      ...externalCases,
     ];
     const assertionCount = cases.reduce((sum, result) => sum + result.assertion_count, 0);
     const passedAssertionCount = cases.reduce(
@@ -748,7 +1119,12 @@ export const buildCorpusBenchmarkReport = async (): Promise<CorpusBenchmarkRepor
       profile: 'pdf_corpus_benchmark',
       generated_at: new Date().toISOString(),
       corpus_scope:
-        'checked-in repository PDFs plus runtime-generated report and scanned-page archetypes exercised through read_pdf agent-document-twin flows',
+        'checked-in repository PDFs plus runtime-generated report and scanned-page archetypes exercised through read_pdf agent-document-twin flows' +
+        (options.manifestPath
+          ? '; external manifest PDFs supplied by the operator'
+          : ''),
+      ...(options.manifestPath ? { manifest_path: path.resolve(options.manifestPath) } : {}),
+      ...(externalCases.length > 0 ? { external_case_count: externalCases.length } : {}),
       case_count: cases.length,
       assertion_count: assertionCount,
       passed_assertion_count: passedAssertionCount,
@@ -761,7 +1137,8 @@ export const buildCorpusBenchmarkReport = async (): Promise<CorpusBenchmarkRepor
 };
 
 export const main = async () => {
-  const report = await buildCorpusBenchmarkReport();
+  const manifestPath = resolveCorpusManifestPath();
+  const report = await buildCorpusBenchmarkReport({ manifestPath });
   console.table(
     report.cases.map((result) => ({
       id: result.id,

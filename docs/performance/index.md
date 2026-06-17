@@ -116,6 +116,38 @@ case set, checked-in and runtime-generated fixture diversity, and per-case
 passing assertion evidence in addition to performance, deterministic quality,
 and installed-provider evidence.
 
+Teams can extend the same artifact with real PDFs they are licensed to use by
+passing an external manifest. The built-in release gate does not depend on
+network downloads or bundled external PDFs, but the manifest mode lets release
+reviewers compare scanned, visual, domain-specific, or customer-like fixtures
+with the same assertion format:
+
+```bash
+bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json
+```
+
+```json
+{
+  "cases": [
+    {
+      "id": "agency-scan",
+      "path": "./fixtures/agency-scan.pdf",
+      "pages": [1],
+      "document_archetype": "external scanned form",
+      "expected": {
+        "min_pages": 1,
+        "min_ocr_words": 20,
+        "required_document_map_layers": ["ocr_text_layer", "page_geometry"]
+      },
+      "read_pdf_options": {
+        "include_ocr_text_layer": true,
+        "include_document_map": true
+      }
+    }
+  ]
+}
+```
+
 ## Provider Benchmark
 
 Run the optional installed-provider benchmark when the local machine has OCR or

@@ -122,6 +122,11 @@ themselves.
      Release automation installs Tesseract for the OCR profile and configures
      the repository reference visual provider for the runtime visual fixture
      profile before running this gate.
+   - `bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json`
+     or `MCP_PDF_CORPUS_MANIFEST=./corpus-manifest.json bun run benchmark:corpus`
+     can add operator-supplied real PDFs to the corpus artifact using the same
+     assertion format. Release CI remains deterministic and does not download
+     or bundle external PDFs by default.
    - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate`
      reads those artifacts and must pass before a SOTA release can be treated
      as complete. It fails if deterministic final-bar coverage is incomplete,
