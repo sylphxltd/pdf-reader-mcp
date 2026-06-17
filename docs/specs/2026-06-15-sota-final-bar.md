@@ -90,7 +90,7 @@ themselves.
      normalization, a runtime-generated scanned-PDF OCR pipeline fixture,
      OCR-derived table extraction from scanned-page word boxes,
      caption-derived visual candidate routing,
-     visual-region command/HTTP/Ollama/OpenAI-compatible normalization,
+     visual-region command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp normalization,
      search evidence, and AI-safety trust-report
      selected-page-scoped category summaries, trust-evidence redaction,
      visual-spoofing guidance, hidden-text routing, and unsafe-link routing.

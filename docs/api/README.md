@@ -121,6 +121,8 @@ and routing signals for follow-up `extract_regions` or `analyze_regions` calls.
 | Visual-region HTTP provider | `MCP_PDF_REGION_ANALYSIS_HTTP_URL`, optional `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` |
 | Visual-region Ollama preset | `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`, `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`, optional `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` |
 | Visual-region OpenAI-compatible preset | `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`, `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`, `MCP_PDF_REGION_ANALYSIS_OPENAI_URL`, optional `MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY` |
+| Visual-region LM Studio preset | `MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio`, `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL`, optional `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL` |
+| Visual-region llama.cpp preset | `MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp`, `MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL`, optional `MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL` |
 
 Provider responses are normalized into the same evidence model used by
 `read_pdf`, `analyze_regions`, and the benchmark harness.

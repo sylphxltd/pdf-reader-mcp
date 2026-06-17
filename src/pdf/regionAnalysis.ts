@@ -38,7 +38,13 @@ const REGION_ANALYSIS_OLLAMA_MODEL_ENV = 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL';
 const REGION_ANALYSIS_OPENAI_URL_ENV = 'MCP_PDF_REGION_ANALYSIS_OPENAI_URL';
 const REGION_ANALYSIS_OPENAI_MODEL_ENV = 'MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL';
 const REGION_ANALYSIS_OPENAI_API_KEY_ENV = 'MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY';
+const REGION_ANALYSIS_LMSTUDIO_URL_ENV = 'MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL';
+const REGION_ANALYSIS_LMSTUDIO_MODEL_ENV = 'MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL';
+const REGION_ANALYSIS_LLAMACPP_URL_ENV = 'MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL';
+const REGION_ANALYSIS_LLAMACPP_MODEL_ENV = 'MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL';
 const DEFAULT_OLLAMA_GENERATE_URL = 'http://127.0.0.1:11434/api/generate';
+const DEFAULT_LMSTUDIO_CHAT_COMPLETIONS_URL = 'http://127.0.0.1:1234/v1/chat/completions';
+const DEFAULT_LLAMACPP_CHAT_COMPLETIONS_URL = 'http://127.0.0.1:8080/v1/chat/completions';
 const REGION_ANALYSIS_KINDS = new Set<PdfRegionAnalysisKind>([
   'text',
   'table',
@@ -67,15 +73,73 @@ interface HttpRegionAnalysisProviderConfig {
 type RegionAnalysisProviderConfig =
   | CommandRegionAnalysisProviderConfig
   | HttpRegionAnalysisProviderConfig;
-type RegionAnalysisProviderPreset = 'ollama' | 'openai-compatible';
+type RegionAnalysisProviderPreset = 'ollama' | 'openai-compatible' | 'lmstudio' | 'llamacpp';
 
 const SUPPORTED_REGION_ANALYSIS_PRESETS: RegionAnalysisProviderPreset[] = [
   'ollama',
   'openai-compatible',
+  'lmstudio',
+  'llamacpp',
 ];
 
 const isRegionAnalysisProviderPreset = (value: string): value is RegionAnalysisProviderPreset =>
   SUPPORTED_REGION_ANALYSIS_PRESETS.includes(value as RegionAnalysisProviderPreset);
+
+const isOpenAiCompatibleRegionAnalysisPreset = (
+  preset: RegionAnalysisProviderPreset | undefined
+): boolean => preset === 'openai-compatible' || preset === 'lmstudio' || preset === 'llamacpp';
+
+const supportedRegionAnalysisPresetList = (): string =>
+  SUPPORTED_REGION_ANALYSIS_PRESETS.join(', ');
+
+const supportedRegionAnalysisPresetPathHint = (): string =>
+  SUPPORTED_REGION_ANALYSIS_PRESETS.join('/');
+
+const regionAnalysisPresetModelEnv = (preset: RegionAnalysisProviderPreset): string | undefined => {
+  if (preset === 'ollama') return REGION_ANALYSIS_OLLAMA_MODEL_ENV;
+  if (preset === 'openai-compatible') return REGION_ANALYSIS_OPENAI_MODEL_ENV;
+  if (preset === 'lmstudio') return REGION_ANALYSIS_LMSTUDIO_MODEL_ENV;
+  if (preset === 'llamacpp') return REGION_ANALYSIS_LLAMACPP_MODEL_ENV;
+  return undefined;
+};
+
+const regionAnalysisPresetUrlEnv = (preset: RegionAnalysisProviderPreset): string | undefined => {
+  if (preset === 'ollama') return REGION_ANALYSIS_OLLAMA_URL_ENV;
+  if (preset === 'openai-compatible') return REGION_ANALYSIS_OPENAI_URL_ENV;
+  if (preset === 'lmstudio') return REGION_ANALYSIS_LMSTUDIO_URL_ENV;
+  if (preset === 'llamacpp') return REGION_ANALYSIS_LLAMACPP_URL_ENV;
+  return undefined;
+};
+
+const regionAnalysisPresetLabel = (preset: RegionAnalysisProviderPreset): string => {
+  if (preset === 'ollama') return 'Ollama';
+  if (preset === 'openai-compatible') return 'OpenAI-compatible';
+  if (preset === 'lmstudio') return 'LM Studio';
+  if (preset === 'llamacpp') return 'llama.cpp';
+  return preset;
+};
+
+const regionAnalysisPresetDefaultUrl = (
+  preset: RegionAnalysisProviderPreset
+): string | undefined => {
+  if (preset === 'ollama') return DEFAULT_OLLAMA_GENERATE_URL;
+  if (preset === 'lmstudio') return DEFAULT_LMSTUDIO_CHAT_COMPLETIONS_URL;
+  if (preset === 'llamacpp') return DEFAULT_LLAMACPP_CHAT_COMPLETIONS_URL;
+  return undefined;
+};
+
+const readRegionAnalysisPresetModel = (
+  preset: RegionAnalysisProviderPreset
+): string | undefined => {
+  const envName = regionAnalysisPresetModelEnv(preset);
+  return envName ? process.env[envName]?.trim() || undefined : undefined;
+};
+
+const readRegionAnalysisPresetUrl = (preset: RegionAnalysisProviderPreset): string | undefined => {
+  const envName = regionAnalysisPresetUrlEnv(preset);
+  const configured = envName ? process.env[envName]?.trim() : undefined;
+  return configured || regionAnalysisPresetDefaultUrl(preset);
+};
 
 interface RawRegionAnalysisOutput {
   kind?: unknown;
@@ -113,7 +177,7 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
       : 'unsupported'
     : undefined;
   const rawUrl = process.env[REGION_ANALYSIS_HTTP_URL_ENV]?.trim();
-  const httpConfigured = Boolean(rawUrl || preset === 'ollama' || preset === 'openai-compatible');
+  const httpConfigured = Boolean(rawUrl || (preset && preset !== 'unsupported'));
 
   if (commandConfigured) {
     return {
@@ -136,45 +200,31 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
       http_configured: Boolean(rawUrl),
       preset,
       warnings: [
-        `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${SUPPORTED_REGION_ANALYSIS_PRESETS.join(', ')}.`,
+        `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${supportedRegionAnalysisPresetList()}.`,
       ],
     };
   }
 
-  const model =
-    preset === 'ollama'
-      ? process.env[REGION_ANALYSIS_OLLAMA_MODEL_ENV]?.trim()
-      : preset === 'openai-compatible'
-        ? process.env[REGION_ANALYSIS_OPENAI_MODEL_ENV]?.trim()
-        : undefined;
-  const urlForValidation =
-    preset === 'ollama'
-      ? process.env[REGION_ANALYSIS_OLLAMA_URL_ENV]?.trim() || DEFAULT_OLLAMA_GENERATE_URL
-      : preset === 'openai-compatible'
-        ? process.env[REGION_ANALYSIS_OPENAI_URL_ENV]?.trim()
-        : rawUrl;
+  const model = preset ? readRegionAnalysisPresetModel(preset) : undefined;
+  const urlForValidation = preset ? readRegionAnalysisPresetUrl(preset) : rawUrl;
 
   if (httpConfigured) {
-    if (preset === 'ollama' && !model) {
-      return {
-        readiness: 'invalid_configuration',
-        provider: 'http',
-        command_configured: false,
-        health: 'not_checked',
-        health_check: 'not_checked',
-        http_configured: true,
-        preset,
-        warnings: ['Set MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL to use the Ollama preset.'],
-      };
-    }
-    if (preset === 'openai-compatible') {
+    if (preset) {
       const warnings = [
         ...(model
           ? []
-          : ['Set MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL to use the OpenAI-compatible preset.']),
+          : [
+              `Set ${regionAnalysisPresetModelEnv(preset)} to use the ${regionAnalysisPresetLabel(
+                preset
+              )} preset.`,
+            ]),
         ...(urlForValidation
           ? []
-          : ['Set MCP_PDF_REGION_ANALYSIS_OPENAI_URL to use the OpenAI-compatible preset.']),
+          : [
+              `Set ${regionAnalysisPresetUrlEnv(preset)} to use the ${regionAnalysisPresetLabel(
+                preset
+              )} preset.`,
+            ]),
       ];
       if (warnings.length > 0) {
         return {
@@ -219,7 +269,7 @@ export const getRegionAnalysisProviderStatus = (): PdfRegionAnalysisProviderStat
       health_check: 'not_checked',
       http_configured: false,
       warnings: [
-        'Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible to enable analyze_regions.',
+        `Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=${supportedRegionAnalysisPresetPathHint()} to enable analyze_regions.`,
       ],
     };
   }
@@ -317,7 +367,7 @@ const readRegionAnalysisHttpProviderConfig = (): HttpRegionAnalysisProviderConfi
   if (!url) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      'Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible to enable analyze_regions.'
+      `Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=${supportedRegionAnalysisPresetPathHint()} to enable analyze_regions.`
     );
   }
 
@@ -341,7 +391,7 @@ const readRegionAnalysisHttpProviderConfig = (): HttpRegionAnalysisProviderConfi
 };
 
 const readOllamaRegionAnalysisProviderConfig = (): HttpRegionAnalysisProviderConfig => {
-  const model = process.env[REGION_ANALYSIS_OLLAMA_MODEL_ENV]?.trim();
+  const model = readRegionAnalysisPresetModel('ollama');
   if (!model) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
@@ -349,7 +399,7 @@ const readOllamaRegionAnalysisProviderConfig = (): HttpRegionAnalysisProviderCon
     );
   }
 
-  const url = process.env[REGION_ANALYSIS_OLLAMA_URL_ENV]?.trim() || DEFAULT_OLLAMA_GENERATE_URL;
+  const url = readRegionAnalysisPresetUrl('ollama') ?? DEFAULT_OLLAMA_GENERATE_URL;
   try {
     new URL(url);
   } catch (error: unknown) {
@@ -371,16 +421,18 @@ const readOllamaRegionAnalysisProviderConfig = (): HttpRegionAnalysisProviderCon
   };
 };
 
-const readOpenAiCompatibleRegionAnalysisProviderConfig = (): HttpRegionAnalysisProviderConfig => {
-  const model = process.env[REGION_ANALYSIS_OPENAI_MODEL_ENV]?.trim();
+const readOpenAiCompatibleRegionAnalysisProviderConfig = (
+  preset: Exclude<RegionAnalysisProviderPreset, 'ollama'> = 'openai-compatible'
+): HttpRegionAnalysisProviderConfig => {
+  const model = readRegionAnalysisPresetModel(preset);
   if (!model) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      'MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL is required when MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible.'
+      `${regionAnalysisPresetModelEnv(preset)} is required when MCP_PDF_REGION_ANALYSIS_PRESET=${preset}.`
     );
   }
 
-  const url = process.env[REGION_ANALYSIS_OPENAI_URL_ENV]?.trim();
+  const url = readRegionAnalysisPresetUrl(preset);
   if (!url) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
@@ -413,7 +465,7 @@ const readOpenAiCompatibleRegionAnalysisProviderConfig = (): HttpRegionAnalysisP
     provider: 'http',
     url,
     headers,
-    preset: 'openai-compatible',
+    preset,
     model,
   };
 };
@@ -425,7 +477,7 @@ const readRegionAnalysisPreset = (): RegionAnalysisProviderPreset | undefined =>
   if (!isRegionAnalysisProviderPreset(preset)) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${SUPPORTED_REGION_ANALYSIS_PRESETS.join(', ')}.`
+      `Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ${supportedRegionAnalysisPresetList()}.`
     );
   }
 
@@ -438,7 +490,9 @@ export const readConfiguredRegionAnalysisProviderConfig = (): RegionAnalysisProv
 
   const preset = readRegionAnalysisPreset();
   if (preset === 'ollama') return readOllamaRegionAnalysisProviderConfig();
-  if (preset === 'openai-compatible') return readOpenAiCompatibleRegionAnalysisProviderConfig();
+  if (isOpenAiCompatibleRegionAnalysisPreset(preset)) {
+    return readOpenAiCompatibleRegionAnalysisProviderConfig(preset);
+  }
 
   return readRegionAnalysisHttpProviderConfig();
 };
@@ -946,7 +1000,7 @@ const buildRegionAnalysisHttpRequestBody = (
     };
   }
 
-  if (config.preset === 'openai-compatible') {
+  if (isOpenAiCompatibleRegionAnalysisPreset(config.preset)) {
     return {
       model: config.model,
       messages: [
@@ -1146,7 +1200,7 @@ export const analyzeRegionCropWithHttpProvider = async (
     const providerOutput =
       config.preset === 'ollama'
         ? parseOllamaGenerateResponse(stdout)
-        : config.preset === 'openai-compatible'
+        : isOpenAiCompatibleRegionAnalysisPreset(config.preset)
           ? parseOpenAiCompatibleChatCompletionResponse(stdout)
           : stdout;
     const normalized = parseRegionAnalysisOutput(providerOutput, options);

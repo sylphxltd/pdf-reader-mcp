@@ -22,6 +22,10 @@ const originalOllamaModel = process.env['MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL'];
 const originalOpenAiUrl = process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_URL'];
 const originalOpenAiModel = process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL'];
 const originalOpenAiApiKey = process.env['MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY'];
+const originalLmStudioUrl = process.env['MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL'];
+const originalLmStudioModel = process.env['MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL'];
+const originalLlamaCppUrl = process.env['MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL'];
+const originalLlamaCppModel = process.env['MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL'];
 
 const restoreEnv = (
   name:
@@ -34,7 +38,11 @@ const restoreEnv = (
     | 'MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL'
     | 'MCP_PDF_REGION_ANALYSIS_OPENAI_URL'
     | 'MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL'
-    | 'MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY',
+    | 'MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY'
+    | 'MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL'
+    | 'MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL'
+    | 'MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL'
+    | 'MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL',
   value: string | undefined
 ) => {
   if (value === undefined) {
@@ -89,6 +97,10 @@ describe('regionAnalysis', () => {
     restoreEnv('MCP_PDF_REGION_ANALYSIS_OPENAI_URL', originalOpenAiUrl);
     restoreEnv('MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL', originalOpenAiModel);
     restoreEnv('MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY', originalOpenAiApiKey);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL', originalLmStudioUrl);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL', originalLmStudioModel);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL', originalLlamaCppUrl);
+    restoreEnv('MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL', originalLlamaCppModel);
   });
 
   it('should report whether the command region analysis provider is configured', () => {
@@ -166,6 +178,43 @@ describe('regionAnalysis', () => {
       http_configured: true,
       preset: 'openai-compatible',
       model: 'local-vision',
+    });
+
+    Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_OPENAI_URL');
+    process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'lmstudio';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'invalid_configuration',
+      provider: 'http',
+      preset: 'lmstudio',
+      warnings: ['Set MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL to use the LM Studio preset.'],
+    });
+
+    process.env['MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL'] = 'qwen2.5-vl-local';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'http',
+      http_configured: true,
+      preset: 'lmstudio',
+      model: 'qwen2.5-vl-local',
+    });
+
+    Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL');
+    process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'llamacpp';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'invalid_configuration',
+      provider: 'http',
+      preset: 'llamacpp',
+      warnings: ['Set MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL to use the llama.cpp preset.'],
+    });
+
+    process.env['MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL'] = 'local-mmproj';
+    expect(getRegionAnalysisProviderStatus()).toMatchObject({
+      readiness: 'ready',
+      provider: 'http',
+      http_configured: true,
+      preset: 'llamacpp',
+      model: 'local-mmproj',
     });
   });
 
@@ -605,6 +654,173 @@ describe('regionAnalysis', () => {
         type: 'image_url',
         image_url: {
           url: `data:image/png;base64,${buildRegionCrop('chart-openai').data}`,
+        },
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it('should run the LM Studio preset through the local chat completions contract', async () => {
+    const requests: Array<{
+      headers: Record<string, string | string[] | undefined>;
+      body: Record<string, unknown>;
+    }> = [];
+    const server = createServer(async (request, response) => {
+      const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+      requests.push({ headers: request.headers, body });
+      response.setHeader('Content-Type', 'application/json');
+      response.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  kind: 'figure',
+                  description: 'LM Studio figure crop analysis',
+                  confidence: 0.89,
+                  markdown: 'Figure: parse -> enrich -> cite',
+                }),
+              },
+            },
+          ],
+        })
+      );
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (typeof address !== 'object' || address === null) {
+        throw new Error('HTTP test server did not expose a port');
+      }
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_COMMAND');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_HTTP_URL');
+      process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'lmstudio';
+      process.env['MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL'] =
+        `http://127.0.0.1:${String(address.port)}/v1/chat/completions`;
+      process.env['MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL'] = 'qwen2.5-vl-local';
+
+      const result = await analyzeRegionCropWithConfiguredProvider(
+        buildRegionCrop('figure-lmstudio'),
+        { source: 'mock.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      );
+
+      expect(result).toMatchObject({
+        region_id: 'figure-lmstudio',
+        page: 2,
+        kind: 'figure',
+        description: 'LM Studio figure crop analysis',
+        confidence: 0.89,
+        markdown: 'Figure: parse -> enrich -> cite',
+        provider: 'http',
+        source_crop_evidence_id: 'page-2-figure-lmstudio-crop-scale-1',
+      });
+      expect(requests[0]?.body).toMatchObject({
+        model: 'qwen2.5-vl-local',
+        temperature: 0,
+      });
+      const messages = requests[0]?.body.messages as Array<Record<string, unknown>>;
+      const userContent = messages[1]?.content as Array<Record<string, unknown>>;
+      expect(userContent[0]).toMatchObject({
+        type: 'text',
+        text: expect.stringContaining('Region ID: figure-lmstudio'),
+      });
+      expect(userContent[1]).toMatchObject({
+        type: 'image_url',
+        image_url: {
+          url: `data:image/png;base64,${buildRegionCrop('figure-lmstudio').data}`,
+        },
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it('should run the llama.cpp preset through the local multimodal chat contract', async () => {
+    const requests: Array<{
+      headers: Record<string, string | string[] | undefined>;
+      body: Record<string, unknown>;
+    }> = [];
+    const server = createServer(async (request, response) => {
+      const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+      requests.push({ headers: request.headers, body });
+      response.setHeader('Content-Type', 'application/json');
+      response.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({
+                      kind: 'image',
+                      description: 'llama.cpp image crop analysis',
+                      text: 'Visible image with two labeled blocks.',
+                      confidence: 0.86,
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      );
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (typeof address !== 'object' || address === null) {
+        throw new Error('HTTP test server did not expose a port');
+      }
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_COMMAND');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON');
+      Reflect.deleteProperty(process.env, 'MCP_PDF_REGION_ANALYSIS_HTTP_URL');
+      process.env['MCP_PDF_REGION_ANALYSIS_PRESET'] = 'llamacpp';
+      process.env['MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL'] =
+        `http://127.0.0.1:${String(address.port)}/v1/chat/completions`;
+      process.env['MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL'] = 'llava-local';
+
+      const result = await analyzeRegionCropWithConfiguredProvider(
+        buildRegionCrop('image-llamacpp'),
+        { source: 'mock.pdf', languages: ['eng'] },
+        defaultAnalyzeRegionsOptions()
+      );
+
+      expect(result).toMatchObject({
+        region_id: 'image-llamacpp',
+        page: 2,
+        kind: 'image',
+        description: 'llama.cpp image crop analysis',
+        text: 'Visible image with two labeled blocks.',
+        confidence: 0.86,
+        provider: 'http',
+        source_crop_evidence_id: 'page-2-image-llamacpp-crop-scale-1',
+      });
+      expect(requests[0]?.body).toMatchObject({
+        model: 'llava-local',
+        temperature: 0,
+      });
+      const messages = requests[0]?.body.messages as Array<Record<string, unknown>>;
+      const userContent = messages[1]?.content as Array<Record<string, unknown>>;
+      expect(userContent[1]).toMatchObject({
+        type: 'image_url',
+        image_url: {
+          url: `data:image/png;base64,${buildRegionCrop('image-llamacpp').data}`,
         },
       });
     } finally {

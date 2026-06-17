@@ -270,6 +270,8 @@ const FINAL_BAR_COVERAGE_REQUIREMENTS: FinalBarCoverageRequirement[] = [
       'crop provenance through visual-region provider adapters',
       'Ollama preset crop-image request and response JSON normalization',
       'OpenAI-compatible preset data-URL request and chat response JSON normalization',
+      'LM Studio preset data-URL request and chat response JSON normalization',
+      'llama.cpp preset multimodal data-URL request and chat response JSON normalization',
     ],
     provider_benchmark_required: true,
   },
@@ -2124,6 +2126,10 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
       MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
       MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
       MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
+      MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL: undefined,
+      MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL: undefined,
+      MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL: undefined,
+      MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL: undefined,
     },
     () =>
       Promise.all([
@@ -2185,6 +2191,10 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
         MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
         MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL: undefined,
       },
       () =>
         analyzeRegionCropWithConfiguredProvider(
@@ -2247,6 +2257,10 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
         MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
         MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL: undefined,
       },
       () =>
         analyzeRegionCropWithConfiguredProvider(
@@ -2321,6 +2335,10 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         )}/v1/chat/completions`,
         MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: 'local-vision',
         MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: 'test-key',
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL: undefined,
       },
       () =>
         analyzeRegionCropWithConfiguredProvider(
@@ -2332,6 +2350,143 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
   } finally {
     await new Promise<void>((resolve, reject) => {
       openAiServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
+  const lmStudioRequests: Array<{ body: Record<string, unknown> }> = [];
+  const lmStudioServer = createServer(async (request, response) => {
+    const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+    lmStudioRequests.push({ body });
+    response.setHeader('Content-Type', 'application/json');
+    response.end(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                kind: 'figure',
+                description: 'LM Studio quality figure crop',
+                markdown: 'Figure: parse -> enrich -> cite',
+                confidence: 0.89,
+              }),
+            },
+          },
+        ],
+      })
+    );
+  });
+
+  await new Promise<void>((resolve) => {
+    lmStudioServer.listen(0, '127.0.0.1', resolve);
+  });
+
+  let lmStudioResult: Awaited<ReturnType<typeof analyzeRegionCropWithConfiguredProvider>>;
+  try {
+    const address = lmStudioServer.address();
+    if (typeof address !== 'object' || address === null) {
+      throw new Error('LM Studio quality server did not expose a port');
+    }
+
+    lmStudioResult = await withEnv(
+      {
+        MCP_PDF_REGION_ANALYSIS_COMMAND: undefined,
+        MCP_PDF_REGION_ANALYSIS_ARGS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_PRESET: 'lmstudio',
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL: `http://127.0.0.1:${String(
+          address.port
+        )}/v1/chat/completions`,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL: 'qwen2.5-vl-local',
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL: undefined,
+      },
+      () =>
+        analyzeRegionCropWithConfiguredProvider(
+          buildRegionCrop('figure-lmstudio'),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        )
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      lmStudioServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
+  const llamaCppRequests: Array<{ body: Record<string, unknown> }> = [];
+  const llamaCppServer = createServer(async (request, response) => {
+    const body = JSON.parse(await readRequestBody(request)) as Record<string, unknown>;
+    llamaCppRequests.push({ body });
+    response.setHeader('Content-Type', 'application/json');
+    response.end(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    kind: 'image',
+                    description: 'llama.cpp quality image crop',
+                    text: 'Visible image with two labeled blocks.',
+                    confidence: 0.86,
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+  });
+
+  await new Promise<void>((resolve) => {
+    llamaCppServer.listen(0, '127.0.0.1', resolve);
+  });
+
+  let llamaCppResult: Awaited<ReturnType<typeof analyzeRegionCropWithConfiguredProvider>>;
+  try {
+    const address = llamaCppServer.address();
+    if (typeof address !== 'object' || address === null) {
+      throw new Error('llama.cpp quality server did not expose a port');
+    }
+
+    llamaCppResult = await withEnv(
+      {
+        MCP_PDF_REGION_ANALYSIS_COMMAND: undefined,
+        MCP_PDF_REGION_ANALYSIS_ARGS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON: undefined,
+        MCP_PDF_REGION_ANALYSIS_PRESET: 'llamacpp',
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL: undefined,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL: `http://127.0.0.1:${String(
+          address.port
+        )}/v1/chat/completions`,
+        MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL: 'llava-local',
+      },
+      () =>
+        analyzeRegionCropWithConfiguredProvider(
+          buildRegionCrop('image-llamacpp'),
+          { source: 'mock.pdf', languages: ['eng'] },
+          defaultAnalyzeRegionsOptions()
+        )
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      llamaCppServer.close((error) => (error ? reject(error) : resolve()));
     });
   }
 
@@ -2417,6 +2572,42 @@ const evaluateVisualRegionAnalysis = async (): Promise<QualityAssertion[]> => {
         ) &&
         String(JSON.stringify(openAiRequests[0]?.body.messages)).includes(
           'Region ID: chart-openai'
+        ),
+    },
+    {
+      name: 'visual LM Studio preset uses local chat-completions data URL contract',
+      pass:
+        lmStudioResult.provider === 'http' &&
+        lmStudioResult.kind === 'figure' &&
+        lmStudioResult.description === 'LM Studio quality figure crop' &&
+        lmStudioResult.markdown === 'Figure: parse -> enrich -> cite' &&
+        lmStudioResult.source_crop_evidence_id === 'page-2-figure-lmstudio-crop-scale-1' &&
+        lmStudioResult.provenance.engine === 'external-http' &&
+        lmStudioRequests[0]?.body.model === 'qwen2.5-vl-local' &&
+        lmStudioRequests[0]?.body.temperature === 0 &&
+        String(JSON.stringify(lmStudioRequests[0]?.body.messages)).includes(
+          'data:image/png;base64,'
+        ) &&
+        String(JSON.stringify(lmStudioRequests[0]?.body.messages)).includes(
+          'Region ID: figure-lmstudio'
+        ),
+    },
+    {
+      name: 'visual llama.cpp preset uses multimodal chat-completions data URL contract',
+      pass:
+        llamaCppResult.provider === 'http' &&
+        llamaCppResult.kind === 'image' &&
+        llamaCppResult.description === 'llama.cpp quality image crop' &&
+        llamaCppResult.text === 'Visible image with two labeled blocks.' &&
+        llamaCppResult.source_crop_evidence_id === 'page-2-image-llamacpp-crop-scale-1' &&
+        llamaCppResult.provenance.engine === 'external-http' &&
+        llamaCppRequests[0]?.body.model === 'llava-local' &&
+        llamaCppRequests[0]?.body.temperature === 0 &&
+        String(JSON.stringify(llamaCppRequests[0]?.body.messages)).includes(
+          'data:image/png;base64,'
+        ) &&
+        String(JSON.stringify(llamaCppRequests[0]?.body.messages)).includes(
+          'Region ID: image-llamacpp'
         ),
     },
   ];

@@ -21,7 +21,7 @@
 - [x] Agent Document Twin outputs with text layer, semantic AST, document map, trust report, and accessibility report
 - [x] Scanned-PDF OCR pipeline routing with Tesseract text and TSV word-box presets
 - [x] OCR-derived table extraction with word-box provenance
-- [x] Local visual-region analysis providers over command, HTTP, Ollama `/api/generate`, and OpenAI-compatible chat-completions presets
+- [x] Local visual-region analysis providers over command, HTTP, Ollama `/api/generate`, OpenAI-compatible chat completions, LM Studio, and llama.cpp presets
 - [x] Formula, chart, figure, image-description, and table evidence normalization from visual-region providers
 - [x] Deterministic quality, corpus, provider, package smoke, and SOTA release-gate evidence
 

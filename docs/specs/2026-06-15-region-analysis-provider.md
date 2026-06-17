@@ -29,6 +29,12 @@ executable or endpoint. Operators enable providers with environment variables:
 - `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`
 - `MCP_PDF_REGION_ANALYSIS_OPENAI_URL`
 - `MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY`
+- `MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio`
+- `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL`
+- `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL`
+- `MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp`
+- `MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL`
+- `MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL`
 
 Command providers take precedence when both command and HTTP providers are
 configured. The args template must include `{input}` and may also use `{page}`, `{source}`,
@@ -70,6 +76,14 @@ The request body uses a `messages` array with a JSON-only text prompt and an
 and replaces any `authorization` entry from
 `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`. The response parser normalizes
 `choices[0].message.content` into the same evidence contract.
+
+The LM Studio and llama.cpp presets are local OpenAI-compatible chat-completions
+presets. They use the same request and response contract as
+`openai-compatible`, but default to common localhost endpoints:
+`http://127.0.0.1:1234/v1/chat/completions` for LM Studio and
+`http://127.0.0.1:8080/v1/chat/completions` for llama.cpp. Operators must set
+the matching model env var for the loaded local vision model or alias, and may
+override the endpoint with the matching URL env var.
 
 ## Request
 

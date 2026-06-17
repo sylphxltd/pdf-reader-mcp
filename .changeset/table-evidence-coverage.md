@@ -76,3 +76,6 @@ evidence through the existing table/formula/chart/figure contract.
 Add an OpenAI-compatible visual-region provider preset that sends crop images as
 chat-completions `image_url` data URLs, supports optional bearer auth, and
 normalizes returned message content through the same evidence contract.
+Add LM Studio and llama.cpp visual-region provider presets that reuse the
+chat-completions crop data URL contract with local default endpoints, explicit
+model env vars, and deterministic benchmark coverage.

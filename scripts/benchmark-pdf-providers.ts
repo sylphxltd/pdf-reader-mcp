@@ -1415,7 +1415,7 @@ const runRegionAnalysisProviderBenchmark = async (): Promise<ProviderBenchmarkRe
       status: 'skipped',
       duration_ms: round(performance.now() - start),
       message:
-        'Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible to benchmark a configured visual-region provider.',
+        'Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible/lmstudio/llamacpp to benchmark a configured visual-region provider.',
       provider_status: {
         analyze_regions: status,
       },

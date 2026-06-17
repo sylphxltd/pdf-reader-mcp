@@ -801,7 +801,8 @@ The provider is configured by environment variables and is never selected by
 the request. Teams can wire a command provider, a generic local HTTP endpoint,
 `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` for local Ollama vision models, or
 `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible` for local and private
-OpenAI-compatible chat-completions vision servers. If no provider is configured,
+OpenAI-compatible chat-completions vision servers, including local `lmstudio`
+and `llamacpp` presets with localhost defaults. If no provider is configured,
 `read_pdf` returns a warning instead of failing the whole document read. It still emits
 `visual_enrichment_candidates` with stable region IDs, PDF-coordinate bounding
 boxes, target types, caption provenance, and routing signals so agents can pass
@@ -1092,12 +1093,16 @@ linked to a crop evidence ID.
 
 | Variable | Description |
 |----------|-------------|
-| `MCP_PDF_REGION_ANALYSIS_PRESET` | Optional built-in visual-region provider preset. Supported values: `ollama`, `openai-compatible`. Command providers take precedence when a command is also configured. |
+| `MCP_PDF_REGION_ANALYSIS_PRESET` | Optional built-in visual-region provider preset. Supported values: `ollama`, `openai-compatible`, `lmstudio`, `llamacpp`. Command providers take precedence when a command is also configured. |
 | `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`; local Ollama vision model name used for `/api/generate`. |
 | `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` | Optional Ollama generate endpoint. Defaults to `http://127.0.0.1:11434/api/generate`. |
 | `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`; local or private OpenAI-compatible vision model name. |
 | `MCP_PDF_REGION_ANALYSIS_OPENAI_URL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`; chat completions endpoint such as `http://127.0.0.1:1234/v1/chat/completions`. No remote default is used. |
 | `MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY` | Optional bearer token for the OpenAI-compatible endpoint. When set, it replaces any `authorization` header from `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`. |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio`; local LM Studio vision model identifier. |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL` | Optional LM Studio chat completions endpoint. Defaults to `http://127.0.0.1:1234/v1/chat/completions`. |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp`; local llama.cpp multimodal model identifier or alias. |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL` | Optional llama.cpp chat completions endpoint. Defaults to `http://127.0.0.1:8080/v1/chat/completions`. |
 | `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required unless `MCP_PDF_REGION_ANALYSIS_HTTP_URL` or a supported preset is set. Command providers take precedence when both are configured. |
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and `{languages}` placeholders. Defaults to `["{input}"]`. |
 | `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | Optional env-configured HTTP endpoint for local model servers. The request cannot choose this URL. The server receives JSON with `image_base64`, `mime_type`, page/region metadata, crop coordinates, scale, and languages. |
@@ -1111,6 +1116,11 @@ The OpenAI-compatible preset sends a chat-completions request with a JSON-only
 text prompt plus an `image_url` data URL for the crop, then normalizes
 `choices[0].message.content` through the same evidence contract. It has no
 remote default endpoint.
+
+The LM Studio and llama.cpp presets use the same chat-completions payload and
+response normalization as the generic OpenAI-compatible preset, but provide
+local default endpoints for common desktop and server deployments. Set the
+matching model env var for the local vision model you have loaded.
 
 Command provider stdout, or HTTP provider response body, may be plain text or
 JSON:
@@ -1583,12 +1593,16 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | `["{input}"]` | Optional JSON string array of region analysis command arguments. Must include `{input}`. |
 | `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | - | Optional env-configured HTTP endpoint used by `analyze_regions` when no command provider is configured |
 | `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` | `{}` | Optional JSON object with string headers for the HTTP region analysis provider |
-| `MCP_PDF_REGION_ANALYSIS_PRESET` | - | Optional visual-region preset. Supported values: `ollama`, `openai-compatible` |
+| `MCP_PDF_REGION_ANALYSIS_PRESET` | - | Optional visual-region preset. Supported values: `ollama`, `openai-compatible`, `lmstudio`, `llamacpp` |
 | `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL` | - | Required local Ollama vision model when `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` |
 | `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` | `http://127.0.0.1:11434/api/generate` | Optional Ollama generate endpoint override |
 | `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL` | - | Required OpenAI-compatible vision model when `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible` |
 | `MCP_PDF_REGION_ANALYSIS_OPENAI_URL` | - | Required OpenAI-compatible chat completions endpoint; no remote default is used |
 | `MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY` | - | Optional bearer token for the OpenAI-compatible endpoint |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL` | - | Required local LM Studio vision model when `MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio` |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL` | `http://127.0.0.1:1234/v1/chat/completions` | Optional LM Studio chat completions endpoint override |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL` | - | Required local llama.cpp multimodal model or alias when `MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp` |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL` | `http://127.0.0.1:8080/v1/chat/completions` | Optional llama.cpp chat completions endpoint override |
 
 ### Docker Deployment
 
@@ -1769,10 +1783,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local OCR provider for scanned-page text layers
 - [x] Opt-in OCR text layer fusion for `read_pdf`, agent document maps, and OCR-derived table structure
 - [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
-- [x] Configured local visual region analysis providers over command, HTTP, Ollama `/api/generate`, and OpenAI-compatible chat-completions adapters for table, chart, formula, figure, and image-description enrichment, including crop-image requests, JSON-only normalization, and caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
+- [x] Configured local visual region analysis providers over command, HTTP, Ollama `/api/generate`, OpenAI-compatible chat completions, LM Studio, and llama.cpp adapters for table, chart, formula, figure, and image-description enrichment, including crop-image requests, JSON-only normalization, local chat-completions data URL payloads, and caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama/OpenAI-compatible visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
+- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
 - [x] JSON benchmark artifact output for performance, deterministic quality, corpus, and installed-provider evidence reports
 - [x] SOTA release gate that blocks release artifacts until deterministic quality, corpus, and installed-provider final-bar evidence are complete
 - [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact and matching `bin`/`exports` contract

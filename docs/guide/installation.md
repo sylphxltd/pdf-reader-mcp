@@ -97,6 +97,12 @@ OpenAI-compatible chat-completions vision servers, set
 `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`,
 `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`, and
 `MCP_PDF_REGION_ANALYSIS_OPENAI_URL`; no remote endpoint is used by default.
+For common local OpenAI-compatible engines, use
+`MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio` with
+`MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL`, or
+`MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp` with
+`MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL`; both presets use localhost chat
+completions defaults that can be overridden with the matching `*_URL` env var.
 Command providers take precedence when both are configured. Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array with `{input}`,
 `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`,
@@ -159,6 +165,40 @@ For an OpenAI-compatible local server:
         "MCP_PDF_REGION_ANALYSIS_PRESET": "openai-compatible",
         "MCP_PDF_REGION_ANALYSIS_OPENAI_URL": "http://127.0.0.1:1234/v1/chat/completions",
         "MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL": "local-vision"
+      }
+    }
+  }
+}
+```
+
+For LM Studio:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"],
+      "env": {
+        "MCP_PDF_REGION_ANALYSIS_PRESET": "lmstudio",
+        "MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL": "qwen2.5-vl-local"
+      }
+    }
+  }
+}
+```
+
+For llama.cpp:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"],
+      "env": {
+        "MCP_PDF_REGION_ANALYSIS_PRESET": "llamacpp",
+        "MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL": "llava-local"
       }
     }
   }
