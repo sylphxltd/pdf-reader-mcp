@@ -84,6 +84,19 @@ export default defineConfig({
           { text: 'Comparison', link: '/comparison/' },
         ],
       },
+      {
+        text: 'Architecture',
+        items: [
+          {
+            text: '2027 SOTA Boundary',
+            link: '/adr/0001-2027-sota-document-intelligence-boundary',
+          },
+          {
+            text: 'Operating Model',
+            link: '/specs/2026-06-16-2027-sota-document-intelligence-operating-model',
+          },
+        ],
+      },
     ],
 
     socialLinks: [
