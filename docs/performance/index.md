@@ -156,7 +156,7 @@ explicitly enabled:
 ```bash
 MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true \
   bun scripts/benchmark-pdf-corpus.ts \
-  --corpus-manifest ./public-corpus.json \
+  --corpus-manifest ./corpus/public-url-corpus.json \
   --corpus-cache-dir ./.cache/pdf-corpus
 ```
 
@@ -179,10 +179,16 @@ MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true \
 
 After the first verified download, the same manifest can run from cache without
 network access. The report records URL case count, actual download count, cache
-directory, source type, URL, checksum, and whether each URL case used a fresh
-download or cached bytes. Private, loopback, and link-local URL hosts are
-blocked by default; local fixture servers require the existing
+directory, source type, URL, checksum, source metadata, and whether each URL
+case used a fresh download or cached bytes. Private, loopback, and link-local
+URL hosts are blocked by default; local fixture servers require the existing
 `--allow-private-ips` or `MCP_PDF_ALLOW_PRIVATE_IPS=true` override.
+
+The repository includes `corpus/public-url-corpus.json`, an opt-in manifest of
+official and publicly available PDFs with pinned SHA256 values. It is included
+in the published package so release reviewers and downstream users can reproduce a
+real-world public corpus artifact without vendoring PDF bytes or making default
+CI depend on network access.
 
 ## Provider Benchmark
 

@@ -1,0 +1,94 @@
+{
+  "description": "Opt-in public PDF corpus manifest. PDFs are not vendored; run with MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true to download and verify each SHA256 before benchmarking.",
+  "retrieved_at": "2026-06-21",
+  "cases": [
+    {
+      "id": "irs-w9-2024-form",
+      "url": "https://www.irs.gov/pub/irs-prior/fw9--2024.pdf",
+      "sha256": "2d420cbb4123dcf1fb82595b2359cfbb5d81f00b9df9d359fcc7af361d093f53",
+      "source_label": "Internal Revenue Service prior-year Form W-9",
+      "source_homepage": "https://www.irs.gov/forms-pubs/about-form-w-9",
+      "source_rights": "U.S. federal government public information",
+      "source_retrieved_at": "2026-06-21",
+      "document_archetype": "official fillable tax form",
+      "expected": {
+        "min_pages": 1,
+        "min_text_chars": 1000,
+        "contains_text": ["Form W-9", "Taxpayer Identification Number"]
+      },
+      "read_pdf_options": {
+        "include_full_text": true,
+        "include_page_count": true,
+        "include_chunks": true,
+        "include_text_layer": true,
+        "include_document_map": true
+      }
+    },
+    {
+      "id": "access-board-passenger-loading-zones-guide",
+      "url": "https://www.access-board.gov/files/ada/guides/plz.pdf",
+      "sha256": "0f8daeba6773577fac1d443828d6ff4bf8755e03d119d1ca13ca3827ffd8f66e",
+      "source_label": "U.S. Access Board ADA guide for passenger loading zones",
+      "source_homepage": "https://www.access-board.gov/ada/guides/chapter-5-passenger-loading-zones/",
+      "source_rights": "U.S. federal government public information",
+      "source_retrieved_at": "2026-06-21",
+      "document_archetype": "official accessibility guidance PDF",
+      "expected": {
+        "min_pages": 5,
+        "min_text_chars": 2000,
+        "contains_text": ["Passenger Loading Zones", "ADA Standards"]
+      },
+      "read_pdf_options": {
+        "include_full_text": true,
+        "include_page_count": true,
+        "include_chunks": true,
+        "include_text_layer": true,
+        "include_document_map": true
+      }
+    },
+    {
+      "id": "loc-cataloging-newsline-2005-public-domain",
+      "url": "https://www.loc.gov/catdir/lccn/lccn1306.pdf",
+      "sha256": "519307a9376af78a0c992c9bdc249b41ff39ddede2fec3285e9ce4b0b2cb14fd",
+      "source_label": "Library of Congress Cataloging Newsline, volume 13 no. 06",
+      "source_homepage": "https://www.loc.gov/catdir/lccn/",
+      "source_rights": "Public domain notice in source PDF",
+      "source_retrieved_at": "2026-06-21",
+      "document_archetype": "public-domain government newsletter",
+      "expected": {
+        "min_pages": 5,
+        "min_text_chars": 1000,
+        "contains_text": ["LC CATALOGING NEWSLINE", "public domain"]
+      },
+      "read_pdf_options": {
+        "include_full_text": true,
+        "include_page_count": true,
+        "include_chunks": true,
+        "include_text_layer": true,
+        "include_document_map": true
+      }
+    },
+    {
+      "id": "nasa-ntrs-19940006471-technical-report",
+      "url": "https://ntrs.nasa.gov/api/citations/19940006471/downloads/19940006471.pdf",
+      "sha256": "c86807df9dc1046759ccc465af79b8a0fb221127096ddb41d4bd65bdd81de010",
+      "source_label": "NASA Technical Reports Server citation 19940006471",
+      "source_homepage": "https://ntrs.nasa.gov/citations/19940006471",
+      "source_rights": "NASA public technical report",
+      "source_retrieved_at": "2026-06-21",
+      "document_archetype": "public technical report with legacy scan characteristics",
+      "expected": {
+        "min_pages": 14,
+        "min_text_chars": 1000,
+        "contains_text": ["Final Technical Report", "Advanced Statistical Methods"]
+      },
+      "read_pdf_options": {
+        "include_full_text": true,
+        "include_page_count": true,
+        "include_chunks": true,
+        "include_text_layer": true,
+        "include_document_map": true
+      }
+    }
+  ]
+}

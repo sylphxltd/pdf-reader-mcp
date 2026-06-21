@@ -147,6 +147,10 @@ describe('corpus benchmark external manifests', () => {
                 id: 'external-url-sample',
                 url,
                 sha256,
+                source_label: 'local test PDF server',
+                source_homepage: 'http://127.0.0.1/',
+                source_rights: 'test fixture',
+                source_retrieved_at: '2026-06-21',
                 pages: [1],
                 document_archetype: 'external URL text-rich sample',
                 expected: {
@@ -219,6 +223,10 @@ describe('corpus benchmark external manifests', () => {
         expect(external?.assertions[0]?.observed).toMatchObject({
           source_type: 'url',
           source_url: url,
+          source_label: 'local test PDF server',
+          source_homepage: 'http://127.0.0.1/',
+          source_rights: 'test fixture',
+          source_retrieved_at: '2026-06-21',
           sha256,
           downloaded: true,
         });

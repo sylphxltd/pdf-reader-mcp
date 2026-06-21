@@ -189,7 +189,9 @@ files. URL cases require `sha256`, use a content-addressed cache, and download
 only when `--allow-corpus-downloads` or `MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true`
 is set. Private, loopback, and link-local URL hosts are blocked by default and
 only allowed with the existing `--allow-private-ips` /
-`MCP_PDF_ALLOW_PRIVATE_IPS=true` development override.
+`MCP_PDF_ALLOW_PRIVATE_IPS=true` development override. The published package
+includes `corpus/public-url-corpus.json`, an opt-in manifest of official and
+publicly available PDFs with source metadata and pinned SHA256 values.
 
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar

@@ -54,6 +54,9 @@ const summarizeChecks = (checks: PackageSmokeCheck[]): PackageSmokeReport['summa
 const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
 const readJson = async (filePath: string): Promise<JsonRecord | undefined> => {
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
@@ -82,6 +85,27 @@ const readTextPrefix = async (filePath: string, byteLength = 128): Promise<strin
   }
 };
 
+const summarizePublicCorpusManifest = (
+  manifest: JsonRecord | undefined
+): { total_cases: number; url_cases_with_metadata: number } => {
+  const cases = Array.isArray(manifest?.cases) ? manifest.cases : [];
+  const urlCasesWithMetadata = cases.filter(
+    (entry) =>
+      isRecord(entry) &&
+      isNonEmptyString(entry.url) &&
+      isNonEmptyString(entry.sha256) &&
+      isNonEmptyString(entry.source_label) &&
+      isNonEmptyString(entry.source_homepage) &&
+      isNonEmptyString(entry.source_rights) &&
+      isNonEmptyString(entry.source_retrieved_at)
+  ).length;
+
+  return {
+    total_cases: cases.length,
+    url_cases_with_metadata: urlCasesWithMetadata,
+  };
+};
+
 export const findPackedTarballPath = async (
   packOutput: string,
   destinationDir: string
@@ -108,7 +132,10 @@ export const validateExtractedPackage = async (
   const packageJsonPath = path.join(packageDir, 'package.json');
   const packageJson = await readJson(packageJsonPath);
   const distIndexPath = path.join(packageDir, 'dist', 'index.js');
+  const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
   const distIndexPrefix = await readTextPrefix(distIndexPath);
+  const publicCorpusManifest = await readJson(publicCorpusManifestPath);
+  const publicCorpusSummary = summarizePublicCorpusManifest(publicCorpusManifest);
   const bin = isRecord(packageJson?.bin) ? packageJson.bin : undefined;
   const exportsField = isRecord(packageJson?.exports) ? packageJson.exports : undefined;
 
@@ -132,6 +159,21 @@ export const validateExtractedPackage = async (
   );
   addCheck(
     checks,
+    'corpus:public-url-manifest',
+    await fileExists(publicCorpusManifestPath),
+    'published package includes the opt-in public URL corpus manifest',
+    { path: 'package/corpus/public-url-corpus.json' }
+  );
+  addCheck(
+    checks,
+    'corpus:public-url-manifest-shape',
+    publicCorpusSummary.total_cases > 0 &&
+      publicCorpusSummary.total_cases === publicCorpusSummary.url_cases_with_metadata,
+    'public URL corpus manifest contains URL cases with source metadata and SHA256 values',
+    publicCorpusSummary
+  );
+  addCheck(
+    checks,
     'package-json:bin',
     bin?.['pdf-reader-mcp'] === './dist/index.js',
     'package bin points to the published runtime artifact',
@@ -149,8 +191,9 @@ export const validateExtractedPackage = async (
   addCheck(
     checks,
     'package-json:files',
-    files.includes('dist/') || files.includes('dist'),
-    'package files allowlist includes dist',
+    (files.includes('dist/') || files.includes('dist')) &&
+      (files.includes('corpus/') || files.includes('corpus')),
+    'package files allowlist includes dist and corpus',
     { files }
   );
 
@@ -212,6 +255,12 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
       'tarball:readme-license',
       tarballEntries.includes('package/README.md') && tarballEntries.includes('package/LICENSE'),
       'tarball includes README and LICENSE'
+    );
+    addCheck(
+      checks,
+      'tarball:public-url-corpus',
+      tarballEntries.includes('package/corpus/public-url-corpus.json'),
+      'tarball includes public URL corpus manifest'
     );
 
     const extractDir = path.join(tempDir, 'extract');

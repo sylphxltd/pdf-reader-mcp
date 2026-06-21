@@ -87,3 +87,6 @@ SHA256 validation, reusable cache paths, and artifact provenance for URL,
 checksum, and download/cache status. Private, loopback, and link-local URL
 hosts are blocked by default unless the existing private-IP development
 override is enabled.
+Add a checked-in public URL corpus manifest with official and publicly available
+PDF sources, pinned SHA256 values, source metadata, and package smoke coverage
+so users can reproduce real-world corpus artifacts without vendoring PDF bytes.

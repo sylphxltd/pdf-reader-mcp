@@ -60,6 +60,10 @@ interface ExternalCorpusCase {
   path: string;
   source_type: 'path' | 'url';
   source_url?: string | undefined;
+  source_label?: string | undefined;
+  source_homepage?: string | undefined;
+  source_rights?: string | undefined;
+  source_retrieved_at?: string | undefined;
   sha256?: string | undefined;
   downloaded?: boolean | undefined;
   pages?: ReadPdfArgs['sources'][number]['pages'] | undefined;
@@ -637,6 +641,10 @@ const readExternalCorpusManifest = async (
       return {
         id,
         ...source,
+        source_label: nonEmptyString(record.source_label),
+        source_homepage: nonEmptyString(record.source_homepage),
+        source_rights: nonEmptyString(record.source_rights),
+        source_retrieved_at: nonEmptyString(record.source_retrieved_at),
         pages: parseExternalCorpusPages(record.pages),
         document_archetype:
           nonEmptyString(record.document_archetype) ?? 'external PDF',
@@ -1234,6 +1242,12 @@ const evaluateExternalCorpusCase = async (entry: ExternalCorpusCase): Promise<Co
             source: entry.path,
             source_type: entry.source_type,
             ...(entry.source_url ? { source_url: entry.source_url } : {}),
+            ...(entry.source_label ? { source_label: entry.source_label } : {}),
+            ...(entry.source_homepage ? { source_homepage: entry.source_homepage } : {}),
+            ...(entry.source_rights ? { source_rights: entry.source_rights } : {}),
+            ...(entry.source_retrieved_at
+              ? { source_retrieved_at: entry.source_retrieved_at }
+              : {}),
             ...(entry.sha256 ? { sha256: entry.sha256 } : {}),
             ...(entry.downloaded !== undefined ? { downloaded: entry.downloaded } : {}),
           },

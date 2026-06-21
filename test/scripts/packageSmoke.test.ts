@@ -21,6 +21,7 @@ const writeJson = (filePath: string, value: JsonValue) => {
 
 const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   fs.mkdirSync(path.join(packageDir, 'dist'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'corpus'), { recursive: true });
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
     version: '0.0.0-smoke',
@@ -30,7 +31,20 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
     exports: {
       '.': './dist/index.js',
     },
-    files: ['dist/', 'README.md', 'LICENSE'],
+    files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],
+  });
+  writeJson(path.join(packageDir, 'corpus', 'public-url-corpus.json'), {
+    cases: [
+      {
+        id: 'public-smoke',
+        url: 'https://example.com/public-smoke.pdf',
+        sha256: 'a'.repeat(64),
+        source_label: 'public smoke fixture',
+        source_homepage: 'https://example.com/',
+        source_rights: 'test fixture',
+        source_retrieved_at: '2026-06-21',
+      },
+    ],
   });
   if (includeRuntime) {
     fs.writeFileSync(

@@ -134,6 +134,10 @@ themselves.
      parsing, private/loopback/link-local hosts remain blocked unless the
      existing private-IP development override is enabled, and URL/cache
      provenance is recorded in the corpus artifact.
+   - `corpus/public-url-corpus.json` is included in the repo and published
+     package as an opt-in public corpus manifest over official and publicly
+     available PDF sources with source metadata and pinned SHA256 values. It is
+     not part of default CI network activity.
    - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate`
      reads those artifacts and must pass before a SOTA release can be treated
      as complete. It fails if deterministic final-bar coverage is incomplete,
