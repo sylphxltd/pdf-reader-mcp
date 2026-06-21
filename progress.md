@@ -28,7 +28,8 @@
 - [x] External corpus URL support with SHA256 verification, explicit download opt-in, private-host protection, cache reuse, and artifact provenance
 - [x] Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, pinned SHA256 values, capability tags, capability-summary artifacts, and package-smoke coverage
 - [x] Opt-in public provider accuracy manifest with official and publicly available PDF crop regions, source metadata, pinned SHA256 values, capability tags, capability-summary artifacts, and required package-smoke coverage gates
-- [x] Package-smoke manifest contract checks for public corpus expected assertions/read options and public provider region bbox/normalized-confidence/text evidence
+- [x] Package-smoke manifest contract checks for public corpus expected assertions/read options and public provider region bbox/expected-kind/normalized-confidence/text evidence
+- [x] Expanded checked-in public corpus/provider manifests with CDC statistical chart evidence and arXiv public research-paper figure, formula, and table crops
 - [x] Public provider-manifest crop benchmark that verifies downloadable, checksum-pinned PDF regions can render and crop without requiring a visual provider or local model
 - [x] Deterministic provider-manifest crop release artifact enforced by the SOTA release gate without requiring network access, OCR, a visual provider, or a local model
 - [x] Deterministic provider-manifest scoring release artifact enforced by the SOTA release gate for local table, formula, chart, figure, image, confidence, text, crop-provenance, and capability-summary evidence
@@ -36,7 +37,7 @@
 
 ## In Progress
 - [ ] Publish the PDF Intelligence vNext release through the Changesets version PR flow
-- [ ] Expand shared public scanned-PDF and visual-region provider accuracy manifests
+- [ ] Further broaden shared public scanned-PDF and visual-region provider accuracy manifests with additional independently licensed PDFs
 
 ## Planned
 - [ ] Optional advanced parser engine adapters

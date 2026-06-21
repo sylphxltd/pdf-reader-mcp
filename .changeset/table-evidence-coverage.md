@@ -111,6 +111,11 @@ cases must keep expected text/page/text-volume assertions and document-map/text
 layer read options, while published provider regions must keep positive-area
 bounding boxes, expected text terms, and normalized minimum confidence
 thresholds.
+Expand the checked-in public corpus and provider manifests with CDC statistical
+chart evidence plus public arXiv research-paper figure, formula, and table
+crops. The package smoke gate now also requires provider-region expected-kind
+coverage for chart, diagram, figure, formula, image, and table evidence so the
+published package cannot regress to a narrow visual manifest.
 Add `benchmark:provider-manifest-crops` so the same public provider manifest can
 first prove URL download, SHA256 validation, page rendering, declared crop
 geometry, crop byte evidence, render provenance, and capability summaries

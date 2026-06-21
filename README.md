@@ -1721,8 +1721,8 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Machine-readable SOTA final-bar coverage matrix in `benchmark:quality`
 - ✅ Corpus benchmark artifact over checked-in sample PDFs and runtime-generated reading-order/scanned-OCR/table archetypes
 - ✅ External corpus manifests with local paths, opt-in public URL downloads, SHA256 verification, reusable cache provenance, and private-host protection
-- ✅ Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, checksums, expected text/page-volume assertions, required read options, capability tags, artifact-level capability summaries, and package-smoke coverage
-- ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, scored region geometry, normalized confidence/text expectations, capability tags, artifact-level capability summaries, and package-smoke coverage
+- ✅ Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, checksums, expected text/page-volume assertions, required read options, capability tags for forms, guidance, scans, statistical reports, research papers, charts, formulas, and tables, artifact-level capability summaries, and package-smoke coverage
+- ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, scored region geometry, expected chart/diagram/figure/formula/image/table kinds, normalized confidence/text expectations, capability tags, artifact-level capability summaries, and package-smoke coverage
 - ✅ Public provider-manifest crop benchmark that verifies downloadable, checksum-pinned PDF regions can render and crop without requiring a visual model
 - ✅ Deterministic provider-manifest crop release artifact that proves the crop substrate without network access, OCR, a visual provider, or a local model
 - ✅ Deterministic provider-manifest scoring release artifact that proves table, formula, chart, figure, image, confidence, text, and crop-provenance assertions through the configured visual provider path
@@ -1809,8 +1809,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Provider quality metrics for fixture-level OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Public corpus benchmark artifact for checked-in sample PDFs plus runtime-generated reading-order, scanned-OCR routing, and OCR-table recovery archetypes, with case-level capability tags and artifact-level capability summaries, enforced by the SOTA release gate
 - [x] External corpus manifest support for operator-supplied and checked-in public URL PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape with SHA256, cache provenance, source metadata, capability tags, and private-host protection
-- [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, region-level expectations, and capability-level summaries
-- [x] Package smoke gate for public evidence manifests, requiring corpus expected assertions/read options and provider region bbox/normalized-confidence/text contracts in the packed package
+- [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, region-level expectations, expected visual kind coverage, and capability-level summaries
+- [x] Package smoke gate for public evidence manifests, requiring corpus expected assertions/read options and provider region bbox/expected-kind/normalized-confidence/text contracts in the packed package
+- [x] Expanded public corpus and provider accuracy manifests with CDC public statistical chart evidence and arXiv public research-paper figure, formula, and table crops
 - [x] Deterministic provider-manifest crop release artifact over a local fixture, enforced by the SOTA release gate before publishing evidence can pass
 - [x] Deterministic provider-manifest scoring release artifact over local table, formula, chart, figure, and image regions, enforced by the SOTA release gate before publishing evidence can pass
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
@@ -1823,7 +1824,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Expand curated public scanned-PDF and visual-region provider manifests beyond the initial checked-in public provider accuracy set
+- [x] Expand curated public scanned-PDF and visual-region provider manifests beyond the initial checked-in public provider accuracy set
+- [ ] Further broaden public evidence manifests with additional independently licensed scanned, tabular, chart-heavy, and formula-heavy PDFs
 - [ ] Optional advanced parser engine presets beyond the local OCR, Ollama, OpenAI-compatible, LM Studio, and llama.cpp adapter set
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming

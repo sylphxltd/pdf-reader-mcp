@@ -45,14 +45,19 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
         source_retrieved_at: '2026-06-21',
         capability_tags: [
           'accessibility_guidance',
+          'chart_evidence',
           'document_map',
           'fillable_form',
+          'formula_text',
           'government_newsletter',
           'image_plus_text',
           'legacy_scan',
           'official_form',
           'public_domain_text',
+          'research_paper',
           'selectable_text',
+          'statistical_report',
+          'table_evidence',
           'technical_report',
           'text_layer',
           'visual_text',
@@ -80,19 +85,64 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
         source_homepage: 'https://example.com/',
         source_rights: 'test fixture',
         source_retrieved_at: '2026-06-21',
-        capability_tags: ['accessibility_diagram', 'image_plus_text', 'legacy_scan', 'visual_text'],
+        capability_tags: [
+          'accessibility_diagram',
+          'chart_extraction',
+          'figure_description',
+          'formula_recognition',
+          'image_plus_text',
+          'legacy_scan',
+          'table_recognition',
+          'visual_text',
+        ],
         regions: [
           {
-            id: 'provider-region',
+            id: 'provider-diagram',
             page: 1,
             bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
             capability_tags: [
+              'crop_provenance',
               'diagram_context',
               'full_page_crop',
               'layout_diagram',
               'scanned_page_triage',
             ],
-            expected: { contains_text: ['provider'], min_confidence: 0.2 },
+            expected: { kind: 'diagram', contains_text: ['provider'], min_confidence: 0.2 },
+          },
+          {
+            id: 'provider-chart',
+            page: 1,
+            bounding_box: { left: 0, bottom: 100, right: 100, top: 200 },
+            capability_tags: ['chart_extraction', 'crop_provenance'],
+            expected: { kind: 'chart', contains_text: ['chart'], min_confidence: 0.2 },
+          },
+          {
+            id: 'provider-figure',
+            page: 1,
+            bounding_box: { left: 0, bottom: 200, right: 100, top: 300 },
+            capability_tags: ['crop_provenance', 'figure_description'],
+            expected: { kind: 'figure', contains_text: ['figure'], min_confidence: 0.2 },
+          },
+          {
+            id: 'provider-formula',
+            page: 1,
+            bounding_box: { left: 0, bottom: 300, right: 100, top: 400 },
+            capability_tags: ['crop_provenance', 'formula_recognition'],
+            expected: { kind: 'formula', contains_text: ['formula'], min_confidence: 0.2 },
+          },
+          {
+            id: 'provider-image',
+            page: 1,
+            bounding_box: { left: 0, bottom: 400, right: 100, top: 500 },
+            capability_tags: ['crop_provenance', 'image_description'],
+            expected: { kind: 'image', contains_text: ['image'], min_confidence: 0.2 },
+          },
+          {
+            id: 'provider-table',
+            page: 1,
+            bounding_box: { left: 0, bottom: 500, right: 100, top: 600 },
+            capability_tags: ['crop_provenance', 'table_recognition'],
+            expected: { kind: 'table', contains_text: ['table'], min_confidence: 0.2 },
           },
         ],
       },
@@ -212,14 +262,19 @@ describe('package smoke', () => {
             source_retrieved_at: '2026-06-21',
             capability_tags: [
               'accessibility_guidance',
+              'chart_evidence',
               'document_map',
               'fillable_form',
+              'formula_text',
               'government_newsletter',
               'image_plus_text',
               'legacy_scan',
               'official_form',
               'public_domain_text',
+              'research_paper',
               'selectable_text',
+              'statistical_report',
+              'table_evidence',
               'technical_report',
               'text_layer',
               'visual_text',
@@ -291,6 +346,7 @@ describe('package smoke', () => {
       );
       expect(publicProviderCheck?.status).toBe('failed');
       expect(publicProviderCheck?.evidence?.regions_with_valid_bounding_boxes).toBe(0);
+      expect(publicProviderCheck?.evidence?.regions_with_expected_kind).toBe(0);
       expect(publicProviderCheck?.evidence?.regions_with_expected_text).toBe(0);
       expect(publicProviderCheck?.evidence?.regions_with_min_confidence).toBe(0);
     });
@@ -340,6 +396,7 @@ describe('package smoke', () => {
       );
       expect(publicProviderCheck?.status).toBe('failed');
       expect(publicProviderCheck?.evidence?.regions_with_valid_bounding_boxes).toBe(0);
+      expect(publicProviderCheck?.evidence?.regions_with_expected_kind).toBe(0);
       expect(publicProviderCheck?.evidence?.regions_with_expected_text).toBe(1);
       expect(publicProviderCheck?.evidence?.regions_with_min_confidence).toBe(0);
     });

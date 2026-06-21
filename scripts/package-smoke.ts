@@ -32,14 +32,19 @@ type JsonRecord = Record<string, unknown>;
 
 const REQUIRED_PUBLIC_CORPUS_CAPABILITY_TAGS = [
   'accessibility_guidance',
+  'chart_evidence',
   'document_map',
   'fillable_form',
+  'formula_text',
   'government_newsletter',
   'image_plus_text',
   'legacy_scan',
   'official_form',
   'public_domain_text',
+  'research_paper',
   'selectable_text',
+  'statistical_report',
+  'table_evidence',
   'technical_report',
   'text_layer',
   'visual_text',
@@ -47,13 +52,28 @@ const REQUIRED_PUBLIC_CORPUS_CAPABILITY_TAGS = [
 
 const REQUIRED_PUBLIC_PROVIDER_CAPABILITY_TAGS = [
   'accessibility_diagram',
+  'chart_extraction',
+  'crop_provenance',
   'diagram_context',
+  'figure_description',
   'full_page_crop',
+  'formula_recognition',
+  'image_description',
   'image_plus_text',
   'layout_diagram',
   'legacy_scan',
   'scanned_page_triage',
+  'table_recognition',
   'visual_text',
+] as const;
+
+const REQUIRED_PUBLIC_PROVIDER_EXPECTED_KINDS = [
+  'chart',
+  'diagram',
+  'figure',
+  'formula',
+  'image',
+  'table',
 ] as const;
 
 const addCheck = (
@@ -94,6 +114,11 @@ const normalizedConfidence = (value: unknown): number | undefined =>
 
 const getRecord = (value: unknown): JsonRecord | undefined => (isRecord(value) ? value : undefined);
 
+const expectedKind = (entry: JsonRecord): string | undefined => {
+  const kind = getRecord(entry.expected)?.kind;
+  return typeof kind === 'string' && kind.trim().length > 0 ? kind.trim().toLowerCase() : undefined;
+};
+
 const normalizedTags = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
   const tags = value
@@ -116,6 +141,14 @@ const missingRequiredTags = (
 ): string[] => {
   const actual = new Set(tags);
   return requiredTags.filter((tag) => !actual.has(tag));
+};
+
+const missingRequiredKinds = (
+  kinds: Iterable<string>,
+  requiredKinds: readonly string[]
+): string[] => {
+  const actual = new Set(kinds);
+  return requiredKinds.filter((kind) => !actual.has(kind));
 };
 
 const readJson = async (filePath: string): Promise<JsonRecord | undefined> => {
@@ -248,11 +281,15 @@ const summarizePublicProviderManifest = (
   cases_with_capability_tags: number;
   regions_with_capability_tags: number;
   regions_with_valid_bounding_boxes: number;
+  regions_with_expected_kind: number;
   regions_with_expected_text: number;
   regions_with_min_confidence: number;
   capability_tag_count: number;
   capability_tags: string[];
   missing_required_capability_tags: string[];
+  expected_kind_count: number;
+  expected_kinds: string[];
+  missing_required_expected_kinds: string[];
 } => {
   const cases = Array.isArray(manifest?.cases) ? manifest.cases : [];
   const regionsByCase = cases.map((entry) =>
@@ -262,6 +299,7 @@ const summarizePublicProviderManifest = (
     isRecord(entry) && Array.isArray(entry.regions) ? entry.regions : []
   );
   const capabilityTags = new Set<string>();
+  const expectedKinds = new Set<string>();
   for (const entry of cases) {
     if (!isRecord(entry)) continue;
     for (const tag of normalizedTags(entry.capability_tags)) {
@@ -273,6 +311,8 @@ const summarizePublicProviderManifest = (
     for (const tag of normalizedTags(entry.capability_tags)) {
       capabilityTags.add(tag);
     }
+    const kind = expectedKind(entry);
+    if (kind) expectedKinds.add(kind);
   }
   const urlCasesWithMetadata = cases.filter(
     (entry) =>
@@ -300,6 +340,7 @@ const summarizePublicProviderManifest = (
     regions_with_valid_bounding_boxes: regions.filter(
       (entry) => isRecord(entry) && hasValidBoundingBox(entry)
     ).length,
+    regions_with_expected_kind: regions.filter((entry) => isRecord(entry) && expectedKind(entry)).length,
     regions_with_expected_text: regions.filter(
       (entry) => isRecord(entry) && hasExpectedTextAssertions(entry)
     ).length,
@@ -312,6 +353,12 @@ const summarizePublicProviderManifest = (
     missing_required_capability_tags: missingRequiredTags(
       capabilityTags,
       REQUIRED_PUBLIC_PROVIDER_CAPABILITY_TAGS
+    ),
+    expected_kind_count: expectedKinds.size,
+    expected_kinds: [...expectedKinds].sort(),
+    missing_required_expected_kinds: missingRequiredKinds(
+      expectedKinds,
+      REQUIRED_PUBLIC_PROVIDER_EXPECTED_KINDS
     ),
   };
 };
@@ -412,10 +459,12 @@ export const validateExtractedPackage = async (
       publicProviderSummary.total_cases === publicProviderSummary.cases_with_capability_tags &&
       publicProviderSummary.total_regions === publicProviderSummary.regions_with_capability_tags &&
       publicProviderSummary.total_regions === publicProviderSummary.regions_with_valid_bounding_boxes &&
+      publicProviderSummary.total_regions === publicProviderSummary.regions_with_expected_kind &&
       publicProviderSummary.total_regions === publicProviderSummary.regions_with_expected_text &&
       publicProviderSummary.total_regions === publicProviderSummary.regions_with_min_confidence &&
-      publicProviderSummary.missing_required_capability_tags.length === 0,
-    'public provider manifest contains URL cases, source metadata, SHA256 values, scored regions, expected assertions, and required capability tags',
+      publicProviderSummary.missing_required_capability_tags.length === 0 &&
+      publicProviderSummary.missing_required_expected_kinds.length === 0,
+    'public provider manifest contains URL cases, source metadata, SHA256 values, scored regions, expected kinds, expected assertions, and required capability tags',
     publicProviderSummary
   );
   addCheck(

@@ -73,9 +73,12 @@ neutral capability names and avoids public comparison language.
    report summary routing through a runtime-generated real PDF, plus real
    multi-column reading order with short footer placement, and the corpus
    benchmark now adds a checked-in sample plus runtime-generated scanned-OCR
-   routing and OCR-table archetypes; permissions, additional tagged structures,
-   larger real-world scanned PDFs, larger real-world visual-region fixtures,
-   and safety adversarial fixtures still need broader coverage.
+   routing and OCR-table archetypes. The checked-in public corpus/provider
+   manifests now add CDC statistical chart evidence and public arXiv
+   figure/formula/table crops with package-smoke expected-kind gates;
+   permissions, additional tagged structures, larger real-world scanned PDFs,
+   larger real-world visual-region fixtures, and safety adversarial fixtures
+   still need broader coverage.
 2. Expand extraction quality evals and benchmarks: multi-column, layout
    diagnostics, tables, annotations, forms, hidden/off-page text, scanned PDFs.
 3. Harden the agent document map as the SSOT for pages, elements, text-layer

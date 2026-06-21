@@ -151,10 +151,13 @@ themselves.
    - `corpus/public-url-corpus.json` is included in the repo and published
      package as an opt-in public corpus manifest over official and publicly
      available PDF sources with source metadata, pinned SHA256 values, and
-     required capability tags. It is not part of default CI network activity.
+     required capability tags covering forms, accessibility guidance, scans,
+     statistical reports, research papers, charts, formulas, and tables. It is
+     not part of default CI network activity.
    - `corpus/public-provider-accuracy.json` is included in the repo and
      published package as an opt-in public provider accuracy manifest over
-     official and publicly available PDF crops.
+     official and publicly available PDF crops with expected-kind coverage for
+     chart, diagram, figure, formula, image, and table evidence.
      `benchmark:provider-manifest-crops` verifies public PDF downloads,
      SHA256 values, page renders, and declared region crops without requiring
      a visual-region provider or local model. `benchmark:provider-manifest`
@@ -195,5 +198,7 @@ A new major release should not be treated as complete until:
 - Public docs match the verified behavior without competitor references or
   unproven superiority claims.
 - The package smoke test proves the release tarball exposes the executable
-  runtime artifact, the expected `bin`/`exports` contract, and required public
-  corpus/provider capability coverage manifests.
+  runtime artifact, the expected `bin`/`exports` contract, required public
+  corpus/provider capability coverage manifests, corpus assertion/read-option
+  contracts, and public provider bbox/expected-kind/normalized-confidence/text
+  contracts.

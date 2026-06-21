@@ -1,6 +1,6 @@
 {
   "description": "Opt-in public PDF visual-region provider accuracy manifest. PDFs are not vendored; run with MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true and a configured visual-region provider to download, verify SHA256, crop the declared regions, and score provider output.",
-  "retrieved_at": "2026-06-21",
+  "retrieved_at": "2026-06-22",
   "cases": [
     {
       "id": "access-board-play-areas-full-page",
@@ -18,10 +18,12 @@
           "page": 1,
           "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
           "padding": 0,
-          "capability_tags": ["full_page_crop", "diagram_context"],
+          "capability_tags": ["crop_provenance", "full_page_crop", "diagram_context"],
           "expected": {
+            "kind": "diagram",
             "contains_text": ["play", "accessible"],
-            "min_confidence": 0.2
+            "min_confidence": 0.2,
+            "require_crop_provenance": true
           }
         }
       ]
@@ -42,10 +44,12 @@
           "page": 1,
           "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
           "padding": 0,
-          "capability_tags": ["full_page_crop", "layout_diagram"],
+          "capability_tags": ["crop_provenance", "full_page_crop", "layout_diagram"],
           "expected": {
+            "kind": "diagram",
             "contains_text": ["toilet", "accessible"],
-            "min_confidence": 0.2
+            "min_confidence": 0.2,
+            "require_crop_provenance": true
           }
         }
       ]
@@ -66,10 +70,109 @@
           "page": 1,
           "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
           "padding": 0,
-          "capability_tags": ["full_page_crop", "scanned_page_triage"],
+          "capability_tags": [
+            "crop_provenance",
+            "full_page_crop",
+            "image_description",
+            "scanned_page_triage"
+          ],
           "expected": {
+            "kind": "image",
             "contains_text": ["NASA", "PDF"],
-            "min_confidence": 0.2
+            "min_confidence": 0.2,
+            "require_crop_provenance": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "cdc-nchs-db508-chart-region",
+      "url": "https://www.cdc.gov/nchs/data/databriefs/db508.pdf",
+      "sha256": "866050bdd464278d0c0618af3affa56419a629c311f5c9b38b00743cf2a0460c",
+      "source_label": "CDC NCHS Data Brief No. 508",
+      "source_homepage": "https://www.cdc.gov/nchs/products/databriefs/db508.htm",
+      "source_rights": "U.S. federal government public information",
+      "source_retrieved_at": "2026-06-22",
+      "document_archetype": "public health statistical report with a bar chart",
+      "capability_tags": ["chart_extraction", "statistical_chart", "visual_text"],
+      "regions": [
+        {
+          "id": "obesity-prevalence-figure-1",
+          "page": 1,
+          "bounding_box": { "left": 220, "bottom": 150, "right": 565, "top": 380 },
+          "padding": 4,
+          "capability_tags": ["chart_extraction", "crop_provenance", "statistical_chart"],
+          "expected": {
+            "kind": "chart",
+            "contains_text": ["Figure 1", "Prevalence", "40.3"],
+            "min_confidence": 0.2,
+            "min_chart_components": 2,
+            "require_crop_provenance": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "arxiv-attention-visual-regions",
+      "url": "https://arxiv.org/pdf/1706.03762.pdf",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "source_label": "arXiv 1706.03762v7, Attention Is All You Need",
+      "source_homepage": "https://arxiv.org/abs/1706.03762",
+      "source_rights": "Publicly available arXiv author manuscript; this project does not vendor the PDF and users should follow the source terms",
+      "source_retrieved_at": "2026-06-22",
+      "document_archetype": "public research paper with equations, figures, and tables",
+      "capability_tags": [
+        "figure_description",
+        "formula_recognition",
+        "research_paper",
+        "table_recognition",
+        "visual_text"
+      ],
+      "regions": [
+        {
+          "id": "transformer-architecture-figure",
+          "page": 3,
+          "bounding_box": { "left": 180, "bottom": 360, "right": 430, "top": 750 },
+          "padding": 4,
+          "capability_tags": [
+            "crop_provenance",
+            "diagram_context",
+            "figure_description",
+            "model_architecture"
+          ],
+          "expected": {
+            "kind": "figure",
+            "contains_text": ["Transformer", "Encoder", "Decoder"],
+            "min_confidence": 0.2,
+            "require_crop_provenance": true
+          }
+        },
+        {
+          "id": "scaled-dot-product-attention-equation",
+          "page": 4,
+          "bounding_box": { "left": 195, "bottom": 278, "right": 420, "top": 355 },
+          "padding": 4,
+          "capability_tags": ["crop_provenance", "formula_recognition", "math_expression"],
+          "expected": {
+            "kind": "formula",
+            "contains_text": ["Attention", "softmax"],
+            "min_confidence": 0.2,
+            "min_formula_formats": 1,
+            "require_crop_provenance": true
+          }
+        },
+        {
+          "id": "translation-quality-table-2",
+          "page": 8,
+          "bounding_box": { "left": 120, "bottom": 540, "right": 492, "top": 706 },
+          "padding": 4,
+          "capability_tags": ["crop_provenance", "research_table", "table_recognition"],
+          "expected": {
+            "kind": "table",
+            "contains_text": ["BLEU", "Transformer"],
+            "min_confidence": 0.2,
+            "min_table_cells": 8,
+            "require_crop_provenance": true
           }
         }
       ]

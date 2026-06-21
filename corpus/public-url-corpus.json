@@ -1,6 +1,6 @@
 {
   "description": "Opt-in public PDF corpus manifest. PDFs are not vendored; run with MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true to download and verify each SHA256 before benchmarking.",
-  "retrieved_at": "2026-06-21",
+  "retrieved_at": "2026-06-22",
   "cases": [
     {
       "id": "irs-w9-2024-form",
@@ -104,6 +104,67 @@
         "min_pages": 14,
         "min_text_chars": 1000,
         "contains_text": ["Final Technical Report", "Advanced Statistical Methods"]
+      },
+      "read_pdf_options": {
+        "include_full_text": true,
+        "include_page_count": true,
+        "include_chunks": true,
+        "include_text_layer": true,
+        "include_document_map": true
+      }
+    },
+    {
+      "id": "cdc-nchs-db508-obesity-data-brief",
+      "url": "https://www.cdc.gov/nchs/data/databriefs/db508.pdf",
+      "sha256": "866050bdd464278d0c0618af3affa56419a629c311f5c9b38b00743cf2a0460c",
+      "source_label": "CDC NCHS Data Brief No. 508",
+      "source_homepage": "https://www.cdc.gov/nchs/products/databriefs/db508.htm",
+      "source_rights": "U.S. federal government public information",
+      "source_retrieved_at": "2026-06-22",
+      "document_archetype": "official public health statistical report with charts",
+      "capability_tags": [
+        "chart_evidence",
+        "document_map",
+        "selectable_text",
+        "statistical_report",
+        "text_layer",
+        "visual_text"
+      ],
+      "expected": {
+        "min_pages": 10,
+        "min_text_chars": 3000,
+        "contains_text": ["Obesity and Severe Obesity", "Figure 1", "Prevalence"]
+      },
+      "read_pdf_options": {
+        "include_full_text": true,
+        "include_page_count": true,
+        "include_chunks": true,
+        "include_text_layer": true,
+        "include_document_map": true
+      }
+    },
+    {
+      "id": "arxiv-attention-is-all-you-need-v7",
+      "url": "https://arxiv.org/pdf/1706.03762.pdf",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "source_label": "arXiv 1706.03762v7, Attention Is All You Need",
+      "source_homepage": "https://arxiv.org/abs/1706.03762",
+      "source_rights": "Publicly available arXiv author manuscript; this project does not vendor the PDF and users should follow the source terms",
+      "source_retrieved_at": "2026-06-22",
+      "document_archetype": "public research paper with equations, figures, and tables",
+      "capability_tags": [
+        "document_map",
+        "formula_text",
+        "research_paper",
+        "selectable_text",
+        "table_evidence",
+        "text_layer",
+        "visual_text"
+      ],
+      "expected": {
+        "min_pages": 15,
+        "min_text_chars": 8000,
+        "contains_text": ["Attention Is All You Need", "Transformer", "Scaled Dot-Product Attention"]
       },
       "read_pdf_options": {
         "include_full_text": true,

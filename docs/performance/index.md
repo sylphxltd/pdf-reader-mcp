@@ -208,8 +208,9 @@ so release reviewers and downstream users can reproduce a real-world public
 corpus artifact without vendoring PDF bytes or making default CI depend on
 network access. `bun run package:smoke` verifies that the packed package keeps
 the required public corpus/provider capability tag coverage, corpus expected
-assertions and read options, and provider-region bbox/normalized-confidence/text
-contracts.
+assertions and read options, provider-region bbox/normalized-confidence/text
+contracts, and provider expected-kind coverage for chart, diagram, figure,
+formula, image, and table regions.
 
 ## Provider Benchmark
 
@@ -282,9 +283,10 @@ MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true \
 ```
 
 `corpus/public-provider-accuracy.json` contains official and publicly available
-PDF URLs, pinned SHA256 values, source metadata, and full-page visual regions
-with expected terms, normalized confidence floors, positive-area bounding boxes,
-and capability tags. The crop benchmark writes a
+PDF URLs, pinned SHA256 values, source metadata, full-page visual regions, and
+focused public chart, figure, formula, and table crops with expected terms,
+expected visual kinds, normalized confidence floors, positive-area bounding
+boxes, and capability tags. The crop benchmark writes a
 `pdf_provider_manifest_crop_benchmark` artifact with crop provenance and
 capability summaries; the provider benchmark uses the same crop path plus
 provider normalization and writes a

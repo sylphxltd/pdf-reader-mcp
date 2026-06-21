@@ -162,7 +162,8 @@ the executable `dist/index.js` runtime artifact with matching `bin` and
 `exports` metadata. It also verifies that public evidence manifests keep source
 metadata, SHA256 values, capability tags, expected corpus assertions, required
 read options, and provider-region bbox/normalized-confidence/text contracts in
-the packed package.
+the packed package. Public provider manifests must also retain expected visual
+kind coverage for chart, diagram, figure, formula, image, and table regions.
 `release:preflight` runs the full publish gate and requires strict installed
 provider certification before publishing can proceed.
 
@@ -204,7 +205,9 @@ publicly available PDFs with source metadata, pinned SHA256 values, and
 required capability tags. The package smoke gate verifies that the published
 tarball keeps the public corpus and provider capability coverage manifests, and
 that public corpus cases retain expected text/page/text-volume assertions plus
-document-map and text-layer read options.
+document-map and text-layer read options. The checked-in public corpus includes
+official form/guidance/technical-report evidence plus public statistical-report
+and research-paper evidence for chart, formula, and table-heavy documents.
 
 `benchmark:provider-manifest` emits `pdf_provider_manifest_benchmark.json`
 when `--provider-manifest` or `MCP_PDF_PROVIDER_MANIFEST` points at a provider
@@ -223,7 +226,9 @@ PDF crop regions with source metadata, pinned SHA256 values, and required
 case/region capability tags. Package smoke also requires every published
 provider region to keep positive-area bounding boxes, expected text terms, and
 normalized minimum confidence thresholds so the manifest remains scoreable
-after publish.
+after publish. The same gate requires the published provider manifest to keep
+expected-kind coverage for chart, diagram, figure, formula, image, and table
+regions.
 `benchmark:release-artifacts` also runs provider-manifest scoring against a
 deterministic local fixture manifest with the configured reference provider, so
 `benchmark:release-gate` requires table, formula, chart, figure, image,
