@@ -57,6 +57,16 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
           'text_layer',
           'visual_text',
         ],
+        expected: {
+          min_pages: 1,
+          min_text_chars: 100,
+          contains_text: ['public smoke'],
+        },
+        read_pdf_options: {
+          include_full_text: true,
+          include_text_layer: true,
+          include_document_map: true,
+        },
       },
     ],
   });
@@ -82,7 +92,7 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
               'layout_diagram',
               'scanned_page_triage',
             ],
-            expected: { contains_text: ['provider'] },
+            expected: { contains_text: ['provider'], min_confidence: 0.2 },
           },
         ],
       },
@@ -184,6 +194,154 @@ describe('package smoke', () => {
       expect(publicProviderCheck?.evidence?.missing_required_capability_tags).toContain(
         'scanned_page_triage'
       );
+    });
+  });
+
+  test('fails when public corpus expected assertions are missing', async () => {
+    await withTempDir(async (tempDir) => {
+      writeExtractedPackage(tempDir);
+      writeJson(path.join(tempDir, 'corpus', 'public-url-corpus.json'), {
+        cases: [
+          {
+            id: 'public-smoke',
+            url: 'https://example.com/public-smoke.pdf',
+            sha256: 'a'.repeat(64),
+            source_label: 'public smoke fixture',
+            source_homepage: 'https://example.com/',
+            source_rights: 'test fixture',
+            source_retrieved_at: '2026-06-21',
+            capability_tags: [
+              'accessibility_guidance',
+              'document_map',
+              'fillable_form',
+              'government_newsletter',
+              'image_plus_text',
+              'legacy_scan',
+              'official_form',
+              'public_domain_text',
+              'selectable_text',
+              'technical_report',
+              'text_layer',
+              'visual_text',
+            ],
+            expected: {
+              contains_text: [],
+            },
+            read_pdf_options: {
+              include_document_map: false,
+              include_text_layer: false,
+            },
+          },
+        ],
+      });
+
+      const checks = await validateExtractedPackage(tempDir);
+
+      const publicCorpusCheck = checks.find(
+        (check) => check.id === 'corpus:public-url-manifest-shape'
+      );
+      expect(publicCorpusCheck?.status).toBe('failed');
+      expect(publicCorpusCheck?.evidence?.cases_with_expected_text).toBe(0);
+      expect(publicCorpusCheck?.evidence?.cases_with_document_map_option).toBe(0);
+      expect(publicCorpusCheck?.evidence?.cases_with_text_layer_option).toBe(0);
+    });
+  });
+
+  test('fails when public provider region evidence contracts are weak', async () => {
+    await withTempDir(async (tempDir) => {
+      writeExtractedPackage(tempDir);
+      writeJson(path.join(tempDir, 'corpus', 'public-provider-accuracy.json'), {
+        cases: [
+          {
+            id: 'provider-smoke',
+            url: 'https://example.com/provider-smoke.pdf',
+            sha256: 'b'.repeat(64),
+            source_label: 'provider smoke fixture',
+            source_homepage: 'https://example.com/',
+            source_rights: 'test fixture',
+            source_retrieved_at: '2026-06-21',
+            capability_tags: [
+              'accessibility_diagram',
+              'image_plus_text',
+              'legacy_scan',
+              'visual_text',
+            ],
+            regions: [
+              {
+                id: 'provider-region',
+                page: 1,
+                bounding_box: { left: 0, bottom: 0, right: 0, top: 100 },
+                capability_tags: [
+                  'diagram_context',
+                  'full_page_crop',
+                  'layout_diagram',
+                  'scanned_page_triage',
+                ],
+                expected: { contains_text: [] },
+              },
+            ],
+          },
+        ],
+      });
+
+      const checks = await validateExtractedPackage(tempDir);
+
+      const publicProviderCheck = checks.find(
+        (check) => check.id === 'corpus:public-provider-manifest-shape'
+      );
+      expect(publicProviderCheck?.status).toBe('failed');
+      expect(publicProviderCheck?.evidence?.regions_with_valid_bounding_boxes).toBe(0);
+      expect(publicProviderCheck?.evidence?.regions_with_expected_text).toBe(0);
+      expect(publicProviderCheck?.evidence?.regions_with_min_confidence).toBe(0);
+    });
+  });
+
+  test('fails when public provider region confidence or page contracts are outside scoreable bounds', async () => {
+    await withTempDir(async (tempDir) => {
+      writeExtractedPackage(tempDir);
+      writeJson(path.join(tempDir, 'corpus', 'public-provider-accuracy.json'), {
+        cases: [
+          {
+            id: 'provider-smoke',
+            url: 'https://example.com/provider-smoke.pdf',
+            sha256: 'b'.repeat(64),
+            source_label: 'provider smoke fixture',
+            source_homepage: 'https://example.com/',
+            source_rights: 'test fixture',
+            source_retrieved_at: '2026-06-21',
+            capability_tags: [
+              'accessibility_diagram',
+              'image_plus_text',
+              'legacy_scan',
+              'visual_text',
+            ],
+            regions: [
+              {
+                id: 'provider-region',
+                page: 1.5,
+                bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+                capability_tags: [
+                  'diagram_context',
+                  'full_page_crop',
+                  'layout_diagram',
+                  'scanned_page_triage',
+                ],
+                expected: { contains_text: ['provider'], min_confidence: 1.5 },
+              },
+            ],
+          },
+        ],
+      });
+
+      const checks = await validateExtractedPackage(tempDir);
+
+      const publicProviderCheck = checks.find(
+        (check) => check.id === 'corpus:public-provider-manifest-shape'
+      );
+      expect(publicProviderCheck?.status).toBe('failed');
+      expect(publicProviderCheck?.evidence?.regions_with_valid_bounding_boxes).toBe(0);
+      expect(publicProviderCheck?.evidence?.regions_with_expected_text).toBe(1);
+      expect(publicProviderCheck?.evidence?.regions_with_min_confidence).toBe(0);
     });
   });
 

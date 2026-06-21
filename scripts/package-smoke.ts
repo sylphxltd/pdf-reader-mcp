@@ -83,6 +83,17 @@ const isRecord = (value: unknown): value is JsonRecord =>
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
 
+const positiveInteger = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+
+const nonNegativeNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+
+const normalizedConfidence = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 1 ? value : undefined;
+
+const getRecord = (value: unknown): JsonRecord | undefined => (isRecord(value) ? value : undefined);
+
 const normalizedTags = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
   const tags = value
@@ -117,6 +128,35 @@ const readJson = async (filePath: string): Promise<JsonRecord | undefined> => {
   }
 };
 
+const hasExpectedTextAssertions = (entry: JsonRecord): boolean => {
+  const expected = getRecord(entry.expected);
+  return (
+    Array.isArray(expected?.contains_text) &&
+    expected.contains_text.some((value) => isNonEmptyString(value))
+  );
+};
+
+const hasRequiredReadOption = (entry: JsonRecord, key: string): boolean =>
+  getRecord(entry.read_pdf_options)?.[key] === true;
+
+const hasValidBoundingBox = (entry: JsonRecord): boolean => {
+  const box = getRecord(entry.bounding_box);
+  const left = nonNegativeNumber(box?.left);
+  const bottom = nonNegativeNumber(box?.bottom);
+  const right = nonNegativeNumber(box?.right);
+  const top = nonNegativeNumber(box?.top);
+
+  return (
+    positiveInteger(entry.page) !== undefined &&
+    left !== undefined &&
+    bottom !== undefined &&
+    right !== undefined &&
+    top !== undefined &&
+    right > left &&
+    top > bottom
+  );
+};
+
 const fileExists = async (filePath: string): Promise<boolean> => {
   try {
     const stat = fs.statSync(filePath);
@@ -141,6 +181,11 @@ const summarizePublicCorpusManifest = (
   total_cases: number;
   url_cases_with_metadata: number;
   cases_with_capability_tags: number;
+  cases_with_expected_text: number;
+  cases_with_expected_page_floor: number;
+  cases_with_expected_text_volume: number;
+  cases_with_document_map_option: number;
+  cases_with_text_layer_option: number;
   capability_tag_count: number;
   capability_tags: string[];
   missing_required_capability_tags: string[];
@@ -170,6 +215,21 @@ const summarizePublicCorpusManifest = (
     cases_with_capability_tags: cases.filter(
       (entry) => isRecord(entry) && normalizedTags(entry.capability_tags).length > 0
     ).length,
+    cases_with_expected_text: cases.filter((entry) => isRecord(entry) && hasExpectedTextAssertions(entry))
+      .length,
+    cases_with_expected_page_floor: cases.filter(
+      (entry) => isRecord(entry) && positiveInteger(getRecord(entry.expected)?.min_pages) !== undefined
+    ).length,
+    cases_with_expected_text_volume: cases.filter(
+      (entry) =>
+        isRecord(entry) && positiveInteger(getRecord(entry.expected)?.min_text_chars) !== undefined
+    ).length,
+    cases_with_document_map_option: cases.filter(
+      (entry) => isRecord(entry) && hasRequiredReadOption(entry, 'include_document_map')
+    ).length,
+    cases_with_text_layer_option: cases.filter(
+      (entry) => isRecord(entry) && hasRequiredReadOption(entry, 'include_text_layer')
+    ).length,
     capability_tag_count: capabilityTags.size,
     capability_tags: [...capabilityTags].sort(),
     missing_required_capability_tags: missingRequiredTags(
@@ -187,6 +247,9 @@ const summarizePublicProviderManifest = (
   url_cases_with_metadata: number;
   cases_with_capability_tags: number;
   regions_with_capability_tags: number;
+  regions_with_valid_bounding_boxes: number;
+  regions_with_expected_text: number;
+  regions_with_min_confidence: number;
   capability_tag_count: number;
   capability_tags: string[];
   missing_required_capability_tags: string[];
@@ -233,6 +296,16 @@ const summarizePublicProviderManifest = (
     ).length,
     regions_with_capability_tags: regions.filter(
       (entry) => isRecord(entry) && normalizedTags(entry.capability_tags).length > 0
+    ).length,
+    regions_with_valid_bounding_boxes: regions.filter(
+      (entry) => isRecord(entry) && hasValidBoundingBox(entry)
+    ).length,
+    regions_with_expected_text: regions.filter(
+      (entry) => isRecord(entry) && hasExpectedTextAssertions(entry)
+    ).length,
+    regions_with_min_confidence: regions.filter(
+      (entry) =>
+        isRecord(entry) && normalizedConfidence(getRecord(entry.expected)?.min_confidence) !== undefined
     ).length,
     capability_tag_count: capabilityTags.size,
     capability_tags: [...capabilityTags].sort(),
@@ -314,8 +387,13 @@ export const validateExtractedPackage = async (
     publicCorpusSummary.total_cases > 0 &&
       publicCorpusSummary.total_cases === publicCorpusSummary.url_cases_with_metadata &&
       publicCorpusSummary.total_cases === publicCorpusSummary.cases_with_capability_tags &&
+      publicCorpusSummary.total_cases === publicCorpusSummary.cases_with_expected_text &&
+      publicCorpusSummary.total_cases === publicCorpusSummary.cases_with_expected_page_floor &&
+      publicCorpusSummary.total_cases === publicCorpusSummary.cases_with_expected_text_volume &&
+      publicCorpusSummary.total_cases === publicCorpusSummary.cases_with_document_map_option &&
+      publicCorpusSummary.total_cases === publicCorpusSummary.cases_with_text_layer_option &&
       publicCorpusSummary.missing_required_capability_tags.length === 0,
-    'public URL corpus manifest contains URL cases, source metadata, SHA256 values, and required capability tags',
+    'public URL corpus manifest contains URL cases, source metadata, SHA256 values, expected assertions, read options, and required capability tags',
     publicCorpusSummary
   );
   addCheck(
@@ -333,8 +411,11 @@ export const validateExtractedPackage = async (
       publicProviderSummary.total_cases === publicProviderSummary.url_cases_with_metadata &&
       publicProviderSummary.total_cases === publicProviderSummary.cases_with_capability_tags &&
       publicProviderSummary.total_regions === publicProviderSummary.regions_with_capability_tags &&
+      publicProviderSummary.total_regions === publicProviderSummary.regions_with_valid_bounding_boxes &&
+      publicProviderSummary.total_regions === publicProviderSummary.regions_with_expected_text &&
+      publicProviderSummary.total_regions === publicProviderSummary.regions_with_min_confidence &&
       publicProviderSummary.missing_required_capability_tags.length === 0,
-    'public provider manifest contains URL cases, source metadata, SHA256 values, regions, and required capability tags',
+    'public provider manifest contains URL cases, source metadata, SHA256 values, scored regions, expected assertions, and required capability tags',
     publicProviderSummary
   );
   addCheck(

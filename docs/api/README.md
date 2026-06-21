@@ -159,7 +159,10 @@ provider-manifest crop evidence, deterministic provider-manifest scoring
 evidence, and installed-provider final-bar evidence are complete.
 `package:smoke` packs the package locally and verifies that the tarball contains
 the executable `dist/index.js` runtime artifact with matching `bin` and
-`exports` metadata.
+`exports` metadata. It also verifies that public evidence manifests keep source
+metadata, SHA256 values, capability tags, expected corpus assertions, required
+read options, and provider-region bbox/normalized-confidence/text contracts in
+the packed package.
 `release:preflight` runs the full publish gate and requires strict installed
 provider certification before publishing can proceed.
 
@@ -199,7 +202,9 @@ only allowed with the existing `--allow-private-ips` /
 includes `corpus/public-url-corpus.json`, an opt-in manifest of official and
 publicly available PDFs with source metadata, pinned SHA256 values, and
 required capability tags. The package smoke gate verifies that the published
-tarball keeps the public corpus and provider capability coverage manifests.
+tarball keeps the public corpus and provider capability coverage manifests, and
+that public corpus cases retain expected text/page/text-volume assertions plus
+document-map and text-layer read options.
 
 `benchmark:provider-manifest` emits `pdf_provider_manifest_benchmark.json`
 when `--provider-manifest` or `MCP_PDF_PROVIDER_MANIFEST` points at a provider
@@ -215,7 +220,10 @@ content-addressed cache, and download only when
 `MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true` is set. The published package
 includes `corpus/public-provider-accuracy.json`, an opt-in manifest of public
 PDF crop regions with source metadata, pinned SHA256 values, and required
-case/region capability tags.
+case/region capability tags. Package smoke also requires every published
+provider region to keep positive-area bounding boxes, expected text terms, and
+normalized minimum confidence thresholds so the manifest remains scoreable
+after publish.
 `benchmark:release-artifacts` also runs provider-manifest scoring against a
 deterministic local fixture manifest with the configured reference provider, so
 `benchmark:release-gate` requires table, formula, chart, figure, image,

@@ -106,6 +106,11 @@ The provider manifest artifact now carries capability tags and a
 capability-level summary so public proof can be reviewed by capability area,
 not only by aggregate score. The package smoke gate also verifies required
 public provider capability coverage in the packed package.
+Strengthen package smoke for public evidence manifests so published corpus
+cases must keep expected text/page/text-volume assertions and document-map/text
+layer read options, while published provider regions must keep positive-area
+bounding boxes, expected text terms, and normalized minimum confidence
+thresholds.
 Add `benchmark:provider-manifest-crops` so the same public provider manifest can
 first prove URL download, SHA256 validation, page rendering, declared crop
 geometry, crop byte evidence, render provenance, and capability summaries
