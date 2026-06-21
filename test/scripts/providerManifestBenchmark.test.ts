@@ -68,11 +68,13 @@ describe('provider manifest benchmark', () => {
             source_label: 'local provider manifest fixture',
             source_rights: 'test fixture',
             document_archetype: 'local visual provider fixture',
+            capability_tags: ['visual_text', 'document_twin'],
             regions: [
               {
                 id: 'public-region',
                 page: 1,
                 bounding_box: { left: 0, bottom: 0, right: 612, top: 792 },
+                capability_tags: ['full_page_crop'],
                 expected: {
                   kind: 'image',
                   contains_text: ['dashboard', 'citation'],
@@ -116,6 +118,17 @@ describe('provider manifest benchmark', () => {
       expect(report.cases[0]?.regions[0]?.assertions.map((assertion) => assertion.id)).toContain(
         'public-region:crop-provenance'
       );
+      expect(report.cases[0]?.capability_tags).toEqual([
+        'visual_text',
+        'document_twin',
+        'full_page_crop',
+      ]);
+      expect(report.capability_summary.map((entry) => entry.tag)).toEqual([
+        'document_twin',
+        'full_page_crop',
+        'visual_text',
+      ]);
+      expect(report.capability_summary.every((entry) => entry.status === 'passed')).toBe(true);
     });
   });
 

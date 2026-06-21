@@ -93,3 +93,6 @@ so users can reproduce real-world corpus artifacts without vendoring PDF bytes.
 Add an opt-in public provider accuracy benchmark manifest and
 `benchmark:provider-manifest` script so configured visual-region providers can
 be scored against public PDF crops with pinned source metadata and checksums.
+The provider manifest artifact now carries capability tags and a
+capability-level summary so public proof can be reviewed by capability area,
+not only by aggregate score.

@@ -1719,7 +1719,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Corpus benchmark artifact over checked-in sample PDFs and runtime-generated reading-order/scanned-OCR/table archetypes
 - ✅ External corpus manifests with local paths, opt-in public URL downloads, SHA256 verification, reusable cache provenance, and private-host protection
 - ✅ Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, checksums, and package-smoke coverage
-- ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, and package-smoke coverage
+- ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, capability tags, artifact-level capability summaries, and package-smoke coverage
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ Provider quality metrics with thresholds, scores, fixture-level expected evidence, and observed evidence
@@ -1803,7 +1803,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Provider quality metrics for fixture-level OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Public corpus benchmark artifact for checked-in sample PDFs plus runtime-generated reading-order, scanned-OCR routing, and OCR-table recovery archetypes, enforced by the SOTA release gate
 - [x] External corpus manifest support for operator-supplied and checked-in public URL PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape with SHA256, cache provenance, source metadata, and private-host protection
-- [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, and region-level expectations
+- [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, region-level expectations, and capability-level summaries
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence

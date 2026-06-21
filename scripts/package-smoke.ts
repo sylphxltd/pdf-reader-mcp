@@ -108,11 +108,34 @@ const summarizePublicCorpusManifest = (
 
 const summarizePublicProviderManifest = (
   manifest: JsonRecord | undefined
-): { total_cases: number; total_regions: number; url_cases_with_metadata: number } => {
+): {
+  total_cases: number;
+  total_regions: number;
+  url_cases_with_metadata: number;
+  cases_with_capability_tags: number;
+  regions_with_capability_tags: number;
+  capability_tag_count: number;
+} => {
   const cases = Array.isArray(manifest?.cases) ? manifest.cases : [];
   const regionsByCase = cases.map((entry) =>
     isRecord(entry) && Array.isArray(entry.regions) ? entry.regions.length : 0
   );
+  const regions = cases.flatMap((entry) =>
+    isRecord(entry) && Array.isArray(entry.regions) ? entry.regions : []
+  );
+  const capabilityTags = new Set<string>();
+  for (const entry of cases) {
+    if (!isRecord(entry) || !Array.isArray(entry.capability_tags)) continue;
+    for (const tag of entry.capability_tags) {
+      if (isNonEmptyString(tag)) capabilityTags.add(tag);
+    }
+  }
+  for (const entry of regions) {
+    if (!isRecord(entry) || !Array.isArray(entry.capability_tags)) continue;
+    for (const tag of entry.capability_tags) {
+      if (isNonEmptyString(tag)) capabilityTags.add(tag);
+    }
+  }
   const urlCasesWithMetadata = cases.filter(
     (entry) =>
       isRecord(entry) &&
@@ -130,6 +153,19 @@ const summarizePublicProviderManifest = (
     total_cases: cases.length,
     total_regions: regionsByCase.reduce((sum, count) => sum + count, 0),
     url_cases_with_metadata: urlCasesWithMetadata,
+    cases_with_capability_tags: cases.filter(
+      (entry) =>
+        isRecord(entry) &&
+        Array.isArray(entry.capability_tags) &&
+        entry.capability_tags.some((tag) => isNonEmptyString(tag))
+    ).length,
+    regions_with_capability_tags: regions.filter(
+      (entry) =>
+        isRecord(entry) &&
+        Array.isArray(entry.capability_tags) &&
+        entry.capability_tags.some((tag) => isNonEmptyString(tag))
+    ).length,
+    capability_tag_count: capabilityTags.size,
   };
 };
 
@@ -218,8 +254,11 @@ export const validateExtractedPackage = async (
     'corpus:public-provider-manifest-shape',
     publicProviderSummary.total_cases > 0 &&
       publicProviderSummary.total_regions > 0 &&
-      publicProviderSummary.total_cases === publicProviderSummary.url_cases_with_metadata,
-    'public provider manifest contains URL cases, source metadata, SHA256 values, and regions',
+      publicProviderSummary.total_cases === publicProviderSummary.url_cases_with_metadata &&
+      publicProviderSummary.total_cases === publicProviderSummary.cases_with_capability_tags &&
+      publicProviderSummary.total_regions === publicProviderSummary.regions_with_capability_tags &&
+      publicProviderSummary.capability_tag_count > 0,
+    'public provider manifest contains URL cases, source metadata, SHA256 values, regions, and capability tags',
     publicProviderSummary
   );
   addCheck(

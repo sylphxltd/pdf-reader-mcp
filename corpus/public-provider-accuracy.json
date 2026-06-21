@@ -11,12 +11,14 @@
       "source_rights": "U.S. federal government public information",
       "source_retrieved_at": "2026-06-21",
       "document_archetype": "accessibility guide with diagrams and explanatory text",
+      "capability_tags": ["accessibility_diagram", "visual_text"],
       "regions": [
         {
           "id": "play-areas-page-1-overview",
           "page": 1,
           "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
           "padding": 0,
+          "capability_tags": ["full_page_crop", "diagram_context"],
           "expected": {
             "contains_text": ["play", "accessible"],
             "min_confidence": 0.2
@@ -33,12 +35,14 @@
       "source_rights": "U.S. federal government public information",
       "source_retrieved_at": "2026-06-21",
       "document_archetype": "accessibility guide with layout diagrams",
+      "capability_tags": ["accessibility_diagram", "visual_text"],
       "regions": [
         {
           "id": "toilet-rooms-page-1-overview",
           "page": 1,
           "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
           "padding": 0,
+          "capability_tags": ["full_page_crop", "layout_diagram"],
           "expected": {
             "contains_text": ["toilet", "accessible"],
             "min_confidence": 0.2
@@ -55,12 +59,14 @@
       "source_rights": "Publicly available NASA NTRS record",
       "source_retrieved_at": "2026-06-21",
       "document_archetype": "legacy scan with image-plus-text characteristics",
+      "capability_tags": ["legacy_scan", "image_plus_text", "visual_text"],
       "regions": [
         {
           "id": "nasa-image-plus-text-page-1",
           "page": 1,
           "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
           "padding": 0,
+          "capability_tags": ["full_page_crop", "scanned_page_triage"],
           "expected": {
             "contains_text": ["NASA", "PDF"],
             "min_confidence": 0.2

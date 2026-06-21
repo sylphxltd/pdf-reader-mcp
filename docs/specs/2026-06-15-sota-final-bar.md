@@ -142,8 +142,8 @@ themselves.
      published package as an opt-in public provider accuracy manifest over
      official and publicly available PDF crops. `benchmark:provider-manifest`
      can score a configured visual-region provider against those crop
-     expectations without making default CI depend on network access or
-     external model availability.
+     expectations and emits capability-summary metadata without making default
+     CI depend on network access or external model availability.
    - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate`
      reads those artifacts and must pass before a SOTA release can be treated
      as complete. It fails if deterministic final-bar coverage is incomplete,

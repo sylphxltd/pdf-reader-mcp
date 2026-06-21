@@ -198,7 +198,10 @@ when `--provider-manifest` or `MCP_PDF_PROVIDER_MANIFEST` points at a provider
 accuracy manifest. It crops the declared regions through the same renderer and
 provider-normalization path as `analyze_regions`, then scores kind, text,
 confidence, structured table/formula/chart evidence, and crop provenance
-against the manifest expectations. URL cases require `sha256`, use the same
+against the manifest expectations. Case and region `capability_tags` flow into
+the artifact-level `capability_summary`, so release reviewers can see which
+public visual capabilities the manifest exercises instead of reading only a
+single aggregate score. URL cases require `sha256`, use the same
 content-addressed cache, and download only when
 `--allow-provider-manifest-downloads` or
 `MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true` is set. The published package

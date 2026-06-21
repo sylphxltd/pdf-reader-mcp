@@ -56,11 +56,13 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
         source_homepage: 'https://example.com/',
         source_rights: 'test fixture',
         source_retrieved_at: '2026-06-21',
+        capability_tags: ['visual_text'],
         regions: [
           {
             id: 'provider-region',
             page: 1,
             bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+            capability_tags: ['full_page_crop'],
             expected: { contains_text: ['provider'] },
           },
         ],

@@ -250,10 +250,10 @@ MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true \
 
 `corpus/public-provider-accuracy.json` contains official and publicly available
 PDF URLs, pinned SHA256 values, source metadata, and full-page visual regions
-with expected terms. The benchmark uses the same region crop and provider
-normalization path as `analyze_regions`, writes a
-`pdf_provider_manifest_benchmark` artifact, and remains outside default CI
-network activity.
+with expected terms and capability tags. The benchmark uses the same region
+crop and provider normalization path as `analyze_regions`, writes a
+`pdf_provider_manifest_benchmark` artifact with a `capability_summary`, and
+remains outside default CI network activity.
 
 ## Optimization Tips
 
