@@ -127,6 +127,13 @@ themselves.
      can add operator-supplied real PDFs to the corpus artifact using the same
      assertion format. Release CI remains deterministic and does not download
      or bundle external PDFs by default.
+   - Public URL corpus cases must include `sha256`. They resolve through a
+     content-addressed cache and require `--allow-corpus-downloads` or
+     `MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true` before the benchmark performs a
+     network fetch. Cached bytes are revalidated against the checksum before
+     parsing, private/loopback/link-local hosts remain blocked unless the
+     existing private-IP development override is enabled, and URL/cache
+     provenance is recorded in the corpus artifact.
    - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate`
      reads those artifacts and must pass before a SOTA release can be treated
      as complete. It fails if deterministic final-bar coverage is incomplete,

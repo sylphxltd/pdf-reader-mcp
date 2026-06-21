@@ -82,3 +82,8 @@ model env vars, and deterministic benchmark coverage.
 Add external corpus manifest support to `benchmark:corpus` so teams can include
 operator-supplied real PDFs in the same corpus artifact without making release
 CI depend on bundled external files or network downloads.
+Add opt-in public URL support for external corpus manifests with required
+SHA256 validation, reusable cache paths, and artifact provenance for URL,
+checksum, and download/cache status. Private, loopback, and link-local URL
+hosts are blocked by default unless the existing private-IP development
+override is enabled.

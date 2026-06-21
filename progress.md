@@ -25,10 +25,11 @@
 - [x] Formula, chart, figure, image-description, and table evidence normalization from visual-region providers
 - [x] Deterministic quality, corpus, provider, package smoke, and SOTA release-gate evidence
 - [x] External corpus manifest support for operator-supplied real PDF benchmark evidence
+- [x] External corpus URL support with SHA256 verification, explicit download opt-in, private-host protection, cache reuse, and artifact provenance
 
 ## In Progress
 - [ ] Publish the PDF Intelligence vNext release through the Changesets version PR flow
-- [ ] Expand shared public scanned-PDF and visual-region accuracy manifests
+- [ ] Curate shared public scanned-PDF and visual-region accuracy manifests
 
 ## Planned
 - [ ] Optional redaction and safety policy controls

@@ -1,11 +1,29 @@
 import { describe, expect, test } from 'bun:test';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+
+interface CorpusBenchmarkReport {
+  external_case_count?: number;
+  external_url_case_count?: number;
+  external_download_count?: number;
+  corpus_cache_dir?: string;
+  manifest_path?: string;
+  cases: Array<{
+    id: string;
+    fixture_type: string;
+    document_archetype: string;
+    score: number;
+    assertions: Array<{ pass: boolean; observed?: Record<string, unknown> }>;
+  }>;
+}
 
 const withTempDir = async <T>(run: (tempDir: string) => Promise<T>): Promise<T> => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-corpus-benchmark-'));
@@ -13,6 +31,33 @@ const withTempDir = async <T>(run: (tempDir: string) => Promise<T>): Promise<T> 
     return await run(tempDir);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
+  }
+};
+
+const readCorpusReport = async (artifactDir: string): Promise<CorpusBenchmarkReport> =>
+  JSON.parse(await fs.readFile(path.join(artifactDir, 'pdf_corpus_benchmark.json'), 'utf8'));
+
+const withPdfServer = async <T>(run: (url: string) => Promise<T>): Promise<T> => {
+  const bytes = await fs.readFile(path.resolve('test/fixtures/sample.pdf'));
+  const server = createServer((_request, response) => {
+    response.writeHead(200, {
+      'content-type': 'application/pdf',
+      'content-length': String(bytes.byteLength),
+    });
+    response.end(bytes);
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', resolve);
+  });
+
+  try {
+    const address = server.address() as AddressInfo;
+    return await run(`http://127.0.0.1:${String(address.port)}/sample.pdf`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
   }
 };
 
@@ -61,17 +106,7 @@ describe('corpus benchmark external manifests', () => {
       );
 
       const reportPath = path.join(artifactDir, 'pdf_corpus_benchmark.json');
-      const report = JSON.parse(await fs.readFile(reportPath, 'utf8')) as {
-        external_case_count?: number;
-        manifest_path?: string;
-        cases: Array<{
-          id: string;
-          fixture_type: string;
-          document_archetype: string;
-          score: number;
-          assertions: Array<{ pass: boolean }>;
-        }>;
-      };
+      const report = JSON.parse(await fs.readFile(reportPath, 'utf8')) as CorpusBenchmarkReport;
       const external = report.cases.find((entry) => entry.id === 'external-sample');
 
       expect(report.external_case_count).toBe(1);
@@ -93,5 +128,127 @@ describe('corpus benchmark external manifests', () => {
         maxBuffer: 1024 * 1024 * 10,
       });
     });
-  });
+  }, 20_000);
+
+  test('downloads public corpus URL cases only with opt-in and validates sha256 cache provenance', async () => {
+    await withTempDir(async (tempDir) => {
+      await withPdfServer(async (url) => {
+        const sampleBytes = await fs.readFile(path.resolve('test/fixtures/sample.pdf'));
+        const sha256 = createHash('sha256').update(sampleBytes).digest('hex');
+        const manifestPath = path.join(tempDir, 'url-corpus-manifest.json');
+        const artifactDir = path.join(tempDir, 'artifacts-url');
+        const cachedArtifactDir = path.join(tempDir, 'artifacts-cache');
+        const cacheDir = path.join(tempDir, 'cache');
+        await fs.writeFile(
+          manifestPath,
+          JSON.stringify({
+            cases: [
+              {
+                id: 'external-url-sample',
+                url,
+                sha256,
+                pages: [1],
+                document_archetype: 'external URL text-rich sample',
+                expected: {
+                  contains_text: ['Sample PDF'],
+                  min_pages: 1,
+                  min_text_chars: 2000,
+                },
+              },
+            ],
+          })
+        );
+
+        const baseEnv = {
+          ...process.env,
+          MCP_PDF_CORPUS_CACHE_DIR: cacheDir,
+          MCP_PDF_ALLOWED_DIRS: undefined,
+          MCP_PDF_ALLOW_PRIVATE_IPS: undefined,
+        };
+
+        await expect(
+          execFileAsync(
+            process.execPath,
+            ['scripts/benchmark-pdf-corpus.ts', '--corpus-manifest', manifestPath],
+            {
+              cwd: path.resolve('.'),
+              env: {
+                ...baseEnv,
+                MCP_PDF_BENCHMARK_OUTPUT_DIR: path.join(tempDir, 'artifacts-denied'),
+                MCP_PDF_CORPUS_ALLOW_DOWNLOADS: undefined,
+              },
+              timeout: 20_000,
+              maxBuffer: 1024 * 1024 * 10,
+            }
+          )
+        ).rejects.toThrow(/allow-corpus-downloads|MCP_PDF_CORPUS_ALLOW_DOWNLOADS/u);
+
+        await expect(
+          execFileAsync(process.execPath, ['scripts/benchmark-pdf-corpus.ts'], {
+            cwd: path.resolve('.'),
+            env: {
+              ...baseEnv,
+              MCP_PDF_BENCHMARK_OUTPUT_DIR: path.join(tempDir, 'artifacts-private-denied'),
+              MCP_PDF_CORPUS_MANIFEST: manifestPath,
+              MCP_PDF_CORPUS_ALLOW_DOWNLOADS: 'true',
+            },
+            timeout: 20_000,
+            maxBuffer: 1024 * 1024 * 10,
+          })
+        ).rejects.toThrow(/URL rejected|non-public|SSRF protection/u);
+
+        await execFileAsync(process.execPath, ['scripts/benchmark-pdf-corpus.ts'], {
+          cwd: path.resolve('.'),
+          env: {
+            ...baseEnv,
+            MCP_PDF_BENCHMARK_OUTPUT_DIR: artifactDir,
+            MCP_PDF_CORPUS_MANIFEST: manifestPath,
+            MCP_PDF_CORPUS_ALLOW_DOWNLOADS: 'true',
+            MCP_PDF_ALLOW_PRIVATE_IPS: 'true',
+          },
+          timeout: 20_000,
+          maxBuffer: 1024 * 1024 * 10,
+        });
+
+        const report = await readCorpusReport(artifactDir);
+        const external = report.cases.find((entry) => entry.id === 'external-url-sample');
+        expect(report.external_url_case_count).toBe(1);
+        expect(report.external_download_count).toBe(1);
+        expect(report.corpus_cache_dir).toBe(path.resolve(cacheDir));
+        expect(external?.score).toBe(1);
+        expect(external?.assertions[0]?.observed).toMatchObject({
+          source_type: 'url',
+          source_url: url,
+          sha256,
+          downloaded: true,
+        });
+
+        await execFileAsync(process.execPath, ['scripts/benchmark-pdf-corpus.ts'], {
+          cwd: path.resolve('.'),
+          env: {
+            ...baseEnv,
+            MCP_PDF_BENCHMARK_OUTPUT_DIR: cachedArtifactDir,
+            MCP_PDF_CORPUS_MANIFEST: manifestPath,
+            MCP_PDF_CORPUS_ALLOW_DOWNLOADS: undefined,
+          },
+          timeout: 20_000,
+          maxBuffer: 1024 * 1024 * 10,
+        });
+
+        const cachedReport = await readCorpusReport(cachedArtifactDir);
+        const cachedExternal = cachedReport.cases.find(
+          (entry) => entry.id === 'external-url-sample'
+        );
+        expect(cachedReport.external_url_case_count).toBe(1);
+        expect(cachedReport.external_download_count).toBeUndefined();
+        expect(cachedExternal?.score).toBe(1);
+        expect(cachedExternal?.assertions[0]?.observed).toMatchObject({
+          source_type: 'url',
+          source_url: url,
+          sha256,
+          downloaded: false,
+        });
+      });
+    });
+  }, 20_000);
 });

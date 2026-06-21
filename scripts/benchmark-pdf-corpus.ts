@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { readPdf } from '../src/handlers/readPdf.js';
 import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
+import { assertUrlNotPrivate } from '../src/utils/config.js';
 import { writeBenchmarkReport } from './benchmark-utils.js';
 
 interface CorpusAssertion {
@@ -31,6 +33,9 @@ interface CorpusBenchmarkReport {
   corpus_scope: string;
   manifest_path?: string | undefined;
   external_case_count?: number | undefined;
+  external_url_case_count?: number | undefined;
+  external_download_count?: number | undefined;
+  corpus_cache_dir?: string | undefined;
   case_count: number;
   assertion_count: number;
   passed_assertion_count: number;
@@ -53,6 +58,10 @@ interface ExternalCorpusExpected {
 interface ExternalCorpusCase {
   id: string;
   path: string;
+  source_type: 'path' | 'url';
+  source_url?: string | undefined;
+  sha256?: string | undefined;
+  downloaded?: boolean | undefined;
   pages?: ReadPdfArgs['sources'][number]['pages'] | undefined;
   document_archetype: string;
   expected: ExternalCorpusExpected;
@@ -81,7 +90,28 @@ interface ExternalCorpusManifest {
 
 interface BuildCorpusBenchmarkReportOptions {
   manifestPath?: string | undefined;
+  allowCorpusDownloads?: boolean | undefined;
+  allowPrivateIps?: boolean | undefined;
+  corpusCacheDir?: string | undefined;
 }
+
+interface ExternalCorpusManifestOptions {
+  allowCorpusDownloads?: boolean | undefined;
+  allowPrivateIps?: boolean | undefined;
+  corpusCacheDir?: string | undefined;
+}
+
+interface ExternalCorpusEvaluation {
+  cases: CorpusCaseResult[];
+  manifest: ExternalCorpusManifest;
+}
+
+const CORPUS_DOWNLOAD_MAX_BYTES = 100 * 1024 * 1024;
+const CORPUS_DOWNLOAD_MAX_REDIRECTS = 5;
+const CORPUS_DOWNLOAD_ENV = 'MCP_PDF_CORPUS_ALLOW_DOWNLOADS';
+const CORPUS_CACHE_DIR_ENV = 'MCP_PDF_CORPUS_CACHE_DIR';
+const ALLOW_PRIVATE_IPS_ENV = 'MCP_PDF_ALLOW_PRIVATE_IPS';
+const DEFAULT_CORPUS_CACHE_DIR = path.join(os.homedir(), '.cache', 'pdf-reader-mcp', 'corpus');
 
 const round = (value: number): number => Math.round(value * 100) / 100;
 
@@ -327,6 +357,160 @@ const positiveNumber = (value: unknown): number | undefined =>
 const booleanOption = (value: unknown): boolean | undefined =>
   typeof value === 'boolean' ? value : undefined;
 
+const nonEmptyString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+
+const sha256Hex = (value: unknown): string | undefined => {
+  const text = nonEmptyString(value);
+  return text && /^[a-f0-9]{64}$/iu.test(text) ? text.toLowerCase() : undefined;
+};
+
+const sha256Buffer = (buffer: Buffer): string => createHash('sha256').update(buffer).digest('hex');
+
+const getFileNameFromUrl = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    const name = path.basename(parsed.pathname);
+    return name && name.toLowerCase().endsWith('.pdf') ? name : 'document.pdf';
+  } catch {
+    return 'document.pdf';
+  }
+};
+
+const safeCacheName = (sha256: string, url: string): string => {
+  const name = getFileNameFromUrl(url)
+    .replace(/[^a-z0-9._-]+/giu, '-')
+    .replace(/^-+|-+$/gu, '')
+    .toLowerCase();
+  return `${sha256.slice(0, 16)}-${name || 'document.pdf'}`;
+};
+
+const readIfExists = async (filePath: string): Promise<Buffer | undefined> => {
+  try {
+    return await fs.readFile(filePath);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
+  }
+};
+
+const validateCorpusUrl = (url: string, id: string): URL => {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`External corpus case ${id} has an invalid URL.`);
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`External corpus case ${id} URL must use http or https.`);
+  }
+  return parsed;
+};
+
+const validateCorpusUrlHop = async (
+  url: string,
+  id: string,
+  allowPrivateIps: boolean
+): Promise<URL> => {
+  const parsed = validateCorpusUrl(url, id);
+  if (!allowPrivateIps) {
+    try {
+      await assertUrlNotPrivate(parsed.hostname);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`External corpus case ${id} URL rejected: ${message}`);
+    }
+  }
+  return parsed;
+};
+
+const fetchExternalCorpusPdf = async (
+  id: string,
+  url: string,
+  allowPrivateIps: boolean
+): Promise<Response> => {
+  let currentUrl = url;
+  for (let redirectCount = 0; redirectCount <= CORPUS_DOWNLOAD_MAX_REDIRECTS; redirectCount += 1) {
+    const parsed = await validateCorpusUrlHop(currentUrl, id, allowPrivateIps);
+    const response = await fetch(parsed.toString(), { redirect: 'manual' });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) {
+        throw new Error(`External corpus case ${id} redirect response is missing Location.`);
+      }
+      currentUrl = new URL(location, parsed).toString();
+      continue;
+    }
+    return response;
+  }
+
+  throw new Error(
+    `External corpus case ${id} exceeded redirect limit (${String(CORPUS_DOWNLOAD_MAX_REDIRECTS)}).`
+  );
+};
+
+const downloadExternalCorpusPdf = async ({
+  id,
+  url,
+  sha256,
+  allowDownloads,
+  allowPrivateIps,
+  cacheDir,
+}: {
+  id: string;
+  url: string;
+  sha256: string;
+  allowDownloads: boolean;
+  allowPrivateIps: boolean;
+  cacheDir: string;
+}): Promise<{ path: string; downloaded: boolean }> => {
+  const cachePath = path.resolve(cacheDir, safeCacheName(sha256, url));
+  const cached = await readIfExists(cachePath);
+  if (cached && sha256Buffer(cached) === sha256) {
+    return { path: cachePath, downloaded: false };
+  }
+
+  if (!allowDownloads) {
+    throw new Error(
+      `External corpus case ${id} requires a cached PDF or explicit downloads. Pass --allow-corpus-downloads or set ${CORPUS_DOWNLOAD_ENV}=true.`
+    );
+  }
+
+  const response = await fetchExternalCorpusPdf(id, url, allowPrivateIps);
+  if (!response.ok) {
+    throw new Error(
+      `External corpus case ${id} download failed with HTTP ${String(response.status)}.`
+    );
+  }
+
+  const contentLength = Number(response.headers.get('content-length') ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > CORPUS_DOWNLOAD_MAX_BYTES) {
+    throw new Error(
+      `External corpus case ${id} exceeds the ${String(CORPUS_DOWNLOAD_MAX_BYTES)} byte download cap.`
+    );
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.byteLength > CORPUS_DOWNLOAD_MAX_BYTES) {
+    throw new Error(
+      `External corpus case ${id} exceeds the ${String(CORPUS_DOWNLOAD_MAX_BYTES)} byte download cap.`
+    );
+  }
+
+  const observedSha256 = sha256Buffer(bytes);
+  if (observedSha256 !== sha256) {
+    throw new Error(
+      `External corpus case ${id} checksum mismatch: expected ${sha256}, observed ${observedSha256}.`
+    );
+  }
+
+  await fs.mkdir(path.dirname(cachePath), { recursive: true });
+  await fs.writeFile(cachePath, bytes);
+  return { path: cachePath, downloaded: true };
+};
+
 const parseExternalCorpusExpected = (value: unknown): ExternalCorpusExpected => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
   const record = value as Record<string, unknown>;
@@ -388,7 +572,8 @@ const parseExternalCorpusReadOptions = (
 };
 
 const readExternalCorpusManifest = async (
-  manifestPath: string
+  manifestPath: string,
+  options: ExternalCorpusManifestOptions = {}
 ): Promise<ExternalCorpusManifest> => {
   const absoluteManifestPath = path.resolve(manifestPath);
   const raw = await fs.readFile(absoluteManifestPath, 'utf8');
@@ -403,58 +588,104 @@ const readExternalCorpusManifest = async (
   }
 
   const manifestDirectory = path.dirname(absoluteManifestPath);
+  const cacheDir = path.resolve(options.corpusCacheDir ?? DEFAULT_CORPUS_CACHE_DIR);
   return {
-    cases: cases.map((entry, index): ExternalCorpusCase => {
+    cases: await Promise.all(cases.map(async (entry, index): Promise<ExternalCorpusCase> => {
       if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
         throw new Error(`External corpus case ${String(index + 1)} must be a JSON object.`);
       }
 
       const record = entry as Record<string, unknown>;
-      const id =
-        typeof record.id === 'string' && record.id.trim().length > 0
-          ? record.id.trim()
-          : `external-${String(index + 1)}`;
-      if (typeof record.path !== 'string' || record.path.trim().length === 0) {
-        throw new Error(`External corpus case ${id} must include a path.`);
+      const id = nonEmptyString(record.id) ?? `external-${String(index + 1)}`;
+      const pathValue = nonEmptyString(record.path);
+      const urlValue = nonEmptyString(record.url);
+      if ((pathValue ? 1 : 0) + (urlValue ? 1 : 0) !== 1) {
+        throw new Error(`External corpus case ${id} must include exactly one of path or url.`);
       }
 
-      const sourcePath = path.isAbsolute(record.path)
-        ? record.path
-        : path.resolve(manifestDirectory, record.path);
+      const source =
+        pathValue !== undefined
+          ? {
+              path: path.isAbsolute(pathValue) ? pathValue : path.resolve(manifestDirectory, pathValue),
+              source_type: 'path' as const,
+            }
+          : await (async () => {
+              const url = validateCorpusUrl(urlValue as string, id).toString();
+              const sha256 = sha256Hex(record.sha256);
+              if (!sha256) {
+                throw new Error(
+                  `External corpus case ${id} with url must include a 64-character sha256.`
+                );
+              }
+              const resolved = await downloadExternalCorpusPdf({
+                id,
+                url,
+                sha256,
+                allowDownloads: options.allowCorpusDownloads === true,
+                allowPrivateIps: options.allowPrivateIps === true,
+                cacheDir,
+              });
+              return {
+                path: resolved.path,
+                source_type: 'url' as const,
+                source_url: url,
+                sha256,
+                downloaded: resolved.downloaded,
+              };
+            })();
 
       return {
         id,
-        path: sourcePath,
+        ...source,
         pages: parseExternalCorpusPages(record.pages),
         document_archetype:
-          typeof record.document_archetype === 'string' &&
-          record.document_archetype.trim().length > 0
-            ? record.document_archetype.trim()
-            : 'external PDF',
+          nonEmptyString(record.document_archetype) ?? 'external PDF',
         expected: parseExternalCorpusExpected(record.expected),
         read_pdf_options: parseExternalCorpusReadOptions(record.read_pdf_options),
       };
-    }),
+    })),
   };
 };
+
+const flagValue = (argv: string[], flagName: string): string | undefined => {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === flagName) {
+      const next = argv[index + 1];
+      return next && !next.startsWith('--') ? next : undefined;
+    }
+    const prefix = `${flagName}=`;
+    if (arg.startsWith(prefix)) {
+      return arg.slice(prefix.length);
+    }
+  }
+  return undefined;
+};
+
+const hasFlag = (argv: string[], flagName: string): boolean => argv.includes(flagName);
+
+const truthyEnv = (value: string | undefined): boolean =>
+  value !== undefined && /^(1|true|yes)$/iu.test(value.trim());
 
 export const resolveCorpusManifestPath = (
   argv: string[] = process.argv.slice(2),
   env: NodeJS.ProcessEnv = process.env
 ): string | undefined => {
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === '--corpus-manifest') {
-      const next = argv[index + 1];
-      return next && !next.startsWith('--') ? next : undefined;
-    }
-    if (arg.startsWith('--corpus-manifest=')) {
-      return arg.slice('--corpus-manifest='.length);
-    }
-  }
+  const fromFlag = flagValue(argv, '--corpus-manifest');
+  if (fromFlag !== undefined) return fromFlag;
 
   return env.MCP_PDF_CORPUS_MANIFEST;
 };
+
+export const resolveCorpusBenchmarkOptions = (
+  argv: string[] = process.argv.slice(2),
+  env: NodeJS.ProcessEnv = process.env
+): BuildCorpusBenchmarkReportOptions => ({
+  manifestPath: resolveCorpusManifestPath(argv, env),
+  allowCorpusDownloads: hasFlag(argv, '--allow-corpus-downloads') || truthyEnv(env[CORPUS_DOWNLOAD_ENV]),
+  allowPrivateIps: hasFlag(argv, '--allow-private-ips') || truthyEnv(env[ALLOW_PRIVATE_IPS_ENV]),
+  corpusCacheDir: flagValue(argv, '--corpus-cache-dir') ?? env[CORPUS_CACHE_DIR_ENV],
+});
 
 const buildCaseResult = async ({
   id,
@@ -999,7 +1230,13 @@ const evaluateExternalCorpusCase = async (entry: ExternalCorpusCase): Promise<Co
           id: `${entry.id}:read-pdf-success`,
           pass: true,
           expected: { parseable_pdf: true },
-          observed: { source: entry.path },
+          observed: {
+            source: entry.path,
+            source_type: entry.source_type,
+            ...(entry.source_url ? { source_url: entry.source_url } : {}),
+            ...(entry.sha256 ? { sha256: entry.sha256 } : {}),
+            ...(entry.downloaded !== undefined ? { downloaded: entry.downloaded } : {}),
+          },
         },
       ];
 
@@ -1088,10 +1325,14 @@ const evaluateExternalCorpusCase = async (entry: ExternalCorpusCase): Promise<Co
   });
 
 const evaluateExternalCorpusManifest = async (
-  manifestPath: string
-): Promise<CorpusCaseResult[]> => {
-  const manifest = await readExternalCorpusManifest(manifestPath);
-  return Promise.all(manifest.cases.map((entry) => evaluateExternalCorpusCase(entry)));
+  manifestPath: string,
+  options: ExternalCorpusManifestOptions = {}
+): Promise<ExternalCorpusEvaluation> => {
+  const manifest = await readExternalCorpusManifest(manifestPath, options);
+  return {
+    manifest,
+    cases: await Promise.all(manifest.cases.map((entry) => evaluateExternalCorpusCase(entry))),
+  };
 };
 
 export const buildCorpusBenchmarkReport = async (
@@ -1099,9 +1340,19 @@ export const buildCorpusBenchmarkReport = async (
 ): Promise<CorpusBenchmarkReport> => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-reader-mcp-corpus-'));
   try {
-    const externalCases = options.manifestPath
-      ? await evaluateExternalCorpusManifest(options.manifestPath)
-      : [];
+    const externalEvaluation = options.manifestPath
+      ? await evaluateExternalCorpusManifest(options.manifestPath, {
+          allowCorpusDownloads: options.allowCorpusDownloads,
+          allowPrivateIps: options.allowPrivateIps,
+          corpusCacheDir: options.corpusCacheDir,
+        })
+      : undefined;
+    const externalCases = externalEvaluation?.cases ?? [];
+    const externalManifestCases = externalEvaluation?.manifest.cases ?? [];
+    const externalUrlCaseCount = externalManifestCases.filter(
+      (entry) => entry.source_type === 'url'
+    ).length;
+    const externalDownloadCount = externalManifestCases.filter((entry) => entry.downloaded).length;
     const cases = [
       await evaluateCheckedInSample(),
       await evaluateReadingOrderReport(tempDir),
@@ -1125,6 +1376,13 @@ export const buildCorpusBenchmarkReport = async (
           : ''),
       ...(options.manifestPath ? { manifest_path: path.resolve(options.manifestPath) } : {}),
       ...(externalCases.length > 0 ? { external_case_count: externalCases.length } : {}),
+      ...(externalUrlCaseCount > 0 ? { external_url_case_count: externalUrlCaseCount } : {}),
+      ...(externalDownloadCount > 0 ? { external_download_count: externalDownloadCount } : {}),
+      ...(externalUrlCaseCount > 0
+        ? {
+            corpus_cache_dir: path.resolve(options.corpusCacheDir ?? DEFAULT_CORPUS_CACHE_DIR),
+          }
+        : {}),
       case_count: cases.length,
       assertion_count: assertionCount,
       passed_assertion_count: passedAssertionCount,
@@ -1137,8 +1395,7 @@ export const buildCorpusBenchmarkReport = async (
 };
 
 export const main = async () => {
-  const manifestPath = resolveCorpusManifestPath();
-  const report = await buildCorpusBenchmarkReport({ manifestPath });
+  const report = await buildCorpusBenchmarkReport(resolveCorpusBenchmarkOptions());
   console.table(
     report.cases.map((result) => ({
       id: result.id,

@@ -184,7 +184,12 @@ checked-in and runtime-generated fixture diversity, and passing per-case
 assertions. It can also include operator-supplied real PDFs through
 `--corpus-manifest` or `MCP_PDF_CORPUS_MANIFEST`; those external cases are
 reported in the same artifact but are not required by the deterministic CI
-release gate.
+release gate. Manifest cases may reference local `path` files or public `url`
+files. URL cases require `sha256`, use a content-addressed cache, and download
+only when `--allow-corpus-downloads` or `MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true`
+is set. Private, loopback, and link-local URL hosts are blocked by default and
+only allowed with the existing `--allow-private-ips` /
+`MCP_PDF_ALLOW_PRIVATE_IPS=true` development override.
 
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar

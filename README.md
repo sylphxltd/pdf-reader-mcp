@@ -1697,6 +1697,7 @@ bun run benchmark    # Reproducible local performance benchmark
 bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
 bun run benchmark:corpus # Corpus-style benchmark over checked-in and runtime-generated PDF archetypes
 bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json # Add operator-supplied real PDFs to the corpus artifact
+MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./public-corpus.json --corpus-cache-dir ./.cache/pdf-corpus # Resolve URL manifest PDFs after SHA256 validation
 bun run benchmark:providers # Optional multi-fixture OCR/visual-provider certification benchmark; skips missing engines by default
 MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the multi-fixture visual contract with the reference provider
 bun run benchmark:all # Performance + quality + corpus + provider benchmarks
@@ -1715,6 +1716,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Reproducible quality benchmark
 - ✅ Machine-readable SOTA final-bar coverage matrix in `benchmark:quality`
 - ✅ Corpus benchmark artifact over checked-in sample PDFs and runtime-generated reading-order/scanned-OCR/table archetypes
+- ✅ External corpus manifests with local paths, opt-in public URL downloads, SHA256 verification, reusable cache provenance, and private-host protection
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ Provider quality metrics with thresholds, scores, fixture-level expected evidence, and observed evidence
@@ -1797,7 +1799,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks over multiple runtime OCR fixtures and configured visual-region `visual-full-fidelity` certification over 10 runtime table, formula, chart, figure, and image-description PDF fixtures, with a deterministic reference visual provider and machine-readable final-bar provider evidence summaries
 - [x] Provider quality metrics for fixture-level OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Public corpus benchmark artifact for checked-in sample PDFs plus runtime-generated reading-order, scanned-OCR routing, and OCR-table recovery archetypes, enforced by the SOTA release gate
-- [x] External corpus manifest support for operator-supplied real PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape
+- [x] External corpus manifest support for operator-supplied and public URL PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape with SHA256, cache provenance, and private-host protection
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence
@@ -1808,7 +1810,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Larger shared public real-world scanned-PDF and visual-region provider accuracy manifests beyond the in-repository corpus benchmark and synthetic runtime certification fixtures
+- [ ] Curated shared public real-world scanned-PDF and visual-region provider accuracy manifests beyond the in-repository corpus benchmark and synthetic runtime certification fixtures
 - [ ] Optional advanced parser engine presets beyond the local OCR, Ollama, OpenAI-compatible, LM Studio, and llama.cpp adapter set
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming

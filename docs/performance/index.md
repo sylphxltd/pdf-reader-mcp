@@ -148,6 +148,42 @@ bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json
 }
 ```
 
+Manifest cases can use either a local `path` or a public `url`. URL cases must
+include a 64-character `sha256`; the benchmark uses a content-addressed cache,
+verifies the cached or downloaded bytes before parsing, and downloads only when
+explicitly enabled:
+
+```bash
+MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true \
+  bun scripts/benchmark-pdf-corpus.ts \
+  --corpus-manifest ./public-corpus.json \
+  --corpus-cache-dir ./.cache/pdf-corpus
+```
+
+```json
+{
+  "cases": [
+    {
+      "id": "public-report",
+      "url": "https://example.org/public-report.pdf",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "document_archetype": "public benchmark report",
+      "expected": {
+        "min_pages": 1,
+        "min_text_chars": 500
+      }
+    }
+  ]
+}
+```
+
+After the first verified download, the same manifest can run from cache without
+network access. The report records URL case count, actual download count, cache
+directory, source type, URL, checksum, and whether each URL case used a fresh
+download or cached bytes. Private, loopback, and link-local URL hosts are
+blocked by default; local fixture servers require the existing
+`--allow-private-ips` or `MCP_PDF_ALLOW_PRIVATE_IPS=true` override.
+
 ## Provider Benchmark
 
 Run the optional installed-provider benchmark when the local machine has OCR or
