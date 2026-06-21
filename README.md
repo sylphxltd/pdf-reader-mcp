@@ -224,6 +224,21 @@ npx @sylphx/pdf-reader-mcp
 npm install -g @sylphx/pdf-reader-mcp
 ```
 
+### Dependency Profile
+
+The default package needs Node.js >= 22.13 and the npm package dependencies
+only. It does not bundle Tesseract, Ollama, LM Studio, llama.cpp, OCR language
+data, a vision model, or a cloud provider. Selectable-text PDFs, inspection,
+search, rendering, source crops, document maps, trust reports, accessibility
+reports, Markdown/HTML/JSON extraction, and safety signals work out of the box.
+
+Scanned-page OCR and visual table/formula/chart/figure/image enrichment are
+provider-enabled upgrades. Configure `MCP_PDF_OCR_*` when local OCR is needed,
+or `MCP_PDF_REGION_ANALYSIS_*` when focused visual crops should be analyzed by a
+local command, local HTTP server, Ollama, LM Studio, llama.cpp, or another
+OpenAI-compatible endpoint. Missing providers are reported as readiness and
+warning signals instead of breaking the core extraction path.
+
 ---
 
 ## 🎯 Quick Start

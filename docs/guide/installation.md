@@ -4,6 +4,12 @@
 
 - Node.js >= 22.13.0
 
+The default install does not require a local OCR engine, vision model, Ollama,
+LM Studio, llama.cpp, or cloud provider. Those are optional provider-enabled
+upgrades for scanned-page OCR and focused visual-region enrichment; core PDF
+inspection, selectable-text extraction, rendering, source crops, document maps,
+trust reports, and accessibility reports work from the package itself.
+
 ## Claude Code
 
 ```bash
