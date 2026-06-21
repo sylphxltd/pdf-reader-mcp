@@ -781,7 +781,7 @@ distinct scanned tables without duplicating selectable-text tables.
 - 🖼️ **Multi-Format Images** - RGB, RGBA, Grayscale with automatic detection
 - 🛡️ **Path Flexibility** - Windows, Unix, and relative paths all supported (v1.3.0)
 - 🔍 **Error Resilience** - Per-page error isolation with detailed messages
-- 📏 **Large File Support** - Efficient streaming and memory management
+- 📏 **Bounded File Handling** - 100MB safety cap, local preflight size checks, and remote streaming size enforcement
 - 📝 **Type Safe** - Full TypeScript with strict mode enabled
 
 ---
