@@ -90,3 +90,6 @@ override is enabled.
 Add a checked-in public URL corpus manifest with official and publicly available
 PDF sources, pinned SHA256 values, source metadata, and package smoke coverage
 so users can reproduce real-world corpus artifacts without vendoring PDF bytes.
+Add an opt-in public provider accuracy benchmark manifest and
+`benchmark:provider-manifest` script so configured visual-region providers can
+be scored against public PDF crops with pinned source metadata and checksums.

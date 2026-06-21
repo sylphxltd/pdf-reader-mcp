@@ -193,6 +193,18 @@ only allowed with the existing `--allow-private-ips` /
 includes `corpus/public-url-corpus.json`, an opt-in manifest of official and
 publicly available PDFs with source metadata and pinned SHA256 values.
 
+`benchmark:provider-manifest` emits `pdf_provider_manifest_benchmark.json`
+when `--provider-manifest` or `MCP_PDF_PROVIDER_MANIFEST` points at a provider
+accuracy manifest. It crops the declared regions through the same renderer and
+provider-normalization path as `analyze_regions`, then scores kind, text,
+confidence, structured table/formula/chart evidence, and crop provenance
+against the manifest expectations. URL cases require `sha256`, use the same
+content-addressed cache, and download only when
+`--allow-provider-manifest-downloads` or
+`MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true` is set. The published package
+includes `corpus/public-provider-accuracy.json`, an opt-in manifest of public
+PDF crop regions with source metadata and pinned SHA256 values.
+
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar
 capabilities are covered by deterministic fixtures and which still require

@@ -27,10 +27,11 @@
 - [x] External corpus manifest support for operator-supplied real PDF benchmark evidence
 - [x] External corpus URL support with SHA256 verification, explicit download opt-in, private-host protection, cache reuse, and artifact provenance
 - [x] Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, pinned SHA256 values, and package-smoke coverage
+- [x] Opt-in public provider accuracy manifest with official and publicly available PDF crop regions, source metadata, pinned SHA256 values, and package-smoke coverage
 
 ## In Progress
 - [ ] Publish the PDF Intelligence vNext release through the Changesets version PR flow
-- [ ] Curate shared public scanned-PDF and visual-region provider accuracy manifests
+- [ ] Expand shared public scanned-PDF and visual-region provider accuracy manifests
 
 ## Planned
 - [ ] Optional redaction and safety policy controls

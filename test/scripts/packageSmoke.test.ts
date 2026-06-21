@@ -46,6 +46,27 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
       },
     ],
   });
+  writeJson(path.join(packageDir, 'corpus', 'public-provider-accuracy.json'), {
+    cases: [
+      {
+        id: 'provider-smoke',
+        url: 'https://example.com/provider-smoke.pdf',
+        sha256: 'b'.repeat(64),
+        source_label: 'provider smoke fixture',
+        source_homepage: 'https://example.com/',
+        source_rights: 'test fixture',
+        source_retrieved_at: '2026-06-21',
+        regions: [
+          {
+            id: 'provider-region',
+            page: 1,
+            bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+            expected: { contains_text: ['provider'] },
+          },
+        ],
+      },
+    ],
+  });
   if (includeRuntime) {
     fs.writeFileSync(
       path.join(packageDir, 'dist', 'index.js'),

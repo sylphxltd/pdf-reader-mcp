@@ -1,0 +1,72 @@
+{
+  "description": "Opt-in public PDF visual-region provider accuracy manifest. PDFs are not vendored; run with MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true and a configured visual-region provider to download, verify SHA256, crop the declared regions, and score provider output.",
+  "retrieved_at": "2026-06-21",
+  "cases": [
+    {
+      "id": "access-board-play-areas-full-page",
+      "url": "https://www.access-board.gov/files/ada/guides/play-areas.pdf",
+      "sha256": "145197b07f971b72c458c45d14465b071f71a95d57292e81842aea1929b73657",
+      "source_label": "U.S. Access Board ADA guide for play areas",
+      "source_homepage": "https://www.access-board.gov/ada/guides/chapter-10-play-areas/",
+      "source_rights": "U.S. federal government public information",
+      "source_retrieved_at": "2026-06-21",
+      "document_archetype": "accessibility guide with diagrams and explanatory text",
+      "regions": [
+        {
+          "id": "play-areas-page-1-overview",
+          "page": 1,
+          "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
+          "padding": 0,
+          "expected": {
+            "contains_text": ["play", "accessible"],
+            "min_confidence": 0.2
+          }
+        }
+      ]
+    },
+    {
+      "id": "access-board-toilet-rooms-full-page",
+      "url": "https://www.access-board.gov/files/ada/guides/toilet-rooms.pdf",
+      "sha256": "6c2892c90e6b0914642cf6102fd4d12c22c09efee72fb181ffb243626bc7241f",
+      "source_label": "U.S. Access Board ADA guide for toilet rooms",
+      "source_homepage": "https://www.access-board.gov/ada/guides/chapter-6-toilet-rooms/",
+      "source_rights": "U.S. federal government public information",
+      "source_retrieved_at": "2026-06-21",
+      "document_archetype": "accessibility guide with layout diagrams",
+      "regions": [
+        {
+          "id": "toilet-rooms-page-1-overview",
+          "page": 1,
+          "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
+          "padding": 0,
+          "expected": {
+            "contains_text": ["toilet", "accessible"],
+            "min_confidence": 0.2
+          }
+        }
+      ]
+    },
+    {
+      "id": "nasa-image-plus-text-scan-full-page",
+      "url": "https://ntrs.nasa.gov/api/citations/20040100805/downloads/20040100805.pdf",
+      "sha256": "0d30cf7fb37cdacbd6dfe57aefa2632ff046a232bc9b9db0f4790b769b93fc5f",
+      "source_label": "NASA Technical Reports Server citation 20040100805",
+      "source_homepage": "https://ntrs.nasa.gov/citations/20040100805",
+      "source_rights": "Publicly available NASA NTRS record",
+      "source_retrieved_at": "2026-06-21",
+      "document_archetype": "legacy scan with image-plus-text characteristics",
+      "regions": [
+        {
+          "id": "nasa-image-plus-text-page-1",
+          "page": 1,
+          "bounding_box": { "left": 0, "bottom": 0, "right": 612, "top": 792 },
+          "padding": 0,
+          "expected": {
+            "contains_text": ["NASA", "PDF"],
+            "min_confidence": 0.2
+          }
+        }
+      ]
+    }
+  ]
+}

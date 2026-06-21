@@ -72,6 +72,7 @@
     "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
     "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",
     "benchmark:providers": "bun scripts/benchmark-pdf-providers.ts",
+    "benchmark:provider-manifest": "bun scripts/benchmark-pdf-provider-manifest.ts",
     "benchmark:corpus": "bun scripts/benchmark-pdf-corpus.ts",
     "benchmark:all": "bun run benchmark && bun run benchmark:quality && bun run benchmark:corpus && bun run benchmark:providers",
     "benchmark:release-artifacts": "MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all",

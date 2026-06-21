@@ -1700,6 +1700,7 @@ bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json # A
 MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus/public-url-corpus.json --corpus-cache-dir ./.cache/pdf-corpus # Resolve the checked-in public URL corpus after SHA256 validation
 bun run benchmark:providers # Optional multi-fixture OCR/visual-provider certification benchmark; skips missing engines by default
 MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the multi-fixture visual contract with the reference provider
+MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true MCP_PDF_REGION_ANALYSIS_PRESET=ollama MCP_PDF_REGION_ANALYSIS_MODEL=llava bun run benchmark:provider-manifest --provider-manifest ./corpus/public-provider-accuracy.json # Score a configured visual provider against opt-in public PDF crops
 bun run benchmark:all # Performance + quality + corpus + provider benchmarks
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_OCR_PRESET=tesseract-tsv MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:release-artifacts # Write strict release artifacts
@@ -1718,6 +1719,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Corpus benchmark artifact over checked-in sample PDFs and runtime-generated reading-order/scanned-OCR/table archetypes
 - ✅ External corpus manifests with local paths, opt-in public URL downloads, SHA256 verification, reusable cache provenance, and private-host protection
 - ✅ Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, checksums, and package-smoke coverage
+- ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, and package-smoke coverage
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ Provider quality metrics with thresholds, scores, fixture-level expected evidence, and observed evidence
@@ -1801,6 +1803,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Provider quality metrics for fixture-level OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
 - [x] Public corpus benchmark artifact for checked-in sample PDFs plus runtime-generated reading-order, scanned-OCR routing, and OCR-table recovery archetypes, enforced by the SOTA release gate
 - [x] External corpus manifest support for operator-supplied and checked-in public URL PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape with SHA256, cache provenance, source metadata, and private-host protection
+- [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, and region-level expectations
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence
@@ -1811,7 +1814,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Curated shared public scanned-PDF and visual-region provider accuracy manifests beyond the checked-in public URL corpus and synthetic runtime certification fixtures
+- [ ] Expand curated public scanned-PDF and visual-region provider manifests beyond the initial checked-in public provider accuracy set
 - [ ] Optional advanced parser engine presets beyond the local OCR, Ollama, OpenAI-compatible, LM Studio, and llama.cpp adapter set
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming

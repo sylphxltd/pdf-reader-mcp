@@ -106,6 +106,33 @@ const summarizePublicCorpusManifest = (
   };
 };
 
+const summarizePublicProviderManifest = (
+  manifest: JsonRecord | undefined
+): { total_cases: number; total_regions: number; url_cases_with_metadata: number } => {
+  const cases = Array.isArray(manifest?.cases) ? manifest.cases : [];
+  const regionsByCase = cases.map((entry) =>
+    isRecord(entry) && Array.isArray(entry.regions) ? entry.regions.length : 0
+  );
+  const urlCasesWithMetadata = cases.filter(
+    (entry) =>
+      isRecord(entry) &&
+      isNonEmptyString(entry.url) &&
+      isNonEmptyString(entry.sha256) &&
+      isNonEmptyString(entry.source_label) &&
+      isNonEmptyString(entry.source_homepage) &&
+      isNonEmptyString(entry.source_rights) &&
+      isNonEmptyString(entry.source_retrieved_at) &&
+      Array.isArray(entry.regions) &&
+      entry.regions.length > 0
+  ).length;
+
+  return {
+    total_cases: cases.length,
+    total_regions: regionsByCase.reduce((sum, count) => sum + count, 0),
+    url_cases_with_metadata: urlCasesWithMetadata,
+  };
+};
+
 export const findPackedTarballPath = async (
   packOutput: string,
   destinationDir: string
@@ -133,9 +160,16 @@ export const validateExtractedPackage = async (
   const packageJson = await readJson(packageJsonPath);
   const distIndexPath = path.join(packageDir, 'dist', 'index.js');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
+  const publicProviderManifestPath = path.join(
+    packageDir,
+    'corpus',
+    'public-provider-accuracy.json'
+  );
   const distIndexPrefix = await readTextPrefix(distIndexPath);
   const publicCorpusManifest = await readJson(publicCorpusManifestPath);
+  const publicProviderManifest = await readJson(publicProviderManifestPath);
   const publicCorpusSummary = summarizePublicCorpusManifest(publicCorpusManifest);
+  const publicProviderSummary = summarizePublicProviderManifest(publicProviderManifest);
   const bin = isRecord(packageJson?.bin) ? packageJson.bin : undefined;
   const exportsField = isRecord(packageJson?.exports) ? packageJson.exports : undefined;
 
@@ -171,6 +205,22 @@ export const validateExtractedPackage = async (
       publicCorpusSummary.total_cases === publicCorpusSummary.url_cases_with_metadata,
     'public URL corpus manifest contains URL cases with source metadata and SHA256 values',
     publicCorpusSummary
+  );
+  addCheck(
+    checks,
+    'corpus:public-provider-manifest',
+    await fileExists(publicProviderManifestPath),
+    'published package includes the opt-in public provider accuracy manifest',
+    { path: 'package/corpus/public-provider-accuracy.json' }
+  );
+  addCheck(
+    checks,
+    'corpus:public-provider-manifest-shape',
+    publicProviderSummary.total_cases > 0 &&
+      publicProviderSummary.total_regions > 0 &&
+      publicProviderSummary.total_cases === publicProviderSummary.url_cases_with_metadata,
+    'public provider manifest contains URL cases, source metadata, SHA256 values, and regions',
+    publicProviderSummary
   );
   addCheck(
     checks,
@@ -261,6 +311,12 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
       'tarball:public-url-corpus',
       tarballEntries.includes('package/corpus/public-url-corpus.json'),
       'tarball includes public URL corpus manifest'
+    );
+    addCheck(
+      checks,
+      'tarball:public-provider-manifest',
+      tarballEntries.includes('package/corpus/public-provider-accuracy.json'),
+      'tarball includes public provider accuracy manifest'
     );
 
     const extractDir = path.join(tempDir, 'extract');
