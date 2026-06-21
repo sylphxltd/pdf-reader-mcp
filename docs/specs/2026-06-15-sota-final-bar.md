@@ -144,8 +144,11 @@ themselves.
      required capability tags. It is not part of default CI network activity.
    - `corpus/public-provider-accuracy.json` is included in the repo and
      published package as an opt-in public provider accuracy manifest over
-     official and publicly available PDF crops. `benchmark:provider-manifest`
-     can score a configured visual-region provider against those crop
+     official and publicly available PDF crops.
+     `benchmark:provider-manifest-crops` verifies public PDF downloads,
+     SHA256 values, page renders, and declared region crops without requiring
+     a visual-region provider or local model. `benchmark:provider-manifest`
+     can then score a configured visual-region provider against those crop
      expectations and emits capability-summary metadata without making default
      CI depend on network access or external model availability.
    - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate`

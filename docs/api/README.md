@@ -215,6 +215,14 @@ includes `corpus/public-provider-accuracy.json`, an opt-in manifest of public
 PDF crop regions with source metadata, pinned SHA256 values, and required
 case/region capability tags.
 
+`benchmark:provider-manifest-crops` emits
+`pdf_provider_manifest_crop_benchmark.json` for the same manifest shape without
+requiring a visual-region provider. It downloads and checksum-validates opt-in
+URL cases when enabled, renders the declared pages, verifies each region crop,
+and records crop byte length, pixel bounds, render provenance, source metadata,
+and capability summaries. Use it when release evidence needs to prove the
+public PDF crop substrate before provider/model accuracy is evaluated.
+
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar
 capabilities are covered by deterministic fixtures and which still require

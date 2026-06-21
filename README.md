@@ -1702,6 +1702,7 @@ bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json # A
 MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus/public-url-corpus.json --corpus-cache-dir ./.cache/pdf-corpus # Resolve the checked-in public URL corpus after SHA256 validation
 bun run benchmark:providers # Optional multi-fixture OCR/visual-provider certification benchmark; skips missing engines by default
 MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the multi-fixture visual contract with the reference provider
+MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true bun run benchmark:provider-manifest-crops --provider-manifest ./corpus/public-provider-accuracy.json --provider-manifest-cache-dir ./.cache/pdf-corpus # Verify public PDF provider-manifest crop regions without a visual model
 MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true MCP_PDF_REGION_ANALYSIS_PRESET=ollama MCP_PDF_REGION_ANALYSIS_MODEL=llava bun run benchmark:provider-manifest --provider-manifest ./corpus/public-provider-accuracy.json # Score a configured visual provider against opt-in public PDF crops
 bun run benchmark:all # Performance + quality + corpus + provider benchmarks
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
@@ -1722,6 +1723,7 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ External corpus manifests with local paths, opt-in public URL downloads, SHA256 verification, reusable cache provenance, and private-host protection
 - ✅ Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, checksums, capability tags, artifact-level capability summaries, and package-smoke coverage
 - ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, capability tags, artifact-level capability summaries, and package-smoke coverage
+- ✅ Public provider-manifest crop benchmark that verifies downloadable, checksum-pinned PDF regions can render and crop without requiring a visual model
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ Provider quality metrics with thresholds, scores, fixture-level expected evidence, and observed evidence

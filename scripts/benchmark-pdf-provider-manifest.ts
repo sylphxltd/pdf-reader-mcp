@@ -19,14 +19,14 @@ import {
 
 type ManifestBenchmarkStatus = 'passed' | 'failed' | 'skipped';
 
-interface ProviderManifestAssertion {
+export interface ProviderManifestAssertion {
   id: string;
   pass: boolean;
   expected: Record<string, unknown>;
   observed: Record<string, unknown>;
 }
 
-interface ProviderManifestExpected {
+export interface ProviderManifestExpected {
   kind?: PdfRegionAnalysisKind | undefined;
   min_confidence?: number | undefined;
   contains_text?: string[] | undefined;
@@ -36,13 +36,13 @@ interface ProviderManifestExpected {
   require_crop_provenance?: boolean | undefined;
 }
 
-interface ProviderManifestRegion {
+export interface ProviderManifestRegion {
   region: PdfRegionRequest;
   expected: ProviderManifestExpected;
   capability_tags: string[];
 }
 
-interface ProviderManifestCase {
+export interface ProviderManifestCase {
   id: string;
   path: string;
   source_type: 'path' | 'url';
@@ -58,7 +58,7 @@ interface ProviderManifestCase {
   regions: ProviderManifestRegion[];
 }
 
-interface ProviderManifest {
+export interface ProviderManifest {
   cases: ProviderManifestCase[];
 }
 
@@ -189,7 +189,7 @@ const capabilityTags = (value: unknown): string[] => {
   return [...new Set(normalized)];
 };
 
-const mergeCapabilityTags = (...groups: string[][]): string[] => [
+export const mergeProviderManifestCapabilityTags = (...groups: string[][]): string[] => [
   ...new Set(groups.flatMap((group) => group)),
 ];
 
@@ -267,7 +267,7 @@ const parseRegions = (value: unknown, caseId: string): ProviderManifestRegion[] 
   });
 };
 
-const readProviderManifest = async (
+export const readProviderManifest = async (
   manifestPath: string,
   options: Required<Pick<BuildProviderManifestBenchmarkReportOptions, 'allowDownloads' | 'allowPrivateIps' | 'cacheDir'>>
 ): Promise<ProviderManifest> => {
@@ -387,7 +387,10 @@ const evaluateRegion = (
 ): ProviderManifestRegionResult => {
   const regionId = manifestRegion.region.id ?? `page-${String(manifestRegion.region.page)}-region`;
   const expected = manifestRegion.expected;
-  const tags = mergeCapabilityTags(inheritedCapabilityTags, manifestRegion.capability_tags);
+  const tags = mergeProviderManifestCapabilityTags(
+    inheritedCapabilityTags,
+    manifestRegion.capability_tags
+  );
   const searchableText = collectText(analysis).join(' ').toLowerCase();
   const assertions: ProviderManifestAssertion[] = [
     {
@@ -518,7 +521,7 @@ const evaluateCase = async (entry: ProviderManifestCase): Promise<ProviderManife
       ...(entry.source_retrieved_at ? { source_retrieved_at: entry.source_retrieved_at } : {}),
       ...(entry.sha256 ? { sha256: entry.sha256 } : {}),
       ...(entry.downloaded !== undefined ? { downloaded: entry.downloaded } : {}),
-      capability_tags: mergeCapabilityTags(
+      capability_tags: mergeProviderManifestCapabilityTags(
         entry.capability_tags,
         ...regions.map((region) => region.capability_tags)
       ),
@@ -696,6 +699,31 @@ export const buildProviderManifestBenchmarkReport = async (
     allowPrivateIps: options.allowPrivateIps === true,
     cacheDir,
   });
+  if (manifest.cases.length === 0) {
+    return {
+      profile: 'pdf_provider_manifest_benchmark',
+      generated_at: new Date().toISOString(),
+      status: 'failed',
+      strict,
+      manifest_path: path.resolve(options.manifestPath),
+      provider_status: providerStatus,
+      external_case_count: 0,
+      external_url_case_count: 0,
+      external_download_count: 0,
+      external_region_count: 0,
+      corpus_cache_dir: cacheDir,
+      summary: {
+        case_count: 0,
+        region_count: 0,
+        assertion_count: 0,
+        passed_assertion_count: 0,
+        failed_assertion_count: 0,
+        score: 0,
+      },
+      capability_summary: [],
+      cases: [],
+    };
+  }
   const cases = await Promise.all(manifest.cases.map((entry) => evaluateCase(entry)));
   const summary = summarize(cases);
   const capabilitySummary = summarizeCapabilities(cases);

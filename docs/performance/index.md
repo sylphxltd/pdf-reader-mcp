@@ -249,6 +249,18 @@ provider is configured and you want real public PDF crop evidence:
 
 ```bash
 MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true \
+  bun run benchmark:provider-manifest-crops \
+  --provider-manifest ./corpus/public-provider-accuracy.json \
+  --provider-manifest-cache-dir ./.cache/pdf-corpus
+```
+
+That command verifies public PDF downloads, SHA256 checksums, page renders, and
+declared region crops without requiring OCR, a local vision model, or a visual
+provider. Use the provider-scoring benchmark when the crop substrate is proven
+and a visual-region provider is configured:
+
+```bash
+MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true \
   MCP_PDF_REGION_ANALYSIS_PRESET=ollama \
   MCP_PDF_REGION_ANALYSIS_MODEL=llava \
   bun run benchmark:provider-manifest \
@@ -258,10 +270,11 @@ MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true \
 
 `corpus/public-provider-accuracy.json` contains official and publicly available
 PDF URLs, pinned SHA256 values, source metadata, and full-page visual regions
-with expected terms and capability tags. The benchmark uses the same region
-crop and provider normalization path as `analyze_regions`, writes a
-`pdf_provider_manifest_benchmark` artifact with a `capability_summary`, and
-remains outside default CI network activity.
+with expected terms and capability tags. The crop benchmark writes a
+`pdf_provider_manifest_crop_benchmark` artifact with crop provenance and
+capability summaries; the provider benchmark uses the same crop path plus
+provider normalization and writes a `pdf_provider_manifest_benchmark` artifact.
+Both remain outside default CI network activity.
 
 ## Optimization Tips
 

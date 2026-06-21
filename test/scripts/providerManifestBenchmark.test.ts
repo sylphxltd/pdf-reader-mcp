@@ -140,6 +140,39 @@ describe('provider manifest benchmark', () => {
     expect(strict.status).toBe('failed');
   });
 
+  test('fails when a configured provider manifest has no cases', async () => {
+    await withTempDir(async (tempDir) => {
+      const providerPath = path.join(tempDir, 'mock-provider.mjs');
+      fs.writeFileSync(providerPath, "process.stdout.write('{}');\n", 'utf8');
+      const manifestPath = path.join(tempDir, 'empty-provider-manifest.json');
+      const outputDir = path.join(tempDir, 'artifacts');
+      writeJson(manifestPath, { cases: [] });
+
+      await expect(
+        execFileAsync(
+          'bun',
+          ['scripts/benchmark-pdf-provider-manifest.ts', '--provider-manifest', manifestPath],
+          {
+            env: {
+              ...childEnvWithoutRegionProvider(),
+              MCP_PDF_REGION_ANALYSIS_COMMAND: 'bun',
+              MCP_PDF_REGION_ANALYSIS_ARGS_JSON: JSON.stringify([providerPath]),
+              MCP_PDF_BENCHMARK_OUTPUT_DIR: outputDir,
+            },
+            maxBuffer: 10 * 1024 * 1024,
+          }
+        )
+      ).rejects.toThrow();
+
+      const report = JSON.parse(
+        fs.readFileSync(path.join(outputDir, 'pdf_provider_manifest_benchmark.json'), 'utf8')
+      ) as Awaited<ReturnType<typeof buildProviderManifestBenchmarkReport>>;
+      expect(report.status).toBe('failed');
+      expect(report.summary.case_count).toBe(0);
+      expect(report.external_case_count).toBe(0);
+    });
+  });
+
   test('fails when a manifest is supplied with invalid provider configuration', async () => {
     await withTempDir(async (tempDir) => {
       const manifestPath = path.join(tempDir, 'provider-manifest.json');
