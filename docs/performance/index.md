@@ -110,11 +110,14 @@ bun run benchmark:corpus
 The corpus benchmark covers a checked-in text-rich PDF plus mandatory
 runtime-generated multi-column reading-order, scanned-page OCR routing, and
 OCR-derived table recovery archetypes. Each case reports fixture type,
-document archetype, metrics, expected evidence, observed evidence, and
-assertion-level pass/fail status. Release gates require the exact archetype
-case set, checked-in and runtime-generated fixture diversity, and per-case
-passing assertion evidence in addition to performance, deterministic quality,
-and installed-provider evidence.
+document archetype, capability tags, metrics, expected evidence, observed
+evidence, and assertion-level pass/fail status. The JSON artifact also emits a
+`capability_summary` so reviewers can inspect coverage by document-intelligence
+area instead of relying only on a single aggregate score. Release gates require
+the exact archetype case set, checked-in and runtime-generated fixture
+diversity, case-level capability tags, capability-summary coverage for
+required corpus areas, and per-case passing assertion evidence in addition to
+performance, deterministic quality, and installed-provider evidence.
 
 Teams can extend the same artifact with real PDFs they are licensed to use by
 passing an external manifest. The built-in release gate does not depend on
@@ -134,6 +137,7 @@ bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json
       "path": "./fixtures/agency-scan.pdf",
       "pages": [1],
       "document_archetype": "external scanned form",
+      "capability_tags": ["external_scan", "ocr_text_layer"],
       "expected": {
         "min_pages": 1,
         "min_ocr_words": 20,
@@ -168,6 +172,7 @@ MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true \
       "url": "https://example.org/public-report.pdf",
       "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "document_archetype": "public benchmark report",
+      "capability_tags": ["public_report", "selectable_text"],
       "expected": {
         "min_pages": 1,
         "min_text_chars": 500
@@ -185,10 +190,13 @@ URL hosts are blocked by default; local fixture servers require the existing
 `--allow-private-ips` or `MCP_PDF_ALLOW_PRIVATE_IPS=true` override.
 
 The repository includes `corpus/public-url-corpus.json`, an opt-in manifest of
-official and publicly available PDFs with pinned SHA256 values. It is included
-in the published package so release reviewers and downstream users can reproduce a
-real-world public corpus artifact without vendoring PDF bytes or making default
-CI depend on network access.
+official and publicly available PDFs with pinned SHA256 values and capability
+tags for forms, accessibility guidance, public-domain text, technical reports,
+and legacy image-plus-text documents. It is included in the published package
+so release reviewers and downstream users can reproduce a real-world public
+corpus artifact without vendoring PDF bytes or making default CI depend on
+network access. `bun run package:smoke` verifies that the packed package keeps
+the required public corpus and provider capability tag coverage.
 
 ## Provider Benchmark
 

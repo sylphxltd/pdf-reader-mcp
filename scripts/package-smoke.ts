@@ -30,6 +30,32 @@ export interface PackageSmokeReport {
 
 type JsonRecord = Record<string, unknown>;
 
+const REQUIRED_PUBLIC_CORPUS_CAPABILITY_TAGS = [
+  'accessibility_guidance',
+  'document_map',
+  'fillable_form',
+  'government_newsletter',
+  'image_plus_text',
+  'legacy_scan',
+  'official_form',
+  'public_domain_text',
+  'selectable_text',
+  'technical_report',
+  'text_layer',
+  'visual_text',
+] as const;
+
+const REQUIRED_PUBLIC_PROVIDER_CAPABILITY_TAGS = [
+  'accessibility_diagram',
+  'diagram_context',
+  'full_page_crop',
+  'image_plus_text',
+  'layout_diagram',
+  'legacy_scan',
+  'scanned_page_triage',
+  'visual_text',
+] as const;
+
 const addCheck = (
   checks: PackageSmokeCheck[],
   id: string,
@@ -56,6 +82,30 @@ const isRecord = (value: unknown): value is JsonRecord =>
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
+
+const normalizedTags = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  const tags = value
+    .map((entry) =>
+      typeof entry === 'string'
+        ? entry
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9._:-]+/gu, '-')
+            .replace(/^-+|-+$/gu, '')
+        : ''
+    )
+    .filter((entry) => entry.length > 0);
+  return [...new Set(tags)];
+};
+
+const missingRequiredTags = (
+  tags: Iterable<string>,
+  requiredTags: readonly string[]
+): string[] => {
+  const actual = new Set(tags);
+  return requiredTags.filter((tag) => !actual.has(tag));
+};
 
 const readJson = async (filePath: string): Promise<JsonRecord | undefined> => {
   try {
@@ -87,8 +137,22 @@ const readTextPrefix = async (filePath: string, byteLength = 128): Promise<strin
 
 const summarizePublicCorpusManifest = (
   manifest: JsonRecord | undefined
-): { total_cases: number; url_cases_with_metadata: number } => {
+): {
+  total_cases: number;
+  url_cases_with_metadata: number;
+  cases_with_capability_tags: number;
+  capability_tag_count: number;
+  capability_tags: string[];
+  missing_required_capability_tags: string[];
+} => {
   const cases = Array.isArray(manifest?.cases) ? manifest.cases : [];
+  const capabilityTags = new Set<string>();
+  for (const entry of cases) {
+    if (!isRecord(entry)) continue;
+    for (const tag of normalizedTags(entry.capability_tags)) {
+      capabilityTags.add(tag);
+    }
+  }
   const urlCasesWithMetadata = cases.filter(
     (entry) =>
       isRecord(entry) &&
@@ -103,6 +167,15 @@ const summarizePublicCorpusManifest = (
   return {
     total_cases: cases.length,
     url_cases_with_metadata: urlCasesWithMetadata,
+    cases_with_capability_tags: cases.filter(
+      (entry) => isRecord(entry) && normalizedTags(entry.capability_tags).length > 0
+    ).length,
+    capability_tag_count: capabilityTags.size,
+    capability_tags: [...capabilityTags].sort(),
+    missing_required_capability_tags: missingRequiredTags(
+      capabilityTags,
+      REQUIRED_PUBLIC_CORPUS_CAPABILITY_TAGS
+    ),
   };
 };
 
@@ -115,6 +188,8 @@ const summarizePublicProviderManifest = (
   cases_with_capability_tags: number;
   regions_with_capability_tags: number;
   capability_tag_count: number;
+  capability_tags: string[];
+  missing_required_capability_tags: string[];
 } => {
   const cases = Array.isArray(manifest?.cases) ? manifest.cases : [];
   const regionsByCase = cases.map((entry) =>
@@ -125,15 +200,15 @@ const summarizePublicProviderManifest = (
   );
   const capabilityTags = new Set<string>();
   for (const entry of cases) {
-    if (!isRecord(entry) || !Array.isArray(entry.capability_tags)) continue;
-    for (const tag of entry.capability_tags) {
-      if (isNonEmptyString(tag)) capabilityTags.add(tag);
+    if (!isRecord(entry)) continue;
+    for (const tag of normalizedTags(entry.capability_tags)) {
+      capabilityTags.add(tag);
     }
   }
   for (const entry of regions) {
-    if (!isRecord(entry) || !Array.isArray(entry.capability_tags)) continue;
-    for (const tag of entry.capability_tags) {
-      if (isNonEmptyString(tag)) capabilityTags.add(tag);
+    if (!isRecord(entry)) continue;
+    for (const tag of normalizedTags(entry.capability_tags)) {
+      capabilityTags.add(tag);
     }
   }
   const urlCasesWithMetadata = cases.filter(
@@ -154,18 +229,17 @@ const summarizePublicProviderManifest = (
     total_regions: regionsByCase.reduce((sum, count) => sum + count, 0),
     url_cases_with_metadata: urlCasesWithMetadata,
     cases_with_capability_tags: cases.filter(
-      (entry) =>
-        isRecord(entry) &&
-        Array.isArray(entry.capability_tags) &&
-        entry.capability_tags.some((tag) => isNonEmptyString(tag))
+      (entry) => isRecord(entry) && normalizedTags(entry.capability_tags).length > 0
     ).length,
     regions_with_capability_tags: regions.filter(
-      (entry) =>
-        isRecord(entry) &&
-        Array.isArray(entry.capability_tags) &&
-        entry.capability_tags.some((tag) => isNonEmptyString(tag))
+      (entry) => isRecord(entry) && normalizedTags(entry.capability_tags).length > 0
     ).length,
     capability_tag_count: capabilityTags.size,
+    capability_tags: [...capabilityTags].sort(),
+    missing_required_capability_tags: missingRequiredTags(
+      capabilityTags,
+      REQUIRED_PUBLIC_PROVIDER_CAPABILITY_TAGS
+    ),
   };
 };
 
@@ -238,8 +312,10 @@ export const validateExtractedPackage = async (
     checks,
     'corpus:public-url-manifest-shape',
     publicCorpusSummary.total_cases > 0 &&
-      publicCorpusSummary.total_cases === publicCorpusSummary.url_cases_with_metadata,
-    'public URL corpus manifest contains URL cases with source metadata and SHA256 values',
+      publicCorpusSummary.total_cases === publicCorpusSummary.url_cases_with_metadata &&
+      publicCorpusSummary.total_cases === publicCorpusSummary.cases_with_capability_tags &&
+      publicCorpusSummary.missing_required_capability_tags.length === 0,
+    'public URL corpus manifest contains URL cases, source metadata, SHA256 values, and required capability tags',
     publicCorpusSummary
   );
   addCheck(
@@ -257,8 +333,8 @@ export const validateExtractedPackage = async (
       publicProviderSummary.total_cases === publicProviderSummary.url_cases_with_metadata &&
       publicProviderSummary.total_cases === publicProviderSummary.cases_with_capability_tags &&
       publicProviderSummary.total_regions === publicProviderSummary.regions_with_capability_tags &&
-      publicProviderSummary.capability_tag_count > 0,
-    'public provider manifest contains URL cases, source metadata, SHA256 values, regions, and capability tags',
+      publicProviderSummary.missing_required_capability_tags.length === 0,
+    'public provider manifest contains URL cases, source metadata, SHA256 values, regions, and required capability tags',
     publicProviderSummary
   );
   addCheck(

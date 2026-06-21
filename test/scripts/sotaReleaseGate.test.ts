@@ -54,6 +54,7 @@ const writeValidCorpusArtifact = (artifactDir: string) => {
       {
         id: 'checked-in-sample-agent-document-twin',
         fixture_type: 'checked-in',
+        capability_tags: ['document_map', 'text_layer'],
         assertion_count: 6,
         passed_assertion_count: 6,
         score: 1,
@@ -61,6 +62,7 @@ const writeValidCorpusArtifact = (artifactDir: string) => {
       {
         id: 'runtime-report-reading-order',
         fixture_type: 'runtime-generated',
+        capability_tags: ['document_map', 'reading_order'],
         assertion_count: 6,
         passed_assertion_count: 6,
         score: 1,
@@ -68,6 +70,7 @@ const writeValidCorpusArtifact = (artifactDir: string) => {
       {
         id: 'runtime-scanned-ocr-routing',
         fixture_type: 'runtime-generated',
+        capability_tags: ['document_map', 'ocr_routing', 'ocr_text_layer', 'scanned_page'],
         assertion_count: 3,
         passed_assertion_count: 3,
         score: 1,
@@ -75,9 +78,89 @@ const writeValidCorpusArtifact = (artifactDir: string) => {
       {
         id: 'runtime-ocr-table-agent-evidence',
         fixture_type: 'runtime-generated',
+        capability_tags: [
+          'document_map',
+          'ocr_table_extraction',
+          'ocr_text_layer',
+          'scanned_table',
+        ],
         assertion_count: 4,
         passed_assertion_count: 4,
         score: 1,
+      },
+    ],
+    capability_summary: [
+      {
+        tag: 'document_map',
+        case_count: 4,
+        assertion_count: 19,
+        passed_assertion_count: 19,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'reading_order',
+        case_count: 1,
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'ocr_routing',
+        case_count: 1,
+        assertion_count: 3,
+        passed_assertion_count: 3,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'ocr_text_layer',
+        case_count: 2,
+        assertion_count: 7,
+        passed_assertion_count: 7,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'ocr_table_extraction',
+        case_count: 1,
+        assertion_count: 4,
+        passed_assertion_count: 4,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'scanned_page',
+        case_count: 1,
+        assertion_count: 3,
+        passed_assertion_count: 3,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'scanned_table',
+        case_count: 1,
+        assertion_count: 4,
+        passed_assertion_count: 4,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'text_layer',
+        case_count: 1,
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
       },
     ],
   });
@@ -305,6 +388,12 @@ describe('SOTA release gate', () => {
         'failed'
       );
       expect(report.checks.find((check) => check.id === 'corpus:case-quality')?.status).toBe(
+        'failed'
+      );
+      expect(
+        report.checks.find((check) => check.id === 'corpus:case-capability-tags')?.status
+      ).toBe('failed');
+      expect(report.checks.find((check) => check.id === 'corpus:capability-summary')?.status).toBe(
         'failed'
       );
     });

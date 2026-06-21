@@ -180,9 +180,12 @@ SOTA final-bar capabilities that require installed-provider evidence.
 
 `benchmark:corpus` emits `pdf_corpus_benchmark.json`, covering the checked-in
 sample PDF plus runtime-generated reading-order, scanned-OCR routing, and
-OCR-derived table archetypes. The release gate requires all corpus archetypes,
-checked-in and runtime-generated fixture diversity, and passing per-case
-assertions. It can also include operator-supplied real PDFs through
+OCR-derived table archetypes. Each case carries `capability_tags`, and the
+artifact emits `capability_summary` so reviewers can inspect evidence by
+document-intelligence area. The release gate requires all corpus archetypes,
+checked-in and runtime-generated fixture diversity, case-level capability tags,
+required capability-summary coverage, and passing per-case assertions. It can
+also include operator-supplied real PDFs through
 `--corpus-manifest` or `MCP_PDF_CORPUS_MANIFEST`; those external cases are
 reported in the same artifact but are not required by the deterministic CI
 release gate. Manifest cases may reference local `path` files or public `url`
@@ -192,7 +195,9 @@ is set. Private, loopback, and link-local URL hosts are blocked by default and
 only allowed with the existing `--allow-private-ips` /
 `MCP_PDF_ALLOW_PRIVATE_IPS=true` development override. The published package
 includes `corpus/public-url-corpus.json`, an opt-in manifest of official and
-publicly available PDFs with source metadata and pinned SHA256 values.
+publicly available PDFs with source metadata, pinned SHA256 values, and
+required capability tags. The package smoke gate verifies that the published
+tarball keeps the public corpus and provider capability coverage manifests.
 
 `benchmark:provider-manifest` emits `pdf_provider_manifest_benchmark.json`
 when `--provider-manifest` or `MCP_PDF_PROVIDER_MANIFEST` points at a provider
@@ -207,7 +212,8 @@ content-addressed cache, and download only when
 `--allow-provider-manifest-downloads` or
 `MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true` is set. The published package
 includes `corpus/public-provider-accuracy.json`, an opt-in manifest of public
-PDF crop regions with source metadata and pinned SHA256 values.
+PDF crop regions with source metadata, pinned SHA256 values, and required
+case/region capability tags.
 
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar

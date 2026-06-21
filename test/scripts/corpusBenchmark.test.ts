@@ -20,8 +20,18 @@ interface CorpusBenchmarkReport {
     id: string;
     fixture_type: string;
     document_archetype: string;
+    capability_tags: string[];
     score: number;
     assertions: Array<{ pass: boolean; observed?: Record<string, unknown> }>;
+  }>;
+  capability_summary: Array<{
+    tag: string;
+    case_count: number;
+    assertion_count: number;
+    passed_assertion_count: number;
+    failed_assertion_count: number;
+    score: number;
+    status: string;
   }>;
 }
 
@@ -75,6 +85,7 @@ describe('corpus benchmark external manifests', () => {
               path: path.resolve('test/fixtures/sample.pdf'),
               pages: [1],
               document_archetype: 'external text-rich sample',
+              capability_tags: ['external_sample', 'selectable_text'],
               expected: {
                 contains_text: ['Sample PDF'],
                 min_pages: 1,
@@ -114,8 +125,16 @@ describe('corpus benchmark external manifests', () => {
       expect(external).toMatchObject({
         fixture_type: 'external',
         document_archetype: 'external text-rich sample',
+        capability_tags: ['external_sample', 'selectable_text'],
         score: 1,
       });
+      expect(report.capability_summary).toContainEqual(
+        expect.objectContaining({
+          tag: 'external_sample',
+          case_count: 1,
+          status: 'passed',
+        })
+      );
       expect(external?.assertions.every((assertion) => assertion.pass)).toBe(true);
 
       await execFileAsync(process.execPath, ['scripts/benchmark-pdf-corpus.ts'], {
@@ -153,6 +172,7 @@ describe('corpus benchmark external manifests', () => {
                 source_retrieved_at: '2026-06-21',
                 pages: [1],
                 document_archetype: 'external URL text-rich sample',
+                capability_tags: ['external_url', 'public_cache', 'selectable_text'],
                 expected: {
                   contains_text: ['Sample PDF'],
                   min_pages: 1,
@@ -220,6 +240,18 @@ describe('corpus benchmark external manifests', () => {
         expect(report.external_download_count).toBe(1);
         expect(report.corpus_cache_dir).toBe(path.resolve(cacheDir));
         expect(external?.score).toBe(1);
+        expect(external?.capability_tags).toEqual([
+          'external_url',
+          'public_cache',
+          'selectable_text',
+        ]);
+        expect(report.capability_summary).toContainEqual(
+          expect.objectContaining({
+            tag: 'external_url',
+            case_count: 1,
+            status: 'passed',
+          })
+        );
         expect(external?.assertions[0]?.observed).toMatchObject({
           source_type: 'url',
           source_url: url,

@@ -24,12 +24,23 @@ interface CorpusCaseResult {
   id: string;
   fixture_type: 'checked-in' | 'runtime-generated' | 'external';
   document_archetype: string;
+  capability_tags: string[];
   duration_ms: number;
   assertion_count: number;
   passed_assertion_count: number;
   score: number;
   metrics: Record<string, number | string | boolean>;
   assertions: CorpusAssertion[];
+}
+
+interface CorpusCapabilitySummary {
+  tag: string;
+  case_count: number;
+  assertion_count: number;
+  passed_assertion_count: number;
+  failed_assertion_count: number;
+  score: number;
+  status: 'passed' | 'failed';
 }
 
 interface CorpusBenchmarkReport {
@@ -45,6 +56,7 @@ interface CorpusBenchmarkReport {
   assertion_count: number;
   passed_assertion_count: number;
   score: number;
+  capability_summary: CorpusCapabilitySummary[];
   cases: CorpusCaseResult[];
 }
 
@@ -73,6 +85,7 @@ interface ExternalCorpusCase {
   downloaded?: boolean | undefined;
   pages?: ReadPdfArgs['sources'][number]['pages'] | undefined;
   document_archetype: string;
+  capability_tags: string[];
   expected: ExternalCorpusExpected;
   read_pdf_options?: Partial<
     Pick<
@@ -357,6 +370,19 @@ const stringArray = (value: unknown): string[] | undefined => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const capabilityTags = (value: unknown): string[] => {
+  const normalized =
+    stringArray(value)
+      ?.map((entry) =>
+        entry
+          .toLowerCase()
+          .replace(/[^a-z0-9._:-]+/gu, '-')
+          .replace(/^-+|-+$/gu, '')
+      )
+      .filter((entry) => entry.length > 0) ?? [];
+  return [...new Set(normalized)];
+};
+
 const positiveNumber = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 
@@ -498,6 +524,7 @@ const readExternalCorpusManifest = async (
         pages: parseExternalCorpusPages(record.pages),
         document_archetype:
           nonEmptyString(record.document_archetype) ?? 'external PDF',
+        capability_tags: capabilityTags(record.capability_tags),
         expected: parseExternalCorpusExpected(record.expected),
         read_pdf_options: parseExternalCorpusReadOptions(record.read_pdf_options),
       };
@@ -549,11 +576,13 @@ const buildCaseResult = async ({
   id,
   fixtureType,
   documentArchetype,
+  capabilityTags: caseCapabilityTags,
   run,
 }: {
   id: string;
   fixtureType: CorpusCaseResult['fixture_type'];
   documentArchetype: string;
+  capabilityTags: string[];
   run: () => Promise<{ assertions: CorpusAssertion[]; metrics: CorpusCaseResult['metrics'] }>;
 }): Promise<CorpusCaseResult> => {
   const start = performance.now();
@@ -564,6 +593,7 @@ const buildCaseResult = async ({
       id,
       fixture_type: fixtureType,
       document_archetype: documentArchetype,
+      capability_tags: caseCapabilityTags,
       duration_ms: round(performance.now() - start),
       assertion_count: assertions.length,
       passed_assertion_count: passed,
@@ -576,6 +606,7 @@ const buildCaseResult = async ({
       id,
       fixture_type: fixtureType,
       document_archetype: documentArchetype,
+      capability_tags: caseCapabilityTags,
       duration_ms: round(performance.now() - start),
       assertion_count: 1,
       passed_assertion_count: 0,
@@ -600,6 +631,14 @@ const evaluateCheckedInSample = async (): Promise<CorpusCaseResult> =>
     id: 'checked-in-sample-agent-document-twin',
     fixtureType: 'checked-in',
     documentArchetype: 'text-rich repository PDF',
+    capabilityTags: [
+      'checked_in_sample',
+      'citation_chunks',
+      'document_map',
+      'document_twin',
+      'selectable_text',
+      'text_layer',
+    ],
     run: async () => {
       const payload = await parseReadPdfResult({
         sources: [{ path: 'test/fixtures/sample.pdf', pages: [1] }],
@@ -685,6 +724,14 @@ const evaluateReadingOrderReport = async (tempDir: string): Promise<CorpusCaseRe
     id: 'runtime-report-reading-order',
     fixtureType: 'runtime-generated',
     documentArchetype: 'multi-column report with spanning headers and footer',
+    capabilityTags: [
+      'document_ast',
+      'document_map',
+      'layout_diagnostics',
+      'multi_column',
+      'reading_order',
+      'runtime_generated',
+    ],
     run: async () => {
       const fixturePath = await writeReadingOrderReportFixture(tempDir);
       const payload = await parseReadPdfResult({
@@ -788,6 +835,14 @@ const evaluateScannedOcrRouting = async (tempDir: string): Promise<CorpusCaseRes
     id: 'runtime-scanned-ocr-routing',
     fixtureType: 'runtime-generated',
     documentArchetype: 'image-only scanned page with OCR text-layer fusion',
+    capabilityTags: [
+      'document_map',
+      'ocr_routing',
+      'ocr_text_layer',
+      'runtime_generated',
+      'scanned_page',
+      'source_render_evidence',
+    ],
     run: async () => {
       const fixturePath = await writeScannedImageFixture(tempDir);
       const scriptPath = path.resolve(process.cwd(), 'test/fixtures/mock-ocr-provider.mjs');
@@ -888,6 +943,16 @@ const evaluateOcrTableEvidence = async (tempDir: string): Promise<CorpusCaseResu
     id: 'runtime-ocr-table-agent-evidence',
     fixtureType: 'runtime-generated',
     documentArchetype: 'scanned tabular page with OCR word-box table recovery',
+    capabilityTags: [
+      'document_ast',
+      'document_map',
+      'ocr_table_extraction',
+      'ocr_text_layer',
+      'runtime_generated',
+      'scanned_table',
+      'table_structure',
+      'word_boxes',
+    ],
     run: async () => {
       const fixturePath = await writeScannedImageFixture(tempDir);
       const scriptPath = path.resolve(process.cwd(), 'test/fixtures/mock-ocr-table-provider.mjs');
@@ -1027,6 +1092,7 @@ const evaluateExternalCorpusCase = async (entry: ExternalCorpusCase): Promise<Co
     id: entry.id,
     fixtureType: 'external',
     documentArchetype: entry.document_archetype,
+    capabilityTags: entry.capability_tags,
     run: async () => {
       const expected = entry.expected;
       const readOptions = entry.read_pdf_options ?? {};
@@ -1199,6 +1265,48 @@ const evaluateExternalCorpusManifest = async (
   };
 };
 
+const summarizeCorpusCapabilities = (cases: CorpusCaseResult[]): CorpusCapabilitySummary[] => {
+  const tagMap = new Map<
+    string,
+    {
+      caseIds: Set<string>;
+      assertion_count: number;
+      passed_assertion_count: number;
+    }
+  >();
+
+  for (const entry of cases) {
+    for (const tag of entry.capability_tags) {
+      const summary =
+        tagMap.get(tag) ??
+        {
+          caseIds: new Set<string>(),
+          assertion_count: 0,
+          passed_assertion_count: 0,
+        };
+      summary.caseIds.add(entry.id);
+      summary.assertion_count += entry.assertion_count;
+      summary.passed_assertion_count += entry.passed_assertion_count;
+      tagMap.set(tag, summary);
+    }
+  }
+
+  return [...tagMap.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([tag, summary]) => {
+      const failedAssertionCount = summary.assertion_count - summary.passed_assertion_count;
+      return {
+        tag,
+        case_count: summary.caseIds.size,
+        assertion_count: summary.assertion_count,
+        passed_assertion_count: summary.passed_assertion_count,
+        failed_assertion_count: failedAssertionCount,
+        score: ratioScore(summary.passed_assertion_count, summary.assertion_count),
+        status: failedAssertionCount === 0 ? 'passed' : 'failed',
+      };
+    });
+};
+
 export const buildCorpusBenchmarkReport = async (
   options: BuildCorpusBenchmarkReportOptions = {}
 ): Promise<CorpusBenchmarkReport> => {
@@ -1251,6 +1359,7 @@ export const buildCorpusBenchmarkReport = async (
       assertion_count: assertionCount,
       passed_assertion_count: passedAssertionCount,
       score: ratioScore(passedAssertionCount, assertionCount),
+      capability_summary: summarizeCorpusCapabilities(cases),
       cases,
     };
   } finally {

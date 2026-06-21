@@ -26,8 +26,8 @@
 - [x] Deterministic quality, corpus, provider, package smoke, and SOTA release-gate evidence
 - [x] External corpus manifest support for operator-supplied real PDF benchmark evidence
 - [x] External corpus URL support with SHA256 verification, explicit download opt-in, private-host protection, cache reuse, and artifact provenance
-- [x] Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, pinned SHA256 values, and package-smoke coverage
-- [x] Opt-in public provider accuracy manifest with official and publicly available PDF crop regions, source metadata, pinned SHA256 values, capability tags, capability-summary artifacts, and package-smoke coverage
+- [x] Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, pinned SHA256 values, capability tags, capability-summary artifacts, and package-smoke coverage
+- [x] Opt-in public provider accuracy manifest with official and publicly available PDF crop regions, source metadata, pinned SHA256 values, capability tags, capability-summary artifacts, and required package-smoke coverage gates
 - [x] Configurable trust-report evidence redaction policies with standard, strict, and explicit off modes
 
 ## In Progress

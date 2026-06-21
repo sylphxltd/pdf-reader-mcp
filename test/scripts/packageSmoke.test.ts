@@ -43,6 +43,20 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
         source_homepage: 'https://example.com/',
         source_rights: 'test fixture',
         source_retrieved_at: '2026-06-21',
+        capability_tags: [
+          'accessibility_guidance',
+          'document_map',
+          'fillable_form',
+          'government_newsletter',
+          'image_plus_text',
+          'legacy_scan',
+          'official_form',
+          'public_domain_text',
+          'selectable_text',
+          'technical_report',
+          'text_layer',
+          'visual_text',
+        ],
       },
     ],
   });
@@ -56,13 +70,18 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
         source_homepage: 'https://example.com/',
         source_rights: 'test fixture',
         source_retrieved_at: '2026-06-21',
-        capability_tags: ['visual_text'],
+        capability_tags: ['accessibility_diagram', 'image_plus_text', 'legacy_scan', 'visual_text'],
         regions: [
           {
             id: 'provider-region',
             page: 1,
             bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
-            capability_tags: ['full_page_crop'],
+            capability_tags: [
+              'diagram_context',
+              'full_page_crop',
+              'layout_diagram',
+              'scanned_page_triage',
+            ],
             expected: { contains_text: ['provider'] },
           },
         ],
@@ -96,6 +115,75 @@ describe('package smoke', () => {
       const checks = await validateExtractedPackage(tempDir);
 
       expect(checks.find((check) => check.id === 'runtime:dist-index')?.status).toBe('failed');
+    });
+  });
+
+  test('fails when public corpus capability coverage is missing', async () => {
+    await withTempDir(async (tempDir) => {
+      writeExtractedPackage(tempDir);
+      writeJson(path.join(tempDir, 'corpus', 'public-url-corpus.json'), {
+        cases: [
+          {
+            id: 'public-smoke',
+            url: 'https://example.com/public-smoke.pdf',
+            sha256: 'a'.repeat(64),
+            source_label: 'public smoke fixture',
+            source_homepage: 'https://example.com/',
+            source_rights: 'test fixture',
+            source_retrieved_at: '2026-06-21',
+            capability_tags: ['selectable_text'],
+          },
+        ],
+      });
+
+      const checks = await validateExtractedPackage(tempDir);
+
+      const publicCorpusCheck = checks.find(
+        (check) => check.id === 'corpus:public-url-manifest-shape'
+      );
+      expect(publicCorpusCheck?.status).toBe('failed');
+      expect(publicCorpusCheck?.evidence?.missing_required_capability_tags).toContain(
+        'legacy_scan'
+      );
+    });
+  });
+
+  test('fails when public provider capability coverage is missing', async () => {
+    await withTempDir(async (tempDir) => {
+      writeExtractedPackage(tempDir);
+      writeJson(path.join(tempDir, 'corpus', 'public-provider-accuracy.json'), {
+        cases: [
+          {
+            id: 'provider-smoke',
+            url: 'https://example.com/provider-smoke.pdf',
+            sha256: 'b'.repeat(64),
+            source_label: 'provider smoke fixture',
+            source_homepage: 'https://example.com/',
+            source_rights: 'test fixture',
+            source_retrieved_at: '2026-06-21',
+            capability_tags: ['visual_text'],
+            regions: [
+              {
+                id: 'provider-region',
+                page: 1,
+                bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+                capability_tags: ['full_page_crop'],
+                expected: { contains_text: ['provider'] },
+              },
+            ],
+          },
+        ],
+      });
+
+      const checks = await validateExtractedPackage(tempDir);
+
+      const publicProviderCheck = checks.find(
+        (check) => check.id === 'corpus:public-provider-manifest-shape'
+      );
+      expect(publicProviderCheck?.status).toBe('failed');
+      expect(publicProviderCheck?.evidence?.missing_required_capability_tags).toContain(
+        'scanned_page_triage'
+      );
     });
   });
 

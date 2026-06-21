@@ -94,9 +94,15 @@ override is enabled.
 Add a checked-in public URL corpus manifest with official and publicly available
 PDF sources, pinned SHA256 values, source metadata, and package smoke coverage
 so users can reproduce real-world corpus artifacts without vendoring PDF bytes.
+The corpus benchmark now carries case-level capability tags and an
+artifact-level capability summary, and the package smoke gate verifies required
+public corpus capability coverage in the packed package. The SOTA release gate
+also verifies that corpus cases keep capability tags and that the corpus
+capability summary covers required release areas without failing tags.
 Add an opt-in public provider accuracy benchmark manifest and
 `benchmark:provider-manifest` script so configured visual-region providers can
 be scored against public PDF crops with pinned source metadata and checksums.
 The provider manifest artifact now carries capability tags and a
 capability-level summary so public proof can be reviewed by capability area,
-not only by aggregate score.
+not only by aggregate score. The package smoke gate also verifies required
+public provider capability coverage in the packed package.

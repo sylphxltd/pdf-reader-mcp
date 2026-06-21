@@ -11,6 +11,16 @@ const REQUIRED_CORPUS_CASE_IDS = [
   'runtime-scanned-ocr-routing',
   'runtime-ocr-table-agent-evidence',
 ] as const;
+const REQUIRED_CORPUS_CAPABILITY_TAGS = [
+  'document_map',
+  'reading_order',
+  'ocr_routing',
+  'ocr_text_layer',
+  'ocr_table_extraction',
+  'scanned_page',
+  'scanned_table',
+  'text_layer',
+] as const;
 
 const REQUIRED_ARTIFACTS = {
   performance: {
@@ -104,6 +114,11 @@ const getNumber = (record: JsonRecord | undefined, key: string): number | undefi
 
 const getString = (record: JsonRecord | undefined, key: string): string | undefined =>
   typeof record?.[key] === 'string' ? record[key] : undefined;
+
+const getStringArray = (record: JsonRecord | undefined, key: string): string[] =>
+  Array.isArray(record?.[key])
+    ? record[key].filter((entry): entry is string => typeof entry === 'string')
+    : [];
 
 const addCheck = (
   checks: GateCheck[],
@@ -266,6 +281,47 @@ export const buildSotaReleaseGateReport = async (
         score: entry.score,
         assertion_count: entry.assertion_count,
         passed_assertion_count: entry.passed_assertion_count,
+      })),
+    }
+  );
+  const untaggedCorpusCases = corpusCases.filter(
+    (entry) => getStringArray(entry, 'capability_tags').length === 0
+  );
+  addCheck(
+    checks,
+    'corpus:case-capability-tags',
+    corpusCases.length > 0 && untaggedCorpusCases.length === 0,
+    'every corpus benchmark case declares capability tags',
+    { untagged_case_ids: untaggedCorpusCases.map((entry) => entry.id) }
+  );
+  const corpusCapabilitySummary = getArray(artifacts.corpus, 'capability_summary');
+  const corpusCapabilityTags = new Set(
+    corpusCapabilitySummary.map((entry) => getString(entry, 'tag')).filter(Boolean)
+  );
+  const missingCorpusCapabilityTags = REQUIRED_CORPUS_CAPABILITY_TAGS.filter(
+    (tag) => !corpusCapabilityTags.has(tag)
+  );
+  const failingCorpusCapabilityTags = corpusCapabilitySummary.filter(
+    (entry) =>
+      getString(entry, 'status') !== 'passed' ||
+      getNumber(entry, 'score') !== 1 ||
+      (getNumber(entry, 'failed_assertion_count') ?? 0) !== 0
+  );
+  addCheck(
+    checks,
+    'corpus:capability-summary',
+    corpusCapabilitySummary.length > 0 &&
+      missingCorpusCapabilityTags.length === 0 &&
+      failingCorpusCapabilityTags.length === 0,
+    'corpus benchmark capability summary covers required areas and has no failing tags',
+    {
+      required_tags: REQUIRED_CORPUS_CAPABILITY_TAGS,
+      missing_required_tags: missingCorpusCapabilityTags,
+      failing_tags: failingCorpusCapabilityTags.map((entry) => ({
+        tag: entry.tag,
+        status: entry.status,
+        score: entry.score,
+        failed_assertion_count: entry.failed_assertion_count,
       })),
     }
   );

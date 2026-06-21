@@ -127,8 +127,10 @@ themselves.
    - `bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json`
      or `MCP_PDF_CORPUS_MANIFEST=./corpus-manifest.json bun run benchmark:corpus`
      can add operator-supplied real PDFs to the corpus artifact using the same
-     assertion format. Release CI remains deterministic and does not download
-     or bundle external PDFs by default.
+     assertion format. Corpus cases may include `capability_tags`; the artifact
+     emits `capability_summary` so release evidence can be reviewed by coverage
+     area. Release CI remains deterministic and does not download or bundle
+     external PDFs by default.
    - Public URL corpus cases must include `sha256`. They resolve through a
      content-addressed cache and require `--allow-corpus-downloads` or
      `MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true` before the benchmark performs a
@@ -138,8 +140,8 @@ themselves.
      provenance is recorded in the corpus artifact.
    - `corpus/public-url-corpus.json` is included in the repo and published
      package as an opt-in public corpus manifest over official and publicly
-     available PDF sources with source metadata and pinned SHA256 values. It is
-     not part of default CI network activity.
+     available PDF sources with source metadata, pinned SHA256 values, and
+     required capability tags. It is not part of default CI network activity.
    - `corpus/public-provider-accuracy.json` is included in the repo and
      published package as an opt-in public provider accuracy manifest over
      official and publicly available PDF crops. `benchmark:provider-manifest`
@@ -149,11 +151,11 @@ themselves.
    - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate`
      reads those artifacts and must pass before a SOTA release can be treated
      as complete. It fails if deterministic final-bar coverage is incomplete,
-     if mandatory corpus archetype evidence is incomplete, if any quality area
-     still needs provider-backed evidence, or if the provider artifact was not
-     produced with strict provider requirements. It also fails when provider
-     quality metrics are missing or not passing for an installed-provider
-     certification result.
+     if mandatory corpus archetype evidence or required corpus capability
+     summaries are incomplete, if any quality area still needs provider-backed
+     evidence, or if the provider artifact was not produced with strict
+     provider requirements. It also fails when provider quality metrics are
+     missing or not passing for an installed-provider certification result.
 
 9. Public contract integrity
    - README, docs, changelog, release notes, and package metadata may describe
@@ -176,4 +178,5 @@ A new major release should not be treated as complete until:
 - Public docs match the verified behavior without competitor references or
   unproven superiority claims.
 - The package smoke test proves the release tarball exposes the executable
-  runtime artifact and the expected `bin`/`exports` contract.
+  runtime artifact, the expected `bin`/`exports` contract, and required public
+  corpus/provider capability coverage manifests.

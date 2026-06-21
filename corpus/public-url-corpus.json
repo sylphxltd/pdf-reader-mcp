@@ -11,6 +11,7 @@
       "source_rights": "U.S. federal government public information",
       "source_retrieved_at": "2026-06-21",
       "document_archetype": "official fillable tax form",
+      "capability_tags": ["document_map", "fillable_form", "official_form", "selectable_text", "text_layer"],
       "expected": {
         "min_pages": 1,
         "min_text_chars": 1000,
@@ -33,6 +34,13 @@
       "source_rights": "U.S. federal government public information",
       "source_retrieved_at": "2026-06-21",
       "document_archetype": "official accessibility guidance PDF",
+      "capability_tags": [
+        "accessibility_guidance",
+        "document_map",
+        "selectable_text",
+        "text_layer",
+        "visual_text"
+      ],
       "expected": {
         "min_pages": 5,
         "min_text_chars": 2000,
@@ -55,6 +63,13 @@
       "source_rights": "Public domain notice in source PDF",
       "source_retrieved_at": "2026-06-21",
       "document_archetype": "public-domain government newsletter",
+      "capability_tags": [
+        "document_map",
+        "government_newsletter",
+        "public_domain_text",
+        "selectable_text",
+        "text_layer"
+      ],
       "expected": {
         "min_pages": 5,
         "min_text_chars": 1000,
@@ -77,6 +92,14 @@
       "source_rights": "NASA public technical report",
       "source_retrieved_at": "2026-06-21",
       "document_archetype": "public technical report with legacy scan characteristics",
+      "capability_tags": [
+        "document_map",
+        "image_plus_text",
+        "legacy_scan",
+        "selectable_text",
+        "technical_report",
+        "text_layer"
+      ],
       "expected": {
         "min_pages": 14,
         "min_text_chars": 1000,
