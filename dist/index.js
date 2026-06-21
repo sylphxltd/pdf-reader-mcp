@@ -1829,6 +1829,7 @@ var int = (schema) => expectNumberSchema(schema, "int").int();
 var str = (...actions) => applyActions(z2.string(), actions);
 var num = (...actions) => applyActions(z2.number(), actions);
 var bool = (...actions) => applyActions(z2.boolean(), actions);
+var literal = (value) => z2.literal(value);
 var array = (schema, ...actions) => applyActions(z2.array(schema), actions);
 var object = (shape, ...actions) => applyActions(z2.object(shape), actions);
 var optional = (schema) => schema.optional();
@@ -3772,6 +3773,7 @@ var readPdfArgsSchema = object({
   include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
   max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
   include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, selected-page category-count, page-risk, and redacted evidence signals for agent routing."))),
+  trust_report_redaction: optional(union(literal("standard"), literal("strict"), literal("off")).describe("Redaction policy for trust-report evidence snippets. standard redacts common secrets and personal identifiers, strict also redacts phone-like values and IPv4 addresses, and off preserves snippets while marking the policy explicitly. Defaults to standard.")),
   include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, accessibility permissions, issue type/severity summaries, and page-grade routing.")))
 });
 
@@ -6750,7 +6752,9 @@ var luhnCheck = (digits) => {
   }
   return sum > 0 && sum % 10 === 0;
 };
-var redactTrustEvidenceText = (value) => {
+var redactTrustEvidenceText = (value, policy) => {
+  if (policy === "off")
+    return { text: value, types: [] };
   const types = new Set;
   let text2 = value;
   text2 = text2.replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----/g, () => addRedactionType(types, "private_key_marker"));
@@ -6768,19 +6772,32 @@ var redactTrustEvidenceText = (value) => {
     types.add("credit_card");
     return `[REDACTED_CREDIT_CARD_LAST4_${digits.slice(-4)}]`;
   });
+  if (policy === "strict") {
+    text2 = text2.replace(/\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g, () => addRedactionType(types, "ipv4"));
+    text2 = text2.replace(/(^|[^\w+])(\+?\d[\d .()/-]{7,}\d)\b/g, (match, prefix, candidate) => {
+      const digits = candidate.replace(/\D/g, "");
+      if (digits.length < 8 || digits.length > 15)
+        return match;
+      types.add("phone");
+      return `${prefix}[REDACTED_PHONE_LAST4_${digits.slice(-4)}]`;
+    });
+  }
   return { text: text2, types: [...types] };
 };
-var signalFromSafetyFinding = (finding) => {
+var signalFromSafetyFinding = (finding, redactionPolicy) => {
   const evidence = {
     finding_type: finding.type,
+    redaction_policy: redactionPolicy,
     ...finding.bounding_box ? { bounding_box: finding.bounding_box } : {}
   };
   if (finding.snippet) {
-    const redactedSnippet = redactTrustEvidenceText(finding.snippet);
+    const redactedSnippet = redactTrustEvidenceText(finding.snippet, redactionPolicy);
     evidence["snippet"] = redactedSnippet.text;
     if (redactedSnippet.types.length > 0) {
       evidence["snippet_redacted"] = true;
       evidence["redaction_types"] = redactedSnippet.types;
+    } else if (redactionPolicy === "off") {
+      evidence["snippet_redacted"] = false;
     }
   }
   return {
@@ -6911,12 +6928,13 @@ var buildGuidance2 = (signals) => {
   return [...guidance];
 };
 var buildTrustReport = (input) => {
+  const redactionPolicy = input.redactionPolicy ?? "standard";
   const selectedPages = [...new Set(input.selectedPages)].sort((a, b) => a - b);
   const selectedPageSet = new Set(selectedPages);
   const isInSelectedScope = (page) => page === undefined || selectedPageSet.has(page);
   const safetyFindings = input.safetyFindings.filter((finding) => isInSelectedScope(finding.page));
   const signals = [
-    ...safetyFindings.map(signalFromSafetyFinding),
+    ...safetyFindings.map((finding) => signalFromSafetyFinding(finding, redactionPolicy)),
     ...input.layoutDiagnostics.flatMap(signalsFromLayout),
     ...signalsFromTables(input.elements),
     ...signalsFromAnnotations(input.annotations)
@@ -6945,6 +6963,7 @@ var buildTrustReport = (input) => {
     score,
     summary: {
       selected_pages: selectedPages,
+      redaction_policy: redactionPolicy,
       signal_count: signals.length,
       high_signal_count: highSignalCount,
       medium_signal_count: mediumSignalCount,
@@ -7531,7 +7550,8 @@ var processSingleSource = async (source, options) => {
           safetyFindings,
           layoutDiagnostics,
           elements: trustElements,
-          annotations
+          annotations,
+          redactionPolicy: options.trustReportRedaction
         });
         output.trust_report = trustReport;
       }
@@ -7640,6 +7660,7 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     include_visual_enrichments,
     max_visual_enrichments,
     include_trust_report,
+    trust_report_redaction,
     include_accessibility_report
   } = input;
   const MAX_CONCURRENT_SOURCES2 = 3;
@@ -7672,6 +7693,7 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     includeVisualEnrichments: include_visual_enrichments ?? false,
     maxVisualEnrichments: max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
     includeTrustReport: include_trust_report ?? false,
+    trustReportRedaction: trust_report_redaction ?? "standard",
     includeAccessibilityReport: include_accessibility_report ?? false
   };
   for (let i = 0;i < sources.length; i += MAX_CONCURRENT_SOURCES2) {

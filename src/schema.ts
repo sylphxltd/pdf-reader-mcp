@@ -52,6 +52,9 @@ export const num = (...actions: readonly SchemaAction[]): z.ZodNumber =>
 export const bool = (...actions: readonly SchemaAction[]): z.ZodBoolean =>
   applyActions(z.boolean(), actions) as z.ZodBoolean;
 
+export const literal = <T extends string | number | boolean>(value: T): z.ZodLiteral<T> =>
+  z.literal(value);
+
 export const array = <S extends AnySchema>(
   schema: S,
   ...actions: readonly SchemaAction[]

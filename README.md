@@ -354,7 +354,7 @@ outputs.
 - Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
 - Safety findings and trust report signal routing linked back to page and element evidence
 - Optional visual-region candidate indexes when `include_visual_enrichments` is enabled, plus provider-backed table, formula, chart, figure, and image analysis when a visual provider is ready
-- Optional trust risk, score, signal indexes, severity counters, high-signal routing, and high/medium-risk routing when `include_trust_report` is enabled
+- Optional trust risk, score, signal indexes, severity counters, configurable evidence redaction, high-signal routing, and high/medium-risk routing when `include_trust_report` is enabled
 - No embedded image bytes inside the JSON document map
 
 ### Document AST
@@ -422,6 +422,7 @@ using extracted PDF content as instructions, evidence, or retrieval context.
     "pages": "1-5"
   }],
   "include_trust_report": true,
+  "trust_report_redaction": "strict",
   "include_full_text": false
 }
 ```
@@ -430,7 +431,7 @@ using extracted PDF content as instructions, evidence, or retrieval context.
 - Document and page-level risk scores
 - Content safety, hidden-text, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table quality, external-link, and unsafe-link signals
 - Selected-page-scoped summary counters for signal types, safety finding types, severity counts, and page-risk buckets
-- Redacted trust-evidence snippets for common sensitive values such as emails, SSNs, payment cards, secret assignments, JWTs, and private-key markers
+- Configurable trust-evidence redaction: `standard` redacts common sensitive values such as emails, SSNs, payment cards, secret assignments, JWTs, and private-key markers; `strict` also redacts phone-like values and IPv4 addresses; `off` preserves snippets for controlled local debugging while marking the policy explicitly
 - Guidance for when to verify with OCR, page rendering, region crops, or caller approval before link handling
 - When `include_document_map` is also enabled, the document map links trust page indexes, signal indexes, risk, scores, signal counts, high-signal routing, high/medium-risk routing, and document-level trust summary counts into the same agent twin
 - No forced top-level safety, layout, annotation, or table outputs unless those options are requested
@@ -1240,6 +1241,7 @@ tables, and document signals.
 | `include_visual_enrichments` | boolean | Select bounded table, image, and caption-derived visual-region candidates, expose their routing plan, and run the configured visual-region provider when available to fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
 | `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
 | `include_trust_report` | boolean | Include a consolidated trust report for content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned pages, table quality, external links, unsafe link schemes, category counts, and routing guidance | `false` |
+| `trust_report_redaction` | `"standard" \| "strict" \| "off"` | Redaction policy for trust-report evidence snippets. `standard` redacts common secrets and personal identifiers, `strict` also redacts phone-like values and IPv4 addresses, and `off` preserves snippets while marking the policy explicitly. | `"standard"` |
 | `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, accessibility permissions, issue summaries, and page-grade routing | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
 | `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph/caption/header/footer hints on text elements, including numbered headings, appendix headings, rich list prefixes, and caption aliases | `false` |
@@ -1792,7 +1794,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Configured local visual region analysis providers over command, HTTP, Ollama `/api/generate`, OpenAI-compatible chat completions, LM Studio, and llama.cpp adapters for table, chart, formula, figure, and image-description enrichment, including crop-image requests, JSON-only normalization, local chat-completions data URL payloads, and caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
+- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, configurable trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
 - [x] JSON benchmark artifact output for performance, deterministic quality, corpus, and installed-provider evidence reports
 - [x] SOTA release gate that blocks release artifacts until deterministic quality, corpus, and installed-provider final-bar evidence are complete
 - [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact and matching `bin`/`exports` contract

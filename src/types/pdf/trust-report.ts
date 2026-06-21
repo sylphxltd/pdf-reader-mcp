@@ -4,6 +4,8 @@ import type { PdfSafetyFindingType } from './safety.js';
 
 export type PdfTrustRiskLevel = 'low' | 'medium' | 'high';
 
+export type PdfTrustRedactionPolicy = 'standard' | 'strict' | 'off';
+
 export type PdfTrustSignalType =
   | 'content_safety'
   | 'layout_uncertainty'
@@ -18,7 +20,9 @@ export type PdfTrustEvidenceRedactionType =
   | 'credit_card'
   | 'secret'
   | 'jwt'
-  | 'private_key_marker';
+  | 'private_key_marker'
+  | 'phone'
+  | 'ipv4';
 
 export interface PdfTrustSignal {
   type: PdfTrustSignalType;
@@ -40,6 +44,7 @@ export interface PdfTrustPageReport {
 
 export interface PdfTrustReportSummary {
   selected_pages: number[];
+  redaction_policy: PdfTrustRedactionPolicy;
   signal_count: number;
   high_signal_count: number;
   medium_signal_count: number;

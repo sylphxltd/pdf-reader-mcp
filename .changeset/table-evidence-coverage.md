@@ -20,6 +20,10 @@ text layer and agent document map summaries. Add selected-page-scoped
 trust-report summary breakdowns for signal types, safety finding types, and
 page-risk counts, redacted trust-evidence snippets for common sensitive values,
 plus more specific routing guidance for overlapping, tiny, and off-page text.
+Add `trust_report_redaction` so callers can keep the default standard evidence
+redaction, opt into stricter phone/IP redaction, or explicitly preserve snippets
+for controlled local debugging while the selected policy is recorded in the
+trust report.
 Add accessibility report summary breakdowns for issue types, severity buckets,
 document-vs-page issue totals, page-grade buckets, and affected-page counts so
 agents can route tagged-PDF accessibility risks without scanning every raw

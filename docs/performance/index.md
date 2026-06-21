@@ -88,7 +88,7 @@ evidence before making engine-specific accuracy claims.
 | `visual_region_analysis_quality` | Local command, HTTP, Ollama-preset, OpenAI-compatible, LM Studio, and llama.cpp visual-region provider normalization for table cells/spans/boxes, formula fields, chart axes/series, figure and image-description evidence, confidence, warnings, request shape, and crop evidence |
 | `search_evidence_quality` | Selectable text search with character-derived boxes and OCR search with word-level boxes plus render provenance |
 | `table_evidence_quality` | Deterministic table cell bounding-box coverage, inferred-cell ratios, weak-geometry routing warnings, and page-edge continuation candidates |
-| `ai_safety_trust_report_quality` | Hidden or near-invisible text geometry, overlapping text detection for visual-spoofing or obscured-content risk, selected-page-scoped trust-report signal/safety category counts, page-risk counts, redacted trust-evidence snippets, visual-spoofing guidance, and unsafe-link scheme routing |
+| `ai_safety_trust_report_quality` | Hidden or near-invisible text geometry, overlapping text detection for visual-spoofing or obscured-content risk, selected-page-scoped trust-report signal/safety category counts, page-risk counts, configurable trust-evidence redaction, visual-spoofing guidance, and unsafe-link scheme routing |
 
 This benchmark uses in-repository synthetic cases, runtime-generated
 document-signal, reading-order, and scanned PDF fixtures, and mock local
@@ -574,8 +574,10 @@ page content.
 signals, including prompt-injection-like text, tiny text, off-page text, and
 hidden or near-invisible text geometry, and overlapping text that may visually
 spoof or obscure content. `include_trust_report` can consolidate those text
-signals with annotation-derived unsafe link schemes, and `include_document_map`
-can link the trust report back to page-level risk routing.
+signals with annotation-derived unsafe link schemes, `trust_report_redaction`
+can select standard, strict, or explicit off evidence-snippet handling, and
+`include_document_map` can link the trust report back to page-level risk
+routing.
 Safety findings require page text extraction, but they do not force `full_text`
 into the JSON response.
 

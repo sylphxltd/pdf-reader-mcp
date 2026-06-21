@@ -7,6 +7,7 @@ import {
   gte,
   type InferOutput,
   int,
+  literal,
   min,
   num,
   object,
@@ -199,6 +200,11 @@ export const readPdfArgsSchema = object({
       description(
         'Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, selected-page category-count, page-risk, and redacted evidence signals for agent routing.'
       )
+    )
+  ),
+  trust_report_redaction: optional(
+    union(literal('standard'), literal('strict'), literal('off')).describe(
+      'Redaction policy for trust-report evidence snippets. standard redacts common secrets and personal identifiers, strict also redacts phone-like values and IPv4 addresses, and off preserves snippets while marking the policy explicitly. Defaults to standard.'
     )
   ),
   include_accessibility_report: optional(

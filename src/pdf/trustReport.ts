@@ -7,6 +7,7 @@ import type {
   PdfSafetyFindingType,
   PdfTrustEvidenceRedactionType,
   PdfTrustPageReport,
+  PdfTrustRedactionPolicy,
   PdfTrustReport,
   PdfTrustRiskLevel,
   PdfTrustSignal,
@@ -21,6 +22,7 @@ interface BuildTrustReportInput {
   layoutDiagnostics: PdfPageLayoutDiagnostics[];
   elements: PdfDocumentElement[];
   annotations?: PdfPageAnnotations[] | undefined;
+  redactionPolicy?: PdfTrustRedactionPolicy | undefined;
 }
 
 const severityScore = (severity: PdfTrustRiskLevel): number => {
@@ -73,7 +75,12 @@ const luhnCheck = (digits: string): boolean => {
   return sum > 0 && sum % 10 === 0;
 };
 
-const redactTrustEvidenceText = (value: string): RedactedTrustEvidenceText => {
+const redactTrustEvidenceText = (
+  value: string,
+  policy: PdfTrustRedactionPolicy
+): RedactedTrustEvidenceText => {
+  if (policy === 'off') return { text: value, types: [] };
+
   const types = new Set<PdfTrustEvidenceRedactionType>();
   let text = value;
 
@@ -101,21 +108,40 @@ const redactTrustEvidenceText = (value: string): RedactedTrustEvidenceText => {
     return `[REDACTED_CREDIT_CARD_LAST4_${digits.slice(-4)}]`;
   });
 
+  if (policy === 'strict') {
+    text = text.replace(
+      /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g,
+      () => addRedactionType(types, 'ipv4')
+    );
+    text = text.replace(/(^|[^\w+])(\+?\d[\d .()/-]{7,}\d)\b/g, (match, prefix, candidate) => {
+      const digits = candidate.replace(/\D/g, '');
+      if (digits.length < 8 || digits.length > 15) return match;
+      types.add('phone');
+      return `${prefix}[REDACTED_PHONE_LAST4_${digits.slice(-4)}]`;
+    });
+  }
+
   return { text, types: [...types] };
 };
 
-const signalFromSafetyFinding = (finding: PdfSafetyFinding): PdfTrustSignal => {
+const signalFromSafetyFinding = (
+  finding: PdfSafetyFinding,
+  redactionPolicy: PdfTrustRedactionPolicy
+): PdfTrustSignal => {
   const evidence: Record<string, unknown> = {
     finding_type: finding.type,
+    redaction_policy: redactionPolicy,
     ...(finding.bounding_box ? { bounding_box: finding.bounding_box } : {}),
   };
 
   if (finding.snippet) {
-    const redactedSnippet = redactTrustEvidenceText(finding.snippet);
+    const redactedSnippet = redactTrustEvidenceText(finding.snippet, redactionPolicy);
     evidence['snippet'] = redactedSnippet.text;
     if (redactedSnippet.types.length > 0) {
       evidence['snippet_redacted'] = true;
       evidence['redaction_types'] = redactedSnippet.types;
+    } else if (redactionPolicy === 'off') {
+      evidence['snippet_redacted'] = false;
     }
   }
 
@@ -285,13 +311,14 @@ const buildGuidance = (signals: PdfTrustSignal[]): string[] => {
 };
 
 export const buildTrustReport = (input: BuildTrustReportInput): PdfTrustReport => {
+  const redactionPolicy = input.redactionPolicy ?? 'standard';
   const selectedPages = [...new Set(input.selectedPages)].sort((a, b) => a - b);
   const selectedPageSet = new Set(selectedPages);
   const isInSelectedScope = (page: number | undefined): boolean =>
     page === undefined || selectedPageSet.has(page);
   const safetyFindings = input.safetyFindings.filter((finding) => isInSelectedScope(finding.page));
   const signals = [
-    ...safetyFindings.map(signalFromSafetyFinding),
+    ...safetyFindings.map((finding) => signalFromSafetyFinding(finding, redactionPolicy)),
     ...input.layoutDiagnostics.flatMap(signalsFromLayout),
     ...signalsFromTables(input.elements),
     ...signalsFromAnnotations(input.annotations),
@@ -329,6 +356,7 @@ export const buildTrustReport = (input: BuildTrustReportInput): PdfTrustReport =
     score,
     summary: {
       selected_pages: selectedPages,
+      redaction_policy: redactionPolicy,
       signal_count: signals.length,
       high_signal_count: highSignalCount,
       medium_signal_count: mediumSignalCount,

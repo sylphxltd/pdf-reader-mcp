@@ -54,6 +54,7 @@ import type {
   PdfSource,
   PdfSourceResult,
   PdfTextLayer,
+  PdfTrustRedactionPolicy,
   PdfVisualEnrichment,
   PdfVisualEnrichmentCandidate,
 } from '../types/pdf.js';
@@ -111,6 +112,7 @@ const processSingleSource = async (
     includeVisualEnrichments: boolean;
     maxVisualEnrichments: number;
     includeTrustReport: boolean;
+    trustReportRedaction: PdfTrustRedactionPolicy;
     includeAccessibilityReport: boolean;
   }
 ): Promise<PdfSourceResult> => {
@@ -465,6 +467,7 @@ const processSingleSource = async (
           layoutDiagnostics,
           elements: trustElements,
           annotations,
+          redactionPolicy: options.trustReportRedaction,
         });
         output.trust_report = trustReport;
       }
@@ -598,6 +601,7 @@ export const readPdf = tool()
       include_visual_enrichments,
       max_visual_enrichments,
       include_trust_report,
+      trust_report_redaction,
       include_accessibility_report,
     } = input;
 
@@ -633,6 +637,7 @@ export const readPdf = tool()
       includeVisualEnrichments: include_visual_enrichments ?? false,
       maxVisualEnrichments: max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
       includeTrustReport: include_trust_report ?? false,
+      trustReportRedaction: trust_report_redaction ?? 'standard',
       includeAccessibilityReport: include_accessibility_report ?? false,
     };
 

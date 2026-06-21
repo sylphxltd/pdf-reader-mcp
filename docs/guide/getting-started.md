@@ -452,7 +452,11 @@ unsafe-link signals without forcing those raw outputs into the top-level
 response. Summary counters group selected-page signals by type, safety findings
 by finding type, severities, and page-risk buckets so agents can route high-risk
 PDFs without scanning every signal first. Trust evidence snippets redact common
-sensitive values before they appear in the routing report.
+sensitive values before they appear in the routing report. Use
+`trust_report_redaction: "strict"` for higher-sensitivity local runs that should
+also redact phone-like values and IPv4 addresses, or `"off"` only for
+controlled local debugging where raw snippets must be preserved and the policy
+is recorded explicitly.
 When `include_document_map` is also enabled, the document map carries trust
 page indexes, signal indexes, risk, scores, signal counts, high-signal routing
 arrays, high/medium-risk routing arrays, and summary counters in the same agent
@@ -465,6 +469,7 @@ navigation contract.
     "pages": "1-5"
   }],
   "include_trust_report": true,
+  "trust_report_redaction": "strict",
   "include_full_text": false,
   "include_metadata": false,
   "include_page_count": true

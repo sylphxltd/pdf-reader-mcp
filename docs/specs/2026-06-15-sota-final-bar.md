@@ -68,8 +68,9 @@ themselves.
      finding type, severity, and page-risk bucket so agents can route high-risk
      PDFs without scanning every raw signal first.
    - Redact common sensitive values from trust-report evidence snippets while
-     marking the redaction types, so routing metadata does not unnecessarily
-     expose secrets.
+     marking the redaction types, expose the selected redaction policy, and
+     support stricter phone/IP redaction for higher-sensitivity local runs so
+     routing metadata does not unnecessarily expose secrets.
 
 8. Reproducible proof
    - Public benchmark commands must measure speed and quality, not just runtime.
@@ -92,8 +93,9 @@ themselves.
      caption-derived visual candidate routing,
      visual-region command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp normalization,
      search evidence, and AI-safety trust-report
-     selected-page-scoped category summaries, trust-evidence redaction,
-     visual-spoofing guidance, hidden-text routing, and unsafe-link routing.
+     selected-page-scoped category summaries, configurable trust-evidence
+     redaction, visual-spoofing guidance, hidden-text routing, and unsafe-link
+     routing.
      Its JSON report includes `final_bar_coverage_summary` and
      `final_bar_coverage`, mapping each SOTA final-bar capability to the
      deterministic benchmark scenarios that currently prove it and marking
