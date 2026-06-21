@@ -44,7 +44,9 @@ MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_PROVIDER_BENCHMARK_RE
 `benchmark:release-artifacts` adds the deterministic
 `pdf_provider_manifest_crop_benchmark.json` release artifact over a local crop
 manifest so the crop substrate is gated without network access or a local
-model.
+model. It also adds a deterministic `pdf_provider_manifest_benchmark.json`
+artifact over local table, formula, chart, figure, and image regions so the
+provider-manifest scoring path is gated without public network access.
 Individual benchmark scripts also accept
 `--output <path>` for a single report file or `--output-dir <dir>` for a
 profile-named report file.
@@ -62,9 +64,12 @@ fixture diversity, all quality areas that require installed-provider evidence
 are certified by `benchmark:providers`, and the provider benchmark artifact was
 produced with strict provider requirements enabled. It also requires the
 deterministic provider-manifest crop artifact to include passing case, region,
-crop metadata, and required capability-summary evidence. Provider quality
-metrics must be present and passing for installed-provider certification
-results, so release review is not based only on a single aggregate score.
+crop metadata, and required capability-summary evidence, and the deterministic
+provider-manifest scoring artifact to include passing table, formula, chart,
+figure, image, kind, confidence, text, crop-provenance, and required
+capability-summary evidence. Provider quality metrics must be present and
+passing for installed-provider certification results, so release review is not
+based only on a single aggregate score.
 
 ## Quality Benchmark
 
@@ -281,8 +286,9 @@ with expected terms and capability tags. The crop benchmark writes a
 capability summaries; the provider benchmark uses the same crop path plus
 provider normalization and writes a `pdf_provider_manifest_benchmark` artifact.
 The strict release-artifact path runs the crop benchmark against a deterministic
-local fixture manifest, while public URL downloads remain opt-in and outside
-default CI network activity.
+local fixture manifest and provider-manifest scoring against deterministic
+local table, formula, chart, figure, and image regions. Public URL downloads
+remain opt-in and outside default CI network activity.
 
 ## Optimization Tips
 

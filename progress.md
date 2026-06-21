@@ -30,6 +30,7 @@
 - [x] Opt-in public provider accuracy manifest with official and publicly available PDF crop regions, source metadata, pinned SHA256 values, capability tags, capability-summary artifacts, and required package-smoke coverage gates
 - [x] Public provider-manifest crop benchmark that verifies downloadable, checksum-pinned PDF regions can render and crop without requiring a visual provider or local model
 - [x] Deterministic provider-manifest crop release artifact enforced by the SOTA release gate without requiring network access, OCR, a visual provider, or a local model
+- [x] Deterministic provider-manifest scoring release artifact enforced by the SOTA release gate for local table, formula, chart, figure, image, confidence, text, crop-provenance, and capability-summary evidence
 - [x] Configurable trust-report evidence redaction policies with standard, strict, and explicit off modes
 
 ## In Progress

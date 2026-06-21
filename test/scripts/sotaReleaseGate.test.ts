@@ -349,6 +349,303 @@ const writeValidProviderCropArtifact = (artifactDir: string) => {
   });
 };
 
+type ProviderManifestTestAssertion = {
+  id: string;
+  pass: boolean;
+  expected: Record<string, JsonValue>;
+  observed: Record<string, JsonValue>;
+};
+
+const providerManifestAssertions = (
+  regionId: string,
+  containsText: string[],
+  kindSpecificAssertionIds: string[] = []
+): ProviderManifestTestAssertion[] => [
+  {
+    id: `${regionId}:analysis-present`,
+    pass: true,
+    expected: { analysis: 'present' },
+    observed: { analysis: 'present' },
+  },
+  {
+    id: `${regionId}:kind`,
+    pass: true,
+    expected: { kind: 'expected-kind' },
+    observed: { kind: 'expected-kind' },
+  },
+  {
+    id: `${regionId}:confidence`,
+    pass: true,
+    expected: { min_confidence: 0.88 },
+    observed: { confidence: 0.9 },
+  },
+  ...containsText.map((textNeedle) => ({
+    id: `${regionId}:contains:${textNeedle}`,
+    pass: true,
+    expected: { contains_text: textNeedle },
+    observed: { matched: true },
+  })),
+  ...kindSpecificAssertionIds.map((assertionId) => ({
+    id: `${regionId}:${assertionId}`,
+    pass: true,
+    expected: { required: true },
+    observed: { matched: true },
+  })),
+  {
+    id: `${regionId}:crop-provenance`,
+    pass: true,
+    expected: { crop_provenance: true },
+    observed: {
+      source_crop_evidence_id: `page-1-${regionId}-crop-scale-2`,
+      provenance_source: 'region-analysis-provider',
+    },
+  },
+];
+
+const writeValidProviderManifestArtifact = (
+  artifactDir: string,
+  options: { missingAssertionEvidenceRegionId?: string } = {}
+) => {
+  const assertionsFor = (
+    regionId: string,
+    containsText: string[],
+    kindSpecificAssertionIds: string[] = []
+  ) => {
+    const assertions = providerManifestAssertions(regionId, containsText, kindSpecificAssertionIds);
+    if (options.missingAssertionEvidenceRegionId !== regionId) return assertions;
+
+    return assertions.filter(
+      (assertion) => assertion.id.endsWith(':analysis-present') || assertion.id.endsWith(':kind')
+    );
+  };
+
+  writeArtifact(artifactDir, 'pdf_provider_manifest_benchmark.json', {
+    profile: 'pdf_provider_manifest_benchmark',
+    status: 'passed',
+    strict: true,
+    external_case_count: 1,
+    external_url_case_count: 0,
+    external_download_count: 0,
+    external_region_count: 5,
+    summary: {
+      case_count: 1,
+      region_count: 5,
+      assertion_count: 31,
+      passed_assertion_count: 31,
+      failed_assertion_count: 0,
+      score: 1,
+    },
+    capability_summary: [
+      {
+        tag: 'chart_extraction',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'crop_provenance',
+        case_count: 1,
+        region_count: 5,
+        assertion_count: 31,
+        passed_assertion_count: 31,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'document_twin',
+        case_count: 1,
+        region_count: 5,
+        assertion_count: 31,
+        passed_assertion_count: 31,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'figure_description',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'formula_recognition',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'image_description',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 6,
+        passed_assertion_count: 6,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'provider_manifest_scoring',
+        case_count: 1,
+        region_count: 5,
+        assertion_count: 31,
+        passed_assertion_count: 31,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'release_evidence',
+        case_count: 1,
+        region_count: 5,
+        assertion_count: 31,
+        passed_assertion_count: 31,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'table_recognition',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 7,
+        passed_assertion_count: 7,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+    ],
+    cases: [
+      {
+        id: 'release-provider-analysis-fixture',
+        fixture_type: 'external',
+        document_archetype: 'sample PDF with deterministic visual provider regions',
+        source_type: 'path',
+        capability_tags: [
+          'document_twin',
+          'release_evidence',
+          'provider_manifest_scoring',
+          'table_recognition',
+          'formula_recognition',
+          'chart_extraction',
+          'figure_description',
+          'image_description',
+          'crop_provenance',
+        ],
+        region_count: 5,
+        assertion_count: 31,
+        passed_assertion_count: 31,
+        score: 1,
+        warnings: [],
+        regions: [
+          {
+            id: 'cert-table',
+            page: 1,
+            capability_tags: [
+              'document_twin',
+              'release_evidence',
+              'provider_manifest_scoring',
+              'table_recognition',
+              'crop_provenance',
+            ],
+            expected_kind: 'table',
+            observed_kind: 'table',
+            status: 'passed',
+            assertion_count: 7,
+            passed_assertion_count: 7,
+            score: 1,
+            assertions: assertionsFor('cert-table', ['Metric', 'Revenue'], ['table-cells']),
+          },
+          {
+            id: 'cert-formula',
+            page: 1,
+            capability_tags: [
+              'document_twin',
+              'release_evidence',
+              'provider_manifest_scoring',
+              'formula_recognition',
+              'crop_provenance',
+            ],
+            expected_kind: 'formula',
+            observed_kind: 'formula',
+            status: 'passed',
+            assertion_count: 6,
+            passed_assertion_count: 6,
+            score: 1,
+            assertions: assertionsFor('cert-formula', ['E = mc^2'], ['formula-formats']),
+          },
+          {
+            id: 'cert-chart',
+            page: 1,
+            capability_tags: [
+              'document_twin',
+              'release_evidence',
+              'provider_manifest_scoring',
+              'chart_extraction',
+              'crop_provenance',
+            ],
+            expected_kind: 'chart',
+            observed_kind: 'chart',
+            status: 'passed',
+            assertion_count: 6,
+            passed_assertion_count: 6,
+            score: 1,
+            assertions: assertionsFor('cert-chart', ['Revenue by Quarter'], ['chart-components']),
+          },
+          {
+            id: 'cert-figure',
+            page: 1,
+            capability_tags: [
+              'document_twin',
+              'release_evidence',
+              'provider_manifest_scoring',
+              'figure_description',
+              'crop_provenance',
+            ],
+            expected_kind: 'figure',
+            observed_kind: 'figure',
+            status: 'passed',
+            assertion_count: 6,
+            passed_assertion_count: 6,
+            score: 1,
+            assertions: assertionsFor('cert-figure', ['Pipeline', 'ingest']),
+          },
+          {
+            id: 'cert-image',
+            page: 1,
+            capability_tags: [
+              'document_twin',
+              'release_evidence',
+              'provider_manifest_scoring',
+              'image_description',
+              'crop_provenance',
+            ],
+            expected_kind: 'image',
+            observed_kind: 'image',
+            status: 'passed',
+            assertion_count: 6,
+            passed_assertion_count: 6,
+            score: 1,
+            assertions: assertionsFor('cert-image', ['Office image', 'landscape']),
+          },
+        ],
+      },
+    ],
+  });
+};
+
 describe('SOTA release gate', () => {
   test('resolves artifact directories from flags and environment', async () => {
     await withTempDir(async (tempDir) => {
@@ -368,6 +665,7 @@ describe('SOTA release gate', () => {
       writeValidCorpusArtifact(tempDir);
       writeProviderArtifact(tempDir, 'certified', true);
       writeValidProviderCropArtifact(tempDir);
+      writeValidProviderManifestArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -384,6 +682,7 @@ describe('SOTA release gate', () => {
       writeValidCorpusArtifact(tempDir);
       writeProviderArtifact(tempDir, 'provider_benchmark_required', false);
       writeValidProviderCropArtifact(tempDir);
+      writeValidProviderManifestArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -406,6 +705,7 @@ describe('SOTA release gate', () => {
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
       writeValidProviderCropArtifact(tempDir);
+      writeValidProviderManifestArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -422,6 +722,7 @@ describe('SOTA release gate', () => {
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
       writeValidProviderCropArtifact(tempDir);
+      writeValidProviderManifestArtifact(tempDir);
       writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
         profile: 'pdf_provider_benchmark',
         strict: true,
@@ -444,6 +745,7 @@ describe('SOTA release gate', () => {
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
       writeValidProviderCropArtifact(tempDir);
+      writeValidProviderManifestArtifact(tempDir);
       writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
         profile: 'pdf_provider_benchmark',
         strict: true,
@@ -508,6 +810,7 @@ describe('SOTA release gate', () => {
       });
       writeProviderArtifact(tempDir, 'certified', true);
       writeValidProviderCropArtifact(tempDir);
+      writeValidProviderManifestArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -534,12 +837,126 @@ describe('SOTA release gate', () => {
     });
   });
 
+  test('fails when provider-manifest analysis artifact is missing or incomplete', async () => {
+    await withTempDir(async (tempDir) => {
+      writeValidPerformanceArtifact(tempDir);
+      writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
+      writeProviderArtifact(tempDir, 'certified', true);
+      writeValidProviderCropArtifact(tempDir);
+
+      const missingReport = await buildSotaReleaseGateReport(tempDir);
+
+      expect(missingReport.status).toBe('failed');
+      expect(
+        missingReport.checks.find((check) => check.id === 'artifact:provider-manifest')?.status
+      ).toBe('failed');
+      expect(
+        missingReport.checks.find((check) => check.id === 'provider-manifest:score')?.status
+      ).toBe('failed');
+
+      writeArtifact(tempDir, 'pdf_provider_manifest_benchmark.json', {
+        profile: 'pdf_provider_manifest_benchmark',
+        status: 'passed',
+        external_case_count: 1,
+        external_region_count: 1,
+        summary: {
+          case_count: 1,
+          region_count: 1,
+          assertion_count: 5,
+          passed_assertion_count: 4,
+          failed_assertion_count: 1,
+          score: 0.8,
+        },
+        capability_summary: [
+          {
+            tag: 'table_recognition',
+            case_count: 1,
+            region_count: 1,
+            assertion_count: 5,
+            passed_assertion_count: 4,
+            failed_assertion_count: 1,
+            score: 0.8,
+            status: 'failed',
+          },
+        ],
+        cases: [
+          {
+            id: 'release-provider-analysis-fixture',
+            region_count: 1,
+            assertion_count: 5,
+            passed_assertion_count: 4,
+            score: 0.8,
+            regions: [
+              {
+                id: 'cert-table',
+                expected_kind: 'table',
+                observed_kind: 'unknown',
+                status: 'failed',
+                assertion_count: 5,
+                passed_assertion_count: 4,
+                score: 0.8,
+              },
+            ],
+          },
+        ],
+      });
+
+      const incompleteReport = await buildSotaReleaseGateReport(tempDir);
+
+      expect(incompleteReport.status).toBe('failed');
+      expect(
+        incompleteReport.checks.find((check) => check.id === 'provider-manifest:score')?.status
+      ).toBe('failed');
+      expect(
+        incompleteReport.checks.find(
+          (check) => check.id === 'provider-manifest:case-region-quality'
+        )?.status
+      ).toBe('failed');
+      expect(
+        incompleteReport.checks.find((check) => check.id === 'provider-manifest:kind-coverage')
+          ?.status
+      ).toBe('failed');
+      expect(
+        incompleteReport.checks.find((check) => check.id === 'provider-manifest:capability-summary')
+          ?.status
+      ).toBe('failed');
+    });
+  });
+
+  test('fails when provider-manifest scoring lacks required assertion evidence', async () => {
+    await withTempDir(async (tempDir) => {
+      writeValidPerformanceArtifact(tempDir);
+      writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
+      writeProviderArtifact(tempDir, 'certified', true);
+      writeValidProviderCropArtifact(tempDir);
+      writeValidProviderManifestArtifact(tempDir, {
+        missingAssertionEvidenceRegionId: 'cert-table',
+      });
+
+      const report = await buildSotaReleaseGateReport(tempDir);
+
+      expect(report.status).toBe('failed');
+      expect(report.checks.find((check) => check.id === 'provider-manifest:score')?.status).toBe(
+        'passed'
+      );
+      expect(
+        report.checks.find((check) => check.id === 'provider-manifest:case-region-quality')?.status
+      ).toBe('passed');
+      expect(
+        report.checks.find((check) => check.id === 'provider-manifest:assertion-evidence')?.status
+      ).toBe('failed');
+    });
+  });
+
   test('fails when provider-manifest crop artifact is missing or incomplete', async () => {
     await withTempDir(async (tempDir) => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
       writeProviderArtifact(tempDir, 'certified', true);
+      writeValidProviderManifestArtifact(tempDir);
 
       const missingReport = await buildSotaReleaseGateReport(tempDir);
 

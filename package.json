@@ -76,7 +76,7 @@
     "benchmark:provider-manifest-crops": "bun scripts/benchmark-pdf-provider-manifest-crops.ts",
     "benchmark:corpus": "bun scripts/benchmark-pdf-corpus.ts",
     "benchmark:all": "bun run benchmark && bun run benchmark:quality && bun run benchmark:corpus && bun run benchmark:providers",
-    "benchmark:release-artifacts": "MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_MANIFEST=${MCP_PDF_PROVIDER_MANIFEST:-test/fixtures/provider-crop-manifest.json} MCP_PDF_PROVIDER_MANIFEST_CROP_REQUIRED=true bun run benchmark:provider-manifest-crops",
+    "benchmark:release-artifacts": "MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_MANIFEST=${MCP_PDF_PROVIDER_MANIFEST:-test/fixtures/provider-crop-manifest.json} MCP_PDF_PROVIDER_MANIFEST_CROP_REQUIRED=true bun run benchmark:provider-manifest-crops && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_MANIFEST=${MCP_PDF_PROVIDER_MANIFEST:-test/fixtures/provider-analysis-manifest.json} MCP_PDF_PROVIDER_MANIFEST_REQUIRED=true bun run benchmark:provider-manifest",
     "benchmark:release-gate": "bun scripts/sota-release-gate.ts",
     "package:smoke": "bun scripts/package-smoke.ts",
     "clean": "rm -rf dist coverage",

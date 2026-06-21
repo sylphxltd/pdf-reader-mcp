@@ -113,3 +113,8 @@ without requiring a visual-region provider or local model.
 The strict release artifact path now also writes a deterministic
 provider-manifest crop artifact over a local fixture manifest, and the SOTA
 release gate requires that artifact before publishing evidence can pass.
+Add deterministic provider-manifest scoring release evidence over local table,
+formula, chart, figure, and image regions. The SOTA release gate now requires
+that `pdf_provider_manifest_benchmark.json` prove visual-kind coverage,
+kind-specific assertions, crop provenance, and capability-summary coverage
+before publishing evidence can pass.

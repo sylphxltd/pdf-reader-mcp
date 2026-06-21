@@ -29,6 +29,18 @@ const REQUIRED_PROVIDER_CROP_CAPABILITY_TAGS = [
   'render_provenance',
   'visual_text',
 ] as const;
+const REQUIRED_PROVIDER_MANIFEST_CAPABILITY_TAGS = [
+  'chart_extraction',
+  'crop_provenance',
+  'document_twin',
+  'figure_description',
+  'formula_recognition',
+  'image_description',
+  'provider_manifest_scoring',
+  'release_evidence',
+  'table_recognition',
+] as const;
+const REQUIRED_PROVIDER_MANIFEST_KINDS = ['chart', 'figure', 'formula', 'image', 'table'] as const;
 
 const REQUIRED_ARTIFACTS = {
   performance: {
@@ -46,6 +58,10 @@ const REQUIRED_ARTIFACTS = {
   provider: {
     fileName: 'pdf_provider_benchmark.json',
     profile: 'pdf_provider_benchmark',
+  },
+  'provider-manifest': {
+    fileName: 'pdf_provider_manifest_benchmark.json',
+    profile: 'pdf_provider_manifest_benchmark',
   },
   'provider-crops': {
     fileName: 'pdf_provider_manifest_crop_benchmark.json',
@@ -166,6 +182,10 @@ export const buildSotaReleaseGateReport = async (
     quality: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.quality.fileName),
     corpus: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.corpus.fileName),
     provider: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.provider.fileName),
+    'provider-manifest': await readJsonArtifact(
+      absoluteArtifactDir,
+      REQUIRED_ARTIFACTS['provider-manifest'].fileName
+    ),
     'provider-crops': await readJsonArtifact(
       absoluteArtifactDir,
       REQUIRED_ARTIFACTS['provider-crops'].fileName
@@ -428,6 +448,203 @@ export const buildSotaReleaseGateReport = async (
         provider: result.provider,
         status: result.status,
         quality_score: isRecord(result.quality) ? result.quality.score : undefined,
+      })),
+    }
+  );
+
+  const providerManifestSummary = getRecord(artifacts['provider-manifest'], 'summary');
+  const providerManifestCases = getArray(artifacts['provider-manifest'], 'cases');
+  const providerManifestRegions = providerManifestCases.flatMap((entry) =>
+    getArray(entry, 'regions')
+  );
+  const providerManifestScore = getNumber(providerManifestSummary, 'score');
+  const providerManifestAssertionCount = getNumber(providerManifestSummary, 'assertion_count');
+  const providerManifestPassedAssertionCount = getNumber(
+    providerManifestSummary,
+    'passed_assertion_count'
+  );
+  const providerManifestExternalCaseCount = getNumber(
+    artifacts['provider-manifest'],
+    'external_case_count'
+  );
+  const providerManifestExternalRegionCount = getNumber(
+    artifacts['provider-manifest'],
+    'external_region_count'
+  );
+  addCheck(
+    checks,
+    'provider-manifest:score',
+    artifacts['provider-manifest']?.status === 'passed' &&
+      providerManifestScore === 1 &&
+      providerManifestAssertionCount === providerManifestPassedAssertionCount &&
+      (providerManifestAssertionCount ?? 0) > 0 &&
+      (getNumber(providerManifestSummary, 'failed_assertion_count') ?? 1) === 0,
+    'provider-manifest analysis benchmark is fully passing',
+    {
+      status: artifacts['provider-manifest']?.status,
+      score: providerManifestScore,
+      passed_assertions: providerManifestPassedAssertionCount,
+      assertion_count: providerManifestAssertionCount,
+      failed_assertion_count: getNumber(providerManifestSummary, 'failed_assertion_count'),
+    }
+  );
+  addCheck(
+    checks,
+    'provider-manifest:coverage',
+    (providerManifestExternalCaseCount ?? 0) > 0 &&
+      (providerManifestExternalRegionCount ?? 0) >= REQUIRED_PROVIDER_MANIFEST_KINDS.length &&
+      getNumber(providerManifestSummary, 'case_count') === providerManifestExternalCaseCount &&
+      getNumber(providerManifestSummary, 'region_count') === providerManifestExternalRegionCount,
+    'provider-manifest analysis benchmark includes case and region coverage',
+    {
+      external_case_count: providerManifestExternalCaseCount,
+      external_region_count: providerManifestExternalRegionCount,
+      summary_case_count: getNumber(providerManifestSummary, 'case_count'),
+      summary_region_count: getNumber(providerManifestSummary, 'region_count'),
+      required_region_count: REQUIRED_PROVIDER_MANIFEST_KINDS.length,
+    }
+  );
+  const failingProviderManifestCases = providerManifestCases.filter((entry) => {
+    const assertionCount = getNumber(entry, 'assertion_count');
+    return (
+      assertionCount === undefined ||
+      assertionCount <= 0 ||
+      getNumber(entry, 'passed_assertion_count') !== assertionCount ||
+      getNumber(entry, 'score') !== 1
+    );
+  });
+  const failingProviderManifestRegions = providerManifestRegions.filter((entry) => {
+    const assertionCount = getNumber(entry, 'assertion_count');
+    const expectedKind = getString(entry, 'expected_kind');
+    const observedKind = getString(entry, 'observed_kind');
+    return (
+      assertionCount === undefined ||
+      assertionCount <= 0 ||
+      getString(entry, 'status') !== 'passed' ||
+      getNumber(entry, 'passed_assertion_count') !== assertionCount ||
+      getNumber(entry, 'score') !== 1 ||
+      expectedKind === undefined ||
+      observedKind !== expectedKind
+    );
+  });
+  addCheck(
+    checks,
+    'provider-manifest:case-region-quality',
+    providerManifestCases.length > 0 &&
+      providerManifestRegions.length >= REQUIRED_PROVIDER_MANIFEST_KINDS.length &&
+      failingProviderManifestCases.length === 0 &&
+      failingProviderManifestRegions.length === 0,
+    'every provider-manifest analysis case and region has passing kind-specific evidence',
+    {
+      failing_case_ids: failingProviderManifestCases.map((entry) => ({
+        id: entry.id,
+        score: entry.score,
+        assertion_count: entry.assertion_count,
+        passed_assertion_count: entry.passed_assertion_count,
+      })),
+      failing_region_ids: failingProviderManifestRegions.map((entry) => ({
+        id: entry.id,
+        expected_kind: entry.expected_kind,
+        observed_kind: entry.observed_kind,
+        status: entry.status,
+        score: entry.score,
+      })),
+    }
+  );
+  const providerManifestRegionsMissingAssertionEvidence = providerManifestRegions.filter((entry) => {
+    const expectedKind = getString(entry, 'expected_kind');
+    const passingAssertionIds = new Set(
+      getArray(entry, 'assertions')
+        .filter((assertion) => assertion.pass === true)
+        .map((assertion) => getString(assertion, 'id'))
+        .filter((id): id is string => id !== undefined)
+    );
+    const hasAssertionSuffix = (suffix: string) =>
+      [...passingAssertionIds].some((id) => id.endsWith(`:${suffix}`));
+    const hasContainsTextAssertion = [...passingAssertionIds].some((id) =>
+      id.includes(':contains:')
+    );
+    const hasKindSpecificAssertion =
+      expectedKind === 'table'
+        ? hasAssertionSuffix('table-cells')
+        : expectedKind === 'formula'
+          ? hasAssertionSuffix('formula-formats')
+          : expectedKind === 'chart'
+            ? hasAssertionSuffix('chart-components')
+            : true;
+
+    return (
+      passingAssertionIds.size === 0 ||
+      !hasAssertionSuffix('confidence') ||
+      !hasContainsTextAssertion ||
+      !hasAssertionSuffix('crop-provenance') ||
+      !hasKindSpecificAssertion
+    );
+  });
+  addCheck(
+    checks,
+    'provider-manifest:assertion-evidence',
+    providerManifestRegions.length >= REQUIRED_PROVIDER_MANIFEST_KINDS.length &&
+      providerManifestRegionsMissingAssertionEvidence.length === 0,
+    'provider-manifest analysis regions include passing confidence, text, crop-provenance, and kind-specific assertions',
+    {
+      failing_region_ids: providerManifestRegionsMissingAssertionEvidence.map((entry) => ({
+        id: entry.id,
+        expected_kind: entry.expected_kind,
+        assertion_ids: getArray(entry, 'assertions')
+          .map((assertion) => getString(assertion, 'id'))
+          .filter((id): id is string => id !== undefined),
+      })),
+    }
+  );
+  const observedProviderManifestKinds = new Set(
+    providerManifestRegions.map((entry) => getString(entry, 'observed_kind')).filter(Boolean)
+  );
+  const missingProviderManifestKinds = REQUIRED_PROVIDER_MANIFEST_KINDS.filter(
+    (kind) => !observedProviderManifestKinds.has(kind)
+  );
+  addCheck(
+    checks,
+    'provider-manifest:kind-coverage',
+    missingProviderManifestKinds.length === 0,
+    'provider-manifest analysis benchmark covers required visual evidence kinds',
+    {
+      required_kinds: REQUIRED_PROVIDER_MANIFEST_KINDS,
+      observed_kinds: [...observedProviderManifestKinds].sort(),
+      missing_required_kinds: missingProviderManifestKinds,
+    }
+  );
+  const providerManifestCapabilitySummary = getArray(
+    artifacts['provider-manifest'],
+    'capability_summary'
+  );
+  const providerManifestCapabilityTags = new Set(
+    providerManifestCapabilitySummary.map((entry) => getString(entry, 'tag')).filter(Boolean)
+  );
+  const missingProviderManifestCapabilityTags = REQUIRED_PROVIDER_MANIFEST_CAPABILITY_TAGS.filter(
+    (tag) => !providerManifestCapabilityTags.has(tag)
+  );
+  const failingProviderManifestCapabilityTags = providerManifestCapabilitySummary.filter(
+    (entry) =>
+      getString(entry, 'status') !== 'passed' ||
+      getNumber(entry, 'score') !== 1 ||
+      (getNumber(entry, 'failed_assertion_count') ?? 0) !== 0
+  );
+  addCheck(
+    checks,
+    'provider-manifest:capability-summary',
+    providerManifestCapabilitySummary.length > 0 &&
+      missingProviderManifestCapabilityTags.length === 0 &&
+      failingProviderManifestCapabilityTags.length === 0,
+    'provider-manifest analysis capability summary covers required release areas and has no failing tags',
+    {
+      required_tags: REQUIRED_PROVIDER_MANIFEST_CAPABILITY_TAGS,
+      missing_required_tags: missingProviderManifestCapabilityTags,
+      failing_tags: failingProviderManifestCapabilityTags.map((entry) => ({
+        tag: entry.tag,
+        status: entry.status,
+        score: entry.score,
+        failed_assertion_count: entry.failed_assertion_count,
       })),
     }
   );

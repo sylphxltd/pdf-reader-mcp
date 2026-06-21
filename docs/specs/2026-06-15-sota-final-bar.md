@@ -126,6 +126,11 @@ themselves.
      fixture manifest so release evidence proves page rendering, region crop
      geometry, crop metadata, render provenance, and crop capability summaries
      without network access, OCR, a visual provider, or a local model.
+     It also writes a deterministic `pdf_provider_manifest_benchmark.json`
+     artifact over local table, formula, chart, figure, and image regions so
+     release evidence proves manifest-driven provider scoring, normalized
+     visual kinds, text/confidence assertions, crop provenance, and capability
+     summaries without public network access.
      Release automation installs Tesseract for the OCR profile and configures
      the repository reference visual provider for the runtime visual fixture
      profile before running this gate.
@@ -161,8 +166,10 @@ themselves.
      as complete. It fails if deterministic final-bar coverage is incomplete,
      if mandatory corpus archetype evidence or required corpus capability
      summaries are incomplete, if deterministic provider-manifest crop evidence
-     or required crop capability summaries are missing or incomplete, if any
-     quality area still needs provider-backed evidence, or if the provider
+     or required crop capability summaries are missing or incomplete, if
+     deterministic provider-manifest scoring evidence, required visual-kind
+     coverage, or scoring capability summaries are missing or incomplete, if
+     any quality area still needs provider-backed evidence, or if the provider
      artifact was not produced with strict provider requirements. It also fails
      when provider quality metrics are missing or not passing for an
      installed-provider certification result.

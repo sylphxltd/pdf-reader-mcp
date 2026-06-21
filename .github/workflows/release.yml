@@ -67,14 +67,10 @@ jobs:
         continue-on-error: true
         env:
           MCP_PDF_BENCHMARK_OUTPUT_DIR: benchmark-artifacts
-          MCP_PDF_PROVIDER_BENCHMARK_REQUIRED: 'true'
           MCP_PDF_OCR_PRESET: tesseract-tsv
           MCP_PDF_REGION_ANALYSIS_COMMAND: bun
           MCP_PDF_REGION_ANALYSIS_ARGS_JSON: '["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]'
-        run: |
-          bun run benchmark
-          bun run benchmark:quality
-          bun run benchmark:providers
+        run: bun run benchmark:release-artifacts
 
       - name: Run SOTA release gate
         env:

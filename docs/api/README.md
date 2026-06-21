@@ -155,8 +155,8 @@ MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-art
 
 `benchmark:release-gate` reads those artifacts and fails until deterministic
 final-bar coverage, mandatory corpus archetype evidence, deterministic
-provider-manifest crop evidence, and installed-provider final-bar evidence are
-complete.
+provider-manifest crop evidence, deterministic provider-manifest scoring
+evidence, and installed-provider final-bar evidence are complete.
 `package:smoke` packs the package locally and verifies that the tarball contains
 the executable `dist/index.js` runtime artifact with matching `bin` and
 `exports` metadata.
@@ -170,8 +170,8 @@ artifacts and the release gate. The reference visual provider is a deterministic
 contract-certification adapter, not a bundled general-purpose vision model.
 The CI workflow runs the same strict benchmark artifact and release-gate path as
 a non-publishing evidence job, so pull requests can fail before release if OCR,
-visual-provider certification, or provider-manifest crop substrate evidence
-regresses.
+visual-provider certification, provider-manifest crop substrate evidence, or
+provider-manifest scoring evidence regresses.
 
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider
@@ -216,6 +216,11 @@ content-addressed cache, and download only when
 includes `corpus/public-provider-accuracy.json`, an opt-in manifest of public
 PDF crop regions with source metadata, pinned SHA256 values, and required
 case/region capability tags.
+`benchmark:release-artifacts` also runs provider-manifest scoring against a
+deterministic local fixture manifest with the configured reference provider, so
+`benchmark:release-gate` requires table, formula, chart, figure, image,
+confidence, text, crop-provenance, and capability-summary assertions without
+network downloads.
 
 `benchmark:provider-manifest-crops` emits
 `pdf_provider_manifest_crop_benchmark.json` for the same manifest shape without
