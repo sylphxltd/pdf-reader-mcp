@@ -150,12 +150,13 @@ Set `MCP_PDF_BENCHMARK_OUTPUT_DIR` to persist benchmark JSON artifacts for
 release review:
 
 ```bash
-MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-artifacts
 ```
 
 `benchmark:release-gate` reads those artifacts and fails until deterministic
-final-bar coverage, mandatory corpus archetype evidence, and
-installed-provider final-bar evidence are complete.
+final-bar coverage, mandatory corpus archetype evidence, deterministic
+provider-manifest crop evidence, and installed-provider final-bar evidence are
+complete.
 `package:smoke` packs the package locally and verifies that the tarball contains
 the executable `dist/index.js` runtime artifact with matching `bin` and
 `exports` metadata.
@@ -168,8 +169,9 @@ visual `visual-full-fidelity` fixture profile before running strict benchmark
 artifacts and the release gate. The reference visual provider is a deterministic
 contract-certification adapter, not a bundled general-purpose vision model.
 The CI workflow runs the same strict benchmark artifact and release-gate path as
-a non-publishing evidence job, so pull requests can fail before release if OCR
-or visual-provider certification evidence regresses.
+a non-publishing evidence job, so pull requests can fail before release if OCR,
+visual-provider certification, or provider-manifest crop substrate evidence
+regresses.
 
 `benchmark:providers` reports skipped providers when local engines are not
 installed. Configure OCR or visual-region adapters to certify installed-provider
@@ -222,6 +224,9 @@ URL cases when enabled, renders the declared pages, verifies each region crop,
 and records crop byte length, pixel bounds, render provenance, source metadata,
 and capability summaries. Use it when release evidence needs to prove the
 public PDF crop substrate before provider/model accuracy is evaluated.
+`benchmark:release-artifacts` also runs this benchmark against a deterministic
+local fixture manifest, so `benchmark:release-gate` requires crop-substrate
+evidence even when CI does not perform network downloads or use a local model.
 
 `benchmark:quality` also emits `final_bar_coverage_summary` and
 `final_bar_coverage` so release reviewers can see which SOTA final-bar

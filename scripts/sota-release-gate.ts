@@ -21,6 +21,14 @@ const REQUIRED_CORPUS_CAPABILITY_TAGS = [
   'scanned_table',
   'text_layer',
 ] as const;
+const REQUIRED_PROVIDER_CROP_CAPABILITY_TAGS = [
+  'crop_provenance',
+  'document_twin',
+  'full_page_crop',
+  'release_evidence',
+  'render_provenance',
+  'visual_text',
+] as const;
 
 const REQUIRED_ARTIFACTS = {
   performance: {
@@ -38,6 +46,10 @@ const REQUIRED_ARTIFACTS = {
   provider: {
     fileName: 'pdf_provider_benchmark.json',
     profile: 'pdf_provider_benchmark',
+  },
+  'provider-crops': {
+    fileName: 'pdf_provider_manifest_crop_benchmark.json',
+    profile: 'pdf_provider_manifest_crop_benchmark',
   },
 } as const;
 
@@ -115,6 +127,9 @@ const getNumber = (record: JsonRecord | undefined, key: string): number | undefi
 const getString = (record: JsonRecord | undefined, key: string): string | undefined =>
   typeof record?.[key] === 'string' ? record[key] : undefined;
 
+const getRecord = (record: JsonRecord | undefined, key: string): JsonRecord | undefined =>
+  isRecord(record?.[key]) ? record[key] : undefined;
+
 const getStringArray = (record: JsonRecord | undefined, key: string): string[] =>
   Array.isArray(record?.[key])
     ? record[key].filter((entry): entry is string => typeof entry === 'string')
@@ -151,6 +166,10 @@ export const buildSotaReleaseGateReport = async (
     quality: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.quality.fileName),
     corpus: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.corpus.fileName),
     provider: await readJsonArtifact(absoluteArtifactDir, REQUIRED_ARTIFACTS.provider.fileName),
+    'provider-crops': await readJsonArtifact(
+      absoluteArtifactDir,
+      REQUIRED_ARTIFACTS['provider-crops'].fileName
+    ),
   };
 
   for (const [kind, requirement] of Object.entries(REQUIRED_ARTIFACTS)) {
@@ -409,6 +428,125 @@ export const buildSotaReleaseGateReport = async (
         provider: result.provider,
         status: result.status,
         quality_score: isRecord(result.quality) ? result.quality.score : undefined,
+      })),
+    }
+  );
+
+  const providerCropSummary = getRecord(artifacts['provider-crops'], 'summary');
+  const providerCropCases = getArray(artifacts['provider-crops'], 'cases');
+  const providerCropRegions = providerCropCases.flatMap((entry) => getArray(entry, 'regions'));
+  const providerCropScore = getNumber(providerCropSummary, 'score');
+  const providerCropAssertionCount = getNumber(providerCropSummary, 'assertion_count');
+  const providerCropPassedAssertionCount = getNumber(
+    providerCropSummary,
+    'passed_assertion_count'
+  );
+  const providerCropExternalCaseCount = getNumber(
+    artifacts['provider-crops'],
+    'external_case_count'
+  );
+  const providerCropExternalRegionCount = getNumber(
+    artifacts['provider-crops'],
+    'external_region_count'
+  );
+  addCheck(
+    checks,
+    'provider-crops:score',
+    artifacts['provider-crops']?.status === 'passed' &&
+      providerCropScore === 1 &&
+      providerCropAssertionCount === providerCropPassedAssertionCount &&
+      (providerCropAssertionCount ?? 0) > 0 &&
+      (getNumber(providerCropSummary, 'failed_assertion_count') ?? 1) === 0,
+    'provider-manifest crop benchmark is fully passing',
+    {
+      status: artifacts['provider-crops']?.status,
+      score: providerCropScore,
+      passed_assertions: providerCropPassedAssertionCount,
+      assertion_count: providerCropAssertionCount,
+      failed_assertion_count: getNumber(providerCropSummary, 'failed_assertion_count'),
+    }
+  );
+  addCheck(
+    checks,
+    'provider-crops:coverage',
+    (providerCropExternalCaseCount ?? 0) > 0 &&
+      (providerCropExternalRegionCount ?? 0) > 0 &&
+      getNumber(providerCropSummary, 'case_count') === providerCropExternalCaseCount &&
+      getNumber(providerCropSummary, 'region_count') === providerCropExternalRegionCount,
+    'provider-manifest crop benchmark includes case and region coverage',
+    {
+      external_case_count: providerCropExternalCaseCount,
+      external_region_count: providerCropExternalRegionCount,
+      summary_case_count: getNumber(providerCropSummary, 'case_count'),
+      summary_region_count: getNumber(providerCropSummary, 'region_count'),
+    }
+  );
+  const failingProviderCropCases = providerCropCases.filter((entry) => {
+    const assertionCount = getNumber(entry, 'assertion_count');
+    return (
+      assertionCount === undefined ||
+      assertionCount <= 0 ||
+      getNumber(entry, 'passed_assertion_count') !== assertionCount ||
+      getNumber(entry, 'score') !== 1
+    );
+  });
+  const failingProviderCropRegions = providerCropRegions.filter(
+    (entry) =>
+      getString(entry, 'status') !== 'passed' ||
+      getNumber(entry, 'score') !== 1 ||
+      getRecord(entry, 'crop') === undefined
+  );
+  addCheck(
+    checks,
+    'provider-crops:case-region-quality',
+    providerCropCases.length > 0 &&
+      providerCropRegions.length > 0 &&
+      failingProviderCropCases.length === 0 &&
+      failingProviderCropRegions.length === 0,
+    'every provider-manifest crop case and region has passing evidence and crop metadata',
+    {
+      failing_case_ids: failingProviderCropCases.map((entry) => ({
+        id: entry.id,
+        score: entry.score,
+        assertion_count: entry.assertion_count,
+        passed_assertion_count: entry.passed_assertion_count,
+      })),
+      failing_region_ids: failingProviderCropRegions.map((entry) => ({
+        id: entry.id,
+        status: entry.status,
+        score: entry.score,
+        has_crop: getRecord(entry, 'crop') !== undefined,
+      })),
+    }
+  );
+  const providerCropCapabilitySummary = getArray(artifacts['provider-crops'], 'capability_summary');
+  const providerCropCapabilityTags = new Set(
+    providerCropCapabilitySummary.map((entry) => getString(entry, 'tag')).filter(Boolean)
+  );
+  const missingProviderCropCapabilityTags = REQUIRED_PROVIDER_CROP_CAPABILITY_TAGS.filter(
+    (tag) => !providerCropCapabilityTags.has(tag)
+  );
+  const failingProviderCropCapabilityTags = providerCropCapabilitySummary.filter(
+    (entry) =>
+      getString(entry, 'status') !== 'passed' ||
+      getNumber(entry, 'score') !== 1 ||
+      (getNumber(entry, 'failed_assertion_count') ?? 0) !== 0
+  );
+  addCheck(
+    checks,
+    'provider-crops:capability-summary',
+    providerCropCapabilitySummary.length > 0 &&
+      missingProviderCropCapabilityTags.length === 0 &&
+      failingProviderCropCapabilityTags.length === 0,
+    'provider-manifest crop capability summary covers required release areas and has no failing tags',
+    {
+      required_tags: REQUIRED_PROVIDER_CROP_CAPABILITY_TAGS,
+      missing_required_tags: missingProviderCropCapabilityTags,
+      failing_tags: failingProviderCropCapabilityTags.map((entry) => ({
+        tag: entry.tag,
+        status: entry.status,
+        score: entry.score,
+        failed_assertion_count: entry.failed_assertion_count,
       })),
     }
   );

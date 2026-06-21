@@ -41,6 +41,10 @@ MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_PROVIDER_BENCHMARK_RE
 `benchmark:all` writes one artifact per report profile:
 `pdf_performance_benchmark.json`, `pdf_quality_benchmark.json`,
 `pdf_corpus_benchmark.json`, and `pdf_provider_benchmark.json`.
+`benchmark:release-artifacts` adds the deterministic
+`pdf_provider_manifest_crop_benchmark.json` release artifact over a local crop
+manifest so the crop substrate is gated without network access or a local
+model.
 Individual benchmark scripts also accept
 `--output <path>` for a single report file or `--output-dir <dir>` for a
 profile-named report file.
@@ -56,9 +60,11 @@ enabled. It exits non-zero until deterministic quality coverage is complete,
 the corpus benchmark is fully passing with checked-in and runtime-generated
 fixture diversity, all quality areas that require installed-provider evidence
 are certified by `benchmark:providers`, and the provider benchmark artifact was
-produced with strict provider requirements enabled. It also requires provider
-quality metrics to be present and passing for installed-provider certification
-results.
+produced with strict provider requirements enabled. It also requires the
+deterministic provider-manifest crop artifact to include passing case, region,
+crop metadata, and required capability-summary evidence. Provider quality
+metrics must be present and passing for installed-provider certification
+results, so release review is not based only on a single aggregate score.
 
 ## Quality Benchmark
 
@@ -274,7 +280,9 @@ with expected terms and capability tags. The crop benchmark writes a
 `pdf_provider_manifest_crop_benchmark` artifact with crop provenance and
 capability summaries; the provider benchmark uses the same crop path plus
 provider normalization and writes a `pdf_provider_manifest_benchmark` artifact.
-Both remain outside default CI network activity.
+The strict release-artifact path runs the crop benchmark against a deterministic
+local fixture manifest, while public URL downloads remain opt-in and outside
+default CI network activity.
 
 ## Optimization Tips
 

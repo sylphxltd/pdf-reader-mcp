@@ -121,6 +121,11 @@ themselves.
    - `MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all`
      writes profile-named release artifacts for performance, deterministic
      quality, corpus, and strict installed-provider evidence reports.
+     `benchmark:release-artifacts` also writes a deterministic
+     `pdf_provider_manifest_crop_benchmark.json` artifact over a local crop
+     fixture manifest so release evidence proves page rendering, region crop
+     geometry, crop metadata, render provenance, and crop capability summaries
+     without network access, OCR, a visual provider, or a local model.
      Release automation installs Tesseract for the OCR profile and configures
      the repository reference visual provider for the runtime visual fixture
      profile before running this gate.
@@ -155,10 +160,12 @@ themselves.
      reads those artifacts and must pass before a SOTA release can be treated
      as complete. It fails if deterministic final-bar coverage is incomplete,
      if mandatory corpus archetype evidence or required corpus capability
-     summaries are incomplete, if any quality area still needs provider-backed
-     evidence, or if the provider artifact was not produced with strict
-     provider requirements. It also fails when provider quality metrics are
-     missing or not passing for an installed-provider certification result.
+     summaries are incomplete, if deterministic provider-manifest crop evidence
+     or required crop capability summaries are missing or incomplete, if any
+     quality area still needs provider-backed evidence, or if the provider
+     artifact was not produced with strict provider requirements. It also fails
+     when provider quality metrics are missing or not passing for an
+     installed-provider certification result.
 
 9. Public contract integrity
    - README, docs, changelog, release notes, and package metadata may describe

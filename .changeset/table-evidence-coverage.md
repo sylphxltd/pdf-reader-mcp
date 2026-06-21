@@ -110,3 +110,6 @@ Add `benchmark:provider-manifest-crops` so the same public provider manifest can
 first prove URL download, SHA256 validation, page rendering, declared crop
 geometry, crop byte evidence, render provenance, and capability summaries
 without requiring a visual-region provider or local model.
+The strict release artifact path now also writes a deterministic
+provider-manifest crop artifact over a local fixture manifest, and the SOTA
+release gate requires that artifact before publishing evidence can pass.

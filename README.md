@@ -1706,7 +1706,7 @@ MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true bun run benchmark:provider-manife
 MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true MCP_PDF_REGION_ANALYSIS_PRESET=ollama MCP_PDF_REGION_ANALYSIS_MODEL=llava bun run benchmark:provider-manifest --provider-manifest ./corpus/public-provider-accuracy.json # Score a configured visual provider against opt-in public PDF crops
 bun run benchmark:all # Performance + quality + corpus + provider benchmarks
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
-MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_OCR_PRESET=tesseract-tsv MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:release-artifacts # Write strict release artifacts
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_OCR_PRESET=tesseract-tsv MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:release-artifacts # Write strict release artifacts, including deterministic provider-manifest crop evidence
 MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate # Verify SOTA release gate
 bun run package:smoke # Verify the packed package includes runtime and required public evidence manifests
 bun run release:preflight # Full publish preflight; requires certified local providers
@@ -1724,12 +1724,13 @@ bun run release:preflight # Full publish preflight; requires certified local pro
 - ✅ Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, checksums, capability tags, artifact-level capability summaries, and package-smoke coverage
 - ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, capability tags, artifact-level capability summaries, and package-smoke coverage
 - ✅ Public provider-manifest crop benchmark that verifies downloadable, checksum-pinned PDF regions can render and crop without requiring a visual model
+- ✅ Deterministic provider-manifest crop release artifact that proves the crop substrate without network access, OCR, a visual provider, or a local model
 - ✅ Optional OCR and visual-provider certification benchmark with strict mode
 - ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
 - ✅ Provider quality metrics with thresholds, scores, fixture-level expected evidence, and observed evidence
 - ✅ CI and release workflows install Tesseract and configure the reference visual-region provider before running strict provider evidence gates
 - ✅ JSON benchmark artifact output for release evidence
-- ✅ SOTA release gate over benchmark artifacts
+- ✅ SOTA release gate over performance, quality, corpus, installed-provider, and provider-manifest crop benchmark artifacts
 - ✅ Package tarball smoke check for published runtime integrity
 
 </details>
@@ -1797,8 +1798,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
 - [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, configurable trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
-- [x] JSON benchmark artifact output for performance, deterministic quality, corpus, and installed-provider evidence reports
-- [x] SOTA release gate that blocks release artifacts until deterministic quality, corpus, and installed-provider final-bar evidence are complete
+- [x] JSON benchmark artifact output for performance, deterministic quality, corpus, installed-provider, and provider-manifest crop evidence reports
+- [x] SOTA release gate that blocks release artifacts until deterministic quality, corpus, deterministic provider-manifest crop, and installed-provider final-bar evidence are complete
 - [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact, matching `bin`/`exports` contract, and required public corpus/provider capability coverage manifests
 - [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
 - [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
@@ -1808,6 +1809,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Public corpus benchmark artifact for checked-in sample PDFs plus runtime-generated reading-order, scanned-OCR routing, and OCR-table recovery archetypes, with case-level capability tags and artifact-level capability summaries, enforced by the SOTA release gate
 - [x] External corpus manifest support for operator-supplied and checked-in public URL PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape with SHA256, cache provenance, source metadata, capability tags, and private-host protection
 - [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, region-level expectations, and capability-level summaries
+- [x] Deterministic provider-manifest crop release artifact over a local fixture, enforced by the SOTA release gate before publishing evidence can pass
 - [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
 - [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
 - [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence

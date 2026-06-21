@@ -220,6 +220,135 @@ const writeProviderArtifact = (
   });
 };
 
+const writeValidProviderCropArtifact = (artifactDir: string) => {
+  writeArtifact(artifactDir, 'pdf_provider_manifest_crop_benchmark.json', {
+    profile: 'pdf_provider_manifest_crop_benchmark',
+    status: 'passed',
+    strict: true,
+    external_case_count: 1,
+    external_url_case_count: 0,
+    external_download_count: 0,
+    external_region_count: 1,
+    summary: {
+      case_count: 1,
+      region_count: 1,
+      assertion_count: 5,
+      passed_assertion_count: 5,
+      failed_assertion_count: 0,
+      score: 1,
+    },
+    capability_summary: [
+      {
+        tag: 'crop_provenance',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 5,
+        passed_assertion_count: 5,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'document_twin',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 5,
+        passed_assertion_count: 5,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'full_page_crop',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 5,
+        passed_assertion_count: 5,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'release_evidence',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 5,
+        passed_assertion_count: 5,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'render_provenance',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 5,
+        passed_assertion_count: 5,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'visual_text',
+        case_count: 1,
+        region_count: 1,
+        assertion_count: 5,
+        passed_assertion_count: 5,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+    ],
+    cases: [
+      {
+        id: 'release-sample-full-page-crop',
+        fixture_type: 'external',
+        document_archetype: 'text-rich sample PDF rendered as a full-page crop',
+        source_type: 'path',
+        capability_tags: [
+          'document_twin',
+          'release_evidence',
+          'visual_text',
+          'crop_provenance',
+          'full_page_crop',
+          'render_provenance',
+        ],
+        region_count: 1,
+        assertion_count: 5,
+        passed_assertion_count: 5,
+        score: 1,
+        warnings: [],
+        regions: [
+          {
+            id: 'release-sample-page-1-full-page',
+            page: 1,
+            capability_tags: [
+              'document_twin',
+              'release_evidence',
+              'visual_text',
+              'crop_provenance',
+              'full_page_crop',
+              'render_provenance',
+            ],
+            status: 'passed',
+            assertion_count: 5,
+            passed_assertion_count: 5,
+            score: 1,
+            crop: {
+              evidence_id: 'page-1-release-sample-page-1-full-page-crop-scale-2',
+              byte_length: 1,
+              scale: 2,
+              crop_pixels: { left: 0, top: 0, width: 1224, height: 1584 },
+              source_bounding_box: { left: 0, bottom: 0, right: 612, top: 792 },
+              page_render_evidence_id: 'page-1-render-scale-2',
+            },
+          },
+        ],
+      },
+    ],
+  });
+};
+
 describe('SOTA release gate', () => {
   test('resolves artifact directories from flags and environment', async () => {
     await withTempDir(async (tempDir) => {
@@ -238,6 +367,7 @@ describe('SOTA release gate', () => {
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
       writeProviderArtifact(tempDir, 'certified', true);
+      writeValidProviderCropArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -253,6 +383,7 @@ describe('SOTA release gate', () => {
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
       writeProviderArtifact(tempDir, 'provider_benchmark_required', false);
+      writeValidProviderCropArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -274,6 +405,7 @@ describe('SOTA release gate', () => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
+      writeValidProviderCropArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -289,6 +421,7 @@ describe('SOTA release gate', () => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
+      writeValidProviderCropArtifact(tempDir);
       writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
         profile: 'pdf_provider_benchmark',
         strict: true,
@@ -310,6 +443,7 @@ describe('SOTA release gate', () => {
       writeValidPerformanceArtifact(tempDir);
       writeValidQualityArtifact(tempDir);
       writeValidCorpusArtifact(tempDir);
+      writeValidProviderCropArtifact(tempDir);
       writeArtifact(tempDir, 'pdf_provider_benchmark.json', {
         profile: 'pdf_provider_benchmark',
         strict: true,
@@ -373,6 +507,7 @@ describe('SOTA release gate', () => {
         ],
       });
       writeProviderArtifact(tempDir, 'certified', true);
+      writeValidProviderCropArtifact(tempDir);
 
       const report = await buildSotaReleaseGateReport(tempDir);
 
@@ -396,6 +531,83 @@ describe('SOTA release gate', () => {
       expect(report.checks.find((check) => check.id === 'corpus:capability-summary')?.status).toBe(
         'failed'
       );
+    });
+  });
+
+  test('fails when provider-manifest crop artifact is missing or incomplete', async () => {
+    await withTempDir(async (tempDir) => {
+      writeValidPerformanceArtifact(tempDir);
+      writeValidQualityArtifact(tempDir);
+      writeValidCorpusArtifact(tempDir);
+      writeProviderArtifact(tempDir, 'certified', true);
+
+      const missingReport = await buildSotaReleaseGateReport(tempDir);
+
+      expect(missingReport.status).toBe('failed');
+      expect(
+        missingReport.checks.find((check) => check.id === 'artifact:provider-crops')?.status
+      ).toBe('failed');
+      expect(
+        missingReport.checks.find((check) => check.id === 'provider-crops:score')?.status
+      ).toBe('failed');
+
+      writeArtifact(tempDir, 'pdf_provider_manifest_crop_benchmark.json', {
+        profile: 'pdf_provider_manifest_crop_benchmark',
+        status: 'passed',
+        external_case_count: 1,
+        external_region_count: 1,
+        summary: {
+          case_count: 1,
+          region_count: 1,
+          assertion_count: 5,
+          passed_assertion_count: 4,
+          failed_assertion_count: 1,
+          score: 0.8,
+        },
+        capability_summary: [
+          {
+            tag: 'full_page_crop',
+            case_count: 1,
+            region_count: 1,
+            assertion_count: 5,
+            passed_assertion_count: 4,
+            failed_assertion_count: 1,
+            score: 0.8,
+            status: 'failed',
+          },
+        ],
+        cases: [
+          {
+            id: 'release-sample-full-page-crop',
+            region_count: 1,
+            assertion_count: 5,
+            passed_assertion_count: 4,
+            score: 0.8,
+            regions: [
+              {
+                id: 'release-sample-page-1-full-page',
+                status: 'failed',
+                score: 0.8,
+              },
+            ],
+          },
+        ],
+      });
+
+      const incompleteReport = await buildSotaReleaseGateReport(tempDir);
+
+      expect(incompleteReport.status).toBe('failed');
+      expect(
+        incompleteReport.checks.find((check) => check.id === 'provider-crops:score')?.status
+      ).toBe('failed');
+      expect(
+        incompleteReport.checks.find((check) => check.id === 'provider-crops:case-region-quality')
+          ?.status
+      ).toBe('failed');
+      expect(
+        incompleteReport.checks.find((check) => check.id === 'provider-crops:capability-summary')
+          ?.status
+      ).toBe('failed');
     });
   });
 });
