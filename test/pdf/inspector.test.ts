@@ -101,20 +101,22 @@ describe('inspector', () => {
             },
           },
           {
-            tool: 'ocr_pages',
+            tool: 'pdf_evidence',
             priority: 2,
             ready: true,
             requires_provider: 'ocr_pages',
             arguments: {
+              operation: 'ocr_pages',
               sources: [{ path: 'scan.pdf', pages: [1, 2] }],
               scale: 2,
             },
           },
           {
-            tool: 'render_page',
+            tool: 'pdf_evidence',
             priority: 3,
             ready: true,
             arguments: {
+              operation: 'render_page',
               sources: [{ path: 'scan.pdf', pages: [1, 2] }],
               include_image: true,
             },
@@ -142,14 +144,20 @@ describe('inspector', () => {
         requires_provider: 'ocr_pages',
       });
       expect(recommendation.next_tools[1]).toMatchObject({
-        tool: 'ocr_pages',
+        tool: 'pdf_evidence',
         ready: false,
         required_inputs: ['configured OCR provider'],
         requires_provider: 'ocr_pages',
+        arguments: {
+          operation: 'ocr_pages',
+        },
       });
       expect(recommendation.next_tools[2]).toMatchObject({
-        tool: 'render_page',
+        tool: 'pdf_evidence',
         ready: true,
+        arguments: {
+          operation: 'render_page',
+        },
       });
     });
 
@@ -169,14 +177,20 @@ describe('inspector', () => {
         requires_provider: 'ocr_pages',
       });
       expect(recommendation.next_tools[1]).toMatchObject({
-        tool: 'ocr_pages',
+        tool: 'pdf_evidence',
         ready: false,
         required_inputs: ['available OCR provider'],
         requires_provider: 'ocr_pages',
+        arguments: {
+          operation: 'ocr_pages',
+        },
       });
       expect(recommendation.next_tools[2]).toMatchObject({
-        tool: 'render_page',
+        tool: 'pdf_evidence',
         ready: true,
+        arguments: {
+          operation: 'render_page',
+        },
       });
     });
 
@@ -218,21 +232,30 @@ describe('inspector', () => {
             },
           },
           {
-            tool: 'extract_regions',
+            tool: 'pdf_evidence',
             priority: 3,
             ready: false,
             required_inputs: ['page number', 'PDF-coordinate bounding box'],
+            argument_template: {
+              operation: 'extract_regions',
+            },
           },
           {
-            tool: 'analyze_regions',
+            tool: 'pdf_evidence',
             priority: 4,
             ready: false,
             requires_provider: 'analyze_regions',
+            argument_template: {
+              operation: 'analyze_regions',
+            },
           },
           {
-            tool: 'render_page',
+            tool: 'pdf_evidence',
             priority: 5,
             ready: true,
+            arguments: {
+              operation: 'render_page',
+            },
           },
         ],
       });
@@ -253,8 +276,11 @@ describe('inspector', () => {
         'include_visual_enrichments'
       );
       expect(recommendation.next_tools[3]).toMatchObject({
-        tool: 'analyze_regions',
+        tool: 'pdf_evidence',
         ready: false,
+        argument_template: {
+          operation: 'analyze_regions',
+        },
         required_inputs: [
           'page number',
           'PDF-coordinate bounding box',

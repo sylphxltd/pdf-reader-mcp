@@ -1,15 +1,19 @@
 # Agent-Native PDF Inspection
 
 Date: 2026-06-15
-Status: active
+Status: superseded by V3 smart tool surface
+
+> V3 note: the public inspection path is now `pdf_evidence` operation
+> `inspect`, and `read_pdf` performs automatic inspection by default when no
+> explicit `include_*` options are supplied.
 
 ## Goal
 
-Add a lightweight MCP tool that lets an agent inspect a PDF before extracting it.
-The tool should answer: what kind of PDF is this, which pages should be sampled,
-what risks are visible, which `read_pdf` options are most useful next, and which
-MCP tools should be used next for search, visual evidence, OCR, crop extraction,
-or provider-backed enrichment.
+Expose lightweight inspection in the V3 MCP surface before or during extraction.
+The inspection path should answer: what kind of PDF is this, which pages should
+be sampled, what risks are visible, which `read_pdf` options are most useful
+next, and which follow-up evidence operations should be used next for search,
+visual evidence, OCR, crop extraction, or provider-backed enrichment.
 
 This improves time-to-value without adding bundled OCR models, Java, Python,
 cloud services, or any large default dependency.
@@ -23,12 +27,15 @@ cloud services, or any large default dependency.
 
 ## Contract
 
-Expose a second MCP tool named `inspect_pdf`.
+Expose inspection as `pdf_evidence` with `operation: "inspect"`. `read_pdf`
+uses the same inspection path automatically when no explicit `include_*` options
+are supplied.
 
 Input:
 
 ```json
 {
+  "operation": "inspect",
   "sources": [{ "path": "report.pdf", "pages": "1-5" }],
   "sample_pages": 5,
   "include_metadata": true
@@ -119,19 +126,25 @@ Output is a JSON text part:
               "required_inputs": ["literal search query"]
             },
             {
-              "tool": "extract_regions",
+              "tool": "pdf_evidence",
               "priority": 3,
               "ready": false,
               "purpose": "Crop bbox-grounded regions as focused visual evidence after read_pdf exposes table, image, text-layer, or chunk boxes.",
               "when": "Use when read_pdf returns bbox evidence for a table, figure, chart, formula, annotation, or citation that needs visual proof.",
+              "argument_template": {
+                "operation": "extract_regions"
+              },
               "required_inputs": ["page number", "PDF-coordinate bounding box"]
             },
             {
-              "tool": "analyze_regions",
+              "tool": "pdf_evidence",
               "priority": 4,
               "ready": false,
               "purpose": "Send focused crops to a configured local visual provider and normalize table, chart, formula, figure, or image-description evidence.",
               "when": "Use when a known region needs local visual table, chart, formula, figure, or image-description enrichment.",
+              "argument_template": {
+                "operation": "analyze_regions"
+              },
               "required_inputs": ["page number", "PDF-coordinate bounding box"],
               "requires_provider": "analyze_regions"
             }
@@ -188,6 +201,8 @@ Output is a JSON text part:
 - Unit tests cover page sampling, profile classification, and ordered
   tool-routing recommendations.
 - Handler tests cover successful digital and scanned/image-like PDFs.
-- Integration tests confirm the MCP server lists `inspect_pdf`.
+- Integration tests confirm the MCP server lists `pdf_evidence`, supports
+  `operation: "inspect"`, and keeps `read_pdf` automatic inspection enabled by
+  default.
 - Full validation: `bun run check`, `bun run build`, `bun test`, and
   `bun run docs:build`.

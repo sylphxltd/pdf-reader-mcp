@@ -3,6 +3,9 @@
 Date: 2026-06-15
 Status: shipped
 
+> V3 note: visual table verification now uses `pdf_evidence` operation
+> `extract_regions` or `render_page` for source evidence.
+
 ## Goal
 
 Make deterministic table extraction more useful for agents without introducing

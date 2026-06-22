@@ -7,7 +7,7 @@ provenance, tables, citations, trust signals, accessibility signals, and
 provider-backed visual enrichments linked through stable IDs.
 
 The default package stays TypeScript-first and local-first. Selectable-text
-PDFs, inspection, search, rendering, crops, document maps, trust reports,
+PDFs, smart routing, search, rendering, crops, document maps, trust reports,
 accessibility reports, Markdown/HTML/JSON extraction, and safety signals work
 without heavy model downloads. Scanned OCR and visual table/chart/formula/figure
 understanding are enabled through configured local providers.
@@ -18,6 +18,7 @@ AI agents often need to access information from PDF documents - reports,
 invoices, research papers, manuals, and more. This server provides tools to
 inspect, verify, enrich, and extract:
 
+- **Smart PDF reads** - `read_pdf` can profile unfamiliar PDFs, choose an extraction route, and return the Agent Document Twin in one response
 - **PDF profiles** - Detect text-rich, low-text, mixed, or scanned/image-like PDFs before extraction
 - **PDF search evidence** - Locate literal text matches with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - **Visual page evidence** - Render selected pages as bounded PNG MCP image parts with provenance
@@ -49,13 +50,18 @@ Send multiple PDF sources in one request. The server processes them concurrently
 ### Flexible Extraction
 Choose exactly what data you need - visual page evidence, region crops, full text, specific pages, metadata only, an agent document map, or everything including images.
 
-### Agent-Native Inspection
-Use `inspect_pdf` to sample a PDF, identify extraction risks, and get an
-ordered `next_tools` plan plus recommended `read_pdf` arguments before spending
-context or runtime on heavier extraction.
+### Smart Default Read
+Call `read_pdf` with only `sources` when an agent does not know the document
+shape. V3 profiles the PDF, chooses a useful extraction route, and returns the
+selected arguments with the response so the agent can see what happened.
 
 ### PDF Search
 Use `search_pdf` to find relevant pages and source snippets before deciding whether an agent should read, render, OCR, crop, or cite a region. OCR-layer search is opt-in so fast selectable-text search stays the default.
+
+### Focused Evidence
+Use `pdf_evidence` when the agent needs one specialist operation after reading
+or searching: `inspect`, `render_page`, `extract_regions`, `ocr_pages`, or
+`analyze_regions`.
 
 ### PDF Text Layer
 Use `include_text_layer` when agents need direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, and metadata coverage counts.

@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**Agent Document Twin** · **Evidence-first extraction** · **Visual crops** · **OCR adapters** · **Tables, charts, formulas, figures** · **Trust & accessibility reports** · **Benchmark-gated releases**
+**V3 smart tool surface** · **Agent Document Twin** · **Evidence-first extraction** · **Visual crops** · **OCR adapters** · **Tables, charts, formulas, figures** · **Trust & accessibility reports** · **Benchmark-gated releases**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -80,42 +80,36 @@ OCR models, vision models, Ollama, LM Studio, llama.cpp, or cloud credentials.
 Need Cursor, VS Code, Windsurf, Cline, Warp, HTTP transport, Docker, or
 filesystem sandboxing? See the [installation guide](docs/guide/installation.md).
 
-## The Agent Workflow
+## One Smart Tool First
 
-Most PDF tools start by dumping text. This server starts by helping the agent
-decide what evidence it needs.
+The default V3 agent path is one tool call:
 
-```mermaid
-flowchart LR
-  A["inspect_pdf"] --> B["search_pdf"]
-  B --> C["render_page"]
-  C --> D["extract_regions"]
-  D --> E["analyze_regions"]
-  A --> F["ocr_pages"]
-  E --> G["read_pdf"]
-  F --> G
-  B --> G
+```json
+{
+  "sources": [{ "path": "/absolute/path/to/report.pdf" }]
+}
 ```
 
-1. `inspect_pdf` profiles the PDF and recommends the next tools.
-2. `search_pdf` finds source-backed text matches before spending context.
-3. `render_page` returns visual page evidence.
-4. `extract_regions` crops precise PDF-coordinate regions.
-5. `ocr_pages` recovers scanned-page text through a configured local OCR provider.
-6. `analyze_regions` enriches crops through configured local visual providers.
-7. `read_pdf` returns the linked Agent Document Twin.
+With no manual `include_*` flags, `read_pdf` profiles each PDF, chooses the
+extraction route, and returns the Agent Document Twin in one response. Digital
+text PDFs get Markdown, chunks, tables, layout routing, and source evidence.
+Mixed or scanned PDFs are routed toward configured OCR and visual providers
+when those providers are ready. Metadata, page geometry, warnings, provider
+readiness, and the selected `read_pdf` arguments are included so the agent can
+see what happened.
+
+Agents can still force `auto: false` and use explicit `include_*` options for a
+precise manual extraction. Use `auto_detail: "fast"`, `"balanced"`, or
+`"full"` when the agent wants to control output depth without learning dozens
+of switches.
 
 ## MCP Tool Surface
 
 | Tool | Use it when the agent needs to... |
 | --- | --- |
-| `inspect_pdf` | Classify a PDF, detect scanned or low-text risk, check provider readiness, and get a routing plan. |
+| `read_pdf` | Use first. With only `sources`, it auto-inspects and reads the PDF in one call; with explicit `include_*` options, it runs precise manual extraction. |
 | `search_pdf` | Search selectable text and optional OCR text with snippets, offsets, boxes, and provenance. |
-| `render_page` | Render pages as bounded PNG image parts with JSON provenance. |
-| `extract_regions` | Crop focused regions for tables, charts, formulas, figures, annotations, and citations. |
-| `analyze_regions` | Normalize local provider output for tables, formulas, charts, figures, and image descriptions. |
-| `ocr_pages` | Run rendered pages through configured OCR and return text, confidence, word boxes, and render evidence. |
-| `read_pdf` | Extract text, Markdown, HTML, chunks, tables, trust reports, accessibility reports, OCR evidence, visual enrichments, and the document twin. |
+| `pdf_evidence` | One focused evidence tool for `inspect`, `render_page`, `extract_regions`, `ocr_pages`, and `analyze_regions` operations. |
 
 Full request and response details live in the [API reference](docs/api/README.md).
 
@@ -137,7 +131,7 @@ the evidence needed to verify the answer.
 
 ```json
 {
-  "path": "/absolute/path/to/report.pdf",
+  "sources": [{ "path": "/absolute/path/to/report.pdf" }],
   "include_markdown": true,
   "include_chunks": true,
   "include_tables": true,
@@ -153,14 +147,15 @@ the evidence needed to verify the answer.
 
 ```json
 {
-  "path": "/absolute/path/to/report.pdf",
+  "sources": [{ "path": "/absolute/path/to/report.pdf" }],
   "query": "revenue recognition",
-  "include_bounding_boxes": true
+  "max_matches_per_source": 10
 }
 ```
 
-Use the returned page and bounding box with `render_page` or `extract_regions`
-when the agent needs visual proof before citing or summarizing.
+Use the returned page and bounding box with `pdf_evidence` operation
+`render_page` or `extract_regions` when the agent needs visual proof before
+citing or summarizing.
 
 ## Provider-Enabled Intelligence
 
@@ -183,7 +178,7 @@ configured by the deployment environment.
 ```bash
 # Example shape only. Point these at your own local OCR command.
 export MCP_PDF_OCR_COMMAND="tesseract"
-export MCP_PDF_OCR_ARGS='["{input}", "stdout", "tsv"]'
+export MCP_PDF_OCR_ARGS_JSON='["{input}", "stdout", "tsv"]'
 ```
 
 See the [guide](docs/guide/index.md) and [API reference](docs/api/README.md)

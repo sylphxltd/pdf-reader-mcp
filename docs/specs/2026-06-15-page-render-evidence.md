@@ -1,5 +1,8 @@
 # Page Render Evidence
 
+> V3 note: page rendering is now exposed through `pdf_evidence` operation
+> `render_page`.
+
 Date: 2026-06-15
 Status: active
 

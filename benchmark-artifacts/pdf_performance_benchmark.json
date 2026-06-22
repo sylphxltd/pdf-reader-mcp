@@ -7,30 +7,30 @@
     {
       "name": "metadata_page_count",
       "iterations": 20,
-      "average_ms": 1.16,
-      "min_ms": 0.64,
-      "max_ms": 2.35
+      "average_ms": 6.95,
+      "min_ms": 1.17,
+      "max_ms": 23.49
     },
     {
       "name": "full_text",
       "iterations": 20,
-      "average_ms": 18.35,
-      "min_ms": 10.7,
-      "max_ms": 25.36
+      "average_ms": 71.16,
+      "min_ms": 36.29,
+      "max_ms": 120.55
     },
     {
       "name": "selected_page_text",
       "iterations": 20,
-      "average_ms": 14.66,
-      "min_ms": 8.1,
-      "max_ms": 26.65
+      "average_ms": 93.09,
+      "min_ms": 42.65,
+      "max_ms": 232.11
     },
     {
       "name": "v3_agent_document_twin",
       "iterations": 20,
-      "average_ms": 28.68,
-      "min_ms": 19.59,
-      "max_ms": 44.8
+      "average_ms": 97.68,
+      "min_ms": 50.63,
+      "max_ms": 180.98
     }
   ]
 }

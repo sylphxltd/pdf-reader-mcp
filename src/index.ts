@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { analyzeRegions } from './handlers/analyzeRegions.js';
-import { extractRegions } from './handlers/extractRegions.js';
-import { inspectPdf } from './handlers/inspectPdf.js';
-import { ocrPages } from './handlers/ocrPages.js';
+import { pdfEvidence } from './handlers/pdfEvidence.js';
 import { readPdf } from './handlers/readPdf.js';
-import { renderPage } from './handlers/renderPage.js';
 import { searchPdf } from './handlers/searchPdf.js';
 import { createServer, http, stdio } from './mcp.js';
 
@@ -43,15 +39,11 @@ const server = createServer({
   name: 'pdf-reader-mcp',
   version: packageJson.version,
   instructions:
-    'MCP Server for inspecting PDF files, searching text evidence, rendering visual page evidence, cropping and analyzing visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.',
+    'V3 PDF intelligence MCP server. Use read_pdf first with auto=true for smart Agent Document Twin extraction, search_pdf for cheap literal evidence retrieval, and pdf_evidence for focused inspect, render, crop, OCR, or visual-region evidence operations.',
   tools: {
-    inspect_pdf: inspectPdf,
     read_pdf: readPdf,
     search_pdf: searchPdf,
-    render_page: renderPage,
-    extract_regions: extractRegions,
-    analyze_regions: analyzeRegions,
-    ocr_pages: ocrPages,
+    pdf_evidence: pdfEvidence,
   },
   transport: createTransport(),
 });

@@ -8,6 +8,7 @@ import {
   type InferOutput,
   int,
   literal,
+  lte,
   min,
   num,
   object,
@@ -18,6 +19,7 @@ import {
 
 // Schema for page specification (array of numbers or range string)
 export const pageSpecifierSchema = union(array(num(int, gte(1))), str(min(1)));
+export const readPdfAutoDetailSchema = union(literal('fast'), literal('balanced'), literal('full'));
 
 // Schema for a single PDF source. Every PDF tool shares this source contract:
 // callers must provide exactly one locator so local and remote security policy
@@ -35,6 +37,28 @@ export const pdfSourceSchema = object({
 // Schema for the read_pdf tool arguments
 export const readPdfArgsSchema = object({
   sources: array(pdfSourceSchema),
+  auto: optional(
+    bool(
+      description(
+        'Automatically inspect each source and choose high-value extraction options before reading. Defaults to true when no explicit include_* options are supplied; explicit manual options keep precise extraction stable.'
+      )
+    )
+  ),
+  auto_detail: optional(
+    readPdfAutoDetailSchema.describe(
+      'Automatic extraction depth. fast returns the core document twin route, balanced adds trust/accessibility evidence, and full adds fuller text/HTML/structure outputs. Defaults to balanced.'
+    )
+  ),
+  sample_pages: optional(
+    num(
+      int,
+      gte(1),
+      lte(20),
+      description(
+        'Maximum number of pages to sample per source when automatic inspection is enabled. Defaults to 5.'
+      )
+    )
+  ),
   include_full_text: optional(
     bool(
       description(
@@ -218,3 +242,4 @@ export const readPdfArgsSchema = object({
 
 export type ReadPdfArgs = InferOutput<typeof readPdfArgsSchema>;
 export type PdfSource = InferOutput<typeof pdfSourceSchema>;
+export type ReadPdfAutoDetail = InferOutput<typeof readPdfAutoDetailSchema>;

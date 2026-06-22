@@ -89,12 +89,25 @@ export default defineConfig({
         text: 'Architecture',
         items: [
           {
+            text: 'V3 Smart Tool Surface',
+            link: '/specs/2026-06-22-v3-smart-tool-surface',
+          },
+          {
             text: '2027 SOTA Boundary',
             link: '/adr/0001-2027-sota-document-intelligence-boundary',
           },
           {
             text: 'Operating Model',
             link: '/specs/2026-06-16-2027-sota-document-intelligence-operating-model',
+          },
+        ],
+      },
+      {
+        text: 'Updates',
+        items: [
+          {
+            text: 'V3 PDF Intelligence',
+            link: '/weekly/2026-06-22-v3-pdf-intelligence',
           },
         ],
       },

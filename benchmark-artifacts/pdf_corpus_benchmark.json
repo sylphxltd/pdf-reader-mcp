@@ -1,6 +1,6 @@
 {
   "profile": "pdf_corpus_benchmark",
-  "generated_at": "2026-06-22T02:44:39.978Z",
+  "generated_at": "2026-06-22T09:21:35.504Z",
   "corpus_scope": "checked-in repository PDFs plus runtime-generated report and scanned-page archetypes exercised through read_pdf agent-document-twin flows",
   "case_count": 4,
   "assertion_count": 19,
@@ -192,7 +192,7 @@
         "selectable_text",
         "text_layer"
       ],
-      "duration_ms": 199.31,
+      "duration_ms": 403.02,
       "assertion_count": 6,
       "passed_assertion_count": 6,
       "score": 1,
@@ -295,7 +295,7 @@
         "reading_order",
         "runtime_generated"
       ],
-      "duration_ms": 25.46,
+      "duration_ms": 103.75,
       "assertion_count": 6,
       "passed_assertion_count": 6,
       "score": 1,
@@ -411,7 +411,7 @@
         "scanned_page",
         "source_render_evidence"
       ],
-      "duration_ms": 64.16,
+      "duration_ms": 242.32,
       "assertion_count": 3,
       "passed_assertion_count": 3,
       "score": 1,
@@ -490,7 +490,7 @@
         "table_structure",
         "word_boxes"
       ],
-      "duration_ms": 40.29,
+      "duration_ms": 171.73,
       "assertion_count": 4,
       "passed_assertion_count": 4,
       "score": 1,

@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
   "version": "2.7.2",
-  "description": "Full-fidelity PDF intelligence MCP server with Agent Document Twin, visual evidence, OCR provenance, trust reports, accessibility reports, and benchmark-gated release proof.",
+  "description": "V3 PDF intelligence MCP server with smart Agent Document Twin extraction, focused evidence operations, OCR provenance, trust/accessibility reports, and benchmark-gated release proof.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/index.js"
@@ -44,6 +44,7 @@
     "tool",
     "rag",
     "citations",
+    "smart-pdf-reader",
     "agent-document-twin",
     "pdf-intelligence",
     "ocr",

@@ -145,13 +145,14 @@ describe('MCP Server HTTP Transport Integration', () => {
     expect(response.result?.tools?.length).toBeGreaterThan(0);
 
     const toolNames = response.result?.tools?.map((t: { name: string }) => t.name);
-    expect(toolNames).toContain('inspect_pdf');
     expect(toolNames).toContain('read_pdf');
     expect(toolNames).toContain('search_pdf');
-    expect(toolNames).toContain('render_page');
-    expect(toolNames).toContain('extract_regions');
-    expect(toolNames).toContain('analyze_regions');
-    expect(toolNames).toContain('ocr_pages');
+    expect(toolNames).toContain('pdf_evidence');
+    expect(toolNames).not.toContain('inspect_pdf');
+    expect(toolNames).not.toContain('render_page');
+    expect(toolNames).not.toContain('extract_regions');
+    expect(toolNames).not.toContain('analyze_regions');
+    expect(toolNames).not.toContain('ocr_pages');
   });
 
   it('should call read_pdf tool over HTTP', async () => {

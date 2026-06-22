@@ -1126,7 +1126,7 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         textLayer.pages[0]?.lines[0]?.words[0]?.bounding_box_level === 'char_estimated',
     },
     {
-      name: 'inspection recommendation exposes ordered MCP tool routing with evidence follow-ups',
+      name: 'inspection recommendation exposes ordered V3 MCP routing with evidence follow-ups',
       pass:
         inspectionRecommendation.next_tools[0]?.tool === 'read_pdf' &&
         inspectionRecommendation.next_tools[0]?.ready === true &&
@@ -1138,11 +1138,15 @@ const evaluateAgentDocumentTwin = (): QualityAssertion[] => {
         ) &&
         inspectionRecommendation.next_tools.some(
           (step) =>
-            step.tool === 'extract_regions' &&
+            step.tool === 'pdf_evidence' &&
+            step.argument_template?.['operation'] === 'extract_regions' &&
             step.required_inputs?.includes('PDF-coordinate bounding box') === true
         ) &&
         inspectionRecommendation.next_tools.some(
-          (step) => step.tool === 'analyze_regions' && step.requires_provider === 'analyze_regions'
+          (step) =>
+            step.tool === 'pdf_evidence' &&
+            step.argument_template?.['operation'] === 'analyze_regions' &&
+            step.requires_provider === 'analyze_regions'
         ),
     },
   ];

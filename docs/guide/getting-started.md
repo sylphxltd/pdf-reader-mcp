@@ -1,33 +1,25 @@
 # Getting Started
 
-Once installed, the PDF Reader MCP server provides seven tools:
+Once installed, the PDF Reader MCP server provides three public V3 tools:
 
-- `inspect_pdf` profiles a PDF and recommends ordered extraction and evidence
-  routing.
-- `search_pdf` searches extracted PDF text with snippets, character-derived or
-  text-item bounding boxes, and provenance.
-- `render_page` renders selected PDF pages as bounded visual evidence images.
-- `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
-- `analyze_regions` sends focused crops to a configured local provider and
-  normalizes table, chart, formula, figure, and image-description results.
-- `ocr_pages` runs selected rendered pages through a configured local OCR
-  provider and returns a normalized OCR text layer.
-- `read_pdf` extracts PDF content, an agent document map, structure,
-  citations, tables, images, layout confidence, and signals.
+- `read_pdf` is the smart default. With only `sources`, it profiles the PDF,
+  chooses an extraction route, and returns the Agent Document Twin.
+- `search_pdf` searches extracted PDF text with snippets, offsets,
+  bounding-box provenance, and optional OCR-layer matches.
+- `pdf_evidence` runs focused evidence operations: `inspect`, `render_page`,
+  `extract_regions`, `ocr_pages`, and `analyze_regions`.
 
 ## Basic Usage
 
-### Inspect a PDF First
+### Read a PDF First
 
-Use `inspect_pdf` when an agent needs to decide how to process an unfamiliar
-document. It samples a bounded number of pages and returns an extraction plan
-without decoding image bytes.
+Use `read_pdf` when an agent needs to process an unfamiliar document. With no
+manual `include_*` flags, it samples a bounded number of pages, chooses useful
+read options, and returns both the Agent Document Twin and the selected route.
 
 ```json
 {
-  "sources": [{ "path": "/path/to/document.pdf" }],
-  "sample_pages": 5,
-  "include_metadata": true
+  "sources": [{ "path": "/path/to/document.pdf" }]
 }
 ```
 
@@ -36,13 +28,44 @@ for a remote PDF.
 
 Typical response fields:
 
+- `auto_read`: source profile, workflow, provider readiness, and selected
+  `read_pdf` arguments
+- `results`: Markdown, chunks, document map, tables, trust/accessibility
+  routing, and other selected evidence
+- `warnings`: page, layout, OCR, provider, or trust signals the agent should
+  consider before citing
+
+Use `auto_detail` to control default output depth without learning every
+manual switch:
+
+```json
+{
+  "sources": [{ "path": "/path/to/document.pdf" }],
+  "auto_detail": "full"
+}
+```
+
+Use `pdf_evidence` operation `inspect` when the agent only needs a cheap route
+profile without reading the document twin:
+
+```json
+{
+  "operation": "inspect",
+  "sources": [{ "path": "/path/to/document.pdf" }],
+  "sample_pages": 5,
+  "include_metadata": true
+}
+```
+
+Typical inspect fields:
+
 - `profile`: `digital_text`, `scanned_or_image_only`, `mixed_text_and_scan`,
   `low_text_or_form`, or `unknown`
 - `page_signals`: text density, token estimate, and image paint-operation count
 - `document_signals`: outline, labels, permissions, forms, attachments, and
   structure-tree availability
-- `recommendation`: workflow, OCR need, reason, ordered `next_tools`, and
-  ready-to-use `read_pdf` arguments
+- `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
+  arguments
 - `provider_status`: safe readiness and health metadata for optional
   `ocr_pages` and `analyze_regions` providers without exposing local provider
   paths
@@ -189,11 +212,13 @@ twin. Image bytes are not embedded inside the JSON map.
 
 ### Render Page Evidence
 
-Use `render_page` when an agent needs to inspect the original page image,
-verify visual layout, or prepare OCR routing for sparse/scanned pages.
+Use `pdf_evidence` operation `render_page` when an agent needs to inspect the
+original page image, verify visual layout, or prepare OCR routing for
+sparse/scanned pages.
 
 ```json
 {
+  "operation": "render_page",
   "sources": [{
     "path": "/path/to/document.pdf",
     "pages": "1-2"
@@ -212,12 +237,13 @@ page range is provided, caps each source at 5 pages, and rejects pages above a
 
 ### Extract Region Evidence
 
-Use `extract_regions` when a workflow has a bounding box from a table, figure,
-chart, formula, annotation, or citation and needs a focused crop from the
-original page.
+Use `pdf_evidence` operation `extract_regions` when a workflow has a bounding
+box from a table, figure, chart, formula, annotation, or citation and needs a
+focused crop from the original page.
 
 ```json
 {
+  "operation": "extract_regions",
   "sources": [{
     "path": "/path/to/document.pdf",
     "regions": [{
@@ -239,13 +265,14 @@ data is returned as MCP image content parts and referenced by
 
 ### Analyze Visual Regions
 
-Use `analyze_regions` when a workflow has a table, figure, chart, formula, or
-image bounding box and wants local-provider enrichment linked back to source
-pixels. The region analysis provider is configured by environment variables,
-not by request arguments.
+Use `pdf_evidence` operation `analyze_regions` when a workflow has a table,
+figure, chart, formula, or image bounding box and wants local-provider
+enrichment linked back to source pixels. The region analysis provider is
+configured by environment variables, not by request arguments.
 
 ```json
 {
+  "operation": "analyze_regions",
   "sources": [{
     "path": "/path/to/document.pdf",
     "regions": [{
@@ -293,12 +320,14 @@ fields, chart data/axis/series fields, warnings, provenance, and a
 
 ### OCR Selected Pages
 
-Use `ocr_pages` after `inspect_pdf` flags scanned or sparse pages, or when a
-workflow needs a text layer from pages with little selectable text. The OCR
-provider is configured by environment variables, not by request arguments.
+Use `pdf_evidence` operation `ocr_pages` after `read_pdf` or `pdf_evidence`
+operation `inspect` flags scanned or sparse pages, or when a workflow needs a
+standalone text layer from pages with little selectable text. The OCR provider
+is configured by environment variables, not by request arguments.
 
 ```json
 {
+  "operation": "ocr_pages",
   "sources": [{
     "path": "/path/to/scanned-document.pdf",
     "pages": "1-3"
@@ -316,9 +345,9 @@ into normalized words, confidence, and word boxes. You can also set
 `MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes `{input}` and may
 also use `{page}`, `{source}`, `{language}`, `{languages}`, and
 `{languages_tesseract}` placeholders. Custom providers can return plain text
-or JSON with `text`, `confidence`, `language`, and `words`. `inspect_pdf`
-reports built-in preset executable health; OCR-dependent routing is marked not
-ready when the selected preset binary is unavailable.
+or JSON with `text`, `confidence`, `language`, and `words`. `pdf_evidence`
+operation `inspect` reports built-in preset executable health; OCR-dependent
+routing is marked not ready when the selected preset binary is unavailable.
 
 The response starts with JSON metadata using `profile: "ocr_text_layer"`.
 Each page includes normalized OCR text, confidence when supplied, optional word

@@ -51,7 +51,7 @@ const loadCanvasModule = async (): Promise<CanvasModule> => {
   } catch (error: unknown) {
     throw new PdfError(
       ErrorCode.InvalidRequest,
-      'Page rendering requires the optional pdfjs native canvas backend. Install with optional dependencies enabled, or use inspect_pdf/read_pdf without visual rendering.',
+      'Page rendering requires the optional pdfjs native canvas backend. Install with optional dependencies enabled, or use read_pdf or pdf_evidence operation inspect without visual rendering.',
       { cause: error instanceof Error ? error : undefined }
     );
   }

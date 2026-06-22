@@ -60,7 +60,8 @@ npx @sylphx/pdf-reader-mcp
 
 ## Optional OCR Provider
 
-`ocr_pages` is disabled until a local OCR command or preset is configured. Set
+`pdf_evidence` operation `ocr_pages` and `read_pdf` OCR fusion are disabled
+until a local OCR command or preset is configured. Set
 `MCP_PDF_OCR_PRESET=tesseract` for the plain-text Tesseract command template,
 or `MCP_PDF_OCR_PRESET=tesseract-tsv` when agents need normalized Tesseract
 word boxes and confidence. You can also set `MCP_PDF_OCR_COMMAND` to the OCR
@@ -92,8 +93,9 @@ The default package does not bundle an OCR model.
 
 ## Optional Visual Region Analysis Provider
 
-`analyze_regions` is disabled until a local visual analysis provider is
-configured. Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to a local executable or
+`pdf_evidence` operation `analyze_regions` and `read_pdf` visual enrichment are
+disabled until a local visual analysis provider is configured. Set
+`MCP_PDF_REGION_ANALYSIS_COMMAND` to a local executable or
 wrapper that accepts a temporary cropped PNG, or set
 `MCP_PDF_REGION_ANALYSIS_HTTP_URL` to an env-configured local model server.
 For local Ollama vision models, set `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`

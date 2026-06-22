@@ -22,6 +22,7 @@ import {
   extractPageGeometry,
   extractStructureTrees,
 } from '../pdf/extractor.js';
+import { defaultInspectPdfOptions, inspectPdfSource } from '../pdf/inspector.js';
 import { loadPdfDocument } from '../pdf/loader.js';
 import { buildOcrTextLayer, defaultOcrPagesOptions, ocrPdfSourcePages } from '../pdf/ocr.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
@@ -38,12 +39,13 @@ import {
   buildVisualEnrichmentsForSource,
   DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
 } from '../pdf/visualEnrichment.js';
-import { readPdfArgsSchema } from '../schemas/readPdf.js';
+import { type ReadPdfArgs, type ReadPdfAutoDetail, readPdfArgsSchema } from '../schemas/readPdf.js';
 import type {
   ExtractedImage,
   ExtractedTable,
   PdfChunk,
   PdfDocumentElement,
+  PdfInspectionSourceResult,
   PdfOcrTextLayer,
   PdfPageAnnotations,
   PdfPageGeometry,
@@ -62,6 +64,53 @@ import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('ReadPdf');
+
+const MAX_CONCURRENT_SOURCES = 3;
+const DEFAULT_AUTO_DETAIL: ReadPdfAutoDetail = 'balanced';
+
+interface ReadPdfProcessingOptions {
+  includeFullText: boolean;
+  includeMetadata: boolean;
+  includePageCount: boolean;
+  includeImages: boolean;
+  includeTables: boolean;
+  includeElements: boolean;
+  includeSemanticHints: boolean;
+  includeMarkdown: boolean;
+  includeHtml: boolean;
+  includeChunks: boolean;
+  includeTextLayer: boolean;
+  includeOcrTextLayer: boolean;
+  includeOutline: boolean;
+  includeAnnotations: boolean;
+  includePageLabels: boolean;
+  includePageGeometry: boolean;
+  includePermissions: boolean;
+  includeFormFields: boolean;
+  includeAttachments: boolean;
+  includeStructureTree: boolean;
+  includeSafetyFindings: boolean;
+  includeLayoutDiagnostics: boolean;
+  includeDocumentMap: boolean;
+  includeDocumentAst: boolean;
+  includeVisualEnrichments: boolean;
+  maxVisualEnrichments: number;
+  includeTrustReport: boolean;
+  trustReportRedaction: PdfTrustRedactionPolicy;
+  includeAccessibilityReport: boolean;
+}
+
+type AutoReadSummary = {
+  source: string;
+  success: boolean;
+  profile?: string;
+  workflow?: string;
+  reason?: string;
+  needs_ocr?: boolean;
+  provider_status?: unknown;
+  read_pdf_arguments?: ReadPdfArgs;
+  inspection_error?: string;
+};
 
 const appendOutputWarnings = (output: PdfResultData, warnings: string[]) => {
   if (warnings.length === 0) return;
@@ -84,37 +133,7 @@ const selectOcrTextLayerPages = (
  */
 const processSingleSource = async (
   source: PdfSource,
-  options: {
-    includeFullText: boolean;
-    includeMetadata: boolean;
-    includePageCount: boolean;
-    includeImages: boolean;
-    includeTables: boolean;
-    includeElements: boolean;
-    includeSemanticHints: boolean;
-    includeMarkdown: boolean;
-    includeHtml: boolean;
-    includeChunks: boolean;
-    includeTextLayer: boolean;
-    includeOcrTextLayer: boolean;
-    includeOutline: boolean;
-    includeAnnotations: boolean;
-    includePageLabels: boolean;
-    includePageGeometry: boolean;
-    includePermissions: boolean;
-    includeFormFields: boolean;
-    includeAttachments: boolean;
-    includeStructureTree: boolean;
-    includeSafetyFindings: boolean;
-    includeLayoutDiagnostics: boolean;
-    includeDocumentMap: boolean;
-    includeDocumentAst: boolean;
-    includeVisualEnrichments: boolean;
-    maxVisualEnrichments: number;
-    includeTrustReport: boolean;
-    trustReportRedaction: PdfTrustRedactionPolicy;
-    includeAccessibilityReport: boolean;
-  }
+  options: ReadPdfProcessingOptions
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
   let individualResult: PdfSourceResult = { source: sourceDescription, success: false };
@@ -565,88 +584,232 @@ const processSingleSource = async (
   return individualResult;
 };
 
+const explicitReadOptionKeys = [
+  'include_full_text',
+  'include_metadata',
+  'include_page_count',
+  'include_images',
+  'include_tables',
+  'include_elements',
+  'include_semantic_hints',
+  'include_markdown',
+  'include_html',
+  'include_chunks',
+  'include_text_layer',
+  'include_ocr_text_layer',
+  'include_outline',
+  'include_annotations',
+  'include_page_labels',
+  'include_page_geometry',
+  'include_permissions',
+  'include_form_fields',
+  'include_attachments',
+  'include_structure_tree',
+  'include_safety_findings',
+  'include_layout_diagnostics',
+  'include_document_map',
+  'include_document_ast',
+  'include_visual_enrichments',
+  'max_visual_enrichments',
+  'include_trust_report',
+  'trust_report_redaction',
+  'include_accessibility_report',
+] as const satisfies readonly (keyof ReadPdfArgs)[];
+
+const pickExplicitReadOptions = (input: ReadPdfArgs): Partial<ReadPdfArgs> => {
+  const options: Partial<ReadPdfArgs> = {};
+  for (const key of explicitReadOptionKeys) {
+    const value = input[key];
+    if (value !== undefined) {
+      (options as Record<string, unknown>)[key] = value;
+    }
+  }
+  return options;
+};
+
+const hasExplicitReadOptions = (input: ReadPdfArgs): boolean =>
+  explicitReadOptionKeys.some((key) => input[key] !== undefined);
+
+const shouldUseAutoRead = (input: ReadPdfArgs): boolean =>
+  input.auto ?? !hasExplicitReadOptions(input);
+
+const buildAutoDetailOptions = (detail: ReadPdfAutoDetail): Partial<ReadPdfArgs> => {
+  const fast = {
+    include_metadata: true,
+    include_page_count: true,
+    include_page_geometry: true,
+    include_document_map: true,
+    include_chunks: true,
+    include_markdown: true,
+    include_tables: true,
+    include_semantic_hints: true,
+    include_layout_diagnostics: true,
+  } satisfies Partial<ReadPdfArgs>;
+
+  if (detail === 'fast') return fast;
+
+  const balanced = {
+    ...fast,
+    include_safety_findings: true,
+    include_trust_report: true,
+    include_accessibility_report: true,
+  } satisfies Partial<ReadPdfArgs>;
+
+  if (detail === 'balanced') return balanced;
+
+  return {
+    ...balanced,
+    include_full_text: true,
+    include_html: true,
+    include_elements: true,
+    include_text_layer: true,
+    include_document_ast: true,
+    include_outline: true,
+    include_annotations: true,
+    include_page_labels: true,
+    include_permissions: true,
+    include_form_fields: true,
+    include_attachments: true,
+    include_structure_tree: true,
+  } satisfies Partial<ReadPdfArgs>;
+};
+
+const buildReadOptions = (input: ReadPdfArgs): ReadPdfProcessingOptions => ({
+  includeFullText: input.include_full_text ?? false,
+  includeMetadata: input.include_metadata ?? true,
+  includePageCount: input.include_page_count ?? true,
+  includeImages: input.include_images ?? false,
+  includeTables: input.include_tables ?? false,
+  includeElements: input.include_elements ?? false,
+  includeSemanticHints: input.include_semantic_hints ?? false,
+  includeMarkdown: input.include_markdown ?? false,
+  includeHtml: input.include_html ?? false,
+  includeChunks: input.include_chunks ?? false,
+  includeTextLayer: input.include_text_layer ?? false,
+  includeOcrTextLayer: input.include_ocr_text_layer ?? false,
+  includeOutline: input.include_outline ?? false,
+  includeAnnotations: input.include_annotations ?? false,
+  includePageLabels: input.include_page_labels ?? false,
+  includePageGeometry: input.include_page_geometry ?? false,
+  includePermissions: input.include_permissions ?? false,
+  includeFormFields: input.include_form_fields ?? false,
+  includeAttachments: input.include_attachments ?? false,
+  includeStructureTree: input.include_structure_tree ?? false,
+  includeSafetyFindings: input.include_safety_findings ?? false,
+  includeLayoutDiagnostics: input.include_layout_diagnostics ?? false,
+  includeDocumentMap: input.include_document_map ?? false,
+  includeDocumentAst: input.include_document_ast ?? false,
+  includeVisualEnrichments: input.include_visual_enrichments ?? false,
+  maxVisualEnrichments: input.max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
+  includeTrustReport: input.include_trust_report ?? false,
+  trustReportRedaction: input.trust_report_redaction ?? 'standard',
+  includeAccessibilityReport: input.include_accessibility_report ?? false,
+});
+
+const buildAutoReadArgs = (
+  source: PdfSource,
+  inspection: PdfInspectionSourceResult,
+  input: ReadPdfArgs,
+  detail: ReadPdfAutoDetail
+): ReadPdfArgs => {
+  const recommendationArgs = inspection.data?.recommendation.read_pdf_arguments ?? {};
+  return {
+    ...recommendationArgs,
+    ...buildAutoDetailOptions(detail),
+    ...pickExplicitReadOptions(input),
+    sources: [source],
+  } as ReadPdfArgs;
+};
+
+const buildAutoInspections = async (input: ReadPdfArgs): Promise<PdfInspectionSourceResult[]> => {
+  const inspectOptions = {
+    ...defaultInspectPdfOptions(),
+    ...(input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {}),
+    ...(input.include_metadata !== undefined ? { include_metadata: input.include_metadata } : {}),
+  };
+  const inspections: PdfInspectionSourceResult[] = [];
+
+  for (let i = 0; i < input.sources.length; i += MAX_CONCURRENT_SOURCES) {
+    const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES);
+    const batchResults = await Promise.all(
+      batch.map((source) => inspectPdfSource(source, inspectOptions))
+    );
+    inspections.push(...batchResults);
+  }
+
+  return inspections;
+};
+
 // Export the tool definition using builder pattern
 export const readPdf = tool()
   .description(
-    'Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.'
+    'Primary V3 PDF reader. With only sources, it auto-inspects and returns a routed Agent Document Twin; use auto_detail or explicit include_* options for precise control.'
   )
   .input(readPdfArgsSchema)
   .handler(async ({ input }) => {
-    const {
-      sources,
-      include_full_text,
-      include_metadata,
-      include_page_count,
-      include_images,
-      include_tables,
-      include_elements,
-      include_semantic_hints,
-      include_markdown,
-      include_html,
-      include_chunks,
-      include_text_layer,
-      include_ocr_text_layer,
-      include_outline,
-      include_annotations,
-      include_page_labels,
-      include_page_geometry,
-      include_permissions,
-      include_form_fields,
-      include_attachments,
-      include_structure_tree,
-      include_safety_findings,
-      include_layout_diagnostics,
-      include_document_map,
-      include_document_ast,
-      include_visual_enrichments,
-      max_visual_enrichments,
-      include_trust_report,
-      trust_report_redaction,
-      include_accessibility_report,
-    } = input;
-
-    // Process sources with concurrency limit to prevent memory exhaustion
-    // Processing large PDFs concurrently can consume significant memory
-    const MAX_CONCURRENT_SOURCES = 3;
     const results: PdfSourceResult[] = [];
-    const options = {
-      includeFullText: include_full_text ?? false,
-      includeMetadata: include_metadata ?? true,
-      includePageCount: include_page_count ?? true,
-      includeImages: include_images ?? false,
-      includeTables: include_tables ?? false,
-      includeElements: include_elements ?? false,
-      includeSemanticHints: include_semantic_hints ?? false,
-      includeMarkdown: include_markdown ?? false,
-      includeHtml: include_html ?? false,
-      includeChunks: include_chunks ?? false,
-      includeTextLayer: include_text_layer ?? false,
-      includeOcrTextLayer: include_ocr_text_layer ?? false,
-      includeOutline: include_outline ?? false,
-      includeAnnotations: include_annotations ?? false,
-      includePageLabels: include_page_labels ?? false,
-      includePageGeometry: include_page_geometry ?? false,
-      includePermissions: include_permissions ?? false,
-      includeFormFields: include_form_fields ?? false,
-      includeAttachments: include_attachments ?? false,
-      includeStructureTree: include_structure_tree ?? false,
-      includeSafetyFindings: include_safety_findings ?? false,
-      includeLayoutDiagnostics: include_layout_diagnostics ?? false,
-      includeDocumentMap: include_document_map ?? false,
-      includeDocumentAst: include_document_ast ?? false,
-      includeVisualEnrichments: include_visual_enrichments ?? false,
-      maxVisualEnrichments: max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
-      includeTrustReport: include_trust_report ?? false,
-      trustReportRedaction: trust_report_redaction ?? 'standard',
-      includeAccessibilityReport: include_accessibility_report ?? false,
-    };
+    const autoRead = shouldUseAutoRead(input);
+    const autoDetail = input.auto_detail ?? DEFAULT_AUTO_DETAIL;
+    const autoReadSummaries: AutoReadSummary[] = [];
+    let options = buildReadOptions(input);
 
-    for (let i = 0; i < sources.length; i += MAX_CONCURRENT_SOURCES) {
-      const batch = sources.slice(i, i + MAX_CONCURRENT_SOURCES);
-      const batchResults = await Promise.all(
-        batch.map((source) => processSingleSource(source, options))
-      );
-      results.push(...batchResults);
+    if (autoRead) {
+      const inspections = await buildAutoInspections(input);
+
+      for (let i = 0; i < inspections.length; i += MAX_CONCURRENT_SOURCES) {
+        const inspectionBatch = inspections.slice(i, i + MAX_CONCURRENT_SOURCES);
+        const sourceBatch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES);
+        const batchResults = await Promise.all(
+          inspectionBatch.map((inspection, batchIndex) => {
+            const source = sourceBatch[batchIndex];
+            if (!source) {
+              return Promise.resolve({
+                source: inspection.source,
+                success: false,
+                error: 'Auto read failed because the source index was missing.',
+              } satisfies PdfSourceResult);
+            }
+
+            if (!inspection.success || !inspection.data) {
+              autoReadSummaries.push({
+                source: inspection.source,
+                success: false,
+                ...(inspection.error !== undefined ? { inspection_error: inspection.error } : {}),
+              });
+              return Promise.resolve({
+                source: inspection.source,
+                success: false,
+                error: `Auto inspection failed: ${inspection.error ?? 'unknown error'}`,
+              } satisfies PdfSourceResult);
+            }
+
+            const autoReadArgs = buildAutoReadArgs(source, inspection, input, autoDetail);
+            const autoOptions = buildReadOptions(autoReadArgs);
+            autoReadSummaries.push({
+              source: inspection.source,
+              success: true,
+              profile: inspection.data.profile,
+              workflow: inspection.data.recommendation.workflow,
+              reason: inspection.data.recommendation.reason,
+              needs_ocr: inspection.data.recommendation.needs_ocr,
+              provider_status: inspection.data.provider_status,
+              read_pdf_arguments: autoReadArgs,
+            });
+            return processSingleSource(source, autoOptions);
+          })
+        );
+        results.push(...batchResults);
+      }
+    } else {
+      // Process sources with concurrency limit to prevent memory exhaustion.
+      // Processing large PDFs concurrently can consume significant memory.
+      for (let i = 0; i < input.sources.length; i += MAX_CONCURRENT_SOURCES) {
+        const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES);
+        const batchResults = await Promise.all(
+          batch.map((source) => processSingleSource(source, options))
+        );
+        results.push(...batchResults);
+      }
     }
 
     // Check if all sources failed
@@ -654,6 +817,15 @@ export const readPdf = tool()
     if (allFailed) {
       const errorMessages = results.map((r) => r.error).join('; ');
       return toolError(`All PDF sources failed to process: ${errorMessages}`);
+    }
+
+    if (autoRead) {
+      const firstSuccessfulAutoArgs = autoReadSummaries.find(
+        (summary) => summary.success && summary.read_pdf_arguments
+      )?.read_pdf_arguments;
+      if (firstSuccessfulAutoArgs) {
+        options = buildReadOptions(firstSuccessfulAutoArgs);
+      }
     }
 
     // Build content parts - start with structured JSON for backward compatibility
@@ -700,7 +872,26 @@ export const readPdf = tool()
     });
 
     // First content part: Structured JSON results
-    content.push(text(JSON.stringify({ results: resultsForJson }, null, 2)));
+    content.push(
+      text(
+        JSON.stringify(
+          {
+            ...(autoRead
+              ? {
+                  auto_read: {
+                    enabled: true,
+                    detail: autoDetail,
+                    results: autoReadSummaries,
+                  },
+                }
+              : {}),
+            results: resultsForJson,
+          },
+          null,
+          2
+        )
+      )
+    );
 
     // Add page content - consolidate text per page to reduce content part count
     // This prevents overwhelming the MCP client with thousands of small text fragments

@@ -161,6 +161,130 @@ var createServer = (options) => {
   };
 };
 
+// src/schema.ts
+import { z as z2 } from "zod";
+var applyActions = (schema, actions) => actions.reduce((current, action) => action(current), schema);
+var expectNumberSchema = (schema, actionName) => {
+  if (schema instanceof z2.ZodNumber)
+    return schema;
+  throw new TypeError(`${actionName} can only be applied to a number schema.`);
+};
+var expectStringSchema = (schema, actionName) => {
+  if (schema instanceof z2.ZodString)
+    return schema;
+  throw new TypeError(`${actionName} can only be applied to a string schema.`);
+};
+var description = (value) => (schema) => schema.describe(value);
+var gte = (value) => (schema) => expectNumberSchema(schema, "gte").min(value);
+var lte = (value) => (schema) => expectNumberSchema(schema, "lte").max(value);
+var min = (value) => (schema) => expectStringSchema(schema, "min").min(value);
+var int = (schema) => expectNumberSchema(schema, "int").int();
+var str = (...actions) => applyActions(z2.string(), actions);
+var num = (...actions) => applyActions(z2.number(), actions);
+var bool = (...actions) => applyActions(z2.boolean(), actions);
+var literal = (value) => z2.literal(value);
+var array = (schema, ...actions) => applyActions(z2.array(schema), actions);
+var object = (shape, ...actions) => applyActions(z2.object(shape), actions);
+var optional = (schema) => schema.optional();
+var union = (...schemas) => z2.union(schemas);
+
+// src/schemas/extractRegions.ts
+var regionBoundingBoxSchema = object({
+  left: num(gte(0), description("Left PDF coordinate of the region bounding box.")),
+  bottom: num(gte(0), description("Bottom PDF coordinate of the region bounding box.")),
+  right: num(gte(0), description("Right PDF coordinate of the region bounding box.")),
+  top: num(gte(0), description("Top PDF coordinate of the region bounding box."))
+});
+var pdfRegionSchema = object({
+  id: optional(str(description("Optional caller-provided region ID for stable evidence mapping."))),
+  page: num(int, gte(1), description("1-indexed PDF page containing the region.")),
+  bounding_box: regionBoundingBoxSchema,
+  padding: optional(num(gte(0), lte(200), description("Padding around the region in PDF points before scaling. Defaults to 0.")))
+});
+var pdfRegionSourceSchema = object({
+  path: optional(str(description("Path to the local PDF file (absolute or relative to cwd)."))),
+  url: optional(str(description("URL of the PDF file."))),
+  regions: array(pdfRegionSchema)
+});
+var extractRegionsArgsSchema = object({
+  sources: array(pdfRegionSourceSchema),
+  scale: optional(num(gte(0.25), lte(4), description("Render scale relative to PDF points. Defaults to 2."))),
+  max_regions: optional(num(int, gte(1), lte(100), description("Maximum regions to crop per source. Defaults to 20 and is capped at 100."))),
+  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page before cropping. Defaults to 16,000,000."))),
+  include_image: optional(bool(description("Return cropped regions as MCP image parts. Defaults to true; JSON metadata is always returned.")))
+});
+
+// src/schemas/readPdf.ts
+var pageSpecifierSchema = union(array(num(int, gte(1))), str(min(1)));
+var readPdfAutoDetailSchema = union(literal("fast"), literal("balanced"), literal("full"));
+var pdfSourceSchema = object({
+  path: optional(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
+  url: optional(str(min(1), description("URL of the PDF file."))),
+  pages: optional(pageSpecifierSchema)
+}).refine((source) => Boolean(source.path) !== Boolean(source.url), {
+  message: "Provide exactly one of path or url for each PDF source."
+});
+var readPdfArgsSchema = object({
+  sources: array(pdfSourceSchema),
+  auto: optional(bool(description("Automatically inspect each source and choose high-value extraction options before reading. Defaults to true when no explicit include_* options are supplied; explicit manual options keep precise extraction stable."))),
+  auto_detail: optional(readPdfAutoDetailSchema.describe("Automatic extraction depth. fast returns the core document twin route, balanced adds trust/accessibility evidence, and full adds fuller text/HTML/structure outputs. Defaults to balanced.")),
+  sample_pages: optional(num(int, gte(1), lte(20), description("Maximum number of pages to sample per source when automatic inspection is enabled. Defaults to 5."))),
+  include_full_text: optional(bool(description("Include the full text content of each PDF (only if 'pages' is not specified for that source)."))),
+  include_metadata: optional(bool(description("Include metadata and info objects for each PDF."))),
+  include_page_count: optional(bool(description("Include the total number of pages for each PDF."))),
+  include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
+  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of selectable text coordinates and, when include_ocr_text_layer is enabled, OCR word boxes to identify tabular structures."))),
+  include_elements: optional(bool(description("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
+  include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, paragraph, caption, header, or footer."))),
+  include_markdown: optional(bool(description("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
+  include_html: optional(bool(description("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
+  include_chunks: optional(bool(description("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
+  include_text_layer: optional(bool(description("Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance."))),
+  include_ocr_text_layer: optional(bool(description("Run the configured local OCR provider for selected sparse/scanned pages and include a normalized OCR text layer with render provenance."))),
+  include_outline: optional(bool(description("Include document outline/bookmark entries when the PDF exposes them."))),
+  include_annotations: optional(bool(description("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
+  include_page_labels: optional(bool(description("Include PDF page labels when available, such as roman numerals or section labels."))),
+  include_page_geometry: optional(bool(description("Include page viewport geometry such as width, height, rotation, user unit, and view box."))),
+  include_permissions: optional(bool(description("Include PDF permission and marking signals when exposed by the parser."))),
+  include_form_fields: optional(bool(description("Include PDF form field summaries when AcroForm fields are exposed."))),
+  include_attachments: optional(bool(description("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
+  include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
+  include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, hidden or near-invisible text, tiny text, off-page text, and overlapping text."))),
+  include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
+  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and page geometry without embedding image bytes in JSON."))),
+  include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
+  include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
+  max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
+  include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, selected-page category-count, page-risk, and redacted evidence signals for agent routing."))),
+  trust_report_redaction: optional(union(literal("standard"), literal("strict"), literal("off")).describe("Redaction policy for trust-report evidence snippets. standard redacts common secrets and personal identifiers, strict also redacts phone-like values and IPv4 addresses, and off preserves snippets while marking the policy explicitly. Defaults to standard.")),
+  include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, accessibility permissions, issue type/severity summaries, and page-grade routing.")))
+});
+
+// src/schemas/pdfEvidence.ts
+var pdfEvidenceOperationSchema = union(literal("inspect"), literal("render_page"), literal("extract_regions"), literal("ocr_pages"), literal("analyze_regions"));
+var pdfEvidenceSourceSchema = object({
+  path: optional(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
+  url: optional(str(min(1), description("URL of the PDF file."))),
+  pages: optional(pageSpecifierSchema),
+  regions: optional(array(pdfRegionSchema, description("PDF-coordinate regions for extract_regions and analyze_regions operations.")))
+}).refine((source) => Boolean(source.path) !== Boolean(source.url), {
+  message: "Provide exactly one of path or url for each PDF evidence source."
+});
+var pdfEvidenceArgsSchema = object({
+  operation: pdfEvidenceOperationSchema.describe("Evidence operation to run: inspect, render_page, extract_regions, ocr_pages, or analyze_regions."),
+  sources: array(pdfEvidenceSourceSchema),
+  sample_pages: optional(num(int, gte(1), lte(20), description("Maximum pages to sample for inspect. Defaults to 5."))),
+  include_metadata: optional(bool(description("Include PDF metadata in inspect responses."))),
+  scale: optional(num(gte(0.25), lte(4), description("Render scale for render, crop, OCR, and region analysis operations."))),
+  max_pages: optional(num(int, gte(1), lte(20), description("Maximum pages for render_page or ocr_pages operations."))),
+  max_regions: optional(num(int, gte(1), lte(100), description("Maximum regions for extract_regions or analyze_regions operations."))),
+  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page before image-producing operations."))),
+  include_image: optional(bool(description("Return rendered or cropped PNGs as MCP image parts for render_page and extract_regions."))),
+  timeout_ms: optional(num(int, gte(1000), lte(300000), description("Timeout per OCR page or analyzed region in milliseconds."))),
+  max_output_chars: optional(num(int, gte(1000), lte(1e6), description("Maximum OCR or visual-provider output characters returned per unit."))),
+  languages: optional(array(str(description("Optional language tags passed to configured OCR or visual providers."))))
+});
+
 // src/pdf/regionAnalysis.ts
 import { execFile } from "node:child_process";
 import fs4 from "node:fs/promises";
@@ -472,7 +596,7 @@ var MAX_PDF_SIZE = 100 * 1024 * 1024;
 var URL_FETCH_TIMEOUT_MS = 30000;
 var MAX_REDIRECTS = 5;
 var formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(0)}MB`;
-var sanitizeSourceDescription = (description) => description.length > 200 ? `${description.slice(0, 197)}...` : description;
+var sanitizeSourceDescription = (description2) => description2.length > 200 ? `${description2.slice(0, 197)}...` : description2;
 var loadLocalFile = async (userPath) => {
   const safePath = resolvePath(userPath);
   let stats;
@@ -730,7 +854,7 @@ var loadCanvasModule = async () => {
     }
     return canvasModule;
   } catch (error) {
-    throw new PdfError(-32600 /* InvalidRequest */, "Page rendering requires the optional pdfjs native canvas backend. Install with optional dependencies enabled, or use inspect_pdf/read_pdf without visual rendering.", { cause: error instanceof Error ? error : undefined });
+    throw new PdfError(-32600 /* InvalidRequest */, "Page rendering requires the optional pdfjs native canvas backend. Install with optional dependencies enabled, or use read_pdf or pdf_evidence operation inspect without visual rendering.", { cause: error instanceof Error ? error : undefined });
   }
 };
 var formatPixels = (pixels) => `${(pixels / 1e6).toFixed(1)}MP`;
@@ -833,7 +957,7 @@ var renderPdfSourcePages = async (source, options) => {
 // src/pdf/regions.ts
 var DEFAULT_MAX_REGIONS = 20;
 var logger5 = createLogger("Regions");
-var clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+var clamp = (value, min2, max) => Math.max(min2, Math.min(max, value));
 var validBoundingBox = (box) => Number.isFinite(box.left) && Number.isFinite(box.bottom) && Number.isFinite(box.right) && Number.isFinite(box.top) && box.right > box.left && box.top > box.bottom;
 var buildRegionWarnings = (invalidPages, truncatedCount, totalPages, maxRegions) => {
   const warnings = [];
@@ -1488,14 +1612,14 @@ var normalizeChartAxis = (value, maxLength) => {
   const candidate = value;
   const label = normalizeString(candidate.label, maxLength);
   const unit = normalizeString(candidate.unit, maxLength);
-  const min = typeof candidate.min === "number" && Number.isFinite(candidate.min) ? candidate.min : undefined;
+  const min2 = typeof candidate.min === "number" && Number.isFinite(candidate.min) ? candidate.min : undefined;
   const max = typeof candidate.max === "number" && Number.isFinite(candidate.max) ? candidate.max : undefined;
-  if (!label && !unit && min === undefined && max === undefined)
+  if (!label && !unit && min2 === undefined && max === undefined)
     return;
   return {
     ...label ? { label } : {},
     ...unit ? { unit } : {},
-    ...min !== undefined ? { min } : {},
+    ...min2 !== undefined ? { min: min2 } : {},
     ...max !== undefined ? { max } : {}
   };
 };
@@ -1556,19 +1680,19 @@ var parseRegionAnalysisOutput = (stdout, options) => {
     parsed = undefined;
   }
   if (!parsed) {
-    const description2 = normalizeString(trimmed, options.max_output_chars) ?? "";
+    const description3 = normalizeString(trimmed, options.max_output_chars) ?? "";
     if (trimmed.length > options.max_output_chars) {
       warnings.push(`Region analysis output truncated to ${String(options.max_output_chars)} characters.`);
     }
     return {
       kind: "unknown",
-      description: description2,
+      description: description3,
       ...warnings.length > 0 ? { warnings } : {}
     };
   }
   warnings.push(...normalizeWarnings(parsed.warnings));
   const kind = normalizeKind(parsed.kind, warnings);
-  const description = normalizeString(parsed.description, options.max_output_chars);
+  const description2 = normalizeString(parsed.description, options.max_output_chars);
   const text2 = normalizeString(parsed.text, options.max_output_chars);
   const markdown = normalizeString(parsed.markdown, options.max_output_chars);
   const confidence = normalizeConfidence(parsed.confidence);
@@ -1577,7 +1701,7 @@ var parseRegionAnalysisOutput = (stdout, options) => {
   const chart = normalizeChart(parsed.chart, options.max_output_chars);
   return {
     kind,
-    ...description ? { description } : {},
+    ...description2 ? { description: description2 } : {},
     ...text2 ? { text: text2 } : {},
     ...markdown ? { markdown } : {},
     ...confidence !== undefined ? { confidence } : {},
@@ -1807,59 +1931,6 @@ var analyzePdfRegionsFromSource = async (source, options) => {
     warnings: cropped.warnings
   };
 };
-
-// src/schema.ts
-import { z as z2 } from "zod";
-var applyActions = (schema, actions) => actions.reduce((current, action) => action(current), schema);
-var expectNumberSchema = (schema, actionName) => {
-  if (schema instanceof z2.ZodNumber)
-    return schema;
-  throw new TypeError(`${actionName} can only be applied to a number schema.`);
-};
-var expectStringSchema = (schema, actionName) => {
-  if (schema instanceof z2.ZodString)
-    return schema;
-  throw new TypeError(`${actionName} can only be applied to a string schema.`);
-};
-var description = (value) => (schema) => schema.describe(value);
-var gte = (value) => (schema) => expectNumberSchema(schema, "gte").min(value);
-var lte = (value) => (schema) => expectNumberSchema(schema, "lte").max(value);
-var min = (value) => (schema) => expectStringSchema(schema, "min").min(value);
-var int = (schema) => expectNumberSchema(schema, "int").int();
-var str = (...actions) => applyActions(z2.string(), actions);
-var num = (...actions) => applyActions(z2.number(), actions);
-var bool = (...actions) => applyActions(z2.boolean(), actions);
-var literal = (value) => z2.literal(value);
-var array = (schema, ...actions) => applyActions(z2.array(schema), actions);
-var object = (shape, ...actions) => applyActions(z2.object(shape), actions);
-var optional = (schema) => schema.optional();
-var union = (...schemas) => z2.union(schemas);
-
-// src/schemas/extractRegions.ts
-var regionBoundingBoxSchema = object({
-  left: num(gte(0), description("Left PDF coordinate of the region bounding box.")),
-  bottom: num(gte(0), description("Bottom PDF coordinate of the region bounding box.")),
-  right: num(gte(0), description("Right PDF coordinate of the region bounding box.")),
-  top: num(gte(0), description("Top PDF coordinate of the region bounding box."))
-});
-var pdfRegionSchema = object({
-  id: optional(str(description("Optional caller-provided region ID for stable evidence mapping."))),
-  page: num(int, gte(1), description("1-indexed PDF page containing the region.")),
-  bounding_box: regionBoundingBoxSchema,
-  padding: optional(num(gte(0), lte(200), description("Padding around the region in PDF points before scaling. Defaults to 0.")))
-});
-var pdfRegionSourceSchema = object({
-  path: optional(str(description("Path to the local PDF file (absolute or relative to cwd)."))),
-  url: optional(str(description("URL of the PDF file."))),
-  regions: array(pdfRegionSchema)
-});
-var extractRegionsArgsSchema = object({
-  sources: array(pdfRegionSourceSchema),
-  scale: optional(num(gte(0.25), lte(4), description("Render scale relative to PDF points. Defaults to 2."))),
-  max_regions: optional(num(int, gte(1), lte(100), description("Maximum regions to crop per source. Defaults to 20 and is capped at 100."))),
-  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page before cropping. Defaults to 16,000,000."))),
-  include_image: optional(bool(description("Return cropped regions as MCP image parts. Defaults to true; JSON metadata is always returned.")))
-});
 
 // src/schemas/analyzeRegions.ts
 var analyzeRegionsArgsSchema = object({
@@ -3487,11 +3558,12 @@ var buildInspectionNextTools = (source, profile, readPdfArguments, pageSignals, 
     ...includeOcrTextLayer ? { requires_provider: "ocr_pages" } : {}
   });
   const renderStep = (priority, when) => toolStep(priority, {
-    tool: "render_page",
+    tool: "pdf_evidence",
     ready: true,
     purpose: "Return bounded page images as MCP image evidence for visual verification, OCR routing, or human review.",
     when,
     arguments: {
+      operation: "render_page",
       sources: [visualSource],
       scale: 2,
       max_pages: Math.min(Math.max(visualPages.length, 1), 5),
@@ -3499,11 +3571,12 @@ var buildInspectionNextTools = (source, profile, readPdfArguments, pageSignals, 
     }
   });
   const ocrStep = (priority, when) => toolStep(priority, {
-    tool: "ocr_pages",
+    tool: "pdf_evidence",
     ready: providerReady(providerReadiness.ocr_pages),
     purpose: "Run selected rendered pages through the configured OCR provider and return normalized text, confidence, word boxes, and provenance.",
     when,
     arguments: {
+      operation: "ocr_pages",
       sources: [visualSource],
       scale: 2,
       max_pages: Math.min(Math.max(visualPages.length, 1), 5)
@@ -3512,11 +3585,12 @@ var buildInspectionNextTools = (source, profile, readPdfArguments, pageSignals, 
     ...providerReady(providerReadiness.ocr_pages) ? {} : { required_inputs: [providerRequiredInput("OCR", providerReadiness.ocr_pages)] }
   });
   const extractRegionsStep = (priority, when) => toolStep(priority, {
-    tool: "extract_regions",
+    tool: "pdf_evidence",
     ready: false,
     purpose: "Crop bbox-grounded regions as focused visual evidence after read_pdf exposes table, image, text-layer, or chunk boxes.",
     when,
     argument_template: {
+      operation: "extract_regions",
       sources: [regionSourceTemplate],
       scale: 2,
       max_regions: 20,
@@ -3525,11 +3599,12 @@ var buildInspectionNextTools = (source, profile, readPdfArguments, pageSignals, 
     required_inputs: ["page number", "PDF-coordinate bounding box"]
   });
   const analyzeRegionsStep = (priority, when) => toolStep(priority, {
-    tool: "analyze_regions",
+    tool: "pdf_evidence",
     ready: false,
     purpose: "Send focused crops to a configured local visual provider and normalize table, chart, formula, figure, or image-description evidence.",
     when,
     argument_template: {
+      operation: "analyze_regions",
       sources: [regionSourceTemplate],
       scale: 2,
       max_regions: 20
@@ -3681,7 +3756,7 @@ var inspectPdfSource = async (source, options) => {
       warnings.push("No requested pages are inside the document page range.");
     }
     if (recommendation.needs_ocr) {
-      warnings.push("OCR is opt-in and requires a configured provider; use read_pdf with include_ocr_text_layer or ocr_pages for scanned pages.");
+      warnings.push("OCR is opt-in and requires a configured provider; use read_pdf with include_ocr_text_layer or pdf_evidence operation ocr_pages for scanned pages.");
     }
     const data = {
       profile,
@@ -3733,48 +3808,6 @@ var inspectPdfSource = async (source, options) => {
 var defaultInspectPdfOptions = () => ({
   sample_pages: DEFAULT_SAMPLE_PAGES,
   include_metadata: true
-});
-
-// src/schemas/readPdf.ts
-var pageSpecifierSchema = union(array(num(int, gte(1))), str(min(1)));
-var pdfSourceSchema = object({
-  path: optional(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
-  url: optional(str(min(1), description("URL of the PDF file."))),
-  pages: optional(pageSpecifierSchema)
-}).refine((source) => Boolean(source.path) !== Boolean(source.url), {
-  message: "Provide exactly one of path or url for each PDF source."
-});
-var readPdfArgsSchema = object({
-  sources: array(pdfSourceSchema),
-  include_full_text: optional(bool(description("Include the full text content of each PDF (only if 'pages' is not specified for that source)."))),
-  include_metadata: optional(bool(description("Include metadata and info objects for each PDF."))),
-  include_page_count: optional(bool(description("Include the total number of pages for each PDF."))),
-  include_images: optional(bool(description("Extract and include embedded images from the PDF pages as base64-encoded data."))),
-  include_tables: optional(bool(description("Detect and extract tables from PDF pages. Uses spatial clustering of selectable text coordinates and, when include_ocr_text_layer is enabled, OCR word boxes to identify tabular structures."))),
-  include_elements: optional(bool(description("Include agent-ready structured document elements with page numbers, stable IDs, provenance, and best-effort bounding boxes."))),
-  include_semantic_hints: optional(bool(description("Include deterministic semantic hints on text elements, such as heading, list item, paragraph, caption, header, or footer."))),
-  include_markdown: optional(bool(description("Include a Markdown rendering of extracted pages for RAG, summarization, and agent context."))),
-  include_html: optional(bool(description("Include a simple HTML rendering of extracted pages for preview, export, and downstream conversion."))),
-  include_chunks: optional(bool(description("Include page-level citation-ready chunks with text, element IDs, page ranges, and best-effort bounding boxes."))),
-  include_text_layer: optional(bool(description("Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance."))),
-  include_ocr_text_layer: optional(bool(description("Run the configured local OCR provider for selected sparse/scanned pages and include a normalized OCR text layer with render provenance."))),
-  include_outline: optional(bool(description("Include document outline/bookmark entries when the PDF exposes them."))),
-  include_annotations: optional(bool(description("Include page annotations such as links, notes, and form-related annotations with safe summary fields."))),
-  include_page_labels: optional(bool(description("Include PDF page labels when available, such as roman numerals or section labels."))),
-  include_page_geometry: optional(bool(description("Include page viewport geometry such as width, height, rotation, user unit, and view box."))),
-  include_permissions: optional(bool(description("Include PDF permission and marking signals when exposed by the parser."))),
-  include_form_fields: optional(bool(description("Include PDF form field summaries when AcroForm fields are exposed."))),
-  include_attachments: optional(bool(description("Include embedded attachment metadata such as filename and size. Attachment bytes are not returned."))),
-  include_structure_tree: optional(bool(description("Include best-effort tagged PDF structure trees for selected pages when the PDF exposes them."))),
-  include_safety_findings: optional(bool(description("Include deterministic content safety findings for prompt-injection patterns, hidden or near-invisible text, tiny text, off-page text, and overlapping text."))),
-  include_layout_diagnostics: optional(bool(description("Include deterministic page layout profiles, reading-order confidence, column signals, and warnings for agent routing."))),
-  include_document_map: optional(bool(description("Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and page geometry without embedding image bytes in JSON."))),
-  include_document_ast: optional(bool(description("Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence."))),
-  include_visual_enrichments: optional(bool(description("Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence."))),
-  max_visual_enrichments: optional(num(int, gte(1), description("Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled."))),
-  include_trust_report: optional(bool(description("Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, selected-page category-count, page-risk, and redacted evidence signals for agent routing."))),
-  trust_report_redaction: optional(union(literal("standard"), literal("strict"), literal("off")).describe("Redaction policy for trust-report evidence snippets. standard redacts common secrets and personal identifiers, strict also redacts phone-like values and IPv4 addresses, and off preserves snippets while marking the policy explicitly. Defaults to standard.")),
-  include_accessibility_report: optional(bool(description("Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, accessibility permissions, issue type/severity summaries, and page-grade routing.")))
 });
 
 // src/schemas/inspectPdf.ts
@@ -3873,6 +3906,203 @@ var ocrPages = tool().description("Runs selected rendered PDF pages through a co
     return toolError(`All PDF sources failed OCR: ${errorMessages}`);
   }
   return buildOcrResponse(options, results);
+});
+
+// src/schemas/renderPage.ts
+var renderPageArgsSchema = object({
+  sources: array(pdfSourceSchema),
+  scale: optional(num(gte(0.25), lte(4), description("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
+  max_pages: optional(num(int, gte(1), lte(20), description("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
+  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
+  include_image: optional(bool(description("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
+});
+
+// src/handlers/renderPage.ts
+var logger13 = createLogger("RenderPage");
+var buildRenderOptions = (input) => ({
+  scale: input.scale ?? DEFAULT_RENDER_SCALE,
+  max_pages: input.max_pages ?? DEFAULT_MAX_RENDER_PAGES,
+  max_pixels_per_page: input.max_pixels_per_page ?? DEFAULT_MAX_RENDER_PIXELS,
+  include_image: input.include_image ?? true
+});
+var summarizeRenderedPage = (page, imageContentIndex) => {
+  const { data: _data, ...summary } = page;
+  return {
+    ...summary,
+    ...imageContentIndex !== undefined ? { image_content_index: imageContentIndex } : {}
+  };
+};
+var renderSourceForTool = async (source, options) => {
+  const sourceDescription = source.path ?? source.url ?? "unknown source";
+  try {
+    const rendered = await renderPdfSourcePages(source, options);
+    return {
+      result: {
+        source: rendered.source,
+        success: true,
+        num_pages: rendered.numPages,
+        rendered_pages: [],
+        ...rendered.warnings.length > 0 ? { warnings: rendered.warnings } : {}
+      },
+      pages: rendered.pages
+    };
+  } catch (error) {
+    let errorMessage;
+    if (error instanceof PdfError) {
+      errorMessage = error.message;
+    } else {
+      const detail = error instanceof Error ? error.message : String(error);
+      logger13.error("Unexpected error rendering PDF source", {
+        sourceDescription,
+        error: detail
+      });
+      errorMessage = `Failed to render PDF pages from ${sourceDescription}.`;
+    }
+    return {
+      result: {
+        source: sourceDescription,
+        success: false,
+        error: errorMessage
+      },
+      pages: []
+    };
+  }
+};
+var attachRenderSummaries = (outputs, includeImage) => {
+  let nextImageContentIndex = 1;
+  return outputs.map(({ result, pages }) => {
+    if (!result.success)
+      return result;
+    return {
+      ...result,
+      rendered_pages: pages.map((page) => {
+        const imageContentIndex = includeImage ? nextImageContentIndex++ : undefined;
+        return summarizeRenderedPage(page, imageContentIndex);
+      })
+    };
+  });
+};
+var buildRenderContent = (outputs, results, options) => {
+  const content = [
+    text(JSON.stringify({
+      profile: "page_render_evidence",
+      render_options: options,
+      results
+    }, null, 2))
+  ];
+  if (!options.include_image)
+    return content;
+  for (const output of outputs) {
+    if (!output.result.success)
+      continue;
+    for (const page of output.pages) {
+      content.push(image(page.data, page.mime_type));
+    }
+  }
+  return content;
+};
+var renderPage = tool().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
+  const options = buildRenderOptions(input);
+  const outputs = [];
+  for (const source of input.sources) {
+    outputs.push(await renderSourceForTool(source, options));
+  }
+  const results = attachRenderSummaries(outputs, options.include_image);
+  if (results.every((result) => !result.success)) {
+    const errorMessages = results.map((result) => result.error).join("; ");
+    return toolError(`All PDF sources failed to render: ${errorMessages}`);
+  }
+  return buildRenderContent(outputs, results, options);
+});
+
+// src/handlers/pdfEvidence.ts
+var toPdfSources = (sources) => sources.map((source) => ({
+  ...source.path !== undefined ? { path: source.path } : {},
+  ...source.url !== undefined ? { url: source.url } : {},
+  ...source.pages !== undefined ? { pages: source.pages } : {}
+}));
+var toRegionSources = (sources) => {
+  const missingRegions = sources.find((source) => !source.regions || source.regions.length === 0);
+  if (missingRegions) {
+    return {
+      success: false,
+      error: "pdf_evidence operation requires sources[].regions for extract_regions and analyze_regions."
+    };
+  }
+  return {
+    success: true,
+    sources: sources.map((source) => ({
+      ...source.path !== undefined ? { path: source.path } : {},
+      ...source.url !== undefined ? { url: source.url } : {},
+      regions: source.regions ?? []
+    }))
+  };
+};
+var imageOptions = (input) => ({
+  ...input.scale !== undefined ? { scale: input.scale } : {},
+  ...input.max_pages !== undefined ? { max_pages: input.max_pages } : {},
+  ...input.max_regions !== undefined ? { max_regions: input.max_regions } : {},
+  ...input.max_pixels_per_page !== undefined ? { max_pixels_per_page: input.max_pixels_per_page } : {},
+  ...input.include_image !== undefined ? { include_image: input.include_image } : {}
+});
+var providerOptions = (input) => ({
+  ...input.scale !== undefined ? { scale: input.scale } : {},
+  ...input.max_pages !== undefined ? { max_pages: input.max_pages } : {},
+  ...input.max_regions !== undefined ? { max_regions: input.max_regions } : {},
+  ...input.max_pixels_per_page !== undefined ? { max_pixels_per_page: input.max_pixels_per_page } : {},
+  ...input.timeout_ms !== undefined ? { timeout_ms: input.timeout_ms } : {},
+  ...input.max_output_chars !== undefined ? { max_output_chars: input.max_output_chars } : {},
+  ...input.languages !== undefined ? { languages: input.languages } : {}
+});
+var pdfEvidence = tool().description("Runs focused PDF evidence operations behind one V3 tool: inspect, render pages, crop regions, OCR pages, or analyze visual regions.").input(pdfEvidenceArgsSchema).handler(async ({ input, ctx }) => {
+  if (input.operation === "inspect") {
+    return inspectPdf.handler({
+      input: {
+        sources: toPdfSources(input.sources),
+        ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
+        ...input.include_metadata !== undefined ? { include_metadata: input.include_metadata } : {}
+      },
+      ctx
+    });
+  }
+  if (input.operation === "render_page") {
+    return renderPage.handler({
+      input: {
+        sources: toPdfSources(input.sources),
+        ...imageOptions(input)
+      },
+      ctx
+    });
+  }
+  if (input.operation === "ocr_pages") {
+    return ocrPages.handler({
+      input: {
+        sources: toPdfSources(input.sources),
+        ...providerOptions(input)
+      },
+      ctx
+    });
+  }
+  const regionSources = toRegionSources(input.sources);
+  if (!regionSources.success) {
+    return toolError(regionSources.error);
+  }
+  if (input.operation === "extract_regions") {
+    return extractRegions.handler({
+      input: {
+        sources: regionSources.sources,
+        ...imageOptions(input)
+      },
+      ctx
+    });
+  }
+  return analyzeRegions.handler({
+    input: {
+      sources: regionSources.sources,
+      ...providerOptions(input)
+    },
+    ctx
+  });
 });
 
 // src/pdf/accessibilityReport.ts
@@ -5122,7 +5352,7 @@ var buildDocumentMap = (input) => {
 };
 
 // src/pdf/tableExtractor.ts
-var logger13 = createLogger("TableExtractor");
+var logger14 = createLogger("TableExtractor");
 var Y_TOLERANCE = 5;
 var COLUMN_GAP_THRESHOLD = 15;
 var MIN_ROWS = 2;
@@ -5711,7 +5941,7 @@ var extractTablesFromPage = async (page, pageNum) => {
     return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger13.warn("Error extracting tables from page", { pageNum, error: message });
+    logger14.warn("Error extracting tables from page", { pageNum, error: message });
     return [];
   }
 };
@@ -5724,7 +5954,7 @@ var extractTables = async (pdfDocument, pagesToProcess) => {
       allTables.push(...pageTables);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger13.warn("Error getting page for table extraction", { pageNum, error: message });
+      logger14.warn("Error getting page for table extraction", { pageNum, error: message });
     }
   }
   return linkTableContinuationCandidates(allTables);
@@ -7326,7 +7556,9 @@ var buildVisualEnrichmentsForSource = async (input) => {
 };
 
 // src/handlers/readPdf.ts
-var logger14 = createLogger("ReadPdf");
+var logger15 = createLogger("ReadPdf");
+var MAX_CONCURRENT_SOURCES2 = 3;
+var DEFAULT_AUTO_DETAIL = "balanced";
 var appendOutputWarnings = (output, warnings) => {
   if (warnings.length === 0)
     return;
@@ -7441,7 +7673,7 @@ var processSingleSource = async (source, options) => {
           } catch (error) {
             const message = error instanceof PdfError ? error.message : "OCR provider failed before returning a normalized text layer.";
             if (!(error instanceof PdfError)) {
-              logger14.warn("Unexpected error building OCR text layer", {
+              logger15.warn("Unexpected error building OCR text layer", {
                 sourceDescription,
                 error: error instanceof Error ? error.message : String(error)
               });
@@ -7608,7 +7840,7 @@ var processSingleSource = async (source, options) => {
       errorMessage = error.message;
     } else {
       const detail = error instanceof Error ? error.message : String(error);
-      logger14.error("Unexpected error processing PDF source", {
+      logger15.error("Unexpected error processing PDF source", {
         sourceDescription,
         error: detail
       });
@@ -7624,87 +7856,212 @@ var processSingleSource = async (source, options) => {
         await loadingTask.destroy();
       } catch (destroyError) {
         const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger14.warn("Error destroying PDF document", { sourceDescription, error: message });
+        logger15.warn("Error destroying PDF document", { sourceDescription, error: message });
       }
     }
   }
   return individualResult;
 };
-var readPdf = tool().description("Reads content/metadata/images from one or more PDFs (local/URL). Each source can specify pages to extract.").input(readPdfArgsSchema).handler(async ({ input }) => {
-  const {
-    sources,
-    include_full_text,
-    include_metadata,
-    include_page_count,
-    include_images,
-    include_tables,
-    include_elements,
-    include_semantic_hints,
-    include_markdown,
-    include_html,
-    include_chunks,
-    include_text_layer,
-    include_ocr_text_layer,
-    include_outline,
-    include_annotations,
-    include_page_labels,
-    include_page_geometry,
-    include_permissions,
-    include_form_fields,
-    include_attachments,
-    include_structure_tree,
-    include_safety_findings,
-    include_layout_diagnostics,
-    include_document_map,
-    include_document_ast,
-    include_visual_enrichments,
-    max_visual_enrichments,
-    include_trust_report,
-    trust_report_redaction,
-    include_accessibility_report
-  } = input;
-  const MAX_CONCURRENT_SOURCES2 = 3;
-  const results = [];
-  const options = {
-    includeFullText: include_full_text ?? false,
-    includeMetadata: include_metadata ?? true,
-    includePageCount: include_page_count ?? true,
-    includeImages: include_images ?? false,
-    includeTables: include_tables ?? false,
-    includeElements: include_elements ?? false,
-    includeSemanticHints: include_semantic_hints ?? false,
-    includeMarkdown: include_markdown ?? false,
-    includeHtml: include_html ?? false,
-    includeChunks: include_chunks ?? false,
-    includeTextLayer: include_text_layer ?? false,
-    includeOcrTextLayer: include_ocr_text_layer ?? false,
-    includeOutline: include_outline ?? false,
-    includeAnnotations: include_annotations ?? false,
-    includePageLabels: include_page_labels ?? false,
-    includePageGeometry: include_page_geometry ?? false,
-    includePermissions: include_permissions ?? false,
-    includeFormFields: include_form_fields ?? false,
-    includeAttachments: include_attachments ?? false,
-    includeStructureTree: include_structure_tree ?? false,
-    includeSafetyFindings: include_safety_findings ?? false,
-    includeLayoutDiagnostics: include_layout_diagnostics ?? false,
-    includeDocumentMap: include_document_map ?? false,
-    includeDocumentAst: include_document_ast ?? false,
-    includeVisualEnrichments: include_visual_enrichments ?? false,
-    maxVisualEnrichments: max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
-    includeTrustReport: include_trust_report ?? false,
-    trustReportRedaction: trust_report_redaction ?? "standard",
-    includeAccessibilityReport: include_accessibility_report ?? false
+var explicitReadOptionKeys = [
+  "include_full_text",
+  "include_metadata",
+  "include_page_count",
+  "include_images",
+  "include_tables",
+  "include_elements",
+  "include_semantic_hints",
+  "include_markdown",
+  "include_html",
+  "include_chunks",
+  "include_text_layer",
+  "include_ocr_text_layer",
+  "include_outline",
+  "include_annotations",
+  "include_page_labels",
+  "include_page_geometry",
+  "include_permissions",
+  "include_form_fields",
+  "include_attachments",
+  "include_structure_tree",
+  "include_safety_findings",
+  "include_layout_diagnostics",
+  "include_document_map",
+  "include_document_ast",
+  "include_visual_enrichments",
+  "max_visual_enrichments",
+  "include_trust_report",
+  "trust_report_redaction",
+  "include_accessibility_report"
+];
+var pickExplicitReadOptions = (input) => {
+  const options = {};
+  for (const key of explicitReadOptionKeys) {
+    const value = input[key];
+    if (value !== undefined) {
+      options[key] = value;
+    }
+  }
+  return options;
+};
+var hasExplicitReadOptions = (input) => explicitReadOptionKeys.some((key) => input[key] !== undefined);
+var shouldUseAutoRead = (input) => input.auto ?? !hasExplicitReadOptions(input);
+var buildAutoDetailOptions = (detail) => {
+  const fast = {
+    include_metadata: true,
+    include_page_count: true,
+    include_page_geometry: true,
+    include_document_map: true,
+    include_chunks: true,
+    include_markdown: true,
+    include_tables: true,
+    include_semantic_hints: true,
+    include_layout_diagnostics: true
   };
-  for (let i = 0;i < sources.length; i += MAX_CONCURRENT_SOURCES2) {
-    const batch = sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
-    const batchResults = await Promise.all(batch.map((source) => processSingleSource(source, options)));
-    results.push(...batchResults);
+  if (detail === "fast")
+    return fast;
+  const balanced = {
+    ...fast,
+    include_safety_findings: true,
+    include_trust_report: true,
+    include_accessibility_report: true
+  };
+  if (detail === "balanced")
+    return balanced;
+  return {
+    ...balanced,
+    include_full_text: true,
+    include_html: true,
+    include_elements: true,
+    include_text_layer: true,
+    include_document_ast: true,
+    include_outline: true,
+    include_annotations: true,
+    include_page_labels: true,
+    include_permissions: true,
+    include_form_fields: true,
+    include_attachments: true,
+    include_structure_tree: true
+  };
+};
+var buildReadOptions = (input) => ({
+  includeFullText: input.include_full_text ?? false,
+  includeMetadata: input.include_metadata ?? true,
+  includePageCount: input.include_page_count ?? true,
+  includeImages: input.include_images ?? false,
+  includeTables: input.include_tables ?? false,
+  includeElements: input.include_elements ?? false,
+  includeSemanticHints: input.include_semantic_hints ?? false,
+  includeMarkdown: input.include_markdown ?? false,
+  includeHtml: input.include_html ?? false,
+  includeChunks: input.include_chunks ?? false,
+  includeTextLayer: input.include_text_layer ?? false,
+  includeOcrTextLayer: input.include_ocr_text_layer ?? false,
+  includeOutline: input.include_outline ?? false,
+  includeAnnotations: input.include_annotations ?? false,
+  includePageLabels: input.include_page_labels ?? false,
+  includePageGeometry: input.include_page_geometry ?? false,
+  includePermissions: input.include_permissions ?? false,
+  includeFormFields: input.include_form_fields ?? false,
+  includeAttachments: input.include_attachments ?? false,
+  includeStructureTree: input.include_structure_tree ?? false,
+  includeSafetyFindings: input.include_safety_findings ?? false,
+  includeLayoutDiagnostics: input.include_layout_diagnostics ?? false,
+  includeDocumentMap: input.include_document_map ?? false,
+  includeDocumentAst: input.include_document_ast ?? false,
+  includeVisualEnrichments: input.include_visual_enrichments ?? false,
+  maxVisualEnrichments: input.max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
+  includeTrustReport: input.include_trust_report ?? false,
+  trustReportRedaction: input.trust_report_redaction ?? "standard",
+  includeAccessibilityReport: input.include_accessibility_report ?? false
+});
+var buildAutoReadArgs = (source, inspection, input, detail) => {
+  const recommendationArgs = inspection.data?.recommendation.read_pdf_arguments ?? {};
+  return {
+    ...recommendationArgs,
+    ...buildAutoDetailOptions(detail),
+    ...pickExplicitReadOptions(input),
+    sources: [source]
+  };
+};
+var buildAutoInspections = async (input) => {
+  const inspectOptions = {
+    ...defaultInspectPdfOptions(),
+    ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
+    ...input.include_metadata !== undefined ? { include_metadata: input.include_metadata } : {}
+  };
+  const inspections = [];
+  for (let i = 0;i < input.sources.length; i += MAX_CONCURRENT_SOURCES2) {
+    const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
+    const batchResults = await Promise.all(batch.map((source) => inspectPdfSource(source, inspectOptions)));
+    inspections.push(...batchResults);
+  }
+  return inspections;
+};
+var readPdf = tool().description("Primary V3 PDF reader. With only sources, it auto-inspects and returns a routed Agent Document Twin; use auto_detail or explicit include_* options for precise control.").input(readPdfArgsSchema).handler(async ({ input }) => {
+  const results = [];
+  const autoRead = shouldUseAutoRead(input);
+  const autoDetail = input.auto_detail ?? DEFAULT_AUTO_DETAIL;
+  const autoReadSummaries = [];
+  let options = buildReadOptions(input);
+  if (autoRead) {
+    const inspections = await buildAutoInspections(input);
+    for (let i = 0;i < inspections.length; i += MAX_CONCURRENT_SOURCES2) {
+      const inspectionBatch = inspections.slice(i, i + MAX_CONCURRENT_SOURCES2);
+      const sourceBatch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
+      const batchResults = await Promise.all(inspectionBatch.map((inspection, batchIndex) => {
+        const source = sourceBatch[batchIndex];
+        if (!source) {
+          return Promise.resolve({
+            source: inspection.source,
+            success: false,
+            error: "Auto read failed because the source index was missing."
+          });
+        }
+        if (!inspection.success || !inspection.data) {
+          autoReadSummaries.push({
+            source: inspection.source,
+            success: false,
+            ...inspection.error !== undefined ? { inspection_error: inspection.error } : {}
+          });
+          return Promise.resolve({
+            source: inspection.source,
+            success: false,
+            error: `Auto inspection failed: ${inspection.error ?? "unknown error"}`
+          });
+        }
+        const autoReadArgs = buildAutoReadArgs(source, inspection, input, autoDetail);
+        const autoOptions = buildReadOptions(autoReadArgs);
+        autoReadSummaries.push({
+          source: inspection.source,
+          success: true,
+          profile: inspection.data.profile,
+          workflow: inspection.data.recommendation.workflow,
+          reason: inspection.data.recommendation.reason,
+          needs_ocr: inspection.data.recommendation.needs_ocr,
+          provider_status: inspection.data.provider_status,
+          read_pdf_arguments: autoReadArgs
+        });
+        return processSingleSource(source, autoOptions);
+      }));
+      results.push(...batchResults);
+    }
+  } else {
+    for (let i = 0;i < input.sources.length; i += MAX_CONCURRENT_SOURCES2) {
+      const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
+      const batchResults = await Promise.all(batch.map((source) => processSingleSource(source, options)));
+      results.push(...batchResults);
+    }
   }
   const allFailed = results.every((r) => !r.success);
   if (allFailed) {
     const errorMessages = results.map((r) => r.error).join("; ");
     return toolError(`All PDF sources failed to process: ${errorMessages}`);
+  }
+  if (autoRead) {
+    const firstSuccessfulAutoArgs = autoReadSummaries.find((summary) => summary.success && summary.read_pdf_arguments)?.read_pdf_arguments;
+    if (firstSuccessfulAutoArgs) {
+      options = buildReadOptions(firstSuccessfulAutoArgs);
+    }
   }
   const content = [];
   const resultsForJson = results.map((result) => {
@@ -7738,7 +8095,16 @@ var readPdf = tool().description("Reads content/metadata/images from one or more
     }
     return result;
   });
-  content.push(text(JSON.stringify({ results: resultsForJson }, null, 2)));
+  content.push(text(JSON.stringify({
+    ...autoRead ? {
+      auto_read: {
+        enabled: true,
+        detail: autoDetail,
+        results: autoReadSummaries
+      }
+    } : {},
+    results: resultsForJson
+  }, null, 2)));
   for (const result of results) {
     if (!result.success || !result.data?.page_contents)
       continue;
@@ -7787,113 +8153,6 @@ ${page.text}`));
     }
   }
   return content;
-});
-
-// src/schemas/renderPage.ts
-var renderPageArgsSchema = object({
-  sources: array(pdfSourceSchema),
-  scale: optional(num(gte(0.25), lte(4), description("Render scale relative to PDF points. Defaults to 2 for readable local evidence images."))),
-  max_pages: optional(num(int, gte(1), lte(20), description("Maximum pages to render per source. Defaults to 5 and is capped at 20."))),
-  max_pixels_per_page: optional(num(int, gte(1e4), lte(64000000), description("Maximum rendered pixels per page. Defaults to 16,000,000 to bound memory use."))),
-  include_image: optional(bool(description("Return rendered PNG pages as MCP image parts. Defaults to true; JSON metadata is always returned.")))
-});
-
-// src/handlers/renderPage.ts
-var logger15 = createLogger("RenderPage");
-var buildRenderOptions = (input) => ({
-  scale: input.scale ?? DEFAULT_RENDER_SCALE,
-  max_pages: input.max_pages ?? DEFAULT_MAX_RENDER_PAGES,
-  max_pixels_per_page: input.max_pixels_per_page ?? DEFAULT_MAX_RENDER_PIXELS,
-  include_image: input.include_image ?? true
-});
-var summarizeRenderedPage = (page, imageContentIndex) => {
-  const { data: _data, ...summary } = page;
-  return {
-    ...summary,
-    ...imageContentIndex !== undefined ? { image_content_index: imageContentIndex } : {}
-  };
-};
-var renderSourceForTool = async (source, options) => {
-  const sourceDescription = source.path ?? source.url ?? "unknown source";
-  try {
-    const rendered = await renderPdfSourcePages(source, options);
-    return {
-      result: {
-        source: rendered.source,
-        success: true,
-        num_pages: rendered.numPages,
-        rendered_pages: [],
-        ...rendered.warnings.length > 0 ? { warnings: rendered.warnings } : {}
-      },
-      pages: rendered.pages
-    };
-  } catch (error) {
-    let errorMessage;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger15.error("Unexpected error rendering PDF source", {
-        sourceDescription,
-        error: detail
-      });
-      errorMessage = `Failed to render PDF pages from ${sourceDescription}.`;
-    }
-    return {
-      result: {
-        source: sourceDescription,
-        success: false,
-        error: errorMessage
-      },
-      pages: []
-    };
-  }
-};
-var attachRenderSummaries = (outputs, includeImage) => {
-  let nextImageContentIndex = 1;
-  return outputs.map(({ result, pages }) => {
-    if (!result.success)
-      return result;
-    return {
-      ...result,
-      rendered_pages: pages.map((page) => {
-        const imageContentIndex = includeImage ? nextImageContentIndex++ : undefined;
-        return summarizeRenderedPage(page, imageContentIndex);
-      })
-    };
-  });
-};
-var buildRenderContent = (outputs, results, options) => {
-  const content = [
-    text(JSON.stringify({
-      profile: "page_render_evidence",
-      render_options: options,
-      results
-    }, null, 2))
-  ];
-  if (!options.include_image)
-    return content;
-  for (const output of outputs) {
-    if (!output.result.success)
-      continue;
-    for (const page of output.pages) {
-      content.push(image(page.data, page.mime_type));
-    }
-  }
-  return content;
-};
-var renderPage = tool().description("Renders selected PDF pages as bounded PNG evidence images for visual grounding, OCR routing, and page-level inspection.").input(renderPageArgsSchema).handler(async ({ input }) => {
-  const options = buildRenderOptions(input);
-  const outputs = [];
-  for (const source of input.sources) {
-    outputs.push(await renderSourceForTool(source, options));
-  }
-  const results = attachRenderSummaries(outputs, options.include_image);
-  if (results.every((result) => !result.success)) {
-    const errorMessages = results.map((result) => result.error).join("; ");
-    return toolError(`All PDF sources failed to render: ${errorMessages}`);
-  }
-  return buildRenderContent(outputs, results, options);
 });
 
 // src/pdf/search.ts
@@ -8216,15 +8475,11 @@ function createTransport() {
 var server = createServer({
   name: "pdf-reader-mcp",
   version: packageJson.version,
-  instructions: "MCP Server for inspecting PDF files, searching text evidence, rendering visual page evidence, cropping and analyzing visual regions, running configured OCR, and extracting text, metadata, images, citations, safety signals, and agent-ready document structure.",
+  instructions: "V3 PDF intelligence MCP server. Use read_pdf first with auto=true for smart Agent Document Twin extraction, search_pdf for cheap literal evidence retrieval, and pdf_evidence for focused inspect, render, crop, OCR, or visual-region evidence operations.",
   tools: {
-    inspect_pdf: inspectPdf,
     read_pdf: readPdf,
     search_pdf: searchPdf,
-    render_page: renderPage,
-    extract_regions: extractRegions,
-    analyze_regions: analyzeRegions,
-    ocr_pages: ocrPages
+    pdf_evidence: pdfEvidence
   },
   transport: createTransport()
 });
