@@ -1,6 +1,6 @@
 {
   "profile": "pdf_provider_benchmark",
-  "generated_at": "2026-06-22T02:08:32.731Z",
+  "generated_at": "2026-06-22T02:44:41.916Z",
   "fixture_scope": "runtime-generated local PDFs rendered through read_pdf OCR fusion and visual-region crop analysis with optional installed providers",
   "strict": true,
   "certification_profiles": [
@@ -11,7 +11,7 @@
     {
       "provider": "tesseract-tsv",
       "status": "passed",
-      "duration_ms": 533.39,
+      "duration_ms": 700.23,
       "assertions": [
         {
           "name": "tesseract-tsv provider returns expected OCR tokens",
@@ -199,7 +199,7 @@
     {
       "provider": "region-analysis",
       "status": "passed",
-      "duration_ms": 1008.53,
+      "duration_ms": 984.18,
       "assertions": [
         {
           "name": "region provider analyzes all visual certification fixtures",

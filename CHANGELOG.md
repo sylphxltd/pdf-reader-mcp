@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.2
+
+### Patch Changes
+
+- [#326](https://github.com/SylphxAI/pdf-reader-mcp/pull/326) [`1d5c5ea`](https://github.com/SylphxAI/pdf-reader-mcp/commit/1d5c5ea0f656db8fec595797fbd13c9eb38db15f) Thanks [@shtse8](https://github.com/shtse8)! - Rewrite the README as a shorter, higher-signal GitHub and npm landing page with clearer Agent Document Twin positioning, faster onboarding, evidence-backed capability labels, and stronger links into the full documentation.
+
 ## 2.7.1
 
 ### Patch Changes
