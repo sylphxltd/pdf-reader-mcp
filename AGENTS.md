@@ -4,8 +4,8 @@
 
 This file is the repo-local operating policy for agents working in
 `SylphxAI/pdf-reader-mcp`. Org-wide engineering doctrine is owned by
-`SylphxAI/doctrine`; this file only specializes that SSOT for this public MCP
-package boundary.
+`SylphxAI/doctrine`; `PROJECT.md` and `.doctrine/project.json` own this
+repository's local identity, lifecycle, boundary, and delivery facts.
 
 `@sylphx/pdf-reader-mcp` is a local-first, public Model Context Protocol package
 for PDF/document intelligence. It is not a hosted Sylphx Platform BaaS service
@@ -19,17 +19,20 @@ these source-of-truth documents:
 
 1. `README.md` — public package contract, supported MCP tools, install surface,
    performance claims, and user-facing behavior.
-2. `docs/adr/0001-2027-sota-document-intelligence-boundary.md` — package
+2. `PROJECT.md` and `.doctrine/project.json` — project goal, lifecycle,
+   boundaries, public surfaces, delivery proof, package release path, and
+   adoption gaps.
+3. `docs/adr/0001-2027-sota-document-intelligence-boundary.md` — package
    ownership, portfolio integration boundary, and SOTA invariants.
-3. `docs/specs/2026-06-16-2027-sota-document-intelligence-operating-model.md`
+4. `docs/specs/2026-06-16-2027-sota-document-intelligence-operating-model.md`
    — implementation target, non-goals, provider boundary, acceptance criteria,
    and release quality bar.
-4. The touched tool/spec document under `docs/specs/`, such as text layer,
+5. The touched tool/spec document under `docs/specs/`, such as text layer,
    OCR provider, region crop/evidence, trust report, accessibility, or document
    AST specs.
-5. `CONTRIBUTING.md` and `package.json` before changing development commands,
+6. `CONTRIBUTING.md` and `package.json` before changing development commands,
    release, or validation workflows.
-6. The paired schema/handler/test files for any public MCP tool change.
+7. The paired schema/handler/test files for any public MCP tool change.
 
 ## Non-Negotiables
 
@@ -46,6 +49,9 @@ these source-of-truth documents:
   option/output changes.
 - Preserve page/region/source provenance for extraction, search, rendering,
   crop, OCR, table, and visual-analysis outputs.
+- Package publishing must remain Changesets-driven and bot/workflow-owned via
+  the repository release workflow. Do not publish from a human shell or personal
+  token.
 - Keep product integration boundaries clean: Gateway may expose/route tools,
   product apps own permissions/audit/durable outcomes, and hosted document
   intelligence requires a separate ADR/service.
