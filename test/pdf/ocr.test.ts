@@ -156,6 +156,7 @@ describe('ocr', () => {
   it('should run the configured command OCR provider and normalize JSON output', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_PRESET');
     process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([
       scriptPath,
       '{input}',

@@ -80,6 +80,7 @@ describe('MCP Server Integration', () => {
         ...process.env,
         NODE_ENV: 'test',
         MCP_PDF_OCR_COMMAND: process.execPath,
+        MCP_PDF_OCR_PRESET: '',
         MCP_PDF_OCR_ARGS_JSON: JSON.stringify([
           mockOcrProviderPath,
           '{input}',
