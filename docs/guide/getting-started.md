@@ -2,9 +2,10 @@
 
 Once installed, the PDF Reader MCP server provides seven tools:
 
-- `inspect_pdf` profiles a PDF and recommends the best extraction options.
-- `search_pdf` searches extracted PDF text with snippets, bounding boxes, and
-  provenance.
+- `inspect_pdf` profiles a PDF and recommends ordered extraction and evidence
+  routing.
+- `search_pdf` searches extracted PDF text with snippets, character-derived or
+  text-item bounding boxes, and provenance.
 - `render_page` renders selected PDF pages as bounded visual evidence images.
 - `extract_regions` crops PDF-coordinate page regions as focused visual evidence.
 - `analyze_regions` sends focused crops to a configured local provider and
@@ -30,6 +31,9 @@ without decoding image bytes.
 }
 ```
 
+Each source must provide exactly one locator: `path` for a local PDF or `url`
+for a remote PDF.
+
 Typical response fields:
 
 - `profile`: `digital_text`, `scanned_or_image_only`, `mixed_text_and_scan`,
@@ -37,15 +41,16 @@ Typical response fields:
 - `page_signals`: text density, token estimate, and image paint-operation count
 - `document_signals`: outline, labels, permissions, forms, attachments, and
   structure-tree availability
-- `recommendation`: workflow, OCR need, reason, and ready-to-use `read_pdf`
-  arguments
-- `provider_status`: safe readiness metadata for optional `ocr_pages` and
-  `analyze_regions` providers without exposing local command paths
+- `recommendation`: workflow, OCR need, reason, ordered `next_tools`, and
+  ready-to-use `read_pdf` arguments
+- `provider_status`: safe readiness and health metadata for optional
+  `ocr_pages` and `analyze_regions` providers without exposing local provider
+  paths
 
 ### Search For Evidence
 
 Use `search_pdf` when an agent needs to find relevant pages and source
-snippets before running heavier extraction, rendering, or region cropping.
+snippets before running heavier extraction, rendering, OCR, or region cropping.
 
 ```json
 {
@@ -55,13 +60,17 @@ snippets before running heavier extraction, rendering, or region cropping.
   }],
   "query": "risk controls",
   "whole_word": true,
+  "include_ocr_text_layer": false,
   "max_matches_per_source": 10
 }
 ```
 
 Matches include page number, matched text, snippet, match offsets, text-item
-index, optional text-item bounding box, and provenance. Search is literal and
-bounded by `max_pages` and `max_matches_per_source`.
+index or OCR word index, optional character-derived, text-item, or OCR-word
+bounding box, and provenance. Search is literal and bounded by `max_pages` and
+`max_matches_per_source`. OCR-layer search is opt-in through
+`include_ocr_text_layer` because it renders pages and runs the configured OCR
+provider.
 
 ### Get Metadata and Page Count
 
@@ -152,7 +161,8 @@ and best-effort coordinates instead of plain text alone.
 ### Get An Agent Document Map
 
 Use `include_document_map` when an agent needs one navigable structure for the
-PDF instead of separate page, element, chunk, layout, and safety outputs.
+PDF instead of separate page, element, text-layer, chunk, layout, and safety
+outputs.
 
 ```json
 {
@@ -167,9 +177,15 @@ PDF instead of separate page, element, chunk, layout, and safety outputs.
 }
 ```
 
-The map links pages to element IDs, chunk IDs, safety finding indexes, layout
-diagnostics, routing signals, and page geometry. Image bytes are not embedded
-inside the JSON map.
+The map links pages to element IDs, text-layer page indexes and coverage
+counts, chunk IDs, safety finding indexes, trust report page and signal
+indexes, accessibility report page and issue indexes, layout diagnostics, routing
+signals, page geometry, and optional visual enrichment indexes. Enable
+`include_visual_enrichments` when a configured visual-region
+provider should analyze bounded table/image crops plus caption-derived visual
+regions for vector-drawn formulas, charts, figures, and diagrams, including
+side-caption layouts, then fuse the normalized evidence into the same document
+twin. Image bytes are not embedded inside the JSON map.
 
 ### Render Page Evidence
 
@@ -246,15 +262,33 @@ not by request arguments.
 ```
 
 Set `MCP_PDF_REGION_ANALYSIS_COMMAND` to the local visual analysis executable
-or wrapper you want the server to run. Optionally set
+or wrapper you want the server to run, or set
+`MCP_PDF_REGION_ANALYSIS_HTTP_URL` to an env-configured local model server.
+For Ollama, set `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` plus
+`MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL`; the server sends the crop through
+Ollama `/api/generate` with a JSON-only prompt and normalizes the returned
+`response` JSON. For local or private OpenAI-compatible chat-completions vision
+servers, set `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`,
+`MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL`, and
+`MCP_PDF_REGION_ANALYSIS_OPENAI_URL`; the server sends a JSON-only prompt plus
+an `image_url` data URL and normalizes `choices[0].message.content`. Command
+providers take precedence when both are configured. Local LM Studio and
+llama.cpp servers can use `MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio` with
+`MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL`, or
+`MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp` with
+`MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL`; both use the same chat-completions
+payload with localhost defaults.
+Optionally set
 `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` to a JSON string array that includes
 `{input}` and may also use `{page}`, `{source}`, `{region_id}`,
 `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and
-`{languages}` placeholders.
+`{languages}` placeholders. HTTP providers receive JSON with crop image bytes,
+region metadata, crop coordinates, scale, and languages.
 
 The response starts with JSON metadata using `profile: "region_analysis"`.
 Each analyzed region includes normalized `kind`, description, text, Markdown,
-confidence, optional table/formula/chart fields, warnings, provenance, and a
+confidence, optional table cell/span/box fields, formula LaTeX/MathML/AsciiMath
+fields, chart data/axis/series fields, warnings, provenance, and a
 `source_crop_evidence_id` pointing back to the crop used as provider input.
 
 ### OCR Selected Pages
@@ -275,18 +309,30 @@ provider is configured by environment variables, not by request arguments.
 }
 ```
 
-Set `MCP_PDF_OCR_PRESET=tesseract` to use the built-in Tesseract command
-template, or set `MCP_PDF_OCR_COMMAND` for a custom local OCR executable.
-Optionally set `MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes
-`{input}` and may also use `{page}`, `{source}`, `{language}`, `{languages}`,
-and `{languages_tesseract}` placeholders.
-The provider can return plain text or JSON with `text`, `confidence`,
-`language`, and `words`.
+Set `MCP_PDF_OCR_PRESET=tesseract` to use the plain-text Tesseract command
+template, or `MCP_PDF_OCR_PRESET=tesseract-tsv` to parse Tesseract TSV stdout
+into normalized words, confidence, and word boxes. You can also set
+`MCP_PDF_OCR_COMMAND` for a custom local OCR executable. Optionally set
+`MCP_PDF_OCR_ARGS_JSON` to a JSON string array that includes `{input}` and may
+also use `{page}`, `{source}`, `{language}`, `{languages}`, and
+`{languages_tesseract}` placeholders. Custom providers can return plain text
+or JSON with `text`, `confidence`, `language`, and `words`. `inspect_pdf`
+reports built-in preset executable health; OCR-dependent routing is marked not
+ready when the selected preset binary is unavailable.
 
 The response starts with JSON metadata using `profile: "ocr_text_layer"`.
 Each page includes normalized OCR text, confidence when supplied, optional word
 boxes, language, provenance, and a `source_render_evidence_id` that points back
 to the temporary page render used as OCR input.
+
+For `read_pdf` workflows, set `include_ocr_text_layer: true` to run the
+configured OCR provider for selected sparse/scanned pages and return a separate
+`ocr_text_layer`. When `include_document_map` is also enabled, OCR pages are
+linked through `document_map.layers`, page-level OCR fields, and
+`document_map.routing.ocr_applied_pages`. OCR text is not merged into
+`full_text`, so provenance stays explicit. When `include_tables` is also
+enabled, OCR word boxes can generate OCR-derived table elements for scanned
+pages that have no selectable text tables.
 
 ### Get Markdown
 
@@ -349,8 +395,9 @@ available.
 
 ### Get a Text Layer
 
-Use `include_text_layer` when an agent needs line and word references with
-page-level character ranges and best-effort bounding boxes, rather than only
+Use `include_text_layer` when an agent needs run, line, word, and character
+references with page-level ranges, estimated bounding boxes, direction-aware
+right-to-left run ordering, and metadata coverage counts, rather than only
 plain full text.
 
 ```json
@@ -366,15 +413,21 @@ plain full text.
 }
 ```
 
-Response fields include page text, lines, words, `char_start`, `char_end`,
-best-effort bounding boxes, provenance, and summary bbox coverage counts.
+Response fields include page text, runs, lines, words, characters,
+`char_start`, `char_end`, estimated bounding boxes, provenance, and summary
+bbox and run-metadata coverage counts.
 
 ### Get a Document AST
 
 Use `include_document_ast` when an agent needs a semantic tree instead of flat
-page text. The AST includes page, section, paragraph, list item, table, and
-image nodes with `element_ids`, `chunk_ids`, bounding boxes, confidence,
-semantic roles, and table quality metadata where available.
+page text. The AST includes page, section, paragraph, list item, caption,
+header, footer, table, and image nodes with `element_ids`, `chunk_ids`,
+bounding boxes, confidence, semantic roles, and table quality metadata where
+available. When a page break continues an active section, AST nodes expose
+`section_path` and `continued_from_section_id` without moving evidence out of
+the page that owns it. Caption nodes can expose `caption_links` to nearby
+table, image, figure, chart, formula, or diagram evidence above, below,
+overlapping, or to the side, and linked targets can expose `caption_ids`.
 
 ```json
 {
@@ -393,9 +446,21 @@ semantic roles, and table quality metadata where available.
 
 Use `include_trust_report` when an agent needs one risk summary before using
 PDF content as instructions, evidence, or retrieval context. The report
-consolidates content safety, layout uncertainty, sparse/scanned-page, table
-quality, and external-link signals without forcing those raw outputs into the
-top-level response.
+consolidates content safety, visual-spoofing, tiny/off-page text, layout
+uncertainty, sparse/scanned-page, table quality, hidden-text, external-link, and
+unsafe-link signals without forcing those raw outputs into the top-level
+response. Summary counters group selected-page signals by type, safety findings
+by finding type, severities, and page-risk buckets so agents can route high-risk
+PDFs without scanning every signal first. Trust evidence snippets redact common
+sensitive values before they appear in the routing report. Use
+`trust_report_redaction: "strict"` for higher-sensitivity local runs that should
+also redact phone-like values and IPv4 addresses, or `"off"` only for
+controlled local debugging where raw snippets must be preserved and the policy
+is recorded explicitly.
+When `include_document_map` is also enabled, the document map carries trust
+page indexes, signal indexes, risk, scores, signal counts, high-signal routing
+arrays, high/medium-risk routing arrays, and summary counters in the same agent
+navigation contract.
 
 ```json
 {
@@ -404,6 +469,7 @@ top-level response.
     "pages": "1-5"
   }],
   "include_trust_report": true,
+  "trust_report_redaction": "strict",
   "include_full_text": false,
   "include_metadata": false,
   "include_page_count": true
@@ -431,16 +497,20 @@ claim PDF/UA certification.
 ```
 
 Response fields include `score`, `grade`, `tagged`, `suspected_tagging_issues`,
-page reports, issue counts, and guidance. The report can use mark info,
-permissions, annotations, form fields, and structure trees internally without
-forcing those raw outputs into the top-level response.
+page reports, tag-to-visible-content coverage, issue type counts, severity
+counts, page-grade counts, affected-page counts, and guidance. The report can
+use mark info, permissions, annotations, form fields, structured elements, and
+structure trees internally without forcing those raw outputs into the top-level
+response.
 
 ### Get Layout Diagnostics
 
 Use `include_layout_diagnostics` when an agent needs to know whether local
 reading order is likely reliable before indexing, citing, or summarizing a
 page. Diagnostics are deterministic and use existing extracted item geometry;
-they do not add OCR, vision, or a heavy parser dependency.
+they do not add OCR, vision, or a heavy parser dependency. The extractor uses
+conservative recursive band and column segmentation so common spanning headers,
+multi-column sections, and footers are ordered by visual reading sequence.
 
 ```json
 {
@@ -483,8 +553,9 @@ text.
 ### Inspect Content Safety
 
 Use `include_safety_findings` when an agent will use PDF text as context and
-needs deterministic warnings for common prompt-injection patterns, tiny text,
-or off-page text.
+needs deterministic warnings for common prompt-injection patterns, hidden or
+near-invisible text geometry, tiny text, off-page text, or overlapping text
+that may visually spoof or obscure content.
 
 ```json
 {
@@ -557,6 +628,7 @@ Process multiple PDFs in a single request:
           "profile": "agent_document_map",
           "layers": [
             "selectable_text",
+            "text_layer",
             "semantic_hints",
             "citation_chunks",
             "layout_diagnostics",
@@ -569,6 +641,10 @@ Process multiple PDFs in a single request:
               "element_ids": ["p1-text-1"],
               "chunk_ids": ["p1-chunk-1"],
               "safety_finding_indexes": [],
+              "text_layer_page_index": 0,
+              "text_layer_line_count": 3,
+              "text_layer_word_count": 18,
+              "text_layer_chars_with_bounding_boxes": 120,
               "text_chars": 120,
               "text_item_count": 3,
               "image_count": 0,
@@ -617,8 +693,12 @@ Process multiple PDFs in a single request:
             "quality": {
               "completeness": 1,
               "nonEmptyCellRatio": 1,
+              "cellBoundingBoxCoverage": 1,
+              "inferredCellRatio": 0,
               "rowAlignment": 1,
               "rowSpacingConsistency": 1,
+              "cellBoundingBoxCount": 4,
+              "inferredCellCount": 0,
               "missingCellCount": 0,
               "mergedCellCandidateCount": 0,
               "signals": ["complete_grid"]
@@ -682,8 +762,12 @@ Process multiple PDFs in a single request:
               "quality": {
                 "completeness": 1,
                 "nonEmptyCellRatio": 1,
+                "cellBoundingBoxCoverage": 1,
+                "inferredCellRatio": 0,
                 "rowAlignment": 1,
                 "rowSpacingConsistency": 1,
+                "cellBoundingBoxCount": 4,
+                "inferredCellCount": 0,
                 "missingCellCount": 0,
                 "mergedCellCandidateCount": 0,
                 "signals": ["complete_grid"]
@@ -751,6 +835,13 @@ Process multiple PDFs in a single request:
             "element_id": "p1-text-3",
             "message": "Text matches a common prompt-injection instruction pattern.",
             "snippet": "Ignore previous instructions..."
+          },
+          {
+            "type": "hidden_text",
+            "severity": "high",
+            "page": 1,
+            "element_id": "p1-text-4",
+            "message": "Text has zero or near-zero geometry and may be hidden or visually unavailable in the rendered page."
           }
         ]
       }

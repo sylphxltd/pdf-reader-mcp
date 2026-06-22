@@ -11,6 +11,7 @@ export type PdfAccessibilityIssueType =
   | 'structure_tree_missing'
   | 'untagged_page'
   | 'heading_structure'
+  | 'tagged_content_mismatch'
   | 'image_alt_text'
   | 'form_field_label'
   | 'link_label'
@@ -30,20 +31,10 @@ export interface PdfAccessibilityPageReport {
   score: number;
   grade: PdfAccessibilityGrade;
   structure_role_count: number;
-  heading_count: number;
-  figure_count: number;
-  image_count: number;
-  link_count: number;
-  form_field_count: number;
-  issues: PdfAccessibilityIssue[];
-}
-
-export interface PdfAccessibilityReportSummary {
-  selected_pages: number[];
-  page_count: number;
-  tagged_page_count: number;
-  untagged_page_count: number;
-  structure_role_count: number;
+  structure_content_count: number;
+  structure_content_id_count: number;
+  visible_element_count: number;
+  tag_content_coverage: number;
   heading_count: number;
   figure_count: number;
   image_count: number;
@@ -53,6 +44,38 @@ export interface PdfAccessibilityReportSummary {
   high_issue_count: number;
   medium_issue_count: number;
   low_issue_count: number;
+  issue_type_counts: Record<PdfAccessibilityIssueType, number>;
+  issues: PdfAccessibilityIssue[];
+}
+
+export interface PdfAccessibilityReportSummary {
+  selected_pages: number[];
+  page_count: number;
+  tagged_page_count: number;
+  untagged_page_count: number;
+  structure_role_count: number;
+  structure_content_count: number;
+  structure_content_id_count: number;
+  visible_element_count: number;
+  average_tag_content_coverage: number;
+  heading_count: number;
+  figure_count: number;
+  image_count: number;
+  link_count: number;
+  form_field_count: number;
+  issue_count: number;
+  document_issue_count: number;
+  page_issue_count: number;
+  high_issue_count: number;
+  medium_issue_count: number;
+  low_issue_count: number;
+  issue_severity_counts: Record<PdfAccessibilityIssueSeverity, number>;
+  issue_type_counts: Record<PdfAccessibilityIssueType, number>;
+  page_grade_counts: Record<PdfAccessibilityGrade, number>;
+  pages_with_issues_count: number;
+  pages_with_high_issues_count: number;
+  pages_with_medium_issues_count: number;
+  pages_with_low_issues_count: number;
 }
 
 export interface PdfAccessibilityReport {

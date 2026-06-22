@@ -1,4 +1,4 @@
-// Vex validation schemas for PDF reading
+// Validation schemas for PDF reading
 
 import {
   array,
@@ -7,25 +7,29 @@ import {
   gte,
   type InferOutput,
   int,
+  literal,
   min,
   num,
   object,
   optional,
   str,
   union,
-} from '@sylphx/vex';
+} from '../schema.js';
 
 // Schema for page specification (array of numbers or range string)
 export const pageSpecifierSchema = union(array(num(int, gte(1))), str(min(1)));
 
-// Schema for a single PDF source (path or URL)
-// Note: XOR validation (path OR url, not both) is done in the handler
+// Schema for a single PDF source. Every PDF tool shares this source contract:
+// callers must provide exactly one locator so local and remote security policy
+// cannot be bypassed by ambiguous path+URL payloads.
 export const pdfSourceSchema = object({
   path: optional(
     str(min(1), description('Path to the local PDF file (absolute or relative to cwd).'))
   ),
   url: optional(str(min(1), description('URL of the PDF file.'))),
   pages: optional(pageSpecifierSchema),
+}).refine((source) => Boolean(source.path) !== Boolean(source.url), {
+  message: 'Provide exactly one of path or url for each PDF source.',
 });
 
 // Schema for the read_pdf tool arguments
@@ -50,7 +54,7 @@ export const readPdfArgsSchema = object({
   include_tables: optional(
     bool(
       description(
-        'Detect and extract tables from PDF pages. Uses spatial clustering of text coordinates to identify tabular structures.'
+        'Detect and extract tables from PDF pages. Uses spatial clustering of selectable text coordinates and, when include_ocr_text_layer is enabled, OCR word boxes to identify tabular structures.'
       )
     )
   ),
@@ -64,7 +68,7 @@ export const readPdfArgsSchema = object({
   include_semantic_hints: optional(
     bool(
       description(
-        'Include deterministic semantic hints on text elements, such as heading, list item, or paragraph.'
+        'Include deterministic semantic hints on text elements, such as heading, list item, paragraph, caption, header, or footer.'
       )
     )
   ),
@@ -92,7 +96,14 @@ export const readPdfArgsSchema = object({
   include_text_layer: optional(
     bool(
       description(
-        'Include a page text layer with line records, word records, page-level character ranges, best-effort bounding boxes, and provenance.'
+        'Include a page text layer with run, line, word, and character records, page-level ranges, estimated bounding boxes, and provenance.'
+      )
+    )
+  ),
+  include_ocr_text_layer: optional(
+    bool(
+      description(
+        'Run the configured local OCR provider for selected sparse/scanned pages and include a normalized OCR text layer with render provenance.'
       )
     )
   ),
@@ -143,7 +154,7 @@ export const readPdfArgsSchema = object({
   include_safety_findings: optional(
     bool(
       description(
-        'Include deterministic content safety findings for prompt-injection patterns, tiny text, and off-page text.'
+        'Include deterministic content safety findings for prompt-injection patterns, hidden or near-invisible text, tiny text, off-page text, and overlapping text.'
       )
     )
   ),
@@ -157,28 +168,49 @@ export const readPdfArgsSchema = object({
   include_document_map: optional(
     bool(
       description(
-        'Include an agent-ready document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry without embedding image bytes in JSON.'
+        'Include an agent-ready document map that links pages, elements, text-layer coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and page geometry without embedding image bytes in JSON.'
       )
     )
   ),
   include_document_ast: optional(
     bool(
       description(
-        'Include an agent-ready semantic document AST with page, section, paragraph, list item, table, and image nodes linked back to element and chunk evidence.'
+        'Include an agent-ready semantic document AST with page, section, paragraph, list item, caption, header, footer, table, and image nodes plus cross-page section context and caption-to-evidence links back to element and chunk evidence.'
+      )
+    )
+  ),
+  include_visual_enrichments: optional(
+    bool(
+      description(
+        'Run the configured visual-region provider over table/image and caption-derived visual regions, then fuse normalized table, formula, chart, figure, diagram, or image descriptions into the PDF document twin with crop evidence.'
+      )
+    )
+  ),
+  max_visual_enrichments: optional(
+    num(
+      int,
+      gte(1),
+      description(
+        'Maximum table/image/caption-derived visual regions per source to send to the configured visual-region provider when include_visual_enrichments is enabled.'
       )
     )
   ),
   include_trust_report: optional(
     bool(
       description(
-        'Include a PDF trust report that consolidates content safety, layout uncertainty, sparse/scanned-page, table-quality, and external-link signals for agent routing.'
+        'Include a PDF trust report that consolidates content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table-quality, external-link, unsafe-link, selected-page category-count, page-risk, and redacted evidence signals for agent routing.'
       )
+    )
+  ),
+  trust_report_redaction: optional(
+    union(literal('standard'), literal('strict'), literal('off')).describe(
+      'Redaction policy for trust-report evidence snippets. standard redacts common secrets and personal identifiers, strict also redacts phone-like values and IPv4 addresses, and off preserves snippets while marking the policy explicitly. Defaults to standard.'
     )
   ),
   include_accessibility_report: optional(
     bool(
       description(
-        'Include a deterministic accessibility report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions.'
+        'Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, accessibility permissions, issue type/severity summaries, and page-grade routing.'
       )
     )
   ),

@@ -9,7 +9,7 @@ import {
   object,
   optional,
   str,
-} from '@sylphx/vex';
+} from '../schema.js';
 import { pdfRegionSourceSchema } from './extractRegions.js';
 
 export const analyzeRegionsArgsSchema = object({

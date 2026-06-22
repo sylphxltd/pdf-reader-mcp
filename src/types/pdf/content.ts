@@ -19,11 +19,18 @@ export interface ExtractedImage {
 }
 
 export interface PdfElementProvenance {
-  engine: 'pdfjs';
-  source: 'text-content' | 'image-xobject' | 'table-detector';
+  engine: 'pdfjs' | 'external-command';
+  source: 'text-content' | 'image-xobject' | 'table-detector' | 'ocr-table-detector';
+  ocr_source_render_evidence_id?: string | undefined;
 }
 
-export type PdfTextSemanticRole = 'heading' | 'list_item' | 'paragraph';
+export type PdfTextSemanticRole =
+  | 'heading'
+  | 'list_item'
+  | 'paragraph'
+  | 'caption'
+  | 'header'
+  | 'footer';
 
 export interface PdfTextSemanticHint {
   role: PdfTextSemanticRole;
@@ -71,6 +78,29 @@ export interface PdfChunk {
 }
 
 // Content item with position for ordering
+export interface PageTextRunCharEvidence {
+  index: number;
+  text: string;
+  item_char_start: number;
+  item_char_end: number;
+  is_whitespace: boolean;
+  bounding_box?: BoundingBox | undefined;
+  confidence?: number | undefined;
+}
+
+export interface PageTextRunEvidence {
+  index: number;
+  text: string;
+  item_char_start: number;
+  item_char_end: number;
+  bounding_box?: BoundingBox | undefined;
+  font_name?: string | undefined;
+  direction?: string | undefined;
+  transform?: number[] | undefined;
+  has_eol?: boolean | undefined;
+  chars: PageTextRunCharEvidence[];
+}
+
 export interface PageContentItem {
   type: 'text' | 'image';
   yPosition: number;
@@ -79,5 +109,6 @@ export interface PageContentItem {
   height?: number | undefined;
   bounding_box?: BoundingBox | undefined;
   textContent?: string;
+  textRuns?: PageTextRunEvidence[] | undefined;
   imageData?: ExtractedImage;
 }

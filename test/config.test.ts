@@ -63,7 +63,11 @@ describe('readSecurityConfig', () => {
 
   it('parses MCP_PDF_ALLOWED_DIRS with colon and comma separators', () => {
     const cfg = readSecurityConfig([], { MCP_PDF_ALLOWED_DIRS: '/tmp/a:/tmp/b,/tmp/c' });
-    expect(cfg.allowedDirs).toEqual([canonical('/tmp/a'), canonical('/tmp/b'), canonical('/tmp/c')]);
+    expect(cfg.allowedDirs).toEqual([
+      canonical('/tmp/a'),
+      canonical('/tmp/b'),
+      canonical('/tmp/c'),
+    ]);
   });
 
   it('enables private-IP fetches via --allow-private-ips', () => {
@@ -72,7 +76,9 @@ describe('readSecurityConfig', () => {
   });
 
   it('enables private-IP fetches via MCP_PDF_ALLOW_PRIVATE_IPS', () => {
-    expect(readSecurityConfig([], { MCP_PDF_ALLOW_PRIVATE_IPS: 'true' }).allowPrivateIps).toBe(true);
+    expect(readSecurityConfig([], { MCP_PDF_ALLOW_PRIVATE_IPS: 'true' }).allowPrivateIps).toBe(
+      true
+    );
     expect(readSecurityConfig([], { MCP_PDF_ALLOW_PRIVATE_IPS: '1' }).allowPrivateIps).toBe(true);
   });
 
@@ -139,7 +145,9 @@ describe('isUrlAllowed', () => {
   } as const;
 
   it('rejects all URLs when allowHttp is false', () => {
-    expect(isUrlAllowed('https://example.com/file.pdf', { ...baseCfg, allowHttp: false })).toBe(false);
+    expect(isUrlAllowed('https://example.com/file.pdf', { ...baseCfg, allowHttp: false })).toBe(
+      false
+    );
   });
 
   it('allows http(s) URLs when allowHttp and no host restriction', () => {

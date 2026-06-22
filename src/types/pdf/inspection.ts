@@ -16,6 +16,14 @@ export type PdfInspectionWorkflow =
   | 'scanned_pdf_triage'
   | 'mixed_pdf_review';
 
+export type PdfInspectionNextToolName =
+  | 'read_pdf'
+  | 'search_pdf'
+  | 'render_page'
+  | 'extract_regions'
+  | 'analyze_regions'
+  | 'ocr_pages';
+
 export interface PdfInspectionPageSignal {
   page: number;
   text_chars: number;
@@ -41,22 +49,48 @@ export interface PdfInspectionRecommendation {
   needs_ocr: boolean;
   reason: string;
   read_pdf_arguments: Record<string, unknown>;
+  next_tools: PdfInspectionNextTool[];
 }
 
-export type PdfOptionalProviderReadiness = 'ready' | 'not_configured' | 'invalid_configuration';
+export interface PdfInspectionNextTool {
+  tool: PdfInspectionNextToolName;
+  priority: number;
+  ready: boolean;
+  purpose: string;
+  when: string;
+  arguments?: Record<string, unknown> | undefined;
+  argument_template?: Record<string, unknown> | undefined;
+  required_inputs?: string[] | undefined;
+  requires_provider?: 'ocr_pages' | 'analyze_regions' | undefined;
+}
+
+export type PdfOptionalProviderReadiness =
+  | 'ready'
+  | 'not_configured'
+  | 'invalid_configuration'
+  | 'unavailable';
+
+export type PdfOptionalProviderHealth = 'available' | 'unavailable' | 'not_checked';
 
 export interface PdfOcrProviderStatus {
   readiness: PdfOptionalProviderReadiness;
   provider: 'command';
   command_configured: boolean;
-  preset?: 'tesseract' | 'unsupported' | undefined;
+  health: PdfOptionalProviderHealth;
+  health_check: 'preset_executable' | 'not_checked';
+  preset?: 'tesseract' | 'tesseract-tsv' | 'unsupported' | undefined;
   warnings?: string[] | undefined;
 }
 
 export interface PdfRegionAnalysisProviderStatus {
   readiness: PdfOptionalProviderReadiness;
-  provider: 'command';
+  provider: 'command' | 'http';
   command_configured: boolean;
+  health: PdfOptionalProviderHealth;
+  health_check: 'not_checked';
+  http_configured?: boolean | undefined;
+  preset?: 'ollama' | 'openai-compatible' | 'lmstudio' | 'llamacpp' | 'unsupported' | undefined;
+  model?: string | undefined;
   warnings?: string[] | undefined;
 }
 

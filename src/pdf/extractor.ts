@@ -8,6 +8,8 @@ import type {
   ExtractedImage,
   ExtractedPageText,
   PageContentItem,
+  PageTextRunCharEvidence,
+  PageTextRunEvidence,
   PdfAnnotation,
   PdfAttachment,
   PdfFormField,
@@ -29,6 +31,10 @@ const TEXT_SEGMENT_GAP_THRESHOLD = 48;
 const COLUMN_CUT_MIN_GAP = 48;
 const COLUMN_CUT_MIN_WIDTH_RATIO = 0.12;
 const SPANNING_WIDTH_RATIO = 0.72;
+const XY_CUT_MAX_DEPTH = 8;
+const XY_CUT_MIN_ITEMS = 4;
+const XY_CUT_MIN_HORIZONTAL_GAP = 36;
+const XY_CUT_MIN_HORIZONTAL_GAP_RATIO = 0.04;
 
 interface TextRowPart {
   text: string;
@@ -36,7 +42,14 @@ interface TextRowPart {
   width: number;
   height: number;
   bounding_box?: BoundingBox | undefined;
+  font_name?: string | undefined;
+  direction?: string | undefined;
+  transform?: number[] | undefined;
+  has_eol?: boolean | undefined;
+  chars: PageTextRunCharEvidence[];
 }
+
+type TextDirection = 'ltr' | 'rtl';
 
 interface RawOutlineItem {
   title?: string;
@@ -69,6 +82,7 @@ interface RawFormField {
   fieldType?: string;
   value?: unknown;
   defaultValue?: unknown;
+  // PDF.js exposes both `page` and `pageIndex` as zero-based page indexes.
   page?: number;
   pageIndex?: number;
   editable?: boolean;
@@ -170,6 +184,58 @@ const buildRectBoundingBox = (rect: ReadonlyArray<number> | undefined): Bounding
   };
 };
 
+const estimateCharacterBoundingBox = (
+  runBox: BoundingBox | undefined,
+  textLength: number,
+  charStart: number,
+  charEnd: number
+): BoundingBox | undefined => {
+  if (!runBox || textLength <= 0 || charEnd <= charStart) return undefined;
+
+  const width = runBox.right - runBox.left;
+  if (!Number.isFinite(width) || width <= 0) return undefined;
+
+  const startRatio = Math.max(0, Math.min(1, charStart / textLength));
+  const endRatio = Math.max(startRatio, Math.min(1, charEnd / textLength));
+
+  return {
+    left: runBox.left + width * startRatio,
+    bottom: runBox.bottom,
+    right: runBox.left + width * endRatio,
+    top: runBox.top,
+  };
+};
+
+const buildRunChars = (
+  text: string,
+  runBox: BoundingBox | undefined
+): PageTextRunCharEvidence[] => {
+  const chars: PageTextRunCharEvidence[] = [];
+
+  for (let cursor = 0; cursor < text.length; ) {
+    const codePoint = text.codePointAt(cursor);
+    const char = codePoint === undefined ? text[cursor] : String.fromCodePoint(codePoint);
+    if (char === undefined) break;
+
+    const charStart = cursor;
+    const charEnd = cursor + char.length;
+    const boundingBox = estimateCharacterBoundingBox(runBox, text.length, charStart, charEnd);
+
+    chars.push({
+      index: chars.length,
+      text: char,
+      item_char_start: charStart,
+      item_char_end: charEnd,
+      is_whitespace: /\s/u.test(char),
+      ...(boundingBox ? { bounding_box: boundingBox, confidence: 0.74 } : {}),
+    });
+
+    cursor = charEnd;
+  }
+
+  return chars;
+};
+
 const finiteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
@@ -242,6 +308,33 @@ const textSegmentToContentItem = (y: number, segment: TextRowPart[]): PageConten
       ? boundingBox.top - boundingBox.bottom
       : Math.max(...segment.map((part) => part.height), 0);
 
+  const textRuns: PageTextRunEvidence[] = [];
+  let itemCharOffset = 0;
+
+  for (const part of segment) {
+    const runBox = part.bounding_box;
+    const chars = part.chars.map((char) => ({
+      ...char,
+      item_char_start: itemCharOffset + char.item_char_start,
+      item_char_end: itemCharOffset + char.item_char_end,
+    }));
+
+    textRuns.push({
+      index: textRuns.length,
+      text: part.text,
+      item_char_start: itemCharOffset,
+      item_char_end: itemCharOffset + part.text.length,
+      ...(runBox ? { bounding_box: runBox } : {}),
+      ...(part.font_name ? { font_name: part.font_name } : {}),
+      ...(part.direction ? { direction: part.direction } : {}),
+      ...(part.transform ? { transform: part.transform } : {}),
+      ...(part.has_eol !== undefined ? { has_eol: part.has_eol } : {}),
+      chars,
+    });
+
+    itemCharOffset += part.text.length;
+  }
+
   return {
     type: 'text',
     yPosition: y,
@@ -250,6 +343,7 @@ const textSegmentToContentItem = (y: number, segment: TextRowPart[]): PageConten
     height,
     bounding_box: boundingBox,
     textContent,
+    textRuns,
   };
 };
 
@@ -275,11 +369,104 @@ const splitTextPartsIntoSegments = (parts: TextRowPart[]): TextRowPart[][] => {
     segments.push(currentSegment);
   }
 
-  return segments;
+  const orderedSegments = segments.map(orderTextPartsByDirection);
+  return dominantTextPartDirection(parts) === 'rtl' ? orderedSegments.reverse() : orderedSegments;
+};
+
+const normalizeTextDirection = (direction: string | undefined): TextDirection | undefined => {
+  const normalized = direction?.toLowerCase();
+  return normalized === 'rtl' || normalized === 'ltr' ? normalized : undefined;
+};
+
+const dominantDirection = (
+  directions: Array<TextDirection | undefined>
+): TextDirection | undefined => {
+  const ltrCount = directions.filter((direction) => direction === 'ltr').length;
+  const rtlCount = directions.filter((direction) => direction === 'rtl').length;
+  if (ltrCount === 0 && rtlCount === 0) return undefined;
+  return rtlCount > ltrCount ? 'rtl' : 'ltr';
+};
+
+const dominantTextPartDirection = (parts: TextRowPart[]): TextDirection | undefined =>
+  dominantDirection(parts.map((part) => normalizeTextDirection(part.direction)));
+
+const dominantContentItemDirection = (item: PageContentItem): TextDirection | undefined =>
+  dominantDirection((item.textRuns ?? []).map((run) => normalizeTextDirection(run.direction)));
+
+const dominantPageContentDirection = (items: PageContentItem[]): TextDirection | undefined =>
+  dominantDirection(
+    items.flatMap((item) => item.textRuns ?? []).map((run) => normalizeTextDirection(run.direction))
+  );
+
+const orderTextPartsByDirection = (parts: TextRowPart[]): TextRowPart[] =>
+  dominantTextPartDirection(parts) === 'rtl' ? [...parts].sort((a, b) => b.x - a.x) : parts;
+
+const compareXForReadingOrder = (a: PageContentItem, b: PageContentItem): number => {
+  const aDirection = dominantContentItemDirection(a);
+  const bDirection = dominantContentItemDirection(b);
+  const aX = a.xPosition ?? 0;
+  const bX = b.xPosition ?? 0;
+  return aDirection === 'rtl' && bDirection === 'rtl' ? bX - aX : aX - bX;
 };
 
 const sortByYThenX = (items: PageContentItem[]): PageContentItem[] =>
-  [...items].sort((a, b) => b.yPosition - a.yPosition || (a.xPosition ?? 0) - (b.xPosition ?? 0));
+  [...items].sort((a, b) => b.yPosition - a.yPosition || compareXForReadingOrder(a, b));
+
+const pageContentBounds = (items: PageContentItem[]): BoundingBox | undefined =>
+  mergeBoundingBoxes(items.map((item) => item.bounding_box));
+
+const findHorizontalWhitespaceCut = (items: PageContentItem[]): number | undefined => {
+  const boxedItems = items.filter((item) => item.bounding_box !== undefined);
+  if (boxedItems.length < XY_CUT_MIN_ITEMS) return undefined;
+
+  const bounds = pageContentBounds(boxedItems);
+  if (!bounds) return undefined;
+
+  const pageHeight = bounds.top - bounds.bottom;
+  if (!Number.isFinite(pageHeight) || pageHeight <= 0) return undefined;
+
+  const sorted = [...boxedItems].sort(
+    (a, b) =>
+      (b.bounding_box?.top ?? b.yPosition) - (a.bounding_box?.top ?? a.yPosition) ||
+      (a.bounding_box?.left ?? a.xPosition ?? 0) - (b.bounding_box?.left ?? b.xPosition ?? 0)
+  );
+
+  let upperClusterBottom = sorted[0]?.bounding_box?.bottom;
+  if (upperClusterBottom === undefined) return undefined;
+
+  const candidates: Array<{ gap: number; cutPosition: number }> = [];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const nextBox = sorted[i]?.bounding_box;
+    if (!nextBox) continue;
+
+    const gap = upperClusterBottom - nextBox.top;
+    if (gap > 0) {
+      candidates.push({ gap, cutPosition: (upperClusterBottom + nextBox.top) / 2 });
+    }
+
+    upperClusterBottom = Math.min(upperClusterBottom, nextBox.bottom);
+  }
+
+  const minGap = Math.max(XY_CUT_MIN_HORIZONTAL_GAP, pageHeight * XY_CUT_MIN_HORIZONTAL_GAP_RATIO);
+  const viableCandidates = candidates
+    .filter((candidate) => candidate.gap >= minGap)
+    .sort((a, b) => b.gap - a.gap);
+
+  for (const candidate of viableCandidates) {
+    const upperCount = boxedItems.filter(
+      (item) => (item.bounding_box?.bottom ?? 0) >= candidate.cutPosition
+    ).length;
+    const lowerCount = boxedItems.filter(
+      (item) => (item.bounding_box?.top ?? 0) <= candidate.cutPosition
+    ).length;
+    if (upperCount > 0 && (lowerCount >= 2 || (lowerCount === 1 && upperCount >= 4))) {
+      return candidate.cutPosition;
+    }
+  }
+
+  return undefined;
+};
 
 const findVerticalColumnCut = (items: PageContentItem[]): number | undefined => {
   const boxedItems = items.filter((item) => item.bounding_box !== undefined);
@@ -333,7 +520,39 @@ const findVerticalColumnCut = (items: PageContentItem[]): number | undefined => 
   return leftCount >= 2 && rightCount >= 2 ? cutPosition : undefined;
 };
 
-const sortPageContentItems = (items: PageContentItem[]): PageContentItem[] => {
+const sortPageContentItems = (items: PageContentItem[], depth = 0): PageContentItem[] => {
+  if (items.length < XY_CUT_MIN_ITEMS || depth >= XY_CUT_MAX_DEPTH) {
+    return sortByYThenX(items);
+  }
+
+  const horizontalCut = findHorizontalWhitespaceCut(items);
+  if (horizontalCut !== undefined) {
+    const upper: PageContentItem[] = [];
+    const lower: PageContentItem[] = [];
+    const crossing: PageContentItem[] = [];
+
+    for (const item of items) {
+      const box = item.bounding_box;
+      if (!box) {
+        crossing.push(item);
+      } else if (box.bottom >= horizontalCut) {
+        upper.push(item);
+      } else if (box.top <= horizontalCut) {
+        lower.push(item);
+      } else {
+        crossing.push(item);
+      }
+    }
+
+    if (upper.length > 0 && lower.length > 0) {
+      return [
+        ...sortPageContentItems(upper, depth + 1),
+        ...sortByYThenX(crossing),
+        ...sortPageContentItems(lower, depth + 1),
+      ];
+    }
+  }
+
   const cutPosition = findVerticalColumnCut(items);
   if (cutPosition === undefined) return sortByYThenX(items);
 
@@ -376,8 +595,15 @@ const sortPageContentItems = (items: PageContentItem[]): PageContentItem[] => {
 
   return [
     ...sortByYThenX(topSpanning),
-    ...sortByYThenX(leftColumn),
-    ...sortByYThenX(rightColumn),
+    ...(dominantPageContentDirection(columnItems) === 'rtl'
+      ? [
+          ...sortPageContentItems(rightColumn, depth + 1),
+          ...sortPageContentItems(leftColumn, depth + 1),
+        ]
+      : [
+          ...sortPageContentItems(leftColumn, depth + 1),
+          ...sortPageContentItems(rightColumn, depth + 1),
+        ]),
     ...sortByYThenX(remainingSpanning),
   ];
 };
@@ -710,6 +936,9 @@ export const extractDocumentStructure = async (
   return output;
 };
 
+const normalizeZeroBasedPageIndex = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value + 1 : undefined;
+
 const normalizeFormField = (
   fallbackName: string,
   field: RawFormField
@@ -718,10 +947,10 @@ const normalizeFormField = (
   if (!name) return undefined;
 
   const page =
-    field.page !== undefined
-      ? field.page
-      : field.pageIndex !== undefined
-        ? field.pageIndex + 1
+    field.pageIndex !== undefined
+      ? normalizeZeroBasedPageIndex(field.pageIndex)
+      : field.page !== undefined
+        ? normalizeZeroBasedPageIndex(field.page)
         : undefined;
   const fieldType = field.type ?? field.fieldType;
   const boundingBox = buildRectBoundingBox(field.rect);
@@ -1064,6 +1293,9 @@ export const extractPageContent = async (
         transform?: number[];
         width?: number;
         height?: number;
+        fontName?: string;
+        dir?: string;
+        hasEOL?: boolean;
       };
       // transform[5] is the Y coordinate
       const xCoord = textItem.transform?.[4];
@@ -1073,6 +1305,7 @@ export const extractPageContent = async (
       const width = textItem.width ?? textItem.str.length * 6;
       const height = textItem.height ?? Math.abs(textItem.transform?.[3] ?? 0);
       const boundingBox = buildBoundingBox(xCoord, yCoord, width, height);
+      const chars = buildRunChars(textItem.str, boundingBox);
 
       if (!textByY.has(y)) {
         textByY.set(y, []);
@@ -1083,6 +1316,11 @@ export const extractPageContent = async (
         width,
         height,
         bounding_box: boundingBox,
+        ...(textItem.fontName ? { font_name: textItem.fontName } : {}),
+        ...(textItem.dir ? { direction: textItem.dir } : {}),
+        ...(textItem.transform ? { transform: textItem.transform } : {}),
+        ...(textItem.hasEOL !== undefined ? { has_eol: textItem.hasEOL } : {}),
+        chars,
       });
     }
 

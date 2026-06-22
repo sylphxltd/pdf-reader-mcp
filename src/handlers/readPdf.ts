@@ -1,7 +1,7 @@
 // PDF reading handler - orchestrates PDF processing workflow
 
-import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { image, text, tool, toolError } from '../mcp.js';
 import { buildAccessibilityReport } from '../pdf/accessibilityReport.js';
 import { buildDocumentAst } from '../pdf/documentAst.js';
 import { buildDocumentMap } from '../pdf/documentMap.js';
@@ -23,20 +23,28 @@ import {
   extractStructureTrees,
 } from '../pdf/extractor.js';
 import { loadPdfDocument } from '../pdf/loader.js';
+import { buildOcrTextLayer, defaultOcrPagesOptions, ocrPdfSourcePages } from '../pdf/ocr.js';
 import { determinePagesToProcess, getTargetPages } from '../pdf/parser.js';
 import {
   extractTables,
+  extractTablesFromOcrTextLayer,
   extractTablesFromPageContents,
+  mergeTableExtractionEvidence,
   tablesToMarkdown,
 } from '../pdf/tableExtractor.js';
 import { buildTextLayer } from '../pdf/textLayer.js';
 import { buildTrustReport } from '../pdf/trustReport.js';
+import {
+  buildVisualEnrichmentsForSource,
+  DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
+} from '../pdf/visualEnrichment.js';
 import { readPdfArgsSchema } from '../schemas/readPdf.js';
 import type {
   ExtractedImage,
   ExtractedTable,
   PdfChunk,
   PdfDocumentElement,
+  PdfOcrTextLayer,
   PdfPageAnnotations,
   PdfPageGeometry,
   PdfPageLayoutDiagnostics,
@@ -45,11 +53,31 @@ import type {
   PdfSafetyFinding,
   PdfSource,
   PdfSourceResult,
+  PdfTextLayer,
+  PdfTrustRedactionPolicy,
+  PdfVisualEnrichment,
+  PdfVisualEnrichmentCandidate,
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('ReadPdf');
+
+const appendOutputWarnings = (output: PdfResultData, warnings: string[]) => {
+  if (warnings.length === 0) return;
+  output.warnings = [...(output.warnings ?? []), ...warnings];
+};
+
+const selectOcrTextLayerPages = (
+  pagesToProcess: number[],
+  layoutDiagnostics: PdfPageLayoutDiagnostics[]
+): number[] => {
+  const zeroSelectableTextPages = layoutDiagnostics
+    .filter((layout) => layout.text_item_count === 0)
+    .map((layout) => layout.page);
+
+  return zeroSelectableTextPages.length > 0 ? zeroSelectableTextPages : pagesToProcess;
+};
 
 /**
  * Process a single PDF source
@@ -68,6 +96,7 @@ const processSingleSource = async (
     includeHtml: boolean;
     includeChunks: boolean;
     includeTextLayer: boolean;
+    includeOcrTextLayer: boolean;
     includeOutline: boolean;
     includeAnnotations: boolean;
     includePageLabels: boolean;
@@ -80,7 +109,10 @@ const processSingleSource = async (
     includeLayoutDiagnostics: boolean;
     includeDocumentMap: boolean;
     includeDocumentAst: boolean;
+    includeVisualEnrichments: boolean;
+    maxVisualEnrichments: number;
     includeTrustReport: boolean;
+    trustReportRedaction: PdfTrustRedactionPolicy;
     includeAccessibilityReport: boolean;
   }
 ): Promise<PdfSourceResult> => {
@@ -139,17 +171,20 @@ const processSingleSource = async (
       options.includeHtml ||
       options.includeChunks ||
       options.includeTextLayer ||
+      options.includeOcrTextLayer ||
       options.includeImages ||
       options.includeSafetyFindings ||
       options.includeLayoutDiagnostics ||
       options.includeDocumentMap ||
       options.includeDocumentAst ||
+      options.includeVisualEnrichments ||
       options.includeTrustReport ||
       options.includeAccessibilityReport;
     const pageScopedMetadata =
       options.includeTables ||
       options.includeDocumentMap ||
       options.includeDocumentAst ||
+      options.includeVisualEnrichments ||
       options.includeTrustReport ||
       options.includeAccessibilityReport ||
       options.includeAnnotations ||
@@ -177,8 +212,11 @@ const processSingleSource = async (
       let pageGeometry: PdfPageGeometry[] | undefined;
       if (
         options.includePageGeometry ||
+        options.includeSemanticHints ||
         options.includeSafetyFindings ||
         options.includeDocumentMap ||
+        options.includeDocumentAst ||
+        options.includeVisualEnrichments ||
         options.includeTrustReport
       ) {
         pageGeometry = await extractPageGeometry(
@@ -203,7 +241,7 @@ const processSingleSource = async (
               extractPageContent(
                 pdfDocument as pdfjsLib.PDFDocumentProxy,
                 pageNum,
-                options.includeImages,
+                options.includeImages || options.includeVisualEnrichments,
                 sourceDescription
               )
             )
@@ -252,19 +290,57 @@ const processSingleSource = async (
         }
       }
 
+      let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
+      if (options.includeLayoutDiagnostics && output.page_contents) {
+        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
+        output.layout_diagnostics = layoutDiagnostics;
+      }
+
+      let ocrTextLayer: PdfOcrTextLayer | undefined;
+      if (options.includeOcrTextLayer && output.page_contents) {
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        const ocrPages = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
+
+        if (ocrPages.length > 0) {
+          try {
+            const ocr = await ocrPdfSourcePages(
+              { ...source, pages: ocrPages },
+              defaultOcrPagesOptions()
+            );
+            ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
+            output.ocr_text_layer = ocrTextLayer;
+            appendOutputWarnings(output, ocr.warnings);
+          } catch (error: unknown) {
+            const message =
+              error instanceof PdfError
+                ? error.message
+                : 'OCR provider failed before returning a normalized text layer.';
+            if (!(error instanceof PdfError)) {
+              logger.warn('Unexpected error building OCR text layer', {
+                sourceDescription,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+            appendOutputWarnings(output, [`OCR text layer unavailable: ${message}`]);
+          }
+        }
+      }
+
       // Extract tables if requested
       if (
         options.includeTables ||
         options.includeDocumentMap ||
         options.includeDocumentAst ||
+        options.includeVisualEnrichments ||
         options.includeTrustReport
       ) {
         const extractedTables = output.page_contents
           ? extractTablesFromPageContents(output.page_contents)
           : await extractTables(pdfDocument as pdfjsLib.PDFDocumentProxy, pagesToProcess);
+        const ocrTables = ocrTextLayer ? extractTablesFromOcrTextLayer(ocrTextLayer) : [];
 
-        if (extractedTables.length > 0) {
-          output.tables = extractedTables;
+        if (extractedTables.length > 0 || ocrTables.length > 0) {
+          output.tables = mergeTableExtractionEvidence(extractedTables, ocrTables);
         }
       }
 
@@ -275,12 +351,18 @@ const processSingleSource = async (
           semanticElements ??= buildStructuredElements(
             output.page_contents ?? [],
             output.tables,
-            true
+            true,
+            pageGeometry
           );
           return semanticElements;
         }
 
-        plainElements ??= buildStructuredElements(output.page_contents ?? [], output.tables, false);
+        plainElements ??= buildStructuredElements(
+          output.page_contents ?? [],
+          output.tables,
+          false,
+          pageGeometry
+        );
         return plainElements;
       };
 
@@ -306,11 +388,37 @@ const processSingleSource = async (
         output.chunks = chunks;
       }
 
-      if (options.includeTextLayer && output.page_contents) {
-        output.text_layer = buildTextLayer({
+      let textLayer: PdfTextLayer | undefined;
+      if ((options.includeTextLayer || options.includeDocumentMap) && output.page_contents) {
+        textLayer = buildTextLayer({
           selectedPages: pagesToProcess,
           pageContents: output.page_contents,
         });
+        if (options.includeTextLayer) {
+          output.text_layer = textLayer;
+        }
+      }
+
+      let visualEnrichmentCandidates: PdfVisualEnrichmentCandidate[] | undefined;
+      let visualEnrichments: PdfVisualEnrichment[] | undefined;
+      if (options.includeVisualEnrichments && output.page_contents) {
+        const visualElements = buildElementsForOutput(true);
+        const enriched = await buildVisualEnrichmentsForSource({
+          source,
+          sourceDescription,
+          elements: visualElements,
+          pageGeometry,
+          maxVisualEnrichments: options.maxVisualEnrichments,
+        });
+        visualEnrichmentCandidates = enriched.visualEnrichmentCandidates;
+        if (visualEnrichmentCandidates.length > 0) {
+          output.visual_enrichment_candidates = visualEnrichmentCandidates;
+        }
+        visualEnrichments = enriched.visualEnrichments;
+        if (visualEnrichments.length > 0) {
+          output.visual_enrichments = visualEnrichments;
+        }
+        appendOutputWarnings(output, enriched.warnings);
       }
 
       let safetyFindings: PdfSafetyFinding[] | undefined;
@@ -321,30 +429,6 @@ const processSingleSource = async (
         }
       }
 
-      let layoutDiagnostics: PdfPageLayoutDiagnostics[] | undefined;
-      if (options.includeLayoutDiagnostics && output.page_contents) {
-        layoutDiagnostics = buildLayoutDiagnostics(output.page_contents);
-        output.layout_diagnostics = layoutDiagnostics;
-      }
-
-      if (options.includeDocumentMap && output.page_contents) {
-        const mapElements = buildElementsForOutput(true);
-        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
-        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
-        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        output.document_map = buildDocumentMap({
-          totalPages,
-          selectedPages: pagesToProcess,
-          pageContents: output.page_contents,
-          elements: mapElements,
-          chunks,
-          layoutDiagnostics,
-          safetyFindings,
-          pageGeometry,
-          warnings: output.warnings,
-        });
-      }
-
       if (options.includeDocumentAst && output.page_contents) {
         const astElements = buildElementsForOutput(true);
         chunks ??= buildCitationChunks(astElements, { useSemanticBoundaries: true });
@@ -352,6 +436,7 @@ const processSingleSource = async (
           selectedPages: pagesToProcess,
           elements: astElements,
           chunks,
+          visualEnrichments,
           warnings: output.warnings,
         });
       }
@@ -371,17 +456,20 @@ const processSingleSource = async (
         }
       }
 
+      let trustReport: PdfResultData['trust_report'] | undefined;
       if (options.includeTrustReport && output.page_contents) {
         const trustElements = buildElementsForOutput(true);
         safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
         layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
-        output.trust_report = buildTrustReport({
+        trustReport = buildTrustReport({
           selectedPages: pagesToProcess,
           safetyFindings,
           layoutDiagnostics,
           elements: trustElements,
           annotations,
+          redactionPolicy: options.trustReportRedaction,
         });
+        output.trust_report = trustReport;
       }
 
       let structureTrees: PdfPageStructureTree[] | undefined;
@@ -395,9 +483,10 @@ const processSingleSource = async (
         }
       }
 
+      let accessibilityReport: PdfResultData['accessibility_report'] | undefined;
       if (options.includeAccessibilityReport && output.page_contents) {
         const accessibilityElements = buildElementsForOutput(true);
-        output.accessibility_report = buildAccessibilityReport({
+        accessibilityReport = buildAccessibilityReport({
           selectedPages: pagesToProcess,
           elements: accessibilityElements,
           structureTrees,
@@ -406,6 +495,31 @@ const processSingleSource = async (
           permissions: structureOutput.permissions,
           markInfo: structureOutput.mark_info,
           outline: structureOutput.outline,
+        });
+        output.accessibility_report = accessibilityReport;
+      }
+
+      if (options.includeDocumentMap && output.page_contents) {
+        const mapElements = buildElementsForOutput(true);
+        chunks ??= buildCitationChunks(mapElements, { useSemanticBoundaries: true });
+        safetyFindings ??= buildSafetyFindings(output.page_contents, pageGeometry);
+        layoutDiagnostics ??= buildLayoutDiagnostics(output.page_contents);
+        output.document_map = buildDocumentMap({
+          totalPages,
+          selectedPages: pagesToProcess,
+          pageContents: output.page_contents,
+          elements: mapElements,
+          chunks,
+          layoutDiagnostics,
+          safetyFindings,
+          visualEnrichmentCandidates,
+          visualEnrichments,
+          textLayer,
+          ocrTextLayer,
+          trustReport,
+          accessibilityReport,
+          pageGeometry,
+          warnings: output.warnings,
         });
       }
     }
@@ -471,6 +585,7 @@ export const readPdf = tool()
       include_html,
       include_chunks,
       include_text_layer,
+      include_ocr_text_layer,
       include_outline,
       include_annotations,
       include_page_labels,
@@ -483,7 +598,10 @@ export const readPdf = tool()
       include_layout_diagnostics,
       include_document_map,
       include_document_ast,
+      include_visual_enrichments,
+      max_visual_enrichments,
       include_trust_report,
+      trust_report_redaction,
       include_accessibility_report,
     } = input;
 
@@ -503,6 +621,7 @@ export const readPdf = tool()
       includeHtml: include_html ?? false,
       includeChunks: include_chunks ?? false,
       includeTextLayer: include_text_layer ?? false,
+      includeOcrTextLayer: include_ocr_text_layer ?? false,
       includeOutline: include_outline ?? false,
       includeAnnotations: include_annotations ?? false,
       includePageLabels: include_page_labels ?? false,
@@ -515,7 +634,10 @@ export const readPdf = tool()
       includeLayoutDiagnostics: include_layout_diagnostics ?? false,
       includeDocumentMap: include_document_map ?? false,
       includeDocumentAst: include_document_ast ?? false,
+      includeVisualEnrichments: include_visual_enrichments ?? false,
+      maxVisualEnrichments: max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
       includeTrustReport: include_trust_report ?? false,
+      trustReportRedaction: trust_report_redaction ?? 'standard',
       includeAccessibilityReport: include_accessibility_report ?? false,
     };
 
@@ -568,6 +690,7 @@ export const readPdf = tool()
             confidence: tbl.confidence,
             quality: tbl.quality,
             continuation: tbl.continuation,
+            provenance: tbl.provenance,
           }));
         }
 
@@ -604,8 +727,20 @@ export const readPdf = tool()
         }
 
         // Add images for the page
-        for (const img of pageImages) {
-          content.push(image(img.data, 'image/png'));
+        if (options.includeImages) {
+          for (const img of pageImages) {
+            content.push(image(img.data, 'image/png'));
+          }
+        }
+      }
+    }
+
+    for (const result of results) {
+      if (!result.success || !result.data?.ocr_text_layer) continue;
+
+      for (const page of result.data.ocr_text_layer.pages) {
+        if (page.text.trim().length > 0) {
+          content.push(text(`[Page ${String(page.page)} OCR]\n${page.text}`));
         }
       }
     }

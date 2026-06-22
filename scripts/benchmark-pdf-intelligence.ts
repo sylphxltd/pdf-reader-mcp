@@ -3,6 +3,7 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { readPdf } from '../src/handlers/readPdf.js';
 import type { ReadPdfArgs } from '../src/schemas/readPdf.js';
+import { writeBenchmarkReport } from './benchmark-utils.js';
 
 interface BenchmarkCase {
   name: string;
@@ -15,6 +16,14 @@ interface BenchmarkResult {
   average_ms: number;
   min_ms: number;
   max_ms: number;
+}
+
+interface PerformanceBenchmarkReport {
+  profile: 'pdf_performance_benchmark';
+  fixture: string;
+  iterations: number;
+  warmup_iterations: number;
+  results: BenchmarkResult[];
 }
 
 const SAMPLE_PDF_PATH = 'test/fixtures/sample.pdf';
@@ -109,19 +118,20 @@ const main = async () => {
     results.push(await benchmarkCase(benchmark));
   }
 
+  const report: PerformanceBenchmarkReport = {
+    profile: 'pdf_performance_benchmark',
+    fixture: SAMPLE_PDF_PATH,
+    iterations: ITERATIONS,
+    warmup_iterations: WARMUP_ITERATIONS,
+    results,
+  };
+
   console.table(results);
-  console.log(
-    JSON.stringify(
-      {
-        fixture: SAMPLE_PDF_PATH,
-        iterations: ITERATIONS,
-        warmup_iterations: WARMUP_ITERATIONS,
-        results,
-      },
-      null,
-      2
-    )
-  );
+  console.log(JSON.stringify(report, null, 2));
+  const outputPath = await writeBenchmarkReport(report);
+  if (outputPath) {
+    console.error(`Benchmark report written to ${outputPath}`);
+  }
 };
 
 await main();

@@ -23,14 +23,44 @@ const textItem = (
   },
 });
 
+const textItemWithRunMetadata = (
+  textContent: string,
+  left: number,
+  bottom: number,
+  width: number,
+  height: number
+): PageContentItem => {
+  const item = textItem(textContent, left, bottom, width, height);
+  return {
+    ...item,
+    textRuns: [
+      {
+        index: 0,
+        text: textContent,
+        item_char_start: 0,
+        item_char_end: textContent.length,
+        bounding_box: item.bounding_box,
+        font_name: 'g_d0_f1',
+        direction: 'rtl',
+        transform: [1, 0, 0, height, left, bottom],
+        has_eol: false,
+        chars: [],
+      },
+    ],
+  };
+};
+
 describe('textLayer', () => {
-  it('builds line and word records with page-level character ranges and best-effort boxes', () => {
+  it('builds run, line, word, and character records with page-level ranges and estimated boxes', () => {
     const layer = buildTextLayer({
       selectedPages: [1],
       pageContents: [
         {
           page: 1,
-          items: [textItem('Revenue growth', 40, 700, 140, 12), textItem('24% year over year', 40, 680, 170, 12)],
+          items: [
+            textItem('Revenue growth', 40, 700, 140, 12),
+            textItem('24% year over year', 40, 680, 170, 12),
+          ],
         },
       ],
     });
@@ -41,9 +71,12 @@ describe('textLayer', () => {
       summary: {
         selected_pages: [1],
         page_count: 1,
+        run_count: 2,
         line_count: 2,
         word_count: 6,
         char_count: 'Revenue growth\n24% year over year'.length,
+        chars_with_bounding_boxes: 'Revenue growth24% year over year'.length,
+        runs_with_bounding_boxes: 2,
         lines_with_bounding_boxes: 2,
         words_with_bounding_boxes: 6,
       },
@@ -58,8 +91,27 @@ describe('textLayer', () => {
       provenance: {
         engine: 'pdfjs',
         source: 'text-content',
-        bounding_box_level: 'word_estimated',
+        bounding_box_level: 'char_estimated',
       },
+      runs: [
+        {
+          index: 0,
+          text: 'Revenue growth',
+          char_start: 0,
+          char_end: 14,
+          bounding_box: {
+            left: 40,
+            bottom: 700,
+            right: 180,
+            top: 712,
+          },
+          provenance: {
+            engine: 'pdfjs',
+            source: 'text-content',
+            bounding_box_level: 'char_estimated',
+          },
+        },
+      ],
       words: [
         {
           index: 0,
@@ -72,7 +124,8 @@ describe('textLayer', () => {
             right: 110,
             top: 712,
           },
-          confidence: 0.68,
+          bounding_box_level: 'char_estimated',
+          confidence: 0.74,
         },
         {
           index: 1,
@@ -82,6 +135,51 @@ describe('textLayer', () => {
         },
       ],
     });
+    expect(layer.pages[0]?.lines[0]?.chars[0]).toMatchObject({
+      index: 0,
+      text: 'R',
+      char_start: 0,
+      char_end: 1,
+      run_index: 0,
+      is_whitespace: false,
+      bounding_box: {
+        left: 40,
+        bottom: 700,
+        right: 50,
+        top: 712,
+      },
+      bounding_box_level: 'char_estimated',
+      confidence: 0.6,
+    });
     expect(layer.pages[0]?.lines[1]?.char_start).toBe(15);
+  });
+
+  it('summarizes PDF.js text-run metadata coverage', () => {
+    const layer = buildTextLayer({
+      selectedPages: [1],
+      pageContents: [
+        {
+          page: 1,
+          items: [
+            textItemWithRunMetadata('Evidence run', 40, 700, 120, 12),
+            textItem('Fallback run', 40, 680, 120, 12),
+          ],
+        },
+      ],
+    });
+
+    expect(layer.summary).toMatchObject({
+      run_count: 2,
+      runs_with_font_metadata: 1,
+      runs_with_direction_metadata: 1,
+      runs_with_transform_metadata: 1,
+      runs_with_eol_metadata: 1,
+    });
+    expect(layer.pages[0]?.lines[0]?.runs[0]).toMatchObject({
+      font_name: 'g_d0_f1',
+      direction: 'rtl',
+      transform: [1, 0, 0, 12, 40, 700],
+      has_eol: false,
+    });
   });
 });

@@ -17,6 +17,7 @@ export type TableQualitySignal =
   | 'complete_grid'
   | 'missing_cells'
   | 'merged_cell_candidates'
+  | 'incomplete_cell_geometry'
   | 'irregular_row_spacing'
   | 'multi_page_continuation_candidate'
   | 'low_confidence';
@@ -24,12 +25,24 @@ export type TableQualitySignal =
 export interface TableQuality {
   completeness: number;
   nonEmptyCellRatio: number;
+  cellBoundingBoxCoverage: number;
+  inferredCellRatio: number;
   rowAlignment: number;
   rowSpacingConsistency: number;
+  cellBoundingBoxCount: number;
+  inferredCellCount: number;
   missingCellCount: number;
   mergedCellCandidateCount: number;
   signals: TableQualitySignal[];
   warnings?: string[] | undefined;
+}
+
+export type TableExtractionSource = 'selectable_text' | 'ocr_text_layer';
+
+export interface TableExtractionProvenance {
+  source: TableExtractionSource;
+  engine: 'pdfjs' | 'external-command';
+  ocr_source_render_evidence_id?: string | undefined;
 }
 
 export interface TableContinuationCandidate {
@@ -52,4 +65,5 @@ export interface ExtractedTable {
   confidence: number; // 0-1 detection confidence
   quality?: TableQuality | undefined;
   continuation?: TableContinuationCandidate | undefined;
+  provenance?: TableExtractionProvenance | undefined;
 }

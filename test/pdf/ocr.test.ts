@@ -2,6 +2,7 @@ import path from 'node:path';
 import { PNG } from 'pngjs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  buildOcrTextLayer,
   defaultOcrPagesOptions,
   getOcrProviderStatus,
   isOcrProviderConfigured,
@@ -13,6 +14,7 @@ import type { PdfPageRenderData } from '../../src/types/pdf.js';
 const originalCommand = process.env['MCP_PDF_OCR_COMMAND'];
 const originalArgs = process.env['MCP_PDF_OCR_ARGS_JSON'];
 const originalPreset = process.env['MCP_PDF_OCR_PRESET'];
+const originalPath = process.env.PATH;
 
 const restoreEnv = (
   name: 'MCP_PDF_OCR_COMMAND' | 'MCP_PDF_OCR_ARGS_JSON' | 'MCP_PDF_OCR_PRESET',
@@ -55,6 +57,11 @@ describe('ocr', () => {
     restoreEnv('MCP_PDF_OCR_COMMAND', originalCommand);
     restoreEnv('MCP_PDF_OCR_ARGS_JSON', originalArgs);
     restoreEnv('MCP_PDF_OCR_PRESET', originalPreset);
+    if (originalPath === undefined) {
+      Reflect.deleteProperty(process.env, 'PATH');
+    } else {
+      process.env.PATH = originalPath;
+    }
   });
 
   it('should report whether the command OCR provider is configured', () => {
@@ -65,6 +72,8 @@ describe('ocr', () => {
       readiness: 'not_configured',
       provider: 'command',
       command_configured: false,
+      health: 'not_checked',
+      health_check: 'not_checked',
     });
 
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
@@ -73,16 +82,31 @@ describe('ocr', () => {
       readiness: 'ready',
       provider: 'command',
       command_configured: true,
+      health: 'not_checked',
+      health_check: 'not_checked',
     });
 
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
     process.env['MCP_PDF_OCR_PRESET'] = 'tesseract';
+    process.env.PATH = '';
     expect(isOcrProviderConfigured()).toBe(true);
     expect(getOcrProviderStatus()).toMatchObject({
-      readiness: 'ready',
+      readiness: 'unavailable',
       provider: 'command',
       command_configured: false,
+      health: 'unavailable',
+      health_check: 'preset_executable',
       preset: 'tesseract',
+    });
+
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
+    expect(getOcrProviderStatus()).toMatchObject({
+      readiness: 'unavailable',
+      provider: 'command',
+      command_configured: false,
+      health: 'unavailable',
+      health_check: 'preset_executable',
+      preset: 'tesseract-tsv',
     });
   });
 
@@ -95,6 +119,20 @@ describe('ocr', () => {
       command: 'tesseract',
       argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}'],
       preset: 'tesseract',
+      outputFormat: 'plain-text',
+    });
+  });
+
+  it('should resolve the tesseract TSV OCR preset without custom command args', () => {
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_ARGS_JSON');
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
+
+    expect(readCommandProviderConfig()).toEqual({
+      command: 'tesseract',
+      argsTemplate: ['{input}', 'stdout', '-l', '{languages_tesseract}', 'tsv'],
+      preset: 'tesseract-tsv',
+      outputFormat: 'tesseract-tsv',
     });
   });
 
@@ -113,7 +151,12 @@ describe('ocr', () => {
   it('should run the configured command OCR provider and normalize JSON output', async () => {
     const scriptPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
     process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
-    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([scriptPath, '{input}', '{page}', '{languages}']);
+    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([
+      scriptPath,
+      '{input}',
+      '{page}',
+      '{languages}',
+    ]);
 
     const result = await ocrRenderedPageWithCommandProvider(
       buildRenderedPage(),
@@ -142,12 +185,101 @@ describe('ocr', () => {
     });
   });
 
+  it('should run the tesseract TSV preset and normalize word boxes', async () => {
+    const scriptPath = path.resolve(__dirname, '../fixtures/mock-tesseract-tsv-provider.mjs');
+    process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
+    process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
+    process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([
+      scriptPath,
+      '{input}',
+      '{page}',
+      '{languages}',
+    ]);
+
+    const result = await ocrRenderedPageWithCommandProvider(
+      buildRenderedPage(),
+      { source: 'mock.pdf', languages: ['eng'] },
+      defaultOcrPagesOptions()
+    );
+
+    expect(result).toMatchObject({
+      page: 3,
+      text: 'Hello World',
+      confidence: 0.91,
+      language: 'eng',
+      provider: 'command',
+      source_render_evidence_id: 'page-3-render-scale-1',
+      provenance: {
+        engine: 'external-command',
+        source: 'ocr-provider',
+      },
+      words: [
+        {
+          text: 'Hello',
+          confidence: 0.95,
+          bounding_box: { left: 0, bottom: 1, right: 1, top: 2 },
+        },
+        {
+          text: 'World',
+          confidence: 0.87,
+          bounding_box: { left: 1, bottom: 0, right: 2, top: 1 },
+        },
+      ],
+    });
+  });
+
+  it('should build an OCR text layer summary with render provenance', () => {
+    const layer = buildOcrTextLayer(
+      [
+        {
+          page: 2,
+          text: 'Scanned text',
+          confidence: 0.84,
+          words: [
+            {
+              text: 'Scanned',
+              confidence: 0.9,
+              bounding_box: { left: 10, bottom: 700, right: 80, top: 714 },
+            },
+            { text: 'text', confidence: 0.78 },
+          ],
+          provider: 'command',
+          source_render_evidence_id: 'page-2-render-scale-2',
+          provenance: {
+            engine: 'external-command',
+            source: 'ocr-provider',
+          },
+          warnings: ['Low contrast OCR region.'],
+        },
+      ],
+      ['Rendered page 2 for OCR.']
+    );
+
+    expect(layer).toMatchObject({
+      profile: 'ocr_text_layer',
+      summary: {
+        page_count: 1,
+        text_chars: 12,
+        word_count: 2,
+        words_with_bounding_boxes: 1,
+        source_render_count: 1,
+        average_confidence: 0.84,
+      },
+      warnings: ['Rendered page 2 for OCR.', 'Low contrast OCR region.'],
+    });
+  });
+
   it('should fail with a curated error when OCR provider is not configured', async () => {
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_ARGS_JSON');
+    Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_PRESET');
 
     await expect(
-      ocrRenderedPageWithCommandProvider(buildRenderedPage(), { source: 'mock.pdf' }, defaultOcrPagesOptions())
+      ocrRenderedPageWithCommandProvider(
+        buildRenderedPage(),
+        { source: 'mock.pdf' },
+        defaultOcrPagesOptions()
+      )
     ).rejects.toThrow(/OCR provider is not configured/);
   });
 
@@ -156,7 +288,11 @@ describe('ocr', () => {
     process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify(['--version']);
 
     await expect(
-      ocrRenderedPageWithCommandProvider(buildRenderedPage(), { source: 'mock.pdf' }, defaultOcrPagesOptions())
+      ocrRenderedPageWithCommandProvider(
+        buildRenderedPage(),
+        { source: 'mock.pdf' },
+        defaultOcrPagesOptions()
+      )
     ).rejects.toThrow(/\{input\} placeholder/);
   });
 });

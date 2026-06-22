@@ -3,6 +3,7 @@ import { OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildWarnings,
+  extractDocumentStructure,
   extractImages,
   extractMetadataAndPageCount,
   extractPageContent,
@@ -97,7 +98,9 @@ describe('extractor', () => {
       expect(result.metadata).toBeUndefined();
       expect(result.info).toBeUndefined();
       // Logger outputs message first, then structured JSON
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error extracting metadata'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error extracting metadata')
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -114,7 +117,9 @@ describe('extractor', () => {
 
       expect(result.num_pages).toBe(1);
       // Logger outputs message first, then structured JSON
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error extracting metadata'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error extracting metadata')
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -145,6 +150,44 @@ describe('extractor', () => {
     });
   });
 
+  describe('extractDocumentStructure', () => {
+    it('normalizes real PDF.js zero-based form field page indexes to public 1-based pages', async () => {
+      const mockDocument = {
+        getFieldObjects: vi.fn().mockResolvedValue({
+          customer_name: [
+            {
+              id: 'field-1',
+              name: 'customer_name',
+              type: 'text',
+              value: 'Ada Lovelace',
+              page: 0,
+              rect: [20, 30, 220, 50],
+            },
+          ],
+        }),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractDocumentStructure(mockDocument, {
+        includeOutline: false,
+        includePageLabels: false,
+        includePermissions: false,
+        includeFormFields: true,
+        includeAttachments: false,
+      });
+
+      expect(result.form_fields).toEqual([
+        {
+          name: 'customer_name',
+          type: 'text',
+          value: 'Ada Lovelace',
+          page: 1,
+          id: 'field-1',
+          bounding_box: { left: 20, bottom: 30, right: 220, top: 50 },
+        },
+      ]);
+    });
+  });
+
   describe('extractPageTexts', () => {
     let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -168,7 +211,9 @@ describe('extractor', () => {
       const mockDocument = {
         getPage: vi
           .fn()
-          .mockImplementation((pageNum: number) => Promise.resolve(pageNum === 1 ? mockPage1 : mockPage2)),
+          .mockImplementation((pageNum: number) =>
+            Promise.resolve(pageNum === 1 ? mockPage1 : mockPage2)
+          ),
       } as unknown as pdfjsLib.PDFDocumentProxy;
 
       const result = await extractPageTexts(mockDocument, [1, 2], 'test.pdf');
@@ -189,7 +234,9 @@ describe('extractor', () => {
       // The page-text payload returned to the LLM must carry only the
       // sanitized placeholder — the raw error text stays in logs.
       expect(result).toEqual([{ page: 1, text: '[Error processing page 1]' }]);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error getting text content for page'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error getting text content for page')
+      );
     });
 
     it('should handle non-Error page exceptions with a sanitized placeholder (SSS-02)', async () => {
@@ -244,8 +291,182 @@ describe('extractor', () => {
 
       const result = await extractPageContent(mockDocument, 1, false, 'two-column.pdf');
 
-      expect(result.map((item) => item.textContent)).toEqual(['Title', 'Left 1', 'Left 2', 'Right 1', 'Right 2']);
+      expect(result.map((item) => item.textContent)).toEqual([
+        'Title',
+        'Left 1',
+        'Left 2',
+        'Right 1',
+        'Right 2',
+      ]);
       expect(result[1]?.bounding_box).toEqual({ left: 50, bottom: 700, right: 100, top: 710 });
+    });
+
+    it('should preserve right-to-left text-run order within rows and columns', async () => {
+      const mockPage = {
+        getTextContent: vi.fn().mockResolvedValue({
+          items: [
+            {
+              str: 'left top',
+              transform: [1, 0, 0, 10, 40, 700],
+              width: 60,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'right top',
+              transform: [1, 0, 0, 10, 240, 700],
+              width: 70,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'left lower',
+              transform: [1, 0, 0, 10, 40, 680],
+              width: 70,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'right lower',
+              transform: [1, 0, 0, 10, 240, 680],
+              width: 80,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'row left',
+              transform: [1, 0, 0, 10, 40, 650],
+              width: 64,
+              height: 10,
+              dir: 'rtl',
+            },
+            {
+              str: 'row right',
+              transform: [1, 0, 0, 10, 118, 650],
+              width: 70,
+              height: 10,
+              dir: 'rtl',
+            },
+          ],
+        }),
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageContent(mockDocument, 1, false, 'rtl-layout.pdf');
+
+      expect(result.map((item) => item.textContent)).toEqual([
+        'right top',
+        'right lower',
+        'left top',
+        'left lower',
+        'row rightrow left',
+      ]);
+      expect(result[4]?.textRuns?.map((run) => run.text)).toEqual(['row right', 'row left']);
+    });
+
+    it('should preserve recursive reading order across spanning section bands', async () => {
+      const mockPage = {
+        getTextContent: vi.fn().mockResolvedValue({
+          items: [
+            { str: 'Title', transform: [1, 0, 0, 12, 50, 760], width: 500, height: 12 },
+            { str: 'A Left 1', transform: [1, 0, 0, 10, 50, 700], width: 70, height: 10 },
+            { str: 'A Right 1', transform: [1, 0, 0, 10, 300, 700], width: 75, height: 10 },
+            { str: 'A Left 2', transform: [1, 0, 0, 10, 50, 680], width: 70, height: 10 },
+            { str: 'A Right 2', transform: [1, 0, 0, 10, 300, 680], width: 75, height: 10 },
+            { str: 'Section B', transform: [1, 0, 0, 12, 50, 610], width: 500, height: 12 },
+            { str: 'B Left 1', transform: [1, 0, 0, 10, 50, 550], width: 70, height: 10 },
+            { str: 'B Right 1', transform: [1, 0, 0, 10, 300, 550], width: 75, height: 10 },
+            { str: 'B Left 2', transform: [1, 0, 0, 10, 50, 530], width: 70, height: 10 },
+            { str: 'B Right 2', transform: [1, 0, 0, 10, 300, 530], width: 75, height: 10 },
+            { str: 'Footer', transform: [1, 0, 0, 10, 50, 80], width: 120, height: 10 },
+          ],
+        }),
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageContent(mockDocument, 1, false, 'recursive-layout.pdf');
+
+      expect(result.map((item) => item.textContent)).toEqual([
+        'Title',
+        'A Left 1',
+        'A Left 2',
+        'A Right 1',
+        'A Right 2',
+        'Section B',
+        'B Left 1',
+        'B Left 2',
+        'B Right 1',
+        'B Right 2',
+        'Footer',
+      ]);
+    });
+
+    it('should preserve text-run and estimated character evidence from PDF.js text items', async () => {
+      const mockPage = {
+        getTextContent: vi.fn().mockResolvedValue({
+          items: [
+            {
+              str: 'Risk',
+              transform: [1, 0, 0, 12, 40, 700],
+              width: 48,
+              height: 12,
+              fontName: 'g_d0_f1',
+              dir: 'ltr',
+              hasEOL: false,
+            },
+          ],
+        }),
+        getOperatorList: vi.fn().mockResolvedValue({
+          fnArray: [],
+          argsArray: [],
+        }),
+      };
+
+      const mockDocument = {
+        getPage: vi.fn().mockResolvedValue(mockPage),
+      } as unknown as pdfjsLib.PDFDocumentProxy;
+
+      const result = await extractPageContent(mockDocument, 1, false, 'evidence.pdf');
+
+      expect(result[0]).toMatchObject({
+        textContent: 'Risk',
+        bounding_box: { left: 40, bottom: 700, right: 88, top: 712 },
+        textRuns: [
+          {
+            index: 0,
+            text: 'Risk',
+            item_char_start: 0,
+            item_char_end: 4,
+            bounding_box: { left: 40, bottom: 700, right: 88, top: 712 },
+            font_name: 'g_d0_f1',
+            direction: 'ltr',
+            transform: [1, 0, 0, 12, 40, 700],
+            has_eol: false,
+          },
+        ],
+      });
+      expect(result[0]?.textRuns?.[0]?.chars[0]).toMatchObject({
+        index: 0,
+        text: 'R',
+        item_char_start: 0,
+        item_char_end: 1,
+        bounding_box: { left: 40, bottom: 700, right: 52, top: 712 },
+        confidence: 0.74,
+      });
     });
   });
 
@@ -406,7 +627,9 @@ describe('extractor', () => {
 
       expect(result).toEqual([]);
       // Logger outputs message first, then structured JSON
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error getting page for image extraction'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error getting page for image extraction')
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -556,7 +779,9 @@ it('should handle getOperatorList errors', async () => {
 
   expect(result).toEqual([]);
   // Logger outputs message first, then structured JSON
-  expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error extracting images from page'));
+  expect(consoleWarnSpy).toHaveBeenCalledWith(
+    expect.stringContaining('Error extracting images from page')
+  );
 
   consoleWarnSpy.mockRestore();
 });

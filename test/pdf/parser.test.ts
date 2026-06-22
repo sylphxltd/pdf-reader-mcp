@@ -24,7 +24,9 @@ describe('parser', () => {
       expect(result[0]).toBe(1);
       expect(result[result.length - 1]).toBe(10001);
       // Logger outputs message first, then structured JSON
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Open-ended range truncated'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Open-ended range truncated')
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -76,12 +78,16 @@ describe('parser', () => {
 
     it('should throw PdfError on invalid page numbers in array', () => {
       expect(() => getTargetPages([1, 0, 3], 'test.pdf')).toThrow(PdfError);
-      expect(() => getTargetPages([1, 0, 3], 'test.pdf')).toThrow('Invalid page specification for source test.pdf');
+      expect(() => getTargetPages([1, 0, 3], 'test.pdf')).toThrow(
+        'Invalid page specification for source test.pdf'
+      );
     });
 
     it('should throw PdfError on non-integer page numbers', () => {
       expect(() => getTargetPages([1, 2.5, 3], 'test.pdf')).toThrow(PdfError);
-      expect(() => getTargetPages([1, 2.5, 3], 'test.pdf')).toThrow('Page numbers in array must be positive integers');
+      expect(() => getTargetPages([1, 2.5, 3], 'test.pdf')).toThrow(
+        'Page numbers in array must be positive integers'
+      );
     });
 
     it('should throw PdfError on negative page numbers', () => {
@@ -90,7 +96,9 @@ describe('parser', () => {
 
     it('should throw PdfError when result is empty after deduplication', () => {
       expect(() => getTargetPages([], 'test.pdf')).toThrow(PdfError);
-      expect(() => getTargetPages([], 'test.pdf')).toThrow('Page specification resulted in an empty set of pages');
+      expect(() => getTargetPages([], 'test.pdf')).toThrow(
+        'Page specification resulted in an empty set of pages'
+      );
     });
 
     it('should throw PdfError with proper error code', () => {

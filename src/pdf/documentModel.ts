@@ -12,6 +12,7 @@ import type {
   PdfTextSemanticHint,
   PdfTextSemanticRole,
 } from '../types/pdf.js';
+import { hasSemanticCaptionPrefix } from './semanticPatterns.js';
 import { tablesToMarkdown } from './tableExtractor.js';
 
 const DEFAULT_CHUNK_MAX_CHARS = 1800;
@@ -19,6 +20,23 @@ const LAYOUT_COLUMN_MIN_GAP = 48;
 const LAYOUT_COLUMN_MIN_GAP_RATIO = 0.14;
 const LAYOUT_SPANNING_WIDTH_RATIO = 0.72;
 const LAYOUT_POSITIONED_RATIO_WARNING = 0.8;
+const SEMANTIC_PAGE_EDGE_ZONE_RATIO = 0.08;
+const SEMANTIC_PAGE_EDGE_MIN_POINTS = 36;
+const SAFETY_TEXT_OVERLAP_RATIO = 0.65;
+const SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE = 10;
+const SAFETY_HIDDEN_TEXT_MAX_DIMENSION = 0.5;
+const SAFETY_HIDDEN_TEXT_MAX_AREA = 1;
+const FOOTER_PATTERN =
+  /^(?:page\s*)?\d+\s*(?:\/|of)\s*\d+$|^page\s+\d+$|copyright|all rights reserved/iu;
+const HEADER_PATTERN = /\b(?:confidential|draft|internal|prepared\s+(?:for|by))\b/iu;
+const LIST_PREFIX_PATTERN =
+  /^(?:[-*\u2022\u25e6\u25aa\u25ab\u2013\u2014]\s+|(?:\[[ xX]\]|\u2610|\u2611)\s+|(?:\d+|[a-z]|[ivxlcdm]+)[.)]\s+)/iu;
+const NUMBERED_SECTION_HEADING_PATTERN = /^(\d+(?:\.\d+)*)(?:\.)?\s+(.+)$/u;
+const ROMAN_SECTION_HEADING_PATTERN = /^([IVXLCDM]+)\.\s+(.+)$/u;
+const NAMED_SECTION_HEADING_PATTERN =
+  /^(appendix|chapter|section|part)\s+([A-Z0-9]+(?:\.\d+)*)(?:\s*[:.\u2013\u2014-]|\s+)\s*(.+)$/iu;
+const SENTENCE_END_PATTERN = /[.!?]$/u;
+const HEADING_WORD_START_PATTERN = /^[\p{Lu}\d]/u;
 
 const buildElementId = (page: number, type: PdfDocumentElement['type'], index: number): string =>
   `p${String(page)}-${type}-${String(index)}`;
@@ -32,16 +50,85 @@ interface PageTextStats {
   maxHeight: number;
   medianHeight: number;
   textItemCount: number;
+  hasPageGeometry: boolean;
+  pageLeft: number;
+  pageRight: number;
+  pageBottom: number;
+  pageTop: number;
 }
 
-const buildPageTextStats = (items: PageContentItem[]): PageTextStats => {
+const pageGeometryByPage = (
+  pageGeometry: PdfPageGeometry[] | undefined
+): Map<number, PdfPageGeometry> => {
+  const index = new Map<number, PdfPageGeometry>();
+
+  for (const geometry of pageGeometry ?? []) {
+    index.set(geometry.page, geometry);
+  }
+
+  return index;
+};
+
+const pageBoundsFromGeometry = (
+  geometry: PdfPageGeometry | undefined
+):
+  | Pick<PageTextStats, 'hasPageGeometry' | 'pageLeft' | 'pageRight' | 'pageBottom' | 'pageTop'>
+  | undefined => {
+  if (!geometry) return undefined;
+
+  const left = geometry.view_box?.left ?? 0;
+  const right = geometry.view_box?.right ?? geometry.width;
+  const bottom = geometry.view_box?.bottom ?? 0;
+  const top = geometry.view_box?.top ?? geometry.height;
+  if (
+    !Number.isFinite(left) ||
+    !Number.isFinite(right) ||
+    !Number.isFinite(bottom) ||
+    !Number.isFinite(top) ||
+    right <= left ||
+    top <= bottom
+  ) {
+    return undefined;
+  }
+
+  return {
+    hasPageGeometry: true,
+    pageLeft: left,
+    pageRight: right,
+    pageBottom: bottom,
+    pageTop: top,
+  };
+};
+
+const contentBounds = (
+  items: PageContentItem[]
+): Pick<PageTextStats, 'hasPageGeometry' | 'pageLeft' | 'pageRight' | 'pageBottom' | 'pageTop'> => {
+  const boxes = items.map((item) => item.bounding_box).filter((box) => box !== undefined);
+  if (boxes.length === 0) {
+    return { hasPageGeometry: false, pageLeft: 0, pageRight: 0, pageBottom: 0, pageTop: 0 };
+  }
+
+  return {
+    hasPageGeometry: false,
+    pageLeft: Math.min(...boxes.map((box) => box.left)),
+    pageRight: Math.max(...boxes.map((box) => box.right)),
+    pageBottom: Math.min(...boxes.map((box) => box.bottom)),
+    pageTop: Math.max(...boxes.map((box) => box.top)),
+  };
+};
+
+const buildPageTextStats = (
+  items: PageContentItem[],
+  geometry?: PdfPageGeometry | undefined
+): PageTextStats => {
+  const bounds = pageBoundsFromGeometry(geometry) ?? contentBounds(items);
   const heights = items
     .filter((item) => item.type === 'text' && item.textContent?.trim() && item.height)
     .map((item) => item.height as number)
     .sort((a, b) => a - b);
 
   if (heights.length === 0) {
-    return { maxHeight: 0, medianHeight: 0, textItemCount: 0 };
+    return { maxHeight: 0, medianHeight: 0, textItemCount: 0, ...bounds };
   }
 
   const midpoint = Math.floor(heights.length / 2);
@@ -54,7 +141,101 @@ const buildPageTextStats = (items: PageContentItem[]): PageTextStats => {
     maxHeight: heights.at(-1) ?? 0,
     medianHeight,
     textItemCount: heights.length,
+    ...bounds,
   };
+};
+
+const compactTextHeight = (height: number, stats: PageTextStats): boolean => {
+  if (height <= 0) return false;
+  if (stats.medianHeight <= 0) return height <= 12;
+
+  return height <= Math.max(stats.medianHeight * 1.25, stats.medianHeight + 2);
+};
+
+const pageEdgeRole = (
+  item: PageContentItem,
+  textContent: string,
+  stats: PageTextStats
+): PdfTextSemanticHint | undefined => {
+  if (!stats.hasPageGeometry || !item.bounding_box) return undefined;
+
+  const pageHeight = stats.pageTop - stats.pageBottom;
+  if (pageHeight <= 0) return undefined;
+
+  const edgeZone = Math.max(
+    SEMANTIC_PAGE_EDGE_MIN_POINTS,
+    pageHeight * SEMANTIC_PAGE_EDGE_ZONE_RATIO
+  );
+  const nearTop = item.bounding_box.top >= stats.pageTop - edgeZone;
+  const nearBottom = item.bounding_box.bottom <= stats.pageBottom + edgeZone;
+  const withinHorizontalPage =
+    item.bounding_box.left >= stats.pageLeft - 4 && item.bounding_box.right <= stats.pageRight + 4;
+  const height = item.height ?? item.bounding_box.top - item.bounding_box.bottom;
+  const compact = compactTextHeight(height, stats);
+  const shortLine = textContent.length <= 140;
+  const footerPattern = FOOTER_PATTERN.test(textContent);
+
+  if (nearBottom && withinHorizontalPage && shortLine && footerPattern) {
+    return {
+      role: 'footer',
+      confidence: 0.88,
+      signals: ['page-bottom-band', ...(compact ? ['compact-edge-text'] : []), 'footer-pattern'],
+    };
+  }
+
+  if (nearTop && withinHorizontalPage && shortLine && compact && HEADER_PATTERN.test(textContent)) {
+    return {
+      role: 'header',
+      confidence: 0.82,
+      signals: ['page-top-band', 'compact-edge-text', 'header-pattern'],
+    };
+  }
+
+  return undefined;
+};
+
+const titleLikeHeadingText = (text: string): boolean => {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 120 || SENTENCE_END_PATTERN.test(trimmed)) return false;
+
+  return HEADING_WORD_START_PATTERN.test(trimmed);
+};
+
+const numberedSectionLevel = (label: string): number =>
+  Math.min(Math.max(label.split('.').filter(Boolean).length, 1), 6);
+
+const sectionHeadingRole = (textContent: string): PdfTextSemanticHint | undefined => {
+  const namedMatch = textContent.match(NAMED_SECTION_HEADING_PATTERN);
+  if (namedMatch?.[3] && titleLikeHeadingText(namedMatch[3])) {
+    return {
+      role: 'heading',
+      level: 1,
+      confidence: 0.84,
+      signals: ['section-heading-pattern', 'named-section-prefix', 'short-line'],
+    };
+  }
+
+  const numberedMatch = textContent.match(NUMBERED_SECTION_HEADING_PATTERN);
+  if (numberedMatch?.[1] && numberedMatch[2] && titleLikeHeadingText(numberedMatch[2])) {
+    return {
+      role: 'heading',
+      level: numberedSectionLevel(numberedMatch[1]),
+      confidence: 0.84,
+      signals: ['section-heading-pattern', 'numbered-section-prefix', 'short-line'],
+    };
+  }
+
+  const romanMatch = textContent.match(ROMAN_SECTION_HEADING_PATTERN);
+  if (romanMatch?.[2] && titleLikeHeadingText(romanMatch[2])) {
+    return {
+      role: 'heading',
+      level: 1,
+      confidence: 0.82,
+      signals: ['section-heading-pattern', 'roman-section-prefix', 'short-line'],
+    };
+  }
+
+  return undefined;
 };
 
 export const buildSemanticHint = (
@@ -64,7 +245,21 @@ export const buildSemanticHint = (
   if (item.type !== 'text' || !item.textContent?.trim()) return undefined;
 
   const textContent = item.textContent.trim();
-  if (/^([-*]\s+|\d+[.)]\s+)/.test(textContent)) {
+  if (hasSemanticCaptionPrefix(textContent)) {
+    return {
+      role: 'caption',
+      confidence: 0.86,
+      signals: ['caption-prefix'],
+    };
+  }
+
+  const edgeRole = pageEdgeRole(item, textContent, stats);
+  if (edgeRole) return edgeRole;
+
+  const headingRole = sectionHeadingRole(textContent);
+  if (headingRole) return headingRole;
+
+  if (LIST_PREFIX_PATTERN.test(textContent)) {
     return {
       role: 'list_item',
       confidence: 0.92,
@@ -74,7 +269,7 @@ export const buildSemanticHint = (
 
   const height = item.height ?? 0;
   const isShortLine = textContent.length <= 120;
-  const endsLikeSentence = /[.!?]$/.test(textContent);
+  const endsLikeSentence = SENTENCE_END_PATTERN.test(textContent);
   const isLargeText =
     stats.textItemCount > 1 &&
     height > 0 &&
@@ -141,10 +336,12 @@ export const contentItemToElement = (
 export const buildStructuredElements = (
   pageContents: Array<{ page: number; items: PageContentItem[] }>,
   tables: ExtractedTable[] | undefined,
-  includeSemanticHints: boolean
+  includeSemanticHints: boolean,
+  pageGeometry?: PdfPageGeometry[] | undefined
 ): PdfDocumentElement[] => {
   const elements: PdfDocumentElement[] = [];
   const tablesByPage = new Map<number, ExtractedTable[]>();
+  const geometryByPage = pageGeometryByPage(pageGeometry);
 
   for (const table of tables ?? []) {
     const pageTables = tablesByPage.get(table.page) ?? [];
@@ -166,18 +363,28 @@ export const buildStructuredElements = (
         confidence: table.confidence,
         ...(table.quality ? { quality: table.quality } : {}),
         ...(table.continuation ? { continuation: table.continuation } : {}),
+        ...(table.provenance ? { provenance: table.provenance } : {}),
       },
       bounding_box: table.bounding_box,
       confidence: table.confidence,
-      provenance: {
-        engine: 'pdfjs',
-        source: 'table-detector',
-      },
+      provenance:
+        table.provenance?.source === 'ocr_text_layer'
+          ? {
+              engine: 'external-command',
+              source: 'ocr-table-detector',
+              ocr_source_render_evidence_id: table.provenance.ocr_source_render_evidence_id,
+            }
+          : {
+              engine: 'pdfjs',
+              source: 'table-detector',
+            },
     });
   };
 
   for (const pageContent of pageContents) {
-    const stats = includeSemanticHints ? buildPageTextStats(pageContent.items) : undefined;
+    const stats = includeSemanticHints
+      ? buildPageTextStats(pageContent.items, geometryByPage.get(pageContent.page))
+      : undefined;
     let elementIndex = 1;
     for (const item of pageContent.items) {
       const semanticHint = stats ? buildSemanticHint(item, stats) : undefined;
@@ -657,6 +864,23 @@ const snippetFromText = (value: string): string => {
   return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
 };
 
+const normalizeSafetyText = (value: string): string =>
+  value.replace(/\s+/g, ' ').trim().toLowerCase();
+
+const mergeBoxes = (
+  first: PageContentItem['bounding_box'],
+  second: PageContentItem['bounding_box']
+): PageContentItem['bounding_box'] | undefined => {
+  if (!first || !second) return first ?? second;
+
+  return {
+    left: Math.min(first.left, second.left),
+    bottom: Math.min(first.bottom, second.bottom),
+    right: Math.max(first.right, second.right),
+    top: Math.max(first.top, second.top),
+  };
+};
+
 const isOutsideViewBox = (
   box: PageContentItem['bounding_box'],
   viewBox: PdfPageGeometry['view_box']
@@ -671,6 +895,27 @@ const isOutsideViewBox = (
   );
 };
 
+const dimensionValue = (value: number | undefined): number | undefined =>
+  value !== undefined && Number.isFinite(value) ? value : undefined;
+
+const hasHiddenTextGeometry = (item: PageContentItem): boolean => {
+  if (item.type !== 'text' || !item.textContent?.trim()) return false;
+
+  const box = item.bounding_box;
+  const width = dimensionValue(item.width) ?? (box ? box.right - box.left : undefined);
+  const height = dimensionValue(item.height) ?? (box ? box.top - box.bottom : undefined);
+  const area =
+    box !== undefined
+      ? Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom)
+      : undefined;
+
+  return (
+    (width !== undefined && width <= SAFETY_HIDDEN_TEXT_MAX_DIMENSION) ||
+    (height !== undefined && height <= SAFETY_HIDDEN_TEXT_MAX_DIMENSION) ||
+    (area !== undefined && area <= SAFETY_HIDDEN_TEXT_MAX_AREA)
+  );
+};
+
 export const buildSafetyFindings = (
   pageContents: Array<{ page: number; items: PageContentItem[] }>,
   pageGeometry: PdfPageGeometry[] | undefined
@@ -681,6 +926,12 @@ export const buildSafetyFindings = (
   for (const pageContent of pageContents) {
     let elementIndex = 1;
     const geometry = geometryByPage.get(pageContent.page);
+    const textCandidates: Array<{
+      element_id: string;
+      text: string;
+      snippet: string;
+      bounding_box: NonNullable<PageContentItem['bounding_box']>;
+    }> = [];
 
     for (const item of pageContent.items) {
       const element = contentItemToElement(item, pageContent.page, elementIndex);
@@ -691,6 +942,14 @@ export const buildSafetyFindings = (
       if (element.type === 'text') {
         const textContent = element.content.trim();
         const snippet = snippetFromText(textContent);
+        if (element.bounding_box) {
+          textCandidates.push({
+            element_id: element.id,
+            text: textContent,
+            snippet,
+            bounding_box: element.bounding_box,
+          });
+        }
 
         if (PROMPT_INJECTION_PATTERNS.some((pattern) => pattern.test(textContent))) {
           findings.push({
@@ -699,6 +958,19 @@ export const buildSafetyFindings = (
             page: pageContent.page,
             element_id: element.id,
             message: 'Text matches a common prompt-injection instruction pattern.',
+            snippet,
+            ...(element.bounding_box ? { bounding_box: element.bounding_box } : {}),
+          });
+        }
+
+        if (hasHiddenTextGeometry(item)) {
+          findings.push({
+            type: 'hidden_text',
+            severity: 'high',
+            page: pageContent.page,
+            element_id: element.id,
+            message:
+              'Text has zero or near-zero geometry and may be hidden or visually unavailable in the rendered page.',
             snippet,
             ...(element.bounding_box ? { bounding_box: element.bounding_box } : {}),
           });
@@ -730,6 +1002,40 @@ export const buildSafetyFindings = (
       }
 
       elementIndex++;
+    }
+
+    let overlapFindingCount = 0;
+    for (let i = 0; i < textCandidates.length; i++) {
+      if (overlapFindingCount >= SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE) break;
+
+      for (let j = i + 1; j < textCandidates.length; j++) {
+        if (overlapFindingCount >= SAFETY_MAX_OVERLAP_FINDINGS_PER_PAGE) break;
+
+        const first = textCandidates[i];
+        const second = textCandidates[j];
+        if (!first || !second) continue;
+
+        const smallerArea = Math.min(boxArea(first.bounding_box), boxArea(second.bounding_box));
+        if (smallerArea <= 0) continue;
+
+        const overlapRatio = overlapArea(first.bounding_box, second.bounding_box) / smallerArea;
+        if (overlapRatio < SAFETY_TEXT_OVERLAP_RATIO) continue;
+
+        const differentText = normalizeSafetyText(first.text) !== normalizeSafetyText(second.text);
+        const boundingBox = mergeBoxes(first.bounding_box, second.bounding_box);
+        findings.push({
+          type: 'overlapping_text',
+          severity: differentText ? 'high' : 'medium',
+          page: pageContent.page,
+          element_id: second.element_id,
+          message: differentText
+            ? 'Text substantially overlaps different text, which may visually spoof or obscure content.'
+            : 'Text substantially overlaps another text item; verify rendered evidence before citation-critical use.',
+          snippet: snippetFromText(`${first.snippet} / ${second.snippet}`),
+          ...(boundingBox ? { bounding_box: boundingBox } : {}),
+        });
+        overlapFindingCount++;
+      }
     }
   }
 

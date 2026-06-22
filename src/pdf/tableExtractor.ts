@@ -5,7 +5,10 @@ import type {
   BoundingBox,
   ExtractedTable,
   PageContentItem,
+  PdfOcrPageData,
+  PdfOcrTextLayer,
   TableCell,
+  TableExtractionProvenance,
   TableQuality,
   TableQualitySignal,
 } from '../types/pdf.js';
@@ -19,6 +22,10 @@ const COLUMN_GAP_THRESHOLD = 15; // Minimum gap between columns
 const MIN_ROWS = 2; // Minimum rows to consider as a table
 const MIN_COLS = 2; // Minimum columns to consider as a table
 const MIN_ROW_ITEMS = 2; // Minimum items per row to consider for table detection
+const PAGE_EDGE_CONTINUATION_BOTTOM_Y = 120;
+const PAGE_EDGE_CONTINUATION_TOP_Y = 500;
+const COLUMN_GEOMETRY_TOLERANCE = 24;
+const CONTINUATION_MIN_GEOMETRY_SIMILARITY = 0.8;
 
 /**
  * Text item with position extracted from PDF
@@ -58,6 +65,15 @@ interface AssignedCellAccumulator {
 const tableId = (table: Pick<ExtractedTable, 'page' | 'tableIndex'>): string =>
   `p${table.page}-table-${table.tableIndex + 1}`;
 
+const tableKey = (page: number, tableIndex: number): string => `${page}:${tableIndex}`;
+
+const tableKeyFromId = (id: string | undefined): string | undefined => {
+  const match = /^p(\d+)-table-(\d+)$/u.exec(id ?? '');
+  if (!match?.[1] || !match[2]) return undefined;
+
+  return tableKey(Number(match[1]), Number(match[2]) - 1);
+};
+
 const roundRatio = (value: number): number => Math.round(value * 100) / 100;
 
 const buildBoundingBox = (
@@ -87,6 +103,120 @@ const mergeBoundingBoxes = (boxes: BoundingBox[]): BoundingBox | undefined => {
     right: Math.max(...boxes.map((box) => box.right)),
     top: Math.max(...boxes.map((box) => box.top)),
   };
+};
+
+const boundingBoxArea = (box: BoundingBox): number =>
+  Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom);
+
+const boundingBoxIntersectionArea = (a: BoundingBox, b: BoundingBox): number => {
+  const left = Math.max(a.left, b.left);
+  const right = Math.min(a.right, b.right);
+  const bottom = Math.max(a.bottom, b.bottom);
+  const top = Math.min(a.top, b.top);
+
+  return Math.max(0, right - left) * Math.max(0, top - bottom);
+};
+
+const tableOverlapRatio = (a: ExtractedTable, b: ExtractedTable): number => {
+  if (!a.bounding_box || !b.bounding_box) return 0;
+
+  const intersection = boundingBoxIntersectionArea(a.bounding_box, b.bounding_box);
+  const smallestArea = Math.min(boundingBoxArea(a.bounding_box), boundingBoxArea(b.bounding_box));
+
+  return smallestArea > 0 ? intersection / smallestArea : 0;
+};
+
+const isLikelyDuplicateTable = (
+  selectableTable: ExtractedTable,
+  ocrTable: ExtractedTable
+): boolean =>
+  selectableTable.page === ocrTable.page && tableOverlapRatio(selectableTable, ocrTable) >= 0.6;
+
+const rebaseOcrTableContinuation = (
+  table: ExtractedTable,
+  newIdByOldKey: Map<string, string>,
+  oldId: string,
+  newId: string
+): ExtractedTable => {
+  if (!table.continuation) return table;
+
+  const previousTableId =
+    newIdByOldKey.get(tableKeyFromId(table.continuation.previousTableId) ?? '') ??
+    table.continuation.previousTableId;
+  const nextTableId =
+    newIdByOldKey.get(tableKeyFromId(table.continuation.nextTableId) ?? '') ??
+    table.continuation.nextTableId;
+  const groupEndpoints = previousTableId
+    ? [previousTableId, newId]
+    : nextTableId
+      ? [newId, nextTableId]
+      : undefined;
+
+  return {
+    ...table,
+    continuation: {
+      ...table.continuation,
+      groupId: groupEndpoints
+        ? `table-continuation-${groupEndpoints[0]}-${groupEndpoints[1]}`
+        : table.continuation.groupId.replace(oldId, newId),
+      ...(previousTableId ? { previousTableId } : {}),
+      ...(nextTableId ? { nextTableId } : {}),
+    },
+  };
+};
+
+const reindexOcrTablesAfterSelectableTables = (
+  selectableTables: ExtractedTable[],
+  ocrTables: ExtractedTable[]
+): ExtractedTable[] => {
+  const maxSelectableIndexByPage = new Map<number, number>();
+  for (const table of selectableTables) {
+    maxSelectableIndexByPage.set(
+      table.page,
+      Math.max(maxSelectableIndexByPage.get(table.page) ?? -1, table.tableIndex)
+    );
+  }
+
+  const nextOcrOrdinalByPage = new Map<number, number>();
+  const newIdByOldKey = new Map<string, string>();
+  const indexedTables = ocrTables.map((table) => {
+    const oldId = tableId(table);
+    const oldKey = tableKey(table.page, table.tableIndex);
+    const ordinal = nextOcrOrdinalByPage.get(table.page) ?? 0;
+    nextOcrOrdinalByPage.set(table.page, ordinal + 1);
+
+    const baseIndex = maxSelectableIndexByPage.get(table.page);
+    const tableIndex = baseIndex === undefined ? table.tableIndex : baseIndex + 1 + ordinal;
+    const indexedTable = tableIndex === table.tableIndex ? table : { ...table, tableIndex };
+    newIdByOldKey.set(oldKey, tableId(indexedTable));
+
+    return {
+      oldId,
+      table: indexedTable,
+    };
+  });
+
+  return indexedTables.map(({ oldId, table }) =>
+    rebaseOcrTableContinuation(table, newIdByOldKey, oldId, tableId(table))
+  );
+};
+
+export const mergeTableExtractionEvidence = (
+  selectableTables: ExtractedTable[],
+  ocrTables: ExtractedTable[]
+): ExtractedTable[] => {
+  const distinctOcrTables = ocrTables.filter(
+    (ocrTable) =>
+      !selectableTables.some((selectableTable) => isLikelyDuplicateTable(selectableTable, ocrTable))
+  );
+  const indexedOcrTables = reindexOcrTablesAfterSelectableTables(
+    selectableTables,
+    distinctOcrTables
+  );
+
+  return [...selectableTables, ...indexedOcrTables].sort(
+    (a, b) => a.page - b.page || a.tableIndex - b.tableIndex
+  );
 };
 
 /**
@@ -349,9 +479,14 @@ const buildTableQuality = (
   confidence: number
 ): TableQuality => {
   const nonEmptyCellCount = cells.filter((cell) => cell.text.trim().length > 0).length;
+  const cellBoundingBoxCount = cells.filter((cell) => cell.bounding_box !== undefined).length;
+  const inferredCellCount = cells.filter((cell) => cell.inferred === true).length;
   const missingCellCount = Math.max(0, cells.length - nonEmptyCellCount);
   const mergedCellCandidateCount = cells.filter((cell) => (cell.colSpan ?? 1) > 1).length;
   const nonEmptyCellRatio = cells.length > 0 ? roundRatio(nonEmptyCellCount / cells.length) : 0;
+  const cellBoundingBoxCoverage =
+    cells.length > 0 ? roundRatio(cellBoundingBoxCount / cells.length) : 0;
+  const inferredCellRatio = cells.length > 0 ? roundRatio(inferredCellCount / cells.length) : 0;
   const rowAlignment = calculateRowAlignment(rows, columnBoundaries);
   const spacingConsistency = rowSpacingConsistency(rows);
   const completeness = roundRatio(nonEmptyCellRatio * rowAlignment);
@@ -371,6 +506,13 @@ const buildTableQuality = (
     warnings.push('Detected cells whose text boxes cross column boundaries; spans are inferred.');
   }
 
+  if (cellBoundingBoxCoverage < 1) {
+    signals.push('incomplete_cell_geometry');
+    warnings.push(
+      'Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters.'
+    );
+  }
+
   if (spacingConsistency < 0.75) {
     signals.push('irregular_row_spacing');
     warnings.push(
@@ -388,8 +530,12 @@ const buildTableQuality = (
   return {
     completeness,
     nonEmptyCellRatio,
+    cellBoundingBoxCoverage,
+    inferredCellRatio,
     rowAlignment,
     rowSpacingConsistency: spacingConsistency,
+    cellBoundingBoxCount,
+    inferredCellCount,
     missingCellCount,
     mergedCellCandidateCount,
     signals,
@@ -470,6 +616,80 @@ const headerSimilarity = (left: ExtractedTable, right: ExtractedTable): number =
   return shared / Math.max(leftHeader.size, rightHeader.size);
 };
 
+const columnGeometryAnchors = (table: ExtractedTable): number[] | undefined => {
+  const anchors: number[] = [];
+  for (let colIndex = 0; colIndex < table.colCount; colIndex++) {
+    const lefts =
+      table.cells
+        ?.filter(
+          (cell) =>
+            cell.colIndex === colIndex && cell.inferred !== true && cell.bounding_box !== undefined
+        )
+        .map((cell) => cell.bounding_box?.left)
+        .filter((left): left is number => left !== undefined) ?? [];
+
+    if (lefts.length === 0) return undefined;
+    anchors.push(Math.min(...lefts));
+  }
+
+  return anchors;
+};
+
+const columnGeometrySimilarity = (left: ExtractedTable, right: ExtractedTable): number => {
+  if (left.colCount !== right.colCount) return 0;
+
+  const leftAnchors = columnGeometryAnchors(left);
+  const rightAnchors = columnGeometryAnchors(right);
+  if (!leftAnchors || !rightAnchors || leftAnchors.length !== rightAnchors.length) return 0;
+
+  const scores = leftAnchors.map((anchor, index) => {
+    const rightAnchor = rightAnchors[index];
+    if (rightAnchor === undefined) return 0;
+    return Math.max(0, 1 - Math.abs(anchor - rightAnchor) / COLUMN_GEOMETRY_TOLERANCE);
+  });
+
+  return scores.length > 0
+    ? roundRatio(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+    : 0;
+};
+
+const isPageEdgeContinuationCandidate = (current: ExtractedTable, next: ExtractedTable): boolean =>
+  current.bounding_box !== undefined &&
+  next.bounding_box !== undefined &&
+  current.bounding_box.bottom <= PAGE_EDGE_CONTINUATION_BOTTOM_Y &&
+  next.bounding_box.top >= PAGE_EDGE_CONTINUATION_TOP_Y;
+
+const tableContinuationEvidence = (
+  current: ExtractedTable,
+  next: ExtractedTable
+): { confidence: number; signals: string[] } | undefined => {
+  const similarity = headerSimilarity(current, next);
+  if (similarity >= 0.6) {
+    return {
+      confidence: roundRatio(0.55 + similarity * 0.4),
+      signals: ['same_column_count', 'repeated_header_candidate'],
+    };
+  }
+
+  const geometrySimilarity = columnGeometrySimilarity(current, next);
+  if (
+    geometrySimilarity < CONTINUATION_MIN_GEOMETRY_SIMILARITY ||
+    !isPageEdgeContinuationCandidate(current, next)
+  ) {
+    return undefined;
+  }
+
+  return {
+    confidence: roundRatio(Math.min(0.95, 0.58 + geometrySimilarity * 0.25 + 0.12)),
+    signals: [
+      'same_column_count',
+      'column_geometry_match',
+      'page_edge_continuation_candidate',
+      'non_repeated_header_candidate',
+    ],
+  };
+};
+
 const addQualitySignal = (table: ExtractedTable, signal: TableQualitySignal): void => {
   if (!table.quality || table.quality.signals.includes(signal)) return;
 
@@ -489,12 +709,10 @@ const linkTableContinuationCandidates = (tables: ExtractedTable[]): ExtractedTab
 
     if (next.page !== current.page + 1 || current.colCount !== next.colCount) continue;
 
-    const similarity = headerSimilarity(current, next);
-    if (similarity < 0.6) continue;
+    const evidence = tableContinuationEvidence(current, next);
+    if (!evidence) continue;
 
     const groupId = `table-continuation-${tableId(current)}-${tableId(next)}`;
-    const confidence = roundRatio(0.55 + similarity * 0.4);
-    const signals = ['same_column_count', 'repeated_header_candidate'];
 
     current.continuation = {
       groupId,
@@ -503,16 +721,16 @@ const linkTableContinuationCandidates = (tables: ExtractedTable[]): ExtractedTab
         ? { previousTableId: current.continuation.previousTableId }
         : {}),
       nextTableId: tableId(next),
-      confidence,
-      signals,
+      confidence: evidence.confidence,
+      signals: evidence.signals,
     };
     next.continuation = {
       groupId,
       role: next.continuation?.nextTableId ? 'continues' : 'ends',
       previousTableId: tableId(current),
       ...(next.continuation?.nextTableId ? { nextTableId: next.continuation.nextTableId } : {}),
-      confidence,
-      signals,
+      confidence: evidence.confidence,
+      signals: evidence.signals,
     };
 
     addQualitySignal(current, 'multi_page_continuation_candidate');
@@ -593,7 +811,8 @@ const identifyTableRegions = (rows: TextRow[]): TableRegion[] => {
 
 export const extractTablesFromTextItems = (
   textItems: TextItemWithPosition[],
-  pageNum: number
+  pageNum: number,
+  provenance: TableExtractionProvenance = { source: 'selectable_text', engine: 'pdfjs' }
 ): ExtractedTable[] => {
   const tables: ExtractedTable[] = [];
 
@@ -638,6 +857,7 @@ export const extractTablesFromTextItems = (
         rowCount: tableRows.length,
         colCount: region.columnBoundaries.length,
         confidence: roundedConfidence,
+        provenance,
         quality: buildTableQuality(
           region.rows,
           tableCells,
@@ -668,12 +888,39 @@ const textItemsFromPageContent = (items: PageContentItem[]): TextItemWithPositio
     })
     .filter((item): item is TextItemWithPosition => item !== undefined);
 
+const textItemsFromOcrPage = (page: PdfOcrPageData): TextItemWithPosition[] =>
+  (page.words ?? [])
+    .map((word): TextItemWithPosition | undefined => {
+      if (!word.text.trim() || !word.bounding_box) return undefined;
+
+      return {
+        text: word.text.trim(),
+        x: word.bounding_box.left,
+        y: word.bounding_box.bottom,
+        width: word.bounding_box.right - word.bounding_box.left,
+        height: word.bounding_box.top - word.bounding_box.bottom,
+        bounding_box: word.bounding_box,
+      };
+    })
+    .filter((item): item is TextItemWithPosition => item !== undefined);
+
 export const extractTablesFromPageContents = (
   pageContents: Array<{ page: number; items: PageContentItem[] }>
 ): ExtractedTable[] =>
   linkTableContinuationCandidates(
     pageContents.flatMap((pageContent) =>
       extractTablesFromTextItems(textItemsFromPageContent(pageContent.items), pageContent.page)
+    )
+  );
+
+export const extractTablesFromOcrTextLayer = (ocrTextLayer: PdfOcrTextLayer): ExtractedTable[] =>
+  linkTableContinuationCandidates(
+    ocrTextLayer.pages.flatMap((page) =>
+      extractTablesFromTextItems(textItemsFromOcrPage(page), page.page, {
+        source: 'ocr_text_layer',
+        engine: 'external-command',
+        ocr_source_render_evidence_id: page.source_render_evidence_id,
+      })
     )
   );
 

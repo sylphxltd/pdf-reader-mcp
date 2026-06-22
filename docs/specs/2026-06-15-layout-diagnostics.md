@@ -12,6 +12,12 @@ citation-critical workflows.
 The feature should improve routing quality without adding OCR, vision models,
 Java, Python, or external parser dependencies.
 
+The extraction order now uses conservative recursive layout segmentation:
+large horizontal whitespace splits page content into visual bands, then each
+band can be column-segmented independently. This handles common spanning
+headers, independent multi-column sections, and footers better than a single
+page-level column cut.
+
 ## Contract
 
 `read_pdf` accepts:
@@ -67,6 +73,8 @@ Reading-order models:
 
 - Disabled by default for backward compatibility.
 - Uses existing page content geometry; no second parser pass.
+- Reading order is deterministic recursive XY-cut style segmentation over
+  extracted bounding boxes, not a visual model.
 - Does not decode image bytes unless `include_images` is also requested.
 - Does not claim OCR, vision, or accessibility remediation.
 - Emits warnings when confidence is low, coordinates are sparse, or positioned
@@ -74,6 +82,7 @@ Reading-order models:
 
 ## Validation
 
-- Unit/eval coverage verifies layout confidence signals.
+- Unit/eval coverage verifies recursive band ordering and layout confidence
+  signals.
 - Handler coverage verifies the public `read_pdf` flag and JSON shape.
 - Full validation includes typecheck, Biome, build, tests, and docs build.

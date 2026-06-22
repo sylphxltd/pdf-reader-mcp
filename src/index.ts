@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { createServer, http, stdio } from '@sylphx/mcp-server-sdk';
 import { analyzeRegions } from './handlers/analyzeRegions.js';
 import { extractRegions } from './handlers/extractRegions.js';
 import { inspectPdf } from './handlers/inspectPdf.js';
@@ -9,6 +8,7 @@ import { ocrPages } from './handlers/ocrPages.js';
 import { readPdf } from './handlers/readPdf.js';
 import { renderPage } from './handlers/renderPage.js';
 import { searchPdf } from './handlers/searchPdf.js';
+import { createServer, http, stdio } from './mcp.js';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json') as { version: string };

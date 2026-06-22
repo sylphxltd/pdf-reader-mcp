@@ -38,10 +38,12 @@ engines behind one stable MCP contract.
   Markdown, MCP text parts, or image parts.
 - Provenance: metadata describing which engine produced an element and how
   confident the server is.
-- Document map: one agent-facing contract that links pages, elements, chunks,
-  layout diagnostics, safety findings, routing signals, and page geometry.
+- Document map: one agent-facing contract that links pages, elements,
+  text-layer and metadata coverage, chunks, layout diagnostics, safety
+  findings, trust report routing and signal indexes, accessibility report
+  routing and issue indexes, visual routing, and page geometry.
 - Search evidence: literal text matches with page numbers, snippets, offsets,
-  optional text-item bounding boxes, and provenance.
+  optional character-derived or text-item bounding boxes, and provenance.
 - OCR text layer: normalized text, confidence, optional word boxes, language,
   and provenance produced by an explicitly configured local OCR provider.
 
@@ -132,14 +134,15 @@ Candidate engines:
 
 1. Structured foundation
    - Add `inspect_pdf` for bounded preflight profiling, OCR triage, and
-     recommended `read_pdf` arguments.
+     ordered `next_tools` with recommended `read_pdf` arguments.
    - Add `include_elements`.
    - Add `include_semantic_hints`.
    - Add `include_markdown`.
    - Add `include_html`.
    - Add `include_chunks`.
-   - Add `include_text_layer` for line records, word records, character
-     ranges, best-effort bounding boxes, and provenance.
+   - Add `include_text_layer` for run records, line records, word records,
+     character records, page-level ranges, estimated bounding boxes, and
+     provenance.
    - Add document signals: outline, annotations, page labels, page geometry,
      permissions, structure trees, form fields, and attachment metadata.
    - Add deterministic content safety findings for agent workflows.
@@ -150,12 +153,16 @@ Candidate engines:
    - Add `include_document_map` as the SSOT response shape for agent
      navigation and future optional engine enrichment.
    - Add `include_document_ast` as a semantic tree over the same element and
-     chunk IDs for page/section/paragraph/list/table/image traversal.
-   - Add `include_trust_report` for consolidated content safety, layout,
-     sparse-page, table quality, and external-link routing signals.
+     chunk IDs for page/section/paragraph/list/caption/header/footer/table/image
+     traversal with continued section context and caption-to-evidence links.
+   - Add `include_trust_report` for consolidated content safety,
+     visual-spoofing, tiny/off-page text, layout, sparse-page, table quality,
+     external-link, unsafe-link, category-count, and page-risk routing
+     signals.
    - Add `include_accessibility_report` for deterministic tagged-PDF coverage,
-     structure tree, heading, image, form, link, permission, and mark-info
-     signals without claiming PDF/UA certification.
+     tag-to-visible-content coverage, structure tree, heading, image, form,
+     link, permission, and mark-info signals without claiming PDF/UA
+     certification.
    - Add `search_pdf` for bounded evidence retrieval before heavier reading,
      rendering, cropping, or citation workflows.
    - Keep legacy outputs stable.
@@ -164,8 +171,9 @@ Candidate engines:
 2. Layout accuracy
    - Add page geometry and real bounding boxes where available.
    - Add layout-aware reading order beyond simple Y sorting.
-   - Split distant same-line text into independent segments for common
-     multi-column PDFs.
+   - Split distant same-line text into independent segments, then apply
+     conservative recursive band and column segmentation for common
+     multi-column PDFs with spanning headers or footers.
    - Add page-level layout profiles, confidence scores, and warnings.
    - Add fixtures for multi-column pages, sidebars, headers, and footers.
 
@@ -176,8 +184,9 @@ Candidate engines:
    - Add Markdown renderer using the normalized element tree.
 
 4. Safety and trust
-   - Detect hidden, tiny, off-page, and suspicious invisible text.
-   - Add optional sensitive data redaction.
+   - Detect hidden, tiny, off-page, overlapping, and suspicious invisible text.
+   - Broaden sensitive-data redaction fixtures beyond the trust-report evidence
+     redaction gate.
    - Add provenance, confidence, warnings, and trace-friendly logs.
 
 5. Advanced engines
@@ -259,8 +268,10 @@ Candidate engines:
 - Requests with `include_safety_findings: true` produce deterministic findings
   without forcing `full_text`.
 - Requests with `include_document_map: true` produce an agent map with pages,
-  elements, chunks, layout diagnostics, safety findings, routing signals, page
-  geometry, and summary counts without forcing top-level legacy outputs.
+  elements, text-layer and metadata coverage, chunks, layout diagnostics,
+  safety findings, trust report routing and signal indexes, accessibility
+  report routing and issue indexes, visual routing, page geometry, and summary
+  counts without forcing top-level legacy outputs.
 - JSON summary includes `elements` with stable ids, page numbers, type, content
   or metadata, and best-effort bounding boxes where available.
 - JSON summary does not include base64 image bytes.
@@ -268,8 +279,10 @@ Candidate engines:
   inference flags, quality diagnostics, continuation candidates, and
   best-effort bounding boxes when coordinates are available.
 - Chunk output includes table chunks when table extraction is requested.
-- Document AST output includes page, section, paragraph, list item, table, and
-  image nodes linked back to element IDs and chunk IDs.
+- Document AST output includes page, section, paragraph, list item, caption,
+  header, footer, table, and image nodes linked back to element IDs and chunk
+  IDs, with section-path context for content that continues across page breaks
+  and caption links for nearby matching visual or table evidence.
 - Trust report output includes document/page risk levels, risk scores, signals,
   and routing guidance without forcing raw safety, layout, or annotation
   outputs.

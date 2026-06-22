@@ -1,4 +1,4 @@
-import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
+import { image, text, tool, toolError } from '../mcp.js';
 import { defaultExtractRegionsOptions, extractRegionCropsFromSource } from '../pdf/regions.js';
 import { extractRegionsArgsSchema, type PdfRegionSource } from '../schemas/extractRegions.js';
 import type {

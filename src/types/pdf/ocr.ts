@@ -18,10 +18,29 @@ export interface PdfOcrPageData {
   language?: string | undefined;
   provider: PdfOcrProvider;
   source_render_evidence_id: string;
+  source_render_scale?: number | undefined;
+  source_render_width?: number | undefined;
+  source_render_height?: number | undefined;
   provenance: {
     engine: 'external-command';
     source: 'ocr-provider';
   };
+  warnings?: string[] | undefined;
+}
+
+export interface PdfOcrTextLayerSummary {
+  page_count: number;
+  text_chars: number;
+  word_count: number;
+  words_with_bounding_boxes: number;
+  source_render_count: number;
+  average_confidence?: number | undefined;
+}
+
+export interface PdfOcrTextLayer {
+  profile: 'ocr_text_layer';
+  pages: PdfOcrPageData[];
+  summary: PdfOcrTextLayerSummary;
   warnings?: string[] | undefined;
 }
 

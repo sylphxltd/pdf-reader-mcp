@@ -21,6 +21,8 @@ import type {
 } from './document-structure.js';
 import type { PdfPageGeometry } from './geometry.js';
 import type { PdfPageLayoutDiagnostics } from './layout.js';
+import type { PdfOcrTextLayer } from './ocr.js';
+import type { PdfVisualEnrichment, PdfVisualEnrichmentCandidate } from './region-analysis.js';
 import type { PdfSafetyFinding } from './safety.js';
 import type { ExtractedTable } from './tables.js';
 import type { PdfTextLayer } from './text-layer.js';
@@ -47,8 +49,11 @@ export interface PdfResultData {
   elements?: PdfDocumentElement[];
   chunks?: PdfChunk[];
   text_layer?: PdfTextLayer;
+  ocr_text_layer?: PdfOcrTextLayer;
   safety_findings?: PdfSafetyFinding[];
   layout_diagnostics?: PdfPageLayoutDiagnostics[];
+  visual_enrichment_candidates?: PdfVisualEnrichmentCandidate[];
+  visual_enrichments?: PdfVisualEnrichment[];
   document_map?: PdfDocumentMap;
   document_ast?: PdfDocumentAst;
   trust_report?: PdfTrustReport;

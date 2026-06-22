@@ -58,6 +58,10 @@ const readResponse = (proc: ChildProcess, timeout = 15000): Promise<unknown> => 
   });
 };
 
+const MCP_INTEGRATION_TEST_TIMEOUT_MS = 30_000;
+const mcpIt = (name: string, callback: () => Promise<void>) =>
+  it(name, callback, MCP_INTEGRATION_TEST_TIMEOUT_MS);
+
 describe('MCP Server Integration', () => {
   let serverProc: ChildProcess;
 
@@ -65,7 +69,10 @@ describe('MCP Server Integration', () => {
     // Start the MCP server
     const serverPath = path.resolve(__dirname, '../../dist/index.js');
     const mockOcrProviderPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
-    const mockRegionAnalysisProviderPath = path.resolve(__dirname, '../fixtures/mock-region-analysis-provider.mjs');
+    const mockRegionAnalysisProviderPath = path.resolve(
+      __dirname,
+      '../fixtures/mock-region-analysis-provider.mjs'
+    );
     // Must use bun as SDK uses Bun APIs
     serverProc = spawn('bun', [serverPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -73,7 +80,12 @@ describe('MCP Server Integration', () => {
         ...process.env,
         NODE_ENV: 'test',
         MCP_PDF_OCR_COMMAND: process.execPath,
-        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([mockOcrProviderPath, '{input}', '{page}', '{languages}']),
+        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([
+          mockOcrProviderPath,
+          '{input}',
+          '{page}',
+          '{languages}',
+        ]),
         MCP_PDF_REGION_ANALYSIS_COMMAND: process.execPath,
         MCP_PDF_REGION_ANALYSIS_ARGS_JSON: JSON.stringify([
           mockRegionAnalysisProviderPath,
@@ -96,7 +108,7 @@ describe('MCP Server Integration', () => {
     serverProc?.kill();
   });
 
-  it('should respond to initialize request', async () => {
+  mcpIt('should respond to initialize request', async () => {
     const initRequest = createRequest(1, 'initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
@@ -113,7 +125,7 @@ describe('MCP Server Integration', () => {
     expect(response.result?.serverInfo?.name).toBe('pdf-reader-mcp');
   });
 
-  it('should list available tools', async () => {
+  mcpIt('should list available tools', async () => {
     // Send initialized notification first
     sendMessage(serverProc, { jsonrpc: '2.0', method: 'notifications/initialized' });
 
@@ -142,7 +154,7 @@ describe('MCP Server Integration', () => {
     expect(toolNames).toContain('ocr_pages');
   });
 
-  it('should call inspect_pdf tool with a test PDF', async () => {
+  mcpIt('should call inspect_pdf tool with a test PDF', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(3, 'tools/call', {
@@ -192,7 +204,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should call read_pdf tool with a test PDF', async () => {
+  mcpIt('should call read_pdf tool with a test PDF', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(4, 'tools/call', {
@@ -225,7 +237,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should call render_page tool with a test PDF', async () => {
+  mcpIt('should call render_page tool with a test PDF', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(5, 'tools/call', {
@@ -271,7 +283,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should call extract_regions tool with a test PDF', async () => {
+  mcpIt('should call extract_regions tool with a test PDF', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(6, 'tools/call', {
@@ -329,7 +341,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should call analyze_regions tool with a configured region analysis provider', async () => {
+  mcpIt('should call analyze_regions tool with a configured region analysis provider', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(7, 'tools/call', {
@@ -377,13 +389,15 @@ describe('MCP Server Integration', () => {
       expect(response.result?.content?.[0]?.type).toBe('text');
       expect(parsed.profile).toBe('region_analysis');
       expect(parsed.results[0]?.success).toBe(true);
-      expect(parsed.results[0]?.region_analyses?.[0]?.description).toContain('Mock region analysis');
+      expect(parsed.results[0]?.region_analyses?.[0]?.description).toContain(
+        'Mock region analysis'
+      );
       expect(parsed.results[0]?.region_analyses?.[0]?.kind).toBe('table');
       expect(parsed.results[0]?.region_analyses?.[0]?.provider).toBe('command');
     }
   });
 
-  it('should call ocr_pages tool with a configured OCR provider', async () => {
+  mcpIt('should call ocr_pages tool with a configured OCR provider', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(8, 'tools/call', {
@@ -426,7 +440,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should call search_pdf tool with a test PDF', async () => {
+  mcpIt('should call search_pdf tool with a test PDF', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(9, 'tools/call', {
@@ -464,7 +478,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  it('should handle invalid tool arguments', async () => {
+  mcpIt('should handle invalid tool arguments', async () => {
     const callRequest = createRequest(10, 'tools/call', {
       name: 'read_pdf',
       arguments: {

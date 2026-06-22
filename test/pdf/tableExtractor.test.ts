@@ -4,13 +4,39 @@ import {
   clusterByY,
   detectColumnBoundaries,
   extractTables,
+  extractTablesFromOcrTextLayer,
   extractTablesFromPage,
   extractTablesFromPageContents,
   extractTextItemsWithPositions,
+  mergeTableExtractionEvidence,
   type TextItemWithPosition,
   tablesToMarkdown,
   tableToMarkdown,
 } from '../../src/pdf/tableExtractor.js';
+import type { ExtractedTable, TableExtractionSource } from '../../src/types/pdf.js';
+
+const tableFixture = (
+  tableIndex: number,
+  boundingBox: NonNullable<ExtractedTable['bounding_box']>,
+  source: TableExtractionSource,
+  page = 1
+): ExtractedTable => ({
+  page,
+  tableIndex,
+  rows: [
+    ['Metric', 'Value'],
+    ['Revenue', '24%'],
+  ],
+  cells: [],
+  bounding_box: boundingBox,
+  rowCount: 2,
+  colCount: 2,
+  confidence: 0.9,
+  provenance: {
+    source,
+    engine: source === 'ocr_text_layer' ? 'external-command' : 'pdfjs',
+  },
+});
 
 describe('tableExtractor', () => {
   describe('extractTextItemsWithPositions', () => {
@@ -302,8 +328,12 @@ describe('tableExtractor', () => {
         quality: {
           completeness: 1,
           nonEmptyCellRatio: 1,
+          cellBoundingBoxCoverage: 1,
+          inferredCellRatio: 0,
           rowAlignment: 1,
           rowSpacingConsistency: 1,
+          cellBoundingBoxCount: 4,
+          inferredCellCount: 0,
           missingCellCount: 0,
           mergedCellCandidateCount: 0,
           signals: ['complete_grid'],
@@ -458,15 +488,177 @@ describe('tableExtractor', () => {
       );
       expect(result[0]?.quality).toMatchObject({
         missingCellCount: 2,
+        inferredCellCount: 2,
+        inferredCellRatio: 0.22,
+        cellBoundingBoxCount: 7,
+        cellBoundingBoxCoverage: 0.78,
         mergedCellCandidateCount: 1,
-        signals: expect.arrayContaining(['missing_cells', 'merged_cell_candidates']),
+        signals: expect.arrayContaining([
+          'missing_cells',
+          'merged_cell_candidates',
+          'incomplete_cell_geometry',
+        ]),
       });
       expect(result[0]?.quality?.warnings).toEqual(
         expect.arrayContaining([
           expect.stringContaining('empty inferred cells'),
           expect.stringContaining('spans are inferred'),
+          expect.stringContaining('lack bounding boxes'),
         ])
       );
+    });
+
+    it('should extract OCR-derived tables from normalized OCR word boxes', () => {
+      const result = extractTablesFromOcrTextLayer({
+        profile: 'ocr_text_layer',
+        pages: [
+          {
+            page: 1,
+            text: 'Metric Value\nRevenue 24%',
+            confidence: 0.92,
+            words: [
+              {
+                text: 'Metric',
+                confidence: 0.95,
+                bounding_box: { left: 40, bottom: 700, right: 88, top: 710 },
+              },
+              {
+                text: 'Value',
+                confidence: 0.94,
+                bounding_box: { left: 160, bottom: 700, right: 202, top: 710 },
+              },
+              {
+                text: 'Revenue',
+                confidence: 0.93,
+                bounding_box: { left: 40, bottom: 680, right: 100, top: 690 },
+              },
+              {
+                text: '24%',
+                confidence: 0.91,
+                bounding_box: { left: 160, bottom: 680, right: 184, top: 690 },
+              },
+            ],
+            provider: 'command',
+            source_render_evidence_id: 'page-1-render-scale-2',
+            source_render_scale: 2,
+            source_render_width: 1224,
+            source_render_height: 1584,
+            provenance: {
+              engine: 'external-command',
+              source: 'ocr-provider',
+            },
+          },
+        ],
+        summary: {
+          page_count: 1,
+          text_chars: 24,
+          word_count: 4,
+          words_with_bounding_boxes: 4,
+          source_render_count: 1,
+          average_confidence: 0.92,
+        },
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        page: 1,
+        rows: [
+          ['Metric', 'Value'],
+          ['Revenue', '24%'],
+        ],
+        rowCount: 2,
+        colCount: 2,
+        bounding_box: { left: 40, bottom: 680, right: 202, top: 710 },
+        provenance: {
+          source: 'ocr_text_layer',
+          engine: 'external-command',
+          ocr_source_render_evidence_id: 'page-1-render-scale-2',
+        },
+        quality: {
+          cellBoundingBoxCoverage: 1,
+          inferredCellRatio: 0,
+          signals: ['complete_grid'],
+        },
+      });
+    });
+
+    it('should merge OCR table evidence by overlap instead of dropping every same-page OCR table', () => {
+      const selectableTable = tableFixture(
+        0,
+        { left: 40, bottom: 680, right: 202, top: 710 },
+        'selectable_text'
+      );
+      const overlappingOcrTable = tableFixture(
+        1,
+        { left: 42, bottom: 681, right: 201, top: 709 },
+        'ocr_text_layer'
+      );
+      const distinctOcrTable = tableFixture(
+        2,
+        { left: 300, bottom: 520, right: 470, top: 560 },
+        'ocr_text_layer'
+      );
+
+      const result = mergeTableExtractionEvidence(
+        [selectableTable],
+        [overlappingOcrTable, distinctOcrTable]
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result.map((table) => table.tableIndex)).toEqual([0, 1]);
+      expect(result.map((table) => table.provenance?.source)).toEqual([
+        'selectable_text',
+        'ocr_text_layer',
+      ]);
+    });
+
+    it('should rebase OCR continuation IDs when merged table indexes are offset', () => {
+      const selectableTable = tableFixture(
+        0,
+        { left: 40, bottom: 680, right: 202, top: 710 },
+        'selectable_text'
+      );
+      const firstOcrTable = tableFixture(
+        0,
+        { left: 300, bottom: 680, right: 470, top: 710 },
+        'ocr_text_layer'
+      );
+      firstOcrTable.continuation = {
+        groupId: 'table-continuation-p1-table-1-p2-table-1',
+        role: 'starts',
+        nextTableId: 'p2-table-1',
+        confidence: 0.9,
+        signals: ['same_column_count', 'repeated_header_candidate'],
+      };
+      const nextOcrTable = tableFixture(
+        0,
+        { left: 300, bottom: 680, right: 470, top: 710 },
+        'ocr_text_layer',
+        2
+      );
+      nextOcrTable.continuation = {
+        groupId: 'table-continuation-p1-table-1-p2-table-1',
+        role: 'ends',
+        previousTableId: 'p1-table-1',
+        confidence: 0.9,
+        signals: ['same_column_count', 'repeated_header_candidate'],
+      };
+
+      const result = mergeTableExtractionEvidence([selectableTable], [firstOcrTable, nextOcrTable]);
+
+      expect(result.map((table) => [table.page, table.tableIndex])).toEqual([
+        [1, 0],
+        [1, 1],
+        [2, 0],
+      ]);
+      expect(result[1]?.continuation).toMatchObject({
+        groupId: 'table-continuation-p1-table-2-p2-table-1',
+        nextTableId: 'p2-table-1',
+      });
+      expect(result[2]?.continuation).toMatchObject({
+        groupId: 'table-continuation-p1-table-2-p2-table-1',
+        previousTableId: 'p1-table-2',
+      });
     });
 
     it('should link repeated-header table continuation candidates across adjacent pages', () => {
@@ -528,6 +720,184 @@ describe('tableExtractor', () => {
       expect(result[1]?.quality?.signals).toContain('multi_page_continuation_candidate');
     });
 
+    it('should link page-edge geometry continuation candidates without repeated headers', () => {
+      const result = extractTablesFromPageContents([
+        {
+          page: 1,
+          items: [
+            {
+              type: 'text',
+              textContent: 'Name',
+              xPosition: 50,
+              yPosition: 700,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 700, right: 80, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Age',
+              xPosition: 150,
+              yPosition: 700,
+              width: 20,
+              height: 10,
+              bounding_box: { left: 150, bottom: 700, right: 170, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: 'Alice',
+              xPosition: 50,
+              yPosition: 100,
+              width: 40,
+              height: 10,
+              bounding_box: { left: 50, bottom: 100, right: 90, top: 110 },
+            },
+            {
+              type: 'text',
+              textContent: '30',
+              xPosition: 150,
+              yPosition: 100,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 100, right: 165, top: 110 },
+            },
+            {
+              type: 'text',
+              textContent: 'Bob',
+              xPosition: 50,
+              yPosition: 80,
+              width: 30,
+              height: 10,
+              bounding_box: { left: 50, bottom: 80, right: 80, top: 90 },
+            },
+            {
+              type: 'text',
+              textContent: '25',
+              xPosition: 150,
+              yPosition: 80,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 80, right: 165, top: 90 },
+            },
+          ],
+        },
+        {
+          page: 2,
+          items: [
+            {
+              type: 'text',
+              textContent: 'Carol',
+              xPosition: 50,
+              yPosition: 720,
+              width: 38,
+              height: 10,
+              bounding_box: { left: 50, bottom: 720, right: 88, top: 730 },
+            },
+            {
+              type: 'text',
+              textContent: '27',
+              xPosition: 150,
+              yPosition: 720,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 720, right: 165, top: 730 },
+            },
+            {
+              type: 'text',
+              textContent: 'Dana',
+              xPosition: 50,
+              yPosition: 700,
+              width: 35,
+              height: 10,
+              bounding_box: { left: 50, bottom: 700, right: 85, top: 710 },
+            },
+            {
+              type: 'text',
+              textContent: '29',
+              xPosition: 150,
+              yPosition: 700,
+              width: 15,
+              height: 10,
+              bounding_box: { left: 150, bottom: 700, right: 165, top: 710 },
+            },
+          ],
+        },
+      ]);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.continuation).toMatchObject({
+        role: 'starts',
+        nextTableId: 'p2-table-1',
+        confidence: 0.95,
+        signals: [
+          'same_column_count',
+          'column_geometry_match',
+          'page_edge_continuation_candidate',
+          'non_repeated_header_candidate',
+        ],
+      });
+      expect(result[1]?.continuation).toMatchObject({
+        role: 'ends',
+        previousTableId: 'p1-table-1',
+        confidence: 0.95,
+      });
+      expect(result[0]?.quality?.signals).toContain('multi_page_continuation_candidate');
+      expect(result[1]?.quality?.signals).toContain('multi_page_continuation_candidate');
+    });
+
+    it('should not link non-repeated continuation candidates without page-edge evidence', () => {
+      const pageItems = (page: number, firstName: string, secondName: string) => ({
+        page,
+        items: [
+          {
+            type: 'text' as const,
+            textContent: firstName,
+            xPosition: 50,
+            yPosition: 700,
+            width: 40,
+            height: 10,
+            bounding_box: { left: 50, bottom: 700, right: 90, top: 710 },
+          },
+          {
+            type: 'text' as const,
+            textContent: '30',
+            xPosition: 150,
+            yPosition: 700,
+            width: 15,
+            height: 10,
+            bounding_box: { left: 150, bottom: 700, right: 165, top: 710 },
+          },
+          {
+            type: 'text' as const,
+            textContent: secondName,
+            xPosition: 50,
+            yPosition: 680,
+            width: 40,
+            height: 10,
+            bounding_box: { left: 50, bottom: 680, right: 90, top: 690 },
+          },
+          {
+            type: 'text' as const,
+            textContent: '25',
+            xPosition: 150,
+            yPosition: 680,
+            width: 15,
+            height: 10,
+            bounding_box: { left: 150, bottom: 680, right: 165, top: 690 },
+          },
+        ],
+      });
+
+      const result = extractTablesFromPageContents([
+        pageItems(1, 'Alice', 'Bob'),
+        pageItems(2, 'Carol', 'Dana'),
+      ]);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.continuation).toBeUndefined();
+      expect(result[1]?.continuation).toBeUndefined();
+    });
+
     it('should return empty array for page with no text', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({ items: [] }),
@@ -541,7 +911,9 @@ describe('tableExtractor', () => {
     it('should return empty array for page with non-tabular data', async () => {
       const mockPage = {
         getTextContent: vi.fn().mockResolvedValue({
-          items: [{ str: 'Single paragraph of text.', transform: [1, 0, 0, 1, 50, 700], width: 150 }],
+          items: [
+            { str: 'Single paragraph of text.', transform: [1, 0, 0, 1, 50, 700], width: 150 },
+          ],
         }),
       } as unknown as pdfjsLib.PDFPageProxy;
 
@@ -560,7 +932,9 @@ describe('tableExtractor', () => {
       const result = await extractTablesFromPage(mockPage, 1);
 
       expect(result).toEqual([]);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error extracting tables from page'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error extracting tables from page')
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -602,7 +976,9 @@ describe('tableExtractor', () => {
       const result = await extractTables(mockDocument, [1]);
 
       expect(result).toEqual([]);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Error getting page for table extraction'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error getting page for table extraction')
+      );
 
       consoleWarnSpy.mockRestore();
     });

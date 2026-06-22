@@ -18,6 +18,7 @@ export interface ReadPdfOptions {
   include_html: boolean;
   include_chunks: boolean;
   include_text_layer: boolean;
+  include_ocr_text_layer: boolean;
   include_outline: boolean;
   include_annotations: boolean;
   include_page_labels: boolean;
@@ -30,6 +31,8 @@ export interface ReadPdfOptions {
   include_layout_diagnostics: boolean;
   include_document_map: boolean;
   include_document_ast: boolean;
+  include_visual_enrichments: boolean;
+  max_visual_enrichments: number;
   include_trust_report: boolean;
   include_accessibility_report: boolean;
 }

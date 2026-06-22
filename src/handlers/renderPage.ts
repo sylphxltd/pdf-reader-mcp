@@ -1,4 +1,4 @@
-import { image, text, tool, toolError } from '@sylphx/mcp-server-sdk';
+import { image, text, tool, toolError } from '../mcp.js';
 import {
   DEFAULT_MAX_RENDER_PAGES,
   DEFAULT_MAX_RENDER_PIXELS,

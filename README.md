@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **PDF search** • **Agent document map** • **Accessibility report** • **Visual evidence** • **Region crops** • **Configured OCR**
+**PDF inspection** • **PDF search** • **Agent document map** • **Trust report** • **Accessibility report** • **Visual evidence** • **Region crops** • **Configured OCR**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,7 +23,7 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers, then extract a full agent document map, accessibility report, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, get an ordered MCP tool plan, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers and OCR-derived tables, then extract a full agent document map, trust report, accessibility report, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
 
 **The Problem:**
 ```typescript
@@ -37,23 +37,24 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 **The Solution:**
 ```typescript
 // PDF Reader MCP
-- Preflight PDF inspection for agent extraction planning 🔎
+- Preflight PDF inspection with ordered MCP tool routing 🔎
 - MCP-native PDF search with snippets and bbox evidence 🔎
 - Bounded page rendering for visual evidence and OCR routing 🖼️
 - Bbox-grounded region crops for source evidence 🔍
 - Configured local OCR provider for scanned-page text layers 🔡
+- Opt-in OCR text layer fusion for `read_pdf` document maps 🧾
 - 5-10x faster parallel processing ⚡
-- Full agent document map linking pages, elements, chunks, layout, safety, and geometry 🧭
-- Semantic document AST for page/section/paragraph/list/table/image traversal 🌳
-- PDF trust report for content safety, layout, table, and link-risk routing 🛡️
-- Accessibility report for tagged-PDF coverage, headings, images, forms, links, and permissions ♿
+- Full agent document map linking pages, elements, text-layer and metadata coverage, chunks, layout, safety, trust routing and signal indexes, accessibility routing and issue indexes, visual routing, and geometry 🧭
+- Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including numbered/appendix headings, rich list prefixes, equation/chart caption aliases, and above/below/side caption-to-evidence links 🌳
+- PDF trust report for content safety, visual-spoofing, redacted evidence, layout, table, link-risk, and document-map routing 🛡️
+- Accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, headings, images, forms, links, and permissions ♿
 - Structured element output for agent workflows 🧩
 - Table quality diagnostics with inferred cell spans and continuation candidates 📊
 - Markdown rendering for RAG and summarization 📝
 - Citation-ready semantic/table/page chunks 🔗
 - Layout diagnostics with reading-order confidence 📐
 - Outlines, annotations, structure trees, forms, attachments, labels, and permission signals 🗂️
-- Column-aware reading order 📐
+- Recursive band and column reading order 📐
 - Flexible path support (absolute/relative) 🎯
 - Per-page error resilience 🛡️
 - CI-backed quality ✅
@@ -75,27 +76,28 @@ PDF Reader MCP is a **production-ready** Model Context Protocol server that empo
 ### Developer Experience
 
 - 🎯 **Path Flexibility** - Absolute & relative paths, Windows/Unix support (v1.3.0)
-- 🔎 **PDF Inspection** - Profile PDFs before extraction and get recommended `read_pdf` arguments for agent workflows
-- 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, text-item bounding boxes, and provenance
+- 🔎 **PDF Inspection** - Profile PDFs before extraction and get ordered `next_tools` plus recommended `read_pdf` arguments for agent workflows
+- 🔎 **PDF Search Evidence** - Search selected PDF pages with snippets, match offsets, character-derived, text-item, or opt-in OCR-word bounding boxes, and provenance
 - 🖼️ **Visual Page Evidence** - Render selected pages as bounded PNG image parts with JSON provenance and pixel budgets
 - 🔍 **Region Crop Evidence** - Crop PDF-coordinate regions as bounded PNG image parts for table, figure, chart, and citation verification
 - 🧠 **Visual Region Analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - 🔡 **Configured OCR Text Layer** - Route rendered pages through an env-configured local OCR command and return normalized text, confidence, words, and provenance
-- 🧾 **PDF Text Layer** - Optional line and word records with page-level character ranges, best-effort bounding boxes, and provenance
-- 🧭 **Agent Document Map** - Optional page map that links elements, chunks, layout confidence, safety findings, routing signals, and page geometry
-- 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, table, and image nodes linked back to evidence IDs
-- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden/off-page signals, layout uncertainty, sparse pages, table warnings, and external links
-- ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
+- 🧾 **OCR-Aware Document Map** - `read_pdf` can opt into OCR text layers and OCR-derived tables for sparse/scanned pages while keeping OCR separate from selectable PDF text
+- 🧾 **PDF Text Layer** - Optional direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics
+- 🧭 **Agent Document Map** - Optional page map that links elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, trust routing and signal indexes, accessibility routing and issue indexes, visual routing, and page geometry
+- 🌳 **Document AST** - Optional semantic tree with page, section, paragraph, list item, caption, header, footer, table, and image nodes linked back to evidence IDs, including numbered/appendix heading recovery, richer list-prefix coverage, cross-page section context, and above/below/side caption-to-evidence links
+- 🛡️ **Trust Report** - Optional consolidated report for prompt-injection text, hidden or near-invisible geometry, off-page/overlapping text signals, selected-page counters, redacted evidence snippets, layout uncertainty, sparse pages, table warnings, external links, unsafe link schemes, and document-map risk routing
+- ♿ **Accessibility Report** - Optional deterministic report for tagged-PDF coverage, tag-to-visible-content coverage, structure tree availability, heading roles, image alt-text verifiability, form labels, link labels, and accessibility permissions
 - 🧩 **Structured Elements** - Optional page-level elements with stable IDs, provenance, and best-effort bounding boxes
-- 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header continuation candidates
+- 📊 **Table Intelligence** - Optional table quality metrics, inferred header/span hints, sparse-cell warnings, and repeated-header or page-edge geometry continuation candidates
 - 📐 **Layout Diagnostics** - Optional page profiles, column signals, and reading-order confidence for agent routing
 - 📝 **Markdown Rendering** - Optional page-aware Markdown for RAG, summarization, and agent context
 - 🔗 **Citation Chunks** - Optional page, semantic, size, and table chunks with element IDs and best-effort bounding boxes
 - 🗂️ **Document Signals** - Optional outlines, page labels, annotations, structure trees, forms, attachments, permissions, and mark info
-- 🖼️ **Smart Ordering** - Column-aware content ordering improves natural reading flow
+- 🖼️ **Smart Ordering** - Recursive band and column segmentation improves natural reading flow for common mixed layouts
 - 🛡️ **Type Safe** - Full TypeScript with strict mode enabled
 - 📚 **Battle-tested** - Automated tests, strict TypeScript, and CI validation
-- 🎨 **Simple API** - `inspect_pdf` plans extraction, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `analyze_regions` enriches visual regions, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
+- 🎨 **Simple API** - `inspect_pdf` plans ordered extraction and evidence routing, `search_pdf` finds text evidence, `render_page` returns visual evidence, `extract_regions` crops source evidence, `analyze_regions` enriches visual regions, `ocr_pages` runs configured OCR, `read_pdf` performs extraction
 
 ---
 
@@ -222,6 +224,21 @@ npx @sylphx/pdf-reader-mcp
 npm install -g @sylphx/pdf-reader-mcp
 ```
 
+### Dependency Profile
+
+The default package needs Node.js >= 22.13 and the npm package dependencies
+only. It does not bundle Tesseract, Ollama, LM Studio, llama.cpp, OCR language
+data, a vision model, or a cloud provider. Selectable-text PDFs, inspection,
+search, rendering, source crops, document maps, trust reports, accessibility
+reports, Markdown/HTML/JSON extraction, and safety signals work out of the box.
+
+Scanned-page OCR and visual table/formula/chart/figure/image enrichment are
+provider-enabled upgrades. Configure `MCP_PDF_OCR_*` when local OCR is needed,
+or `MCP_PDF_REGION_ANALYSIS_*` when focused visual crops should be analyzed by a
+local command, local HTTP server, Ollama, LM Studio, llama.cpp, or another
+OpenAI-compatible endpoint. Missing providers are reported as readiness and
+warning signals instead of breaking the core extraction path.
+
 ---
 
 ## 🎯 Quick Start
@@ -230,8 +247,8 @@ npm install -g @sylphx/pdf-reader-mcp
 
 Use `inspect_pdf` when an agent needs to decide how to process an unfamiliar
 PDF. It samples a bounded number of pages, detects selectable-text versus
-image-like pages, surfaces document signals, and recommends useful `read_pdf`
-arguments without extracting image bytes.
+image-like pages, surfaces document signals, and recommends ordered `next_tools`
+plus useful `read_pdf` arguments without extracting image bytes.
 
 ```json
 {
@@ -247,12 +264,13 @@ arguments without extracting image bytes.
 - PDF profile such as `digital_text`, `scanned_or_image_only`, or `mixed_text_and_scan`
 - Page-level text density, token estimates, and image paint-operation counts
 - Signals for outlines, page labels, forms, attachments, permissions, and structure trees
-- Recommended `read_pdf` arguments for citation chunks, safety findings, tables, or OCR triage
+- Ordered `next_tools` for read, search, render, crop, visual analysis, or OCR routing
+- Paired `read_pdf` arguments for citation chunks, safety findings, tables, or OCR triage
 
 ### Search PDF Evidence
 
 Use `search_pdf` when an agent needs to locate text evidence before deciding
-whether to read a whole page, crop a region, or cite a result.
+whether to read a whole page, crop a region, run OCR, or cite a result.
 
 ```json
 {
@@ -262,16 +280,18 @@ whether to read a whole page, crop a region, or cite a result.
   }],
   "query": "risk controls",
   "whole_word": true,
+  "include_ocr_text_layer": false,
   "max_matches_per_source": 10
 }
 ```
 
 **Response includes:**
 - A JSON summary with `profile: "pdf_search_results"` and effective search options
-- Page numbers, snippets, match offsets, and text-item indexes
-- Best-effort text-item bounding boxes when coordinates are available
+- Page numbers, snippets, match offsets, and text-item or OCR word indexes
+- Estimated character-derived bounding boxes when run evidence is available, with text-item and OCR-word fallback
 - Per-match provenance so agents can route hits into `render_page` or `extract_regions`
 - Bounded defaults: `max_pages` default 100 and `max_matches_per_source` default 50
+- Optional OCR-layer search via `include_ocr_text_layer` when a configured local OCR provider is available
 
 ### Basic Usage
 
@@ -328,7 +348,8 @@ whether to read a whole page, crop a region, or cite a result.
 ### Agent Document Map
 
 Use `include_document_map` when an agent needs one navigable PDF structure
-instead of separate page, element, chunk, layout, and safety outputs.
+instead of separate page, element, text-layer, chunk, layout, trust, and safety
+outputs.
 
 ```json
 {
@@ -342,10 +363,13 @@ instead of separate page, element, chunk, layout, and safety outputs.
 ```
 
 **Response includes:**
-- Page records with element IDs, chunk IDs, safety finding indexes, text density, image count, table count, and page geometry
+- Page records with element IDs, chunk IDs, safety finding indexes, trust report page and signal indexes, accessibility report page and issue indexes, text-layer page indexes, run/line/word/character coverage counts, text density, image count, table count, and page geometry
 - Semantic elements and citation chunks derived from the same stable IDs
+- Text-layer summary totals and bbox coverage counts without forcing top-level `text_layer` output
 - Layout diagnostics and routing signals for low-confidence, sparse, and OCR-needed pages
-- Safety findings linked back to page and element evidence
+- Safety findings and trust report signal routing linked back to page and element evidence
+- Optional visual-region candidate indexes when `include_visual_enrichments` is enabled, plus provider-backed table, formula, chart, figure, and image analysis when a visual provider is ready
+- Optional trust risk, score, signal indexes, severity counters, configurable evidence redaction, high-signal routing, and high/medium-risk routing when `include_trust_report` is enabled
 - No embedded image bytes inside the JSON document map
 
 ### Document AST
@@ -365,16 +389,20 @@ than reconstructing document structure from flat text items.
 ```
 
 **Response includes:**
-- A `document_ast` root with page, section, paragraph, list item, table, and image nodes
-- Node-level `element_ids`, `chunk_ids`, bounding boxes, confidence, and semantic roles where available
+- A `document_ast` root with page, section, paragraph, list item, caption, header, footer, table, image, chart, formula, figure, and diagram nodes where available
+- Node-level `element_ids`, `chunk_ids`, visual enrichment IDs, bounding boxes, confidence, and semantic roles where available
+- `section_path` and `continued_from_section_id` metadata where page breaks continue the active section context
+- Caption nodes can expose `caption_links` to nearby table, image, figure, chart, formula, or diagram evidence above, below, overlapping, or to the side; equation/formula and graph/chart caption aliases normalize to the same evidence types, and target nodes can expose `caption_ids` for reverse lookup
 - Table nodes with rows, quality diagnostics, and continuation candidates when tables are detected
+- Optional visual enrichment payloads with provider, crop evidence ID, source bounding box, normalized table/formula/chart fields, figure or image-description text, and confidence
 - No forced top-level `elements`, `chunks`, or `tables` output unless those options are requested
 
 ### Text Layer
 
-Use `include_text_layer` when an agent needs deterministic line and word
-references instead of only full text. It exposes page text, line records, word
-records, page-level character ranges, best-effort bounding boxes, and
+Use `include_text_layer` when an agent needs deterministic run, line, word, and
+character references instead of only full text. It exposes page text, normalized
+PDF.js text-run metadata, page-level character ranges, estimated character and
+word boxes, direction-aware row ordering for right-to-left text runs, and
 provenance from the same extracted text-content pass.
 
 ```json
@@ -390,9 +418,11 @@ provenance from the same extracted text-content pass.
 
 **Response includes:**
 - A `text_layer` object with one page record per selected page
+- Run records with text, page-level `char_start`/`char_end`, font names, direction, transform metadata, and run boxes when available
 - Line IDs, line text, page-level `char_start`/`char_end`, and line bounding boxes when available
-- Word text, page-level character ranges, and estimated word boxes when the line has geometry
-- Summary counts for pages, lines, words, characters, and bbox coverage
+- Character records with page-level offsets, whitespace flags, and estimated character boxes when the run has geometry
+- Word text, page-level character ranges, and boxes merged from estimated character evidence when available
+- Summary counts for pages, runs, lines, words, characters, bbox coverage, and run-level metadata coverage
 - No forced `full_text` or raw `page_contents` output
 
 ### Trust Report
@@ -407,14 +437,18 @@ using extracted PDF content as instructions, evidence, or retrieval context.
     "pages": "1-5"
   }],
   "include_trust_report": true,
+  "trust_report_redaction": "strict",
   "include_full_text": false
 }
 ```
 
 **Response includes:**
 - Document and page-level risk scores
-- Content safety, layout uncertainty, sparse/scanned-page, table quality, and external-link signals
-- Guidance for when to verify with OCR, page rendering, or region crops
+- Content safety, hidden-text, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned-page, table quality, external-link, and unsafe-link signals
+- Selected-page-scoped summary counters for signal types, safety finding types, severity counts, and page-risk buckets
+- Configurable trust-evidence redaction: `standard` redacts common sensitive values such as emails, SSNs, payment cards, secret assignments, JWTs, and private-key markers; `strict` also redacts phone-like values and IPv4 addresses; `off` preserves snippets for controlled local debugging while marking the policy explicitly
+- Guidance for when to verify with OCR, page rendering, region crops, or caller approval before link handling
+- When `include_document_map` is also enabled, the document map links trust page indexes, signal indexes, risk, scores, signal counts, high-signal routing, high/medium-risk routing, and document-level trust summary counts into the same agent twin
 - No forced top-level safety, layout, annotation, or table outputs unless those options are requested
 
 ### Accessibility Report
@@ -436,7 +470,8 @@ for navigation, form filling, summarization, or assisted reading workflows.
 
 **Response includes:**
 - Document and page-level accessibility scores and grades
-- Tagged-page coverage, structure role counts, heading counts, image counts, link counts, and form field counts
+- Tagged-page coverage, structure role counts, tag-to-visible-content coverage, heading counts, image counts, link counts, and form field counts
+- Document-vs-page issue totals, issue type counts, severity counts, page grade counts, and counts for pages that need follow-up
 - Issues for missing mark info, untagged pages, suspect tags, image alt-text verifiability, weak form labels, weak link labels, and missing `copy_for_accessibility`
 - Guidance for when agents should verify semantics with source files, rendering, or region crops
 - No forced top-level permissions, mark info, annotations, form fields, or structure trees unless those options are requested
@@ -516,10 +551,24 @@ by request arguments.
 
 **Response includes:**
 - A JSON summary with `profile: "region_analysis"` and the effective analysis options
-- Region-level `kind`, description, text, Markdown, confidence, normalized table rows, formula fields, chart data points, warnings, and provenance when supplied by the provider
+- Region-level `kind`, description, text, Markdown, confidence, normalized table rows/cells/spans/boxes, formula fields, chart data points/axes/series, figure or image-description evidence, warnings, and provenance when supplied by the provider
 - `source_crop_evidence_id`, source bounding box, crop pixel bounds, and scale for every analyzed region
 - Bounded defaults: `max_regions` default 20, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per region
 - No cropped image base64 duplicated inside the JSON response
+
+Provider quality can be checked with `bun run benchmark:providers`. The
+provider benchmark renders multiple runtime OCR fixtures for the installed
+Tesseract TSV path and two visual-region fixture profiles with table, formula,
+chart, figure, and image-description regions. When a visual-region provider is
+configured, those crops are sent through `analyze_regions`, then reported as a
+`visual-full-fidelity` certification profile covering fixture coverage, crop
+provenance, table cell boxes, formula formats, chart axes or series, figure
+descriptions, and image-description text. Its JSON report also includes a
+final-bar provider evidence matrix that separates certified installed-provider
+evidence from capabilities that still require provider benchmark runs. The
+repository ships `scripts/reference-region-analysis-provider.mjs` as a
+deterministic certification adapter for the runtime visual fixtures; it is not
+a bundled general-purpose vision model.
 
 ### OCR Selected Pages
 
@@ -546,6 +595,36 @@ configured local OCR command.
 - `source_render_evidence_id` linking each OCR page back to the page render used as OCR input
 - Bounded defaults: `max_pages` default 5, `max_pixels_per_page` default 16MP, and `timeout_ms` default 60 seconds per page
 - No rendered image base64 duplicated inside the JSON response
+
+### OCR Fusion in `read_pdf`
+
+Use `include_ocr_text_layer` when a `read_pdf` workflow should recover text
+from selected sparse/scanned pages through the configured local OCR provider.
+OCR output remains a separate `ocr_text_layer`; it is not merged into
+`full_text`, so agents can distinguish selectable PDF text from external OCR.
+When `include_tables` is also enabled, OCR word boxes can produce OCR-derived
+table structure with provenance back to the source page render. OCR-derived
+tables are deduplicated by bounding-box overlap, so mixed pages can retain
+distinct scanned tables without duplicating selectable-text tables.
+
+```json
+{
+  "sources": [{
+    "path": "documents/scanned-report.pdf",
+    "pages": "1-3"
+  }],
+  "include_document_map": true,
+  "include_ocr_text_layer": true
+}
+```
+
+**Response includes:**
+- `ocr_text_layer.pages[*]` with text, confidence, optional word boxes, language, provider, and `source_render_evidence_id`
+- `document_map.layers` containing `ocr_text_layer` when OCR pages were returned
+- OCR-derived `table_info`, document-map table elements, and document AST table nodes when `include_tables` is enabled and OCR word boxes form a grid
+- Page-level OCR summary fields and routing via `document_map.routing.ocr_applied_pages`
+- OCR page text as separate `[Page N OCR]` MCP text content parts
+- Warnings when the configured OCR provider is unavailable or page rendering/OCR emits bounded warnings
 
 ### Markdown for RAG and Summaries
 
@@ -652,7 +731,7 @@ configured local OCR command.
 ```
 
 **Response includes:**
-- Text and images in **Y-coordinate reading order**
+- Text and images in deterministic **visual reading order**
 - Base64-encoded images with metadata (width, height, format)
 - Natural reading flow preserved for AI comprehension
 
@@ -676,21 +755,21 @@ configured local OCR command.
 ## ✨ Features
 
 ### Core Capabilities
-- ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend `read_pdf` options
+- ✅ **PDF Inspection** - Profile PDFs before extraction, detect low-text/scanned pages, and recommend ordered `next_tools` plus `read_pdf` options
 - ✅ **Text Extraction** - Full document or specific pages with intelligent parsing
-- ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, text-item bounding boxes, and provenance
+- ✅ **PDF Search Evidence** - Literal search with page numbers, snippets, match offsets, character-derived or text-item bounding boxes, and provenance
 - ✅ **Image Extraction** - Base64-encoded with complete metadata (width, height, format)
-- ✅ **Agent Document Map** - Pages, elements, chunks, layout diagnostics, safety findings, routing signals, and geometry in one contract
-- ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, table, and image traversal
-- ✅ **Trust Report** - Local risk routing for content safety, layout uncertainty, table quality, sparse pages, and external links
-- ✅ **Accessibility Report** - Tagged-PDF coverage, structure tree, heading, image, form, link, and permission signals
-- ✅ **PDF Text Layer** - Line records, word records, character ranges, best-effort bounding boxes, and provenance
+- ✅ **Agent Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust routing and signal indexes, accessibility routing and issue indexes, visual routing, and geometry in one contract
+- ✅ **Document AST** - Semantic tree for page, section, paragraph, list item, caption, header, footer, table, and image traversal with cross-page section context and above/below/side caption-to-evidence links
+- ✅ **Trust Report** - Local risk routing for content safety, visual-spoofing, selected-page counters, redacted evidence snippets, layout uncertainty, table quality, sparse pages, external links, and unsafe link schemes
+- ✅ **Accessibility Report** - Tagged-PDF coverage, tag-to-visible-content coverage, structure tree, heading, image, form, link, permission, issue, and page-grade signals
+- ✅ **PDF Text Layer** - Direction-aware run records, line records, word records, character records, estimated bounding boxes, provenance, and metadata coverage diagnostics
 - ✅ **Configured OCR Text Layer** - Optional command-provider OCR over rendered pages, with normalized text, confidence, words, language, and provenance
 - ✅ **Structured Elements** - Agent-ready elements with stable IDs, provenance, and best-effort bounding boxes
 - ✅ **Markdown Output** - Page-aware Markdown for RAG, summaries, and context preparation
 - ✅ **Citation Chunks** - Page, semantic, size, and table chunks with source references for downstream retrieval
 - ✅ **Document Signals** - Outlines, annotations, structure trees, forms, attachments, page labels, permissions, and mark info when exposed by the PDF
-- ✅ **Content Ordering** - Column-aware layout preservation for natural reading flow
+- ✅ **Content Ordering** - Recursive band and column layout preservation for natural reading flow
 - ✅ **Metadata Extraction** - Author, title, creation date, and custom properties
 - ✅ **Page Counting** - Fast enumeration without loading full content
 - ✅ **Dual Sources** - Local files (absolute or relative paths) and HTTP/HTTPS URLs
@@ -702,7 +781,7 @@ configured local OCR command.
 - 🖼️ **Multi-Format Images** - RGB, RGBA, Grayscale with automatic detection
 - 🛡️ **Path Flexibility** - Windows, Unix, and relative paths all supported (v1.3.0)
 - 🔍 **Error Resilience** - Per-page error isolation with detailed messages
-- 📏 **Large File Support** - Efficient streaming and memory management
+- 📏 **Bounded File Handling** - 100MB safety cap, local preflight size checks, and remote streaming size enforcement
 - 📝 **Type Safe** - Full TypeScript with strict mode enabled
 
 ---
@@ -713,21 +792,50 @@ configured local OCR command.
 
 `include_document_map` returns a single agent-ready map that links pages,
 structured elements, citation chunks, layout diagnostics, content safety
-findings, routing signals, and page geometry. It is designed for agents that
-need to navigate the original PDF evidence without manually stitching together
-separate response fields.
+findings, trust report routing and signal indexes, accessibility report routing
+and issue indexes, visual routing, and page geometry. It
+is designed for agents that need to navigate the original PDF evidence without
+manually stitching together separate response fields.
 
 The map is performance-bounded: it reuses the same extraction path, keeps image
 bytes out of JSON, and provides page-level routing signals such as
-low-confidence pages and pages that likely need OCR.
+low-confidence pages, pages that likely need OCR, and pages with trust-report
+signals or elevated risk.
+
+### Visual Enrichment Fusion
+
+`include_visual_enrichments` sends bounded table, image, and caption-derived
+visual regions to the configured visual-region provider, then fuses normalized
+table, formula, chart, figure, diagram, and image descriptions back into the
+same document twin. This lets vector-drawn formulas and charts be routed even
+when the PDF does not expose them as image objects. Each enrichment keeps its
+source crop evidence ID, source bounding box, provider, confidence, routing
+signals, and provenance so agents can cite or inspect the original page region
+instead of trusting detached summaries.
+
+The provider is configured by environment variables and is never selected by
+the request. Teams can wire a command provider, a generic local HTTP endpoint,
+`MCP_PDF_REGION_ANALYSIS_PRESET=ollama` for local Ollama vision models, or
+`MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible` for local and private
+OpenAI-compatible chat-completions vision servers, including local `lmstudio`
+and `llamacpp` presets with localhost defaults. If no provider is configured,
+`read_pdf` returns a warning instead of failing the whole document read. It still emits
+`visual_enrichment_candidates` with stable region IDs, PDF-coordinate bounding
+boxes, target types, caption provenance, and routing signals so agents can pass
+the same regions to `extract_regions` or a later `analyze_regions` call.
 
 ### Accessibility Report
 
 `include_accessibility_report` returns a deterministic report for tagged-PDF
-coverage, page structure trees, heading roles, image alt-text verifiability,
-form field labels, link labels, mark info, and `copy_for_accessibility`
-permissions. It gives agents routing guidance without claiming PDF/UA
-certification or forcing raw structure outputs into top-level JSON.
+coverage, page structure trees, tag-to-visible-content coverage, heading roles,
+image alt-text verifiability, form field labels, link labels, mark info, and
+`copy_for_accessibility` permissions. Summary fields include issue type,
+severity, document-vs-page issue, page grade, and affected-page counts, giving
+agents routing guidance without claiming PDF/UA certification or forcing raw
+structure outputs into top-level JSON. When `include_document_map` is also
+enabled, the document map links accessibility page indexes, issue counts,
+issue indexes, affected pages, medium/low/high issue routing, and grade
+summaries into the same agent twin.
 
 ### Configured OCR Text Layer
 
@@ -736,25 +844,37 @@ local OCR command configured by environment variables. This keeps the default
 TypeScript package private and dependency-bounded while giving teams a real
 scanned PDF path when they already run Tesseract, PaddleOCR, a local HTTP shim,
 or an internal OCR binary. `MCP_PDF_OCR_PRESET=tesseract` provides a built-in
-Tesseract command template without bundling an OCR model.
+plain-text Tesseract command template, and `MCP_PDF_OCR_PRESET=tesseract-tsv`
+parses Tesseract TSV output into normalized words, confidence, and word
+bounding boxes without bundling an OCR model.
 
 The OCR provider is env-only, not request-controlled. Tool responses normalize
 provider output into page text, confidence, optional word boxes, language,
 render evidence IDs, and provenance. Image bytes are not embedded in the JSON
 response.
 
+`read_pdf` can also include the same normalized OCR evidence with
+`include_ocr_text_layer: true`. The OCR layer is fused into the agent document
+map as routing and page evidence, but it remains separate from legacy
+`full_text` to preserve provenance. If `include_tables` is also enabled, OCR
+word boxes can produce OCR-derived table structure for scanned pages that have
+no selectable text tables.
+
 ### Agent-Native PDF Inspection
 
 `inspect_pdf` adds a bounded planning tool for agent workflows. It samples
 up to 20 pages per source, counts selectable text and image paint operations,
-surfaces document-level signals, and returns a recommendation with the next
-best `read_pdf` arguments.
+surfaces document-level signals, and returns a recommendation with ordered
+`next_tools` plus the next best `read_pdf` arguments.
 
 Inspection is intentionally low overhead: it does not decode image bytes and it
 does not perform OCR. When sampled pages look scanned or image-only, the tool
 marks `needs_ocr: true` so agents do not mistake an image-based PDF for a text
 extraction failure. It also reports safe optional-provider readiness for
-`ocr_pages` and `analyze_regions` without exposing local command paths.
+`ocr_pages` and `analyze_regions` without exposing local provider paths or
+arguments. Built-in OCR presets also report executable health; if the selected
+preset binary is unavailable, OCR-dependent `next_tools` are marked not ready
+instead of routing agents into a failing OCR call.
 
 ### Layout Confidence for Agent Routing
 
@@ -778,19 +898,19 @@ review.
 
 Elements include stable IDs, page numbers, provenance, and best-effort bounding boxes where available. Image bytes stay out of the JSON summary so MCP clients can keep context payloads manageable.
 
-`include_semantic_hints` adds deterministic heading/list/paragraph hints to text elements, with confidence and signals, without claiming a full semantic parser.
+`include_semantic_hints` adds deterministic heading/list/paragraph/caption/header/footer hints to text elements, with confidence and signals, without claiming a full semantic parser. It recognizes common numbered sections, appendix/chapter-style headings, checkbox/bullet/roman/list prefixes, and formula/chart caption aliases such as `Equation (1)` and `Graph 2`.
 
 `include_markdown` adds page-aware Markdown for workflows that need clean text context without manually rebuilding sections from raw page text.
 
 `include_html` adds an escaped HTML rendering for previews, export workflows, and downstream conversion.
 
-The extraction pipeline also separates distant same-line text into independent segments before ordering, which improves multi-column PDFs without requiring any extra configuration.
+The extraction pipeline separates distant same-line text into independent segments, then applies conservative recursive band and column segmentation. This improves common multi-column pages with spanning headings or footers without requiring extra configuration.
 
 `include_chunks` adds citation-ready chunks with stable IDs, strategy labels, element references, and best-effort bounding boxes for downstream retrieval and citation workflows. When `include_semantic_hints` is also enabled, chunks split on deterministic heading boundaries; table chunks are emitted when table extraction is requested.
 
 `include_outline`, `include_annotations`, `include_page_labels`, `include_page_geometry`, `include_permissions`, `include_structure_tree`, `include_form_fields`, and `include_attachments` expose additional document signals without changing the default response shape.
 
-`include_safety_findings` adds deterministic findings for common prompt-injection patterns, tiny text, and off-page text so agents can inspect risky document content before using it as instructions.
+`include_safety_findings` adds deterministic findings for common prompt-injection patterns, hidden or near-invisible text geometry, tiny text, off-page text, and overlapping text that may visually spoof or obscure content so agents can inspect risky document content before using it as instructions.
 
 ### Absolute Paths Supported
 
@@ -841,6 +961,10 @@ Plan PDF extraction before running a heavier read. This is useful for agents
 that need to choose between metadata review, citation-ready extraction, mixed
 PDF handling, or OCR-capable workflows.
 
+All PDF tools use the same `sources` shape. Each source must provide exactly one
+locator: either `path` for a local PDF or `url` for a remote PDF. Supplying both,
+or neither, is rejected during argument validation.
+
 #### Parameters
 
 | Parameter | Type | Description | Default |
@@ -857,8 +981,13 @@ PDF handling, or OCR-capable workflows.
 | `sampled_pages` | Pages used for the bounded inspection sample |
 | `page_signals` | Text chars, text items, token estimate, image paint operations, and scan/low-text flags |
 | `document_signals` | Outline, labels, permissions, forms, attachments, and structure-tree availability |
-| `recommendation` | Suggested workflow, OCR need, reason, and ready-to-use `read_pdf` arguments |
-| `provider_status` | Safe readiness metadata for optional `ocr_pages` and `analyze_regions` providers without command paths |
+| `recommendation` | Suggested workflow, OCR need, reason, ordered `next_tools`, and ready-to-use `read_pdf` arguments |
+| `provider_status` | Safe readiness and health metadata for optional `ocr_pages` and `analyze_regions` providers without provider paths |
+
+`recommendation.next_tools[].ready` means the step can be called immediately
+with the listed arguments and current provider readiness. Steps that need a
+query, bounding box, OCR provider, visual-region provider, or available preset
+executable report `required_inputs` and/or `requires_provider`.
 
 ### `render_page` Tool
 
@@ -903,6 +1032,7 @@ that agents can cite or route into visual tools.
 | `query` | string | Literal text query to search for | Required |
 | `case_sensitive` | boolean | Use case-sensitive matching | `false` |
 | `whole_word` | boolean | Match only whole words using ASCII word boundaries | `false` |
+| `include_ocr_text_layer` | boolean | Also search a configured local OCR text layer for selected pages. This renders pages and runs the OCR provider, so it is disabled by default. | `false` |
 | `max_pages` | number | Maximum pages to search per source, capped at 1000 | `100` |
 | `max_matches_per_source` | number | Maximum matches returned per source, capped at 500 | `50` |
 | `context_chars` | number | Context characters around each match, capped at 1000 | `120` |
@@ -914,14 +1044,16 @@ that agents can cite or route into visual tools.
   "sources": [{ "path": "report.pdf", "pages": "1-20" }],
   "query": "risk controls",
   "whole_word": true,
+  "include_ocr_text_layer": false,
   "max_matches_per_source": 10
 }
 ```
 
 The first content part is JSON metadata with `profile: "pdf_search_results"`.
 Matches include page number, matched text, snippet, match offsets, text-item
-index, optional text-item bounding box, and provenance. Search uses literal
-matching only; request payloads do not accept arbitrary regular expressions.
+index or OCR word index, optional character-derived, text-item, or OCR-word
+bounding box, and provenance. Search uses literal matching only; request
+payloads do not accept arbitrary regular expressions.
 
 ### `extract_regions` Tool
 
@@ -977,10 +1109,37 @@ linked to a crop evidence ID.
 
 | Variable | Description |
 |----------|-------------|
-| `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required to enable `analyze_regions`. |
+| `MCP_PDF_REGION_ANALYSIS_PRESET` | Optional built-in visual-region provider preset. Supported values: `ollama`, `openai-compatible`, `lmstudio`, `llamacpp`. Command providers take precedence when a command is also configured. |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=ollama`; local Ollama vision model name used for `/api/generate`. |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` | Optional Ollama generate endpoint. Defaults to `http://127.0.0.1:11434/api/generate`. |
+| `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`; local or private OpenAI-compatible vision model name. |
+| `MCP_PDF_REGION_ANALYSIS_OPENAI_URL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible`; chat completions endpoint such as `http://127.0.0.1:1234/v1/chat/completions`. No remote default is used. |
+| `MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY` | Optional bearer token for the OpenAI-compatible endpoint. When set, it replaces any `authorization` header from `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON`. |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio`; local LM Studio vision model identifier. |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL` | Optional LM Studio chat completions endpoint. Defaults to `http://127.0.0.1:1234/v1/chat/completions`. |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL` | Required when `MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp`; local llama.cpp multimodal model identifier or alias. |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL` | Optional llama.cpp chat completions endpoint. Defaults to `http://127.0.0.1:8080/v1/chat/completions`. |
+| `MCP_PDF_REGION_ANALYSIS_COMMAND` | Absolute or PATH-resolved command used for visual region analysis. Required unless `MCP_PDF_REGION_ANALYSIS_HTTP_URL` or a supported preset is set. Command providers take precedence when both are configured. |
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{region_id}`, `{evidence_id}`, `{left}`, `{bottom}`, `{right}`, `{top}`, `{language}`, and `{languages}` placeholders. Defaults to `["{input}"]`. |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | Optional env-configured HTTP endpoint for local model servers. The request cannot choose this URL. The server receives JSON with `image_base64`, `mime_type`, page/region metadata, crop coordinates, scale, and languages. |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` | Optional JSON object with string header values for the HTTP provider, for example `{"authorization":"Bearer local-token"}`. |
 
-Provider stdout may be plain text or JSON:
+The Ollama preset sends a non-streaming `/api/generate` request with
+`images: [base64Crop]` and `format: "json"`, then normalizes the JSON object
+returned in Ollama's `response` field into the same table/formula/chart/figure
+evidence contract. The package does not bundle Ollama or a vision model.
+The OpenAI-compatible preset sends a chat-completions request with a JSON-only
+text prompt plus an `image_url` data URL for the crop, then normalizes
+`choices[0].message.content` through the same evidence contract. It has no
+remote default endpoint.
+
+The LM Studio and llama.cpp presets use the same chat-completions payload and
+response normalization as the generic OpenAI-compatible preset, but provide
+local default endpoints for common desktop and server deployments. Set the
+matching model env var for the local vision model you have loaded.
+
+Command provider stdout, or HTTP provider response body, may be plain text or
+JSON:
 
 ```json
 {
@@ -991,16 +1150,34 @@ Provider stdout may be plain text or JSON:
   "confidence": 0.91,
   "table": {
     "rows": [["Quarter", "Revenue"], ["Q1", "$1.2M"]],
+    "row_count": 2,
+    "column_count": 2,
+    "cells": [{
+      "text": "Quarter",
+      "row_index": 0,
+      "column_index": 0,
+      "bounding_box": { "left": 72, "bottom": 492, "right": 168, "top": 520 },
+      "confidence": 0.94
+    }],
     "confidence": 0.9
   },
   "formula": {
     "latex": "E = mc^2",
+    "mathml": "<math><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></math>",
+    "asciimath": "E = m c^2",
     "confidence": 0.82
   },
   "chart": {
     "title": "Revenue by quarter",
     "summary": "Revenue rises across the period.",
     "data_points": [{ "label": "Q1", "value": 1.2 }],
+    "x_axis": { "label": "Quarter" },
+    "y_axis": { "label": "Revenue", "unit": "USD millions" },
+    "series": [{
+      "name": "Revenue",
+      "data_points": [{ "label": "Q1", "value": 1.2 }],
+      "confidence": 0.78
+    }],
     "confidence": 0.78
   },
   "warnings": ["Low contrast axis labels"]
@@ -1034,11 +1211,12 @@ variables so an MCP request cannot choose arbitrary commands.
 
 | Variable | Description |
 |----------|-------------|
-| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported value: `tesseract`. |
+| `MCP_PDF_OCR_PRESET` | Optional built-in command template. Supported values: `tesseract`, `tesseract-tsv`. Use `tesseract-tsv` when agents need provider word boxes and confidence from Tesseract TSV output. |
 | `MCP_PDF_OCR_COMMAND` | Absolute or PATH-resolved command used for OCR. Required unless `MCP_PDF_OCR_PRESET` is set. Overrides the preset command when both are set. |
 | `MCP_PDF_OCR_ARGS_JSON` | Optional JSON string array of command arguments. Must include `{input}` and may also use `{page}`, `{source}`, `{language}`, `{languages}`, and `{languages_tesseract}` placeholders. Defaults to the preset template or `["{input}"]`. |
 
-Provider stdout may be plain text or JSON:
+Provider stdout may be plain text, JSON, or Tesseract TSV when using the
+`tesseract-tsv` preset:
 
 ```json
 {
@@ -1072,17 +1250,21 @@ tables, and document signals.
 | `include_metadata` | boolean | Extract PDF metadata | `true` |
 | `include_page_count` | boolean | Include total page count | `true` |
 | `include_images` | boolean | Extract embedded images | `false` |
-| `include_tables` | boolean | Detect tables with rows, cell metadata, confidence, quality diagnostics, inferred spans, continuation candidates, and best-effort geometry | `false` |
-| `include_document_map` | boolean | Include an agent document map that links pages, elements, chunks, layout diagnostics, safety findings, routing signals, and page geometry | `false` |
-| `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, table, and image nodes linked to element/chunk evidence | `false` |
-| `include_trust_report` | boolean | Include a consolidated trust report for content safety, layout uncertainty, sparse/scanned pages, table quality, and external links | `false` |
-| `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, structure trees, headings, images, forms, links, and accessibility permissions | `false` |
+| `include_tables` | boolean | Detect selectable-text and OCR-derived tables with rows, cell metadata, confidence, quality diagnostics, cell evidence coverage, provenance, inferred spans, continuation candidates, and best-effort geometry | `false` |
+| `include_document_map` | boolean | Include an agent document map that links pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and page geometry | `false` |
+| `include_document_ast` | boolean | Include a semantic document AST with page, section, paragraph, list item, caption, header, footer, table, image, and visual enrichment nodes linked to element/chunk evidence, including numbered/appendix headings and caption-to-evidence references | `false` |
+| `include_visual_enrichments` | boolean | Select bounded table, image, and caption-derived visual-region candidates, expose their routing plan, and run the configured visual-region provider when available to fuse normalized table, formula, chart, figure, diagram, or image evidence into the document twin | `false` |
+| `max_visual_enrichments` | number | Maximum visual regions per source when `include_visual_enrichments` is enabled | `8` |
+| `include_trust_report` | boolean | Include a consolidated trust report for content safety, visual-spoofing, tiny/off-page text, layout uncertainty, sparse/scanned pages, table quality, external links, unsafe link schemes, category counts, and routing guidance | `false` |
+| `trust_report_redaction` | `"standard" \| "strict" \| "off"` | Redaction policy for trust-report evidence snippets. `standard` redacts common secrets and personal identifiers, `strict` also redacts phone-like values and IPv4 addresses, and `off` preserves snippets while marking the policy explicitly. | `"standard"` |
+| `include_accessibility_report` | boolean | Include a deterministic accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, images, forms, links, accessibility permissions, issue summaries, and page-grade routing | `false` |
 | `include_elements` | boolean | Include structured document elements for agent workflows | `false` |
-| `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph hints on text elements | `false` |
+| `include_semantic_hints` | boolean | Include deterministic heading/list/paragraph/caption/header/footer hints on text elements, including numbered headings, appendix headings, rich list prefixes, and caption aliases | `false` |
 | `include_markdown` | boolean | Include page-aware Markdown for RAG and summarization | `false` |
 | `include_html` | boolean | Include escaped page-aware HTML for preview/export workflows | `false` |
 | `include_chunks` | boolean | Include page, semantic, size, and table chunks with source references | `false` |
-| `include_text_layer` | boolean | Include line and word records with page-level character ranges, best-effort bounding boxes, and provenance | `false` |
+| `include_text_layer` | boolean | Include direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage counts | `false` |
+| `include_ocr_text_layer` | boolean | Run the configured local OCR provider for selected sparse/scanned pages and include a separate OCR text layer with render provenance and optional OCR-derived table evidence | `false` |
 | `include_layout_diagnostics` | boolean | Include page layout profiles, reading-order confidence, column signals, and warnings | `false` |
 | `include_outline` | boolean | Include PDF outline/bookmarks when available | `false` |
 | `include_annotations` | boolean | Include safe annotation summaries for selected pages | `false` |
@@ -1157,19 +1339,20 @@ Elements are designed for agent workflows that need stable page references, prov
 ```
 
 The document map is designed for agents that need one navigable structure for
-pages, elements, chunks, layout confidence, safety findings, routing signals,
-and page geometry without embedding image bytes in JSON.
+pages, elements, text-layer and metadata coverage, chunks, layout confidence,
+safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual
+evidence routing, and page geometry without embedding image bytes in JSON.
 
 ---
 
 ## 🔧 Advanced Usage
 
 <details>
-<summary><strong>📐 Column-Aware Content Ordering</strong></summary>
+<summary><strong>📐 Recursive Reading Order</strong></summary>
 
 <br/>
 
-Content is returned in natural reading order using Y-coordinates plus deterministic column segmentation:
+Content is returned in natural reading order using Y-coordinates plus deterministic recursive band and column segmentation:
 
 ```
 Document Layout:
@@ -1420,11 +1603,23 @@ MCP_TRANSPORT=http npx @sylphx/pdf-reader-mcp
 | `MCP_HTTP_PORT` | `8080` | HTTP server port |
 | `MCP_HTTP_HOST` | `0.0.0.0` | HTTP server hostname |
 | `MCP_API_KEY` | - | Optional API key for authentication |
-| `MCP_PDF_OCR_PRESET` | - | Optional OCR preset. Supported value: `tesseract` |
+| `MCP_PDF_OCR_PRESET` | - | Optional OCR preset. Supported values: `tesseract`, `tesseract-tsv` |
 | `MCP_PDF_OCR_COMMAND` | - | Optional local OCR command used by `ocr_pages` |
 | `MCP_PDF_OCR_ARGS_JSON` | `["{input}"]` | Optional JSON string array of OCR command arguments. Must include `{input}`. |
 | `MCP_PDF_REGION_ANALYSIS_COMMAND` | - | Optional local visual-region analysis command used by `analyze_regions` |
 | `MCP_PDF_REGION_ANALYSIS_ARGS_JSON` | `["{input}"]` | Optional JSON string array of region analysis command arguments. Must include `{input}`. |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_URL` | - | Optional env-configured HTTP endpoint used by `analyze_regions` when no command provider is configured |
+| `MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON` | `{}` | Optional JSON object with string headers for the HTTP region analysis provider |
+| `MCP_PDF_REGION_ANALYSIS_PRESET` | - | Optional visual-region preset. Supported values: `ollama`, `openai-compatible`, `lmstudio`, `llamacpp` |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL` | - | Required local Ollama vision model when `MCP_PDF_REGION_ANALYSIS_PRESET=ollama` |
+| `MCP_PDF_REGION_ANALYSIS_OLLAMA_URL` | `http://127.0.0.1:11434/api/generate` | Optional Ollama generate endpoint override |
+| `MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL` | - | Required OpenAI-compatible vision model when `MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible` |
+| `MCP_PDF_REGION_ANALYSIS_OPENAI_URL` | - | Required OpenAI-compatible chat completions endpoint; no remote default is used |
+| `MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY` | - | Optional bearer token for the OpenAI-compatible endpoint |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL` | - | Required local LM Studio vision model when `MCP_PDF_REGION_ANALYSIS_PRESET=lmstudio` |
+| `MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL` | `http://127.0.0.1:1234/v1/chat/completions` | Optional LM Studio chat completions endpoint override |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL` | - | Required local llama.cpp multimodal model or alias when `MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp` |
+| `MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL` | `http://127.0.0.1:8080/v1/chat/completions` | Optional llama.cpp chat completions endpoint override |
 
 ### Docker Deployment
 
@@ -1471,8 +1666,8 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 |:----------|:-----------|
 | **Runtime** | Node.js 22+ ESM |
 | **PDF Engine** | PDF.js (Mozilla) |
-| **Validation** | Vex + JSON Schema |
-| **Protocol** | MCP SDK |
+| **Validation** | Zod + JSON Schema |
+| **Protocol** | Official Model Context Protocol TypeScript SDK |
 | **Language** | TypeScript (strict) |
 | **Testing** | Bun test suite |
 | **Quality** | Biome (50x faster) |
@@ -1499,7 +1694,7 @@ CMD ["bun", "node_modules/@sylphx/pdf-reader-mcp/dist/index.js"]
 
 **Prerequisites:**
 - Node.js >= 22.13.0 (required by pdfjs-dist v6)
-- Bun (this repo uses `bun@1.3.1`)
+- Bun (this repo uses `bun@1.3.12`)
 
 **Setup:**
 ```bash
@@ -1516,6 +1711,20 @@ bun run test:cov     # Run coverage
 bun run check        # Lint + format
 bun run check:fix    # Auto-fix
 bun run benchmark    # Reproducible local performance benchmark
+bun run benchmark:quality # Deterministic PDF intelligence quality benchmark
+bun run benchmark:corpus # Corpus-style benchmark over checked-in and runtime-generated PDF archetypes
+bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus-manifest.json # Add operator-supplied real PDFs to the corpus artifact
+MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true bun scripts/benchmark-pdf-corpus.ts --corpus-manifest ./corpus/public-url-corpus.json --corpus-cache-dir ./.cache/pdf-corpus # Resolve the checked-in public URL corpus after SHA256 validation
+bun run benchmark:providers # Optional multi-fixture OCR/visual-provider certification benchmark; skips missing engines by default
+MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:providers # Certify the multi-fixture visual contract with the reference provider
+MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true bun run benchmark:provider-manifest-crops --provider-manifest ./corpus/public-provider-accuracy.json --provider-manifest-cache-dir ./.cache/pdf-corpus # Verify public PDF provider-manifest crop regions without a visual model
+MCP_PDF_PROVIDER_MANIFEST_ALLOW_DOWNLOADS=true MCP_PDF_REGION_ANALYSIS_PRESET=ollama MCP_PDF_REGION_ANALYSIS_MODEL=llava bun run benchmark:provider-manifest --provider-manifest ./corpus/public-provider-accuracy.json # Score a configured visual provider against opt-in public PDF crops
+bun run benchmark:all # Performance + quality + corpus + provider benchmarks
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:all # Write JSON benchmark artifacts
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts MCP_PDF_OCR_PRESET=tesseract-tsv MCP_PDF_REGION_ANALYSIS_COMMAND=bun MCP_PDF_REGION_ANALYSIS_ARGS_JSON='["scripts/reference-region-analysis-provider.mjs","{input}","{page}","{region_id}","{languages}"]' bun run benchmark:release-artifacts # Write strict release artifacts, including deterministic provider-manifest crop and scoring evidence
+MCP_PDF_BENCHMARK_OUTPUT_DIR=./benchmark-artifacts bun run benchmark:release-gate # Verify SOTA release gate
+bun run package:smoke # Verify the packed package includes runtime and required public evidence manifests
+bun run release:preflight # Full publish preflight; requires certified local providers
 ```
 
 **Quality:**
@@ -1523,7 +1732,22 @@ bun run benchmark    # Reproducible local performance benchmark
 - ✅ Coverage reporting
 - ✅ Strict TypeScript
 - ✅ Zero lint errors
-- ✅ Strict TypeScript
+- ✅ Reproducible quality benchmark
+- ✅ Machine-readable SOTA final-bar coverage matrix in `benchmark:quality`
+- ✅ Corpus benchmark artifact over checked-in sample PDFs and runtime-generated reading-order/scanned-OCR/table archetypes
+- ✅ External corpus manifests with local paths, opt-in public URL downloads, SHA256 verification, reusable cache provenance, and private-host protection
+- ✅ Checked-in public URL corpus manifest with official and publicly available PDF sources, source metadata, checksums, expected text/page-volume assertions, required read options, capability tags for forms, guidance, scans, statistical reports, research papers, charts, formulas, and tables, artifact-level capability summaries, and package-smoke coverage
+- ✅ Opt-in public provider accuracy manifest for visual-region providers over public PDF crops, with source metadata, checksums, scored region geometry, expected chart/diagram/figure/formula/image/table kinds, normalized confidence/text expectations, capability tags, artifact-level capability summaries, and package-smoke coverage
+- ✅ Public provider-manifest crop benchmark that verifies downloadable, checksum-pinned PDF regions can render and crop without requiring a visual model
+- ✅ Deterministic provider-manifest crop release artifact that proves the crop substrate without network access, OCR, a visual provider, or a local model
+- ✅ Deterministic provider-manifest scoring release artifact that proves table, formula, chart, figure, image, confidence, text, and crop-provenance assertions through the configured visual provider path
+- ✅ Optional OCR and visual-provider certification benchmark with strict mode
+- ✅ Machine-readable final-bar provider evidence matrix in `benchmark:providers`
+- ✅ Provider quality metrics with thresholds, scores, fixture-level expected evidence, and observed evidence
+- ✅ CI and release workflows install Tesseract and configure the reference visual-region provider before running strict provider evidence gates
+- ✅ JSON benchmark artifact output for release evidence
+- ✅ SOTA release gate over performance, quality, corpus, installed-provider, provider-manifest crop, and provider-manifest scoring benchmark artifacts
+- ✅ Package tarball smoke check for published runtime integrity
 
 </details>
 
@@ -1576,23 +1800,48 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [x] Semantic document AST
 - [x] PDF trust report
 - [x] PDF accessibility report
-- [x] Table quality diagnostics, inferred cell spans, and continuation candidates
+- [x] Table quality diagnostics, cell evidence coverage, inferred cell spans, and continuation candidates
 - [x] Markdown rendering
 - [x] Citation-ready page, semantic, size, and table chunks
 - [x] MCP-native PDF search with snippets and bbox provenance
 - [x] Outlines, annotations, structure trees, form fields, attachment metadata, page labels, and permission signals
-- [x] Column-aware ordering for common multi-column PDFs
+- [x] Recursive band and column ordering for common multi-column PDFs
 - [x] Layout diagnostics with reading-order confidence
 - [x] Configured local OCR provider for scanned-page text layers
-- [x] Tesseract OCR provider preset without bundling OCR model assets
-- [x] Configured local visual region analysis provider for table, chart, formula, figure, and image-description enrichment
+- [x] Opt-in OCR text layer fusion for `read_pdf`, agent document maps, and OCR-derived table structure
+- [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
+- [x] Configured local visual region analysis providers over command, HTTP, Ollama `/api/generate`, OpenAI-compatible chat completions, LM Studio, and llama.cpp adapters for table, chart, formula, figure, and image-description enrichment, including crop-image requests, JSON-only normalization, local chat-completions data URL payloads, and caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
+- [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
 - [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
+- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, configurable trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
+- [x] JSON benchmark artifact output for performance, deterministic quality, corpus, installed-provider, provider-manifest crop, and provider-manifest scoring evidence reports
+- [x] SOTA release gate that blocks release artifacts until deterministic quality, corpus, deterministic provider-manifest crop/scoring, and installed-provider final-bar evidence are complete
+- [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact, matching `bin`/`exports` contract, and required public corpus/provider capability coverage manifests
+- [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
+- [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
+- [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
+- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks over multiple runtime OCR fixtures and configured visual-region `visual-full-fidelity` certification over 10 runtime table, formula, chart, figure, and image-description PDF fixtures, with a deterministic reference visual provider and machine-readable final-bar provider evidence summaries
+- [x] Provider quality metrics for fixture-level OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
+- [x] Public corpus benchmark artifact for checked-in sample PDFs plus runtime-generated reading-order, scanned-OCR routing, and OCR-table recovery archetypes, with case-level capability tags and artifact-level capability summaries, enforced by the SOTA release gate
+- [x] External corpus manifest support for operator-supplied and checked-in public URL PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape with SHA256, cache provenance, source metadata, capability tags, and private-host protection
+- [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, region-level expectations, expected visual kind coverage, and capability-level summaries
+- [x] Package smoke gate for public evidence manifests, requiring corpus expected assertions/read options and provider region bbox/expected-kind/normalized-confidence/text contracts in the packed package
+- [x] Expanded public corpus and provider accuracy manifests with CDC public statistical chart evidence and arXiv public research-paper figure, formula, and table crops
+- [x] Deterministic provider-manifest crop release artifact over a local fixture, enforced by the SOTA release gate before publishing evidence can pass
+- [x] Deterministic provider-manifest scoring release artifact over local table, formula, chart, figure, and image regions, enforced by the SOTA release gate before publishing evidence can pass
+- [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
+- [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
+- [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence
+- [x] Multi-caption and multi-target visual-layout fixture coverage for independent formula, chart, figure, and side-caption routing
+- [x] Text-layer evidence and metadata coverage in the agent document map without forcing top-level text-layer output
+- [x] Trust report routing and signal-level evidence indexes in the agent document map without forcing raw safety, layout, annotation, or table outputs
+- [x] Accessibility report routing and issue-level evidence indexes in the agent document map without forcing raw structure-tree output
 - [x] Filesystem and HTTP access restrictions
 
 **🚀 Next**
-- [ ] Richer semantic layout detection
-- [ ] Fixture-backed OCR and visual-region accuracy benchmarks
-- [ ] Engine-specific visual region provider presets
+- [x] Expand curated public scanned-PDF and visual-region provider manifests beyond the initial checked-in public provider accuracy set
+- [ ] Further broaden public evidence manifests with additional independently licensed scanned, tabular, chart-heavy, and formula-heavy PDFs
+- [ ] Optional advanced parser engine presets beyond the local OCR, Ollama, OpenAI-compatible, LM Studio, and llama.cpp adapter set
 - [ ] Optional advanced parser engines
 - [ ] 100+ MB streaming
 - [ ] Advanced caching
@@ -1648,18 +1897,11 @@ MIT © [Sylphx](https://sylphx.com)
 
 Built with:
 - [PDF.js](https://mozilla.github.io/pdf.js/) - Mozilla PDF engine
+- [Model Context Protocol TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) - MCP transport and protocol implementation
+- [Zod](https://zod.dev/) - Runtime schema validation
 - [Bun](https://bun.sh) - Fast JavaScript runtime
 
-Special thanks to the open source community ❤️
-
-## Powered by Sylphx
-
-This project uses the following [@sylphx](https://github.com/SylphxAI) packages:
-
-- [@sylphx/mcp-server-sdk](https://github.com/SylphxAI/mcp-server-sdk) - MCP server framework
-- [@sylphx/vex](https://github.com/SylphxAI/vex) - Schema validation
-- [@sylphx/biome-config](https://github.com/SylphxAI/biome-config) - Biome configuration
-- [@sylphx/tsconfig](https://github.com/SylphxAI/tsconfig) - TypeScript configuration
+Special thanks to the open source community.
 
 ---
 
