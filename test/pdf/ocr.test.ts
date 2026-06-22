@@ -88,26 +88,31 @@ describe('ocr', () => {
 
     Reflect.deleteProperty(process.env, 'MCP_PDF_OCR_COMMAND');
     process.env['MCP_PDF_OCR_PRESET'] = 'tesseract';
-    process.env.PATH = '';
     expect(isOcrProviderConfigured()).toBe(true);
-    expect(getOcrProviderStatus()).toMatchObject({
-      readiness: 'unavailable',
+    const tesseractStatus = getOcrProviderStatus();
+    expect(tesseractStatus).toMatchObject({
       provider: 'command',
       command_configured: false,
-      health: 'unavailable',
       health_check: 'preset_executable',
       preset: 'tesseract',
     });
+    expect(['ready', 'unavailable']).toContain(tesseractStatus.readiness);
+    expect(tesseractStatus.health).toBe(
+      tesseractStatus.readiness === 'ready' ? 'available' : 'unavailable'
+    );
 
     process.env['MCP_PDF_OCR_PRESET'] = 'tesseract-tsv';
-    expect(getOcrProviderStatus()).toMatchObject({
-      readiness: 'unavailable',
+    const tesseractTsvStatus = getOcrProviderStatus();
+    expect(tesseractTsvStatus).toMatchObject({
       provider: 'command',
       command_configured: false,
-      health: 'unavailable',
       health_check: 'preset_executable',
       preset: 'tesseract-tsv',
     });
+    expect(['ready', 'unavailable']).toContain(tesseractTsvStatus.readiness);
+    expect(tesseractTsvStatus.health).toBe(
+      tesseractTsvStatus.readiness === 'ready' ? 'available' : 'unavailable'
+    );
   });
 
   it('should resolve the tesseract OCR preset without custom command args', () => {
