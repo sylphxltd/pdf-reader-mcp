@@ -195,7 +195,7 @@ A new major release should not be treated as complete until:
 - `bun run benchmark:release-gate` passes against the release benchmark
   artifacts.
 - `bun run package:smoke` passes against the packed package tarball.
-- Public docs match the verified behavior without competitor references or
+- Public docs match the verified behavior without external-project callouts or
   unproven superiority claims.
 - The package smoke test proves the release tarball exposes the executable
   runtime artifact, the expected `bin`/`exports` contract, required public
