@@ -131,63 +131,6 @@
   kind-specific assertions, crop provenance, and capability-summary coverage
   before publishing evidence can pass.
 
-## Unreleased
-
-- Add a `tesseract-tsv` OCR provider preset that runs Tesseract TSV output and
-  normalizes page text, confidence, language, and word-level bounding boxes
-  into the OCR text layer.
-- Add `bun run benchmark:providers`, an optional installed-provider benchmark
-  for the Tesseract TSV OCR path and configured visual-region providers. It now
-  reports certification profiles for OCR text-layer word boxes and
-  visual-full-fidelity table/formula/chart/figure/image-description crop
-  evidence, reports skipped providers explicitly by default, and can be made
-  blocking with `MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true`.
-- Extend deterministic semantic hints and the document AST with caption,
-  header, and footer roles. Header/footer detection uses page-edge geometry and
-  horizontal page bounds so off-page text remains available as evidence without
-  being misclassified as a footer.
-- Add cross-page section context to the document AST. Continued paragraphs,
-  subsections, tables, images, and visual regions can now expose `section_path`
-  and `continued_from_section_id` while preserving page-local evidence nodes.
-- Link document AST captions to nearby table, image, figure, chart, formula, or
-  diagram evidence with `caption_links`, target-side `caption_ids`, confidence,
-  relation, and signals so agents can keep captions attached to source-backed
-  visual or tabular evidence.
-- Link selectable text-layer evidence into `document_map`. Page records now
-  expose text-layer page indexes plus run, line, word, character, and bounding
-  box coverage counts, and the map summary reports text-layer totals without
-  forcing top-level `text_layer` output.
-- Add tag-to-visible-content correlation to the accessibility report. Page
-  reports now expose visible element counts, structure content-reference counts,
-  and tag-content coverage, and the report can flag tagged pages whose structure
-  tree does not reference enough visible content.
-- Split unsafe PDF link schemes into a dedicated trust-report signal. The
-  report now distinguishes ordinary external links from unsafe URL schemes and
-  the deterministic quality benchmark verifies unsafe-link routing guidance.
-- Add a dedicated `hidden_text` safety finding for selectable text with zero or
-  near-zero geometry. The trust report now emits high-severity content-safety
-  signals and rendering/crop verification guidance for hidden or near-invisible
-  text.
-- Add table cell evidence coverage metrics. Table quality now reports cell
-  bounding-box coverage, inferred-cell counts/ratios, and incomplete geometry
-  signals so agents can route weak table evidence to visual verification.
-- Add OCR-derived table extraction for scanned pages. `read_pdf` can now use
-  normalized OCR word boxes to produce table evidence when both
-  `include_ocr_text_layer` and `include_tables` are enabled, with provenance
-  back to the source page render.
-- Replace the empty generated API page with a maintained MCP API reference and
-  remove unused TypeDoc tooling from the docs pipeline.
-- Add an env-only HTTP adapter for `analyze_regions` so local model servers can
-  receive crop image bytes and return the same normalized table, formula, chart,
-  figure, image-description, confidence, warning, and provenance fields as
-  command providers.
-- Add ordered `next_tools` to `inspect_pdf` recommendations so agents can route
-  from inspection into `read_pdf`, `search_pdf`, `render_page`, `extract_regions`,
-  `analyze_regions`, or `ocr_pages` with executable arguments, missing inputs,
-  and provider requirements made explicit.
-- Update public docs to distinguish deterministic PDF intelligence quality
-  gates from installed-provider OCR and visual-region smoke checks.
-
 ## 2.6.0
 
 ### Minor Changes
