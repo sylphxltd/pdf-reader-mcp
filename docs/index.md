@@ -30,8 +30,8 @@ features:
     title: Performance-Bounded Local Execution
     details: Built on pdfjs-dist with concurrent processing, bounded rendering, page limits, pixel budgets, package smoke checks, and reproducible benchmark artifacts.
   - icon: "\U0001F50C"
-    title: MCP-Native Tool Routing
-    details: Use inspect_pdf, search_pdf, render_page, extract_regions, analyze_regions, ocr_pages, and read_pdf as a focused agent workflow instead of a single opaque parser call.
+    title: V3 Smart Tool Surface
+    details: Start with read_pdf for automatic Agent Document Twin extraction, use search_pdf for cheap literal evidence, and use pdf_evidence for focused inspect, render, crop, OCR, or visual-analysis operations.
   - icon: "\U0001F5BC\uFE0F"
     title: Visual Evidence and Crops
     details: Render source pages and crop PDF-coordinate regions into bounded image evidence for tables, figures, charts, formulas, annotations, and citations.

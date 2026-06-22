@@ -292,12 +292,13 @@ const buildInspectionNextTools = (
     });
   const renderStep = (priority: number, when: string): PdfInspectionNextTool =>
     toolStep(priority, {
-      tool: 'render_page',
+      tool: 'pdf_evidence',
       ready: true,
       purpose:
         'Return bounded page images as MCP image evidence for visual verification, OCR routing, or human review.',
       when,
       arguments: {
+        operation: 'render_page',
         sources: [visualSource],
         scale: 2,
         max_pages: Math.min(Math.max(visualPages.length, 1), 5),
@@ -306,12 +307,13 @@ const buildInspectionNextTools = (
     });
   const ocrStep = (priority: number, when: string): PdfInspectionNextTool =>
     toolStep(priority, {
-      tool: 'ocr_pages',
+      tool: 'pdf_evidence',
       ready: providerReady(providerReadiness.ocr_pages),
       purpose:
         'Run selected rendered pages through the configured OCR provider and return normalized text, confidence, word boxes, and provenance.',
       when,
       arguments: {
+        operation: 'ocr_pages',
         sources: [visualSource],
         scale: 2,
         max_pages: Math.min(Math.max(visualPages.length, 1), 5),
@@ -323,12 +325,13 @@ const buildInspectionNextTools = (
     });
   const extractRegionsStep = (priority: number, when: string): PdfInspectionNextTool =>
     toolStep(priority, {
-      tool: 'extract_regions',
+      tool: 'pdf_evidence',
       ready: false,
       purpose:
         'Crop bbox-grounded regions as focused visual evidence after read_pdf exposes table, image, text-layer, or chunk boxes.',
       when,
       argument_template: {
+        operation: 'extract_regions',
         sources: [regionSourceTemplate],
         scale: 2,
         max_regions: 20,
@@ -338,12 +341,13 @@ const buildInspectionNextTools = (
     });
   const analyzeRegionsStep = (priority: number, when: string): PdfInspectionNextTool =>
     toolStep(priority, {
-      tool: 'analyze_regions',
+      tool: 'pdf_evidence',
       ready: false,
       purpose:
         'Send focused crops to a configured local visual provider and normalize table, chart, formula, figure, or image-description evidence.',
       when,
       argument_template: {
+        operation: 'analyze_regions',
         sources: [regionSourceTemplate],
         scale: 2,
         max_regions: 20,
@@ -622,7 +626,7 @@ export const inspectPdfSource = async (
     }
     if (recommendation.needs_ocr) {
       warnings.push(
-        'OCR is opt-in and requires a configured provider; use read_pdf with include_ocr_text_layer or ocr_pages for scanned pages.'
+        'OCR is opt-in and requires a configured provider; use read_pdf with include_ocr_text_layer or pdf_evidence operation ocr_pages for scanned pages.'
       );
     }
 

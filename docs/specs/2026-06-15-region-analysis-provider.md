@@ -3,6 +3,9 @@
 Date: 2026-06-15
 Status: shipped
 
+> V3 note: visual-region analysis is now exposed through `pdf_evidence`
+> operation `analyze_regions`.
+
 `analyze_regions` turns focused PDF crops into normalized local-provider
 enrichment. It is the provider boundary for visual table recognition,
 chart-to-data extraction, formula recognition, figure descriptions, and image

@@ -1,7 +1,11 @@
 # OCR Provider
 
 Date: 2026-06-15
-Status: active
+Status: superseded by V3 smart tool surface
+
+> V3 note: standalone OCR is now exposed through `pdf_evidence` operation
+> `ocr_pages`. `read_pdf` still fuses OCR evidence through
+> `include_ocr_text_layer` or automatic routing.
 
 ## Goal
 
@@ -171,7 +175,8 @@ silently mixing incomplete OCR into selectable-text outputs.
 
 - `ocr_pages` validates source, scale, page, timeout, output, and language
   inputs.
-- MCP stdio and HTTP tool lists expose `ocr_pages`.
+- MCP stdio and HTTP tool lists expose `pdf_evidence`, with
+  `operation: "ocr_pages"` covering standalone OCR.
 - Handler responses include `profile: "ocr_text_layer"`.
 - `read_pdf` with `include_ocr_text_layer` returns a separate OCR layer and
   links applied pages into `document_map` when requested.
@@ -179,6 +184,6 @@ silently mixing incomplete OCR into selectable-text outputs.
   table structure from OCR word boxes on scanned pages without selectable text.
 - Unit tests cover configured-provider detection, JSON output normalization,
   and curated missing-provider errors.
-- Integration tests call `ocr_pages` through the built server with a mock
-  provider.
+- Integration tests call `pdf_evidence` operation `ocr_pages` through the built
+  server with a mock provider.
 - Full validation passes before merge.

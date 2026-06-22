@@ -3,6 +3,10 @@
 Date: 2026-06-15
 Status: shipped
 
+> V3 note: focused visual, OCR, crop, render, and inspection operations are now
+> consolidated under `pdf_evidence`; `read_pdf` is the default smart document
+> twin entrypoint.
+
 ## Goal
 
 PDF Reader MCP exposes a single agent-native map of a PDF: pages,
@@ -275,9 +279,9 @@ The shipped capability batch includes:
 - `include_document_map` public schema, handler, types, tests, docs.
 - Inspector recommendations include `include_document_map` for digital and
   mixed PDFs.
-- `render_page`, `extract_regions`, `analyze_regions`, and `ocr_pages` provide
-  visual evidence, focused crops, visual region enrichment, and configured OCR
-  text layers without embedding image bytes in JSON summaries.
+- `pdf_evidence` operations provide visual evidence, focused crops, visual
+  region enrichment, and configured OCR text layers without embedding image
+  bytes in JSON summaries.
 - `read_pdf` can opt into OCR text layer fusion for sparse/scanned pages and
   link applied OCR pages into the document map.
 - `include_document_map` links selectable text-layer coverage into page records
@@ -347,6 +351,6 @@ Next evidence-expansion slices:
   formula, or diagram evidence without moving page-local nodes.
 - The first JSON content part omits `page_contents` and image bytes.
 - Existing `read_pdf` calls without `include_document_map` remain unchanged.
-- `inspect_pdf` recommends the document map for agentic digital-text and mixed
-  workflows.
+- Automatic `read_pdf` inspection and `pdf_evidence` operation `inspect`
+  recommend the document map for agentic digital-text and mixed workflows.
 - Full validation passes before merge.

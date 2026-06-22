@@ -4,11 +4,12 @@ PDF Reader MCP exposes an MCP server contract. The package entrypoint starts the
 server; it is not an importable TypeScript SDK. Agents and clients should call
 the MCP tools below over stdio or the optional HTTP transport.
 
-The API is organized as an evidence-first workflow. Agents can profile a PDF,
-search before reading, render source pages, crop precise regions, run configured
-OCR, analyze visual regions through local providers, and finally read the same
-document as an Agent Document Twin with text, semantic, visual, trust,
-accessibility, citation, and routing layers.
+The V3 API is organized around one smart default path. Agents call `read_pdf`
+first; when no explicit `include_*` options are supplied, it profiles the PDF,
+chooses high-value extraction options, and returns the Agent Document Twin in
+one response. `search_pdf` stays separate for cheap literal evidence retrieval,
+and `pdf_evidence` consolidates focused inspect, render, crop, OCR, and visual
+analysis operations behind one specialist tool.
 
 ## Transports
 
@@ -24,18 +25,14 @@ accessibility, citation, and routing layers.
 
 | Tool | Purpose |
 | --- | --- |
-| `inspect_pdf` | Classify a PDF, sample pages, detect scanned/low-text risk, report provider readiness, and recommend the extraction route before doing expensive work. |
+| `read_pdf` | Primary V3 entrypoint. With only `sources`, auto-inspect and read the PDF in one call; with explicit `include_*` options, run precise manual extraction. |
 | `search_pdf` | Search selectable text and optional OCR text with snippets, page numbers, offsets, bounding-box provenance, and routing evidence. |
-| `render_page` | Render selected pages as bounded PNG visual evidence with JSON provenance and pixel budgets. |
-| `extract_regions` | Crop PDF-coordinate regions from rendered pages and return focused image evidence for tables, charts, formulas, figures, annotations, and citations. |
-| `analyze_regions` | Send cropped visual regions to a configured local command, HTTP, Ollama, OpenAI-compatible, LM Studio, or llama.cpp provider and normalize table, formula, chart, figure, or image-description evidence. |
-| `ocr_pages` | Render selected pages and send them to a configured local OCR provider, returning text, confidence, word boxes, and render provenance. |
-| `read_pdf` | Extract text, metadata, Markdown, HTML, structure, tables, chunks, safety signals, trust reports, accessibility signals, OCR evidence, visual enrichments, and the Agent Document Twin. |
+| `pdf_evidence` | Focused evidence operations: `inspect`, `render_page`, `extract_regions`, `ocr_pages`, and `analyze_regions`. |
 
 ## Source Object
 
-Most tools accept one source at a time. `read_pdf` also accepts `sources` for
-batch extraction.
+The V3 tools accept `sources` arrays so callers can batch local paths and URLs
+through one request when the operation supports it.
 
 ```json
 {
@@ -54,13 +51,17 @@ private-IP, and size policies documented in the guide.
 
 ## `read_pdf`
 
-`read_pdf` is the primary Agent Document Twin entrypoint.
+`read_pdf` is the primary Agent Document Twin entrypoint. With only `sources`,
+it defaults to automatic routing. Add `auto: false` or any explicit
+`include_*` option when the caller wants exact manual control.
 
 | Option | Type | Default | Output |
 | --- | --- | --- | --- |
+| `auto` | boolean | true when no explicit `include_*` options are supplied | Inspect each source and choose high-value extraction options before reading. |
+| `auto_detail` | `"fast" \| "balanced" \| "full"` | `"balanced"` | Automatic extraction depth. `fast` returns the core document twin route, `balanced` adds trust and accessibility evidence, and `full` adds fuller text, HTML, structure, and AST outputs. |
+| `sample_pages` | number | `5` in auto mode | Maximum pages sampled during automatic inspection. |
 | `pages` | number array or range string | all pages when full text is requested | Page selection. |
 | `include_full_text` | boolean | `false` | Concatenated text. |
-| `include_page_texts` | boolean | `false` | Per-page text. |
 | `include_metadata` | boolean | `true` | PDF metadata. |
 | `include_page_count` | boolean | `true` | Total page count. |
 | `include_images` | boolean | `false` | Embedded image metadata and base64 payloads. |
@@ -107,8 +108,75 @@ scanned tables on a mixed page are retained.
 
 Agents should use `incomplete_cell_geometry`, sparse-cell, merged-cell,
 irregular-spacing, and low-confidence warnings as a cue to request
-`extract_regions`, `render_page`, or configured visual-region analysis before
-making cell-level claims.
+`pdf_evidence` operation `extract_regions`, `render_page`, or
+`analyze_regions` before making cell-level claims.
+
+## `pdf_evidence`
+
+`pdf_evidence` is the single specialist evidence tool in V3. It exists for
+focused follow-up work after `read_pdf` or `search_pdf` exposes the page,
+region, OCR, or provider evidence an agent needs.
+
+| Option | Type | Used by |
+| --- | --- | --- |
+| `operation` | `"inspect" \| "render_page" \| "extract_regions" \| "ocr_pages" \| "analyze_regions"` | Required. |
+| `sources` | array | Required. Each source uses `path` or `url`; `pages` is accepted for page-scoped operations and `regions` is required for region operations. |
+| `sample_pages` | number | `inspect` |
+| `include_metadata` | boolean | `inspect` |
+| `scale` | number | `render_page`, `extract_regions`, `ocr_pages`, `analyze_regions` |
+| `max_pages` | number | `render_page`, `ocr_pages` |
+| `max_regions` | number | `extract_regions`, `analyze_regions` |
+| `max_pixels_per_page` | number | image-producing operations |
+| `include_image` | boolean | `render_page`, `extract_regions` |
+| `timeout_ms` | number | `ocr_pages`, `analyze_regions` |
+| `max_output_chars` | number | `ocr_pages`, `analyze_regions` |
+| `languages` | string array | `ocr_pages`, `analyze_regions` |
+
+Inspect:
+
+```json
+{
+  "operation": "inspect",
+  "sources": [{ "path": "/absolute/path/to/file.pdf" }],
+  "sample_pages": 5,
+  "include_metadata": true
+}
+```
+
+Render pages:
+
+```json
+{
+  "operation": "render_page",
+  "sources": [{ "path": "/absolute/path/to/file.pdf", "pages": "1-2" }],
+  "scale": 2,
+  "max_pages": 2
+}
+```
+
+Crop or analyze regions:
+
+```json
+{
+  "operation": "extract_regions",
+  "sources": [{
+    "path": "/absolute/path/to/file.pdf",
+    "regions": [{
+      "id": "table-1",
+      "page": 1,
+      "bounding_box": { "left": 72, "bottom": 420, "right": 540, "top": 620 },
+      "padding": 8
+    }]
+  }],
+  "scale": 2,
+  "max_regions": 20
+}
+```
+
+Use `operation: "analyze_regions"` with the same `regions` shape when a
+configured visual provider should normalize table, formula, chart, figure, or
+image-description evidence. Use `operation: "ocr_pages"` with page-scoped
+sources when a workflow needs standalone OCR output.
 
 ## Provider Adapters
 
@@ -118,7 +186,8 @@ stable local adapters so deployments can choose their own engines.
 When `include_visual_enrichments` is enabled without a configured visual
 provider, `read_pdf` still returns `visual_enrichment_candidates`. These records
 contain stable region IDs, PDF-coordinate boxes, target types, caption evidence,
-and routing signals for follow-up `extract_regions` or `analyze_regions` calls.
+and routing signals for follow-up `pdf_evidence` `extract_regions` or
+`analyze_regions` operations.
 
 | Capability | Configuration |
 | --- | --- |
@@ -132,7 +201,8 @@ and routing signals for follow-up `extract_regions` or `analyze_regions` calls.
 | Visual-region llama.cpp preset | `MCP_PDF_REGION_ANALYSIS_PRESET=llamacpp`, `MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL`, optional `MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL` |
 
 Provider responses are normalized into the same evidence model used by
-`read_pdf`, `analyze_regions`, and the benchmark harness.
+`read_pdf`, `pdf_evidence` operation `analyze_regions`, and the benchmark
+harness.
 
 ## Quality Gates
 
@@ -218,7 +288,8 @@ and research-paper evidence for chart, formula, and table-heavy documents.
 `benchmark:provider-manifest` emits `pdf_provider_manifest_benchmark.json`
 when `--provider-manifest` or `MCP_PDF_PROVIDER_MANIFEST` points at a provider
 accuracy manifest. It crops the declared regions through the same renderer and
-provider-normalization path as `analyze_regions`, then scores kind, text,
+provider-normalization path as `pdf_evidence` operation `analyze_regions`, then
+scores kind, text,
 confidence, structured table/formula/chart evidence, and crop provenance
 against the manifest expectations. Case and region `capability_tags` flow into
 the artifact-level `capability_summary`, so release reviewers can see which

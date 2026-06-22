@@ -542,6 +542,64 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
+  it('should automatically inspect and choose read options by default when no explicit read options are supplied', async () => {
+    const args = {
+      sources: [{ path: 'test.pdf' }],
+      auto_detail: 'fast',
+    };
+
+    const result = await handler(args);
+
+    expect(result.content).toBeDefined();
+    expect(result.content.length).toBeGreaterThan(0);
+
+    if (!result.content?.[0]) {
+      expect.fail('result.content[0] was undefined');
+    }
+
+    const parsed = JSON.parse(result.content[0].text) as {
+      auto_read?: {
+        enabled: boolean;
+        detail: string;
+        results: Array<{
+          success: boolean;
+          profile?: string;
+          workflow?: string;
+          read_pdf_arguments?: Record<string, unknown>;
+        }>;
+      };
+      results: Array<{
+        success: boolean;
+        data?: {
+          markdown?: string;
+          chunks?: unknown[];
+          document_map?: unknown;
+        };
+      }>;
+    };
+
+    expect(parsed.auto_read).toMatchObject({
+      enabled: true,
+      detail: 'fast',
+    });
+    expect(parsed.auto_read?.results[0]).toMatchObject({
+      success: true,
+      profile: 'low_text_or_form',
+      workflow: 'metadata_review',
+    });
+    expect(parsed.auto_read?.results[0]?.read_pdf_arguments).toMatchObject({
+      include_markdown: true,
+      include_chunks: true,
+      include_document_map: true,
+      include_tables: true,
+      sources: [{ path: 'test.pdf' }],
+    });
+    expect(parsed.results[0]?.success).toBe(true);
+    expect(parsed.results[0]?.data?.markdown).toContain('Mock page text 1');
+    expect(parsed.results[0]?.data?.chunks?.length).toBeGreaterThan(0);
+    expect(parsed.results[0]?.data?.document_map).toBeDefined();
+  });
+
   it('should include structured elements without forcing full text output', async () => {
     const args = {
       sources: [{ path: 'test.pdf' }],
@@ -3300,6 +3358,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     });
     const args = {
       sources: [{ path: 'test.pdf', pages: [1, 2, 3] }],
+      auto: false,
     };
     const result = await handler(args);
     const expectedData = {
@@ -3438,7 +3497,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
       throw { custom: 'object error' }; // Non-Error, non-PdfError
     });
 
-    const args = { sources: [{ path: 'test.pdf' }] };
+    const args = { sources: [{ path: 'test.pdf' }], auto: false };
     await expect(handler(args)).rejects.toThrow(PdfError);
     await expect(handler(args)).rejects.toThrow(
       'All PDF sources failed to process: Failed to process PDF from test.pdf.'

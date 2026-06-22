@@ -34,9 +34,12 @@
 - [x] Deterministic provider-manifest crop release artifact enforced by the SOTA release gate without requiring network access, OCR, a visual provider, or a local model
 - [x] Deterministic provider-manifest scoring release artifact enforced by the SOTA release gate for local table, formula, chart, figure, image, confidence, text, crop-provenance, and capability-summary evidence
 - [x] Configurable trust-report evidence redaction policies with standard, strict, and explicit off modes
+- [x] V3 smart MCP tool surface: `read_pdf`, `search_pdf`, and `pdf_evidence`
+- [x] Automatic `read_pdf` routing when no explicit extraction options are supplied
+- [x] Consolidated focused evidence operations for inspect, render, crop, OCR, and visual-region analysis
 
 ## In Progress
-- [ ] Publish the PDF Intelligence vNext release through the Changesets version PR flow
+- [ ] Publish the PDF Intelligence V3 release through the Changesets version PR flow
 - [ ] Further broaden shared public scanned-PDF and visual-region provider accuracy manifests with additional independently licensed PDFs
 
 ## Planned

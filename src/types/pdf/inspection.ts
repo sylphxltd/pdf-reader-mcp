@@ -16,13 +16,7 @@ export type PdfInspectionWorkflow =
   | 'scanned_pdf_triage'
   | 'mixed_pdf_review';
 
-export type PdfInspectionNextToolName =
-  | 'read_pdf'
-  | 'search_pdf'
-  | 'render_page'
-  | 'extract_regions'
-  | 'analyze_regions'
-  | 'ocr_pages';
+export type PdfInspectionNextToolName = 'read_pdf' | 'search_pdf' | 'pdf_evidence';
 
 export interface PdfInspectionPageSignal {
   page: number;

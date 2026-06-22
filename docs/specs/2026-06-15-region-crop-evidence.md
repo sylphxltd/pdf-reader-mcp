@@ -1,5 +1,8 @@
 # Region Crop Evidence
 
+> V3 note: region cropping is now exposed through `pdf_evidence` operation
+> `extract_regions`.
+
 Date: 2026-06-15
 Status: active
 

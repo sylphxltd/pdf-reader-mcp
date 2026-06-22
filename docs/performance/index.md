@@ -241,11 +241,12 @@ bun run benchmark:providers
 
 The provider benchmark exercises the `tesseract-tsv` OCR preset over multiple
 runtime-generated PDFs rendered through `read_pdf` OCR fusion, and it can
-exercise a configured `analyze_regions` command or HTTP provider over 10
+exercise a configured visual-region command or HTTP provider over 10
 runtime-generated table, formula, chart, figure, and image-description visual
 fixture regions. The benchmark crops those regions through the same rendering
-path as `analyze_regions` and reports a `visual-full-fidelity` certification
-profile covering crop provenance, table cell boxes, formula formats, chart
+path as `pdf_evidence` operation `analyze_regions` and reports a
+`visual-full-fidelity` certification profile covering crop provenance, table
+cell boxes, formula formats, chart
 axes or series, figure descriptions, and image-description text.
 
 The repository includes `scripts/reference-region-analysis-provider.mjs` as a
@@ -316,18 +317,16 @@ remain opt-in and outside default CI network activity.
 
 ## Optimization Tips
 
-### 1. Inspect Before Heavy Extraction
+### 1. Start With Smart `read_pdf`
 
-Use `inspect_pdf` first when an agent does not know the document shape. It
-samples a bounded number of pages, counts selectable text and image paint
-operations, and recommends ordered `next_tools` plus `read_pdf` arguments
-without decoding image bytes.
+Use `read_pdf` first when an agent does not know the document shape. With only
+`sources`, it samples a bounded number of pages, counts selectable text and
+image paint operations, chooses useful extraction options, and returns the
+selected arguments with the Agent Document Twin.
 
 ```json
 {
-  "sources": [{ "path": "doc.pdf" }],
-  "sample_pages": 5,
-  "include_metadata": true
+  "sources": [{ "path": "doc.pdf" }]
 }
 ```
 
@@ -421,7 +420,8 @@ caption-derived visual regions for vector-drawn formulas, charts, figures, and
 diagrams. If a provider is configured, those regions are cropped and analyzed
 before normalized evidence is fused back into the document twin. If no provider
 is configured, the response still includes the candidate regions so agents can
-call `extract_regions` or retry analysis later. Keep `max_visual_enrichments`
+call `pdf_evidence` operation `extract_regions` or retry analysis later. Keep
+`max_visual_enrichments`
 small for interactive workflows.
 
 ```json
@@ -436,12 +436,14 @@ small for interactive workflows.
 
 ### 8. Render Pages With Explicit Bounds
 
-`render_page` returns PNG page evidence as MCP image parts. Rendering is more
-expensive than text extraction, so select pages, keep scale practical, and rely
-on the default pixel budget unless a workflow truly needs higher resolution.
+`pdf_evidence` operation `render_page` returns PNG page evidence as MCP image
+parts. Rendering is more expensive than text extraction, so select pages, keep
+scale practical, and rely on the default pixel budget unless a workflow truly
+needs higher resolution.
 
 ```json
 {
+  "operation": "render_page",
   "sources": [{ "path": "doc.pdf", "pages": "1-2" }],
   "scale": 2,
   "max_pages": 2,
@@ -451,12 +453,13 @@ on the default pixel budget unless a workflow truly needs higher resolution.
 
 ### 9. Crop Regions Instead Of Carrying Whole Pages
 
-`extract_regions` reuses bounded page rendering but returns focused crops for
-specific PDF-coordinate bounding boxes. It is usually cheaper for downstream
-vision/OCR steps than passing a whole rendered page.
+`pdf_evidence` operation `extract_regions` reuses bounded page rendering but
+returns focused crops for specific PDF-coordinate bounding boxes. It is usually
+cheaper for downstream vision/OCR steps than passing a whole rendered page.
 
 ```json
 {
+  "operation": "extract_regions",
   "sources": [{
     "path": "doc.pdf",
     "regions": [{
@@ -472,13 +475,13 @@ vision/OCR steps than passing a whole rendered page.
 
 ### 10. OCR Only The Pages That Need It
 
-`ocr_pages` renders selected pages and sends temporary PNGs to the configured
-local OCR provider. OCR cost depends on render scale, page count, provider
-runtime, and output size, so use `inspect_pdf` first and keep page selections
-tight.
+`pdf_evidence` operation `ocr_pages` renders selected pages and sends temporary
+PNGs to the configured local OCR provider. OCR cost depends on render scale,
+page count, provider runtime, and output size, so keep page selections tight.
 
 ```json
 {
+  "operation": "ocr_pages",
   "sources": [{ "path": "scan.pdf", "pages": "1-3" }],
   "scale": 2,
   "max_pages": 3,

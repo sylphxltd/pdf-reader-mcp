@@ -42,8 +42,8 @@ It is built on these core principles:
 
 ## 3. Simple Integration
 
-- **Focused Tools** - `inspect_pdf` plans ordered extraction and evidence routing, `search_pdf` finds source text evidence, `render_page` returns page evidence, `extract_regions` returns crop evidence, `analyze_regions` enriches focused crops, `ocr_pages` runs configured OCR, and `read_pdf` handles structured extraction
-- **Safe Provider Status** - Inspection reports optional-provider readiness and health metadata without exposing local provider paths or arguments
+- **Smart Tool Surface** - `read_pdf` is the default V3 entrypoint, `search_pdf` handles cheap literal evidence retrieval, and `pdf_evidence` consolidates inspect, render, crop, OCR, and visual-region analysis operations
+- **Safe Provider Status** - Automatic reads and evidence inspection report optional-provider readiness and health metadata without exposing local provider paths or arguments
 - **Standard MCP** - Compatible with any MCP client
 - **Easy Setup** - One command installation via npx
 - **Multiple Clients** - Works with Claude Desktop, Claude Code, Cursor, and more
@@ -63,7 +63,7 @@ It is built on these core principles:
 ## 6. Agent-Ready Output
 
 - **Stable References** - Element IDs and page numbers make downstream citations easier to preserve
-- **Tool Routing** - Inspection recommendations expose ordered `next_tools`, executable arguments, missing inputs, and provider requirements so agents can choose the next MCP call without parsing prose
+- **Tool Routing** - Automatic read summaries and evidence inspection expose executable arguments, missing inputs, and provider requirements so agents can choose the next MCP call without parsing prose
 - **Text Fidelity** - Text layers expose run metadata, line IDs, word records, character records, character ranges, and bbox coverage without requiring agents to parse plain strings
 - **Searchable Evidence** - Search matches carry snippets, offsets, character-derived or text-item boxes, and provenance so agents can decide when to read, crop, render, or cite
 - **Document Map** - Pages, elements, text-layer and metadata coverage, chunks, layout diagnostics, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and geometry are linked from one response shape

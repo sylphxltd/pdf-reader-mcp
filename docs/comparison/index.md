@@ -2,12 +2,13 @@
 
 PDF Reader MCP is designed as a full-fidelity PDF intelligence layer for
 agents. The comparison below is category-based and focuses on the agent
-workflow: inspect, search, verify source evidence, enrich visual regions, and
-read a linked document twin.
+workflow: read a smart Agent Document Twin first, search cheaply when the task
+has a literal query, and request focused evidence only when the answer needs
+source-level proof.
 
 | Capability | PDF Reader MCP | Text/CLI tools | Cloud PDF APIs | Generic filesystem MCP |
 | --- | --- | --- | --- | --- |
-| MCP-native PDF tools | ✅ | ❌ | ❌ | ⚠️ raw file access only |
+| MCP-native PDF tools | ✅ V3 three-tool surface | ❌ | ❌ | ⚠️ raw file access only |
 | Preflight inspection and routing | ✅ | ❌ | ⚠️ API-specific | ❌ |
 | Literal search with evidence | ✅ snippets, offsets, boxes, provenance | ⚠️ text only | ⚠️ varies | ❌ |
 | Text layer fidelity | ✅ runs, lines, words, chars, metadata coverage | ⚠️ usually text only | ⚠️ varies | ❌ |
@@ -32,21 +33,20 @@ where content came from, which page or crop proves it, whether the reading order
 looks uncertain, whether a page needs OCR, whether a table has weak geometry,
 and whether hidden or unsafe content should be treated as untrusted data.
 
-PDF Reader MCP exposes that as one workflow:
+PDF Reader MCP exposes that as a compact V3 tool surface:
 
-1. `inspect_pdf` profiles the document and recommends the next tools.
-2. `search_pdf` finds source-backed text matches before spending context.
-3. `render_page` and `extract_regions` provide visual evidence.
-4. `ocr_pages` recovers text from scanned or sparse pages through configured
-   local OCR providers.
-5. `analyze_regions` normalizes configured visual-provider output for tables,
-   charts, formulas, figures, and image descriptions.
-6. `read_pdf` returns text, Markdown, HTML, chunks, tables, document signals,
-   trust reports, accessibility reports, and the linked Agent Document Twin.
+1. `read_pdf` is the default entrypoint. With only `sources`, it profiles the
+   PDF, chooses useful extraction options, and returns the linked Agent Document
+   Twin.
+2. `search_pdf` finds source-backed text matches before spending more context
+   on broad extraction or visual proof.
+3. `pdf_evidence` handles focused follow-up operations: `inspect`,
+   `render_page`, `extract_regions`, `ocr_pages`, and `analyze_regions`.
 
 ## When PDF Reader MCP Is The Better Fit
 
-- You want agents to inspect and route PDFs instead of blindly extracting text.
+- You want agents to start with one intelligent PDF read instead of learning a
+  long list of extraction tools.
 - You need stable page, element, chunk, crop, table, OCR, trust, and
   accessibility references for downstream citations.
 - You need local-first execution and want OCR or visual models configured by the

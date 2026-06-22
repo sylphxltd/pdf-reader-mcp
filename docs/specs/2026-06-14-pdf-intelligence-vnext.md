@@ -1,7 +1,11 @@
 # Full-Fidelity PDF Intelligence Direction
 
 Date: 2026-06-14
-Status: superseded by shipped release gates
+Status: superseded by shipped release gates and V3 smart tool surface
+
+> V3 note: the public MCP surface is now `read_pdf`, `search_pdf`, and
+> `pdf_evidence`; older separate evidence tools remain internal implementation
+> boundaries.
 
 ## Goal
 
@@ -133,8 +137,9 @@ Candidate engines:
 ## Implementation Plan
 
 1. Structured foundation
-   - Add `inspect_pdf` for bounded preflight profiling, OCR triage, and
-     ordered `next_tools` with recommended `read_pdf` arguments.
+   - Add automatic `read_pdf` inspection plus `pdf_evidence` operation
+     `inspect` for bounded preflight profiling, OCR triage, and ordered
+     `next_tools` with recommended `read_pdf` arguments.
    - Add `include_elements`.
    - Add `include_semantic_hints`.
    - Add `include_markdown`.
@@ -191,11 +196,11 @@ Candidate engines:
 
 5. Advanced engines
    - Add optional provider interface for high-accuracy local engines.
-   - Add `ocr_pages` as the first optional OCR provider interface over bounded
-     rendered pages.
-   - Add `analyze_regions` for formula, chart, table, figure, and image
-     description enrichment behind optional providers over bounded crop
-     evidence.
+   - Add `pdf_evidence` operation `ocr_pages` as the first optional OCR
+     provider interface over bounded rendered pages.
+   - Add `pdf_evidence` operation `analyze_regions` for formula, chart, table,
+     figure, and image description enrichment behind optional providers over
+     bounded crop evidence.
    - Keep the default package lightweight.
 
 6. Agent workflows
@@ -217,9 +222,9 @@ Candidate engines:
 - Integration tests for MCP `read_pdf` with and without `include_document_map`.
 - Integration tests for MCP `read_pdf` with and without
   `include_accessibility_report`.
-- Integration tests confirm `inspect_pdf`, `search_pdf`, `render_page`,
-  `extract_regions`, `analyze_regions`, and `ocr_pages` are exposed by the MCP
-  server.
+- Integration tests confirm `read_pdf`, `search_pdf`, and `pdf_evidence` are
+  exposed by the MCP server, with `pdf_evidence` covering inspect, render, crop,
+  OCR, and visual-region analysis operations.
 - Quality evals for semantic chunks, table ordering, renderers, and safety
   findings.
 - Fixtures for simple text, multi-column reading order, tables, images, scans,

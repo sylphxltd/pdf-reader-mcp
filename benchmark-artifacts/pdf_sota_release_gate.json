@@ -1,7 +1,7 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-06-22T02:44:44.031Z",
-  "artifact_dir": "/home/runner/work/pdf-reader-mcp/pdf-reader-mcp/benchmark-artifacts",
+  "generated_at": "2026-06-22T09:23:32.660Z",
+  "artifact_dir": "/Users/kyle/.codex/worktrees/305e/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
     "total": 39,
@@ -127,7 +127,7 @@
       "status": "passed",
       "message": "v3 Agent Document Twin scenario has a positive average latency",
       "evidence": {
-        "average_ms": 28.68
+        "average_ms": 97.68
       }
     },
     {
