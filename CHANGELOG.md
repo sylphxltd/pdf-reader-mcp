@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.1
+
+### Patch Changes
+
+- [#323](https://github.com/SylphxAI/pdf-reader-mcp/pull/323) [`8750e19`](https://github.com/SylphxAI/pdf-reader-mcp/commit/8750e198be24b52788fd9b2c67041dffb6bf9fde) Thanks [@shtse8](https://github.com/shtse8)! - Refresh public-facing positioning for the full-fidelity PDF intelligence release, including README, docs, comparison, release-proof labels, and npm metadata.
+
 ## 2.7.0
 
 ### Minor Changes
