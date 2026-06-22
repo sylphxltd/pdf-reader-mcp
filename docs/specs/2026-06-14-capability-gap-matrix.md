@@ -1,11 +1,11 @@
-# Capability Gap Matrix
+# Capability Coverage Matrix
 
 Date: 2026-06-14
 Status: active
 
-This matrix tracks the capabilities PDF Reader MCP needs in order to feel like
-a category-leading PDF intelligence server for AI agents. It intentionally uses
-neutral capability names and avoids public comparison language.
+This matrix tracks PDF Reader MCP's shipped and planned capability coverage for
+agent-facing PDF intelligence. It intentionally uses neutral capability names
+and avoids public comparison language.
 
 ## Legend
 

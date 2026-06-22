@@ -1,4 +1,4 @@
-# Document AST V3
+# Document AST
 
 Date: 2026-06-15
 Status: shipped

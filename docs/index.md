@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: PDF Reader MCP
-  text: Inspect and Extract PDFs for AI Agents
-  tagline: A high-performance MCP server for local-first PDF inspection, PDF search, visual evidence, region crops, configured OCR text layers, agent document maps, trust reports, accessibility reports, citations, and safety signals.
+  text: Full-Fidelity PDF Intelligence for AI Agents
+  tagline: "A TypeScript-first MCP server that turns PDFs into an Agent Document Twin: text layers, semantic AST, tables, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark-gated release proof."
   image:
     src: /logo.svg
     alt: PDF Reader MCP Logo
@@ -15,42 +15,48 @@ hero:
     - theme: alt
       text: View on GitHub
       link: https://github.com/SylphxAI/pdf-reader-mcp
+    - theme: alt
+      text: Benchmark Proof
+      link: /performance/
 
 features:
   - icon: "\U0001F4C4"
-    title: Inspect Before Extraction
-    details: Profile unfamiliar PDFs, detect low-text or scanned pages, and get ordered extraction and evidence-routing plans for agent workflows.
+    title: Agent Document Twin
+    details: Return one linked document map with pages, elements, text-layer coverage, chunks, layout diagnostics, trust routing, accessibility routing, visual routing, OCR evidence, and page geometry.
   - icon: "\U0001F50E"
-    title: Search Evidence
-    details: Locate literal text matches with snippets, match offsets, character-derived, text-item, or opt-in OCR-word bounding boxes, and provenance before reading, rendering, cropping, or citing.
+    title: Evidence-First Search
+    details: Locate literal text matches with snippets, match offsets, character-derived, text-item, or opt-in OCR-word boxes, and provenance before reading, rendering, cropping, or citing.
   - icon: "\u26A1"
-    title: High Performance
-    details: Built with pdfjs-dist and optimized for speed. Supports concurrent processing, batch operations, and recursive band/column ordering.
+    title: Performance-Bounded Local Execution
+    details: Built on pdfjs-dist with concurrent processing, bounded rendering, page limits, pixel budgets, package smoke checks, and reproducible benchmark artifacts.
   - icon: "\U0001F50C"
-    title: Easy Integration
-    details: Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. One command to install.
+    title: MCP-Native Tool Routing
+    details: Use inspect_pdf, search_pdf, render_page, extract_regions, analyze_regions, ocr_pages, and read_pdf as a focused agent workflow instead of a single opaque parser call.
   - icon: "\U0001F5BC\uFE0F"
-    title: Agent-Ready Context
-    details: Return an agent document map, text layer, semantic document AST, trust report, and accessibility report with stable element IDs, text-layer and metadata coverage, caption links, citation chunks, table quality diagnostics, layout confidence, hidden-text, visual-spoofing, redacted trust-evidence, unsafe-link signals, document-map trust signal routing, document-map accessibility issue routing, routeable accessibility summaries, page geometry, provenance, and best-effort coordinates.
+    title: Visual Evidence and Crops
+    details: Render source pages and crop PDF-coordinate regions into bounded image evidence for tables, figures, charts, formulas, annotations, and citations.
   - icon: "\U0001F9FE"
     title: Text Layer Fidelity
     details: Expose direction-aware run, line, word, and character records with page-level ranges, estimated bounding boxes, provenance, and metadata coverage diagnostics for citation and extraction workflows.
   - icon: "\U0001F5BC\uFE0F"
-    title: Visual Evidence
-    details: Render selected pages as bounded PNG MCP image parts with JSON provenance, evidence IDs, and pixel budgets for OCR routing and page inspection.
+    title: Visual Provider Enrichment
+    details: Normalize table, formula, chart, figure, diagram, and image-description evidence from configured command, HTTP, Ollama, OpenAI-compatible, LM Studio, or llama.cpp providers.
   - icon: "\U0001F50D"
-    title: Region Crops
-    details: Crop PDF-coordinate bounding boxes into focused visual evidence for tables, figures, charts, formulas, and citation verification, with rich local-provider analysis when configured.
+    title: Table Intelligence
+    details: Extract selectable-text and OCR-derived tables with rows, cells, geometry, confidence, quality metrics, inferred spans, warnings, and continuation candidates.
   - icon: "\U0001F524"
-    title: Configured OCR
-    details: Route selected rendered pages through an environment-configured local OCR provider and optionally fuse OCR text layers into read_pdf document maps with provenance.
+    title: Scanned PDF OCR Path
+    details: Route selected rendered pages through configured OCR providers, keep OCR separate from selectable text, and link OCR words and tables back to source-render evidence.
   - icon: "\U0001F9ED"
-    title: Layout Confidence
-    details: Surface page layout profiles, reading-order confidence, column signals, and warnings so agents can route uncertain pages safely.
+    title: Semantic AST and Layout Confidence
+    details: Traverse sections, paragraphs, lists, captions, tables, images, charts, formulas, and figures while preserving reading-order diagnostics and caption-to-evidence links.
   - icon: "\U0001F6E1\uFE0F"
-    title: Content Safety Signals
-    details: Surface deterministic findings for prompt-injection patterns, tiny text, and off-page text before agents use PDF content.
+    title: Trust Report
+    details: Surface deterministic prompt-injection, hidden-text, tiny/off-page, overlapping, visual-spoofing, unsafe-link, layout, table-quality, redaction, and page-risk signals.
   - icon: "\u267F"
     title: Accessibility Report
     details: Summarize tagged-PDF coverage, tag-to-visible-content coverage, structure trees, headings, image alt-text verifiability, form labels, link labels, accessibility permissions, issue types, severities, page grades, and document-map routing without claiming PDF/UA certification.
+  - icon: "\U0001F9EA"
+    title: Benchmark-Gated Releases
+    details: Release evidence includes performance, deterministic quality, corpus, installed-provider, provider-manifest crop/scoring, package-smoke, and SOTA release-gate artifacts.
 ---

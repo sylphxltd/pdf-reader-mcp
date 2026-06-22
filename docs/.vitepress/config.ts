@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
   title: 'PDF Reader MCP',
   description:
-    'MCP server for PDF inspection, layout confidence, citation chunks, and safety signals for AI agents',
+    'Full-fidelity PDF intelligence MCP with Agent Document Twin, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark proof for AI agents',
 
   appearance: 'dark',
   lastUpdated: true,
@@ -18,14 +18,14 @@ export default defineConfig({
     ['meta', { property: 'og:type', content: 'website' }],
     [
       'meta',
-      { property: 'og:title', content: 'PDF Reader MCP - Inspect and Extract PDFs for AI Agents' },
+      { property: 'og:title', content: 'PDF Reader MCP - Full-Fidelity PDF Intelligence for AI Agents' },
     ],
     [
       'meta',
       {
         property: 'og:description',
         content:
-          'A high-performance MCP server for PDF inspection, layout confidence, citation chunks, and safety signals',
+          'A TypeScript-first MCP server for Agent Document Twin extraction, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark-gated release proof',
       },
     ],
     ['meta', { property: 'og:url', content: 'https://pdf-reader-mcp.sylphx.com' }],
@@ -36,7 +36,8 @@ export default defineConfig({
       'meta',
       {
         name: 'twitter:description',
-        content: 'Inspect PDFs and extract layout-aware agent-ready content via MCP',
+        content:
+          'Turn PDFs into agent-readable evidence with document maps, visual crops, OCR provenance, trust reports, accessibility reports, and benchmark proof',
       },
     ],
     ['meta', { name: 'twitter:site', content: '@sylphxai' }],
@@ -45,7 +46,7 @@ export default defineConfig({
       {
         name: 'keywords',
         content:
-          'mcp, pdf, reader, ai, claude, model context protocol, typescript, rag, citations, pdf inspection, layout analysis, reading order',
+          'mcp, pdf, reader, ai, claude, model context protocol, typescript, rag, citations, pdf inspection, pdf intelligence, agent document twin, visual evidence, ocr provenance, trust report, accessibility report, layout analysis, reading order',
       },
     ],
     ['meta', { name: 'author', content: 'Sylphx' }],

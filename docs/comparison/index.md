@@ -1,106 +1,64 @@
-# Comparison with Other Solutions
+# Capability Overview
 
-## PDF Reader MCP vs Alternatives
+PDF Reader MCP is designed as a full-fidelity PDF intelligence layer for
+agents. The comparison below is category-based and focuses on the agent
+workflow: inspect, search, verify source evidence, enrich visual regions, and
+read a linked document twin.
 
-| Feature | PDF Reader MCP | CLI Tools | Cloud APIs | Generic FS MCP |
-|---------|---------------|-----------|------------|----------------|
-| Text Extraction | ✅ | ✅ | ✅ | ❌ |
-| Direction-Aware Text Layer With Metadata Coverage | ✅ | ❌ | ⚠️ | ❌ |
-| Search With Evidence | ✅ | ⚠️ | ✅ | ❌ |
-| Metadata | ✅ | ✅ | ✅ | ❌ |
-| Image Extraction | ✅ | ⚠️ | ✅ | ❌ |
-| Page Rendering Evidence | ✅ | ⚠️ | ✅ | ❌ |
-| Region Crop Evidence | ✅ | ❌ | ✅ | ❌ |
-| Configured OCR Text Layer | ✅ | ⚠️ | ✅ | ❌ |
-| Page Ranges | ✅ | ⚠️ | ✅ | ❌ |
-| Batch Processing | ✅ | ❌ | ✅ | ❌ |
-| URL Support | ✅ | ❌ | ✅ | ❌ |
-| MCP Native | ✅ | ❌ | ❌ | ✅ |
-| Local Processing | ✅ | ✅ | ❌ | ✅ |
-| No API Keys | ✅ | ✅ | ❌ | ✅ |
-| Structured Output | ✅ | ❌ | ✅ | ❌ |
-| Agent Document Map | ✅ | ❌ | ⚠️ | ❌ |
-| Trust Report | ✅ | ❌ | ⚠️ | ❌ |
-| Accessibility Report | ✅ | ❌ | ⚠️ | ❌ |
+| Capability | PDF Reader MCP | Text/CLI tools | Cloud PDF APIs | Generic filesystem MCP |
+| --- | --- | --- | --- | --- |
+| MCP-native PDF tools | ✅ | ❌ | ❌ | ⚠️ raw file access only |
+| Preflight inspection and routing | ✅ | ❌ | ⚠️ API-specific | ❌ |
+| Literal search with evidence | ✅ snippets, offsets, boxes, provenance | ⚠️ text only | ⚠️ varies | ❌ |
+| Text layer fidelity | ✅ runs, lines, words, chars, metadata coverage | ⚠️ usually text only | ⚠️ varies | ❌ |
+| Agent Document Twin | ✅ document map plus AST and evidence indexes | ❌ | ⚠️ vendor-specific | ❌ |
+| Page rendering evidence | ✅ bounded MCP image parts | ⚠️ external commands | ✅ | ❌ |
+| Region crop evidence | ✅ PDF-coordinate crops | ⚠️ custom glue | ✅ | ❌ |
+| Scanned-page OCR path | ✅ configured local provider with provenance | ⚠️ external glue | ✅ | ❌ |
+| OCR-derived tables | ✅ when OCR word boxes are available | ❌ | ⚠️ varies | ❌ |
+| Table quality diagnostics | ✅ cells, geometry, spans, warnings, continuation hints | ❌ | ⚠️ varies | ❌ |
+| Formula/chart/figure/image enrichment | ✅ configured visual-provider adapters | ❌ | ⚠️ vendor-specific | ❌ |
+| Trust report | ✅ hidden text, prompt-injection-like text, visual spoofing, unsafe links, redaction | ❌ | ⚠️ varies | ❌ |
+| Accessibility report | ✅ tagged-PDF, tag-visible coverage, forms, links, images, permissions, grades | ❌ | ⚠️ varies | ❌ |
+| Citation chunks | ✅ page, semantic, size, and table chunks | ❌ | ⚠️ varies | ❌ |
+| Local-first default | ✅ | ✅ | ❌ | ✅ |
+| No required API key | ✅ | ✅ | ❌ | ✅ |
+| Reproducible release proof | ✅ quality, corpus, provider, package-smoke, and release-gate artifacts | ❌ | ❌ | ❌ |
 
-## Detailed Comparison
+## Why It Matters
 
-### CLI Tools (pdftotext, pdfinfo)
+Agents need more than extracted text. For high-value PDFs they need to know
+where content came from, which page or crop proves it, whether the reading order
+looks uncertain, whether a page needs OCR, whether a table has weak geometry,
+and whether hidden or unsafe content should be treated as untrusted data.
 
-**Pros:**
-- Can extract text and metadata
-- Works locally
+PDF Reader MCP exposes that as one workflow:
 
-**Cons:**
-- Requires executing shell commands
-- Output needs parsing
-- No native MCP integration
-- No batch processing
-- No image extraction (usually)
+1. `inspect_pdf` profiles the document and recommends the next tools.
+2. `search_pdf` finds source-backed text matches before spending context.
+3. `render_page` and `extract_regions` provide visual evidence.
+4. `ocr_pages` recovers text from scanned or sparse pages through configured
+   local OCR providers.
+5. `analyze_regions` normalizes configured visual-provider output for tables,
+   charts, formulas, figures, and image descriptions.
+6. `read_pdf` returns text, Markdown, HTML, chunks, tables, document signals,
+   trust reports, accessibility reports, and the linked Agent Document Twin.
 
-### Cloud PDF APIs
+## When PDF Reader MCP Is The Better Fit
 
-**Pros:**
-- Rich features (OCR, conversion)
-- Structured output
+- You want agents to inspect and route PDFs instead of blindly extracting text.
+- You need stable page, element, chunk, crop, table, OCR, trust, and
+  accessibility references for downstream citations.
+- You need local-first execution and want OCR or visual models configured by the
+  deployment, not selected by each request.
+- You need source evidence for tables, charts, formulas, figures, and scanned
+  pages.
+- You want public benchmark artifacts and a release gate that prove the shipped
+  capability surface.
 
-**Cons:**
-- Requires API keys and billing
-- Data sent to third party
-- Network latency
-- Not MCP native
+## Boundaries
 
-### Generic Filesystem MCP
-
-**Pros:**
-- Can read files
-- MCP native
-
-**Cons:**
-- Returns raw binary for PDFs
-- No PDF parsing
-- No text/metadata extraction
-- No image extraction
-
-### PDF Reader MCP
-
-**Pros:**
-- Purpose-built for PDF extraction
-- MCP native integration
-- Local processing (privacy)
-- No API keys needed
-- Batch processing
-- Search with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
-- Direction-aware text layer with run records, line records, word records, character records, estimated bounding boxes, provenance, and metadata coverage diagnostics
-- Image extraction
-- Page rendering evidence with bounded PNG image parts
-- Region crop evidence for bbox-grounded verification
-- Configured local OCR provider pipeline with opt-in `read_pdf` OCR layer fusion
-- URL support
-- Structured JSON output
-- Agent document maps with linked pages, elements, text-layer and metadata coverage, chunks, layout confidence, safety findings, trust report routing and signal indexes, accessibility report routing and issue indexes, visual evidence routing, and geometry
-- Trust reports with page risk, score, signal counters, redacted evidence snippets, and optional document-map signal routing
-- Accessibility reports with tagged-PDF coverage, tag-to-visible-content coverage, heading, image, form, link, permission signals, and optional document-map issue routing
-
-**Cons:**
-- PDF-specific (not general file access)
-- Requires Node.js 22+
-
-## When to Use PDF Reader MCP
-
-- You need AI agents to read PDF content
-- You need direction-aware line/word text evidence with character ranges, metadata coverage, and best-effort boxes
-- Privacy matters (local processing)
-- You want simple MCP integration
-- You need to process multiple PDFs
-- You need to find evidence before reading, rendering, cropping, or citing a PDF region
-- You need image extraction
-- You need page images for visual verification or OCR routing
-- You need focused crops from table, figure, chart, formula, or citation bounding boxes
-- You need scanned-page OCR through a local provider without making a cloud API the default path
-- You need table quality signals, sparse-cell warnings, or continuation candidates for agent routing
-- You need a semantic document AST for page, section, paragraph, list, caption, header, footer, table, and image traversal with continued section context and caption-to-evidence links
-- You need a local trust report before using PDF content, annotations, or links as instructions, evidence, or retrieval context
-- You need an accessibility report before relying on tagged structure, tag-to-visible-content coverage, headings, images, forms, links, issue summaries, or copy-based accessibility workflows
-- You want structured, parseable output
-- You want agents to navigate PDF evidence through stable references
+PDF Reader MCP does not bundle heavy OCR, vision, formula, or layout model
+weights. The default package stays TypeScript-first and local-first; advanced
+OCR and visual understanding are enabled through explicit local providers and
+validated through provider benchmarks.
