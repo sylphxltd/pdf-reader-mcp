@@ -1,6 +1,24 @@
 # Performance
 
-PDF Reader MCP is optimized for speed and efficiency.
+PDF Reader MCP is optimized for speed, bounded local execution, and
+reproducible release evidence. Performance claims should stay tied to benchmark
+commands and artifacts, while quality claims are gated through deterministic
+fixtures, corpus cases, provider certification, package smoke checks, and the
+SOTA release gate.
+
+## Release Proof Snapshot
+
+The checked-in release artifacts expose machine-readable proof for the current
+capability surface:
+
+| Artifact | Current release evidence |
+| --- | --- |
+| `pdf_sota_release_gate.json` | `passed`, 39/39 release-gate checks passing |
+| `pdf_quality_benchmark.json` | score `1`, 69/69 deterministic quality checks passing |
+| `pdf_provider_benchmark.json` | strict provider evidence enabled, 4/4 final-bar provider profiles certified |
+| `pdf_corpus_benchmark.json` | corpus-style PDF intelligence assertions with capability summaries |
+| `pdf_provider_manifest_crop_benchmark.json` | deterministic crop-substrate proof for provider-manifest regions |
+| `pdf_provider_manifest_benchmark.json` | deterministic provider-manifest scoring proof for table, formula, chart, figure, and image regions |
 
 ## Reproducible Benchmark
 
@@ -18,7 +36,7 @@ with average, minimum, and maximum latency for these fixed scenarios:
 | `metadata_page_count` | Fast metadata and page-count path |
 | `full_text` | Full selectable-text extraction |
 | `selected_page_text` | Single-page extraction |
-| `v3_agent_document_twin` | Document map, text layer, document AST, trust report, accessibility report, chunks, semantic hints, layout diagnostics, tables, and trust/accessibility routing plus index fusion |
+| `v3_agent_document_twin` | Agent Document Twin scenario: document map, text layer, document AST, trust report, accessibility report, chunks, semantic hints, layout diagnostics, tables, and trust/accessibility routing plus index fusion |
 
 Treat benchmark output as machine- and fixture-specific. Public performance
 claims should cite the command, fixture, runtime, and measured output.

@@ -1,11 +1,11 @@
-# Agent Document Map v3
+# Agent Document Map
 
 Date: 2026-06-15
-Status: active
+Status: shipped
 
 ## Goal
 
-Make PDF Reader MCP expose a single agent-native map of a PDF: pages,
+PDF Reader MCP exposes a single agent-native map of a PDF: pages,
 elements, selectable text-layer and metadata coverage, chunks, layout
 confidence, safety findings, trust report routing and signal indexes,
 accessibility report routing and issue indexes, OCR evidence, visual evidence
@@ -15,11 +15,12 @@ without forcing agents to learn a new response shape each time.
 
 ## Product Positioning
 
-This is a capability release track, not a one-feature patch track. Public
-messaging should describe the shipped outcome as full-fidelity, agent-ready PDF
+This is the shipped full-fidelity PDF intelligence surface, not a one-feature
+parser patch. Public messaging should describe the outcome as agent-ready PDF
 understanding with performance-bounded local execution. Do not mention external
-projects or imply built-in OCR models, formula, chart, or tagged-PDF
-generation before those capabilities are shipped and validated.
+projects or imply built-in OCR models, formula, chart, or tagged-PDF generation;
+those remain provider-backed or explicitly out of scope unless validated by
+dedicated tests and benchmarks.
 
 ## Non-Goals
 
@@ -27,8 +28,7 @@ generation before those capabilities are shipped and validated.
   mandatory for the default TypeScript package.
 - Do not put image base64 data inside the JSON document map.
 - Do not create a second table, chunk, or element vocabulary.
-- Do not publish a package release until the v3 capability batch is large
-  enough to read as a planned milestone.
+- Do not describe provider-backed or advanced parser capabilities as built in.
 
 ## Public Contract
 
@@ -268,9 +268,9 @@ Each successful source may include:
   document-level trust summary counts without forcing raw safety, layout,
   annotation, or table outputs into top-level output.
 
-## v3 Capability Batch
+## Capability Batch
 
-Required before publishing the next package release:
+The shipped capability batch includes:
 
 - `include_document_map` public schema, handler, types, tests, docs.
 - Inspector recommendations include `include_document_map` for digital and
@@ -307,7 +307,7 @@ Required before publishing the next package release:
   accurately, and keep built-in OCR model, bundled VLM, and PDF/UA generation
   capabilities in roadmap language only.
 
-Next slices for the same v3 track:
+Next evidence-expansion slices:
 
 - Additional OCR provider presets, scanned fixtures, and accuracy/latency
   benchmarks.

@@ -1,10 +1,22 @@
 # Introduction
 
-PDF Reader MCP is a Model Context Protocol (MCP) server that enables AI agents to inspect, read, and extract content from PDF files.
+PDF Reader MCP is a full-fidelity Model Context Protocol (MCP) server that
+turns PDFs into agent-readable evidence. It is built around an Agent Document
+Twin: text layers, semantic structure, source visuals, region crops, OCR
+provenance, tables, citations, trust signals, accessibility signals, and
+provider-backed visual enrichments linked through stable IDs.
+
+The default package stays TypeScript-first and local-first. Selectable-text
+PDFs, inspection, search, rendering, crops, document maps, trust reports,
+accessibility reports, Markdown/HTML/JSON extraction, and safety signals work
+without heavy model downloads. Scanned OCR and visual table/chart/formula/figure
+understanding are enabled through configured local providers.
 
 ## What It Does
 
-AI agents often need to access information from PDF documents - reports, invoices, research papers, manuals, and more. This server provides tools to inspect and extract:
+AI agents often need to access information from PDF documents - reports,
+invoices, research papers, manuals, and more. This server provides tools to
+inspect, verify, enrich, and extract:
 
 - **PDF profiles** - Detect text-rich, low-text, mixed, or scanned/image-like PDFs before extraction
 - **PDF search evidence** - Locate literal text matches with snippets, match offsets, character-derived or text-item bounding boxes, and provenance
@@ -12,6 +24,7 @@ AI agents often need to access information from PDF documents - reports, invoice
 - **Region crop evidence** - Crop PDF-coordinate bounding boxes as focused PNG evidence
 - **Visual region analysis** - Send focused crops to a configured local provider and normalize table, chart, formula, figure, and image-description results
 - **Configured OCR text layers** - Run selected rendered pages through a local OCR provider and normalize text, confidence, words, language, and provenance
+- **Agent Document Twin** - Read one linked document map with pages, elements, text-layer coverage, chunks, layout diagnostics, OCR evidence, visual enrichment indexes, trust routing, accessibility routing, and page geometry
 - **Full text content** - Get all text from a PDF
 - **PDF text layers** - Return direction-aware run records, line records, word records, character records, estimated boxes, provenance, and metadata coverage diagnostics
 - **Page-specific text** - Extract text from specific pages or page ranges

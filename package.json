@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
   "version": "2.7.0",
-  "description": "Agent-native MCP server for PDF inspection, extraction, OCR evidence, citation chunks, and safety signals.",
+  "description": "Full-fidelity PDF intelligence MCP server with Agent Document Twin, visual evidence, OCR provenance, trust reports, accessibility reports, and benchmark-gated release proof.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/index.js"
@@ -44,6 +44,12 @@
     "tool",
     "rag",
     "citations",
+    "agent-document-twin",
+    "pdf-intelligence",
+    "ocr",
+    "visual-evidence",
+    "trust-report",
+    "accessibility-report",
     "pdf-inspection",
     "layout-analysis",
     "reading-order",

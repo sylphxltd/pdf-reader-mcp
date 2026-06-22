@@ -2,7 +2,7 @@
 
 # 📄 @sylphx/pdf-reader-mcp
 
-> Production-ready PDF processing server for AI agents
+> Full-fidelity PDF intelligence MCP for AI agents
 
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-**PDF inspection** • **PDF search** • **Agent document map** • **Trust report** • **Accessibility report** • **Visual evidence** • **Region crops** • **Configured OCR**
+**Agent Document Twin** • **Evidence-first extraction** • **PDF search** • **Visual evidence** • **Region crops** • **Configured OCR** • **Tables, charts, formulas, figures** • **Trust & accessibility reports** • **Benchmark-gated releases**
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -23,44 +23,24 @@
 
 ## 🚀 Overview
 
-PDF Reader MCP is a **production-ready** Model Context Protocol server that empowers AI agents with **structured, local-first PDF processing capabilities**. Inspect PDFs before extraction, get an ordered MCP tool plan, search text evidence with page and bbox provenance, render page-level visual evidence, crop bbox-grounded page regions, run configured OCR for scanned-page text layers and OCR-derived tables, then extract a full agent document map, trust report, accessibility report, text, Markdown, semantic citation chunks, images, tables, annotations, outlines, structure trees, form fields, attachment metadata, and agent-ready document elements with strong performance and reliability.
+PDF Reader MCP is a **production-ready** Model Context Protocol server for turning PDFs into agent-readable evidence. It gives agents a full **Agent Document Twin** instead of plain text alone: selectable text, run/line/word/character evidence, semantic AST nodes, tables, citations, page geometry, visual crops, OCR text layers, trust signals, accessibility signals, provider-backed visual enrichments, and benchmark proof in one local-first workflow.
 
-**The Problem:**
-```typescript
-// Traditional PDF processing
-- Sequential page processing (slow)
-- No natural content ordering
-- Complex path handling
-- Poor error isolation
-```
+Agents can inspect a PDF before extraction, search with page and bounding-box provenance, render source pages, crop focused regions, route scanned pages through configured OCR, enrich table/chart/formula/figure regions through configured local providers, then read the same document as Markdown, JSON, HTML, citation chunks, or a linked document map.
 
-**The Solution:**
-```typescript
-// PDF Reader MCP
-- Preflight PDF inspection with ordered MCP tool routing 🔎
-- MCP-native PDF search with snippets and bbox evidence 🔎
-- Bounded page rendering for visual evidence and OCR routing 🖼️
-- Bbox-grounded region crops for source evidence 🔍
-- Configured local OCR provider for scanned-page text layers 🔡
-- Opt-in OCR text layer fusion for `read_pdf` document maps 🧾
-- 5-10x faster parallel processing ⚡
-- Full agent document map linking pages, elements, text-layer and metadata coverage, chunks, layout, safety, trust routing and signal indexes, accessibility routing and issue indexes, visual routing, and geometry 🧭
-- Semantic document AST for page/section/paragraph/list/caption/header/footer/table/image traversal, including numbered/appendix headings, rich list prefixes, equation/chart caption aliases, and above/below/side caption-to-evidence links 🌳
-- PDF trust report for content safety, visual-spoofing, redacted evidence, layout, table, link-risk, and document-map routing 🛡️
-- Accessibility report for tagged-PDF coverage, tag-to-visible-content coverage, headings, images, forms, links, and permissions ♿
-- Structured element output for agent workflows 🧩
-- Table quality diagnostics with inferred cell spans and continuation candidates 📊
-- Markdown rendering for RAG and summarization 📝
-- Citation-ready semantic/table/page chunks 🔗
-- Layout diagnostics with reading-order confidence 📐
-- Outlines, annotations, structure trees, forms, attachments, labels, and permission signals 🗂️
-- Recursive band and column reading order 📐
-- Flexible path support (absolute/relative) 🎯
-- Per-page error resilience 🛡️
-- CI-backed quality ✅
-```
+### Capability Labels
 
-**Result: Production-ready PDF processing that scales.**
+| Layer | What agents get |
+| --- | --- |
+| **Lossless text layer** | Direction-aware text runs, lines, words, characters, page ranges, metadata coverage, and estimated geometry. |
+| **Visual evidence layer** | Bounded page renders and bbox-grounded region crops with evidence IDs and provenance. |
+| **Semantic layer** | Document AST nodes for pages, sections, paragraphs, lists, captions, headers, footers, tables, images, charts, formulas, figures, and diagrams where available. |
+| **Table intelligence** | Selectable-text and OCR-derived tables, cell geometry, quality metrics, inferred spans, continuation candidates, and visual-provider enrichment hooks. |
+| **Scanned PDF path** | Rendered pages routed through configured OCR providers, with OCR text kept separate from selectable PDF text and linked back to source pixels. |
+| **Visual provider path** | Command, HTTP, Ollama, OpenAI-compatible, LM Studio, and llama.cpp adapters normalize table, chart, formula, figure, and image-description evidence. |
+| **Trust & accessibility** | Prompt-injection, hidden-text, visual-spoofing, unsafe-link, redaction, tagged-PDF, tag-visible coverage, form, image, heading, link, and permission routing. |
+| **Release proof** | Reproducible performance, quality, corpus, provider, package-smoke, and SOTA release-gate artifacts. |
+
+**Result:** a TypeScript-first local MCP server that lets agents read PDFs with source evidence, routing signals, and reproducible quality gates.
 
 ---
 
@@ -1788,63 +1768,28 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ Product Surface
 
-**✅ Completed**
-- [x] Image extraction (v1.1.0)
-- [x] 5-10x parallel speedup (v1.1.0)
-- [x] Y-coordinate ordering (v1.2.0)
-- [x] Absolute paths (v1.3.0)
-- [x] Table extraction
-- [x] Structured element output
-- [x] Semantic document AST
-- [x] PDF trust report
-- [x] PDF accessibility report
-- [x] Table quality diagnostics, cell evidence coverage, inferred cell spans, and continuation candidates
-- [x] Markdown rendering
-- [x] Citation-ready page, semantic, size, and table chunks
-- [x] MCP-native PDF search with snippets and bbox provenance
-- [x] Outlines, annotations, structure trees, form fields, attachment metadata, page labels, and permission signals
-- [x] Recursive band and column ordering for common multi-column PDFs
-- [x] Layout diagnostics with reading-order confidence
-- [x] Configured local OCR provider for scanned-page text layers
-- [x] Opt-in OCR text layer fusion for `read_pdf`, agent document maps, and OCR-derived table structure
-- [x] Tesseract OCR provider presets for plain text and TSV word-box output without bundling OCR model assets
-- [x] Configured local visual region analysis providers over command, HTTP, Ollama `/api/generate`, OpenAI-compatible chat completions, LM Studio, and llama.cpp adapters for table, chart, formula, figure, and image-description enrichment, including crop-image requests, JSON-only normalization, local chat-completions data URL payloads, and caption-derived formula/chart/figure candidate routing from above/below and side-caption layouts
-- [x] Visual-region candidate routing plan in `read_pdf` and `document_map`, preserved even when the optional visual provider is not configured
-- [x] Quality evals for semantic chunks, table ordering, renderers, and safety findings
-- [x] Public deterministic quality benchmark for Agent Document Twin, semantic layout variants, side-caption evidence links, inspection tool routing, real PDF document-signal fixtures, real PDF reading-order fixtures, scanned-PDF OCR pipeline routing, OCR normalization, OCR-derived table extraction, caption-derived visual candidate routing, command/HTTP/Ollama/OpenAI-compatible/LM Studio/llama.cpp visual region normalization, table evidence coverage, document-map trust routing, document-map trust signal indexing, document-map accessibility routing, document-map accessibility issue indexing, selected-page-scoped trust-report category summaries, configurable trust evidence redaction, visual-spoofing guidance, hidden-text/unsafe-link trust routing, routeable accessibility summaries, search evidence, and machine-readable SOTA final-bar coverage
-- [x] JSON benchmark artifact output for performance, deterministic quality, corpus, installed-provider, provider-manifest crop, and provider-manifest scoring evidence reports
-- [x] SOTA release gate that blocks release artifacts until deterministic quality, corpus, deterministic provider-manifest crop/scoring, and installed-provider final-bar evidence are complete
-- [x] Package smoke gate that verifies the published tarball contains the executable runtime artifact, matching `bin`/`exports` contract, and required public corpus/provider capability coverage manifests
-- [x] Runtime-generated PDF fixture coverage for outline, page labels, mark info, annotations, AcroForm fields, embedded attachment metadata, page geometry, tagged structure trees, tag-content coverage, and accessibility report fusion with issue and page-grade summaries
-- [x] Tag-to-visible-content coverage and routeable issue summaries in the accessibility report without forcing raw structure-tree output
-- [x] Runtime-generated multi-column PDF fixture coverage for spanning headers, independent column ordering, short footer placement, text-layer line order, and mixed-layout diagnostics
-- [x] Optional provider benchmark for installed Tesseract TSV OCR word-box checks over multiple runtime OCR fixtures and configured visual-region `visual-full-fidelity` certification over 10 runtime table, formula, chart, figure, and image-description PDF fixtures, with a deterministic reference visual provider and machine-readable final-bar provider evidence summaries
-- [x] Provider quality metrics for fixture-level OCR token recall, word-box coverage, document-map fusion, visual fixture coverage, crop provenance, table cell boxes, formula formats, chart data, figure text, and image descriptions
-- [x] Public corpus benchmark artifact for checked-in sample PDFs plus runtime-generated reading-order, scanned-OCR routing, and OCR-table recovery archetypes, with case-level capability tags and artifact-level capability summaries, enforced by the SOTA release gate
-- [x] External corpus manifest support for operator-supplied and checked-in public URL PDFs, preserving deterministic CI while allowing scanned, visual, and domain-specific benchmark evidence to be written into the same corpus artifact shape with SHA256, cache provenance, source metadata, capability tags, and private-host protection
-- [x] Public provider accuracy manifest support for opt-in visual-region provider scoring over checked-in public PDF crop manifests, preserving deterministic CI while letting users run real public visual evidence checks with SHA256, cache provenance, source metadata, region-level expectations, expected visual kind coverage, and capability-level summaries
-- [x] Package smoke gate for public evidence manifests, requiring corpus expected assertions/read options and provider region bbox/expected-kind/normalized-confidence/text contracts in the packed package
-- [x] Expanded public corpus and provider accuracy manifests with CDC public statistical chart evidence and arXiv public research-paper figure, formula, and table crops
-- [x] Deterministic provider-manifest crop release artifact over a local fixture, enforced by the SOTA release gate before publishing evidence can pass
-- [x] Deterministic provider-manifest scoring release artifact over local table, formula, chart, figure, and image regions, enforced by the SOTA release gate before publishing evidence can pass
-- [x] Deterministic semantic hints and AST nodes for numbered/appendix headings, richer list prefixes, equation/formula and graph/chart captions, headers, and footers, with page-edge safeguards for off-page text
-- [x] Cross-page section context in the document AST, preserving page-local evidence while linking continued paragraphs and subsections back to the active section
-- [x] Caption-to-evidence links in the document AST for nearby table, image, figure, chart, formula, and diagram nodes, including side-caption layouts with vertical-overlap evidence
-- [x] Multi-caption and multi-target visual-layout fixture coverage for independent formula, chart, figure, and side-caption routing
-- [x] Text-layer evidence and metadata coverage in the agent document map without forcing top-level text-layer output
-- [x] Trust report routing and signal-level evidence indexes in the agent document map without forcing raw safety, layout, annotation, or table outputs
-- [x] Accessibility report routing and issue-level evidence indexes in the agent document map without forcing raw structure-tree output
-- [x] Filesystem and HTTP access restrictions
+PDF Reader MCP is now organized around a full-fidelity agent document model, not
+a stream of isolated parser features.
 
-**🚀 Next**
-- [x] Expand curated public scanned-PDF and visual-region provider manifests beyond the initial checked-in public provider accuracy set
-- [ ] Further broaden public evidence manifests with additional independently licensed scanned, tabular, chart-heavy, and formula-heavy PDFs
-- [ ] Optional advanced parser engine presets beyond the local OCR, Ollama, OpenAI-compatible, LM Studio, and llama.cpp adapter set
-- [ ] Optional advanced parser engines
-- [ ] 100+ MB streaming
-- [ ] Advanced caching
+| Surface | Status |
+| --- | --- |
+| Agent Document Twin | Shipped: document map, document AST, text layer, semantic hints, citation chunks, layout diagnostics, tables, OCR layer links, visual enrichment links, trust routing, accessibility routing, and page geometry. |
+| Evidence-first MCP workflow | Shipped: `inspect_pdf`, `search_pdf`, `render_page`, `extract_regions`, `analyze_regions`, `ocr_pages`, and `read_pdf` cover preflight, search, source visuals, focused crops, local-provider enrichment, scanned-page OCR, and extraction. |
+| Scanned PDF handling | Shipped through configured local OCR providers, Tesseract presets, OCR word boxes, OCR text-layer fusion, OCR-derived tables, and source-render provenance. |
+| Tables, charts, formulas, figures, and images | Shipped through deterministic table extraction plus visual-region provider adapters for command, HTTP, Ollama, OpenAI-compatible, LM Studio, and llama.cpp runtimes. |
+| Trust and accessibility intelligence | Shipped: hidden-text, prompt-injection-like text, visual-spoofing, unsafe-link, redaction, tagged-PDF coverage, tag-visible coverage, headings, images, forms, links, permissions, issue summaries, and page grades. |
+| Reproducible proof | Shipped: performance, quality, corpus, provider, provider-manifest crop/scoring, package-smoke, and SOTA release-gate artifacts. |
+
+**Next evidence expansion**
+
+- Broaden independently licensed scanned, tabular, chart-heavy, and
+  formula-heavy public manifests.
+- Add optional advanced parser-engine presets only when they can feed the same
+  evidence model without becoming mandatory package dependencies.
+- Continue performance work for very large PDFs, streaming, and caching without
+  weakening the local-first MCP contract.
 
 Vote at [Discussions](https://github.com/SylphxAI/pdf-reader-mcp/discussions)
 
@@ -1864,7 +1809,6 @@ Vote at [Discussions](https://github.com/SylphxAI/pdf-reader-mcp/discussions)
 ## 🤝 Support
 
 [![GitHub Issues](https://img.shields.io/github/issues/SylphxAI/pdf-reader-mcp?style=flat-square)](https://github.com/SylphxAI/pdf-reader-mcp/issues)
-[![Discord](https://img.shields.io/discord/YOUR_DISCORD_ID?style=flat-square&logo=discord)](https://discord.gg/sylphx)
 
 - 🐛 [Bug Reports](https://github.com/SylphxAI/pdf-reader-mcp/issues)
 - 💬 [Discussions](https://github.com/SylphxAI/pdf-reader-mcp/discussions)

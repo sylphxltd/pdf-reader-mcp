@@ -1,4 +1,4 @@
-# Trust Report V3
+# Trust Report
 
 Date: 2026-06-15
 Status: shipped

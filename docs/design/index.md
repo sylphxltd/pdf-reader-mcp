@@ -1,6 +1,11 @@
 # Design Philosophy
 
-PDF Reader MCP is built on these core principles:
+PDF Reader MCP is designed as an Agent Document Twin engine for MCP clients. The
+core design goal is to preserve source evidence and routing signals across text,
+visual, semantic, trust, accessibility, OCR, and provider-enriched layers while
+keeping the default package TypeScript-first and local-first.
+
+It is built on these core principles:
 
 ## 1. Performance First
 

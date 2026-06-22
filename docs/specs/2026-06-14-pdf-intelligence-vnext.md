@@ -1,13 +1,13 @@
-# PDF Intelligence vNext
+# Full-Fidelity PDF Intelligence Direction
 
 Date: 2026-06-14
-Status: active
+Status: superseded by shipped release gates
 
 ## Goal
 
-Make PDF Reader MCP the strongest practical PDF intelligence layer for AI
-agents while preserving its current install experience: local-first, MCP-native,
-simple to run with `npx`, and safe by default.
+Make PDF Reader MCP a full-fidelity PDF intelligence layer for AI agents while
+preserving its install experience: local-first, MCP-native, simple to run with
+`npx`, and safe by default.
 
 The product direction is not to become a monolithic PDF desktop converter. The
 product direction is to become the agent-facing control plane for PDF
@@ -130,7 +130,7 @@ Candidate engines:
   request payloads.
 - `vision`: optional enrichment for charts, figures, and formulas.
 
-## Phased Roadmap
+## Implementation Plan
 
 1. Structured foundation
    - Add `inspect_pdf` for bounded preflight profiling, OCR triage, and

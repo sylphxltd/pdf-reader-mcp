@@ -4,6 +4,12 @@ PDF Reader MCP exposes an MCP server contract. The package entrypoint starts the
 server; it is not an importable TypeScript SDK. Agents and clients should call
 the MCP tools below over stdio or the optional HTTP transport.
 
+The API is organized as an evidence-first workflow. Agents can profile a PDF,
+search before reading, render source pages, crop precise regions, run configured
+OCR, analyze visual regions through local providers, and finally read the same
+document as an Agent Document Twin with text, semantic, visual, trust,
+accessibility, citation, and routing layers.
+
 ## Transports
 
 | Setting | Description | Default |
@@ -18,13 +24,13 @@ the MCP tools below over stdio or the optional HTTP transport.
 
 | Tool | Purpose |
 | --- | --- |
-| `inspect_pdf` | Classify a PDF, sample pages, and recommend the extraction route before doing expensive work. |
-| `read_pdf` | Extract text, metadata, structure, tables, chunks, safety signals, accessibility signals, OCR evidence, and visual enrichments. |
-| `search_pdf` | Search selectable text and OCR text with snippets, page numbers, and bounding-box provenance. |
-| `render_page` | Render selected pages as PNG visual evidence with bounded pixel budgets. |
-| `extract_regions` | Crop bounded regions from rendered pages and return focused image evidence. |
-| `analyze_regions` | Send cropped visual regions to a configured local command or HTTP provider and normalize table, formula, chart, figure, or image-description evidence. |
-| `ocr_pages` | Render selected pages and send them to a configured local OCR provider. |
+| `inspect_pdf` | Classify a PDF, sample pages, detect scanned/low-text risk, report provider readiness, and recommend the extraction route before doing expensive work. |
+| `search_pdf` | Search selectable text and optional OCR text with snippets, page numbers, offsets, bounding-box provenance, and routing evidence. |
+| `render_page` | Render selected pages as bounded PNG visual evidence with JSON provenance and pixel budgets. |
+| `extract_regions` | Crop PDF-coordinate regions from rendered pages and return focused image evidence for tables, charts, formulas, figures, annotations, and citations. |
+| `analyze_regions` | Send cropped visual regions to a configured local command, HTTP, Ollama, OpenAI-compatible, LM Studio, or llama.cpp provider and normalize table, formula, chart, figure, or image-description evidence. |
+| `ocr_pages` | Render selected pages and send them to a configured local OCR provider, returning text, confidence, word boxes, and render provenance. |
+| `read_pdf` | Extract text, metadata, Markdown, HTML, structure, tables, chunks, safety signals, trust reports, accessibility signals, OCR evidence, visual enrichments, and the Agent Document Twin. |
 
 ## Source Object
 

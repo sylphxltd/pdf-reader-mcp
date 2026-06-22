@@ -1,4 +1,4 @@
-# Table Intelligence V3
+# Table Intelligence
 
 Date: 2026-06-15
 Status: shipped
