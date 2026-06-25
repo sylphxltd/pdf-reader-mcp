@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -73,6 +74,11 @@ interface HttpTransportConfig {
   port: number;
   hostname: string;
   cors?: string;
+  /**
+   * When set, every `/mcp` request must present a matching `X-API-Key` header.
+   * When undefined, the endpoint is unauthenticated (the historical behavior).
+   */
+  apiKey?: string;
 }
 
 type TransportConfig = StdioTransportConfig | HttpTransportConfig;
@@ -83,6 +89,7 @@ export const http = (config: {
   port: number;
   hostname: string;
   cors?: string;
+  apiKey?: string;
 }): HttpTransportConfig => ({ kind: 'http', ...config });
 
 interface CreateServerOptions {
@@ -120,6 +127,34 @@ const withCors = (res: import('node:http').ServerResponse, origin: string | unde
   );
 };
 
+/**
+ * Constant-time check of a presented `X-API-Key` header against the configured
+ * key. Both sides are SHA-256 hashed before comparison so the comparison is
+ * length-independent and does not leak the key (or its length) through response
+ * timing. Returns true only when a non-empty header exactly matches the key.
+ */
+const isApiKeyValid = (
+  configuredKey: string,
+  presented: string | string[] | undefined
+): boolean => {
+  const provided = Array.isArray(presented) ? presented[0] : presented;
+  if (typeof provided !== 'string' || provided.length === 0) return false;
+  const expected = createHash('sha256').update(configuredKey).digest();
+  const actual = createHash('sha256').update(provided).digest();
+  return timingSafeEqual(expected, actual);
+};
+
+const unauthorized = (res: import('node:http').ServerResponse) => {
+  res.writeHead(401, { 'Content-Type': 'application/json', 'WWW-Authenticate': 'X-API-Key' });
+  res.end(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32001, message: 'Unauthorized: missing or invalid X-API-Key header' },
+    })
+  );
+};
+
 const ensureStreamableAcceptHeader = (req: import('node:http').IncomingMessage) => {
   const accept = req.headers.accept;
   const acceptValues = Array.isArray(accept) ? accept.join(', ') : (accept ?? '');
@@ -138,43 +173,79 @@ const ensureStreamableAcceptHeader = (req: import('node:http').IncomingMessage) 
   req.rawHeaders.push('Accept', 'application/json, text/event-stream');
 };
 
+/**
+ * Resolve a request against the non-MCP routes (health, unknown paths, CORS
+ * preflight) and the API-key gate. Returns true when the request was fully
+ * handled here and the MCP pipeline should be skipped.
+ */
+const handleNonMcpRoute = (
+  req: import('node:http').IncomingMessage,
+  res: import('node:http').ServerResponse,
+  pathname: string,
+  transportConfig: HttpTransportConfig
+): boolean => {
+  if (pathname === '/mcp/health' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok' }));
+    return true;
+  }
+
+  if (pathname !== '/mcp') {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+    return true;
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+
+  // Authenticate every data-bearing /mcp request when a key is configured.
+  // Health and CORS-preflight (above) stay open: the former carries no PDF
+  // data, the latter no credentials.
+  if (
+    transportConfig.apiKey !== undefined &&
+    !isApiKeyValid(transportConfig.apiKey, req.headers['x-api-key'])
+  ) {
+    unauthorized(res);
+    return true;
+  }
+
+  return false;
+};
+
+const handleHttpRequest = async (
+  req: import('node:http').IncomingMessage,
+  res: import('node:http').ServerResponse,
+  mcpServer: McpServer,
+  transportConfig: HttpTransportConfig
+): Promise<void> => {
+  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? transportConfig.hostname}`);
+
+  withCors(res, transportConfig.cors);
+
+  if (handleNonMcpRoute(req, res, url.pathname, transportConfig)) return;
+
+  ensureStreamableAcceptHeader(req);
+  const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
+
+  try {
+    await mcpServer.connect(transport as unknown as Parameters<McpServer['connect']>[0]);
+    await transport.handleRequest(req, res);
+  } finally {
+    await mcpServer.close();
+  }
+};
+
 const startHttpServer = async (
   serverInfo: Pick<CreateServerOptions, 'name' | 'version' | 'instructions' | 'tools'>,
   transportConfig: HttpTransportConfig
 ): Promise<{ mcpServer: McpServer; httpServer: HttpServer }> => {
   const mcpServer = buildMcpServer(serverInfo);
-  const httpServer = createHttpServer(async (req, res) => {
-    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? transportConfig.hostname}`);
-
-    withCors(res, transportConfig.cors);
-
-    if (url.pathname === '/mcp/health' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok' }));
-      return;
-    }
-
-    if (url.pathname !== '/mcp') {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not found' }));
-      return;
-    }
-
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-
-    ensureStreamableAcceptHeader(req);
-    const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
-
-    try {
-      await mcpServer.connect(transport as unknown as Parameters<McpServer['connect']>[0]);
-      await transport.handleRequest(req, res);
-    } finally {
-      await mcpServer.close();
-    }
+  const httpServer = createHttpServer((req, res) => {
+    void handleHttpRequest(req, res, mcpServer, transportConfig);
   });
 
   await new Promise<void>((resolve, reject) => {

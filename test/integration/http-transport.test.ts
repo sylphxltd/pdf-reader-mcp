@@ -217,3 +217,98 @@ describe('MCP Server HTTP Transport Integration', () => {
     expect([-32600, -32700]).toContain(data.error.code);
   });
 });
+
+describe('MCP Server HTTP Transport Authentication', () => {
+  const API_KEY = 'test-secret-key-123';
+  let serverProc: ChildProcess;
+  let authBaseUrl: string;
+
+  beforeAll(async () => {
+    const serverPath = path.resolve(__dirname, '../../dist/index.js');
+    const testPort = await getFreePort();
+    authBaseUrl = `http://${TEST_HOST}:${String(testPort)}/mcp`;
+    serverProc = spawn('bun', [serverPath], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        MCP_TRANSPORT: 'http',
+        MCP_HTTP_PORT: testPort.toString(),
+        MCP_HTTP_HOST: TEST_HOST,
+        MCP_API_KEY: API_KEY,
+      },
+    });
+
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Server startup timeout'));
+      }, 10000);
+
+      serverProc.stdout?.on('data', (data) => {
+        if (data.toString().includes('Server running on http://')) {
+          clearTimeout(timeout);
+          setTimeout(resolve, 200);
+        }
+      });
+
+      serverProc.stderr?.on('data', (data) => {
+        console.error('Server stderr:', data.toString());
+      });
+    });
+  });
+
+  afterAll(() => {
+    serverProc?.kill('SIGTERM');
+  });
+
+  const initialize = (headers: Record<string, string>) =>
+    fetch(authBaseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...headers },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: { name: 'auth-test-client', version: '1.0.0' },
+        },
+      }),
+    });
+
+  it('rejects requests with no X-API-Key header (401)', async () => {
+    const response = await initialize({});
+    expect(response.status).toBe(401);
+    const data = await response.json();
+    expect(data.error?.message).toContain('X-API-Key');
+  });
+
+  it('rejects requests with a wrong X-API-Key (401)', async () => {
+    const response = await initialize({ 'X-API-Key': 'wrong-key' });
+    expect(response.status).toBe(401);
+  });
+
+  it('accepts requests carrying the correct X-API-Key', async () => {
+    const response = await initialize({ 'X-API-Key': API_KEY });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.result?.serverInfo?.name).toBe('pdf-reader-mcp');
+  });
+
+  it('does not list tools to an unauthenticated caller', async () => {
+    const response = await fetch(authBaseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+    });
+    expect(response.status).toBe(401);
+  });
+
+  it('keeps the health endpoint open without a key', async () => {
+    const response = await fetch(`${authBaseUrl}/health`);
+    expect(response.ok).toBe(true);
+    const data = await response.json();
+    expect(data.status).toBe('ok');
+  });
+});
