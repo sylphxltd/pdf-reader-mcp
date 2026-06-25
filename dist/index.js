@@ -4,6 +4,7 @@
 import { createRequire as createRequire3 } from "node:module";
 
 // src/mcp.ts
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -60,6 +61,22 @@ var withCors = (res, origin) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id, X-API-Key");
 };
+var isApiKeyValid = (configuredKey, presented) => {
+  const provided = Array.isArray(presented) ? presented[0] : presented;
+  if (typeof provided !== "string" || provided.length === 0)
+    return false;
+  const expected = createHash("sha256").update(configuredKey).digest();
+  const actual = createHash("sha256").update(provided).digest();
+  return timingSafeEqual(expected, actual);
+};
+var unauthorized = (res) => {
+  res.writeHead(401, { "Content-Type": "application/json", "WWW-Authenticate": "X-API-Key" });
+  res.end(JSON.stringify({
+    jsonrpc: "2.0",
+    id: null,
+    error: { code: -32001, message: "Unauthorized: missing or invalid X-API-Key header" }
+  }));
+};
 var ensureStreamableAcceptHeader = (req) => {
   const accept = req.headers.accept;
   const acceptValues = Array.isArray(accept) ? accept.join(", ") : accept ?? "";
@@ -74,34 +91,46 @@ var ensureStreamableAcceptHeader = (req) => {
   }
   req.rawHeaders.push("Accept", "application/json, text/event-stream");
 };
+var handleNonMcpRoute = (req, res, pathname, transportConfig) => {
+  if (pathname === "/mcp/health" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok" }));
+    return true;
+  }
+  if (pathname !== "/mcp") {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not found" }));
+    return true;
+  }
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+  if (transportConfig.apiKey !== undefined && !isApiKeyValid(transportConfig.apiKey, req.headers["x-api-key"])) {
+    unauthorized(res);
+    return true;
+  }
+  return false;
+};
+var handleHttpRequest = async (req, res, mcpServer, transportConfig) => {
+  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? transportConfig.hostname}`);
+  withCors(res, transportConfig.cors);
+  if (handleNonMcpRoute(req, res, url.pathname, transportConfig))
+    return;
+  ensureStreamableAcceptHeader(req);
+  const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
+  try {
+    await mcpServer.connect(transport);
+    await transport.handleRequest(req, res);
+  } finally {
+    await mcpServer.close();
+  }
+};
 var startHttpServer = async (serverInfo, transportConfig) => {
   const mcpServer = buildMcpServer(serverInfo);
-  const httpServer = createHttpServer(async (req, res) => {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? transportConfig.hostname}`);
-    withCors(res, transportConfig.cors);
-    if (url.pathname === "/mcp/health" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok" }));
-      return;
-    }
-    if (url.pathname !== "/mcp") {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Not found" }));
-      return;
-    }
-    if (req.method === "OPTIONS") {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-    ensureStreamableAcceptHeader(req);
-    const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
-    try {
-      await mcpServer.connect(transport);
-      await transport.handleRequest(req, res);
-    } finally {
-      await mcpServer.close();
-    }
+  const httpServer = createHttpServer((req, res) => {
+    handleHttpRequest(req, res, mcpServer, transportConfig);
   });
   await new Promise((resolve, reject) => {
     httpServer.once("error", reject);
@@ -8459,15 +8488,17 @@ var require4 = createRequire3(import.meta.url);
 var packageJson = require4("../package.json");
 var transportType = process.env["MCP_TRANSPORT"] ?? "stdio";
 var httpPort = Number.parseInt(process.env["MCP_HTTP_PORT"] ?? "8080", 10);
-var httpHost = process.env["MCP_HTTP_HOST"] ?? "0.0.0.0";
+var httpHost = process.env["MCP_HTTP_HOST"] ?? "127.0.0.1";
 var apiKey = process.env["MCP_API_KEY"];
 var corsOrigin = process.env["MCP_CORS_ORIGIN"];
+var isLoopbackHost = (host) => host === "localhost" || host === "::1" || host === "127.0.0.1" || host.startsWith("127.");
 function createTransport() {
   if (transportType === "http") {
     return http({
       port: httpPort,
       hostname: httpHost,
-      ...corsOrigin ? { cors: corsOrigin } : {}
+      ...corsOrigin ? { cors: corsOrigin } : {},
+      ...apiKey ? { apiKey } : {}
     });
   }
   return stdio();
@@ -8490,6 +8521,8 @@ async function main() {
     console.log(`[PDF Reader MCP] Health check: http://${httpHost}:${httpPort}/mcp/health`);
     if (apiKey) {
       console.log("[PDF Reader MCP] API key authentication enabled (X-API-Key header)");
+    } else if (!isLoopbackHost(httpHost)) {
+      console.warn(`[PDF Reader MCP] WARNING: bound to non-loopback host ${httpHost} with no API key. ` + "Any client that can reach this port can read every PDF this process can access. " + "Set MCP_API_KEY to require an X-API-Key header, or bind MCP_HTTP_HOST=127.0.0.1.");
     }
     if (corsOrigin) {
       console.log(`[PDF Reader MCP] CORS allowed origin: ${corsOrigin}`);

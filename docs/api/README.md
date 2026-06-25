@@ -16,10 +16,17 @@ analysis operations behind one specialist tool.
 | Setting | Description | Default |
 | --- | --- | --- |
 | `MCP_TRANSPORT` | `stdio` or `http` | `stdio` |
-| `MCP_HTTP_HOST` | HTTP bind host when `MCP_TRANSPORT=http` | `0.0.0.0` |
+| `MCP_HTTP_HOST` | HTTP bind host when `MCP_TRANSPORT=http`. Defaults to loopback; set explicitly (and set `MCP_API_KEY`) to expose on other interfaces. | `127.0.0.1` |
 | `MCP_HTTP_PORT` | HTTP port when `MCP_TRANSPORT=http` | `8080` |
-| `MCP_API_KEY` | Optional HTTP `X-API-Key` authentication | unset |
+| `MCP_API_KEY` | When set, every `/mcp` request must send a matching `X-API-Key` header or it is rejected with `401`. The `/mcp/health` check stays open. Leave unset only for a loopback-bound, single-tenant server. | unset |
 | `MCP_CORS_ORIGIN` | Optional explicit CORS origin | unset |
+
+> **Security:** The HTTP transport exposes every PDF tool to whoever can reach
+> the port. It binds to loopback (`127.0.0.1`) by default. Before binding any
+> non-loopback host, set `MCP_API_KEY` so callers must authenticate with an
+> `X-API-Key` header, and restrict filesystem reach with `--allow-dir` /
+> `MCP_PDF_ALLOWED_DIRS`. The server warns at startup if it binds a non-loopback
+> host without a key.
 
 ## Tools
 

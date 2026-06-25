@@ -12,14 +12,20 @@ const packageJson = require('../package.json') as { version: string };
 // Transport configuration via environment variables
 // MCP_TRANSPORT: 'stdio' (default) | 'http'
 // MCP_HTTP_PORT: HTTP port (default: 8080)
-// MCP_HTTP_HOST: HTTP hostname (default: '0.0.0.0')
-// MCP_API_KEY: Optional API key for authentication (X-API-Key header)
+// MCP_HTTP_HOST: HTTP hostname (default: '127.0.0.1' — loopback only; set
+//   explicitly to expose on other interfaces, and set MCP_API_KEY when you do)
+// MCP_API_KEY: Optional API key. When set, every /mcp request must present a
+//   matching X-API-Key header; requests without it are rejected with 401.
 // MCP_CORS_ORIGIN: CORS allowed origin (e.g. 'https://myapp.example.com'). Not set by default (no cross-origin access).
 const transportType = process.env['MCP_TRANSPORT'] ?? 'stdio';
 const httpPort = Number.parseInt(process.env['MCP_HTTP_PORT'] ?? '8080', 10);
-const httpHost = process.env['MCP_HTTP_HOST'] ?? '0.0.0.0';
+const httpHost = process.env['MCP_HTTP_HOST'] ?? '127.0.0.1';
 const apiKey = process.env['MCP_API_KEY'];
 const corsOrigin = process.env['MCP_CORS_ORIGIN'];
+
+/** Loopback hosts never reachable from another machine without extra config. */
+const isLoopbackHost = (host: string): boolean =>
+  host === 'localhost' || host === '::1' || host === '127.0.0.1' || host.startsWith('127.');
 
 /**
  * Create the appropriate transport based on configuration
@@ -30,6 +36,7 @@ function createTransport() {
       port: httpPort,
       hostname: httpHost,
       ...(corsOrigin ? { cors: corsOrigin } : {}),
+      ...(apiKey ? { apiKey } : {}),
     });
   }
   return stdio();
@@ -56,7 +63,14 @@ async function main(): Promise<void> {
     console.log(`[PDF Reader MCP] Server running on http://${httpHost}:${httpPort}/mcp`);
     console.log(`[PDF Reader MCP] Health check: http://${httpHost}:${httpPort}/mcp/health`);
     if (apiKey) {
+      // Truthful only because the transport now enforces this key (see src/mcp.ts).
       console.log('[PDF Reader MCP] API key authentication enabled (X-API-Key header)');
+    } else if (!isLoopbackHost(httpHost)) {
+      console.warn(
+        `[PDF Reader MCP] WARNING: bound to non-loopback host ${httpHost} with no API key. ` +
+          'Any client that can reach this port can read every PDF this process can access. ' +
+          'Set MCP_API_KEY to require an X-API-Key header, or bind MCP_HTTP_HOST=127.0.0.1.'
+      );
     }
     if (corsOrigin) {
       console.log(`[PDF Reader MCP] CORS allowed origin: ${corsOrigin}`);
