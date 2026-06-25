@@ -98,6 +98,17 @@ jobs:
           name: coverage-report
           path: coverage/
 
+  security-secrets:
+    name: security:secrets
+    runs-on: [self-hosted, sylphx-linux-standard]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0 # full history for the new-commit range
+      - name: Secret scan (ADR-6 security:secrets)
+        uses: SylphxAI/.github/.github/actions/secret-scan@main
+
   release-evidence:
     name: Release Evidence Gate
     runs-on: ubuntu-latest
