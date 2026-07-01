@@ -81,7 +81,12 @@ OCR models, vision models, Ollama, LM Studio, llama.cpp, or cloud credentials.
 ### Docker
 
 ```bash
+# Pre-built image from GitHub Container Registry
 docker run --rm -i -v /path/to/pdfs:/workspace ghcr.io/sylphxai/pdf-reader-mcp
+
+# Or build locally
+docker build -t pdf-reader-mcp . && \
+  docker run --rm -i -v /path/to/pdfs:/workspace pdf-reader-mcp
 ```
 
 Need Cursor, VS Code, Windsurf, Cline, Warp, HTTP transport, Docker customization, or
