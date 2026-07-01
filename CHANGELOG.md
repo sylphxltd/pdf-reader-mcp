@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.0.10
+
+### Patch Changes
+
+- [#357](https://github.com/SylphxAI/pdf-reader-mcp/pull/357) [`68c4ebd`](https://github.com/SylphxAI/pdf-reader-mcp/commit/68c4ebd7cee48cf42ffbeb919d0eaa054ad33e4a) Thanks [@shtse8](https://github.com/shtse8)! - Consolidate last remaining duplicate geometry helpers.
+
+  - Remove local `roundRatio` from `documentModel.ts` and `ocr.ts` — now import from `utils/geometry.ts`
+  - Remove local `mergeBoxes` from `documentModel.ts` — replaced with `mergeBoundingBoxes` from `utils/geometry.ts`
+  - Remove local `mergeBoundingBoxes` from `search.ts` — now imports from `utils/geometry.ts`
+
+  After this change there is exactly ONE definition of each geometry helper:
+
+  - `roundRatio`: 1 (was 3)
+  - `mergeBoundingBoxes`: 1 (was 3 counting `mergeBoxes`)
+  - Zero local duplicates remain.
+
+  377 tests pass. No behavior changes.
+
 ## 3.0.9
 
 ### Patch Changes

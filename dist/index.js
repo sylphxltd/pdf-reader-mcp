@@ -3002,7 +3002,6 @@ var defaultOcrPagesOptions = () => ({
   timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
 });
-var roundRatio2 = (value) => Math.round(value * 100) / 100;
 var roundCoordinate = (value) => Math.round(value * 100) / 100;
 var normalizeWordBoxesToPdfCoordinates = (words, scale) => {
   if (!words || scale <= 0 || !Number.isFinite(scale))
@@ -3025,7 +3024,7 @@ var buildOcrTextLayer = (pages, warnings = []) => {
   const textChars = pages.reduce((sum, page) => sum + page.text.length, 0);
   const words = pages.flatMap((page) => page.words ?? []);
   const confidences = pages.map((page) => page.confidence).filter((confidence) => confidence !== undefined);
-  const averageConfidence = confidences.length > 0 ? roundRatio2(confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length) : undefined;
+  const averageConfidence = confidences.length > 0 ? roundRatio(confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length) : undefined;
   const sourceRenderCount = new Set(pages.map((page) => page.source_render_evidence_id)).size;
   const pageWarnings = pages.flatMap((page) => page.warnings ?? []);
   const allWarnings = [...warnings, ...pageWarnings];
@@ -3264,7 +3263,7 @@ var parseTesseractTsvOutput = (stdout, options, imageHeight) => {
 `);
   const truncated = truncateOcrText(rawText, options.max_output_chars);
   const confidences = words.map((word) => word.confidence).filter((confidence2) => confidence2 !== undefined);
-  const confidence = confidences.length > 0 ? roundRatio2(confidences.reduce((sum, value) => sum + value, 0) / confidences.length) : undefined;
+  const confidence = confidences.length > 0 ? roundRatio(confidences.reduce((sum, value) => sum + value, 0) / confidences.length) : undefined;
   return {
     text: truncated.text,
     ...confidence !== undefined ? { confidence } : {},
@@ -6868,8 +6867,7 @@ var buildCitationChunks = (elements, options) => {
   pushCurrent();
   return chunks;
 };
-var roundRatio3 = (value) => Math.round(value * 100) / 100;
-var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio3(value)));
+var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio(value)));
 var boxWidth = (box) => box ? Math.max(0, box.right - box.left) : 0;
 var boxArea = (box) => {
   if (!box)
@@ -6956,7 +6954,7 @@ var buildLayoutDiagnostics = (pageContents) => pageContents.map((pageContent) =>
   const textItemCount = pageContent.items.filter((item) => item.type === "text").length;
   const imageItemCount = pageContent.items.filter((item) => item.type === "image").length;
   const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
-  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio3(positionedItems.length / itemCount);
+  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio(positionedItems.length / itemCount);
   const columns = detectLayoutColumns(positionedItems);
   const left = positionedItems.length ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0)) : 0;
   const right = positionedItems.length ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0)) : 0;
@@ -7023,16 +7021,6 @@ var snippetFromText = (value) => {
   return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
 };
 var normalizeSafetyText = (value) => value.replace(/\s+/g, " ").trim().toLowerCase();
-var mergeBoxes = (first, second) => {
-  if (!first || !second)
-    return first ?? second;
-  return {
-    left: Math.min(first.left, second.left),
-    bottom: Math.min(first.bottom, second.bottom),
-    right: Math.max(first.right, second.right),
-    top: Math.max(first.top, second.top)
-  };
-};
 var isOutsideViewBox = (box, viewBox) => {
   if (!box || !viewBox)
     return false;
@@ -7137,7 +7125,7 @@ var buildSafetyFindings = (pageContents, pageGeometry) => {
         if (overlapRatio < SAFETY_TEXT_OVERLAP_RATIO)
           continue;
         const differentText = normalizeSafetyText(first.text) !== normalizeSafetyText(second.text);
-        const boundingBox = mergeBoxes(first.bounding_box, second.bounding_box);
+        const boundingBox = mergeBoundingBoxes([first.bounding_box, second.bounding_box]);
         findings.push({
           type: "overlapping_text",
           severity: differentText ? "high" : "medium",
@@ -8136,17 +8124,6 @@ var findMatchesInText = (text2, query, options) => {
   }
   return matches;
 };
-var mergeBoundingBoxes2 = (boxes) => {
-  const validBoxes = boxes.filter((box) => box !== undefined);
-  if (validBoxes.length === 0)
-    return;
-  return {
-    left: Math.min(...validBoxes.map((box) => box.left)),
-    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
-    right: Math.max(...validBoxes.map((box) => box.right)),
-    top: Math.max(...validBoxes.map((box) => box.top))
-  };
-};
 var buildOcrSearchText = (page) => {
   if (!page.words || page.words.length === 0) {
     return { text: page.text, wordOffsets: [] };
@@ -8168,13 +8145,13 @@ var buildOcrSearchText = (page) => {
 };
 var matchOcrBoundingBox = (wordOffsets, start, end) => {
   const overlappingWords = wordOffsets.filter((wordOffset) => wordOffset.end > start && wordOffset.start < end);
-  const boundingBox = mergeBoundingBoxes2(overlappingWords.map((wordOffset) => wordOffset.word.bounding_box));
+  const boundingBox = mergeBoundingBoxes(overlappingWords.map((wordOffset) => wordOffset.word.bounding_box));
   const firstWordIndex = overlappingWords[0]?.index;
   return boundingBox && firstWordIndex !== undefined ? { bounding_box: boundingBox, first_word_index: firstWordIndex } : undefined;
 };
 var matchBoundingBox = (item, start, end) => {
   const charBoxes = (item.textRuns ?? []).flatMap((run) => run.chars).filter((char) => !char.is_whitespace && char.item_char_start >= start && char.item_char_end <= end && char.bounding_box).map((char) => char.bounding_box);
-  const charBoundingBox = mergeBoundingBoxes2(charBoxes);
+  const charBoundingBox = mergeBoundingBoxes(charBoxes);
   if (charBoundingBox) {
     return { bounding_box: charBoundingBox, level: "char_estimated" };
   }
