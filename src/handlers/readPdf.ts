@@ -60,8 +60,10 @@ import type {
   PdfVisualEnrichment,
   PdfVisualEnrichmentCandidate,
 } from '../types/pdf.js';
+import { safeErrorMessage } from '../utils/errorHandling.js';
 import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
+import { destroyLoadingTask } from '../utils/pdfjs.js';
 
 const logger = createLogger('ReadPdf');
 
@@ -549,17 +551,12 @@ const processSingleSource = async (
     // else gets logged with full detail but returned as a generic string so
     // raw PDF.js / Node messages cannot leak filesystem or module paths back
     // through the response to the LLM.
-    let errorMessage: string;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger.error('Unexpected error processing PDF source', {
-        sourceDescription,
-        error: detail,
-      });
-      errorMessage = `Failed to process PDF from ${sourceDescription}.`;
-    }
+    const errorMessage = safeErrorMessage(
+      error,
+      `Failed to process PDF from ${sourceDescription}.`,
+      logger,
+      { sourceDescription }
+    );
 
     individualResult.error = errorMessage;
     individualResult.success = false;
@@ -569,16 +566,9 @@ const processSingleSource = async (
     // document proxy: PDFDocumentProxy.destroy() is gone, so we destroy the
     // owning loadingTask (aborts network + terminates the worker). Guarded so
     // a future API shift can't throw inside finally.
-    const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === 'function') {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError: unknown) {
-        // Log cleanup errors but don't fail the operation
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger.warn('Error destroying PDF document', { sourceDescription, error: message });
-      }
-    }
+    await destroyLoadingTask(pdfDocument?.loadingTask, logger, 'PDF document', {
+      sourceDescription,
+    });
   }
 
   return individualResult;

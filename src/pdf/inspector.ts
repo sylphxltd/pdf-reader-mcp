@@ -14,6 +14,7 @@ import type {
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
+import { destroyLoadingTask } from '../utils/pdfjs.js';
 import {
   buildWarnings,
   extractDocumentStructure,
@@ -666,17 +667,9 @@ export const inspectPdfSource = async (
     };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === 'function') {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError: unknown) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger.warn('Error destroying PDF document after inspection', {
-          sourceDescription,
-          error: message,
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger, 'PDF document after inspection', {
+      sourceDescription,
+    });
   }
 };
 

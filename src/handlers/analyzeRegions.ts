@@ -5,7 +5,7 @@ import {
 } from '../pdf/regionAnalysis.js';
 import { analyzeRegionsArgsSchema } from '../schemas/analyzeRegions.js';
 import type { AnalyzeRegionsOptions, PdfRegionAnalysisSourceResult } from '../types/pdf.js';
-import { PdfError } from '../utils/errors.js';
+import { safeErrorMessage } from '../utils/errorHandling.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('AnalyzeRegions');
@@ -54,18 +54,12 @@ const processSource = async (
       ...(analyzed.warnings.length > 0 ? { warnings: analyzed.warnings } : {}),
     };
   } catch (error: unknown) {
-    let errorMessage: string;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger.error('Unexpected error analyzing PDF regions', {
-        sourceDescription,
-        error: detail,
-      });
-      errorMessage = `Failed to analyze regions from ${sourceDescription}.`;
-    }
-
+    const errorMessage = safeErrorMessage(
+      error,
+      `Failed to analyze regions from ${sourceDescription}.`,
+      logger,
+      { sourceDescription }
+    );
     return {
       source: sourceDescription,
       success: false,

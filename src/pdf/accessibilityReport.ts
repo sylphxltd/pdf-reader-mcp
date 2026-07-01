@@ -14,6 +14,7 @@ import type {
   PdfStructureTreeChild,
   PdfStructureTreeNode,
 } from '../types/pdf.js';
+import { roundRatio } from '../utils/geometry.js';
 
 const ACCESSIBILITY_REPORT_VERSION = '2026-06-15' as const;
 
@@ -181,8 +182,6 @@ const pageImages = (elements: PdfDocumentElement[], page: number): PdfDocumentEl
 
 const pageVisibleElements = (elements: PdfDocumentElement[], page: number): PdfDocumentElement[] =>
   elements.filter((element) => element.page === page);
-
-const roundRatio = (value: number): number => Math.round(value * 100) / 100;
 
 const tagContentCoverage = (
   structureTree: PdfPageStructureTree | undefined,

@@ -10,6 +10,7 @@ import type {
 } from '../types/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
+import { destroyLoadingTask } from '../utils/pdfjs.js';
 import { loadPdfDocument } from './loader.js';
 import { DEFAULT_MAX_RENDER_PIXELS, DEFAULT_RENDER_SCALE, renderPdfPage } from './renderer.js';
 
@@ -230,17 +231,9 @@ export const extractRegionCropsFromSource = async (
     return { source: sourceDescription, numPages: totalPages, regions: crops, warnings };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === 'function') {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError: unknown) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger.warn('Error destroying region crop PDF document', {
-          sourceDescription,
-          error: message,
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger, 'region crop PDF document', {
+      sourceDescription,
+    });
   }
 };
 

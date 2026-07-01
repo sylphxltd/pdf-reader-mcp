@@ -2,7 +2,7 @@ import { text, tool, toolError } from '../mcp.js';
 import { defaultSearchPdfOptions, searchPdfSource } from '../pdf/search.js';
 import { searchPdfArgsSchema } from '../schemas/searchPdf.js';
 import type { PdfSearchSourceResult, SearchPdfOptions } from '../types/pdf.js';
-import { PdfError } from '../utils/errors.js';
+import { safeErrorMessage } from '../utils/errorHandling.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('SearchPdf');
@@ -42,18 +42,12 @@ const processSource = async (
   try {
     return await searchPdfSource(source, options);
   } catch (error: unknown) {
-    let errorMessage: string;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger.error('Unexpected error searching PDF source', {
-        sourceDescription,
-        error: detail,
-      });
-      errorMessage = `Failed to search PDF source ${sourceDescription}.`;
-    }
-
+    const errorMessage = safeErrorMessage(
+      error,
+      `Failed to search PDF source ${sourceDescription}.`,
+      logger,
+      { sourceDescription }
+    );
     return {
       source: sourceDescription,
       success: false,

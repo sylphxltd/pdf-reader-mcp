@@ -1,8 +1,6 @@
-import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import type {
   AnalyzeRegionsOptions,
   BoundingBox,
@@ -20,10 +18,10 @@ import type {
 } from '../types/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
+import { execFileAsync } from '../utils/pdfjs.js';
 import { DEFAULT_MAX_REGIONS, extractRegionCropsFromSource } from './regions.js';
 import { DEFAULT_MAX_RENDER_PIXELS, DEFAULT_RENDER_SCALE } from './renderer.js';
 
-const execFileAsync = promisify(execFile);
 const logger = createLogger('RegionAnalysis');
 
 export const DEFAULT_REGION_ANALYSIS_TIMEOUT_MS = 60_000;

@@ -7,7 +7,7 @@ import type {
   PdfRegionCropSourceResult,
   PdfRegionCropSummary,
 } from '../types/pdf.js';
-import { PdfError } from '../utils/errors.js';
+import { safeErrorMessage } from '../utils/errorHandling.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('ExtractRegions');
@@ -62,18 +62,12 @@ const processSource = async (
       regions: cropped.regions,
     };
   } catch (error: unknown) {
-    let errorMessage: string;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger.error('Unexpected error extracting PDF regions', {
-        sourceDescription,
-        error: detail,
-      });
-      errorMessage = `Failed to extract regions from ${sourceDescription}.`;
-    }
-
+    const errorMessage = safeErrorMessage(
+      error,
+      `Failed to extract regions from ${sourceDescription}.`,
+      logger,
+      { sourceDescription }
+    );
     return {
       result: {
         source: sourceDescription,

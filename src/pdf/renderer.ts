@@ -4,6 +4,7 @@ import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PdfPageRenderData, PdfSource, RenderPageOptions } from '../types/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
+import { destroyLoadingTask } from '../utils/pdfjs.js';
 import { loadPdfDocument } from './loader.js';
 import { getTargetPages } from './parser.js';
 
@@ -218,16 +219,6 @@ export const renderPdfSourcePages = async (
     return { source: sourceDescription, numPages: totalPages, pages, warnings };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === 'function') {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError: unknown) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger.warn('Error destroying rendered PDF document', {
-          sourceDescription,
-          error: message,
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger, 'rendered PDF document', { sourceDescription });
   }
 };
