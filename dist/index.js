@@ -4094,6 +4094,513 @@ var pdfEvidence = tool().description("Runs focused PDF evidence operations behin
   });
 });
 
+// src/pdf/semanticPatterns.ts
+var CAPTION_PREFIX_PATTERN = /^(fig(?:ure)?|table|chart|graph|plot|formula|eq(?:uation)?|image|diagram|algorithm|exhibit)\.?(?:(?:\s*(?:\(?[a-z]?\d+(?:[.-]\d+)*[a-z]?\)?|\([A-Z]\)|[ivxlcdm]+)(?:\s*[:.)\u2013\u2014-]|\s+|$))|\s*[:)\u2013\u2014-])/iu;
+var CAPTION_KIND_ALIASES = {
+  algorithm: "figure",
+  chart: "chart",
+  diagram: "diagram",
+  eq: "formula",
+  equation: "formula",
+  exhibit: "figure",
+  fig: "figure",
+  figure: "figure",
+  formula: "formula",
+  graph: "chart",
+  image: "image",
+  plot: "chart",
+  table: "table"
+};
+var semanticCaptionKind = (text2) => {
+  const rawKind = text2?.trim().match(CAPTION_PREFIX_PATTERN)?.[1]?.toLowerCase();
+  if (!rawKind)
+    return;
+  return CAPTION_KIND_ALIASES[rawKind];
+};
+var hasSemanticCaptionPrefix = (text2) => semanticCaptionKind(text2) !== undefined;
+
+// src/pdf/visualEnrichment.ts
+var DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS = 8;
+var visualTargetElement = (element) => (element.type === "image" || element.type === "table") && element.bounding_box !== undefined;
+var captionVisualKind = (text2) => semanticCaptionKind(text2);
+var captionElement = (element) => element.type === "text" && element.bounding_box !== undefined && captionVisualKind(element.content) !== undefined && !["footer", "header", "heading", "list_item"].includes(element.semantic_hint?.role ?? "");
+var pageBoundsFromGeometry = (geometry) => {
+  if (!geometry)
+    return;
+  const left = geometry.view_box?.left ?? 0;
+  const bottom = geometry.view_box?.bottom ?? 0;
+  const right = geometry.view_box?.right ?? geometry.width;
+  const top = geometry.view_box?.top ?? geometry.height;
+  if (!Number.isFinite(left) || !Number.isFinite(bottom) || !Number.isFinite(right) || !Number.isFinite(top) || right <= left || top <= bottom) {
+    return;
+  }
+  return { left, bottom, right, top };
+};
+var unionBox = (boxes) => {
+  if (boxes.length === 0)
+    return;
+  return {
+    left: Math.min(...boxes.map((box) => box.left)),
+    bottom: Math.min(...boxes.map((box) => box.bottom)),
+    right: Math.max(...boxes.map((box) => box.right)),
+    top: Math.max(...boxes.map((box) => box.top))
+  };
+};
+var buildPageBoundsIndex = (elements, pageGeometry) => {
+  const bounds = new Map;
+  for (const geometry of pageGeometry ?? []) {
+    const geometryBounds = pageBoundsFromGeometry(geometry);
+    if (geometryBounds)
+      bounds.set(geometry.page, geometryBounds);
+  }
+  const boxesByPage = new Map;
+  for (const element of elements) {
+    if (!element.bounding_box || bounds.has(element.page))
+      continue;
+    const boxes = boxesByPage.get(element.page) ?? [];
+    boxes.push(element.bounding_box);
+    boxesByPage.set(element.page, boxes);
+  }
+  for (const [page, boxes] of boxesByPage) {
+    const fallbackBounds = unionBox(boxes);
+    if (fallbackBounds)
+      bounds.set(page, fallbackBounds);
+  }
+  return bounds;
+};
+var buildElementsByPage = (elements) => {
+  const byPage = new Map;
+  for (const element of elements) {
+    const pageElements = byPage.get(element.page) ?? [];
+    pageElements.push(element);
+    byPage.set(element.page, pageElements);
+  }
+  return byPage;
+};
+var horizontalOverlapRatio = (left, right) => {
+  const overlap = Math.min(left.right, right.right) - Math.max(left.left, right.left);
+  if (overlap <= 0)
+    return 0;
+  const denominator = Math.min(left.right - left.left, right.right - right.left);
+  return denominator > 0 ? overlap / denominator : 0;
+};
+var verticalOverlapRatio = (left, right) => {
+  const overlap = Math.min(left.top, right.top) - Math.max(left.bottom, right.bottom);
+  if (overlap <= 0)
+    return 0;
+  const denominator = Math.min(left.top - left.bottom, right.top - right.bottom);
+  return denominator > 0 ? overlap / denominator : 0;
+};
+var verticalGap = (left, right) => {
+  if (left.top < right.bottom)
+    return right.bottom - left.top;
+  if (right.top < left.bottom)
+    return left.bottom - right.top;
+  return 0;
+};
+var horizontalGap = (left, right) => {
+  if (left.right < right.left)
+    return right.left - left.right;
+  if (right.right < left.left)
+    return left.left - right.right;
+  return 0;
+};
+var isDirectKindMatch = (kind, element) => {
+  if (kind === "table")
+    return element.type === "table";
+  if (kind === "formula")
+    return false;
+  return element.type === "image";
+};
+var hasNearbyDirectTarget = (caption, kind, directTargets) => directTargets.some((target) => target.page === caption.page && isDirectKindMatch(kind, target) && (horizontalOverlapRatio(caption.bounding_box, target.bounding_box) >= 0.12 && verticalGap(caption.bounding_box, target.bounding_box) <= 112 || verticalOverlapRatio(caption.bounding_box, target.bounding_box) >= 0.32 && horizontalGap(caption.bounding_box, target.bounding_box) <= 112));
+var captionRegionMaxGap = (kind, pageBounds) => {
+  const pageHeight = pageBounds.top - pageBounds.bottom;
+  if (kind === "formula")
+    return Math.min(Math.max(84, pageHeight * 0.16), 132);
+  if (kind === "table")
+    return Math.min(Math.max(128, pageHeight * 0.24), 220);
+  return Math.min(Math.max(168, pageHeight * 0.32), 280);
+};
+var captionRegionMaxSideGap = (kind, pageBounds) => {
+  const pageWidth = pageBounds.right - pageBounds.left;
+  if (kind === "formula")
+    return Math.min(Math.max(72, pageWidth * 0.14), 112);
+  return Math.min(Math.max(96, pageWidth * 0.18), 160);
+};
+var visualRegionMargin = (kind, pageBounds) => {
+  const pageWidth = pageBounds.right - pageBounds.left;
+  if (kind === "formula")
+    return Math.min(Math.max(12, pageWidth * 0.025), 24);
+  return Math.min(Math.max(16, pageWidth * 0.035), 36);
+};
+var expandAndClampBox = (box, pageBounds, margin) => ({
+  left: Math.max(pageBounds.left, box.left - margin),
+  bottom: Math.max(pageBounds.bottom, box.bottom - margin),
+  right: Math.min(pageBounds.right, box.right + margin),
+  top: Math.min(pageBounds.top, box.top + margin)
+});
+var isUsefulRegionBox = (box) => box.right - box.left >= 12 && box.top - box.bottom >= 8;
+var candidateNeighborElements = (caption, elementsOnPage, pageBounds, kind) => {
+  const maxGap = captionRegionMaxGap(kind, pageBounds);
+  const maxSideGap = captionRegionMaxSideGap(kind, pageBounds);
+  const positioned = elementsOnPage.filter((element) => {
+    if (element.id === caption.id || !element.bounding_box)
+      return false;
+    if (element.type !== "text")
+      return true;
+    return !["caption", "header", "footer"].includes(element.semantic_hint?.role ?? "");
+  });
+  const above = [];
+  const below = [];
+  const left = [];
+  const right = [];
+  for (const element of positioned) {
+    const box = element.bounding_box;
+    if (!box)
+      continue;
+    if (horizontalOverlapRatio(caption.bounding_box, box) >= 0.06) {
+      if (box.bottom >= caption.bounding_box.top) {
+        const gap = box.bottom - caption.bounding_box.top;
+        if (gap <= maxGap)
+          above.push({ box, gap });
+      } else if (box.top <= caption.bounding_box.bottom) {
+        const gap = caption.bounding_box.bottom - box.top;
+        if (gap <= maxGap)
+          below.push({ box, gap });
+      } else if (verticalGap(caption.bounding_box, box) === 0) {
+        above.push({ box, gap: 0 });
+      }
+      continue;
+    }
+    if (verticalOverlapRatio(caption.bounding_box, box) < 0.32)
+      continue;
+    if (box.right <= caption.bounding_box.left) {
+      const gap = caption.bounding_box.left - box.right;
+      if (gap <= maxSideGap)
+        left.push({ box, gap });
+    } else if (box.left >= caption.bounding_box.right) {
+      const gap = box.left - caption.bounding_box.right;
+      if (gap <= maxSideGap)
+        right.push({ box, gap });
+    }
+  }
+  const groups = [
+    { entries: above, signal: "caption-target-above", priority: 0 },
+    { entries: below, signal: "caption-target-below", priority: 0 },
+    { entries: left, signal: "caption-target-left", priority: 1 },
+    { entries: right, signal: "caption-target-right", priority: 1 }
+  ].filter((group) => group.entries.length > 0);
+  const selectedGroup = groups.sort((first, second) => {
+    const firstGap = Math.min(...first.entries.map((entry) => entry.gap));
+    const secondGap = Math.min(...second.entries.map((entry) => entry.gap));
+    return firstGap + first.priority * 24 - (secondGap + second.priority * 24);
+  })[0];
+  return {
+    boxes: selectedGroup?.entries.map((entry) => entry.box) ?? [],
+    signals: selectedGroup !== undefined ? ["nearby-positioned-evidence", selectedGroup.signal] : []
+  };
+};
+var fallbackCaptionRegionBox = (caption, pageBounds, kind) => {
+  const pageWidth = pageBounds.right - pageBounds.left;
+  const pageHeight = pageBounds.top - pageBounds.bottom;
+  const captionBox = caption.bounding_box;
+  const captionHeight = captionBox.top - captionBox.bottom;
+  const captionCenterX = (captionBox.left + captionBox.right) / 2;
+  const captionCenterY = (captionBox.bottom + captionBox.top) / 2;
+  const verticalSpan = kind === "formula" ? Math.min(Math.max(64, captionHeight * 5), pageHeight * 0.22) : Math.min(Math.max(150, pageHeight * 0.26), pageHeight * 0.42);
+  const halfWidth = kind === "formula" ? Math.min(Math.max((captionBox.right - captionBox.left) / 2 + 48, 120), pageWidth / 2) : Math.min(Math.max(pageWidth * 0.38, 220), pageWidth / 2);
+  const left = Math.max(pageBounds.left, captionCenterX - halfWidth);
+  const right = Math.min(pageBounds.right, captionCenterX + halfWidth);
+  const hasRoomAbove = captionBox.top + verticalSpan <= pageBounds.top;
+  const preferAbove = hasRoomAbove || captionCenterY <= pageBounds.bottom + pageHeight * 2 / 3;
+  if (preferAbove) {
+    return {
+      left,
+      bottom: captionBox.bottom,
+      right,
+      top: Math.min(pageBounds.top, captionBox.top + verticalSpan)
+    };
+  }
+  return {
+    left,
+    bottom: Math.max(pageBounds.bottom, captionBox.bottom - verticalSpan),
+    right,
+    top: captionBox.top
+  };
+};
+var buildCaptionRegionCandidate = (caption, kind, elementsOnPage, pageBounds) => {
+  const neighboring = candidateNeighborElements(caption, elementsOnPage, pageBounds, kind);
+  const sourceBox = neighboring.boxes.length > 0 ? unionBox([caption.bounding_box, ...neighboring.boxes]) : fallbackCaptionRegionBox(caption, pageBounds, kind);
+  if (!sourceBox)
+    return;
+  const boundingBox = expandAndClampBox(sourceBox, pageBounds, visualRegionMargin(kind, pageBounds));
+  if (!isUsefulRegionBox(boundingBox))
+    return;
+  const regionId = `${caption.id}-${kind}-region`;
+  const signals = [
+    `caption-prefix-${kind}`,
+    "caption-bounding-box",
+    ...neighboring.signals,
+    ...neighboring.boxes.length === 0 ? ["caption-region-expansion"] : []
+  ];
+  return {
+    region: {
+      id: regionId,
+      page: caption.page,
+      bounding_box: boundingBox
+    },
+    target_element_id: regionId,
+    target_element_type: kind,
+    source_caption_element_id: caption.id,
+    source_caption_text: caption.content.trim(),
+    candidate_signals: signals
+  };
+};
+function selectVisualEnrichmentCandidates(elements, maxVisualEnrichments, options = {}) {
+  const maxCandidates = Math.max(1, maxVisualEnrichments);
+  const directTargets = elements.filter(visualTargetElement);
+  const pageBounds = buildPageBoundsIndex(elements, options.pageGeometry);
+  const elementsByPage = buildElementsByPage(elements);
+  const candidates = [];
+  for (const [index, element] of elements.entries()) {
+    if (visualTargetElement(element)) {
+      candidates.push({
+        order: index,
+        element,
+        region: {
+          id: element.id,
+          page: element.page,
+          bounding_box: element.bounding_box
+        },
+        target_element_id: element.id,
+        target_element_type: element.type,
+        candidate_signals: [`${element.type}-element`, "element-bounding-box"]
+      });
+      continue;
+    }
+    if (!captionElement(element))
+      continue;
+    const kind = captionVisualKind(element.content);
+    const bounds = pageBounds.get(element.page);
+    if (!kind || !bounds || hasNearbyDirectTarget(element, kind, directTargets))
+      continue;
+    const candidate = buildCaptionRegionCandidate(element, kind, elementsByPage.get(element.page) ?? [], bounds);
+    if (candidate)
+      candidates.push({ ...candidate, order: index });
+  }
+  return candidates.sort((left, right) => left.order - right.order).slice(0, maxCandidates).map(({ order: _order, ...candidate }) => candidate);
+}
+var toPdfVisualEnrichmentCandidate = (candidate) => ({
+  id: candidate.region.id ?? candidate.target_element_id,
+  page: candidate.region.page,
+  region: candidate.region,
+  target_element_id: candidate.target_element_id,
+  target_element_type: candidate.target_element_type,
+  ...candidate.element ? { source_element_id: candidate.element.id } : {},
+  ...candidate.source_caption_element_id ? { source_caption_element_id: candidate.source_caption_element_id } : {},
+  ...candidate.source_caption_text ? { source_caption_text: candidate.source_caption_text } : {},
+  candidate_signals: candidate.candidate_signals ?? []
+});
+var buildVisualEnrichmentsForSource = async (input) => {
+  const candidates = selectVisualEnrichmentCandidates(input.elements, Math.max(1, input.maxVisualEnrichments), { pageGeometry: input.pageGeometry });
+  const visualEnrichmentCandidates = candidates.map(toPdfVisualEnrichmentCandidate);
+  const providerStatus = getRegionAnalysisProviderStatus();
+  if (providerStatus.readiness !== "ready") {
+    return {
+      visualEnrichmentCandidates,
+      visualEnrichments: [],
+      warnings: [
+        `Visual enrichment skipped: analyze_regions provider is ${providerStatus.readiness}.`,
+        ...providerStatus.warnings ?? []
+      ]
+    };
+  }
+  if (candidates.length === 0) {
+    return {
+      visualEnrichmentCandidates,
+      visualEnrichments: [],
+      warnings: [
+        "Visual enrichment requested, but no table, image, or caption-derived visual regions with bounding boxes were available."
+      ]
+    };
+  }
+  const candidatesByRegionId = new Map(candidates.map((candidate) => [candidate.region.id, candidate]));
+  const options = {
+    ...defaultAnalyzeRegionsOptions(),
+    max_regions: Math.max(1, input.maxVisualEnrichments)
+  };
+  try {
+    const analyzed = await analyzePdfRegionsFromSource({
+      path: input.source.path,
+      url: input.source.url,
+      regions: candidates.map((candidate) => candidate.region)
+    }, options);
+    return {
+      visualEnrichmentCandidates,
+      visualEnrichments: analyzed.analyses.map((analysis) => {
+        const candidate = candidatesByRegionId.get(analysis.region_id);
+        const targetElement = candidate?.element;
+        return {
+          id: `visual-${analysis.region_id}`,
+          target_element_id: candidate?.target_element_id ?? targetElement?.id ?? analysis.region_id,
+          target_element_type: candidate?.target_element_type ?? targetElement?.type ?? (analysis.kind === "unknown" || analysis.kind === "text" ? "visual_region" : analysis.kind),
+          ...candidate?.source_caption_element_id ? { source_caption_element_id: candidate.source_caption_element_id } : {},
+          ...candidate?.source_caption_text ? { source_caption_text: candidate.source_caption_text } : {},
+          ...candidate?.candidate_signals ? { candidate_signals: candidate.candidate_signals } : {},
+          ...analysis
+        };
+      }),
+      warnings: analyzed.warnings
+    };
+  } catch (error) {
+    const message = error instanceof PdfError ? error.message : String(error);
+    return {
+      visualEnrichmentCandidates,
+      visualEnrichments: [],
+      warnings: [`Visual enrichment unavailable for ${input.sourceDescription}: ${message}`]
+    };
+  }
+};
+
+// src/pdf/autoReadPolicy.ts
+var MAX_CONCURRENT_SOURCES2 = 3;
+var DEFAULT_AUTO_DETAIL = "balanced";
+var explicitReadOptionKeys = [
+  "include_full_text",
+  "include_metadata",
+  "include_page_count",
+  "include_images",
+  "include_tables",
+  "include_elements",
+  "include_semantic_hints",
+  "include_markdown",
+  "include_html",
+  "include_chunks",
+  "include_text_layer",
+  "include_ocr_text_layer",
+  "include_outline",
+  "include_annotations",
+  "include_page_labels",
+  "include_page_geometry",
+  "include_permissions",
+  "include_form_fields",
+  "include_attachments",
+  "include_structure_tree",
+  "include_safety_findings",
+  "include_layout_diagnostics",
+  "include_document_map",
+  "include_document_ast",
+  "include_visual_enrichments",
+  "max_visual_enrichments",
+  "include_trust_report",
+  "trust_report_redaction",
+  "include_accessibility_report"
+];
+var pickExplicitReadOptions = (input) => {
+  const options = {};
+  for (const key of explicitReadOptionKeys) {
+    const value = input[key];
+    if (value !== undefined) {
+      options[key] = value;
+    }
+  }
+  return options;
+};
+var hasExplicitReadOptions = (input) => explicitReadOptionKeys.some((key) => input[key] !== undefined);
+var shouldUseAutoRead = (input) => input.auto ?? !hasExplicitReadOptions(input);
+var buildAutoDetailOptions = (detail) => {
+  const fast = {
+    include_metadata: true,
+    include_page_count: true,
+    include_page_geometry: true,
+    include_document_map: true,
+    include_chunks: true,
+    include_markdown: true,
+    include_tables: true,
+    include_semantic_hints: true,
+    include_layout_diagnostics: true
+  };
+  if (detail === "fast")
+    return fast;
+  const balanced = {
+    ...fast,
+    include_safety_findings: true,
+    include_trust_report: true,
+    include_accessibility_report: true
+  };
+  if (detail === "balanced")
+    return balanced;
+  return {
+    ...balanced,
+    include_full_text: true,
+    include_html: true,
+    include_elements: true,
+    include_text_layer: true,
+    include_document_ast: true,
+    include_outline: true,
+    include_annotations: true,
+    include_page_labels: true,
+    include_permissions: true,
+    include_form_fields: true,
+    include_attachments: true,
+    include_structure_tree: true
+  };
+};
+var buildReadOptions = (input) => ({
+  includeFullText: input.include_full_text ?? false,
+  includeMetadata: input.include_metadata ?? true,
+  includePageCount: input.include_page_count ?? true,
+  includeImages: input.include_images ?? false,
+  includeTables: input.include_tables ?? false,
+  includeElements: input.include_elements ?? false,
+  includeSemanticHints: input.include_semantic_hints ?? false,
+  includeMarkdown: input.include_markdown ?? false,
+  includeHtml: input.include_html ?? false,
+  includeChunks: input.include_chunks ?? false,
+  includeTextLayer: input.include_text_layer ?? false,
+  includeOcrTextLayer: input.include_ocr_text_layer ?? false,
+  includeOutline: input.include_outline ?? false,
+  includeAnnotations: input.include_annotations ?? false,
+  includePageLabels: input.include_page_labels ?? false,
+  includePageGeometry: input.include_page_geometry ?? false,
+  includePermissions: input.include_permissions ?? false,
+  includeFormFields: input.include_form_fields ?? false,
+  includeAttachments: input.include_attachments ?? false,
+  includeStructureTree: input.include_structure_tree ?? false,
+  includeSafetyFindings: input.include_safety_findings ?? false,
+  includeLayoutDiagnostics: input.include_layout_diagnostics ?? false,
+  includeDocumentMap: input.include_document_map ?? false,
+  includeDocumentAst: input.include_document_ast ?? false,
+  includeVisualEnrichments: input.include_visual_enrichments ?? false,
+  maxVisualEnrichments: input.max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
+  includeTrustReport: input.include_trust_report ?? false,
+  trustReportRedaction: input.trust_report_redaction ?? "standard",
+  includeAccessibilityReport: input.include_accessibility_report ?? false
+});
+var buildAutoReadArgs = (source, inspection, input, detail) => {
+  const recommendationArgs = inspection.data?.recommendation.read_pdf_arguments ?? {};
+  return {
+    ...recommendationArgs,
+    ...buildAutoDetailOptions(detail),
+    ...pickExplicitReadOptions(input),
+    sources: [source]
+  };
+};
+var buildAutoInspections = async (input) => {
+  const inspectOptions = {
+    ...defaultInspectPdfOptions(),
+    ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
+    ...input.include_metadata !== undefined ? { include_metadata: input.include_metadata } : {}
+  };
+  const inspections = [];
+  for (let i = 0;i < input.sources.length; i += MAX_CONCURRENT_SOURCES2) {
+    const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
+    const batchResults = await Promise.all(batch.map((source) => inspectPdfSource(source, inspectOptions)));
+    inspections.push(...batchResults);
+  }
+  return inspections;
+};
+
 // src/pdf/accessibilityReport.ts
 var ACCESSIBILITY_REPORT_VERSION = "2026-06-15";
 var ACCESSIBILITY_ISSUE_TYPES = [
@@ -4448,31 +4955,6 @@ var buildAccessibilityReport = (input) => {
   };
 };
 
-// src/pdf/semanticPatterns.ts
-var CAPTION_PREFIX_PATTERN = /^(fig(?:ure)?|table|chart|graph|plot|formula|eq(?:uation)?|image|diagram|algorithm|exhibit)\.?(?:(?:\s*(?:\(?[a-z]?\d+(?:[.-]\d+)*[a-z]?\)?|\([A-Z]\)|[ivxlcdm]+)(?:\s*[:.)\u2013\u2014-]|\s+|$))|\s*[:)\u2013\u2014-])/iu;
-var CAPTION_KIND_ALIASES = {
-  algorithm: "figure",
-  chart: "chart",
-  diagram: "diagram",
-  eq: "formula",
-  equation: "formula",
-  exhibit: "figure",
-  fig: "figure",
-  figure: "figure",
-  formula: "formula",
-  graph: "chart",
-  image: "image",
-  plot: "chart",
-  table: "table"
-};
-var semanticCaptionKind = (text2) => {
-  const rawKind = text2?.trim().match(CAPTION_PREFIX_PATTERN)?.[1]?.toLowerCase();
-  if (!rawKind)
-    return;
-  return CAPTION_KIND_ALIASES[rawKind];
-};
-var hasSemanticCaptionPrefix = (text2) => semanticCaptionKind(text2) !== undefined;
-
 // src/pdf/documentAst.ts
 var DOCUMENT_AST_VERSION = "2026-06-15";
 var CAPTION_TARGET_MAX_VERTICAL_GAP = 96;
@@ -4657,7 +5139,7 @@ var collectPageNodes = (node) => {
   return [node, ...children.flatMap(collectPageNodes)];
 };
 var primaryBox = (node) => node.bounding_boxes?.[0];
-var horizontalOverlapRatio = (left, right) => {
+var horizontalOverlapRatio2 = (left, right) => {
   const overlap = Math.min(left.right, right.right) - Math.max(left.left, right.left);
   if (overlap <= 0)
     return 0;
@@ -4668,7 +5150,7 @@ var horizontalOverlapRatio = (left, right) => {
     return 0;
   return overlap / denominator;
 };
-var verticalOverlapRatio = (left, right) => {
+var verticalOverlapRatio2 = (left, right) => {
   const overlap = Math.min(left.top, right.top) - Math.max(left.bottom, right.bottom);
   if (overlap <= 0)
     return 0;
@@ -4685,7 +5167,7 @@ var captionTargetGeometry = (captionBox, targetBox) => {
       relation: "below",
       gap: targetBox.bottom - captionBox.top,
       maxGap: CAPTION_TARGET_MAX_VERTICAL_GAP,
-      overlapRatio: horizontalOverlapRatio(captionBox, targetBox),
+      overlapRatio: horizontalOverlapRatio2(captionBox, targetBox),
       minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
       overlapSignal: "horizontal-overlap"
     };
@@ -4695,7 +5177,7 @@ var captionTargetGeometry = (captionBox, targetBox) => {
       relation: "above",
       gap: captionBox.bottom - targetBox.top,
       maxGap: CAPTION_TARGET_MAX_VERTICAL_GAP,
-      overlapRatio: horizontalOverlapRatio(captionBox, targetBox),
+      overlapRatio: horizontalOverlapRatio2(captionBox, targetBox),
       minOverlapRatio: CAPTION_TARGET_MIN_HORIZONTAL_OVERLAP_RATIO,
       overlapSignal: "horizontal-overlap"
     };
@@ -4705,7 +5187,7 @@ var captionTargetGeometry = (captionBox, targetBox) => {
       relation: "left",
       gap: targetBox.left - captionBox.right,
       maxGap: CAPTION_TARGET_MAX_SIDE_GAP,
-      overlapRatio: verticalOverlapRatio(captionBox, targetBox),
+      overlapRatio: verticalOverlapRatio2(captionBox, targetBox),
       minOverlapRatio: CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO,
       overlapSignal: "vertical-overlap"
     };
@@ -4715,13 +5197,13 @@ var captionTargetGeometry = (captionBox, targetBox) => {
       relation: "right",
       gap: captionBox.left - targetBox.right,
       maxGap: CAPTION_TARGET_MAX_SIDE_GAP,
-      overlapRatio: verticalOverlapRatio(captionBox, targetBox),
+      overlapRatio: verticalOverlapRatio2(captionBox, targetBox),
       minOverlapRatio: CAPTION_TARGET_MIN_VERTICAL_OVERLAP_RATIO,
       overlapSignal: "vertical-overlap"
     };
   }
-  const horizontalOverlap = horizontalOverlapRatio(captionBox, targetBox);
-  const verticalOverlap = verticalOverlapRatio(captionBox, targetBox);
+  const horizontalOverlap = horizontalOverlapRatio2(captionBox, targetBox);
+  const verticalOverlap = verticalOverlapRatio2(captionBox, targetBox);
   return {
     relation: "overlapping",
     gap: 0,
@@ -6004,7 +6486,7 @@ var pageGeometryByPage = (pageGeometry) => {
   }
   return index;
 };
-var pageBoundsFromGeometry = (geometry) => {
+var pageBoundsFromGeometry2 = (geometry) => {
   if (!geometry)
     return;
   const left = geometry.view_box?.left ?? 0;
@@ -6036,7 +6518,7 @@ var contentBounds = (items) => {
   };
 };
 var buildPageTextStats = (items, geometry) => {
-  const bounds = pageBoundsFromGeometry(geometry) ?? contentBounds(items);
+  const bounds = pageBoundsFromGeometry2(geometry) ?? contentBounds(items);
   const heights = items.filter((item) => item.type === "text" && item.textContent?.trim() && item.height).map((item) => item.height).sort((a, b) => a - b);
   if (heights.length === 0) {
     return { maxHeight: 0, medianHeight: 0, textItemCount: 0, ...bounds };
@@ -7177,353 +7659,8 @@ var buildTrustReport = (input) => {
   };
 };
 
-// src/pdf/visualEnrichment.ts
-var DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS = 8;
-var visualTargetElement = (element) => (element.type === "image" || element.type === "table") && element.bounding_box !== undefined;
-var captionVisualKind = (text2) => semanticCaptionKind(text2);
-var captionElement = (element) => element.type === "text" && element.bounding_box !== undefined && captionVisualKind(element.content) !== undefined && !["footer", "header", "heading", "list_item"].includes(element.semantic_hint?.role ?? "");
-var pageBoundsFromGeometry2 = (geometry) => {
-  if (!geometry)
-    return;
-  const left = geometry.view_box?.left ?? 0;
-  const bottom = geometry.view_box?.bottom ?? 0;
-  const right = geometry.view_box?.right ?? geometry.width;
-  const top = geometry.view_box?.top ?? geometry.height;
-  if (!Number.isFinite(left) || !Number.isFinite(bottom) || !Number.isFinite(right) || !Number.isFinite(top) || right <= left || top <= bottom) {
-    return;
-  }
-  return { left, bottom, right, top };
-};
-var unionBox = (boxes) => {
-  if (boxes.length === 0)
-    return;
-  return {
-    left: Math.min(...boxes.map((box) => box.left)),
-    bottom: Math.min(...boxes.map((box) => box.bottom)),
-    right: Math.max(...boxes.map((box) => box.right)),
-    top: Math.max(...boxes.map((box) => box.top))
-  };
-};
-var buildPageBoundsIndex = (elements, pageGeometry) => {
-  const bounds = new Map;
-  for (const geometry of pageGeometry ?? []) {
-    const geometryBounds = pageBoundsFromGeometry2(geometry);
-    if (geometryBounds)
-      bounds.set(geometry.page, geometryBounds);
-  }
-  const boxesByPage = new Map;
-  for (const element of elements) {
-    if (!element.bounding_box || bounds.has(element.page))
-      continue;
-    const boxes = boxesByPage.get(element.page) ?? [];
-    boxes.push(element.bounding_box);
-    boxesByPage.set(element.page, boxes);
-  }
-  for (const [page, boxes] of boxesByPage) {
-    const fallbackBounds = unionBox(boxes);
-    if (fallbackBounds)
-      bounds.set(page, fallbackBounds);
-  }
-  return bounds;
-};
-var buildElementsByPage = (elements) => {
-  const byPage = new Map;
-  for (const element of elements) {
-    const pageElements = byPage.get(element.page) ?? [];
-    pageElements.push(element);
-    byPage.set(element.page, pageElements);
-  }
-  return byPage;
-};
-var horizontalOverlapRatio2 = (left, right) => {
-  const overlap = Math.min(left.right, right.right) - Math.max(left.left, right.left);
-  if (overlap <= 0)
-    return 0;
-  const denominator = Math.min(left.right - left.left, right.right - right.left);
-  return denominator > 0 ? overlap / denominator : 0;
-};
-var verticalOverlapRatio2 = (left, right) => {
-  const overlap = Math.min(left.top, right.top) - Math.max(left.bottom, right.bottom);
-  if (overlap <= 0)
-    return 0;
-  const denominator = Math.min(left.top - left.bottom, right.top - right.bottom);
-  return denominator > 0 ? overlap / denominator : 0;
-};
-var verticalGap = (left, right) => {
-  if (left.top < right.bottom)
-    return right.bottom - left.top;
-  if (right.top < left.bottom)
-    return left.bottom - right.top;
-  return 0;
-};
-var horizontalGap = (left, right) => {
-  if (left.right < right.left)
-    return right.left - left.right;
-  if (right.right < left.left)
-    return left.left - right.right;
-  return 0;
-};
-var isDirectKindMatch = (kind, element) => {
-  if (kind === "table")
-    return element.type === "table";
-  if (kind === "formula")
-    return false;
-  return element.type === "image";
-};
-var hasNearbyDirectTarget = (caption, kind, directTargets) => directTargets.some((target) => target.page === caption.page && isDirectKindMatch(kind, target) && (horizontalOverlapRatio2(caption.bounding_box, target.bounding_box) >= 0.12 && verticalGap(caption.bounding_box, target.bounding_box) <= 112 || verticalOverlapRatio2(caption.bounding_box, target.bounding_box) >= 0.32 && horizontalGap(caption.bounding_box, target.bounding_box) <= 112));
-var captionRegionMaxGap = (kind, pageBounds) => {
-  const pageHeight = pageBounds.top - pageBounds.bottom;
-  if (kind === "formula")
-    return Math.min(Math.max(84, pageHeight * 0.16), 132);
-  if (kind === "table")
-    return Math.min(Math.max(128, pageHeight * 0.24), 220);
-  return Math.min(Math.max(168, pageHeight * 0.32), 280);
-};
-var captionRegionMaxSideGap = (kind, pageBounds) => {
-  const pageWidth = pageBounds.right - pageBounds.left;
-  if (kind === "formula")
-    return Math.min(Math.max(72, pageWidth * 0.14), 112);
-  return Math.min(Math.max(96, pageWidth * 0.18), 160);
-};
-var visualRegionMargin = (kind, pageBounds) => {
-  const pageWidth = pageBounds.right - pageBounds.left;
-  if (kind === "formula")
-    return Math.min(Math.max(12, pageWidth * 0.025), 24);
-  return Math.min(Math.max(16, pageWidth * 0.035), 36);
-};
-var expandAndClampBox = (box, pageBounds, margin) => ({
-  left: Math.max(pageBounds.left, box.left - margin),
-  bottom: Math.max(pageBounds.bottom, box.bottom - margin),
-  right: Math.min(pageBounds.right, box.right + margin),
-  top: Math.min(pageBounds.top, box.top + margin)
-});
-var isUsefulRegionBox = (box) => box.right - box.left >= 12 && box.top - box.bottom >= 8;
-var candidateNeighborElements = (caption, elementsOnPage, pageBounds, kind) => {
-  const maxGap = captionRegionMaxGap(kind, pageBounds);
-  const maxSideGap = captionRegionMaxSideGap(kind, pageBounds);
-  const positioned = elementsOnPage.filter((element) => {
-    if (element.id === caption.id || !element.bounding_box)
-      return false;
-    if (element.type !== "text")
-      return true;
-    return !["caption", "header", "footer"].includes(element.semantic_hint?.role ?? "");
-  });
-  const above = [];
-  const below = [];
-  const left = [];
-  const right = [];
-  for (const element of positioned) {
-    const box = element.bounding_box;
-    if (!box)
-      continue;
-    if (horizontalOverlapRatio2(caption.bounding_box, box) >= 0.06) {
-      if (box.bottom >= caption.bounding_box.top) {
-        const gap = box.bottom - caption.bounding_box.top;
-        if (gap <= maxGap)
-          above.push({ box, gap });
-      } else if (box.top <= caption.bounding_box.bottom) {
-        const gap = caption.bounding_box.bottom - box.top;
-        if (gap <= maxGap)
-          below.push({ box, gap });
-      } else if (verticalGap(caption.bounding_box, box) === 0) {
-        above.push({ box, gap: 0 });
-      }
-      continue;
-    }
-    if (verticalOverlapRatio2(caption.bounding_box, box) < 0.32)
-      continue;
-    if (box.right <= caption.bounding_box.left) {
-      const gap = caption.bounding_box.left - box.right;
-      if (gap <= maxSideGap)
-        left.push({ box, gap });
-    } else if (box.left >= caption.bounding_box.right) {
-      const gap = box.left - caption.bounding_box.right;
-      if (gap <= maxSideGap)
-        right.push({ box, gap });
-    }
-  }
-  const groups = [
-    { entries: above, signal: "caption-target-above", priority: 0 },
-    { entries: below, signal: "caption-target-below", priority: 0 },
-    { entries: left, signal: "caption-target-left", priority: 1 },
-    { entries: right, signal: "caption-target-right", priority: 1 }
-  ].filter((group) => group.entries.length > 0);
-  const selectedGroup = groups.sort((first, second) => {
-    const firstGap = Math.min(...first.entries.map((entry) => entry.gap));
-    const secondGap = Math.min(...second.entries.map((entry) => entry.gap));
-    return firstGap + first.priority * 24 - (secondGap + second.priority * 24);
-  })[0];
-  return {
-    boxes: selectedGroup?.entries.map((entry) => entry.box) ?? [],
-    signals: selectedGroup !== undefined ? ["nearby-positioned-evidence", selectedGroup.signal] : []
-  };
-};
-var fallbackCaptionRegionBox = (caption, pageBounds, kind) => {
-  const pageWidth = pageBounds.right - pageBounds.left;
-  const pageHeight = pageBounds.top - pageBounds.bottom;
-  const captionBox = caption.bounding_box;
-  const captionHeight = captionBox.top - captionBox.bottom;
-  const captionCenterX = (captionBox.left + captionBox.right) / 2;
-  const captionCenterY = (captionBox.bottom + captionBox.top) / 2;
-  const verticalSpan = kind === "formula" ? Math.min(Math.max(64, captionHeight * 5), pageHeight * 0.22) : Math.min(Math.max(150, pageHeight * 0.26), pageHeight * 0.42);
-  const halfWidth = kind === "formula" ? Math.min(Math.max((captionBox.right - captionBox.left) / 2 + 48, 120), pageWidth / 2) : Math.min(Math.max(pageWidth * 0.38, 220), pageWidth / 2);
-  const left = Math.max(pageBounds.left, captionCenterX - halfWidth);
-  const right = Math.min(pageBounds.right, captionCenterX + halfWidth);
-  const hasRoomAbove = captionBox.top + verticalSpan <= pageBounds.top;
-  const preferAbove = hasRoomAbove || captionCenterY <= pageBounds.bottom + pageHeight * 2 / 3;
-  if (preferAbove) {
-    return {
-      left,
-      bottom: captionBox.bottom,
-      right,
-      top: Math.min(pageBounds.top, captionBox.top + verticalSpan)
-    };
-  }
-  return {
-    left,
-    bottom: Math.max(pageBounds.bottom, captionBox.bottom - verticalSpan),
-    right,
-    top: captionBox.top
-  };
-};
-var buildCaptionRegionCandidate = (caption, kind, elementsOnPage, pageBounds) => {
-  const neighboring = candidateNeighborElements(caption, elementsOnPage, pageBounds, kind);
-  const sourceBox = neighboring.boxes.length > 0 ? unionBox([caption.bounding_box, ...neighboring.boxes]) : fallbackCaptionRegionBox(caption, pageBounds, kind);
-  if (!sourceBox)
-    return;
-  const boundingBox = expandAndClampBox(sourceBox, pageBounds, visualRegionMargin(kind, pageBounds));
-  if (!isUsefulRegionBox(boundingBox))
-    return;
-  const regionId = `${caption.id}-${kind}-region`;
-  const signals = [
-    `caption-prefix-${kind}`,
-    "caption-bounding-box",
-    ...neighboring.signals,
-    ...neighboring.boxes.length === 0 ? ["caption-region-expansion"] : []
-  ];
-  return {
-    region: {
-      id: regionId,
-      page: caption.page,
-      bounding_box: boundingBox
-    },
-    target_element_id: regionId,
-    target_element_type: kind,
-    source_caption_element_id: caption.id,
-    source_caption_text: caption.content.trim(),
-    candidate_signals: signals
-  };
-};
-function selectVisualEnrichmentCandidates(elements, maxVisualEnrichments, options = {}) {
-  const maxCandidates = Math.max(1, maxVisualEnrichments);
-  const directTargets = elements.filter(visualTargetElement);
-  const pageBounds = buildPageBoundsIndex(elements, options.pageGeometry);
-  const elementsByPage = buildElementsByPage(elements);
-  const candidates = [];
-  for (const [index, element] of elements.entries()) {
-    if (visualTargetElement(element)) {
-      candidates.push({
-        order: index,
-        element,
-        region: {
-          id: element.id,
-          page: element.page,
-          bounding_box: element.bounding_box
-        },
-        target_element_id: element.id,
-        target_element_type: element.type,
-        candidate_signals: [`${element.type}-element`, "element-bounding-box"]
-      });
-      continue;
-    }
-    if (!captionElement(element))
-      continue;
-    const kind = captionVisualKind(element.content);
-    const bounds = pageBounds.get(element.page);
-    if (!kind || !bounds || hasNearbyDirectTarget(element, kind, directTargets))
-      continue;
-    const candidate = buildCaptionRegionCandidate(element, kind, elementsByPage.get(element.page) ?? [], bounds);
-    if (candidate)
-      candidates.push({ ...candidate, order: index });
-  }
-  return candidates.sort((left, right) => left.order - right.order).slice(0, maxCandidates).map(({ order: _order, ...candidate }) => candidate);
-}
-var toPdfVisualEnrichmentCandidate = (candidate) => ({
-  id: candidate.region.id ?? candidate.target_element_id,
-  page: candidate.region.page,
-  region: candidate.region,
-  target_element_id: candidate.target_element_id,
-  target_element_type: candidate.target_element_type,
-  ...candidate.element ? { source_element_id: candidate.element.id } : {},
-  ...candidate.source_caption_element_id ? { source_caption_element_id: candidate.source_caption_element_id } : {},
-  ...candidate.source_caption_text ? { source_caption_text: candidate.source_caption_text } : {},
-  candidate_signals: candidate.candidate_signals ?? []
-});
-var buildVisualEnrichmentsForSource = async (input) => {
-  const candidates = selectVisualEnrichmentCandidates(input.elements, Math.max(1, input.maxVisualEnrichments), { pageGeometry: input.pageGeometry });
-  const visualEnrichmentCandidates = candidates.map(toPdfVisualEnrichmentCandidate);
-  const providerStatus = getRegionAnalysisProviderStatus();
-  if (providerStatus.readiness !== "ready") {
-    return {
-      visualEnrichmentCandidates,
-      visualEnrichments: [],
-      warnings: [
-        `Visual enrichment skipped: analyze_regions provider is ${providerStatus.readiness}.`,
-        ...providerStatus.warnings ?? []
-      ]
-    };
-  }
-  if (candidates.length === 0) {
-    return {
-      visualEnrichmentCandidates,
-      visualEnrichments: [],
-      warnings: [
-        "Visual enrichment requested, but no table, image, or caption-derived visual regions with bounding boxes were available."
-      ]
-    };
-  }
-  const candidatesByRegionId = new Map(candidates.map((candidate) => [candidate.region.id, candidate]));
-  const options = {
-    ...defaultAnalyzeRegionsOptions(),
-    max_regions: Math.max(1, input.maxVisualEnrichments)
-  };
-  try {
-    const analyzed = await analyzePdfRegionsFromSource({
-      path: input.source.path,
-      url: input.source.url,
-      regions: candidates.map((candidate) => candidate.region)
-    }, options);
-    return {
-      visualEnrichmentCandidates,
-      visualEnrichments: analyzed.analyses.map((analysis) => {
-        const candidate = candidatesByRegionId.get(analysis.region_id);
-        const targetElement = candidate?.element;
-        return {
-          id: `visual-${analysis.region_id}`,
-          target_element_id: candidate?.target_element_id ?? targetElement?.id ?? analysis.region_id,
-          target_element_type: candidate?.target_element_type ?? targetElement?.type ?? (analysis.kind === "unknown" || analysis.kind === "text" ? "visual_region" : analysis.kind),
-          ...candidate?.source_caption_element_id ? { source_caption_element_id: candidate.source_caption_element_id } : {},
-          ...candidate?.source_caption_text ? { source_caption_text: candidate.source_caption_text } : {},
-          ...candidate?.candidate_signals ? { candidate_signals: candidate.candidate_signals } : {},
-          ...analysis
-        };
-      }),
-      warnings: analyzed.warnings
-    };
-  } catch (error) {
-    const message = error instanceof PdfError ? error.message : String(error);
-    return {
-      visualEnrichmentCandidates,
-      visualEnrichments: [],
-      warnings: [`Visual enrichment unavailable for ${input.sourceDescription}: ${message}`]
-    };
-  }
-};
-
-// src/handlers/readPdf.ts
-var logger15 = createLogger("ReadPdf");
-var MAX_CONCURRENT_SOURCES2 = 3;
-var DEFAULT_AUTO_DETAIL = "balanced";
+// src/pdf/readCoordinator.ts
+var logger15 = createLogger("ReadCoordinator");
 var appendOutputWarnings = (output, warnings) => {
   if (warnings.length === 0)
     return;
@@ -7811,141 +7948,8 @@ var processSingleSource = async (source, options) => {
   }
   return individualResult;
 };
-var explicitReadOptionKeys = [
-  "include_full_text",
-  "include_metadata",
-  "include_page_count",
-  "include_images",
-  "include_tables",
-  "include_elements",
-  "include_semantic_hints",
-  "include_markdown",
-  "include_html",
-  "include_chunks",
-  "include_text_layer",
-  "include_ocr_text_layer",
-  "include_outline",
-  "include_annotations",
-  "include_page_labels",
-  "include_page_geometry",
-  "include_permissions",
-  "include_form_fields",
-  "include_attachments",
-  "include_structure_tree",
-  "include_safety_findings",
-  "include_layout_diagnostics",
-  "include_document_map",
-  "include_document_ast",
-  "include_visual_enrichments",
-  "max_visual_enrichments",
-  "include_trust_report",
-  "trust_report_redaction",
-  "include_accessibility_report"
-];
-var pickExplicitReadOptions = (input) => {
-  const options = {};
-  for (const key of explicitReadOptionKeys) {
-    const value = input[key];
-    if (value !== undefined) {
-      options[key] = value;
-    }
-  }
-  return options;
-};
-var hasExplicitReadOptions = (input) => explicitReadOptionKeys.some((key) => input[key] !== undefined);
-var shouldUseAutoRead = (input) => input.auto ?? !hasExplicitReadOptions(input);
-var buildAutoDetailOptions = (detail) => {
-  const fast = {
-    include_metadata: true,
-    include_page_count: true,
-    include_page_geometry: true,
-    include_document_map: true,
-    include_chunks: true,
-    include_markdown: true,
-    include_tables: true,
-    include_semantic_hints: true,
-    include_layout_diagnostics: true
-  };
-  if (detail === "fast")
-    return fast;
-  const balanced = {
-    ...fast,
-    include_safety_findings: true,
-    include_trust_report: true,
-    include_accessibility_report: true
-  };
-  if (detail === "balanced")
-    return balanced;
-  return {
-    ...balanced,
-    include_full_text: true,
-    include_html: true,
-    include_elements: true,
-    include_text_layer: true,
-    include_document_ast: true,
-    include_outline: true,
-    include_annotations: true,
-    include_page_labels: true,
-    include_permissions: true,
-    include_form_fields: true,
-    include_attachments: true,
-    include_structure_tree: true
-  };
-};
-var buildReadOptions = (input) => ({
-  includeFullText: input.include_full_text ?? false,
-  includeMetadata: input.include_metadata ?? true,
-  includePageCount: input.include_page_count ?? true,
-  includeImages: input.include_images ?? false,
-  includeTables: input.include_tables ?? false,
-  includeElements: input.include_elements ?? false,
-  includeSemanticHints: input.include_semantic_hints ?? false,
-  includeMarkdown: input.include_markdown ?? false,
-  includeHtml: input.include_html ?? false,
-  includeChunks: input.include_chunks ?? false,
-  includeTextLayer: input.include_text_layer ?? false,
-  includeOcrTextLayer: input.include_ocr_text_layer ?? false,
-  includeOutline: input.include_outline ?? false,
-  includeAnnotations: input.include_annotations ?? false,
-  includePageLabels: input.include_page_labels ?? false,
-  includePageGeometry: input.include_page_geometry ?? false,
-  includePermissions: input.include_permissions ?? false,
-  includeFormFields: input.include_form_fields ?? false,
-  includeAttachments: input.include_attachments ?? false,
-  includeStructureTree: input.include_structure_tree ?? false,
-  includeSafetyFindings: input.include_safety_findings ?? false,
-  includeLayoutDiagnostics: input.include_layout_diagnostics ?? false,
-  includeDocumentMap: input.include_document_map ?? false,
-  includeDocumentAst: input.include_document_ast ?? false,
-  includeVisualEnrichments: input.include_visual_enrichments ?? false,
-  maxVisualEnrichments: input.max_visual_enrichments ?? DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS,
-  includeTrustReport: input.include_trust_report ?? false,
-  trustReportRedaction: input.trust_report_redaction ?? "standard",
-  includeAccessibilityReport: input.include_accessibility_report ?? false
-});
-var buildAutoReadArgs = (source, inspection, input, detail) => {
-  const recommendationArgs = inspection.data?.recommendation.read_pdf_arguments ?? {};
-  return {
-    ...recommendationArgs,
-    ...buildAutoDetailOptions(detail),
-    ...pickExplicitReadOptions(input),
-    sources: [source]
-  };
-};
-var buildAutoInspections = async (input) => {
-  const inspectOptions = {
-    ...defaultInspectPdfOptions(),
-    ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
-    ...input.include_metadata !== undefined ? { include_metadata: input.include_metadata } : {}
-  };
-  const inspections = [];
-  for (let i = 0;i < input.sources.length; i += MAX_CONCURRENT_SOURCES2) {
-    const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
-    const batchResults = await Promise.all(batch.map((source) => inspectPdfSource(source, inspectOptions)));
-    inspections.push(...batchResults);
-  }
-  return inspections;
-};
+
+// src/handlers/readPdf.ts
 var readPdf = tool().description("Primary V3 PDF reader. With only sources, it auto-inspects and returns a routed Agent Document Twin; use auto_detail or explicit include_* options for precise control.").input(readPdfArgsSchema).handler(async ({ input }) => {
   const results = [];
   const autoRead = shouldUseAutoRead(input);
