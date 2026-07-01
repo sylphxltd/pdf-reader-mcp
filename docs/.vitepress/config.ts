@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitepress';
 
 export default defineConfig({
+  base: '/pdf-reader-mcp/',
+  cleanUrls: true,
   title: 'PDF Reader MCP',
   description:
     'Full-fidelity PDF intelligence MCP with Agent Document Twin, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark proof for AI agents',
