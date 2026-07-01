@@ -1,0 +1,21 @@
+{
+  "tool": "pdf_evidence",
+  "description": "Extract a specific region crop for citation evidence.",
+  "arguments": {
+    "operation": "extract_regions",
+    "sources": [
+      {
+        "path": "/absolute/path/to/financial-report.pdf",
+        "regions": [
+          {
+            "page": 3,
+            "bbox": [72, 400, 540, 520],
+            "label": "Q4 Revenue Table"
+          }
+        ]
+      }
+    ],
+    "include_image": true,
+    "scale": 2.0
+  }
+}

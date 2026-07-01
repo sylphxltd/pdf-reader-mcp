@@ -1,0 +1,16 @@
+{
+  "tool": "pdf_evidence",
+  "description": "OCR path for scanned PDFs. Requires a configured local OCR provider (e.g. tesseract).",
+  "arguments": {
+    "operation": "ocr_pages",
+    "sources": [
+      { "path": "/absolute/path/to/scanned-document.pdf" }
+    ],
+    "max_pages": 5,
+    "max_output_chars": 50000
+  },
+  "_provider_setup": {
+    "env": "MCP_PDF_OCR_PRESET=tesseract-tsv",
+    "note": "Set this environment variable before starting the MCP server. The server auto-detects tesseract on PATH."
+  }
+}

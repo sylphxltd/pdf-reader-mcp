@@ -244,6 +244,8 @@ an evidence workflow, not as a trusted text dump.
 | Getting started | [docs/guide/getting-started.md](docs/guide/getting-started.md) |
 | Installation and clients | [docs/guide/installation.md](docs/guide/installation.md) |
 | API reference | [docs/api/README.md](docs/api/README.md) |
+| Examples and workflows | [examples/](examples/) |
+| Benchmark proof | [docs/benchmark.md](docs/benchmark.md) |
 | Capability overview | [docs/comparison/index.md](docs/comparison/index.md) |
 | Architecture and design | [docs/design/index.md](docs/design/index.md) |
 | Performance and release proof | [docs/performance/index.md](docs/performance/index.md) |
