@@ -97,14 +97,14 @@ const pickExplicitReadOptions = (input: ReadPdfArgs): Partial<ReadPdfArgs> => {
   return options;
 };
 
-const hasExplicitReadOptions = (input: ReadPdfArgs): boolean =>
+export const hasExplicitReadOptions = (input: ReadPdfArgs): boolean =>
   explicitReadOptionKeys.some((key) => input[key] !== undefined);
 
 export const shouldUseAutoRead = (input: ReadPdfArgs): boolean =>
   input.auto ?? !hasExplicitReadOptions(input);
 
 /** Preset include_* options for each auto_detail level. */
-const buildAutoDetailOptions = (detail: ReadPdfAutoDetail): Partial<ReadPdfArgs> => {
+export const buildAutoDetailOptions = (detail: ReadPdfAutoDetail): Partial<ReadPdfArgs> => {
   const fast = {
     include_metadata: true,
     include_page_count: true,
