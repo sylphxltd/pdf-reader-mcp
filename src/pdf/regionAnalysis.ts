@@ -24,8 +24,8 @@ import { DEFAULT_MAX_RENDER_PIXELS, DEFAULT_RENDER_SCALE } from './renderer.js';
 
 const logger = createLogger('RegionAnalysis');
 
-export const DEFAULT_REGION_ANALYSIS_TIMEOUT_MS = 60_000;
-export const DEFAULT_REGION_ANALYSIS_MAX_OUTPUT_CHARS = 200_000;
+const DEFAULT_REGION_ANALYSIS_TIMEOUT_MS = 60_000;
+const DEFAULT_REGION_ANALYSIS_MAX_OUTPUT_CHARS = 200_000;
 const REGION_ANALYSIS_COMMAND_ENV = 'MCP_PDF_REGION_ANALYSIS_COMMAND';
 const REGION_ANALYSIS_ARGS_ENV = 'MCP_PDF_REGION_ANALYSIS_ARGS_JSON';
 const REGION_ANALYSIS_HTTP_URL_ENV = 'MCP_PDF_REGION_ANALYSIS_HTTP_URL';
@@ -482,7 +482,7 @@ const readRegionAnalysisPreset = (): RegionAnalysisProviderPreset | undefined =>
   return preset;
 };
 
-export const readConfiguredRegionAnalysisProviderConfig = (): RegionAnalysisProviderConfig => {
+const readConfiguredRegionAnalysisProviderConfig = (): RegionAnalysisProviderConfig => {
   const command = process.env[REGION_ANALYSIS_COMMAND_ENV]?.trim();
   if (command) return readRegionAnalysisProviderConfig();
 
@@ -1167,7 +1167,7 @@ export const analyzeRegionCropWithCommandProvider = async (
   }
 };
 
-export const analyzeRegionCropWithHttpProvider = async (
+const analyzeRegionCropWithHttpProvider = async (
   region: PdfRegionCropData,
   context: { source: string; languages?: string[] | undefined },
   options: AnalyzeRegionsOptions,

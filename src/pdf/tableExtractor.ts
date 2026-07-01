@@ -797,7 +797,7 @@ const identifyTableRegions = (rows: TextRow[]): TableRegion[] => {
   return regions;
 };
 
-export const extractTablesFromTextItems = (
+const extractTablesFromTextItems = (
   textItems: TextItemWithPosition[],
   pageNum: number,
   provenance: TableExtractionProvenance = { source: 'selectable_text', engine: 'pdfjs' }

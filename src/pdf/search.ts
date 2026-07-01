@@ -18,9 +18,9 @@ import { getTargetPages } from './parser.js';
 
 const logger = createLogger('Search');
 
-export const DEFAULT_SEARCH_MAX_PAGES = 100;
-export const DEFAULT_SEARCH_MAX_MATCHES = 50;
-export const DEFAULT_SEARCH_CONTEXT_CHARS = 120;
+const DEFAULT_SEARCH_MAX_PAGES = 100;
+const DEFAULT_SEARCH_MAX_MATCHES = 50;
+const DEFAULT_SEARCH_CONTEXT_CHARS = 120;
 
 const ASCII_WORD = /[A-Za-z0-9_]/;
 
