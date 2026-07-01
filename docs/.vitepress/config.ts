@@ -28,7 +28,7 @@ export default defineConfig({
           'A TypeScript-first MCP server for Agent Document Twin extraction, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark-gated release proof',
       },
     ],
-    ['meta', { property: 'og:url', content: 'https://sylphx-ai.github.io/pdf-reader-mcp/' }],
+    ['meta', { property: 'og:url', content: 'https://sylphxai.github.io/pdf-reader-mcp/' }],
     ['meta', { property: 'og:site_name', content: 'PDF Reader MCP' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'PDF Reader MCP' }],
@@ -51,7 +51,7 @@ export default defineConfig({
     ],
     ['meta', { name: 'author', content: 'Sylphx' }],
     ['meta', { name: 'robots', content: 'index, follow' }],
-    ['link', { rel: 'canonical', href: 'https://sylphx-ai.github.io/pdf-reader-mcp/' }],
+    ['link', { rel: 'canonical', href: 'https://sylphxai.github.io/pdf-reader-mcp/' }],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
   ],
 
