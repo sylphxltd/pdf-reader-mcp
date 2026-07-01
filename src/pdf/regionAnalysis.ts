@@ -916,7 +916,7 @@ const parseRegionAnalysisOutput = (
   let parsed: RawRegionAnalysisOutput | undefined;
 
   try {
-    const maybeJson = JSON.parse(trimmed) as RawRegionAnalysisOutput;
+    const maybeJson = JSON.parse(trimmed) as unknown;
     if (typeof maybeJson === 'object' && maybeJson !== null) {
       parsed = maybeJson;
     }
