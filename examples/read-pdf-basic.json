@@ -1,0 +1,10 @@
+{
+  "tool": "read_pdf",
+  "description": "Smart one-call read: profile the PDF, choose the extraction route, return the Agent Document Twin.",
+  "arguments": {
+    "sources": [
+      { "path": "/absolute/path/to/report.pdf" }
+    ]
+  },
+  "_note": "With only sources and no include_* flags, read_pdf auto-inspects each PDF and chooses the best route."
+}

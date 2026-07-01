@@ -17,7 +17,8 @@ hero:
       link: https://github.com/SylphxAI/pdf-reader-mcp
     - theme: alt
       text: Benchmark Proof
-      link: /performance/
+      link: /benchmark
+      
 
 features:
   - icon: "\U0001F4C4"

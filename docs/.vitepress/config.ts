@@ -28,7 +28,7 @@ export default defineConfig({
           'A TypeScript-first MCP server for Agent Document Twin extraction, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark-gated release proof',
       },
     ],
-    ['meta', { property: 'og:url', content: 'https://pdf-reader-mcp.sylphx.com' }],
+    ['meta', { property: 'og:url', content: 'https://sylphx-ai.github.io/pdf-reader-mcp/' }],
     ['meta', { property: 'og:site_name', content: 'PDF Reader MCP' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'PDF Reader MCP' }],
@@ -51,7 +51,7 @@ export default defineConfig({
     ],
     ['meta', { name: 'author', content: 'Sylphx' }],
     ['meta', { name: 'robots', content: 'index, follow' }],
-    ['link', { rel: 'canonical', href: 'https://pdf-reader-mcp.sylphx.com' }],
+    ['link', { rel: 'canonical', href: 'https://sylphx-ai.github.io/pdf-reader-mcp/' }],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
   ],
 
@@ -63,6 +63,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/' },
       { text: 'API', link: '/api/' },
+      { text: 'Benchmark', link: '/benchmark' },
       { text: 'Design', link: '/design/' },
       { text: 'Performance', link: '/performance/' },
     ],
@@ -80,6 +81,7 @@ export default defineConfig({
         text: 'Reference',
         items: [
           { text: 'API Reference', link: '/api/' },
+          { text: 'Benchmark Proof', link: '/benchmark' },
           { text: 'Design Philosophy', link: '/design/' },
           { text: 'Performance', link: '/performance/' },
           { text: 'Comparison', link: '/comparison/' },
