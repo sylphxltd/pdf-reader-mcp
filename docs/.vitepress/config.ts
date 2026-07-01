@@ -136,7 +136,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright 2024 Sylphx',
+      copyright: 'Copyright 2024-2026 SylphxAI',
     },
 
     search: {
