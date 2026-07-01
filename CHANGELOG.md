@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.0.5
+
+### Patch Changes
+
+- [#344](https://github.com/SylphxAI/pdf-reader-mcp/pull/344) [`7645ca0`](https://github.com/SylphxAI/pdf-reader-mcp/commit/7645ca017b6ffe64d32235c03babcc6961722717) Thanks [@shtse8](https://github.com/shtse8)! - Add GHCR Docker publish workflow, fix CONTRIBUTING.md staleness, fix copyright consistency.
+
+  - New `.github/workflows/docker.yml` — builds and pushes Docker image to GitHub Container Registry on main push and version tags, so the `ghcr.io/sylphxai/pdf-reader-mcp` reference resolves to a real image
+  - Rewrote `CONTRIBUTING.md` — fixed stale org name (sylphlab → SylphxAI), corrected tooling references (ESLint/Prettier → Biome), corrected commands (npm → bun), added development setup and release process guidance
+  - Fixed VitePress footer copyright (2024 Sylphx → 2024-2026 SylphxAI)
+  - Updated README Docker section to show both GHCR pre-built image and local build
+
 ## 3.0.4
 
 ### Patch Changes
