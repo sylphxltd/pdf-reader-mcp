@@ -8,6 +8,7 @@ import type {
   PdfTextLayerRun,
   PdfTextLayerWord,
 } from '../types/pdf.js';
+import { mergeBoundingBoxes } from '../utils/geometry.js';
 
 const TEXT_LAYER_VERSION = '2026-06-15' as const;
 
@@ -35,18 +36,6 @@ const estimateWordBoundingBox = (
     bottom: lineBox.bottom,
     right: lineBox.left + width * endRatio,
     top: lineBox.top,
-  };
-};
-
-const mergeBoundingBoxes = (boxes: Array<BoundingBox | undefined>): BoundingBox | undefined => {
-  const validBoxes = boxes.filter((box): box is BoundingBox => box !== undefined);
-  if (validBoxes.length === 0) return undefined;
-
-  return {
-    left: Math.min(...validBoxes.map((box) => box.left)),
-    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
-    right: Math.max(...validBoxes.map((box) => box.right)),
-    top: Math.max(...validBoxes.map((box) => box.top)),
   };
 };
 

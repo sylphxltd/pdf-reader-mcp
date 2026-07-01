@@ -10,6 +10,7 @@ import type {
 } from '../types/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
+import { destroyLoadingTask } from '../utils/pdfjs.js';
 import { buildWarnings, extractPageContent } from './extractor.js';
 import { loadPdfDocument } from './loader.js';
 import { defaultOcrPagesOptions, ocrPdfSourcePages } from './ocr.js';
@@ -374,16 +375,6 @@ export const searchPdfSource = async (
     };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === 'function') {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError: unknown) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger.warn('Error destroying searched PDF document', {
-          sourceDescription,
-          error: message,
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger, 'searched PDF document', { sourceDescription });
   }
 };

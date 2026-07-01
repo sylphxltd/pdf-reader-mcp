@@ -13,7 +13,7 @@ import type {
   PdfSource,
   RenderPageOptions,
 } from '../types/pdf.js';
-import { PdfError } from '../utils/errors.js';
+import { safeErrorMessage } from '../utils/errorHandling.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('RenderPage');
@@ -65,18 +65,12 @@ const renderSourceForTool = async (
       pages: rendered.pages,
     };
   } catch (error: unknown) {
-    let errorMessage: string;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger.error('Unexpected error rendering PDF source', {
-        sourceDescription,
-        error: detail,
-      });
-      errorMessage = `Failed to render PDF pages from ${sourceDescription}.`;
-    }
-
+    const errorMessage = safeErrorMessage(
+      error,
+      `Failed to render PDF pages from ${sourceDescription}.`,
+      logger,
+      { sourceDescription }
+    );
     return {
       result: {
         source: sourceDescription,

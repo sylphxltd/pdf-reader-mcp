@@ -17,6 +17,7 @@ import type {
   PdfVisualEnrichmentCandidate,
   PdfVisualEnrichmentTargetType,
 } from '../types/pdf.js';
+import { roundRatio } from '../utils/geometry.js';
 
 const DOCUMENT_MAP_VERSION = '2026-06-15' as const;
 const LOW_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
@@ -38,8 +39,6 @@ interface BuildDocumentMapInput {
   pageGeometry?: PdfPageGeometry[] | undefined;
   warnings?: string[] | undefined;
 }
-
-const roundRatio = (value: number): number => Math.round(value * 100) / 100;
 
 const pushToMap = <TValue>(map: Map<number, TValue[]>, key: number, value: TValue) => {
   const values = map.get(key);

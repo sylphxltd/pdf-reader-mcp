@@ -2,7 +2,7 @@ import { text, tool, toolError } from '../mcp.js';
 import { defaultOcrPagesOptions, ocrPdfSourcePages } from '../pdf/ocr.js';
 import { ocrPagesArgsSchema } from '../schemas/ocrPages.js';
 import type { OcrPagesOptions, PdfOcrSourceResult } from '../types/pdf.js';
-import { PdfError } from '../utils/errors.js';
+import { safeErrorMessage } from '../utils/errorHandling.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('OcrPages');
@@ -46,18 +46,12 @@ const processSource = async (
       ...(ocr.warnings.length > 0 ? { warnings: ocr.warnings } : {}),
     };
   } catch (error: unknown) {
-    let errorMessage: string;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger.error('Unexpected error running OCR pages', {
-        sourceDescription,
-        error: detail,
-      });
-      errorMessage = `Failed to OCR pages from ${sourceDescription}.`;
-    }
-
+    const errorMessage = safeErrorMessage(
+      error,
+      `Failed to OCR pages from ${sourceDescription}.`,
+      logger,
+      { sourceDescription }
+    );
     return {
       source: sourceDescription,
       success: false,

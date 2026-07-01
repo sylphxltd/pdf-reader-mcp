@@ -12,6 +12,7 @@ import type {
   TableQuality,
   TableQualitySignal,
 } from '../types/pdf.js';
+import { mergeBoundingBoxes, roundRatio } from '../utils/geometry.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('TableExtractor');
@@ -74,8 +75,6 @@ const tableKeyFromId = (id: string | undefined): string | undefined => {
   return tableKey(Number(match[1]), Number(match[2]) - 1);
 };
 
-const roundRatio = (value: number): number => Math.round(value * 100) / 100;
-
 const buildBoundingBox = (
   x: number,
   y: number,
@@ -91,17 +90,6 @@ const buildBoundingBox = (
     bottom: y,
     right: x + Math.max(0, width),
     top: y + Math.max(0, height),
-  };
-};
-
-const mergeBoundingBoxes = (boxes: BoundingBox[]): BoundingBox | undefined => {
-  if (boxes.length === 0) return undefined;
-
-  return {
-    left: Math.min(...boxes.map((box) => box.left)),
-    bottom: Math.min(...boxes.map((box) => box.bottom)),
-    right: Math.max(...boxes.map((box) => box.right)),
-    top: Math.max(...boxes.map((box) => box.top)),
   };
 };
 

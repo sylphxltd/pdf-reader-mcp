@@ -11,7 +11,7 @@ interface LogContext {
   [key: string]: unknown;
 }
 
-class Logger {
+export class Logger {
   private readonly prefix: string;
   private minLevel: LogLevel;
 

@@ -1,8 +1,7 @@
-import { execFile, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import type {
   OcrPagesOptions,
   PdfOcrPageData,
@@ -14,6 +13,7 @@ import type {
 } from '../types/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
+import { execFileAsync } from '../utils/pdfjs.js';
 import {
   DEFAULT_MAX_RENDER_PAGES,
   DEFAULT_MAX_RENDER_PIXELS,
@@ -21,7 +21,6 @@ import {
   renderPdfSourcePages,
 } from './renderer.js';
 
-const execFileAsync = promisify(execFile);
 const logger = createLogger('Ocr');
 
 export const DEFAULT_OCR_TIMEOUT_MS = 60_000;
