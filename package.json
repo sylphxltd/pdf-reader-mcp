@@ -8,6 +8,7 @@
   },
   "files": [
     "dist/",
+    "examples/",
     "corpus/",
     "README.md",
     "LICENSE"

@@ -1,18 +1,10 @@
-# Git files
-.git
-.gitignore
-
-# Node modules
-node_modules
-
-# Build artifacts (we only need the build output in the final stage)
-build
-
-# Docker files
-Dockerfile
-.dockerignore
-
-# Documentation / Other
-README.md
-memory-bank
-.vscode
+node_modules/
+dist/
+coverage/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+.git/
+*.log
+.env
+.env.*
+bun.lock
