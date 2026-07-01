@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.2
+
+### Patch Changes
+
+- [#337](https://github.com/SylphxAI/pdf-reader-mcp/pull/337) [`ae427bb`](https://github.com/SylphxAI/pdf-reader-mcp/commit/ae427bba1b918ba8661db20ce5d4fba040c325c5) Thanks [@shtse8](https://github.com/shtse8)! - Add GitHub Pages docs deployment workflow, examples directory with Agent Document Twin demo outputs and MCP client snippets, shareable benchmark proof page, and updated docs site navigation.
+
+  - New `.github/workflows/docs.yml` deploys the VitePress docs site to GitHub Pages on every push to main.
+  - New `examples/` directory with JSON request/response samples for all V3 tools (read_pdf, search_pdf, pdf_evidence) and MCP client installation snippets for Claude Code, Claude Desktop, Cursor, VS Code, Windsurf, Cline, Warp, and HTTP transport.
+  - New `docs/benchmark.md` page with reproducible release evidence: 39/39 SOTA release gate checks, 69/69 quality checks, and performance benchmarks.
+  - Updated VitePress config: benchmark page in nav and sidebar, corrected og:url and canonical for GitHub Pages.
+  - Updated README documentation table with examples and benchmark links.
+
 ## 3.0.1
 
 ### Patch Changes
