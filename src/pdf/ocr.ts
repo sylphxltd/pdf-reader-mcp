@@ -538,7 +538,7 @@ const parseOcrOutput = (
   let parsed: RawOcrOutput | undefined;
 
   try {
-    const maybeJson = JSON.parse(trimmed) as RawOcrOutput;
+    const maybeJson = JSON.parse(trimmed) as unknown;
     if (typeof maybeJson === 'object' && maybeJson !== null) {
       parsed = maybeJson;
     }
