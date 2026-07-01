@@ -1,6 +1,6 @@
 {
   "profile": "pdf_provider_manifest_benchmark",
-  "generated_at": "2026-07-01T04:27:43.340Z",
+  "generated_at": "2026-07-01T04:46:44.141Z",
   "status": "passed",
   "strict": true,
   "manifest_path": "/home/runner/work/pdf-reader-mcp/pdf-reader-mcp/test/fixtures/provider-analysis-manifest.json",
@@ -136,7 +136,7 @@
         "figure_description",
         "image_description"
       ],
-      "duration_ms": 1314.94,
+      "duration_ms": 1305.28,
       "region_count": 5,
       "assertion_count": 31,
       "passed_assertion_count": 31,

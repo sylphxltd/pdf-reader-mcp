@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.0.9
+
+### Patch Changes
+
+- [#355](https://github.com/SylphxAI/pdf-reader-mcp/pull/355) [`eb85fbb`](https://github.com/SylphxAI/pdf-reader-mcp/commit/eb85fbbf0e5e5e4833aa76dab28d898dcedad295) Thanks [@shtse8](https://github.com/shtse8)! - Add unit tests for extracted modules and shared utilities.
+
+  New test files (29 tests):
+
+  - `test/pdf/autoReadPolicy.test.ts` (16 tests): covers hasExplicitReadOptions,
+    shouldUseAutoRead, buildAutoDetailOptions (fast/balanced/full presets),
+    buildReadOptions defaults and overrides, constants
+  - `test/utils/errorHandling.test.ts` (5 tests): covers safeErrorMessage for
+    PdfError, generic Error, non-Error values, null, and no-logger case
+  - `test/utils/geometry.test.ts` (8 tests): covers roundRatio edge cases,
+    mergeBoundingBoxes union computation, undefined filtering, NaN filtering
+
+  Also restored `export` on `hasExplicitReadOptions` and `buildAutoDetailOptions`
+  in autoReadPolicy.ts — they were incorrectly made private during Phase 3
+  dead-export cleanup but need to be testable.
+
 ## 3.0.8
 
 ### Patch Changes
