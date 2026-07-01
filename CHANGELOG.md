@@ -1,5 +1,29 @@
 # Changelog
 
+## 3.0.8
+
+### Patch Changes
+
+- [#353](https://github.com/SylphxAI/pdf-reader-mcp/pull/353) [`5757fc1`](https://github.com/SylphxAI/pdf-reader-mcp/commit/5757fc1cea721e75f621d528debde4933821bdf1) Thanks [@shtse8](https://github.com/shtse8)! - Final SOTA polish: tsconfig strictness, JSON.parse type safety, logger simplification.
+
+  **tsconfig:**
+
+  - Added `noUnusedLocals` and `noUnusedParameters` — dead code is now a compile error
+
+  **JSON.parse type safety:**
+
+  - `ocr.ts`: `JSON.parse(stdout) as RawOcrOutput` → `JSON.parse(stdout) as unknown` then
+    validate before use. Provider output is untrusted and must not be trusted to
+    match internal types without runtime validation.
+  - `regionAnalysis.ts`: same fix for `RawRegionAnalysisOutput`
+
+  **Logger simplification (125 → 76 lines, -39%):**
+
+  - Consolidated `logWithContext` + `logSimple` into single `emit()` method
+  - Removed duplicated `console[level]` branching (was repeated in both methods)
+  - Console methods resolved at call time (not module load) so test spies work
+  - Same behavior: structured context still logged for error/warn levels
+
 ## 3.0.7
 
 ### Patch Changes

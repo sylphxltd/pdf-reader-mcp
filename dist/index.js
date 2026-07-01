@@ -330,6 +330,19 @@ class PdfError extends Error {
 }
 
 // src/utils/logger.ts
+var LEVEL_THRESHOLD = {
+  debug: 0 /* DEBUG */,
+  info: 1 /* INFO */,
+  warn: 2 /* WARN */,
+  error: 3 /* ERROR */
+};
+var LEVEL_METHOD = {
+  debug: "log",
+  info: "info",
+  warn: "warn",
+  error: "error"
+};
+
 class Logger {
   prefix;
   minLevel;
@@ -341,69 +354,30 @@ class Logger {
     this.minLevel = level;
   }
   debug(message, context) {
-    if (this.minLevel <= 0 /* DEBUG */) {
-      this.log("debug", message, context);
-    }
+    this.emit("debug", message, context);
   }
   info(message, context) {
-    if (this.minLevel <= 1 /* INFO */) {
-      this.log("info", message, context);
-    }
+    this.emit("info", message, context);
   }
   warn(message, context) {
-    if (this.minLevel <= 2 /* WARN */) {
-      this.log("warn", message, context);
-    }
+    this.emit("warn", message, context);
   }
   error(message, context) {
-    if (this.minLevel <= 3 /* ERROR */) {
-      this.log("error", message, context);
-    }
+    this.emit("error", message, context);
   }
-  logWithContext(level, logMessage, structuredLog) {
-    if (level === "error") {
-      console.error(logMessage);
-      console.error(JSON.stringify(structuredLog));
-    } else if (level === "warn") {
-      console.warn(logMessage);
-      console.warn(JSON.stringify(structuredLog));
-    } else if (level === "info") {
-      console.info(logMessage);
-    } else {
-      console.log(logMessage);
-    }
-  }
-  logSimple(level, logMessage) {
-    if (level === "error") {
-      console.error(logMessage);
-    } else if (level === "warn") {
-      console.warn(logMessage);
-    } else if (level === "info") {
-      console.info(logMessage);
-    } else {
-      console.log(logMessage);
-    }
-  }
-  log(level, message, context) {
-    const logMessage = `${this.prefix} ${message}`;
-    if (context && Object.keys(context).length > 0) {
-      const timestamp = new Date().toISOString();
-      const structuredLog = {
-        timestamp,
-        level,
-        component: this.prefix,
-        message,
-        ...context
-      };
-      this.logWithContext(level, logMessage, structuredLog);
-    } else {
-      this.logSimple(level, logMessage);
+  emit(level, message, context) {
+    const threshold = LEVEL_THRESHOLD[level] ?? 3 /* ERROR */;
+    if (this.minLevel > threshold)
+      return;
+    const method = LEVEL_METHOD[level] ?? "log";
+    const prefixed = `${this.prefix} ${message}`;
+    console[method](prefixed);
+    if ((level === "error" || level === "warn") && context && Object.keys(context).length > 0) {
+      console[method](JSON.stringify({ timestamp: new Date().toISOString(), level, message, ...context }));
     }
   }
 }
-var createLogger = (component, minLevel) => {
-  return new Logger(component, minLevel);
-};
+var createLogger = (component, minLevel) => new Logger(component, minLevel);
 var logger = new Logger("", 2 /* WARN */);
 
 // src/utils/pdfjs.ts
