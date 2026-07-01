@@ -12,6 +12,7 @@ import type {
   PdfTextSemanticHint,
   PdfTextSemanticRole,
 } from '../types/pdf.js';
+import { mergeBoundingBoxes, roundRatio } from '../utils/geometry.js';
 import { hasSemanticCaptionPrefix } from './semanticPatterns.js';
 import { tablesToMarkdown } from './tableExtractor.js';
 
@@ -635,8 +636,6 @@ export const buildCitationChunks = (
   return chunks;
 };
 
-const roundRatio = (value: number): number => Math.round(value * 100) / 100;
-
 const clampConfidence = (value: number): number => Math.max(0.2, Math.min(0.98, roundRatio(value)));
 
 const boxWidth = (box: PageContentItem['bounding_box']): number =>
@@ -867,20 +866,6 @@ const snippetFromText = (value: string): string => {
 const normalizeSafetyText = (value: string): string =>
   value.replace(/\s+/g, ' ').trim().toLowerCase();
 
-const mergeBoxes = (
-  first: PageContentItem['bounding_box'],
-  second: PageContentItem['bounding_box']
-): PageContentItem['bounding_box'] | undefined => {
-  if (!first || !second) return first ?? second;
-
-  return {
-    left: Math.min(first.left, second.left),
-    bottom: Math.min(first.bottom, second.bottom),
-    right: Math.max(first.right, second.right),
-    top: Math.max(first.top, second.top),
-  };
-};
-
 const isOutsideViewBox = (
   box: PageContentItem['bounding_box'],
   viewBox: PdfPageGeometry['view_box']
@@ -1022,7 +1007,7 @@ export const buildSafetyFindings = (
         if (overlapRatio < SAFETY_TEXT_OVERLAP_RATIO) continue;
 
         const differentText = normalizeSafetyText(first.text) !== normalizeSafetyText(second.text);
-        const boundingBox = mergeBoxes(first.bounding_box, second.bounding_box);
+        const boundingBox = mergeBoundingBoxes([first.bounding_box, second.bounding_box]);
         findings.push({
           type: 'overlapping_text',
           severity: differentText ? 'high' : 'medium',
