@@ -12,6 +12,7 @@ import type {
   PdfSource,
 } from '../types/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
+import { roundRatio } from '../utils/geometry.js';
 import { createLogger } from '../utils/logger.js';
 import { execFileAsync } from '../utils/pdfjs.js';
 import {
@@ -107,7 +108,6 @@ export const defaultOcrPagesOptions = (): OcrPagesOptions => ({
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS,
 });
 
-const roundRatio = (value: number): number => Math.round(value * 100) / 100;
 const roundCoordinate = (value: number): number => Math.round(value * 100) / 100;
 
 const normalizeWordBoxesToPdfCoordinates = (

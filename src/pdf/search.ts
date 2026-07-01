@@ -9,6 +9,7 @@ import type {
   SearchPdfOptions,
 } from '../types/pdf.js';
 import { ErrorCode, PdfError } from '../utils/errors.js';
+import { mergeBoundingBoxes } from '../utils/geometry.js';
 import { createLogger } from '../utils/logger.js';
 import { destroyLoadingTask } from '../utils/pdfjs.js';
 import { buildWarnings, extractPageContent } from './extractor.js';
@@ -94,22 +95,6 @@ const findMatchesInText = (
   }
 
   return matches;
-};
-
-const mergeBoundingBoxes = (
-  boxes: Array<NonNullable<PageContentItem['bounding_box']> | PdfOcrWord['bounding_box']>
-): NonNullable<PageContentItem['bounding_box']> | undefined => {
-  const validBoxes = boxes.filter(
-    (box): box is NonNullable<PageContentItem['bounding_box']> => box !== undefined
-  );
-  if (validBoxes.length === 0) return undefined;
-
-  return {
-    left: Math.min(...validBoxes.map((box) => box.left)),
-    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
-    right: Math.max(...validBoxes.map((box) => box.right)),
-    top: Math.max(...validBoxes.map((box) => box.top)),
-  };
 };
 
 interface OcrWordOffset {
