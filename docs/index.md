@@ -18,6 +18,9 @@ hero:
     - theme: alt
       text: Benchmark Proof
       link: /benchmark
+    - theme: alt
+      text: Why Evidence-First?
+      link: /articles/evidence-first
       
 
 features:

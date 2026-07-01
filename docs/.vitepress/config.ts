@@ -41,6 +41,8 @@ export default defineConfig({
       },
     ],
     ['meta', { name: 'twitter:site', content: '@sylphxai' }],
+    ['meta', { property: 'og:image', content: 'https://sylphxai.github.io/pdf-reader-mcp/og-image.png' }],
+    ['meta', { name: 'twitter:image', content: 'https://sylphxai.github.io/pdf-reader-mcp/og-image.png' }],
     [
       'meta',
       {
@@ -64,6 +66,7 @@ export default defineConfig({
       { text: 'Guide', link: '/guide/' },
       { text: 'API', link: '/api/' },
       { text: 'Benchmark', link: '/benchmark' },
+      { text: 'Articles', link: '/articles/evidence-first' },
       { text: 'Design', link: '/design/' },
       { text: 'Performance', link: '/performance/' },
     ],
@@ -85,6 +88,12 @@ export default defineConfig({
           { text: 'Design Philosophy', link: '/design/' },
           { text: 'Performance', link: '/performance/' },
           { text: 'Comparison', link: '/comparison/' },
+        ],
+      },
+      {
+        text: 'Articles',
+        items: [
+          { text: 'Evidence-First PDF Reading', link: '/articles/evidence-first' },
         ],
       },
       {
