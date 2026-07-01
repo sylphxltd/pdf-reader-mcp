@@ -238,7 +238,7 @@ const sectionHeadingRole = (textContent: string): PdfTextSemanticHint | undefine
   return undefined;
 };
 
-export const buildSemanticHint = (
+const buildSemanticHint = (
   item: PageContentItem,
   stats: PageTextStats
 ): PdfTextSemanticHint | undefined => {
@@ -295,7 +295,7 @@ export const buildSemanticHint = (
   };
 };
 
-export const contentItemToElement = (
+const contentItemToElement = (
   item: PageContentItem,
   page: number,
   index: number,
