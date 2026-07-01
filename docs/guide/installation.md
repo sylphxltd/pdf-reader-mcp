@@ -252,3 +252,69 @@ rm -rf ~/.npm/_npx
 ```
 
 Then restart your MCP client.
+
+## Docker
+
+A `Dockerfile` is included for sandboxed, reproducible deployment. The
+container image bundles Node.js 22, the MCP server, and Tesseract OCR for
+optional scanned-page support.
+
+### Build
+
+```bash
+docker build -t pdf-reader-mcp .
+```
+
+### Run (stdio)
+
+```bash
+docker run --rm -i \
+  -v /path/to/pdfs:/workspace \
+  pdf-reader-mcp
+```
+
+Mount your PDF directory at `/workspace`. The container's
+`MCP_PDF_ALLOWED_DIRS` defaults to `/workspace` for filesystem sandboxing.
+
+### Run (HTTP transport)
+
+```bash
+docker run --rm \
+  -p 3000:3000 \
+  -v /path/to/pdfs:/workspace \
+  -e MCP_TRANSPORT=http \
+  -e MCP_API_KEY=your-secret-key \
+  pdf-reader-mcp
+```
+
+Connect your MCP client to `http://127.0.0.1:3000/mcp` with header
+`X-API-Key: your-secret-key`.
+
+### Use with Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "/path/to/pdfs:/workspace",
+        "pdf-reader-mcp"
+      ]
+    }
+  }
+}
+```
+
+### Pre-installed OCR
+
+The container includes Tesseract OCR (`tesseract-ocr-eng`). Set the OCR preset
+to enable scanned-page routing:
+
+```bash
+docker run --rm -i \
+  -v /path/to/pdfs:/workspace \
+  -e MCP_PDF_OCR_PRESET=tesseract-tsv \
+  pdf-reader-mcp
+```

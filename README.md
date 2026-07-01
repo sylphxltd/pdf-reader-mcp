@@ -10,6 +10,7 @@
 [![codecov](https://img.shields.io/codecov/c/github/SylphxAI/pdf-reader-mcp?style=flat-square)](https://codecov.io/gh/SylphxAI/pdf-reader-mcp)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](#docker)
 
 **V3 smart tool surface** · **Agent Document Twin** · **Evidence-first extraction** · **Visual crops** · **OCR adapters** · **Tables, charts, formulas, figures** · **Trust & accessibility reports** · **Benchmark-gated releases**
 
@@ -77,7 +78,13 @@ npx @sylphx/pdf-reader-mcp
 Node.js `>=22.13` is required. The default package works without downloading
 OCR models, vision models, Ollama, LM Studio, llama.cpp, or cloud credentials.
 
-Need Cursor, VS Code, Windsurf, Cline, Warp, HTTP transport, Docker, or
+### Docker
+
+```bash
+docker run --rm -i -v /path/to/pdfs:/workspace ghcr.io/sylphxai/pdf-reader-mcp
+```
+
+Need Cursor, VS Code, Windsurf, Cline, Warp, HTTP transport, Docker customization, or
 filesystem sandboxing? See the [installation guide](docs/guide/installation.md).
 
 ## One Smart Tool First
