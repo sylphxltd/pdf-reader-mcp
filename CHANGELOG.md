@@ -1,5 +1,52 @@
 # Changelog
 
+## 3.0.7
+
+### Patch Changes
+
+- [#350](https://github.com/SylphxAI/pdf-reader-mcp/pull/350) [`977306b`](https://github.com/SylphxAI/pdf-reader-mcp/commit/977306b2d811fbbcc768a9678d889adcf253c439) Thanks [@shtse8](https://github.com/shtse8)! - Refactor: extract readCoordinator and autoReadPolicy from fat-controller readPdf handler.
+
+  **Before:** `readPdf.ts` was a 955-line fat controller that merged three concerns:
+  pipeline orchestration, auto-read decision policy, and MCP response assembly.
+
+  **After:** Three clean modules with clear separation of concerns:
+
+  - `src/pdf/autoReadPolicy.ts` (214 lines) — domain logic: which flags are
+    explicit, when auto-read triggers, what fast/balanced/full presets mean,
+    how to build processing options from schema input.
+  - `src/pdf/readCoordinator.ts` (529 lines) — domain orchestration: the full
+    extraction stage graph (metadata → structure → geometry → page-content →
+    OCR → tables → elements → markdown → chunks → trust report → accessibility
+    report → document map). Pure domain logic, no MCP transport awareness.
+  - `src/handlers/readPdf.ts` (238 lines) — thin transport handler: schema →
+    auto-read decision → coordinator call → MCP response assembly. Matches the
+    shape of all other 7 handlers.
+
+  **No behavior changes.** All 348 tests pass.
+
+- [#351](https://github.com/SylphxAI/pdf-reader-mcp/pull/351) [`33d289b`](https://github.com/SylphxAI/pdf-reader-mcp/commit/33d289bcee92e66f9c2be6de832ed0c1cb2da26c) Thanks [@shtse8](https://github.com/shtse8)! - Refactor: consolidate PdfSource type SSOT and remove dead exports.
+
+  **PdfSource SSOT:**
+
+  - Replaced hand-written `PdfSource` interface in `types/pdf/source.ts` with a
+    re-export from the schema definition (`schemas/readPdf.ts`). Now there is
+    exactly one definition: `pdfSourceSchema` → `InferOutput` → re-export.
+  - Removed dead `ReadPdfOptions` interface (never imported by any module).
+  - Eliminates the split-brain SSOT drift risk: if someone adds a field to
+    `pdfSourceSchema`, the type automatically updates everywhere.
+
+  **Dead export cleanup:**
+
+  - Removed `export` keyword from 14 functions/constants that are only used
+    within their own file (never imported externally). This reduces the public
+    API surface and prevents accidental coupling.
+  - Affected: `buildSemanticHint`, `contentItemToElement`,
+    `extractTablesFromTextItems`, `readConfiguredRegionAnalysisProviderConfig`,
+    `analyzeRegionCropWithHttpProvider`, 7 DEFAULT\_ constants,
+    `buildAutoDetailOptions`, `hasExplicitReadOptions`.
+
+  **No behavior changes.** All 348 tests pass.
+
 ## 3.0.6
 
 ### Patch Changes
