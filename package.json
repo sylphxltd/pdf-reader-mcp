@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "3.0.5",
+  "version": "3.0.6",
   "description": "V3 PDF intelligence MCP server with smart Agent Document Twin extraction, focused evidence operations, OCR provenance, trust/accessibility reports, and benchmark-gated release proof.",
   "type": "module",
   "bin": {

@@ -315,11 +315,9 @@ var pdfEvidenceArgsSchema = object({
 });
 
 // src/pdf/regionAnalysis.ts
-import { execFile } from "node:child_process";
 import fs4 from "node:fs/promises";
 import os from "node:os";
 import path3 from "node:path";
-import { promisify } from "node:util";
 
 // src/utils/errors.ts
 class PdfError extends Error {
@@ -407,6 +405,23 @@ var createLogger = (component, minLevel) => {
   return new Logger(component, minLevel);
 };
 var logger = new Logger("", 2 /* WARN */);
+
+// src/utils/pdfjs.ts
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+var execFileAsync = promisify(execFile);
+var destroyLoadingTask = async (loadingTask, logger2, logLabel = "PDF document", logContext) => {
+  if (loadingTask && typeof loadingTask === "object" && "destroy" in loadingTask && typeof loadingTask.destroy === "function") {
+    try {
+      await loadingTask.destroy();
+    } catch (destroyError) {
+      logger2?.warn(`Error destroying ${logLabel}`, {
+        error: destroyError instanceof Error ? destroyError.message : String(destroyError),
+        ...logContext
+      });
+    }
+  }
+};
 
 // src/pdf/regions.ts
 import { PNG } from "pngjs";
@@ -969,17 +984,7 @@ var renderPdfSourcePages = async (source, options) => {
     return { source: sourceDescription, numPages: totalPages, pages, warnings };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === "function") {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger4.warn("Error destroying rendered PDF document", {
-          sourceDescription,
-          error: message
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger4, "rendered PDF document", { sourceDescription });
   }
 };
 
@@ -1106,17 +1111,9 @@ var extractRegionCropsFromSource = async (source, options) => {
     return { source: sourceDescription, numPages: totalPages, regions: crops, warnings };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === "function") {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger5.warn("Error destroying region crop PDF document", {
-          sourceDescription,
-          error: message
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger5, "region crop PDF document", {
+      sourceDescription
+    });
   }
 };
 var defaultExtractRegionsOptions = () => ({
@@ -1127,7 +1124,6 @@ var defaultExtractRegionsOptions = () => ({
 });
 
 // src/pdf/regionAnalysis.ts
-var execFileAsync = promisify(execFile);
 var logger6 = createLogger("RegionAnalysis");
 var DEFAULT_REGION_ANALYSIS_TIMEOUT_MS = 60000;
 var DEFAULT_REGION_ANALYSIS_MAX_OUTPUT_CHARS = 200000;
@@ -1972,6 +1968,15 @@ var analyzeRegionsArgsSchema = object({
   languages: optional(array(str(description("Optional language tags passed to the configured region analysis provider."))))
 });
 
+// src/utils/errorHandling.ts
+var safeErrorMessage = (error, fallbackMessage, logger7, logContext) => {
+  if (error instanceof PdfError)
+    return error.message;
+  const detail = error instanceof Error ? error.message : String(error);
+  logger7?.error(fallbackMessage, { error: detail, ...logContext });
+  return fallbackMessage;
+};
+
 // src/handlers/analyzeRegions.ts
 var logger7 = createLogger("AnalyzeRegions");
 var buildOptions = (input) => ({
@@ -1995,17 +2000,7 @@ var processSource = async (source, options) => {
       ...analyzed.warnings.length > 0 ? { warnings: analyzed.warnings } : {}
     };
   } catch (error) {
-    let errorMessage;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger7.error("Unexpected error analyzing PDF regions", {
-        sourceDescription,
-        error: detail
-      });
-      errorMessage = `Failed to analyze regions from ${sourceDescription}.`;
-    }
+    const errorMessage = safeErrorMessage(error, `Failed to analyze regions from ${sourceDescription}.`, logger7, { sourceDescription });
     return {
       source: sourceDescription,
       success: false,
@@ -2062,17 +2057,7 @@ var processSource2 = async (source, options) => {
       regions: cropped.regions
     };
   } catch (error) {
-    let errorMessage;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger8.error("Unexpected error extracting PDF regions", {
-        sourceDescription,
-        error: detail
-      });
-      errorMessage = `Failed to extract regions from ${sourceDescription}.`;
-    }
+    const errorMessage = safeErrorMessage(error, `Failed to extract regions from ${sourceDescription}.`, logger8, { sourceDescription });
     return {
       result: {
         source: sourceDescription,
@@ -2136,6 +2121,22 @@ import { OPS as OPS2 } from "pdfjs-dist/legacy/build/pdf.mjs";
 // src/pdf/extractor.ts
 import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { PNG as PNG2 } from "pngjs";
+
+// src/utils/geometry.ts
+var roundRatio = (value) => Math.round(value * 100) / 100;
+var mergeBoundingBoxes = (boxes) => {
+  const valid = boxes.filter((b) => b !== undefined && Number.isFinite(b.left) && Number.isFinite(b.bottom) && Number.isFinite(b.right) && Number.isFinite(b.top));
+  if (valid.length === 0)
+    return;
+  return {
+    left: Math.min(...valid.map((b) => b.left)),
+    bottom: Math.min(...valid.map((b) => b.bottom)),
+    right: Math.max(...valid.map((b) => b.right)),
+    top: Math.max(...valid.map((b) => b.top))
+  };
+};
+
+// src/pdf/extractor.ts
 var logger9 = createLogger("Extractor");
 var TEXT_SEGMENT_GAP_THRESHOLD = 48;
 var COLUMN_CUT_MIN_GAP = 48;
@@ -2145,17 +2146,6 @@ var XY_CUT_MAX_DEPTH = 8;
 var XY_CUT_MIN_ITEMS = 4;
 var XY_CUT_MIN_HORIZONTAL_GAP = 36;
 var XY_CUT_MIN_HORIZONTAL_GAP_RATIO = 0.04;
-var mergeBoundingBoxes = (boxes) => {
-  const validBoxes = boxes.filter((box) => box !== undefined);
-  if (validBoxes.length === 0)
-    return;
-  return {
-    left: Math.min(...validBoxes.map((box) => box.left)),
-    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
-    right: Math.max(...validBoxes.map((box) => box.right)),
-    top: Math.max(...validBoxes.map((box) => box.top))
-  };
-};
 var buildBoundingBox = (x, y, width, height) => {
   if (x === undefined || y === undefined || width === undefined || height === undefined) {
     return;
@@ -2978,12 +2968,10 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
 };
 
 // src/pdf/ocr.ts
-import { execFile as execFile2, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs5 from "node:fs/promises";
 import os2 from "node:os";
 import path4 from "node:path";
-import { promisify as promisify2 } from "node:util";
-var execFileAsync2 = promisify2(execFile2);
 var logger10 = createLogger("Ocr");
 var DEFAULT_OCR_TIMEOUT_MS = 60000;
 var DEFAULT_OCR_MAX_OUTPUT_CHARS = 200000;
@@ -3040,7 +3028,7 @@ var defaultOcrPagesOptions = () => ({
   timeout_ms: DEFAULT_OCR_TIMEOUT_MS,
   max_output_chars: DEFAULT_OCR_MAX_OUTPUT_CHARS
 });
-var roundRatio = (value) => Math.round(value * 100) / 100;
+var roundRatio2 = (value) => Math.round(value * 100) / 100;
 var roundCoordinate = (value) => Math.round(value * 100) / 100;
 var normalizeWordBoxesToPdfCoordinates = (words, scale) => {
   if (!words || scale <= 0 || !Number.isFinite(scale))
@@ -3063,7 +3051,7 @@ var buildOcrTextLayer = (pages, warnings = []) => {
   const textChars = pages.reduce((sum, page) => sum + page.text.length, 0);
   const words = pages.flatMap((page) => page.words ?? []);
   const confidences = pages.map((page) => page.confidence).filter((confidence) => confidence !== undefined);
-  const averageConfidence = confidences.length > 0 ? roundRatio(confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length) : undefined;
+  const averageConfidence = confidences.length > 0 ? roundRatio2(confidences.reduce((sum, confidence) => sum + confidence, 0) / confidences.length) : undefined;
   const sourceRenderCount = new Set(pages.map((page) => page.source_render_evidence_id)).size;
   const pageWarnings = pages.flatMap((page) => page.warnings ?? []);
   const allWarnings = [...warnings, ...pageWarnings];
@@ -3302,7 +3290,7 @@ var parseTesseractTsvOutput = (stdout, options, imageHeight) => {
 `);
   const truncated = truncateOcrText(rawText, options.max_output_chars);
   const confidences = words.map((word) => word.confidence).filter((confidence2) => confidence2 !== undefined);
-  const confidence = confidences.length > 0 ? roundRatio(confidences.reduce((sum, value) => sum + value, 0) / confidences.length) : undefined;
+  const confidence = confidences.length > 0 ? roundRatio2(confidences.reduce((sum, value) => sum + value, 0) / confidences.length) : undefined;
   return {
     text: truncated.text,
     ...confidence !== undefined ? { confidence } : {},
@@ -3349,7 +3337,7 @@ var ocrRenderedPageWithCommandProvider = async (page, context, options) => {
       source: context.source,
       languages: context.languages
     }));
-    const { stdout } = await execFileAsync2(config.command, args, {
+    const { stdout } = await execFileAsync(config.command, args, {
       timeout: options.timeout_ms,
       maxBuffer: Math.max(options.max_output_chars * 4, 1024 * 1024),
       windowsHide: true
@@ -3821,17 +3809,9 @@ var inspectPdfSource = async (source, options) => {
     };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === "function") {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger11.warn("Error destroying PDF document after inspection", {
-          sourceDescription,
-          error: message
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger11, "PDF document after inspection", {
+      sourceDescription
+    });
   }
 };
 var defaultInspectPdfOptions = () => ({
@@ -3901,17 +3881,7 @@ var processSource3 = async (source, options) => {
       ...ocr.warnings.length > 0 ? { warnings: ocr.warnings } : {}
     };
   } catch (error) {
-    let errorMessage;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger12.error("Unexpected error running OCR pages", {
-        sourceDescription,
-        error: detail
-      });
-      errorMessage = `Failed to OCR pages from ${sourceDescription}.`;
-    }
+    const errorMessage = safeErrorMessage(error, `Failed to OCR pages from ${sourceDescription}.`, logger12, { sourceDescription });
     return {
       source: sourceDescription,
       success: false,
@@ -3976,17 +3946,7 @@ var renderSourceForTool = async (source, options) => {
       pages: rendered.pages
     };
   } catch (error) {
-    let errorMessage;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger13.error("Unexpected error rendering PDF source", {
-        sourceDescription,
-        error: detail
-      });
-      errorMessage = `Failed to render PDF pages from ${sourceDescription}.`;
-    }
+    const errorMessage = safeErrorMessage(error, `Failed to render PDF pages from ${sourceDescription}.`, logger13, { sourceDescription });
     return {
       result: {
         source: sourceDescription,
@@ -4237,13 +4197,12 @@ var pageAnnotations = (annotations, page) => annotations?.find((entry) => entry.
 var pageFields = (formFields, page) => (formFields ?? []).filter((field) => field.page === page);
 var pageImages = (elements, page) => elements.filter((element) => element.type === "image" && element.page === page);
 var pageVisibleElements = (elements, page) => elements.filter((element) => element.page === page);
-var roundRatio2 = (value) => Math.round(value * 100) / 100;
 var tagContentCoverage = (structureTree, roleStats, visibleElementCount) => {
   if (!structureTree)
     return 0;
   if (visibleElementCount === 0)
     return 1;
-  return roundRatio2(Math.min(1, (roleStats?.contentCount ?? 0) / visibleElementCount));
+  return roundRatio(Math.min(1, (roleStats?.contentCount ?? 0) / visibleElementCount));
 };
 var pageAccessibilitySignals = (input, page) => {
   const structureTree = input.structureTrees?.find((entry) => entry.page === page);
@@ -4446,7 +4405,7 @@ var buildAccessibilityReport = (input) => {
   const issueCountsBySeverity = issueSeverityCounts(issues);
   const pageReportsWithIssues = pageReports.filter((pageReport) => pageReport.issue_count > 0);
   const taggedPageCount = pageReports.filter((pageReport) => pageReport.tagged).length;
-  const averageTagContentCoverage = pageReports.length === 0 ? 0 : roundRatio2(pageReports.reduce((sum, pageReport) => sum + pageReport.tag_content_coverage, 0) / pageReports.length);
+  const averageTagContentCoverage = pageReports.length === 0 ? 0 : roundRatio(pageReports.reduce((sum, pageReport) => sum + pageReport.tag_content_coverage, 0) / pageReports.length);
   return {
     version: ACCESSIBILITY_REPORT_VERSION,
     profile: "pdf_accessibility_report",
@@ -5030,7 +4989,6 @@ var buildDocumentAst = (input) => {
 // src/pdf/documentMap.ts
 var DOCUMENT_MAP_VERSION = "2026-06-15";
 var LOW_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
-var roundRatio3 = (value) => Math.round(value * 100) / 100;
 var pushToMap = (map, key, value) => {
   const values = map.get(key);
   if (values) {
@@ -5286,8 +5244,8 @@ var buildDocumentMap = (input) => {
   const trustHighRiskPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.risk === "high").map((pageReport) => pageReport.page) ?? [];
   const trustMediumRiskPages = input.trustReport?.page_reports.filter((pageReport) => pageReport.risk === "medium").map((pageReport) => pageReport.page) ?? [];
   const layoutConfidences = input.layoutDiagnostics.map((layout) => layout.confidence);
-  const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
-  const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio3(Math.min(...layoutConfidences)) : undefined;
+  const averageLayoutConfidence = layoutConfidences.length > 0 ? roundRatio(layoutConfidences.reduce((sum, confidence) => sum + confidence, 0) / layoutConfidences.length) : undefined;
+  const lowestLayoutConfidence = layoutConfidences.length > 0 ? roundRatio(Math.min(...layoutConfidences)) : undefined;
   const textElementCount = input.elements.filter((element) => element.type === "text").length;
   const imageElementCount = input.elements.filter((element) => element.type === "image").length;
   const tableElementCount = input.elements.filter((element) => element.type === "table").length;
@@ -5399,7 +5357,6 @@ var tableKeyFromId = (id) => {
     return;
   return tableKey(Number(match[1]), Number(match[2]) - 1);
 };
-var roundRatio4 = (value) => Math.round(value * 100) / 100;
 var buildBoundingBox2 = (x, y, width, height) => {
   if (![x, y, width].every(Number.isFinite) || height === undefined || !Number.isFinite(height)) {
     return;
@@ -5409,16 +5366,6 @@ var buildBoundingBox2 = (x, y, width, height) => {
     bottom: y,
     right: x + Math.max(0, width),
     top: y + Math.max(0, height)
-  };
-};
-var mergeBoundingBoxes2 = (boxes) => {
-  if (boxes.length === 0)
-    return;
-  return {
-    left: Math.min(...boxes.map((box) => box.left)),
-    bottom: Math.min(...boxes.map((box) => box.bottom)),
-    right: Math.max(...boxes.map((box) => box.right)),
-    top: Math.max(...boxes.map((box) => box.top))
   };
 };
 var boundingBoxArea = (box) => Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom);
@@ -5585,7 +5532,7 @@ var assignToTableCells = (row, rowIndex, columnBoundaries) => {
     }
   }
   const cells = accumulators.map((accumulator, colIndex) => {
-    const boundingBox = mergeBoundingBoxes2(accumulator.boundingBoxes);
+    const boundingBox = mergeBoundingBoxes(accumulator.boundingBoxes);
     const colSpan = inferColumnSpan(boundingBox, colIndex, columnBoundaries);
     const isInferred = accumulator.textParts.length === 0;
     return {
@@ -5638,7 +5585,7 @@ var rowSpacingConsistency = (rows) => {
     return 0;
   const variance = spacings.reduce((sum, spacing) => sum + (spacing - averageSpacing) ** 2, 0) / spacings.length;
   const standardDeviation = Math.sqrt(variance);
-  return roundRatio4(Math.max(0, 1 - standardDeviation / averageSpacing));
+  return roundRatio(Math.max(0, 1 - standardDeviation / averageSpacing));
 };
 var calculateRowAlignment = (rows, columnBoundaries) => {
   if (rows.length === 0 || columnBoundaries.length === 0)
@@ -5650,7 +5597,7 @@ var calculateRowAlignment = (rows, columnBoundaries) => {
     }
     return Math.min(1, columns.size / columnBoundaries.length);
   });
-  return roundRatio4(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
+  return roundRatio(coverage.reduce((sum, value) => sum + value, 0) / coverage.length);
 };
 var buildTableQuality = (rows, cells, columnBoundaries, confidence) => {
   const nonEmptyCellCount = cells.filter((cell) => cell.text.trim().length > 0).length;
@@ -5658,12 +5605,12 @@ var buildTableQuality = (rows, cells, columnBoundaries, confidence) => {
   const inferredCellCount = cells.filter((cell) => cell.inferred === true).length;
   const missingCellCount = Math.max(0, cells.length - nonEmptyCellCount);
   const mergedCellCandidateCount = cells.filter((cell) => (cell.colSpan ?? 1) > 1).length;
-  const nonEmptyCellRatio = cells.length > 0 ? roundRatio4(nonEmptyCellCount / cells.length) : 0;
-  const cellBoundingBoxCoverage = cells.length > 0 ? roundRatio4(cellBoundingBoxCount / cells.length) : 0;
-  const inferredCellRatio = cells.length > 0 ? roundRatio4(inferredCellCount / cells.length) : 0;
+  const nonEmptyCellRatio = cells.length > 0 ? roundRatio(nonEmptyCellCount / cells.length) : 0;
+  const cellBoundingBoxCoverage = cells.length > 0 ? roundRatio(cellBoundingBoxCount / cells.length) : 0;
+  const inferredCellRatio = cells.length > 0 ? roundRatio(inferredCellCount / cells.length) : 0;
   const rowAlignment = calculateRowAlignment(rows, columnBoundaries);
   const spacingConsistency = rowSpacingConsistency(rows);
-  const completeness = roundRatio4(nonEmptyCellRatio * rowAlignment);
+  const completeness = roundRatio(nonEmptyCellRatio * rowAlignment);
   const signals = [];
   const warnings = [];
   if (missingCellCount === 0) {
@@ -5779,14 +5726,14 @@ var columnGeometrySimilarity = (left, right) => {
       return 0;
     return Math.max(0, 1 - Math.abs(anchor - rightAnchor) / COLUMN_GEOMETRY_TOLERANCE);
   });
-  return scores.length > 0 ? roundRatio4(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
+  return scores.length > 0 ? roundRatio(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
 };
 var isPageEdgeContinuationCandidate = (current, next) => current.bounding_box !== undefined && next.bounding_box !== undefined && current.bounding_box.bottom <= PAGE_EDGE_CONTINUATION_BOTTOM_Y && next.bounding_box.top >= PAGE_EDGE_CONTINUATION_TOP_Y;
 var tableContinuationEvidence = (current, next) => {
   const similarity = headerSimilarity(current, next);
   if (similarity >= 0.6) {
     return {
-      confidence: roundRatio4(0.55 + similarity * 0.4),
+      confidence: roundRatio(0.55 + similarity * 0.4),
       signals: ["same_column_count", "repeated_header_candidate"]
     };
   }
@@ -5795,7 +5742,7 @@ var tableContinuationEvidence = (current, next) => {
     return;
   }
   return {
-    confidence: roundRatio4(Math.min(0.95, 0.58 + geometrySimilarity * 0.25 + 0.12)),
+    confidence: roundRatio(Math.min(0.95, 0.58 + geometrySimilarity * 0.25 + 0.12)),
     signals: [
       "same_column_count",
       "column_geometry_match",
@@ -5915,7 +5862,7 @@ var extractTablesFromTextItems = (textItems, pageNum, provenance = { source: "se
       tableCells.push(...assigned.cells);
     }
     const confidence = calculateConfidence(region.rows, region.columnBoundaries);
-    const tableBoundingBox = mergeBoundingBoxes2(tableCells.map((cell) => cell.bounding_box).filter((box) => box !== undefined));
+    const tableBoundingBox = mergeBoundingBoxes(tableCells.map((cell) => cell.bounding_box).filter((box) => box !== undefined));
     if (confidence >= 0.3) {
       const roundedConfidence = Math.round(confidence * 100) / 100;
       tables.push({
@@ -6465,8 +6412,8 @@ var buildCitationChunks = (elements, options) => {
   pushCurrent();
   return chunks;
 };
-var roundRatio5 = (value) => Math.round(value * 100) / 100;
-var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio5(value)));
+var roundRatio3 = (value) => Math.round(value * 100) / 100;
+var clampConfidence = (value) => Math.max(0.2, Math.min(0.98, roundRatio3(value)));
 var boxWidth = (box) => box ? Math.max(0, box.right - box.left) : 0;
 var boxArea = (box) => {
   if (!box)
@@ -6553,7 +6500,7 @@ var buildLayoutDiagnostics = (pageContents) => pageContents.map((pageContent) =>
   const textItemCount = pageContent.items.filter((item) => item.type === "text").length;
   const imageItemCount = pageContent.items.filter((item) => item.type === "image").length;
   const positionedItems = pageContent.items.filter((item) => item.bounding_box !== undefined);
-  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio5(positionedItems.length / itemCount);
+  const positionedItemRatio = itemCount === 0 ? 0 : roundRatio3(positionedItems.length / itemCount);
   const columns = detectLayoutColumns(positionedItems);
   const left = positionedItems.length ? Math.min(...positionedItems.map((item) => item.bounding_box?.left ?? 0)) : 0;
   const right = positionedItems.length ? Math.max(...positionedItems.map((item) => item.bounding_box?.right ?? 0)) : 0;
@@ -6768,17 +6715,6 @@ var estimateWordBoundingBox = (lineBox, lineText, wordStartInLine, wordEndInLine
     top: lineBox.top
   };
 };
-var mergeBoundingBoxes3 = (boxes) => {
-  const validBoxes = boxes.filter((box) => box !== undefined);
-  if (validBoxes.length === 0)
-    return;
-  return {
-    left: Math.min(...validBoxes.map((box) => box.left)),
-    bottom: Math.min(...validBoxes.map((box) => box.bottom)),
-    right: Math.max(...validBoxes.map((box) => box.right)),
-    top: Math.max(...validBoxes.map((box) => box.top))
-  };
-};
 var buildFallbackChars = (lineText, pageCharStart, lineBox) => {
   const chars = [];
   for (let cursor = 0;cursor < lineText.length; ) {
@@ -6868,7 +6804,7 @@ var buildWords = (lineText, pageCharStart, lineBox, chars) => {
     const charStart = pageCharStart + index;
     const charEnd = charStart + text2.length;
     const charBoxes = chars.filter((char) => !char.is_whitespace && char.char_start >= charStart && char.char_end <= charEnd && char.bounding_box).map((char) => char.bounding_box);
-    const charDerivedBoundingBox = mergeBoundingBoxes3(charBoxes);
+    const charDerivedBoundingBox = mergeBoundingBoxes(charBoxes);
     const boundingBox = charDerivedBoundingBox ?? estimateWordBoundingBox(lineBox, lineText, index, index + text2.length);
     words.push({
       index: words.length,
@@ -7864,30 +7800,14 @@ var processSingleSource = async (source, options) => {
     }
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error) {
-    let errorMessage;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger15.error("Unexpected error processing PDF source", {
-        sourceDescription,
-        error: detail
-      });
-      errorMessage = `Failed to process PDF from ${sourceDescription}.`;
-    }
+    const errorMessage = safeErrorMessage(error, `Failed to process PDF from ${sourceDescription}.`, logger15, { sourceDescription });
     individualResult.error = errorMessage;
     individualResult.success = false;
     individualResult.data = undefined;
   } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === "function") {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger15.warn("Error destroying PDF document", { sourceDescription, error: message });
-      }
-    }
+    await destroyLoadingTask(pdfDocument?.loadingTask, logger15, "PDF document", {
+      sourceDescription
+    });
   }
   return individualResult;
 };
@@ -8238,7 +8158,7 @@ var findMatchesInText = (text2, query, options) => {
   }
   return matches;
 };
-var mergeBoundingBoxes4 = (boxes) => {
+var mergeBoundingBoxes2 = (boxes) => {
   const validBoxes = boxes.filter((box) => box !== undefined);
   if (validBoxes.length === 0)
     return;
@@ -8270,13 +8190,13 @@ var buildOcrSearchText = (page) => {
 };
 var matchOcrBoundingBox = (wordOffsets, start, end) => {
   const overlappingWords = wordOffsets.filter((wordOffset) => wordOffset.end > start && wordOffset.start < end);
-  const boundingBox = mergeBoundingBoxes4(overlappingWords.map((wordOffset) => wordOffset.word.bounding_box));
+  const boundingBox = mergeBoundingBoxes2(overlappingWords.map((wordOffset) => wordOffset.word.bounding_box));
   const firstWordIndex = overlappingWords[0]?.index;
   return boundingBox && firstWordIndex !== undefined ? { bounding_box: boundingBox, first_word_index: firstWordIndex } : undefined;
 };
 var matchBoundingBox = (item, start, end) => {
   const charBoxes = (item.textRuns ?? []).flatMap((run) => run.chars).filter((char) => !char.is_whitespace && char.item_char_start >= start && char.item_char_end <= end && char.bounding_box).map((char) => char.bounding_box);
-  const charBoundingBox = mergeBoundingBoxes4(charBoxes);
+  const charBoundingBox = mergeBoundingBoxes2(charBoxes);
   if (charBoundingBox) {
     return { bounding_box: charBoundingBox, level: "char_estimated" };
   }
@@ -8406,17 +8326,7 @@ var searchPdfSource = async (source, options) => {
     };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    if (loadingTask && typeof loadingTask.destroy === "function") {
-      try {
-        await loadingTask.destroy();
-      } catch (destroyError) {
-        const message = destroyError instanceof Error ? destroyError.message : String(destroyError);
-        logger16.warn("Error destroying searched PDF document", {
-          sourceDescription,
-          error: message
-        });
-      }
-    }
+    await destroyLoadingTask(loadingTask, logger16, "searched PDF document", { sourceDescription });
   }
 };
 
@@ -8448,17 +8358,7 @@ var processSource4 = async (source, options) => {
   try {
     return await searchPdfSource(source, options);
   } catch (error) {
-    let errorMessage;
-    if (error instanceof PdfError) {
-      errorMessage = error.message;
-    } else {
-      const detail = error instanceof Error ? error.message : String(error);
-      logger17.error("Unexpected error searching PDF source", {
-        sourceDescription,
-        error: detail
-      });
-      errorMessage = `Failed to search PDF source ${sourceDescription}.`;
-    }
+    const errorMessage = safeErrorMessage(error, `Failed to search PDF source ${sourceDescription}.`, logger17, { sourceDescription });
     return {
       source: sourceDescription,
       success: false,
