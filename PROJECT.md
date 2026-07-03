@@ -12,6 +12,7 @@ evidence without becoming a hosted Sylphx Platform BaaS service.
 - Layer: `tooling`
 - Doctrine source of truth: [SylphxAI/doctrine](https://github.com/SylphxAI/doctrine)
 - Machine manifest: `.doctrine/project.json`
+- Vendor-neutral GroundAtlas manifest: `project.manifest.json`
 
 ## Goals
 

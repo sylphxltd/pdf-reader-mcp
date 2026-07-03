@@ -68,6 +68,11 @@
         "type": "status-context",
         "name": "Required branch context",
         "location": "Validate Code Quality"
+      },
+      {
+        "type": "manifest",
+        "name": "Vendor-neutral GroundAtlas project manifest",
+        "location": "project.manifest.json"
       }
     ],
     "allowedDependencies": [

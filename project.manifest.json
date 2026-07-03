@@ -1,0 +1,109 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SylphxAI/groundatlas/main/schemas/project.manifest.schema.json",
+  "schemaVersion": 1,
+  "project": {
+    "id": "pdf-reader-mcp",
+    "name": "PDF Reader MCP",
+    "summary": "Local-first public MCP package for PDF and document intelligence with typed tools, provenance, OCR routing, trust/accessibility reports, benchmarks, docs, and release evidence.",
+    "lifecycle": "production",
+    "visibility": "open-source",
+    "repository": "https://github.com/SylphxAI/pdf-reader-mcp",
+    "homepage": "https://sylphxai.github.io/pdf-reader-mcp/",
+    "tags": ["mcp", "pdf", "document-intelligence", "tooling", "local-first"]
+  },
+  "truth": {
+    "humanProjectFile": "PROJECT.md",
+    "agentAdapter": "AGENTS.md",
+    "specs": ["docs/specs/"],
+    "adrs": ["docs/adr/"],
+    "source": ["src/", "scripts/", "package.json", "tsconfig.json"],
+    "tests": ["test/", "src/"],
+    "runbooks": ["README.md", "CONTRIBUTING.md", "SECURITY.md"]
+  },
+  "surfaces": [
+    {
+      "type": "cli",
+      "name": "pdf-reader-mcp CLI",
+      "path": "package.json bin: pdf-reader-mcp",
+      "description": "Local MCP server executable shipped by the npm package."
+    },
+    {
+      "type": "package",
+      "name": "@sylphx/pdf-reader-mcp package",
+      "path": "package.json",
+      "description": "Public npm package and package export contract."
+    },
+    {
+      "type": "docs",
+      "name": "Public README",
+      "path": "README.md",
+      "description": "Public install, tool, benchmark, and package contract."
+    },
+    {
+      "type": "docs",
+      "name": "Project control plane",
+      "path": "PROJECT.md",
+      "description": "Human project identity, lifecycle, boundary, and delivery entry point."
+    },
+    {
+      "type": "docs",
+      "name": "Doctrine adapter manifest",
+      "path": ".doctrine/project.json",
+      "description": "Sylphx Doctrine adapter; not the vendor-neutral GroundAtlas default."
+    },
+    {
+      "type": "schema",
+      "name": "MCP tool schemas",
+      "path": "src/",
+      "description": "Typed public MCP schemas, handlers, and output contracts."
+    },
+    {
+      "type": "workflow",
+      "name": "CI",
+      "path": ".github/workflows/ci.yml",
+      "description": "Code quality, package smoke, tests, docs, release evidence, secret scan, and GroundAtlas package dogfood."
+    },
+    {
+      "type": "website",
+      "name": "Public docs site",
+      "path": "docs/",
+      "description": "VitePress public documentation source."
+    }
+  ],
+  "commands": [
+    {
+      "name": "check",
+      "command": "bun run check",
+      "purpose": "Run Biome code quality checks."
+    },
+    {
+      "name": "typecheck",
+      "command": "bun run typecheck",
+      "purpose": "Run TypeScript type checks."
+    },
+    {
+      "name": "build",
+      "command": "bun run build",
+      "purpose": "Build the public package."
+    },
+    {
+      "name": "package:smoke",
+      "command": "bun run package:smoke",
+      "purpose": "Verify package tarball behavior before release."
+    },
+    {
+      "name": "test:cov",
+      "command": "bun run test:cov",
+      "purpose": "Run tests with coverage."
+    },
+    {
+      "name": "docs:build",
+      "command": "bun run docs:build",
+      "purpose": "Build public documentation."
+    }
+  ],
+  "adoption": {
+    "status": "adopted",
+    "notes": "Vendor-neutral GroundAtlas manifest for package/action dogfooding. .doctrine/project.json remains the Sylphx Doctrine adapter and local governance catalog."
+  }
+}
