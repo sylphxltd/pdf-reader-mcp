@@ -9,38 +9,16 @@
     "visibility": "open-source",
     "repository": "https://github.com/SylphxAI/pdf-reader-mcp",
     "homepage": "https://sylphxai.github.io/pdf-reader-mcp/",
-    "tags": [
-      "mcp",
-      "pdf",
-      "document-intelligence",
-      "tooling",
-      "local-first"
-    ]
+    "tags": ["mcp", "pdf", "document-intelligence", "tooling", "local-first"]
   },
   "truth": {
     "humanProjectFile": "PROJECT.md",
     "agentAdapter": "AGENTS.md",
-    "specs": [
-      "docs/specs/"
-    ],
-    "adrs": [
-      "docs/adr/"
-    ],
-    "source": [
-      "src/",
-      "scripts/",
-      "package.json",
-      "tsconfig.json"
-    ],
-    "tests": [
-      "test/",
-      "src/"
-    ],
-    "runbooks": [
-      "README.md",
-      "CONTRIBUTING.md",
-      "SECURITY.md"
-    ]
+    "specs": ["docs/specs/"],
+    "adrs": ["docs/adr/"],
+    "source": ["src/", "scripts/", "package.json", "tsconfig.json"],
+    "tests": ["test/", "src/"],
+    "runbooks": ["README.md", "CONTRIBUTING.md", "SECURITY.md"]
   },
   "surfaces": [
     {
