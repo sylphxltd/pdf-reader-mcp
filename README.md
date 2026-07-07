@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/sylphxai-pdf-reader-mcp-badge.png)](https://mseep.ai/app/sylphxai-pdf-reader-mcp)
+
 <div align="center">
 
 # 📄 @sylphx/pdf-reader-mcp
