@@ -13,6 +13,8 @@ evidence without becoming a hosted Sylphx Platform BaaS service.
 - Doctrine source of truth: [SylphxAI/doctrine](https://github.com/SylphxAI/doctrine)
 - Machine manifest: `.doctrine/project.json`
 - Vendor-neutral GroundAtlas manifest: `project.manifest.json`
+- Generated GroundAtlas reports: `.groundatlas*`, JSON reports, and Markdown
+  scorecards are evidence/read models only
 
 ## Goals
 
@@ -56,6 +58,11 @@ Pull requests use the legacy `Validate Code Quality` context on Sylphx
 self-hosted runners. Package release is Changesets-driven through the repo
 release workflow, which mints a GitHub App token before creating version PRs or
 publishing to npm.
+
+The GroundAtlas package dogfood gate proves the project-control boundary from
+generated JSON and Markdown evidence, but those generated files are not source
+of truth. `project.manifest.json` remains the vendor-neutral control file and
+`.doctrine/project.json` remains the Sylphx Doctrine adapter.
 
 Docs-only boundary changes do not alter runtime behavior, provider dispatch,
 credentials, package output, npm release, or customer data handling. MCP schema,
