@@ -104,6 +104,6 @@
   ],
   "adoption": {
     "status": "adopted",
-    "notes": "Vendor-neutral GroundAtlas manifest for package/action dogfooding. .doctrine/project.json remains the Sylphx Doctrine adapter and local governance catalog."
+    "notes": "Vendor-neutral GroundAtlas manifest for package/action dogfooding. .doctrine/project.json remains the Sylphx Doctrine adapter and local governance catalog. Generated .groundatlas* outputs plus GroundAtlas JSON and Markdown reports are evidence/read models only."
   }
 }

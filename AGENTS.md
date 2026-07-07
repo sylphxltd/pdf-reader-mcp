@@ -22,17 +22,20 @@ these source-of-truth documents:
 2. `PROJECT.md` and `.doctrine/project.json` — project goal, lifecycle,
    boundaries, public surfaces, delivery proof, package release path, and
    adoption gaps.
-3. `docs/adr/0001-2027-sota-document-intelligence-boundary.md` — package
+3. `project.manifest.json` — vendor-neutral GroundAtlas project-control
+   manifest. Generated `.groundatlas*` outputs plus GroundAtlas JSON/Markdown
+   reports are evidence/read models only, not source of truth.
+4. `docs/adr/0001-2027-sota-document-intelligence-boundary.md` — package
    ownership, portfolio integration boundary, and SOTA invariants.
-4. `docs/specs/2026-06-16-2027-sota-document-intelligence-operating-model.md`
+5. `docs/specs/2026-06-16-2027-sota-document-intelligence-operating-model.md`
    — implementation target, non-goals, provider boundary, acceptance criteria,
    and release quality bar.
-5. The touched tool/spec document under `docs/specs/`, such as text layer,
+6. The touched tool/spec document under `docs/specs/`, such as text layer,
    OCR provider, region crop/evidence, trust report, accessibility, or document
    AST specs.
-6. `CONTRIBUTING.md` and `package.json` before changing development commands,
+7. `CONTRIBUTING.md` and `package.json` before changing development commands,
    release, or validation workflows.
-7. The paired schema/handler/test files for any public MCP tool change.
+8. The paired schema/handler/test files for any public MCP tool change.
 
 ## Non-Negotiables
 
@@ -80,6 +83,7 @@ Use the narrowest meaningful validation first, then broaden as needed:
 - `bun run check`
 - `bun run build`
 - `bun run docs:build`
+- `bun test test/project-control.test.ts`
 - release/benchmark gates named by the touched spec or workflow
 
 Docs-only boundary changes may be validated by reviewing the diff and checking

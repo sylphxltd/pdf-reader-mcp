@@ -112,20 +112,21 @@ jobs:
 
       - name: Run GroundAtlas package gate
         id: groundatlas
-        uses: SylphxAI/groundatlas@v0.1.2
+        uses: SylphxAI/groundatlas@v0.1.3
         with:
-          package-spec: groundatlas@0.1.2
+          package-spec: groundatlas@0.1.3
           output-dir: .groundatlas-pilot
           require-atlas: "true"
           strict: "true"
 
       - name: Assert GroundAtlas truth boundary
         run: |
-          node - "${{ steps.groundatlas.outputs.manifest-report-path }}" "${{ steps.groundatlas.outputs.fleet-report-path }}" <<'NODE'
-          const [manifestPath, fleetPath] = process.argv.slice(2);
+          node - "${{ steps.groundatlas.outputs.manifest-report-path }}" "${{ steps.groundatlas.outputs.fleet-report-path }}" "${{ steps.groundatlas.outputs.fleet-markdown-report-path }}" <<'NODE'
+          const [manifestPath, fleetPath, fleetMarkdownPath] = process.argv.slice(2);
           const { readFileSync } = require("node:fs");
           const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
           const fleet = JSON.parse(readFileSync(fleetPath, "utf8"));
+          const fleetMarkdown = readFileSync(fleetMarkdownPath, "utf8");
           const project = fleet.projects?.[0];
 
           function assert(condition, message) {
@@ -135,11 +136,15 @@ jobs:
           assert(manifest.selected?.path === "project.manifest.json", "GroundAtlas must select the vendor-neutral project.manifest.json file.");
           assert(manifest.selected?.adapter === false, "Selected GroundAtlas manifest must not be an ecosystem adapter.");
           assert(manifest.adapters?.some((item) => item.path === ".doctrine/project.json" && item.adapter === true), "Doctrine project manifest must be reported only as an adapter.");
+          assert(fleet.summary?.adopted === 1, "GroundAtlas fleet report must have exactly one adopted project.");
           assert(fleet.summary?.blocked === 0, "GroundAtlas fleet report must not have blocked projects.");
           assert(fleet.summary?.warning === 0, "GroundAtlas strict fleet report must not have warning projects.");
+          assert(fleet.summary?.total === 1, "GroundAtlas fleet report must have exactly one project.");
           assert(project?.status === "adopted", "This repository must be adopted in the GroundAtlas fleet report.");
           assert(project?.manifest?.path === "project.manifest.json", "Fleet report must select project.manifest.json.");
           assert(project?.manifestAdapters?.some((item) => item.path === ".doctrine/project.json" && item.adapter === true), "Fleet report must keep .doctrine/project.json as an adapter.");
+          assert(fleetMarkdown.includes("# GroundAtlas fleet adoption report"), "GroundAtlas Markdown scorecard must include the report title.");
+          assert(fleetMarkdown.includes("Summary: 1 adopted, 0 warning, 0 blocked, 1 total."), "GroundAtlas Markdown scorecard must include the expected fleet summary.");
           NODE
 
       - name: Upload GroundAtlas reports
@@ -150,6 +155,7 @@ jobs:
           path: |
             ${{ steps.groundatlas.outputs.manifest-report-path }}
             ${{ steps.groundatlas.outputs.fleet-report-path }}
+            ${{ steps.groundatlas.outputs.fleet-markdown-report-path }}
           if-no-files-found: error
 
   security-secrets:

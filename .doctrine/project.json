@@ -117,7 +117,7 @@
       "Validate Code Quality"
     ],
     "deployPath": "No hosted deploy path is declared. Package release is Changesets-driven through .github/workflows/release.yml using a GitHub App release token and npm credentials.",
-    "productionProof": "Required CI context, typecheck/test/check/build/docs evidence as applicable, benchmark evidence for performance claims, Changesets release intent for package changes, and npm package readback after publication.",
+    "productionProof": "Required CI context, typecheck/test/check/build/docs evidence as applicable, GroundAtlas package dogfood JSON/Markdown evidence for project-control boundaries, benchmark evidence for performance claims, Changesets release intent for package changes, and npm package readback after publication.",
     "recoveryClass": "forward-fix-only",
     "packageRelease": {
       "publishesPackages": true,
