@@ -88,6 +88,7 @@
     "benchmark:release-artifacts": "MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_MANIFEST=${MCP_PDF_PROVIDER_MANIFEST:-test/fixtures/provider-crop-manifest.json} MCP_PDF_PROVIDER_MANIFEST_CROP_REQUIRED=true bun run benchmark:provider-manifest-crops && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_MANIFEST=${MCP_PDF_PROVIDER_MANIFEST:-test/fixtures/provider-analysis-manifest.json} MCP_PDF_PROVIDER_MANIFEST_REQUIRED=true bun run benchmark:provider-manifest",
     "benchmark:release-gate": "bun scripts/sota-release-gate.ts",
     "package:smoke": "bun scripts/package-smoke.ts",
+    "sync:server-json": "bun scripts/sync-server-json.ts",
     "clean": "rm -rf dist coverage",
     "prepublishOnly": "bun run clean && bun run build && bun run package:smoke",
     "release:preflight": "bun run typecheck && bun run check && bun run build && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",

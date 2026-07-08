@@ -93,7 +93,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: bun changeset version
+          version: bun changeset version && bun run sync:server-json
           publish: bun run release
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
