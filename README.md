@@ -351,6 +351,19 @@ agent output, you are exactly who this project is for.
 fastest way to help more agent builders find evidence-first PDF reading. Share
 it in your MCP client setup, team wiki, or agent stack README.
 
+### Reader family
+
+| Package | Status |
+| --- | --- |
+| [@sylphx/pdf-reader-mcp](https://github.com/SylphxAI/pdf-reader-mcp) | Production — Agent Document Twin |
+| [@sylphx/image-reader-mcp](https://github.com/SylphxAI/image-reader-mcp) | Bootstrap — metadata, OCR, evidence |
+| [@sylphx/video-reader-mcp](https://github.com/SylphxAI/video-reader-mcp) | Bootstrap — ffprobe, scenes, transcripts |
+| [@sylphx/smart-reader-mcp](https://github.com/SylphxAI/smart-reader-mcp) | Bootstrap — sniff + delegate |
+| [@sylphx/smart-read-mcp](https://github.com/SylphxAI/smart-read-mcp) | Planned — universal path |
+| [@sylphx/reader-evidence](https://github.com/SylphxAI/reader-evidence) | Bootstrap — shared provenance schema |
+
+Portfolio architecture: [ADR-0004](docs/adr/0004-reader-portfolio-architecture.md).
+
 ### Discovery (in progress)
 
 | Channel | Status |
