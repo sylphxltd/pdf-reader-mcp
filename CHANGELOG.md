@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.11
+
+### Patch Changes
+
+- [#371](https://github.com/SylphxAI/pdf-reader-mcp/pull/371) [`45e2130`](https://github.com/SylphxAI/pdf-reader-mcp/commit/45e21304325c3ef9aac6d9b1bf6726e05da3ae75) Thanks [@shtse8](https://github.com/shtse8)! - Optimize default `read_pdf` overhead by reusing one parsed PDF per source per request, bounding balanced/fast auto-read page extraction to the inspection sample budget, and omitting redundant per-page text MCP content parts when markdown/chunks are already present in the JSON payload.
+
 ## 3.0.10
 
 ### Patch Changes
