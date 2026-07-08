@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.13
+
+### Patch Changes
+
+- [#375](https://github.com/SylphxAI/pdf-reader-mcp/pull/375) [`31f9b57`](https://github.com/SylphxAI/pdf-reader-mcp/commit/31f9b5743b073c83c05ea5e2004ef1ffcba1296b) Thanks [@shtse8](https://github.com/shtse8)! - Fix PdfSession acquire/destroyAll race so in-flight loads never throw "entry missing", and add auto-read OCR session handoff regression coverage.
+
 ## 3.0.12
 
 ### Patch Changes
