@@ -131,6 +131,53 @@ describe('loader', () => {
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
+    // Regression tests for https://github.com/SylphxAI/pdf-reader-mcp/issues/368
+    // (GHSA-34gp-w56h-r2mv): the url branch must not bypass path confinement via
+    // SSRF or file:// local-file reads.
+    it('should reject loopback URLs before any network fetch (issue #368)', async () => {
+      globalThis.fetch = vi.fn() as typeof globalThis.fetch;
+
+      await expect(
+        loadPdfDocument(
+          { url: 'http://127.0.0.1:8080/internal.pdf' },
+          'http://127.0.0.1:8080/internal.pdf'
+        )
+      ).rejects.toThrow(/non-public address|SSRF/);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should reject file:// URLs instead of reading arbitrary local files (issue #368)', async () => {
+      globalThis.fetch = vi.fn() as typeof globalThis.fetch;
+
+      await expect(
+        loadPdfDocument(
+          { url: 'file:///tmp/word_outside/anywhere.pdf' },
+          'file:///tmp/word_outside/anywhere.pdf'
+        )
+      ).rejects.toThrow(/Access denied|rejected/);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(fs.readFile).not.toHaveBeenCalled();
+      expect(pathUtils.resolvePath).not.toHaveBeenCalled();
+    });
+
+    it('should re-validate redirect targets and reject private-IP hops (issue #368)', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+        })
+      );
+      globalThis.fetch = fetchMock as typeof globalThis.fetch;
+
+      await expect(
+        loadPdfDocument(
+          { url: 'https://example.com/redirect.pdf' },
+          'https://example.com/redirect.pdf'
+        )
+      ).rejects.toThrow(/non-public address|SSRF/);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('should reject URL responses whose Content-Length exceeds the cap (SSS-08)', async () => {
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(new Uint8Array(0), {
