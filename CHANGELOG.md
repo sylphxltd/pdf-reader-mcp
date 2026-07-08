@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.12
+
+### Patch Changes
+
+- [#373](https://github.com/SylphxAI/pdf-reader-mcp/pull/373) [`7678a1b`](https://github.com/SylphxAI/pdf-reader-mcp/commit/7678a1b1745ba71432d4d558a4ada1b59d9a2352) Thanks [@shtse8](https://github.com/shtse8)! - Harden read_pdf overhead optimizations: serialize concurrent PdfSession acquires, skip auto-read when callers only specify source pages, add default balanced auto-read benchmark coverage, and expand regression tests for page budgets and session document reuse.
+
 ## 3.0.11
 
 ### Patch Changes
