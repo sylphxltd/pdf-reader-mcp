@@ -1,9 +1,14 @@
 <div align="center">
 
-# 📄 @sylphx/pdf-reader-mcp
+# 📄 PDF Reader MCP
 
-> The PDF intelligence layer for AI agents that need source evidence, not just extracted text.
+### Your agent read the PDF. **Did it read the truth?**
 
+The most-starred PDF MCP server on GitHub. One call turns any PDF into an
+**Agent Document Twin** — structured text, tables, trust signals, and source
+evidence you can search, crop, and cite.
+
+[![GitHub stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=for-the-badge&logo=github)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI/CD)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
@@ -12,7 +17,10 @@
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](#docker)
 
-**V3 smart tool surface** · **Agent Document Twin** · **Evidence-first extraction** · **Visual crops** · **OCR adapters** · **Tables, charts, formulas, figures** · **Trust & accessibility reports** · **Benchmark-gated releases**
+**Local-first** · **One smart `read_pdf` call** · **Evidence with page + bbox** · **397 tests** · **39/39 release-gate checks**
+
+[⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
+· [Quick start](#quick-start) · [See it work](#see-it-work) · [Why not plain text?](#why-not-a-plain-text-dump)
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
@@ -22,20 +30,94 @@
 
 ---
 
-PDFs are not plain text files. They are layout, pixels, tables, hidden text,
-permissions, annotations, scanned pages, and ambiguous reading order.
+## The problem
 
-PDF Reader MCP turns that mess into an **Agent Document Twin**: a linked,
-source-backed representation of the PDF that agents can inspect, search,
-verify, crop, OCR, enrich, cite, and read with confidence.
+PDFs are not text files. They are layout, pixels, tables, hidden text, scanned
+pages, and reading order that breaks the moment you flatten them.
 
-If your agent has ever hallucinated from a PDF, lost a table, trusted hidden
-text, missed a scanned page, or needed to cite the exact region that proves an
-answer, this is the MCP server for that workflow.
+Most PDF tools give agents a **text dump**. Tables disappear. Scanned pages go
+blank. Hidden text sneaks in. Citations become guesses. Then the model
+hallucinates — confidently.
 
-## Why Agents Use It
+**PDF Reader MCP is built for the moment your agent needs to prove an answer, not
+just sound plausible.**
 
-| Need | What PDF Reader MCP gives you |
+## Why not a plain text dump?
+
+| Typical PDF path | PDF Reader MCP |
+| --- | --- |
+| Dump text into context | Return markdown, chunks, tables, and a linked document map |
+| "Trust the summary" | Page numbers, bounding boxes, crop IDs, and render evidence |
+| Hope tables survived | Cells, geometry, confidence, warnings, continuation hints |
+| Scanned pages silently empty | OCR path with word boxes and provenance |
+| No idea what is risky | Trust report for hidden text, spoofing, unsafe links, injection-like content |
+| Ship and pray | **39/39** SOTA release-gate checks on every version |
+
+Full capability matrix: [comparison guide](docs/comparison/index.md).
+
+## See it work
+
+**Install once. Call once.**
+
+```bash
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+```
+
+```json
+{
+  "sources": [{ "path": "/absolute/path/to/report.pdf" }]
+}
+```
+
+`read_pdf` inspects the PDF, picks the extraction route, and returns the Agent
+Document Twin — no manual `include_*` flags required:
+
+```json
+{
+  "auto_read": {
+    "workflow": "digital_text_route",
+    "selected_arguments": {
+      "include_markdown": true,
+      "include_tables": true,
+      "include_chunks": true,
+      "include_trust_report": true,
+      "include_document_map": true
+    }
+  },
+  "markdown": "# Annual Report 2026\n\n## Executive Summary\n\n...",
+  "tables": [
+    {
+      "page": 5,
+      "cells": [
+        { "row": 0, "col": 0, "text": "Quarter", "bbox": [72, 650, 180, 670] },
+        { "row": 0, "col": 1, "text": "Revenue", "bbox": [200, 650, 300, 670] }
+      ],
+      "confidence": 0.95
+    }
+  ],
+  "trust_report": { "risk_level": "low", "findings": [] }
+}
+```
+
+Abbreviated shape — see [full example](examples/agent-document-twin.json) and
+[workflows](examples/).
+
+**Search, then verify the source region:**
+
+```json
+{
+  "sources": [{ "path": "/absolute/path/to/report.pdf" }],
+  "query": "revenue recognition",
+  "max_matches_per_source": 10
+}
+```
+
+Use the returned page and bounding box with `pdf_evidence` (`render_page` or
+`extract_regions`) when the agent needs visual proof before citing.
+
+## Why agents use it
+
+| Need | What you get |
 | --- | --- |
 | Read the document | Markdown, JSON, HTML, page text, metadata, chunks, and semantic AST. |
 | Prove the answer | Page numbers, bounding boxes, evidence IDs, region crops, and source renders. |
@@ -92,29 +174,6 @@ docker build -t pdf-reader-mcp . && \
 Need Cursor, VS Code, Windsurf, Cline, Warp, HTTP transport, Docker customization, or
 filesystem sandboxing? See the [installation guide](docs/guide/installation.md).
 
-## One Smart Tool First
-
-The default V3 agent path is one tool call:
-
-```json
-{
-  "sources": [{ "path": "/absolute/path/to/report.pdf" }]
-}
-```
-
-With no manual `include_*` flags, `read_pdf` profiles each PDF, chooses the
-extraction route, and returns the Agent Document Twin in one response. Digital
-text PDFs get Markdown, chunks, tables, layout routing, and source evidence.
-Mixed or scanned PDFs are routed toward configured OCR and visual providers
-when those providers are ready. Metadata, page geometry, warnings, provider
-readiness, and the selected `read_pdf` arguments are included so the agent can
-see what happened.
-
-Agents can still force `auto: false` and use explicit `include_*` options for a
-precise manual extraction. Use `auto_detail: "fast"`, `"balanced"`, or
-`"full"` when the agent wants to control output depth without learning dozens
-of switches.
-
 ## MCP Tool Surface
 
 | Tool | Use it when the agent needs to... |
@@ -124,6 +183,10 @@ of switches.
 | `pdf_evidence` | One focused evidence tool for `inspect`, `render_page`, `extract_regions`, `ocr_pages`, and `analyze_regions` operations. |
 
 Full request and response details live in the [API reference](docs/api/README.md).
+
+Agents can force `auto: false` for precise manual extraction, or use
+`auto_detail: "fast"`, `"balanced"`, or `"full"` to control output depth without
+learning dozens of switches.
 
 ## Agent Document Twin
 
@@ -155,20 +218,6 @@ the evidence needed to verify the answer.
 }
 ```
 
-### Example: Search, Then Verify The Source Region
-
-```json
-{
-  "sources": [{ "path": "/absolute/path/to/report.pdf" }],
-  "query": "revenue recognition",
-  "max_matches_per_source": 10
-}
-```
-
-Use the returned page and bounding box with `pdf_evidence` operation
-`render_page` or `extract_regions` when the agent needs visual proof before
-citing or summarizing.
-
 ## Provider-Enabled Intelligence
 
 The default package stays TypeScript-first and local-first. Heavy engines are
@@ -198,8 +247,8 @@ for provider configuration details.
 
 ## Release Proof
 
-Strong README claims should be backed by shipped evidence. This repo publishes
-machine-readable artifacts and gates releases on them.
+Claims are backed by shipped, machine-readable artifacts. Releases do not ship
+unless the gate passes.
 
 | Artifact | Current proof |
 | --- | --- |
@@ -260,6 +309,7 @@ an evidence workflow, not as a trusted text dump.
 | Examples and workflows | [examples/](examples/) |
 | Benchmark proof | [docs/benchmark.md](docs/benchmark.md) |
 | Why evidence-first PDF reading | [docs/articles/evidence-first.md](docs/articles/evidence-first.md) |
+| Stop PDF hallucinations (agent builders) | [docs/articles/stop-pdf-hallucinations.md](docs/articles/stop-pdf-hallucinations.md) |
 | Capability overview | [docs/comparison/index.md](docs/comparison/index.md) |
 | Architecture and design | [docs/design/index.md](docs/design/index.md) |
 | Performance and release proof | [docs/performance/index.md](docs/performance/index.md) |
@@ -290,9 +340,18 @@ bun run benchmark:release-gate
 - [Discussions](https://github.com/SylphxAI/pdf-reader-mcp/discussions)
 - [npm package](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 
-If you want local-first, evidence-backed PDF intelligence to keep improving for
-AI agents, star the repo. It helps the project reach more builders who need
-PDFs to be verifiable, not just readable.
+## Help this reach more builders
+
+If PDF hallucinations have wasted your context, your citations, or your trust in
+agent output, you are exactly who this project is for.
+
+**[⭐ Star the repo](https://github.com/SylphxAI/pdf-reader-mcp)** — it is the
+fastest way to help more agent builders find evidence-first PDF reading. Share
+it in your MCP client setup, team wiki, or agent stack README.
+
+Listed on [MCP Servers](https://mcpservers.org/) and the
+[Model Context Protocol servers](https://github.com/modelcontextprotocol/servers)
+ecosystem. Found a list we are missing? [Open an issue](https://github.com/SylphxAI/pdf-reader-mcp/issues/new).
 
 ## License
 

@@ -1,5 +1,11 @@
 # Getting Started
 
+PDF Reader MCP is the most-starred PDF MCP server on GitHub. If your agents
+read contracts, filings, or reports, start here — one `read_pdf` call returns an
+Agent Document Twin with markdown, tables, and source evidence instead of a
+lossy text dump. New to the problem?
+[Stop PDF hallucinations →](/articles/stop-pdf-hallucinations).
+
 Once installed, the PDF Reader MCP server provides three public V3 tools:
 
 - `read_pdf` is the smart default. With only `sources`, it profiles the PDF,

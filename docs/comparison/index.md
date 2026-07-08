@@ -1,10 +1,15 @@
 # Capability Overview
 
-PDF Reader MCP is designed as a full-fidelity PDF intelligence layer for
-agents. The comparison below is category-based and focuses on the agent
-workflow: read a smart Agent Document Twin first, search cheaply when the task
-has a literal query, and request focused evidence only when the answer needs
-source-level proof.
+PDF Reader MCP is the most-starred open-source PDF MCP server on GitHub. It is
+designed as a full-fidelity PDF intelligence layer for agents. The comparison
+below is category-based and focuses on the agent workflow: read a smart Agent
+Document Twin first, search cheaply when the task has a literal query, and
+request focused evidence only when the answer needs source-level proof.
+
+> **Plain text extraction gives agents words. PDF Reader MCP gives agents words
+> with proof** — page, bbox, crops, trust signals, and release-gate benchmarks.
+> [Stop PDF hallucinations →](/articles/stop-pdf-hallucinations) ·
+> [⭐ Star the repo](https://github.com/SylphxAI/pdf-reader-mcp)
 
 | Capability | PDF Reader MCP | Text/CLI tools | Cloud PDF APIs | Generic filesystem MCP |
 | --- | --- | --- | --- | --- |

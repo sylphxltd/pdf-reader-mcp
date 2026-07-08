@@ -5,7 +5,7 @@ export default defineConfig({
   cleanUrls: true,
   title: 'PDF Reader MCP',
   description:
-    'Full-fidelity PDF intelligence MCP with Agent Document Twin, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark proof for AI agents',
+    'The most-starred PDF MCP server. Stop agent hallucinations on PDFs with evidence-first Agent Document Twin extraction, tables, trust reports, and source proof for Claude, Cursor, and any MCP client.',
 
   appearance: 'dark',
   lastUpdated: true,
@@ -20,14 +20,14 @@ export default defineConfig({
     ['meta', { property: 'og:type', content: 'website' }],
     [
       'meta',
-      { property: 'og:title', content: 'PDF Reader MCP - Full-Fidelity PDF Intelligence for AI Agents' },
+      { property: 'og:title', content: 'PDF Reader MCP - Stop PDF Hallucinations for AI Agents' },
     ],
     [
       'meta',
       {
         property: 'og:description',
         content:
-          'A TypeScript-first MCP server for Agent Document Twin extraction, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark-gated release proof',
+          'The most-starred PDF MCP server. One read_pdf call returns markdown, tables, trust signals, and source evidence with page numbers and bounding boxes. Local-first and benchmark-gated.',
       },
     ],
     ['meta', { property: 'og:url', content: 'https://sylphxai.github.io/pdf-reader-mcp/' }],
@@ -39,7 +39,7 @@ export default defineConfig({
       {
         name: 'twitter:description',
         content:
-          'Turn PDFs into agent-readable evidence with document maps, visual crops, OCR provenance, trust reports, accessibility reports, and benchmark proof',
+          'Stop PDF hallucinations. Turn PDFs into Agent Document Twins with tables, trust reports, and citeable source evidence.',
       },
     ],
     ['meta', { name: 'twitter:site', content: '@sylphxai' }],
@@ -68,7 +68,7 @@ export default defineConfig({
       { text: 'Guide', link: '/guide/' },
       { text: 'API', link: '/api/' },
       { text: 'Benchmark', link: '/benchmark' },
-      { text: 'Articles', link: '/articles/evidence-first' },
+      { text: 'Articles', link: '/articles/stop-pdf-hallucinations' },
       { text: 'Design', link: '/design/' },
       { text: 'Performance', link: '/performance/' },
     ],
@@ -95,6 +95,7 @@ export default defineConfig({
       {
         text: 'Articles',
         items: [
+          { text: 'Stop PDF Hallucinations', link: '/articles/stop-pdf-hallucinations' },
           { text: 'Evidence-First PDF Reading', link: '/articles/evidence-first' },
         ],
       },
