@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   OcrPagesOptions,
   PdfOcrPageData,
@@ -630,19 +631,24 @@ export const ocrRenderedPageWithCommandProvider = async (
 
 export const ocrPdfSourcePages = async (
   source: PdfSource,
-  options: OcrPagesOptions
+  options: OcrPagesOptions,
+  existingDocument?: pdfjsLib.PDFDocumentProxy | null
 ): Promise<{
   source: string;
   numPages: number;
   pages: PdfOcrPageData[];
   warnings: string[];
 }> => {
-  const rendered = await renderPdfSourcePages(source, {
-    scale: options.scale,
-    max_pages: options.max_pages,
-    max_pixels_per_page: options.max_pixels_per_page,
-    include_image: false,
-  });
+  const rendered = await renderPdfSourcePages(
+    source,
+    {
+      scale: options.scale,
+      max_pages: options.max_pages,
+      max_pixels_per_page: options.max_pixels_per_page,
+      include_image: false,
+    },
+    existingDocument
+  );
   const pages: PdfOcrPageData[] = [];
 
   for (const page of rendered.pages) {

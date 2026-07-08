@@ -600,6 +600,28 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(parsed.results[0]?.data?.document_map).toBeDefined();
   });
 
+  it('reuses one parsed PDF per source on default auto-read', async () => {
+    const loaderModule = await import('../../src/pdf/loader.js');
+    const loadCoreSpy = vi.spyOn(loaderModule, 'loadPdfDocumentCore');
+
+    try {
+      await handler({ sources: [{ path: 'test.pdf' }] });
+      expect(loadCoreSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      loadCoreSpy.mockRestore();
+    }
+  });
+
+  it('omits redundant per-page text parts when markdown and chunks are enabled by default', async () => {
+    const result = await handler({ sources: [{ path: 'test.pdf' }] });
+
+    const pageTextParts = result.content.filter(
+      (part) => part.type === 'text' && part.text?.startsWith('[Page ')
+    );
+    expect(pageTextParts).toHaveLength(0);
+    expect(result.content[0]?.text).toContain('"markdown"');
+  });
+
   it('should include structured elements without forcing full text output', async () => {
     const args = {
       sources: [{ path: 'test.pdf' }],
@@ -1483,7 +1505,8 @@ describe('handleReadPdfFunc Integration Tests', () => {
 
     expect(mockOcrPdfSourcePages).toHaveBeenCalledWith(
       { path: 'scanned.pdf', pages: [1] },
-      expect.objectContaining({ scale: 2, max_pages: 5 })
+      expect.objectContaining({ scale: 2, max_pages: 5 }),
+      expect.objectContaining({ numPages: expect.any(Number) })
     );
 
     if (result.content?.[0]) {
@@ -1671,7 +1694,8 @@ describe('handleReadPdfFunc Integration Tests', () => {
 
     expect(mockOcrPdfSourcePages).toHaveBeenCalledWith(
       { path: 'scanned-table.pdf', pages: [1] },
-      expect.objectContaining({ scale: 2, max_pages: 5 })
+      expect.objectContaining({ scale: 2, max_pages: 5 }),
+      expect.objectContaining({ numPages: expect.any(Number) })
     );
     expect(tableInfo).toMatchObject({
       page: 1,

@@ -1249,19 +1249,24 @@ export const analyzeRegionCropWithConfiguredProvider = async (
 
 export const analyzePdfRegionsFromSource = async (
   source: { path?: string | undefined; url?: string | undefined; regions: PdfRegionRequest[] },
-  options: AnalyzeRegionsOptions
+  options: AnalyzeRegionsOptions,
+  existingDocument?: import('pdfjs-dist/legacy/build/pdf.mjs').PDFDocumentProxy | null
 ): Promise<{
   source: string;
   numPages: number;
   analyses: PdfRegionAnalysisData[];
   warnings: string[];
 }> => {
-  const cropped = await extractRegionCropsFromSource(source, {
-    scale: options.scale,
-    max_regions: options.max_regions,
-    max_pixels_per_page: options.max_pixels_per_page,
-    include_image: false,
-  });
+  const cropped = await extractRegionCropsFromSource(
+    source,
+    {
+      scale: options.scale,
+      max_regions: options.max_regions,
+      max_pixels_per_page: options.max_pixels_per_page,
+      include_image: false,
+    },
+    existingDocument
+  );
   const analyses: PdfRegionAnalysisData[] = [];
 
   for (const region of cropped.regions) {

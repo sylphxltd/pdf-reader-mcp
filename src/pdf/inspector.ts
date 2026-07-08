@@ -14,7 +14,7 @@ import type {
 } from '../types/pdf.js';
 import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
-import { destroyLoadingTask } from '../utils/pdfjs.js';
+
 import {
   buildWarnings,
   extractDocumentStructure,
@@ -22,14 +22,15 @@ import {
   extractPageGeometry,
   extractStructureTrees,
 } from './extractor.js';
-import { loadPdfDocument } from './loader.js';
+import { loadPdfDocument, releasePdfDocument } from './loader.js';
 import { getOcrProviderStatus } from './ocr.js';
 import { getTargetPages } from './parser.js';
+import type { PdfSessionScope } from './pdfSession.js';
 import { getRegionAnalysisProviderStatus } from './regionAnalysis.js';
 
 const logger = createLogger('Inspector');
 
-const DEFAULT_SAMPLE_PAGES = 5;
+export const DEFAULT_SAMPLE_PAGES = 5;
 const MAX_SAMPLE_PAGES = 20;
 const LOW_TEXT_CHAR_THRESHOLD = 20;
 const DIGITAL_TEXT_CHAR_THRESHOLD = 80;
@@ -565,15 +566,16 @@ export const buildInspectionRecommendation = (
 
 export const inspectPdfSource = async (
   source: PdfSource,
-  options: InspectPdfOptions
+  options: InspectPdfOptions,
+  session?: PdfSessionScope
 ): Promise<PdfInspectionSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
+  const { pages: _pages, ...loadArgs } = source;
   let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
 
   try {
     const targetPages = getTargetPages(source.pages, sourceDescription);
-    const { pages: _pages, ...loadArgs } = source;
-    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription, session);
     const totalPages = pdfDocument.numPages;
     const validTargetPages = targetPages?.filter((page) => page <= totalPages);
     const invalidPages = targetPages?.filter((page) => page > totalPages) ?? [];
@@ -666,10 +668,7 @@ export const inspectPdfSource = async (
       error: `Failed to inspect PDF from ${sourceDescription}.`,
     };
   } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    await destroyLoadingTask(loadingTask, logger, 'PDF document after inspection', {
-      sourceDescription,
-    });
+    await releasePdfDocument(loadArgs, pdfDocument, sourceDescription, session);
   }
 };
 

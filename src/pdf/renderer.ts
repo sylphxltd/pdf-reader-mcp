@@ -171,7 +171,8 @@ export const renderPdfPage = async (
 
 export const renderPdfSourcePages = async (
   source: PdfSource,
-  options: RenderPageOptions
+  options: RenderPageOptions,
+  existingDocument?: pdfjsLib.PDFDocumentProxy | null
 ): Promise<{
   source: string;
   numPages: number;
@@ -179,12 +180,15 @@ export const renderPdfSourcePages = async (
   warnings: string[];
 }> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
-  let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
+  const { pages: _pages, ...loadArgs } = source;
+  const ownsDocument = existingDocument === undefined || existingDocument === null;
+  let pdfDocument: pdfjsLib.PDFDocumentProxy | null = existingDocument ?? null;
 
   try {
     const targetPages = getTargetPages(source.pages, sourceDescription);
-    const { pages: _pages, ...loadArgs } = source;
-    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    if (!pdfDocument) {
+      pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    }
     const totalPages = pdfDocument.numPages;
     const { pagesToRender, invalidPages, truncatedPages } = resolvePagesToRender(
       targetPages,
@@ -218,7 +222,9 @@ export const renderPdfSourcePages = async (
 
     return { source: sourceDescription, numPages: totalPages, pages, warnings };
   } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    await destroyLoadingTask(loadingTask, logger, 'rendered PDF document', { sourceDescription });
+    if (ownsDocument) {
+      const loadingTask = pdfDocument?.loadingTask;
+      await destroyLoadingTask(loadingTask, logger, 'rendered PDF document', { sourceDescription });
+    }
   }
 };

@@ -13,6 +13,8 @@ import {
 import { ErrorCode, PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
 import { resolvePath } from '../utils/pathUtils.js';
+import { destroyLoadingTask } from '../utils/pdfjs.js';
+import type { PdfSessionScope } from './pdfSession.js';
 
 const logger = createLogger('Loader');
 
@@ -246,7 +248,7 @@ const fetchUrlBody = async (url: string, config: SecurityConfig): Promise<Uint8A
  * @param sourceDescription - Description for error messages
  * @returns PDF document proxy
  */
-export const loadPdfDocument = async (
+export const loadPdfDocumentCore = async (
   source: { path?: string | undefined; url?: string | undefined },
   sourceDescription: string
 ): Promise<pdfjsLib.PDFDocumentProxy> => {
@@ -300,4 +302,36 @@ export const loadPdfDocument = async (
       { cause: err instanceof Error ? err : undefined }
     );
   }
+};
+
+/**
+ * Load a PDF document, reusing a parsed handle from `session` when provided.
+ */
+export const loadPdfDocument = async (
+  source: { path?: string | undefined; url?: string | undefined },
+  sourceDescription: string,
+  session?: PdfSessionScope
+): Promise<pdfjsLib.PDFDocumentProxy> => {
+  if (session) {
+    return session.acquire(source, sourceDescription);
+  }
+  return loadPdfDocumentCore(source, sourceDescription);
+};
+
+/**
+ * Release a PDF document acquired through `session`, or destroy a standalone load.
+ */
+export const releasePdfDocument = async (
+  source: { path?: string | undefined; url?: string | undefined },
+  pdfDocument: pdfjsLib.PDFDocumentProxy | null,
+  sourceDescription: string,
+  session?: PdfSessionScope
+): Promise<void> => {
+  if (session) {
+    session.release(source);
+    return;
+  }
+  await destroyLoadingTask(pdfDocument?.loadingTask, logger, 'PDF document', {
+    sourceDescription,
+  });
 };

@@ -1,3 +1,4 @@
+import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   BoundingBox,
   PdfDocumentElement,
@@ -44,6 +45,7 @@ export interface BuildVisualEnrichmentsInput {
   elements: PdfDocumentElement[];
   pageGeometry?: PdfPageGeometry[] | undefined;
   maxVisualEnrichments: number;
+  pdfDocument?: pdfjsLib.PDFDocumentProxy | null;
 }
 
 export interface BuildVisualEnrichmentsOutput {
@@ -473,7 +475,8 @@ export const buildVisualEnrichmentsForSource = async (
         url: input.source.url,
         regions: candidates.map((candidate) => candidate.region),
       },
-      options
+      options,
+      input.pdfDocument
     );
 
     return {

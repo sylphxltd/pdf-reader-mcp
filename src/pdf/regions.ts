@@ -186,7 +186,8 @@ export const cropRegionsFromRenderedPage = (
 
 export const extractRegionCropsFromSource = async (
   source: { path?: string | undefined; url?: string | undefined; regions: PdfRegionRequest[] },
-  options: ExtractRegionsOptions
+  options: ExtractRegionsOptions,
+  existingDocument?: pdfjsLib.PDFDocumentProxy | null
 ): Promise<{
   source: string;
   numPages: number;
@@ -194,10 +195,16 @@ export const extractRegionCropsFromSource = async (
   warnings: string[];
 }> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
-  let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
+  const ownsDocument = existingDocument === undefined || existingDocument === null;
+  let pdfDocument: pdfjsLib.PDFDocumentProxy | null = existingDocument ?? null;
 
   try {
-    pdfDocument = await loadPdfDocument({ path: source.path, url: source.url }, sourceDescription);
+    if (!pdfDocument) {
+      pdfDocument = await loadPdfDocument(
+        { path: source.path, url: source.url },
+        sourceDescription
+      );
+    }
     const totalPages = pdfDocument.numPages;
     const { regionsToCrop, invalidPages, truncatedCount } = selectRegionsToCrop(
       source.regions,
@@ -230,10 +237,12 @@ export const extractRegionCropsFromSource = async (
 
     return { source: sourceDescription, numPages: totalPages, regions: crops, warnings };
   } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    await destroyLoadingTask(loadingTask, logger, 'region crop PDF document', {
-      sourceDescription,
-    });
+    if (ownsDocument) {
+      const loadingTask = pdfDocument?.loadingTask;
+      await destroyLoadingTask(loadingTask, logger, 'region crop PDF document', {
+        sourceDescription,
+      });
+    }
   }
 };
 

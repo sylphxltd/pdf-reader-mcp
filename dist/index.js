@@ -735,7 +735,7 @@ var fetchUrlBody = async (url, config) => {
     clearTimeout(timeout);
   }
 };
-var loadPdfDocument = async (source, sourceDescription) => {
+var loadPdfDocumentCore = async (source, sourceDescription) => {
   const safeSource = sanitizeSourceDescription(sourceDescription);
   let pdfData;
   try {
@@ -775,6 +775,21 @@ var loadPdfDocument = async (source, sourceDescription) => {
     logger2.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
     throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${safeSource}.`, { cause: err instanceof Error ? err : undefined });
   }
+};
+var loadPdfDocument = async (source, sourceDescription, session) => {
+  if (session) {
+    return session.acquire(source, sourceDescription);
+  }
+  return loadPdfDocumentCore(source, sourceDescription);
+};
+var releasePdfDocument = async (source, pdfDocument, sourceDescription, session) => {
+  if (session) {
+    session.release(source);
+    return;
+  }
+  await destroyLoadingTask(pdfDocument?.loadingTask, logger2, "PDF document", {
+    sourceDescription
+  });
 };
 
 // src/pdf/renderer.ts
@@ -935,13 +950,16 @@ var renderPdfPage = async (pdfDocument, pageNumber, options) => {
     data: buffer.toString("base64")
   };
 };
-var renderPdfSourcePages = async (source, options) => {
+var renderPdfSourcePages = async (source, options, existingDocument) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
-  let pdfDocument = null;
+  const { pages: _pages, ...loadArgs } = source;
+  const ownsDocument = existingDocument === undefined || existingDocument === null;
+  let pdfDocument = existingDocument ?? null;
   try {
     const targetPages = getTargetPages(source.pages, sourceDescription);
-    const { pages: _pages, ...loadArgs } = source;
-    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    if (!pdfDocument) {
+      pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    }
     const totalPages = pdfDocument.numPages;
     const { pagesToRender, invalidPages, truncatedPages } = resolvePagesToRender(targetPages, totalPages, options.max_pages);
     if (pagesToRender.length === 0) {
@@ -957,8 +975,10 @@ var renderPdfSourcePages = async (source, options) => {
     }
     return { source: sourceDescription, numPages: totalPages, pages, warnings };
   } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    await destroyLoadingTask(loadingTask, logger4, "rendered PDF document", { sourceDescription });
+    if (ownsDocument) {
+      const loadingTask = pdfDocument?.loadingTask;
+      await destroyLoadingTask(loadingTask, logger4, "rendered PDF document", { sourceDescription });
+    }
   }
 };
 
@@ -1063,11 +1083,14 @@ var cropRegionsFromRenderedPage = (renderedPage, regions) => regions.map((region
     data: crop.data
   };
 });
-var extractRegionCropsFromSource = async (source, options) => {
+var extractRegionCropsFromSource = async (source, options, existingDocument) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
-  let pdfDocument = null;
+  const ownsDocument = existingDocument === undefined || existingDocument === null;
+  let pdfDocument = existingDocument ?? null;
   try {
-    pdfDocument = await loadPdfDocument({ path: source.path, url: source.url }, sourceDescription);
+    if (!pdfDocument) {
+      pdfDocument = await loadPdfDocument({ path: source.path, url: source.url }, sourceDescription);
+    }
     const totalPages = pdfDocument.numPages;
     const { regionsToCrop, invalidPages, truncatedCount } = selectRegionsToCrop(source.regions, totalPages, options.max_regions);
     if (regionsToCrop.length === 0) {
@@ -1084,10 +1107,12 @@ var extractRegionCropsFromSource = async (source, options) => {
     }
     return { source: sourceDescription, numPages: totalPages, regions: crops, warnings };
   } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    await destroyLoadingTask(loadingTask, logger5, "region crop PDF document", {
-      sourceDescription
-    });
+    if (ownsDocument) {
+      const loadingTask = pdfDocument?.loadingTask;
+      await destroyLoadingTask(loadingTask, logger5, "region crop PDF document", {
+        sourceDescription
+      });
+    }
   }
 };
 var defaultExtractRegionsOptions = () => ({
@@ -1912,13 +1937,13 @@ var analyzeRegionCropWithConfiguredProvider = async (region, context, options) =
   }
   return analyzeRegionCropWithCommandProvider(region, context, options);
 };
-var analyzePdfRegionsFromSource = async (source, options) => {
+var analyzePdfRegionsFromSource = async (source, options, existingDocument) => {
   const cropped = await extractRegionCropsFromSource(source, {
     scale: options.scale,
     max_regions: options.max_regions,
     max_pixels_per_page: options.max_pixels_per_page,
     include_image: false
-  });
+  }, existingDocument);
   const analyses = [];
   for (const region of cropped.regions) {
     analyses.push(await analyzeRegionCropWithConfiguredProvider(region, { source: cropped.source, languages: options.languages }, options));
@@ -3347,13 +3372,13 @@ var ocrRenderedPageWithCommandProvider = async (page, context, options) => {
     await fs5.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 };
-var ocrPdfSourcePages = async (source, options) => {
+var ocrPdfSourcePages = async (source, options, existingDocument) => {
   const rendered = await renderPdfSourcePages(source, {
     scale: options.scale,
     max_pages: options.max_pages,
     max_pixels_per_page: options.max_pixels_per_page,
     include_image: false
-  });
+  }, existingDocument);
   const pages = [];
   for (const page of rendered.pages) {
     pages.push(await ocrRenderedPageWithCommandProvider(page, { source: rendered.source, languages: options.languages }, options));
@@ -3709,13 +3734,13 @@ var buildInspectionRecommendation = (source, profile, documentSignals, pageSigna
     next_tools: buildInspectionNextTools(source, profile, readPdfArguments, pageSignals, providerReadiness)
   };
 };
-var inspectPdfSource = async (source, options) => {
+var inspectPdfSource = async (source, options, session) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
+  const { pages: _pages, ...loadArgs } = source;
   let pdfDocument = null;
   try {
     const targetPages = getTargetPages(source.pages, sourceDescription);
-    const { pages: _pages, ...loadArgs } = source;
-    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription, session);
     const totalPages = pdfDocument.numPages;
     const validTargetPages = targetPages?.filter((page) => page <= totalPages);
     const invalidPages = targetPages?.filter((page) => page > totalPages) ?? [];
@@ -3781,10 +3806,7 @@ var inspectPdfSource = async (source, options) => {
       error: `Failed to inspect PDF from ${sourceDescription}.`
     };
   } finally {
-    const loadingTask = pdfDocument?.loadingTask;
-    await destroyLoadingTask(loadingTask, logger11, "PDF document after inspection", {
-      sourceDescription
-    });
+    await releasePdfDocument(loadArgs, pdfDocument, sourceDescription, session);
   }
 };
 var defaultInspectPdfOptions = () => ({
@@ -4407,7 +4429,7 @@ var buildVisualEnrichmentsForSource = async (input) => {
       path: input.source.path,
       url: input.source.url,
       regions: candidates.map((candidate) => candidate.region)
-    }, options);
+    }, options, input.pdfDocument);
     return {
       visualEnrichmentCandidates,
       visualEnrichments: analyzed.analyses.map((analysis) => {
@@ -4550,16 +4572,30 @@ var buildReadOptions = (input) => ({
   trustReportRedaction: input.trust_report_redaction ?? "standard",
   includeAccessibilityReport: input.include_accessibility_report ?? false
 });
+var buildAutoExtractionPages = (totalPages, samplePageCount, detail) => {
+  if (detail === "full") {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+  return selectInspectionSamplePages(totalPages, undefined, samplePageCount);
+};
 var buildAutoReadArgs = (source, inspection, input, detail) => {
   const recommendationArgs = inspection.data?.recommendation.read_pdf_arguments ?? {};
+  const samplePages = input.sample_pages ?? DEFAULT_SAMPLE_PAGES;
+  const totalPages = inspection.data?.num_pages;
+  const extractionPages = source.pages ?? (totalPages !== undefined ? buildAutoExtractionPages(totalPages, samplePages, detail) : undefined);
   return {
     ...recommendationArgs,
     ...buildAutoDetailOptions(detail),
     ...pickExplicitReadOptions(input),
-    sources: [source]
+    sources: [
+      {
+        ...source,
+        ...extractionPages !== undefined ? { pages: extractionPages } : {}
+      }
+    ]
   };
 };
-var buildAutoInspections = async (input) => {
+var buildAutoInspections = async (input, session) => {
   const inspectOptions = {
     ...defaultInspectPdfOptions(),
     ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
@@ -4568,11 +4604,46 @@ var buildAutoInspections = async (input) => {
   const inspections = [];
   for (let i = 0;i < input.sources.length; i += MAX_CONCURRENT_SOURCES2) {
     const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
-    const batchResults = await Promise.all(batch.map((source) => inspectPdfSource(source, inspectOptions)));
+    const batchResults = await Promise.all(batch.map((source) => inspectPdfSource(source, inspectOptions, session)));
     inspections.push(...batchResults);
   }
   return inspections;
 };
+
+// src/pdf/pdfSession.ts
+var logger14 = createLogger("PdfSession");
+var pdfSessionKey = (source) => source.path ?? source.url ?? "";
+
+class PdfSessionScope {
+  entries = new Map;
+  async acquire(source, sourceDescription) {
+    const key = pdfSessionKey(source);
+    const existing = this.entries.get(key);
+    if (existing) {
+      existing.refCount += 1;
+      return existing.pdfDocument;
+    }
+    const pdfDocument = await loadPdfDocumentCore(source, sourceDescription);
+    this.entries.set(key, { pdfDocument, refCount: 1 });
+    return pdfDocument;
+  }
+  release(source) {
+    const key = pdfSessionKey(source);
+    const entry = this.entries.get(key);
+    if (!entry)
+      return;
+    entry.refCount = Math.max(0, entry.refCount - 1);
+  }
+  async destroyAll() {
+    for (const [, entry] of this.entries) {
+      await destroyLoadingTask(entry.pdfDocument.loadingTask, logger14, "PDF session document");
+    }
+    this.entries.clear();
+  }
+  activeSourceCount() {
+    return this.entries.size;
+  }
+}
 
 // src/pdf/accessibilityReport.ts
 var ACCESSIBILITY_REPORT_VERSION = "2026-06-15";
@@ -5794,7 +5865,7 @@ var buildDocumentMap = (input) => {
 };
 
 // src/pdf/tableExtractor.ts
-var logger14 = createLogger("TableExtractor");
+var logger15 = createLogger("TableExtractor");
 var Y_TOLERANCE = 5;
 var COLUMN_GAP_THRESHOLD = 15;
 var MIN_ROWS = 2;
@@ -6372,7 +6443,7 @@ var extractTablesFromPage = async (page, pageNum) => {
     return extractTablesFromTextItems(await extractTextItemsWithPositions(page), pageNum);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger14.warn("Error extracting tables from page", { pageNum, error: message });
+    logger15.warn("Error extracting tables from page", { pageNum, error: message });
     return [];
   }
 };
@@ -6385,7 +6456,7 @@ var extractTables = async (pdfDocument, pagesToProcess) => {
       allTables.push(...pageTables);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger14.warn("Error getting page for table extraction", { pageNum, error: message });
+      logger15.warn("Error getting page for table extraction", { pageNum, error: message });
     }
   }
   return linkTableContinuationCandidates(allTables);
@@ -7622,7 +7693,7 @@ var buildTrustReport = (input) => {
 };
 
 // src/pdf/readCoordinator.ts
-var logger15 = createLogger("ReadCoordinator");
+var logger16 = createLogger("ReadCoordinator");
 var appendOutputWarnings = (output, warnings) => {
   if (warnings.length === 0)
     return;
@@ -7632,14 +7703,14 @@ var selectOcrTextLayerPages = (pagesToProcess, layoutDiagnostics) => {
   const zeroSelectableTextPages = layoutDiagnostics.filter((layout) => layout.text_item_count === 0).map((layout) => layout.page);
   return zeroSelectableTextPages.length > 0 ? zeroSelectableTextPages : pagesToProcess;
 };
-var processSingleSource = async (source, options) => {
+var processSingleSource = async (source, options, session) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
+  const { pages: _pages, ...loadArgs } = source;
   let individualResult = { source: sourceDescription, success: false };
   let pdfDocument = null;
   try {
     const targetPages = getTargetPages(source.pages, sourceDescription);
-    const { pages: _pages, ...loadArgs } = source;
-    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription, session);
     const totalPages = pdfDocument.numPages;
     const metadataOutput = await extractMetadataAndPageCount(pdfDocument, options.includeMetadata, options.includePageCount);
     const output = { ...metadataOutput };
@@ -7730,14 +7801,14 @@ var processSingleSource = async (source, options) => {
         const ocrPages2 = selectOcrTextLayerPages(pagesToProcess, layoutDiagnostics);
         if (ocrPages2.length > 0) {
           try {
-            const ocr = await ocrPdfSourcePages({ ...source, pages: ocrPages2 }, defaultOcrPagesOptions());
+            const ocr = await ocrPdfSourcePages({ ...source, pages: ocrPages2 }, defaultOcrPagesOptions(), pdfDocument);
             ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
             output.ocr_text_layer = ocrTextLayer;
             appendOutputWarnings(output, ocr.warnings);
           } catch (error) {
             const message = error instanceof PdfError ? error.message : "OCR provider failed before returning a normalized text layer.";
             if (!(error instanceof PdfError)) {
-              logger15.warn("Unexpected error building OCR text layer", {
+              logger16.warn("Unexpected error building OCR text layer", {
                 sourceDescription,
                 error: error instanceof Error ? error.message : String(error)
               });
@@ -7799,7 +7870,8 @@ var processSingleSource = async (source, options) => {
           sourceDescription,
           elements: visualElements,
           pageGeometry,
-          maxVisualEnrichments: options.maxVisualEnrichments
+          maxVisualEnrichments: options.maxVisualEnrichments,
+          pdfDocument
         });
         visualEnrichmentCandidates = enriched.visualEnrichmentCandidates;
         if (visualEnrichmentCandidates.length > 0) {
@@ -7899,179 +7971,184 @@ var processSingleSource = async (source, options) => {
     }
     individualResult = { ...individualResult, data: output, success: true };
   } catch (error) {
-    const errorMessage = safeErrorMessage(error, `Failed to process PDF from ${sourceDescription}.`, logger15, { sourceDescription });
+    const errorMessage = safeErrorMessage(error, `Failed to process PDF from ${sourceDescription}.`, logger16, { sourceDescription });
     individualResult.error = errorMessage;
     individualResult.success = false;
     individualResult.data = undefined;
   } finally {
-    await destroyLoadingTask(pdfDocument?.loadingTask, logger15, "PDF document", {
-      sourceDescription
-    });
+    await releasePdfDocument(loadArgs, pdfDocument, sourceDescription, session);
   }
   return individualResult;
 };
 
 // src/handlers/readPdf.ts
 var readPdf = tool().description("Primary V3 PDF reader. With only sources, it auto-inspects and returns a routed Agent Document Twin; use auto_detail or explicit include_* options for precise control.").input(readPdfArgsSchema).handler(async ({ input }) => {
+  const session = new PdfSessionScope;
   const results = [];
   const autoRead = shouldUseAutoRead(input);
   const autoDetail = input.auto_detail ?? DEFAULT_AUTO_DETAIL;
   const autoReadSummaries = [];
   let options = buildReadOptions(input);
-  if (autoRead) {
-    const inspections = await buildAutoInspections(input);
-    for (let i = 0;i < inspections.length; i += MAX_CONCURRENT_SOURCES2) {
-      const inspectionBatch = inspections.slice(i, i + MAX_CONCURRENT_SOURCES2);
-      const sourceBatch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
-      const batchResults = await Promise.all(inspectionBatch.map((inspection, batchIndex) => {
-        const source = sourceBatch[batchIndex];
-        if (!source) {
-          return Promise.resolve({
-            source: inspection.source,
-            success: false,
-            error: "Auto read failed because the source index was missing."
-          });
-        }
-        if (!inspection.success || !inspection.data) {
+  try {
+    if (autoRead) {
+      const inspections = await buildAutoInspections(input, session);
+      for (let i = 0;i < inspections.length; i += MAX_CONCURRENT_SOURCES2) {
+        const inspectionBatch = inspections.slice(i, i + MAX_CONCURRENT_SOURCES2);
+        const sourceBatch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
+        const batchResults = await Promise.all(inspectionBatch.map((inspection, batchIndex) => {
+          const source = sourceBatch[batchIndex];
+          if (!source) {
+            return Promise.resolve({
+              source: inspection.source,
+              success: false,
+              error: "Auto read failed because the source index was missing."
+            });
+          }
+          if (!inspection.success || !inspection.data) {
+            autoReadSummaries.push({
+              source: inspection.source,
+              success: false,
+              ...inspection.error !== undefined ? { inspection_error: inspection.error } : {}
+            });
+            return Promise.resolve({
+              source: inspection.source,
+              success: false,
+              error: `Auto inspection failed: ${inspection.error ?? "unknown error"}`
+            });
+          }
+          const autoReadArgs = buildAutoReadArgs(source, inspection, input, autoDetail);
+          const autoOptions = buildReadOptions(autoReadArgs);
           autoReadSummaries.push({
             source: inspection.source,
-            success: false,
-            ...inspection.error !== undefined ? { inspection_error: inspection.error } : {}
+            success: true,
+            profile: inspection.data.profile,
+            workflow: inspection.data.recommendation.workflow,
+            reason: inspection.data.recommendation.reason,
+            needs_ocr: inspection.data.recommendation.needs_ocr,
+            provider_status: inspection.data.provider_status,
+            read_pdf_arguments: autoReadArgs
           });
-          return Promise.resolve({
-            source: inspection.source,
-            success: false,
-            error: `Auto inspection failed: ${inspection.error ?? "unknown error"}`
-          });
-        }
-        const autoReadArgs = buildAutoReadArgs(source, inspection, input, autoDetail);
-        const autoOptions = buildReadOptions(autoReadArgs);
-        autoReadSummaries.push({
-          source: inspection.source,
-          success: true,
-          profile: inspection.data.profile,
-          workflow: inspection.data.recommendation.workflow,
-          reason: inspection.data.recommendation.reason,
-          needs_ocr: inspection.data.recommendation.needs_ocr,
-          provider_status: inspection.data.provider_status,
-          read_pdf_arguments: autoReadArgs
-        });
-        return processSingleSource(source, autoOptions);
-      }));
-      results.push(...batchResults);
-    }
-  } else {
-    for (let i = 0;i < input.sources.length; i += MAX_CONCURRENT_SOURCES2) {
-      const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
-      const batchResults = await Promise.all(batch.map((source) => processSingleSource(source, options)));
-      results.push(...batchResults);
-    }
-  }
-  const allFailed = results.every((r) => !r.success);
-  if (allFailed) {
-    const errorMessages = results.map((r) => r.error).join("; ");
-    return toolError(`All PDF sources failed to process: ${errorMessages}`);
-  }
-  if (autoRead) {
-    const firstSuccessfulAutoArgs = autoReadSummaries.find((summary) => summary.success && summary.read_pdf_arguments)?.read_pdf_arguments;
-    if (firstSuccessfulAutoArgs) {
-      options = buildReadOptions(firstSuccessfulAutoArgs);
-    }
-  }
-  const content = [];
-  const resultsForJson = results.map((result) => {
-    if (result.data) {
-      const { images, page_contents, tables, ...dataWithoutBinaryContent } = result.data;
-      const processedData = { ...dataWithoutBinaryContent };
-      if (images) {
-        processedData["image_info"] = images.map((img) => ({
-          page: img.page,
-          index: img.index,
-          width: img.width,
-          height: img.height,
-          format: img.format
+          const autoSource = autoReadArgs.sources[0] ?? source;
+          return processSingleSource(autoSource, autoOptions, session);
         }));
+        results.push(...batchResults);
       }
-      if (options.includeTables && tables && tables.length > 0) {
-        processedData["table_info"] = tables.map((tbl) => ({
-          page: tbl.page,
-          tableIndex: tbl.tableIndex,
-          rowCount: tbl.rowCount,
-          colCount: tbl.colCount,
-          cellCount: tbl.cells?.length ?? tbl.rowCount * tbl.colCount,
-          bounding_box: tbl.bounding_box,
-          confidence: tbl.confidence,
-          quality: tbl.quality,
-          continuation: tbl.continuation,
-          provenance: tbl.provenance
-        }));
+    } else {
+      for (let i = 0;i < input.sources.length; i += MAX_CONCURRENT_SOURCES2) {
+        const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES2);
+        const batchResults = await Promise.all(batch.map((source) => processSingleSource(source, options, session)));
+        results.push(...batchResults);
       }
-      return { ...result, data: processedData };
     }
-    return result;
-  });
-  content.push(text(JSON.stringify({
-    ...autoRead ? {
-      auto_read: {
-        enabled: true,
-        detail: autoDetail,
-        results: autoReadSummaries
+    const allFailed = results.every((r) => !r.success);
+    if (allFailed) {
+      const errorMessages = results.map((r) => r.error).join("; ");
+      return toolError(`All PDF sources failed to process: ${errorMessages}`);
+    }
+    if (autoRead) {
+      const firstSuccessfulAutoArgs = autoReadSummaries.find((summary) => summary.success && summary.read_pdf_arguments)?.read_pdf_arguments;
+      if (firstSuccessfulAutoArgs) {
+        options = buildReadOptions(firstSuccessfulAutoArgs);
       }
-    } : {},
-    results: resultsForJson
-  }, null, 2)));
-  for (const result of results) {
-    if (!result.success || !result.data?.page_contents)
-      continue;
-    for (const pageContent of result.data.page_contents) {
-      const pageTextParts = [];
-      const pageImages2 = [];
-      for (const item of pageContent.items) {
-        if (item.type === "text" && item.textContent) {
-          pageTextParts.push(item.textContent);
-        } else if (item.type === "image" && item.imageData) {
-          pageImages2.push(item.imageData);
+    }
+    const content = [];
+    const resultsForJson = results.map((result) => {
+      if (result.data) {
+        const { images, page_contents, tables, ...dataWithoutBinaryContent } = result.data;
+        const processedData = { ...dataWithoutBinaryContent };
+        if (images) {
+          processedData["image_info"] = images.map((img) => ({
+            page: img.page,
+            index: img.index,
+            width: img.width,
+            height: img.height,
+            format: img.format
+          }));
         }
+        if (options.includeTables && tables && tables.length > 0) {
+          processedData["table_info"] = tables.map((tbl) => ({
+            page: tbl.page,
+            tableIndex: tbl.tableIndex,
+            rowCount: tbl.rowCount,
+            colCount: tbl.colCount,
+            cellCount: tbl.cells?.length ?? tbl.rowCount * tbl.colCount,
+            bounding_box: tbl.bounding_box,
+            confidence: tbl.confidence,
+            quality: tbl.quality,
+            continuation: tbl.continuation,
+            provenance: tbl.provenance
+          }));
+        }
+        return { ...result, data: processedData };
       }
-      if (pageTextParts.length > 0) {
-        content.push(text(`[Page ${pageContent.page}]
+      return result;
+    });
+    content.push(text(JSON.stringify({
+      ...autoRead ? {
+        auto_read: {
+          enabled: true,
+          detail: autoDetail,
+          results: autoReadSummaries
+        }
+      } : {},
+      results: resultsForJson
+    }, null, 2)));
+    const emitPerPageText = !options.includeMarkdown && !options.includeChunks;
+    for (const result of results) {
+      if (!result.success || !result.data?.page_contents)
+        continue;
+      for (const pageContent of result.data.page_contents) {
+        const pageTextParts = [];
+        const pageImages2 = [];
+        for (const item of pageContent.items) {
+          if (item.type === "text" && item.textContent) {
+            pageTextParts.push(item.textContent);
+          } else if (item.type === "image" && item.imageData) {
+            pageImages2.push(item.imageData);
+          }
+        }
+        if (emitPerPageText && pageTextParts.length > 0) {
+          content.push(text(`[Page ${pageContent.page}]
 ${pageTextParts.join(`
 `)}`));
-      }
-      if (options.includeImages) {
-        for (const img of pageImages2) {
-          content.push(image(img.data, "image/png"));
+        }
+        if (options.includeImages) {
+          for (const img of pageImages2) {
+            content.push(image(img.data, "image/png"));
+          }
         }
       }
     }
-  }
-  for (const result of results) {
-    if (!result.success || !result.data?.ocr_text_layer)
-      continue;
-    for (const page of result.data.ocr_text_layer.pages) {
-      if (page.text.trim().length > 0) {
-        content.push(text(`[Page ${String(page.page)} OCR]
-${page.text}`));
-      }
-    }
-  }
-  if (options.includeTables) {
-    const allTables = [];
     for (const result of results) {
-      if (result.success && result.data?.tables) {
-        allTables.push(...result.data.tables);
+      if (!result.success || !result.data?.ocr_text_layer)
+        continue;
+      for (const page of result.data.ocr_text_layer.pages) {
+        if (page.text.trim().length > 0) {
+          content.push(text(`[Page ${String(page.page)} OCR]
+${page.text}`));
+        }
       }
     }
-    if (allTables.length > 0) {
-      const markdownTables = tablesToMarkdown(allTables);
-      content.push(text(markdownTables));
+    if (options.includeTables) {
+      const allTables = [];
+      for (const result of results) {
+        if (result.success && result.data?.tables) {
+          allTables.push(...result.data.tables);
+        }
+      }
+      if (allTables.length > 0) {
+        const markdownTables = tablesToMarkdown(allTables);
+        content.push(text(markdownTables));
+      }
     }
+    return content;
+  } finally {
+    await session.destroyAll();
   }
-  return content;
 });
 
 // src/pdf/search.ts
-var logger16 = createLogger("Search");
+var logger17 = createLogger("Search");
 var DEFAULT_SEARCH_MAX_PAGES = 100;
 var DEFAULT_SEARCH_MAX_MATCHES = 50;
 var DEFAULT_SEARCH_CONTEXT_CHARS = 120;
@@ -8281,7 +8358,7 @@ var searchPdfSource = async (source, options) => {
     };
   } finally {
     const loadingTask = pdfDocument?.loadingTask;
-    await destroyLoadingTask(loadingTask, logger16, "searched PDF document", { sourceDescription });
+    await destroyLoadingTask(loadingTask, logger17, "searched PDF document", { sourceDescription });
   }
 };
 
@@ -8298,7 +8375,7 @@ var searchPdfArgsSchema = object({
 });
 
 // src/handlers/searchPdf.ts
-var logger17 = createLogger("SearchPdf");
+var logger18 = createLogger("SearchPdf");
 var buildOptions4 = (input) => ({
   ...defaultSearchPdfOptions(input.query),
   ...input.case_sensitive !== undefined ? { case_sensitive: input.case_sensitive } : {},
@@ -8313,7 +8390,7 @@ var processSource4 = async (source, options) => {
   try {
     return await searchPdfSource(source, options);
   } catch (error) {
-    const errorMessage = safeErrorMessage(error, `Failed to search PDF source ${sourceDescription}.`, logger17, { sourceDescription });
+    const errorMessage = safeErrorMessage(error, `Failed to search PDF source ${sourceDescription}.`, logger18, { sourceDescription });
     return {
       source: sourceDescription,
       success: false,
