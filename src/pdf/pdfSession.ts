@@ -24,12 +24,17 @@ type SessionEntry = {
 export class PdfSessionScope {
   private readonly entries = new Map<string, SessionEntry>();
   private readonly pending = new Map<string, Promise<pdfjsLib.PDFDocumentProxy>>();
+  private destroyed = false;
 
   async acquire(
     source: { path?: string | undefined; url?: string | undefined },
     sourceDescription: string
   ): Promise<pdfjsLib.PDFDocumentProxy> {
     const key = pdfSessionKey(source);
+    if (this.destroyed) {
+      return loadPdfDocumentCore(source, sourceDescription);
+    }
+
     const existing = this.entries.get(key);
     if (existing) {
       existing.refCount += 1;
@@ -40,6 +45,10 @@ export class PdfSessionScope {
     if (!pending) {
       pending = loadPdfDocumentCore(source, sourceDescription)
         .then(async (pdfDocument) => {
+          if (this.destroyed) {
+            await destroyLoadingTask(pdfDocument.loadingTask, logger, 'PDF session aborted load');
+            return pdfDocument;
+          }
           const raced = this.entries.get(key);
           if (raced) {
             await destroyLoadingTask(pdfDocument.loadingTask, logger, 'PDF session duplicate');
@@ -54,10 +63,16 @@ export class PdfSessionScope {
       this.pending.set(key, pending);
     }
 
-    await pending;
-    const entry = this.entries.get(key);
+    const pdfDocument = await pending;
+    if (this.destroyed) {
+      await destroyLoadingTask(pdfDocument.loadingTask, logger, 'PDF session late acquire');
+      return loadPdfDocumentCore(source, sourceDescription);
+    }
+
+    let entry = this.entries.get(key);
     if (!entry) {
-      throw new Error(`PDF session entry missing after acquire for ${key}`);
+      entry = { pdfDocument, refCount: 0 };
+      this.entries.set(key, entry);
     }
     entry.refCount += 1;
     return entry.pdfDocument;
@@ -74,6 +89,9 @@ export class PdfSessionScope {
   }
 
   async destroyAll(): Promise<void> {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    await Promise.allSettled([...this.pending.values()]);
     this.pending.clear();
     const entries = [...this.entries.values()];
     this.entries.clear();

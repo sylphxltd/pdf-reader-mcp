@@ -697,7 +697,7 @@ describe('handleReadPdfFunc Integration Tests', () => {
     }
   });
 
-  it('passes the session pdfDocument into OCR without reloading', async () => {
+  it('passes the session pdfDocument into OCR on manual read without reloading', async () => {
     const getTextContent = vi.fn().mockResolvedValue({ items: [] });
     mockGetPage.mockResolvedValue({
       getTextContent,
@@ -743,6 +743,63 @@ describe('handleReadPdfFunc Integration Tests', () => {
     expect(mockGetDocument).toHaveBeenCalledTimes(1);
     expect(ocrPdfDocument).toBeDefined();
     expect(ocrPdfDocument).toHaveProperty('numPages', 3);
+  });
+
+  it('passes the session pdfDocument into OCR through auto-read inspect and extract', async () => {
+    const loaderModule = await import('../../src/pdf/loader.js');
+    const loadCoreSpy = vi.spyOn(loaderModule, 'loadPdfDocumentCore');
+    const getTextContent = vi.fn().mockResolvedValue({ items: [] });
+    mockGetPage.mockResolvedValue({
+      getTextContent,
+      getViewport: vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 }),
+      view: [0, 0, 612, 792],
+      rotate: 0,
+      userUnit: 1,
+      getAnnotations: vi.fn(),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    });
+
+    let ocrPdfDocument: unknown;
+    mockOcrPdfSourcePages.mockImplementation(async (_source, _options, pdfDocument) => {
+      ocrPdfDocument = pdfDocument;
+      return {
+        source: 'scanned.pdf',
+        numPages: 3,
+        pages: [
+          {
+            page: 1,
+            text: 'OCR recovered page text',
+            confidence: 0.91,
+            words: [],
+            provider: 'command',
+            source_render_evidence_id: 'page-1-render-scale-2',
+            provenance: { engine: 'external-command', source: 'ocr-provider' },
+          },
+        ],
+        warnings: [],
+      };
+    });
+
+    try {
+      const result = await handler({
+        sources: [{ path: 'scanned.pdf' }],
+        auto: true,
+        include_ocr_text_layer: true,
+      });
+      const parsed = JSON.parse(result.content[0]?.text ?? '{}') as {
+        auto_read?: { enabled: boolean };
+      };
+
+      expect(parsed.auto_read?.enabled).toBe(true);
+      expect(loadCoreSpy).toHaveBeenCalledTimes(1);
+      expect(mockGetDocument).toHaveBeenCalledTimes(1);
+      expect(mockOcrPdfSourcePages).toHaveBeenCalled();
+      expect(ocrPdfDocument).toBeDefined();
+      expect(ocrPdfDocument).toHaveProperty('numPages', 3);
+    } finally {
+      loadCoreSpy.mockRestore();
+    }
   });
 
   it('omits redundant per-page text parts when markdown and chunks are enabled by default', async () => {
