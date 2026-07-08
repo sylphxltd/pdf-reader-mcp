@@ -15,9 +15,17 @@ describe('README discovery surfaces', () => {
     expect(readme).toContain('Not listed yet');
     expect(readme).toContain('glama.ai/mcp/servers/SylphxAI/pdf-reader-mcp');
     expect(readme).toContain('registry.modelcontextprotocol.io');
+    expect(readme).toContain('io.github.SylphxAI/pdf-reader-mcp');
+    expect(readme).not.toContain('Publishing on next release');
     expect(readme).toContain('chatmcp/mcpso/issues/3068');
     expect(readme).toContain('docs/articles/stop-pdf-hallucinations.md');
     expect(readme).toContain('docs/public/demo-workflow.svg');
+    expect(readme).toContain('Listed — `io.github.SylphxAI/pdf-reader-mcp`');
+    expect(readme).not.toContain('### Reader family');
+    expect(readme).not.toContain('0004-reader-portfolio');
+    expect(readme).not.toContain('image-reader-mcp');
+    expect(readme).not.toContain('video-reader-mcp');
+    expect(readme).not.toContain('smart-reader-mcp');
   });
 
   it('ships official MCP Registry metadata aligned with package.json', () => {
