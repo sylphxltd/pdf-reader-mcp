@@ -355,10 +355,13 @@ it in your MCP client setup, team wiki, or agent stack README.
 
 | Channel | Status |
 | --- | --- |
+| [Glama MCP directory](https://glama.ai/mcp/servers/SylphxAI/pdf-reader-mcp) | Listed — [claim server](https://glama.ai/mcp/servers/SylphxAI/pdf-reader-mcp/admin) for full discoverability |
+| [Official MCP Registry](https://registry.modelcontextprotocol.io/) | Publishing on next release (`io.github.SylphxAI/pdf-reader-mcp`) |
 | [TensorBlock MCP Index PR #1113](https://github.com/TensorBlock/awesome-mcp-servers/pull/1113) | Open — multimedia/document processing listing |
 | [MCP servers community issue #4500](https://github.com/modelcontextprotocol/servers/issues/4500) | Open — community server highlight |
-| [appcypher/awesome-mcp-servers](https://github.com/appcypher/awesome-mcp-servers/compare/main...SylphxAI:add-pdf-reader-mcp) | Branch ready — upstream PR pending |
-| [mcpservers.org submit](https://mcpservers.org/submit) | Not listed yet — free submission available |
+| [mcp.so listing issue #3068](https://github.com/chatmcp/mcpso/issues/3068) | Open — directory submission request |
+| [appcypher/awesome-mcp-servers compare](https://github.com/appcypher/awesome-mcp-servers/compare/main...SylphxAI:add-pdf-reader-mcp) | Branch ready — upstream PRs disabled |
+| [mcpservers.org submit](https://mcpservers.org/submit) | Not listed yet — free web-form submission |
 
 Know another MCP directory? [Open an issue](https://github.com/SylphxAI/pdf-reader-mcp/issues/new) with the link.
 
