@@ -211,6 +211,9 @@ export const buildSotaReleaseGateReport = async (
   const documentTwinPerformance = performanceResults.find(
     (result) => result.name === 'v3_agent_document_twin'
   );
+  const defaultAutoReadPerformance = performanceResults.find(
+    (result) => result.name === 'default_auto_read_balanced'
+  );
   addCheck(
     checks,
     'performance:document-twin-present',
@@ -223,6 +226,19 @@ export const buildSotaReleaseGateReport = async (
     (getNumber(documentTwinPerformance, 'average_ms') ?? 0) > 0,
     'v3 Agent Document Twin scenario has a positive average latency',
     { average_ms: documentTwinPerformance?.average_ms }
+  );
+  addCheck(
+    checks,
+    'performance:default-auto-read-present',
+    defaultAutoReadPerformance !== undefined,
+    'performance artifact includes the default balanced auto-read scenario'
+  );
+  addCheck(
+    checks,
+    'performance:default-auto-read-timed',
+    (getNumber(defaultAutoReadPerformance, 'average_ms') ?? 0) > 0,
+    'default balanced auto-read scenario has a positive average latency',
+    { average_ms: defaultAutoReadPerformance?.average_ms }
   );
 
   const qualityPassed = getNumber(artifacts.quality, 'passed');

@@ -106,8 +106,15 @@ const pickExplicitReadOptions = (input: ReadPdfArgs): Partial<ReadPdfArgs> => {
 export const hasExplicitReadOptions = (input: ReadPdfArgs): boolean =>
   explicitReadOptionKeys.some((key) => input[key] !== undefined);
 
-export const shouldUseAutoRead = (input: ReadPdfArgs): boolean =>
-  input.auto ?? !hasExplicitReadOptions(input);
+/** True when any source already pins explicit page selection. */
+export const hasExplicitSourcePageSelection = (input: ReadPdfArgs): boolean =>
+  input.sources.some((source) => source.pages !== undefined);
+
+export const shouldUseAutoRead = (input: ReadPdfArgs): boolean => {
+  if (input.auto === false) return false;
+  if (input.auto === true) return true;
+  return !hasExplicitReadOptions(input) && !hasExplicitSourcePageSelection(input);
+};
 
 /** Preset include_* options for each auto_detail level. */
 export const buildAutoDetailOptions = (detail: ReadPdfAutoDetail): Partial<ReadPdfArgs> => {

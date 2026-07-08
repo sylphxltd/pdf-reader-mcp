@@ -4502,7 +4502,14 @@ var pickExplicitReadOptions = (input) => {
   return options;
 };
 var hasExplicitReadOptions = (input) => explicitReadOptionKeys.some((key) => input[key] !== undefined);
-var shouldUseAutoRead = (input) => input.auto ?? !hasExplicitReadOptions(input);
+var hasExplicitSourcePageSelection = (input) => input.sources.some((source) => source.pages !== undefined);
+var shouldUseAutoRead = (input) => {
+  if (input.auto === false)
+    return false;
+  if (input.auto === true)
+    return true;
+  return !hasExplicitReadOptions(input) && !hasExplicitSourcePageSelection(input);
+};
 var buildAutoDetailOptions = (detail) => {
   const fast = {
     include_metadata: true,
@@ -4616,6 +4623,7 @@ var pdfSessionKey = (source) => source.path ?? source.url ?? "";
 
 class PdfSessionScope {
   entries = new Map;
+  pending = new Map;
   async acquire(source, sourceDescription) {
     const key = pdfSessionKey(source);
     const existing = this.entries.get(key);
@@ -4623,9 +4631,28 @@ class PdfSessionScope {
       existing.refCount += 1;
       return existing.pdfDocument;
     }
-    const pdfDocument = await loadPdfDocumentCore(source, sourceDescription);
-    this.entries.set(key, { pdfDocument, refCount: 1 });
-    return pdfDocument;
+    let pending = this.pending.get(key);
+    if (!pending) {
+      pending = loadPdfDocumentCore(source, sourceDescription).then(async (pdfDocument) => {
+        const raced = this.entries.get(key);
+        if (raced) {
+          await destroyLoadingTask(pdfDocument.loadingTask, logger14, "PDF session duplicate");
+          return raced.pdfDocument;
+        }
+        this.entries.set(key, { pdfDocument, refCount: 0 });
+        return pdfDocument;
+      }).finally(() => {
+        this.pending.delete(key);
+      });
+      this.pending.set(key, pending);
+    }
+    await pending;
+    const entry = this.entries.get(key);
+    if (!entry) {
+      throw new Error(`PDF session entry missing after acquire for ${key}`);
+    }
+    entry.refCount += 1;
+    return entry.pdfDocument;
   }
   release(source) {
     const key = pdfSessionKey(source);
@@ -4635,10 +4662,10 @@ class PdfSessionScope {
     entry.refCount = Math.max(0, entry.refCount - 1);
   }
   async destroyAll() {
-    for (const [, entry] of this.entries) {
-      await destroyLoadingTask(entry.pdfDocument.loadingTask, logger14, "PDF session document");
-    }
+    this.pending.clear();
+    const entries = [...this.entries.values()];
     this.entries.clear();
+    await Promise.all(entries.map((entry) => destroyLoadingTask(entry.pdfDocument.loadingTask, logger14, "PDF session document")));
   }
   activeSourceCount() {
     return this.entries.size;

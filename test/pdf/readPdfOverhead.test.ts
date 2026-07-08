@@ -86,6 +86,36 @@ describe('PdfSessionScope', () => {
     loadCoreSpy?.mockRestore();
   });
 
+  it('deduplicates concurrent acquire for the same source key', async () => {
+    const session = new PdfSessionScope();
+    const destroyLoadingTask = vi.fn().mockResolvedValue(undefined);
+    const fakeDoc = {
+      numPages: 1,
+      loadingTask: { destroy: destroyLoadingTask },
+    };
+
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+
+    loadCoreSpy = vi.spyOn(loader, 'loadPdfDocumentCore').mockImplementation(async () => {
+      await gate;
+      return fakeDoc as unknown as Awaited<ReturnType<typeof loader.loadPdfDocumentCore>>;
+    });
+
+    const first = session.acquire({ path: SAMPLE_PDF }, SAMPLE_PDF);
+    const second = session.acquire({ path: SAMPLE_PDF }, SAMPLE_PDF);
+    releaseGate();
+    const [docA, docB] = await Promise.all([first, second]);
+
+    expect(docA).toBe(docB);
+    expect(loadCoreSpy).toHaveBeenCalledTimes(1);
+    expect(session.activeSourceCount()).toBe(1);
+
+    await session.destroyAll();
+  });
+
   it('tracks a single active source across acquire/release', async () => {
     const session = new PdfSessionScope();
     const destroyLoadingTask = vi.fn().mockResolvedValue(undefined);

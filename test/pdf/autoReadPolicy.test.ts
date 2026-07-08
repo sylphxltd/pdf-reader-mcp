@@ -4,6 +4,7 @@ import {
   buildReadOptions,
   DEFAULT_AUTO_DETAIL,
   hasExplicitReadOptions,
+  hasExplicitSourcePageSelection,
   MAX_CONCURRENT_SOURCES,
   shouldUseAutoRead,
 } from '../../src/pdf/autoReadPolicy.js';
@@ -35,9 +36,27 @@ describe('autoReadPolicy', () => {
     });
   });
 
+  describe('hasExplicitSourcePageSelection', () => {
+    test('returns false when no source pages are set', () => {
+      expect(hasExplicitSourcePageSelection(baseInput())).toBe(false);
+    });
+
+    test('returns true when any source pins pages', () => {
+      expect(
+        hasExplicitSourcePageSelection(baseInput({ sources: [{ path: '/test.pdf', pages: [1] }] }))
+      ).toBe(true);
+    });
+  });
+
   describe('shouldUseAutoRead', () => {
     test('defaults to true when no explicit options and no auto flag', () => {
       expect(shouldUseAutoRead(baseInput())).toBe(true);
+    });
+
+    test('returns false when only source pages are specified', () => {
+      expect(
+        shouldUseAutoRead(baseInput({ sources: [{ path: '/test.pdf', pages: [1, 2] }] }))
+      ).toBe(false);
     });
 
     test('returns false when auto is explicitly false', () => {
