@@ -161,14 +161,12 @@ describe('loader', () => {
     });
 
     it('should re-validate redirect targets and reject private-IP hops (issue #368)', async () => {
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(null, {
-            status: 302,
-            headers: { location: 'http://169.254.169.254/latest/meta-data/' },
-          })
-        );
+      const fetchMock = vi.fn().mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+        })
+      );
       globalThis.fetch = fetchMock as typeof globalThis.fetch;
 
       await expect(
