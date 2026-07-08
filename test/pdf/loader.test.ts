@@ -308,19 +308,24 @@ describe('loader', () => {
           }) as pdfjsLib.PDFDocumentLoadingTask
       );
 
-      await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.toThrow(PdfError);
-      await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.toThrow(
-        'Failed to load PDF document from bad.pdf.'
-      );
-      // The internal path must NOT make it into the surfaced error.
-      await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.not.toThrow(
-        /private\/internal/
-      );
+      try {
+        await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.toThrow(PdfError);
+        await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.toThrow(
+          'Failed to load PDF document from bad.pdf.'
+        );
+        // The internal path must NOT make it into the surfaced error.
+        await expect(loadPdfDocument({ path: 'bad.pdf' }, 'bad.pdf')).rejects.not.toThrow(
+          /private\/internal/
+        );
 
-      // Logger still records the raw details for operators.
-      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('PDF.js loading error'));
-
-      consoleErrorSpy.mockRestore();
+        // Logger still records the raw details for operators.
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('PDF.js loading error')
+        );
+      } finally {
+        pdfjsLib.getDocument.mockReset();
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it('should handle non-Error PDF.js loading exceptions', async () => {
@@ -338,16 +343,19 @@ describe('loader', () => {
         () => ({ promise: Promise.reject('Unknown error') }) as pdfjsLib.PDFDocumentLoadingTask
       );
 
-      await expect(
-        loadPdfDocument({ url: 'https://example.com/bad.pdf' }, 'https://example.com/bad.pdf')
-      ).rejects.toThrow('Failed to load PDF document from https://example.com/bad.pdf');
-
-      consoleErrorSpy.mockRestore();
+      try {
+        await expect(
+          loadPdfDocument({ url: 'https://example.com/bad.pdf' }, 'https://example.com/bad.pdf')
+        ).rejects.toThrow('Failed to load PDF document from https://example.com/bad.pdf');
+      } finally {
+        pdfjsLib.getDocument.mockReset();
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it('should propagate PdfError from resolvePath', async () => {
       const pdfError = new PdfError(ErrorCode.InvalidRequest, 'Path validation failed');
-      pathUtils.resolvePath.mockImplementation(() => {
+      pathUtils.resolvePath.mockImplementationOnce(() => {
         throw pdfError;
       });
 

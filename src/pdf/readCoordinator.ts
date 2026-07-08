@@ -31,7 +31,7 @@ import type {
 import { safeErrorMessage } from '../utils/errorHandling.js';
 import { PdfError } from '../utils/errors.js';
 import { createLogger } from '../utils/logger.js';
-import { destroyLoadingTask } from '../utils/pdfjs.js';
+
 import { buildAccessibilityReport } from './accessibilityReport.js';
 import type { ReadPdfProcessingOptions } from './autoReadPolicy.js';
 import { buildDocumentAst } from './documentAst.js';
@@ -53,9 +53,10 @@ import {
   extractPageGeometry,
   extractStructureTrees,
 } from './extractor.js';
-import { loadPdfDocument } from './loader.js';
+import { loadPdfDocument, releasePdfDocument } from './loader.js';
 import { buildOcrTextLayer, defaultOcrPagesOptions, ocrPdfSourcePages } from './ocr.js';
 import { determinePagesToProcess, getTargetPages } from './parser.js';
+import type { PdfSessionScope } from './pdfSession.js';
 import {
   extractTables,
   extractTablesFromOcrTextLayer,
@@ -89,9 +90,11 @@ const selectOcrTextLayerPages = (
  */
 export const processSingleSource = async (
   source: PdfSource,
-  options: ReadPdfProcessingOptions
+  options: ReadPdfProcessingOptions,
+  session?: PdfSessionScope
 ): Promise<PdfSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
+  const { pages: _pages, ...loadArgs } = source;
   let individualResult: PdfSourceResult = { source: sourceDescription, success: false };
   let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
 
@@ -100,8 +103,7 @@ export const processSingleSource = async (
     const targetPages = getTargetPages(source.pages, sourceDescription);
 
     // Load PDF document
-    const { pages: _pages, ...loadArgs } = source;
-    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription);
+    pdfDocument = await loadPdfDocument(loadArgs, sourceDescription, session);
     const totalPages = pdfDocument.numPages;
 
     // Extract metadata and page count
@@ -280,7 +282,8 @@ export const processSingleSource = async (
           try {
             const ocr = await ocrPdfSourcePages(
               { ...source, pages: ocrPages },
-              defaultOcrPagesOptions()
+              defaultOcrPagesOptions(),
+              pdfDocument
             );
             ocrTextLayer = buildOcrTextLayer(ocr.pages, ocr.warnings);
             output.ocr_text_layer = ocrTextLayer;
@@ -384,6 +387,7 @@ export const processSingleSource = async (
           elements: visualElements,
           pageGeometry,
           maxVisualEnrichments: options.maxVisualEnrichments,
+          pdfDocument,
         });
         visualEnrichmentCandidates = enriched.visualEnrichmentCandidates;
         if (visualEnrichmentCandidates.length > 0) {
@@ -516,13 +520,7 @@ export const processSingleSource = async (
     individualResult.success = false;
     individualResult.data = undefined;
   } finally {
-    // Clean up PDF document resources. pdfjs v6 moved teardown off the
-    // document proxy: PDFDocumentProxy.destroy() is gone, so we destroy the
-    // owning loadingTask (aborts network + terminates the worker). Guarded so
-    // a future API shift can't throw inside finally.
-    await destroyLoadingTask(pdfDocument?.loadingTask, logger, 'PDF document', {
-      sourceDescription,
-    });
+    await releasePdfDocument(loadArgs, pdfDocument, sourceDescription, session);
   }
 
   return individualResult;

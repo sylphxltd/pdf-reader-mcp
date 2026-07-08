@@ -12,7 +12,13 @@ import type {
   PdfSource,
   PdfTrustRedactionPolicy,
 } from '../types/pdf.js';
-import { defaultInspectPdfOptions, inspectPdfSource } from './inspector.js';
+import {
+  DEFAULT_SAMPLE_PAGES,
+  defaultInspectPdfOptions,
+  inspectPdfSource,
+  selectInspectionSamplePages,
+} from './inspector.js';
+import type { PdfSessionScope } from './pdfSession.js';
 import { DEFAULT_VISUAL_ENRICHMENT_MAX_REGIONS } from './visualEnrichment.js';
 
 /** Maximum number of sources to process concurrently. */
@@ -177,6 +183,21 @@ export const buildReadOptions = (input: ReadPdfArgs): ReadPdfProcessingOptions =
   includeAccessibilityReport: input.include_accessibility_report ?? false,
 });
 
+/**
+ * Pages to extract during auto-read when the caller did not specify `pages`.
+ * Fast/balanced presets sample evenly across the document; full processes all pages.
+ */
+export const buildAutoExtractionPages = (
+  totalPages: number,
+  samplePageCount: number,
+  detail: ReadPdfAutoDetail
+): number[] => {
+  if (detail === 'full') {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+  return selectInspectionSamplePages(totalPages, undefined, samplePageCount);
+};
+
 export const buildAutoReadArgs = (
   source: PdfSource,
   inspection: PdfInspectionSourceResult,
@@ -184,16 +205,30 @@ export const buildAutoReadArgs = (
   detail: ReadPdfAutoDetail
 ): ReadPdfArgs => {
   const recommendationArgs = inspection.data?.recommendation.read_pdf_arguments ?? {};
+  const samplePages = input.sample_pages ?? DEFAULT_SAMPLE_PAGES;
+  const totalPages = inspection.data?.num_pages;
+  const extractionPages =
+    source.pages ??
+    (totalPages !== undefined
+      ? buildAutoExtractionPages(totalPages, samplePages, detail)
+      : undefined);
+
   return {
     ...recommendationArgs,
     ...buildAutoDetailOptions(detail),
     ...pickExplicitReadOptions(input),
-    sources: [source],
+    sources: [
+      {
+        ...source,
+        ...(extractionPages !== undefined ? { pages: extractionPages } : {}),
+      },
+    ],
   } as ReadPdfArgs;
 };
 
 export const buildAutoInspections = async (
-  input: ReadPdfArgs
+  input: ReadPdfArgs,
+  session?: PdfSessionScope
 ): Promise<PdfInspectionSourceResult[]> => {
   const inspectOptions = {
     ...defaultInspectPdfOptions(),
@@ -205,7 +240,7 @@ export const buildAutoInspections = async (
   for (let i = 0; i < input.sources.length; i += MAX_CONCURRENT_SOURCES) {
     const batch = input.sources.slice(i, i + MAX_CONCURRENT_SOURCES);
     const batchResults = await Promise.all(
-      batch.map((source) => inspectPdfSource(source, inspectOptions))
+      batch.map((source) => inspectPdfSource(source, inspectOptions, session))
     );
     inspections.push(...batchResults);
   }
