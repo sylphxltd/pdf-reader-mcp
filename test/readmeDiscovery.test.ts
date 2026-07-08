@@ -15,6 +15,8 @@ describe('README discovery surfaces', () => {
     expect(readme).toContain('Not listed yet');
     expect(readme).toContain('glama.ai/mcp/servers/SylphxAI/pdf-reader-mcp');
     expect(readme).toContain('registry.modelcontextprotocol.io');
+    expect(readme).toContain('io.github.SylphxAI/pdf-reader-mcp');
+    expect(readme).not.toContain('Publishing on next release');
     expect(readme).toContain('chatmcp/mcpso/issues/3068');
     expect(readme).toContain('docs/articles/stop-pdf-hallucinations.md');
     expect(readme).toContain('docs/public/demo-workflow.svg');
