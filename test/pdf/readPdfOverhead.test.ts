@@ -116,6 +116,33 @@ describe('PdfSessionScope', () => {
     await session.destroyAll();
   });
 
+  it('does not throw when destroyAll races an in-flight acquire', async () => {
+    const session = new PdfSessionScope();
+    const destroyLoadingTask = vi.fn().mockResolvedValue(undefined);
+    const fakeDoc = {
+      numPages: 1,
+      loadingTask: { destroy: destroyLoadingTask },
+    };
+
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+
+    loadCoreSpy = vi.spyOn(loader, 'loadPdfDocumentCore').mockImplementation(async () => {
+      await gate;
+      return fakeDoc as unknown as Awaited<ReturnType<typeof loader.loadPdfDocumentCore>>;
+    });
+
+    const acquirePromise = session.acquire({ path: SAMPLE_PDF }, SAMPLE_PDF);
+    const destroyPromise = session.destroyAll();
+    releaseGate();
+
+    await expect(acquirePromise).resolves.toBe(fakeDoc);
+    await expect(destroyPromise).resolves.toBeUndefined();
+    expect(session.activeSourceCount()).toBe(0);
+  });
+
   it('tracks a single active source across acquire/release', async () => {
     const session = new PdfSessionScope();
     const destroyLoadingTask = vi.fn().mockResolvedValue(undefined);

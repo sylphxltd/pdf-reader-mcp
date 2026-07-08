@@ -4624,8 +4624,12 @@ var pdfSessionKey = (source) => source.path ?? source.url ?? "";
 class PdfSessionScope {
   entries = new Map;
   pending = new Map;
+  destroyed = false;
   async acquire(source, sourceDescription) {
     const key = pdfSessionKey(source);
+    if (this.destroyed) {
+      return loadPdfDocumentCore(source, sourceDescription);
+    }
     const existing = this.entries.get(key);
     if (existing) {
       existing.refCount += 1;
@@ -4633,23 +4637,32 @@ class PdfSessionScope {
     }
     let pending = this.pending.get(key);
     if (!pending) {
-      pending = loadPdfDocumentCore(source, sourceDescription).then(async (pdfDocument) => {
+      pending = loadPdfDocumentCore(source, sourceDescription).then(async (pdfDocument2) => {
+        if (this.destroyed) {
+          await destroyLoadingTask(pdfDocument2.loadingTask, logger14, "PDF session aborted load");
+          return pdfDocument2;
+        }
         const raced = this.entries.get(key);
         if (raced) {
-          await destroyLoadingTask(pdfDocument.loadingTask, logger14, "PDF session duplicate");
+          await destroyLoadingTask(pdfDocument2.loadingTask, logger14, "PDF session duplicate");
           return raced.pdfDocument;
         }
-        this.entries.set(key, { pdfDocument, refCount: 0 });
-        return pdfDocument;
+        this.entries.set(key, { pdfDocument: pdfDocument2, refCount: 0 });
+        return pdfDocument2;
       }).finally(() => {
         this.pending.delete(key);
       });
       this.pending.set(key, pending);
     }
-    await pending;
-    const entry = this.entries.get(key);
+    const pdfDocument = await pending;
+    if (this.destroyed) {
+      await destroyLoadingTask(pdfDocument.loadingTask, logger14, "PDF session late acquire");
+      return loadPdfDocumentCore(source, sourceDescription);
+    }
+    let entry = this.entries.get(key);
     if (!entry) {
-      throw new Error(`PDF session entry missing after acquire for ${key}`);
+      entry = { pdfDocument, refCount: 0 };
+      this.entries.set(key, entry);
     }
     entry.refCount += 1;
     return entry.pdfDocument;
@@ -4662,6 +4675,10 @@ class PdfSessionScope {
     entry.refCount = Math.max(0, entry.refCount - 1);
   }
   async destroyAll() {
+    if (this.destroyed)
+      return;
+    this.destroyed = true;
+    await Promise.allSettled([...this.pending.values()]);
     this.pending.clear();
     const entries = [...this.entries.values()];
     this.entries.clear();
