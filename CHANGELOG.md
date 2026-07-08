@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.14
+
+### Patch Changes
+
+- [#381](https://github.com/SylphxAI/pdf-reader-mcp/pull/381) [`38018ed`](https://github.com/SylphxAI/pdf-reader-mcp/commit/38018ede8b107e9df3eaaf7b434004fde448c3bd) Thanks [@shtse8](https://github.com/shtse8)! - Add official MCP Registry metadata (`server.json`, `mcpName`) and automate registry publishing on GitHub releases.
+
 ## 3.0.13
 
 ### Patch Changes
