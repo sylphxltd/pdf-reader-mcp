@@ -5,7 +5,7 @@ on:
     types: [published]
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -13,8 +13,18 @@ jobs:
     name: Publish MCP Registry metadata
     runs-on: ubuntu-latest
     steps:
+      - name: Create release bot token
+        id: release-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Checkout repository
         uses: actions/checkout@v7.0.0
+        with:
+          token: ${{ steps.release-token.outputs.token }}
 
       - name: Install mcp-publisher
         run: |
@@ -35,3 +45,15 @@ jobs:
 
       - name: Publish server to MCP Registry
         run: ./mcp-publisher publish
+
+      - name: Commit synced server.json to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.json
+          if git diff --staged --quiet; then
+            echo "server.json already aligned on main"
+            exit 0
+          fi
+          git commit -m "chore(registry): sync server.json to ${GITHUB_REF_NAME}"
+          git push origin HEAD:main

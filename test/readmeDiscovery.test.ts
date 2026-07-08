@@ -35,6 +35,8 @@ describe('README discovery surfaces', () => {
     expect(pkg.mcpName).toBe('io.github.SylphxAI/pdf-reader-mcp');
     expect(server.name).toBe(pkg.mcpName);
     expect(server.packages[0].identifier).toBe(pkg.name);
+    expect(server.version).toBe(pkg.version);
+    expect(server.packages[0].version).toBe(pkg.version);
     expect(server.description.length).toBeLessThanOrEqual(100);
     expect(existsSync('.github/workflows/publish-mcp-registry.yml')).toBe(true);
   });
