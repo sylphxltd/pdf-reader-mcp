@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "3.0.13",
+  "version": "3.0.14",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
   "description": "The most-starred PDF MCP server. Stop agent hallucinations on PDFs — one read_pdf call returns an Agent Document Twin with markdown, tables, trust reports, and source evidence (page + bbox). Local-first. Benchmark-gated.",
   "type": "module",
