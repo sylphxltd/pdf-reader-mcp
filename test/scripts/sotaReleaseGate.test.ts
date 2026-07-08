@@ -25,7 +25,10 @@ const writeArtifact = (artifactDir: string, fileName: string, data: JsonValue) =
 const writeValidPerformanceArtifact = (artifactDir: string) => {
   writeArtifact(artifactDir, 'pdf_performance_benchmark.json', {
     profile: 'pdf_performance_benchmark',
-    results: [{ name: 'v3_agent_document_twin', average_ms: 8.5 }],
+    results: [
+      { name: 'v3_agent_document_twin', average_ms: 8.5 },
+      { name: 'default_auto_read_balanced', average_ms: 6.2 },
+    ],
   });
 };
 

@@ -94,6 +94,12 @@ const main = async () => {
       },
     },
     {
+      name: 'default_auto_read_balanced',
+      input: {
+        sources: [{ path: SAMPLE_PDF_PATH }],
+      },
+    },
+    {
       name: 'v3_agent_document_twin',
       input: {
         sources: [{ path: SAMPLE_PDF_PATH, pages: [1] }],

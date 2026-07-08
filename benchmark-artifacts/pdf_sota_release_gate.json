@@ -1,11 +1,11 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-07-08T17:42:09.326Z",
-  "artifact_dir": "/home/runner/work/pdf-reader-mcp/pdf-reader-mcp/benchmark-artifacts",
+  "generated_at": "2026-07-08T17:55:08.788Z",
+  "artifact_dir": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
-    "total": 39,
-    "passed": 39,
+    "total": 41,
+    "passed": 41,
     "failed": 0
   },
   "checks": [
@@ -127,7 +127,20 @@
       "status": "passed",
       "message": "v3 Agent Document Twin scenario has a positive average latency",
       "evidence": {
-        "average_ms": 25.67
+        "average_ms": 21.45
+      }
+    },
+    {
+      "id": "performance:default-auto-read-present",
+      "status": "passed",
+      "message": "performance artifact includes the default balanced auto-read scenario"
+    },
+    {
+      "id": "performance:default-auto-read-timed",
+      "status": "passed",
+      "message": "default balanced auto-read scenario has a positive average latency",
+      "evidence": {
+        "average_ms": 19.73
       }
     },
     {

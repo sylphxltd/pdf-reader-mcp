@@ -607,9 +607,142 @@ describe('handleReadPdfFunc Integration Tests', () => {
     try {
       await handler({ sources: [{ path: 'test.pdf' }] });
       expect(loadCoreSpy).toHaveBeenCalledTimes(1);
+      expect(mockGetDocument).toHaveBeenCalledTimes(1);
     } finally {
       loadCoreSpy.mockRestore();
     }
+  });
+
+  it('bounds default auto-read extraction to the sample budget on large PDFs', async () => {
+    const largeDocument = {
+      numPages: 100,
+      getMetadata: mockGetMetadata,
+      getPage: mockGetPage,
+      getOutline: mockGetOutline,
+      getPageLabels: mockGetPageLabels,
+      getPermissions: mockGetPermissions,
+      getMarkInfo: mockGetMarkInfo,
+      getFieldObjects: mockGetFieldObjects,
+      getAttachments: mockGetAttachments,
+    };
+    mockGetDocument.mockReturnValue({ promise: Promise.resolve(largeDocument) });
+    mockGetPage.mockImplementation((pageNum: number) => {
+      if (pageNum > 0 && pageNum <= largeDocument.numPages) {
+        return {
+          getTextContent: vi.fn().mockResolvedValueOnce({
+            items: [
+              {
+                str: `Mock page text ${String(pageNum)}`,
+                transform: [1, 0, 0, 1, 0, 100 + pageNum * 10],
+                fontName: 'g_d0_f1',
+                dir: 'ltr',
+                hasEOL: false,
+              },
+            ],
+          }),
+          getViewport: vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 }),
+          render: vi.fn().mockReturnValue({ promise: Promise.resolve() }),
+          view: [0, 0, 612, 792],
+          rotate: 0,
+          userUnit: 1,
+          getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+          getAnnotations: vi.fn().mockResolvedValue([]),
+          objs: { get: vi.fn() },
+        };
+      }
+      throw new Error(`Mock getPage error: Invalid page number ${String(pageNum)}`);
+    });
+
+    const result = await handler({ sources: [{ path: 'large.pdf' }] });
+    const parsed = JSON.parse(result.content[0]?.text ?? '{}') as {
+      auto_read?: {
+        results: Array<{
+          read_pdf_arguments?: { sources?: Array<{ pages?: number[] }> };
+        }>;
+      };
+      results: Array<{
+        data?: {
+          chunks?: Array<{ page: number }>;
+        };
+      }>;
+    };
+
+    const extractionPages = parsed.auto_read?.results[0]?.read_pdf_arguments?.sources?.[0]?.pages;
+    expect(extractionPages?.length).toBe(5);
+    expect(extractionPages?.every((page) => page >= 1 && page <= 100)).toBe(true);
+
+    const chunkPages = new Set(parsed.results[0]?.data?.chunks?.map((chunk) => chunk.page) ?? []);
+    expect(chunkPages.size).toBeLessThanOrEqual(5);
+    expect(mockGetDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips auto-read overhead when only source pages are specified', async () => {
+    const loaderModule = await import('../../src/pdf/loader.js');
+    const loadCoreSpy = vi.spyOn(loaderModule, 'loadPdfDocumentCore');
+
+    try {
+      const result = await handler({
+        sources: [{ path: 'test.pdf', pages: [1, 2] }],
+      });
+      const parsed = JSON.parse(result.content[0]?.text ?? '{}') as {
+        auto_read?: { enabled: boolean };
+        results: Array<{ success: boolean }>;
+      };
+
+      expect(parsed.auto_read).toBeUndefined();
+      expect(parsed.results[0]?.success).toBe(true);
+      expect(loadCoreSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      loadCoreSpy.mockRestore();
+    }
+  });
+
+  it('passes the session pdfDocument into OCR without reloading', async () => {
+    const getTextContent = vi.fn().mockResolvedValue({ items: [] });
+    mockGetPage.mockResolvedValue({
+      getTextContent,
+      getViewport: vi.fn().mockReturnValue({ width: 612, height: 792, rotation: 0 }),
+      view: [0, 0, 612, 792],
+      rotate: 0,
+      userUnit: 1,
+      getAnnotations: vi.fn(),
+      getOperatorList: vi.fn().mockResolvedValue({ fnArray: [], argsArray: [] }),
+      objs: { get: vi.fn() },
+    });
+
+    let ocrPdfDocument: unknown;
+    mockOcrPdfSourcePages.mockImplementation(async (_source, _options, pdfDocument) => {
+      ocrPdfDocument = pdfDocument;
+      return {
+        source: 'scanned.pdf',
+        numPages: 3,
+        pages: [
+          {
+            page: 1,
+            text: 'OCR recovered page text',
+            confidence: 0.91,
+            words: [],
+            provider: 'command',
+            source_render_evidence_id: 'page-1-render-scale-2',
+            provenance: { engine: 'external-command', source: 'ocr-provider' },
+          },
+        ],
+        warnings: [],
+      };
+    });
+
+    await handler({
+      sources: [{ path: 'scanned.pdf', pages: [1] }],
+      include_document_map: true,
+      include_ocr_text_layer: true,
+      include_metadata: false,
+      include_page_count: false,
+      include_full_text: false,
+    });
+
+    expect(mockGetDocument).toHaveBeenCalledTimes(1);
+    expect(ocrPdfDocument).toBeDefined();
+    expect(ocrPdfDocument).toHaveProperty('numPages', 3);
   });
 
   it('omits redundant per-page text parts when markdown and chunks are enabled by default', async () => {
