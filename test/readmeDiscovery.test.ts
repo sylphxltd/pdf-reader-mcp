@@ -13,8 +13,22 @@ describe('README discovery surfaces', () => {
     expect(readme).toMatch(/Star the repo|Star this repo/);
     expect(readme).not.toMatch(/Listed on \[MCP Servers\]/);
     expect(readme).toContain('Not listed yet');
+    expect(readme).toContain('glama.ai/mcp/servers/SylphxAI/pdf-reader-mcp');
+    expect(readme).toContain('registry.modelcontextprotocol.io');
+    expect(readme).toContain('chatmcp/mcpso/issues/3068');
     expect(readme).toContain('docs/articles/stop-pdf-hallucinations.md');
     expect(readme).toContain('docs/public/demo-workflow.svg');
+  });
+
+  it('ships official MCP Registry metadata aligned with package.json', () => {
+    const pkg = JSON.parse(readText('package.json'));
+    const server = JSON.parse(readText('server.json'));
+
+    expect(pkg.mcpName).toBe('io.github.SylphxAI/pdf-reader-mcp');
+    expect(server.name).toBe(pkg.mcpName);
+    expect(server.packages[0].identifier).toBe(pkg.name);
+    expect(server.description.length).toBeLessThanOrEqual(100);
+    expect(existsSync('.github/workflows/publish-mcp-registry.yml')).toBe(true);
   });
 
   it('links the shareable discovery article from docs surfaces', () => {
