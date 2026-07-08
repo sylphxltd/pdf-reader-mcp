@@ -115,6 +115,8 @@ Abbreviated shape — see [full example](examples/agent-document-twin.json) and
 Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 `extract_regions`) when the agent needs visual proof before citing.
 
+![Evidence-first PDF workflow](docs/public/demo-workflow.svg)
+
 ## Why agents use it
 
 | Need | What you get |
@@ -349,9 +351,16 @@ agent output, you are exactly who this project is for.
 fastest way to help more agent builders find evidence-first PDF reading. Share
 it in your MCP client setup, team wiki, or agent stack README.
 
-Listed on [MCP Servers](https://mcpservers.org/) and the
-[Model Context Protocol servers](https://github.com/modelcontextprotocol/servers)
-ecosystem. Found a list we are missing? [Open an issue](https://github.com/SylphxAI/pdf-reader-mcp/issues/new).
+### Discovery (in progress)
+
+| Channel | Status |
+| --- | --- |
+| [TensorBlock MCP Index PR #1113](https://github.com/TensorBlock/awesome-mcp-servers/pull/1113) | Open — multimedia/document processing listing |
+| [MCP servers community issue #4500](https://github.com/modelcontextprotocol/servers/issues/4500) | Open — community server highlight |
+| [appcypher/awesome-mcp-servers](https://github.com/appcypher/awesome-mcp-servers/compare/main...SylphxAI:add-pdf-reader-mcp) | Branch ready — upstream PR pending |
+| [mcpservers.org submit](https://mcpservers.org/submit) | Not listed yet — free submission available |
+
+Know another MCP directory? [Open an issue](https://github.com/SylphxAI/pdf-reader-mcp/issues/new) with the link.
 
 ## License
 
