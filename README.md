@@ -351,18 +351,17 @@ agent output, you are exactly who this project is for.
 fastest way to help more agent builders find evidence-first PDF reading. Share
 it in your MCP client setup, team wiki, or agent stack README.
 
-### Reader family
+### Reader family (4 repositories)
 
 | Package | Status |
 | --- | --- |
-| [@sylphx/pdf-reader-mcp](https://github.com/SylphxAI/pdf-reader-mcp) | Production — Agent Document Twin |
-| [@sylphx/image-reader-mcp](https://github.com/SylphxAI/image-reader-mcp) | Bootstrap — metadata, OCR, evidence |
-| [@sylphx/video-reader-mcp](https://github.com/SylphxAI/video-reader-mcp) | Bootstrap — ffprobe, scenes, transcripts |
-| [@sylphx/smart-reader-mcp](https://github.com/SylphxAI/smart-reader-mcp) | Bootstrap — sniff + delegate |
-| [@sylphx/smart-read-mcp](https://github.com/SylphxAI/smart-read-mcp) | Planned — universal path |
-| [@sylphx/reader-evidence](https://github.com/SylphxAI/reader-evidence) | Bootstrap — shared provenance schema |
+| [@sylphx/pdf-reader-mcp](https://github.com/SylphxAI/pdf-reader-mcp) | Production — PDF Agent Document Twin |
+| [@sylphx/image-reader-mcp](https://github.com/SylphxAI/image-reader-mcp) | Bootstrap — image read |
+| [@sylphx/video-reader-mcp](https://github.com/SylphxAI/video-reader-mcp) | Bootstrap — video read |
+| [@sylphx/smart-reader-mcp](https://github.com/SylphxAI/smart-reader-mcp) | Bootstrap — one `read` tool, delegates to the three readers above |
 
-Portfolio architecture: [ADR-0004](docs/adr/0004-reader-portfolio-architecture.md).
+Universal local/remote path support is **phase 2 inside smart-reader-mcp**, not a
+separate repository. Portfolio architecture: [ADR-0004](docs/adr/0004-reader-portfolio-architecture.md).
 
 ### Discovery (in progress)
 
