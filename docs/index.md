@@ -3,24 +3,24 @@ layout: home
 
 hero:
   name: PDF Reader MCP
-  text: Full-Fidelity PDF Intelligence for AI Agents
-  tagline: "A TypeScript-first MCP server that turns PDFs into an Agent Document Twin: text layers, semantic AST, tables, visual evidence, OCR provenance, trust reports, accessibility reports, citations, and benchmark-gated release proof."
+  text: Stop PDF Hallucinations. Prove Every Answer.
+  tagline: "The most-starred PDF MCP server on GitHub. One read_pdf call turns any PDF into an Agent Document Twin — markdown, tables, trust signals, and source evidence with page numbers and bounding boxes. Local-first. Benchmark-gated. Works with Claude, Cursor, VS Code, and any MCP client."
   image:
     src: /logo.svg
     alt: PDF Reader MCP Logo
   actions:
     - theme: brand
-      text: Get Started
+      text: Get Started in 30s
       link: /guide/getting-started
     - theme: alt
-      text: View on GitHub
+      text: Star on GitHub
       link: https://github.com/SylphxAI/pdf-reader-mcp
+    - theme: alt
+      text: Stop PDF Hallucinations
+      link: /articles/stop-pdf-hallucinations
     - theme: alt
       text: Benchmark Proof
       link: /benchmark
-    - theme: alt
-      text: Why Evidence-First?
-      link: /articles/evidence-first
       
 
 features:

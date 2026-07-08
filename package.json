@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
   "version": "3.0.13",
-  "description": "V3 PDF intelligence MCP server with smart Agent Document Twin extraction, focused evidence operations, OCR provenance, trust/accessibility reports, and benchmark-gated release proof.",
+  "description": "The most-starred PDF MCP server. Stop agent hallucinations on PDFs — one read_pdf call returns an Agent Document Twin with markdown, tables, trust reports, and source evidence (page + bbox). Local-first. Benchmark-gated.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/index.js"
