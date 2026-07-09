@@ -50,8 +50,14 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Build package
         run: bun run build
+
+      - name: Build Rust MCP server
+        run: bun run build:rust
 
       - name: Verify package tarball
         run: bun run package:smoke
