@@ -34,7 +34,6 @@ if use_ts_transport "$@"; then
   exec node "$TS_ENTRY" "$@"
 fi
 
-export PDF_READER_ENGINE_SCRIPT="${PDF_READER_ENGINE_SCRIPT:-$ROOT/dist/engine-invoke.js}"
 if bin="$(resolve_rust_bin)"; then
   exec "$bin" "$@"
 fi

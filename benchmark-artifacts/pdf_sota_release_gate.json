@@ -1,11 +1,11 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-07-09T09:17:15.367Z",
+  "generated_at": "2026-07-09T09:20:06.728Z",
   "artifact_dir": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
-    "total": 49,
-    "passed": 49,
+    "total": 50,
+    "passed": 50,
     "failed": 0
   },
   "checks": [
@@ -144,6 +144,11 @@
       "evidence": {
         "staged_binary": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/bin/native/pdf-reader-mcp-server"
       }
+    },
+    {
+      "id": "boundary:rust_cli_engine",
+      "status": "passed",
+      "message": "Rust MCP routes engine work through pdf-reader-cli instead of a TypeScript MCP engine bridge"
     },
     {
       "id": "performance:document-twin-present",

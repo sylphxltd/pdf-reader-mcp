@@ -1,3 +1,6 @@
+mod legacy_runtime;
+
+use legacy_runtime::handle_legacy_v3_tool;
 use pdf_reader_core::text_index::{search_pdf_text, TextIndexErrorCode};
 use pdf_reader_core::{hash_file, HashErrorCode, ENGINE_NAME, ENGINE_VERSION};
 use serde::Deserialize;
@@ -189,11 +192,18 @@ fn main() {
             Ok(success) => serde_json::to_string(&success).expect("serialize"),
             Err(error) => serde_json::to_string(&error).expect("serialize"),
         },
+        "read_pdf" | "search_pdf" | "pdf_evidence" => {
+            match handle_legacy_v3_tool(request.tool.as_str(), &request.input) {
+                Ok(success) => serde_json::to_string(&success).expect("serialize"),
+                Err(error) => serde_json::to_string(&error).expect("serialize"),
+            }
+        }
         other => serde_json::to_string(&ErrorEnvelope {
             status: "error",
             code: "UNSUPPORTED_TOOL".into(),
             message: format!("Unsupported tool: {other}"),
-            next_action: "Use pdf_hash or pdf_text_search.".into(),
+            next_action: "Use pdf_hash, pdf_text_search, read_pdf, search_pdf, or pdf_evidence."
+                .into(),
         })
         .expect("serialize"),
     };

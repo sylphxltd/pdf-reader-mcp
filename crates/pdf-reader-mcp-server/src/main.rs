@@ -1,4 +1,4 @@
-use pdf_reader_mcp_server::{engine_bridge, PdfReaderMcp, SERVER_VERSION};
+use pdf_reader_mcp_server::{cli_bridge, PdfReaderMcp, SERVER_VERSION};
 use rmcp::ServiceExt;
 
 #[tokio::main]
@@ -8,10 +8,10 @@ async fn main() -> anyhow::Result<()> {
             "pdf-reader-mcp Rust MCP server {SERVER_VERSION} ({})",
             pdf_reader_core::ENGINE_NAME
         );
-        if let Some(script) = engine_bridge::resolve_engine_script() {
-            eprintln!("engine bridge: {}", script.display());
+        if let Some(cli) = cli_bridge::resolve_cli_binary() {
+            eprintln!("engine cli: {}", cli.display());
         } else {
-            eprintln!("engine bridge: unavailable (run `bun run build`)");
+            eprintln!("engine cli: unavailable (run `bun run build:rust`)");
         }
         return Ok(());
     }

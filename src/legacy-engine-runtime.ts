@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * Phase 1-3 legacy V3 engine runtime invoked only through pdf-reader-cli.
+ * Not an MCP adapter — Rust rmcp owns MCP protocol; this script is temporary
+ * migration glue for read_pdf/pdf_evidence until those paths live in Rust core.
+ */
 
 import { pdfEvidence } from './handlers/pdfEvidence.js';
 import { readPdf } from './handlers/readPdf.js';
@@ -8,7 +13,7 @@ import type { ReadPdfArgs } from './schemas/readPdf.js';
 import type { SearchPdfArgs } from './schemas/searchPdf.js';
 import type { CallToolResult, ContentBlock } from '@modelcontextprotocol/sdk/types.js';
 
-type EngineInvokeRequest = {
+type LegacyEngineRequest = {
   tool: string;
   arguments: unknown;
 };
@@ -49,13 +54,13 @@ const normalizeToolResult = (result: unknown): CallToolResult => {
 
 async function main(): Promise<void> {
   const payload = await readStdin();
-  const request = JSON.parse(payload) as EngineInvokeRequest;
+  const request = JSON.parse(payload) as LegacyEngineRequest;
   const definition = tools[request.tool as keyof typeof tools];
 
   if (!definition) {
     console.log(
       JSON.stringify({
-        content: [{ type: 'text', text: `Unsupported engine tool: ${request.tool}` }],
+        content: [{ type: 'text', text: `Unsupported legacy engine tool: ${request.tool}` }],
         isError: true,
       } satisfies CallToolResult)
     );
@@ -72,7 +77,7 @@ async function main(): Promise<void> {
         case 'pdf_evidence':
           return pdfEvidence.handler({ input: request.arguments as PdfEvidenceArgs, ctx: {} });
         default:
-          throw new Error(`Unsupported engine tool: ${request.tool}`);
+          throw new Error(`Unsupported legacy engine tool: ${request.tool}`);
       }
     })();
     console.log(JSON.stringify(normalizeToolResult(result)));
@@ -91,7 +96,7 @@ main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.log(
     JSON.stringify({
-      content: [{ type: 'text', text: `Engine invoke failed: ${message}` }],
+      content: [{ type: 'text', text: `Legacy engine runtime failed: ${message}` }],
       isError: true,
     } satisfies CallToolResult)
   );

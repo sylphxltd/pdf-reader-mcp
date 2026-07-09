@@ -5,7 +5,7 @@ use pdf_reader_core::{hash_file, ENGINE_NAME, ENGINE_VERSION};
 use rmcp::model::CallToolResult;
 use serde_json::{json, Value};
 
-use crate::engine_bridge::invoke_ts_engine;
+use crate::cli_bridge::invoke_cli_tool;
 use crate::evidence::attach_evidence;
 use crate::schema::SearchPdfArgs;
 
@@ -174,7 +174,7 @@ pub fn search_pdf(args: SearchPdfArgs) -> Result<CallToolResult, rmcp::ErrorData
     let arguments = serde_json::to_value(&args).map_err(|error| {
         rmcp::ErrorData::internal_error(format!("Failed to serialize search args: {error}"), None)
     })?;
-    invoke_ts_engine("search_pdf", arguments)
+    invoke_cli_tool("search_pdf", arguments)
 }
 
 #[cfg(test)]

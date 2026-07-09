@@ -64177,7 +64177,7 @@ var searchPdf = tool().description("Searches extracted PDF text with page, snipp
   });
 });
 
-// src/engine-invoke.ts
+// src/legacy-engine-runtime.ts
 var tools = {
   read_pdf: readPdf,
   search_pdf: searchPdf,
@@ -64212,7 +64212,7 @@ async function main() {
   const definition = tools[request.tool];
   if (!definition) {
     console.log(JSON.stringify({
-      content: [{ type: "text", text: `Unsupported engine tool: ${request.tool}` }],
+      content: [{ type: "text", text: `Unsupported legacy engine tool: ${request.tool}` }],
       isError: true
     }));
     return;
@@ -64227,7 +64227,7 @@ async function main() {
         case "pdf_evidence":
           return pdfEvidence.handler({ input: request.arguments, ctx: {} });
         default:
-          throw new Error(`Unsupported engine tool: ${request.tool}`);
+          throw new Error(`Unsupported legacy engine tool: ${request.tool}`);
       }
     })();
     console.log(JSON.stringify(normalizeToolResult(result)));
@@ -64242,7 +64242,7 @@ async function main() {
 main().catch((error51) => {
   const message = error51 instanceof Error ? error51.message : String(error51);
   console.log(JSON.stringify({
-    content: [{ type: "text", text: `Engine invoke failed: ${message}` }],
+    content: [{ type: "text", text: `Legacy engine runtime failed: ${message}` }],
     isError: true
   }));
   process.exit(1);

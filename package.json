@@ -63,7 +63,7 @@
   "scripts": {
     "build:rust": "cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server && bun scripts/stage-rust-mcp.ts",
     "test:rust": "cargo test",
-    "build": "bunup --no-dts && bun build src/engine-invoke.ts --outdir dist --target node",
+    "build": "bunup --no-dts && bun build src/legacy-engine-runtime.ts --outdir dist --target node",
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector dist/index.js",
     "test": "bun test",

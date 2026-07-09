@@ -1,4 +1,4 @@
-pub mod engine_bridge;
+pub mod cli_bridge;
 pub mod evidence;
 pub mod schema;
 pub mod search;
@@ -38,7 +38,7 @@ impl PdfReaderMcp {
         &self,
         Parameters(args): Parameters<Value>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        engine_bridge::invoke_ts_engine("read_pdf", args)
+        cli_bridge::invoke_cli_tool("read_pdf", args)
     }
 
     #[tool(
@@ -58,7 +58,7 @@ impl PdfReaderMcp {
         &self,
         Parameters(args): Parameters<Value>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        engine_bridge::invoke_ts_engine("pdf_evidence", args)
+        cli_bridge::invoke_cli_tool("pdf_evidence", args)
     }
 }
 
