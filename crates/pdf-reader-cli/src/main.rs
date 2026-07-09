@@ -6,7 +6,8 @@ use pdf_reader_core::text_index::{
     extract_page_texts, search_pdf_text, TextIndexErrorCode,
 };
 use pdf_reader_core::{
-    hash_file, ReadPdfErrorCode, ENGINE_NAME, ENGINE_VERSION, READ_PDF_ROUTE,
+    hash_file, search_pdf_from_value, ReadPdfErrorCode, SearchPdfErrorCode, ENGINE_NAME,
+    ENGINE_VERSION, READ_PDF_ROUTE,
 };
 use serde::Deserialize;
 use std::io::{self, Read};
@@ -62,6 +63,14 @@ fn read_pdf_error_code(code: ReadPdfErrorCode) -> &'static str {
         ReadPdfErrorCode::InvalidParams => "INVALID_PARAMS",
         ReadPdfErrorCode::InvalidRequest => "INVALID_REQUEST",
         ReadPdfErrorCode::ExtractionFailed => "EXTRACTION_FAILED",
+    }
+}
+
+fn search_pdf_error_code(code: SearchPdfErrorCode) -> &'static str {
+    match code {
+        SearchPdfErrorCode::InvalidParams => "INVALID_PARAMS",
+        SearchPdfErrorCode::InvalidRequest => "INVALID_REQUEST",
+        SearchPdfErrorCode::ExtractionFailed => "EXTRACTION_FAILED",
     }
 }
 
@@ -182,6 +191,42 @@ fn handle_pdf_hash(input: &serde_json::Value) -> Result<HashSuccessEnvelope, Err
             next_action: "Provide a readable PDF file within configured safety limits.".into(),
         }),
     }
+}
+
+fn handle_search_pdf(
+    input: &serde_json::Value,
+) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
+    if input
+        .get("include_ocr_text_layer")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+        && legacy_runtime::legacy_engine_allowed()
+    {
+        return match handle_legacy_v3_tool("search_pdf", input) {
+            Ok(success) => Ok(success),
+            Err(error) => Err(ErrorEnvelope {
+                status: "error",
+                code: error.code,
+                message: error.message,
+                next_action: error.next_action,
+            }),
+        };
+    }
+
+    let response = search_pdf_from_value(input).map_err(|error| ErrorEnvelope {
+        status: "error",
+        code: search_pdf_error_code(error.code).into(),
+        message: error.message,
+        next_action: "Provide readable local PDF sources and a non-empty query.".into(),
+    })?;
+
+    Ok(LegacyToolSuccessEnvelope {
+        status: "ok",
+        engine: ENGINE_NAME,
+        version: ENGINE_VERSION,
+        tool: "search_pdf".into(),
+        result: wrap_tool_call_result(serde_json::to_value(response).expect("serialize search")),
+    })
 }
 
 fn handle_read_pdf(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
@@ -326,7 +371,7 @@ fn main() {
             Ok(success) => serde_json::to_string(&success).expect("serialize"),
             Err(error) => serde_json::to_string(&error).expect("serialize"),
         },
-        "search_pdf" => match handle_legacy_v3_tool(request.tool.as_str(), &request.input) {
+        "search_pdf" => match handle_search_pdf(&request.input) {
             Ok(success) => serde_json::to_string(&success).expect("serialize"),
             Err(error) => serde_json::to_string(&error).expect("serialize"),
         },

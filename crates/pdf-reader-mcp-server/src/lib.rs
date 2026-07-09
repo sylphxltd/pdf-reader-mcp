@@ -4,6 +4,7 @@ pub mod pdf_evidence;
 pub mod read_pdf;
 pub mod schema;
 pub mod search;
+pub mod tool_routes;
 
 use rmcp::{
     handler::server::router::tool::ToolRouter,
@@ -115,8 +116,12 @@ mod tests {
         let production_lib = lib_rs.split("#[cfg(test)]").next().unwrap_or(&lib_rs);
         assert!(production_lib.contains("read_pdf::read_pdf"));
         assert!(production_lib.contains("pdf_evidence::pdf_evidence"));
+        assert!(production_lib.contains("search::search_pdf"));
         assert!(!production_lib.contains("cli_bridge::invoke_cli_tool(\"read_pdf\""));
         assert!(!production_lib.contains("cli_bridge::invoke_cli_tool(\"pdf_evidence\""));
+        let routes = fs::read_to_string(src_dir.join("tool_routes.rs")).expect("read tool_routes");
+        assert!(routes.contains("search_pdf"));
+        assert!(routes.contains("RustCore"));
     }
 
     #[test]

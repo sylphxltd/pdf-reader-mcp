@@ -1,6 +1,6 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-07-09T09:49:29.726Z",
+  "generated_at": "2026-07-09T09:52:44.601Z",
   "artifact_dir": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
@@ -145,7 +145,10 @@
     {
       "id": "boundary:rust_cli_engine",
       "status": "passed",
-      "message": "Rust MCP and CLI route read_pdf through pdf-reader-core; legacy TS runtime is opt-in only"
+      "message": "Shipped-path matrix test proves all primary tools route through Rust core without legacy runtime",
+      "evidence": {
+        "exitCode": 0
+      }
     },
     {
       "id": "performance:document-twin-present",

@@ -1,12 +1,19 @@
 //! Rust hashing and text-index primitives for pdf-reader-mcp.
 
+pub mod legacy;
 pub mod page_cache;
 pub mod read_pdf;
+pub mod search_pdf;
 pub mod text_index;
 
+pub use legacy::legacy_engine_allowed;
 pub use read_pdf::{
     read_pdf, read_pdf_from_value, ReadPdfError, ReadPdfErrorCode, ReadPdfInput, ReadPdfResponse,
     ReadPdfSource, ReadPdfSourceResult, READ_PDF_ROUTE,
+};
+pub use search_pdf::{
+    search_pdf, search_pdf_from_value, SearchPdfError, SearchPdfErrorCode, SearchPdfInput,
+    SearchPdfResponse, SearchPdfSource, SEARCH_PDF_ROUTE,
 };
 
 pub use page_cache::{

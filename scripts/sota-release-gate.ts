@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { runDoctor } from '../src/doctor.js';
@@ -255,32 +256,32 @@ export const buildSotaReleaseGateReport = async (
       binWrapper.includes('use_ts_transport'),
     'Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only'
   );
-  const cliMain = fs.readFileSync(
-    path.join(repoRoot, 'crates/pdf-reader-cli/src/main.rs'),
-    'utf8'
-  );
-  const cliLegacy = fs.readFileSync(
-    path.join(repoRoot, 'crates/pdf-reader-cli/src/legacy_runtime.rs'),
-    'utf8'
-  );
-  const readPdfCore = fs.readFileSync(
-    path.join(repoRoot, 'crates/pdf-reader-core/src/read_pdf.rs'),
-    'utf8'
-  );
-  const mcpLib = fs.readFileSync(
-    path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/lib.rs'),
-    'utf8'
+  const matrixProbe = spawnSync(
+    'bun',
+    ['test', 'test/shippedPath.matrix.test.ts'],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PDF_READER_ALLOW_LEGACY_ENGINE: '',
+      },
+      timeout: 300_000,
+    }
   );
   addCheck(
     checks,
     'boundary:rust_cli_engine',
-    cliBridge.includes('pdf-reader-cli') &&
-      !fs.existsSync(path.join(repoRoot, 'src/engine-invoke.ts')) &&
-      cliMain.includes('read_pdf_from_value') &&
-      cliLegacy.includes('legacy_engine_allowed') &&
-      readPdfCore.includes('rust-read-pdf-v1') &&
-      mcpLib.includes('read_pdf::read_pdf'),
-    'Rust MCP and CLI route read_pdf through pdf-reader-core; legacy TS runtime is opt-in only'
+    !fs.existsSync(path.join(repoRoot, 'src/engine-invoke.ts')) &&
+      matrixProbe.status === 0,
+    'Shipped-path matrix test proves all primary tools route through Rust core without legacy runtime',
+    matrixProbe.status === 0
+      ? { exitCode: 0 }
+      : {
+          exitCode: matrixProbe.status,
+          stderr: matrixProbe.stderr?.slice(-2000),
+          stdout: matrixProbe.stdout?.slice(-2000),
+        }
   );
 
   const performanceResults = getArray(artifacts.performance, 'results');

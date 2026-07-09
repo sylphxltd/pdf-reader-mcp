@@ -7,10 +7,7 @@ use serde_json::Value;
 const LEGACY_RUNTIME_RELATIVE: &str = "dist/legacy-engine-runtime.js";
 
 pub fn legacy_engine_allowed() -> bool {
-    std::env::var("PDF_READER_ALLOW_LEGACY_ENGINE")
-        .ok()
-        .as_deref()
-        == Some("1")
+    pdf_reader_core::legacy_engine_allowed()
 }
 
 #[derive(Debug, serde::Serialize)]
