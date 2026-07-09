@@ -1,7 +1,7 @@
 # ADR-389: Adopt PDF Reader MCP Family SOTA Roadmap
 
-Date: 2026-07-09  
-Status: Proposed in PR #389  
+Date: 2026-07-09
+Status: Proposed in PR #389
 Slug: mcp-family-sota-roadmap
 
 ## Context
