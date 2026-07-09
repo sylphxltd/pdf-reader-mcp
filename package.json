@@ -77,6 +77,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "start": "node dist/index.js",
+    "doctor": "bun run src/index.ts doctor",
     "typecheck": "tsc --noEmit",
     "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
     "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",

@@ -278,6 +278,59 @@ const writeScannedImageFixture = async (directory: string): Promise<string> => {
   return fixturePath;
 };
 
+const writeMalformedPdfFixture = async (directory: string): Promise<string> => {
+  const fixturePath = path.join(directory, 'corpus-malformed.pdf');
+  await fs.writeFile(fixturePath, '%PDF-1.4\n%not-a-valid-pdf-structure\n', 'utf8');
+  return fixturePath;
+};
+
+const serializeEncryptedPdf = (objects: string[], encryptObjectId: number): string => {
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [];
+
+  objects.forEach((object, index) => {
+    offsets.push(byteLength(body));
+    body += `${String(index + 1)} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = byteLength(body);
+  body += `xref\n0 ${String(objects.length + 1)}\n`;
+  body += '0000000000 65535 f \n';
+  offsets.forEach((offset) => {
+    body += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  });
+  body += `trailer\n<< /Size ${String(objects.length + 1)} /Root 1 0 R /Encrypt ${String(encryptObjectId)} 0 R >>\n`;
+  body += `startxref\n${String(xrefOffset)}\n%%EOF\n`;
+
+  return body;
+};
+
+const writeEncryptedPdfFixture = async (directory: string): Promise<string> => {
+  const pdf = serializeEncryptedPdf(
+    [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>',
+      pdfStream('BT /F1 12 Tf 50 100 Td (Secret) Tj ET'),
+      '<< /Filter /Standard /V 1 /R 2 /O (bytes) /U (bytes) /P -44 >>',
+    ],
+    5
+  );
+  const fixturePath = path.join(directory, 'corpus-encrypted.pdf');
+  await fs.writeFile(fixturePath, pdf);
+  return fixturePath;
+};
+
+const readPdfFailureMessage = async (input: ReadPdfArgs): Promise<string> => {
+  const result = await readPdf.handler({ input, ctx: {} as unknown });
+  if (result && typeof result === 'object' && 'isError' in result && result.isError) {
+    const content = contentBlocksFromReadPdfResult(result);
+    return content[0]?.text ?? 'read_pdf returned an error';
+  }
+
+  throw new Error('read_pdf succeeded unexpectedly for a failing PDF source');
+};
+
 const contentBlocksFromReadPdfResult = (
   result: Awaited<ReturnType<typeof readPdf.handler>>
 ): Array<{ type?: string; text?: string }> => {
@@ -938,6 +991,82 @@ const evaluateScannedOcrRouting = async (tempDir: string): Promise<CorpusCaseRes
     },
   });
 
+const evaluateMalformedPdfTrustRouting = async (tempDir: string): Promise<CorpusCaseResult> =>
+  buildCaseResult({
+    id: 'runtime-malformed-pdf-trust-routing',
+    fixtureType: 'runtime-generated',
+    documentArchetype: 'truncated invalid PDF bytes',
+    capabilityTags: ['malformed_pdf', 'runtime_generated', 'trust_routing'],
+    run: async () => {
+      const fixturePath = await writeMalformedPdfFixture(tempDir);
+      const message = await readPdfFailureMessage({
+        sources: [{ path: fixturePath }],
+        auto: false,
+        include_page_count: true,
+      });
+      const structuredFailure =
+        message.includes('Failed to load PDF document') || message.includes('All PDF sources failed');
+      const sanitized =
+        !/InvalidPDFException|Invalid PDF structure/i.test(message) &&
+        !/private\/internal/i.test(message);
+
+      return {
+        metrics: { error_message_chars: message.length },
+        assertions: [
+          {
+            id: 'malformed:structured-failure',
+            pass: structuredFailure,
+            expected: { structured_failure: true },
+            observed: { message },
+          },
+          {
+            id: 'malformed:sanitized-error',
+            pass: sanitized,
+            expected: { sanitized_error: true },
+            observed: { message },
+          },
+        ],
+      };
+    },
+  });
+
+const evaluateEncryptedPdfTrustRouting = async (tempDir: string): Promise<CorpusCaseResult> =>
+  buildCaseResult({
+    id: 'runtime-encrypted-pdf-trust-routing',
+    fixtureType: 'runtime-generated',
+    documentArchetype: 'password-protected PDF without supplied credentials',
+    capabilityTags: ['encrypted_pdf', 'runtime_generated', 'trust_routing'],
+    run: async () => {
+      const fixturePath = await writeEncryptedPdfFixture(tempDir);
+      const message = await readPdfFailureMessage({
+        sources: [{ path: fixturePath }],
+        auto: false,
+        include_page_count: true,
+      });
+      const structuredFailure =
+        message.includes('Failed to load PDF document') || message.includes('All PDF sources failed');
+      const sanitized = !/No password given|PasswordException/i.test(message);
+
+      return {
+        metrics: { error_message_chars: message.length },
+        assertions: [
+          {
+            id: 'encrypted:structured-failure',
+            pass: structuredFailure,
+            expected: { structured_failure: true },
+            observed: { message },
+          },
+          {
+            id: 'encrypted:sanitized-error',
+            pass: sanitized,
+            expected: { sanitized_error: true },
+            observed: { message },
+          },
+        ],
+      };
+    },
+  });
+
 const evaluateOcrTableEvidence = async (tempDir: string): Promise<CorpusCaseResult> =>
   buildCaseResult({
     id: 'runtime-ocr-table-agent-evidence',
@@ -1330,6 +1459,8 @@ export const buildCorpusBenchmarkReport = async (
       await evaluateReadingOrderReport(tempDir),
       await evaluateScannedOcrRouting(tempDir),
       await evaluateOcrTableEvidence(tempDir),
+      await evaluateMalformedPdfTrustRouting(tempDir),
+      await evaluateEncryptedPdfTrustRouting(tempDir),
       ...externalCases,
     ];
     const assertionCount = cases.reduce((sum, result) => sum + result.assertion_count, 0);
@@ -1342,7 +1473,7 @@ export const buildCorpusBenchmarkReport = async (
       profile: 'pdf_corpus_benchmark',
       generated_at: new Date().toISOString(),
       corpus_scope:
-        'checked-in repository PDFs plus runtime-generated report and scanned-page archetypes exercised through read_pdf agent-document-twin flows' +
+        'checked-in repository PDFs plus runtime-generated report, scanned-page, malformed, and encrypted archetypes exercised through read_pdf agent-document-twin flows' +
         (options.manifestPath
           ? '; external manifest PDFs supplied by the operator'
           : ''),

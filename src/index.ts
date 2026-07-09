@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
+import { formatDoctorReport, runDoctor } from './doctor.js';
 import { pdfEvidence } from './handlers/pdfEvidence.js';
 import { readPdf } from './handlers/readPdf.js';
 import { searchPdf } from './handlers/searchPdf.js';
@@ -56,6 +57,12 @@ const server = createServer({
 });
 
 async function main(): Promise<void> {
+  if (process.argv[2] === 'doctor') {
+    const report = await runDoctor(packageJson.version);
+    console.log(formatDoctorReport(report));
+    process.exit(report.status === 'unavailable' ? 1 : 0);
+  }
+
   await server.start();
 
   // Log startup information

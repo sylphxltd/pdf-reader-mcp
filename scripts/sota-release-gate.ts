@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { runDoctor } from '../src/doctor.js';
 import { writeBenchmarkReport } from './benchmark-utils.js';
 
 const ARTIFACT_DIR_ENV = 'MCP_PDF_BENCHMARK_OUTPUT_DIR';
@@ -10,6 +11,8 @@ const REQUIRED_CORPUS_CASE_IDS = [
   'runtime-report-reading-order',
   'runtime-scanned-ocr-routing',
   'runtime-ocr-table-agent-evidence',
+  'runtime-malformed-pdf-trust-routing',
+  'runtime-encrypted-pdf-trust-routing',
 ] as const;
 const REQUIRED_CORPUS_CAPABILITY_TAGS = [
   'document_map',
@@ -20,6 +23,9 @@ const REQUIRED_CORPUS_CAPABILITY_TAGS = [
   'scanned_page',
   'scanned_table',
   'text_layer',
+  'malformed_pdf',
+  'encrypted_pdf',
+  'trust_routing',
 ] as const;
 const REQUIRED_PROVIDER_CROP_CAPABILITY_TAGS = [
   'crop_provenance',
@@ -291,7 +297,7 @@ export const buildSotaReleaseGateReport = async (
   addCheck(
     checks,
     'corpus:case-count',
-    corpusCases.length >= 4 && corpusCaseCount === corpusCases.length,
+    corpusCases.length >= 6 && corpusCaseCount === corpusCases.length,
     'corpus benchmark includes the expected minimum case coverage',
     { case_count: corpusCaseCount, observed_cases: corpusCases.length }
   );
@@ -782,6 +788,30 @@ export const buildSotaReleaseGateReport = async (
         failed_assertion_count: entry.failed_assertion_count,
       })),
     }
+  );
+
+  const packageJson = JSON.parse(
+    await fs.promises.readFile(path.resolve(import.meta.dirname, '../package.json'), 'utf8')
+  ) as { version?: string };
+  const doctor = await runDoctor(packageJson.version ?? '0.0.0');
+  addCheck(
+    checks,
+    'install:doctor-ready',
+    doctor.status !== 'unavailable',
+    'install doctor reports a ready or degraded runtime (no hard failures)',
+    { doctorStatus: doctor.status, checks: doctor.checks }
+  );
+  addCheck(
+    checks,
+    'install:pdfjs-resources',
+    doctor.checks.find((check) => check.id === 'pdfjs_resources')?.status === 'ok',
+    'install doctor confirms pdfjs-dist resource bundles are present'
+  );
+  addCheck(
+    checks,
+    'install:sample-probe',
+    doctor.checks.find((check) => check.id === 'sample_probe')?.status === 'ok',
+    'install doctor loads the checked-in sample.pdf fixture successfully'
   );
 
   const summary = summarizeChecks(checks);
