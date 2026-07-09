@@ -1,4 +1,4 @@
-use pdf_reader_mcp_server::{cli_bridge, PdfReaderMcp, SERVER_VERSION};
+use pdf_reader_mcp_server::{cli_bridge, http_transport, PdfReaderMcp, SERVER_VERSION};
 use rmcp::ServiceExt;
 
 #[tokio::main]
@@ -14,6 +14,10 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("engine cli: unavailable (run `bun run build:rust`)");
         }
         return Ok(());
+    }
+
+    if http_transport::transport_from_env().is_some() {
+        return http_transport::serve_http(http_transport::HttpConfig::from_env()).await;
     }
 
     let service = PdfReaderMcp::new().serve(rmcp::transport::stdio()).await?;

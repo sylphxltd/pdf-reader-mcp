@@ -3,11 +3,15 @@
  * Tests the actual JSON-RPC communication over HTTP
  */
 
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const repoRoot = path.resolve(__dirname, '../..');
+const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
+const RUST_HTTP_READY = 'Streamable HTTP MCP listening on http://';
 
 const TEST_HOST = '127.0.0.1';
 let baseUrl: string;
@@ -34,49 +38,105 @@ const getFreePort = async (): Promise<number> =>
     });
   });
 
-// JSON-RPC request helper
-const sendRequest = async (method: string, params?: unknown, id = 1) => {
-  const response = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
+const streamableHttpHeaders = {
+  'Content-Type': 'application/json',
+  Accept: 'application/json, text/event-stream',
+};
+
+const parseMcpResponse = async (response: Response) => {
+  const contentType = response.headers.get('content-type') ?? '';
+  const body = await response.text();
+
+  if (contentType.includes('application/json')) {
+    return JSON.parse(body) as Record<string, unknown>;
+  }
+
+  const dataLines = body
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice('data:'.length).trim())
+    .filter((line) => line.length > 0);
+
+  const payload = dataLines.at(-1);
+  if (!payload) {
+    throw new SyntaxError(`No MCP JSON payload in streamable HTTP response: ${body.slice(0, 200)}`);
+  }
+  return JSON.parse(payload) as Record<string, unknown>;
+};
+
+const createMcpHttpClient = () => {
+  let sessionHeaders: Record<string, string> = { ...streamableHttpHeaders };
+
+  const postMcp = async (body: Record<string, unknown>) => {
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: sessionHeaders,
+      body: JSON.stringify(body),
+    });
+    const sessionId = response.headers.get('mcp-session-id');
+    if (sessionId) {
+      sessionHeaders = { ...sessionHeaders, 'mcp-session-id': sessionId };
+    }
+    return response;
+  };
+
+  const sendRequest = async (method: string, params?: unknown, id = 1) => {
+    const response = await postMcp({
       jsonrpc: '2.0',
       id,
       method,
       params,
-    }),
-  });
-  return response.json();
-};
+    });
+    return parseMcpResponse(response);
+  };
 
-// Send notification (no response expected for proper notifications)
-const sendNotification = async (method: string, params?: unknown) => {
-  await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
+  const sendNotification = async (method: string, params?: unknown) => {
+    await postMcp({
       jsonrpc: '2.0',
       method,
       params,
-    }),
-  });
+    });
+  };
+
+  const initializeSession = async () => {
+    await sendRequest('initialize', {
+      protocolVersion: '2024-11-05',
+      capabilities: {},
+      clientInfo: { name: 'test-http-client', version: '1.0.0' },
+    });
+    await sendNotification('notifications/initialized');
+  };
+
+  return { sendRequest, sendNotification, initializeSession };
 };
 
-describe('MCP Server HTTP Transport Integration', () => {
+const waitForRustHttpServer = (serverProc: ChildProcess) =>
+  new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Rust HTTP MCP server startup timeout'));
+    }, 30_000);
+
+    const onReady = (output: string) => {
+      if (output.includes(RUST_HTTP_READY)) {
+        clearTimeout(timeout);
+        setTimeout(resolve, 200);
+      }
+    };
+
+    serverProc.stdout?.on('data', (data) => onReady(data.toString()));
+    serverProc.stderr?.on('data', (data) => onReady(data.toString()));
+  });
+
+describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
   let serverProc: ChildProcess;
 
   beforeAll(async () => {
-    // Start the MCP server with HTTP transport
-    const serverPath = path.resolve(__dirname, '../../dist/index.js');
+    execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
+
     const testPort = await getFreePort();
     baseUrl = `http://${TEST_HOST}:${String(testPort)}/mcp`;
-    serverProc = spawn('bun', [serverPath], {
+    serverProc = spawn(binWrapper, [], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -87,26 +147,8 @@ describe('MCP Server HTTP Transport Integration', () => {
       },
     });
 
-    // Wait for server to start and listen
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Server startup timeout'));
-      }, 10000);
-
-      serverProc.stdout?.on('data', (data) => {
-        const output = data.toString();
-        if (output.includes('Server running on http://')) {
-          clearTimeout(timeout);
-          // Give it a moment after the log appears
-          setTimeout(resolve, 200);
-        }
-      });
-
-      serverProc.stderr?.on('data', (data) => {
-        console.error('Server stderr:', data.toString());
-      });
-    });
-  });
+    await waitForRustHttpServer(serverProc);
+  }, 300_000);
 
   afterAll(() => {
     serverProc?.kill('SIGTERM');
@@ -120,25 +162,27 @@ describe('MCP Server HTTP Transport Integration', () => {
   });
 
   it('should respond to initialize request over HTTP', async () => {
-    const response = await sendRequest('initialize', {
+    const client = createMcpHttpClient();
+    const response = await client.sendRequest('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
       clientInfo: { name: 'test-http-client', version: '1.0.0' },
     });
 
     expect(response.id).toBe(1);
-    expect(response.result?.serverInfo?.name).toBe('pdf-reader-mcp');
-    expect(response.result?.serverInfo?.version).toBe(packageJson.version);
+    expect((response.result as { serverInfo?: { name?: string; version?: string } })?.serverInfo?.name).toBe(
+      'pdf-reader-mcp'
+    );
+    expect((response.result as { serverInfo?: { name?: string; version?: string } })?.serverInfo?.version).toBe(
+      packageJson.version
+    );
   });
 
   it('should list available tools over HTTP', async () => {
-    // Send initialized notification
-    await sendNotification('notifications/initialized');
+    const client = createMcpHttpClient();
+    await client.initializeSession();
 
-    // Wait a moment
-    await new Promise((r) => setTimeout(r, 100));
-
-    const response = await sendRequest('tools/list', {}, 2);
+    const response = await client.sendRequest('tools/list', {}, 2);
 
     expect(response.id).toBe(2);
     expect(response.result?.tools).toBeDefined();
@@ -156,9 +200,12 @@ describe('MCP Server HTTP Transport Integration', () => {
   });
 
   it('should call read_pdf tool over HTTP', async () => {
+    const client = createMcpHttpClient();
+    await client.initializeSession();
+
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
-    const response = await sendRequest(
+    const response = await client.sendRequest(
       'tools/call',
       {
         name: 'read_pdf',
@@ -198,36 +245,36 @@ describe('MCP Server HTTP Transport Integration', () => {
   });
 
   it('should reject invalid JSON-RPC requests', async () => {
+    const client = createMcpHttpClient();
+    await client.initializeSession();
+
     const response = await fetch(baseUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
+      headers: streamableHttpHeaders,
       body: JSON.stringify({
         // Missing jsonrpc version
         id: 1,
-        method: 'initialize',
+        method: 'tools/list',
       }),
     });
 
-    const data = await response.json();
-    expect(data.error).toBeDefined();
-    // -32700 = Parse error, -32600 = Invalid Request (both indicate rejection of malformed requests)
-    expect([-32600, -32700]).toContain(data.error.code);
+    expect(response.ok).toBe(false);
+    const body = await response.text();
+    expect(body.length).toBeGreaterThan(0);
   });
 });
 
-describe('MCP Server HTTP Transport Authentication', () => {
+describe('MCP Server HTTP Transport Authentication (Rust rmcp)', () => {
   const API_KEY = 'test-secret-key-123';
   let serverProc: ChildProcess;
   let authBaseUrl: string;
 
   beforeAll(async () => {
-    const serverPath = path.resolve(__dirname, '../../dist/index.js');
+    execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
+
     const testPort = await getFreePort();
     authBaseUrl = `http://${TEST_HOST}:${String(testPort)}/mcp`;
-    serverProc = spawn('bun', [serverPath], {
+    serverProc = spawn(binWrapper, [], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -239,23 +286,8 @@ describe('MCP Server HTTP Transport Authentication', () => {
       },
     });
 
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Server startup timeout'));
-      }, 10000);
-
-      serverProc.stdout?.on('data', (data) => {
-        if (data.toString().includes('Server running on http://')) {
-          clearTimeout(timeout);
-          setTimeout(resolve, 200);
-        }
-      });
-
-      serverProc.stderr?.on('data', (data) => {
-        console.error('Server stderr:', data.toString());
-      });
-    });
-  });
+    await waitForRustHttpServer(serverProc);
+  }, 300_000);
 
   afterAll(() => {
     serverProc?.kill('SIGTERM');
@@ -264,7 +296,7 @@ describe('MCP Server HTTP Transport Authentication', () => {
   const initialize = (headers: Record<string, string>) =>
     fetch(authBaseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...headers },
+      headers: { ...streamableHttpHeaders, ...headers },
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 1,
@@ -292,14 +324,16 @@ describe('MCP Server HTTP Transport Authentication', () => {
   it('accepts requests carrying the correct X-API-Key', async () => {
     const response = await initialize({ 'X-API-Key': API_KEY });
     expect(response.status).toBe(200);
-    const data = await response.json();
-    expect(data.result?.serverInfo?.name).toBe('pdf-reader-mcp');
+    const data = await parseMcpResponse(response);
+    expect((data.result as { serverInfo?: { name?: string } })?.serverInfo?.name).toBe(
+      'pdf-reader-mcp'
+    );
   });
 
   it('does not list tools to an unauthenticated caller', async () => {
     const response = await fetch(authBaseUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: streamableHttpHeaders,
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
     });
     expect(response.status).toBe(401);

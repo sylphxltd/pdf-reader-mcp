@@ -27,6 +27,18 @@ use_ts_transport() {
   [[ "${PDF_READER_MCP_TRANSPORT:-}" == "ts" ]] || [[ "${1:-}" == "ts" ]]
 }
 
+resolve_transport() {
+  if [[ -n "${PDF_READER_MCP_TRANSPORT:-}" ]]; then
+    printf '%s\n' "${PDF_READER_MCP_TRANSPORT}"
+    return 0
+  fi
+  if [[ -n "${MCP_TRANSPORT:-}" ]]; then
+    printf '%s\n' "${MCP_TRANSPORT}"
+    return 0
+  fi
+  printf '%s\n' "stdio"
+}
+
 if use_ts_transport "$@"; then
   if [[ "${1:-}" == "ts" ]]; then
     shift
@@ -35,6 +47,11 @@ if use_ts_transport "$@"; then
 fi
 
 if bin="$(resolve_rust_bin)"; then
+  transport="$(resolve_transport)"
+  if [[ "$transport" == "http" ]]; then
+    export MCP_TRANSPORT=http
+    export PDF_READER_MCP_TRANSPORT=http
+  fi
   exec "$bin" "$@"
 fi
 

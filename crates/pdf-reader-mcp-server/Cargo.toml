@@ -15,10 +15,14 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
+axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 pdf-reader-core = { path = "../pdf-reader-core" }
-rmcp = { version = "0.16.0", features = ["server", "transport-io"] }
+rmcp = { version = "0.16.0", features = ["server", "transport-io", "transport-streamable-http-server"] }
 schemars = { version = "1", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
+subtle = "2"
 tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["rt"] }

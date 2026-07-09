@@ -298,6 +298,21 @@ export const buildSotaReleaseGateReport = async (
       binWrapper.includes('use_ts_transport'),
     'Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only'
   );
+
+  const httpTransportSource = fs.readFileSync(
+    path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/http_transport.rs'),
+    'utf8'
+  );
+  addCheck(
+    checks,
+    'mcp:rust_web_http_transport',
+    httpTransportSource.includes('StreamableHttpService') &&
+      httpTransportSource.includes('/mcp/health') &&
+      binWrapper.includes('resolve_transport') &&
+      binWrapper.includes('MCP_TRANSPORT=http'),
+    'Rust rmcp streamable HTTP Web MCP transport is wired; npm bin routes MCP_TRANSPORT=http to Rust'
+  );
+
   const matrixProbe = spawnSync(
     'bun',
     ['test', 'test/shippedPath.matrix.test.ts'],
