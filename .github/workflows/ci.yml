@@ -47,6 +47,9 @@ jobs:
       - name: Run Tests and Check Coverage
         run: bun run test:cov
 
+      - name: Public surface audit (README discovery)
+        run: bun test test/readmeDiscovery.test.ts
+
       - name: Build docs
         run: bun run docs:build
 
