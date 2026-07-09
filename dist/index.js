@@ -1,7 +1,689 @@
 #!/usr/bin/env node
 
 // src/index.ts
-import { createRequire as createRequire3 } from "node:module";
+import { createRequire as createRequire4 } from "node:module";
+
+// src/doctor.ts
+import { existsSync as existsSync2 } from "node:fs";
+import { createRequire as createRequire2 } from "node:module";
+import { spawnSync as spawnSync2 } from "node:child_process";
+import path4 from "node:path";
+
+// src/engine/rust-hash.ts
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+var here = path.dirname(fileURLToPath(import.meta.url));
+function resolveRustCliBinary() {
+  const env = process.env["PDF_READER_CLI"];
+  if (env && existsSync(env)) {
+    return env;
+  }
+  const release = path.join(here, "../../target/release/pdf-reader-cli");
+  if (existsSync(release)) {
+    return release;
+  }
+  const debug = path.join(here, "../../target/debug/pdf-reader-cli");
+  if (existsSync(debug)) {
+    return debug;
+  }
+  return "pdf-reader-cli";
+}
+function isRustCliAvailable() {
+  return resolveRustCliBinary() !== "pdf-reader-cli";
+}
+function shouldUseRustHashEngine() {
+  if (process.env["PDF_READER_USE_RUST_HASH"] === "0") {
+    return false;
+  }
+  if (process.env["PDF_READER_USE_RUST_HASH"] === "1") {
+    return true;
+  }
+  return isRustCliAvailable();
+}
+function hashLocalFileViaRustEngine(filePath, maxFileBytes = 256 * 1024 * 1024) {
+  const binary = resolveRustCliBinary();
+  const payload = JSON.stringify({
+    tool: "pdf_hash",
+    input: {
+      path: filePath,
+      max_file_bytes: maxFileBytes
+    }
+  });
+  const result = spawnSync(binary, [], {
+    input: payload,
+    encoding: "utf8",
+    maxBuffer: 4 * 1024 * 1024
+  });
+  if (result.error || result.status !== 0) {
+    return;
+  }
+  const envelope = JSON.parse(result.stdout);
+  if (envelope.status !== "ok") {
+    return;
+  }
+  return envelope.hash.sourceHash;
+}
+
+// src/pdf/loader.ts
+import fs3 from "node:fs/promises";
+import { createRequire } from "node:module";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+
+// src/utils/config.ts
+import dns from "node:dns";
+import fs from "node:fs";
+import net from "node:net";
+import path2 from "node:path";
+var splitList = (value, separators) => value.split(separators).map((s) => s.trim()).filter((s) => s.length > 0);
+var canonicalizeDir = (p) => {
+  try {
+    return fs.realpathSync(p);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      const parent = path2.dirname(p);
+      if (parent === p)
+        return p;
+      return path2.join(canonicalizeDir(parent), path2.basename(p));
+    }
+    throw err;
+  }
+};
+var parseDirs = (values) => values.map((dir) => canonicalizeDir(path2.resolve(path2.normalize(dir))));
+var parseBool = (value, fallback) => {
+  if (value === undefined)
+    return fallback;
+  const v = value.trim().toLowerCase();
+  if (v === "false" || v === "0" || v === "no" || v === "off")
+    return false;
+  if (v === "true" || v === "1" || v === "yes" || v === "on")
+    return true;
+  return fallback;
+};
+var parseCliFlags = (argv) => {
+  const dirs = [];
+  const hosts = [];
+  let noHttp = false;
+  let allowPrivateIps = false;
+  for (const arg of argv) {
+    if (arg.startsWith("--allow-dir=")) {
+      dirs.push(arg.slice("--allow-dir=".length));
+    } else if (arg.startsWith("--allow-host=")) {
+      hosts.push(arg.slice("--allow-host=".length).toLowerCase());
+    } else if (arg === "--no-http") {
+      noHttp = true;
+    } else if (arg === "--allow-private-ips") {
+      allowPrivateIps = true;
+    }
+  }
+  return { dirs, hosts, noHttp, allowPrivateIps };
+};
+var envList = (raw, separators, transform = (v) => v) => raw ? splitList(raw, separators).map(transform) : [];
+var readSecurityConfig = (argv = process.argv.slice(2), env = process.env) => {
+  const cli = parseCliFlags(argv);
+  const envDirs = envList(env["MCP_PDF_ALLOWED_DIRS"], /[:,]/);
+  const envHosts = envList(env["MCP_PDF_ALLOWED_HOSTS"], /,/, (h) => h.toLowerCase());
+  const mergedDirs = [...cli.dirs, ...envDirs];
+  const mergedHosts = [...cli.hosts, ...envHosts];
+  return {
+    allowedDirs: mergedDirs.length > 0 ? parseDirs(mergedDirs) : null,
+    allowHttp: cli.noHttp ? false : parseBool(env["MCP_PDF_ALLOW_HTTP"], true),
+    allowedHosts: mergedHosts.length > 0 ? mergedHosts : null,
+    allowPrivateIps: cli.allowPrivateIps || parseBool(env["MCP_PDF_ALLOW_PRIVATE_IPS"], false)
+  };
+};
+var cached = null;
+var getSecurityConfig = () => {
+  if (cached === null) {
+    cached = readSecurityConfig();
+  }
+  return cached;
+};
+var isPathAllowed = (absPath, allowedDirs) => {
+  if (allowedDirs === null)
+    return true;
+  if (allowedDirs.length === 0)
+    return false;
+  const normalized = path2.resolve(absPath);
+  return allowedDirs.some((dir) => {
+    const rel = path2.relative(dir, normalized);
+    if (rel === "")
+      return true;
+    if (rel.startsWith(".."))
+      return false;
+    if (path2.isAbsolute(rel))
+      return false;
+    return true;
+  });
+};
+var isUrlAllowed = (urlString, config) => {
+  if (!config.allowHttp)
+    return false;
+  let parsed;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    return false;
+  if (config.allowedHosts === null)
+    return true;
+  return config.allowedHosts.includes(parsed.hostname.toLowerCase());
+};
+var PRIVATE_IPV4_PREDICATES = [
+  (a) => a === 10,
+  (a, b) => a === 172 && b >= 16 && b <= 31,
+  (a, b) => a === 192 && b === 168,
+  (a) => a === 127,
+  (a, b) => a === 169 && b === 254,
+  (a) => a === 0,
+  (a, b) => a === 100 && b >= 64 && b <= 127,
+  (a) => a >= 224
+];
+var isPrivateIpv4 = (ip) => {
+  const parts = ip.split(".").map((s) => Number.parseInt(s, 10));
+  const a = parts[0];
+  const b = parts[1];
+  if (a === undefined || b === undefined)
+    return true;
+  return PRIVATE_IPV4_PREDICATES.some((pred) => pred(a, b));
+};
+var isPrivateIpv6 = (ip) => {
+  const lower = ip.toLowerCase();
+  if (lower === "::1" || lower === "::")
+    return true;
+  if (lower.startsWith("fc") || lower.startsWith("fd"))
+    return true;
+  if (lower.startsWith("fe80"))
+    return true;
+  if (lower.startsWith("ff"))
+    return true;
+  if (lower.startsWith("::ffff:")) {
+    const tail = lower.slice("::ffff:".length);
+    if (net.isIPv4(tail))
+      return isPrivateIpv4(tail);
+  }
+  return false;
+};
+var isPrivateIp = (ip) => {
+  if (net.isIPv4(ip))
+    return isPrivateIpv4(ip);
+  if (net.isIPv6(ip))
+    return isPrivateIpv6(ip);
+  return true;
+};
+var assertUrlNotPrivate = async (hostname) => {
+  if (net.isIP(hostname)) {
+    if (isPrivateIp(hostname)) {
+      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
+    }
+    return;
+  }
+  let addresses;
+  try {
+    addresses = await dns.promises.lookup(hostname, { all: true });
+  } catch {
+    throw new Error(`URL host '${hostname}' could not be resolved.`);
+  }
+  if (addresses.length === 0) {
+    throw new Error(`URL host '${hostname}' resolved to no addresses.`);
+  }
+  for (const { address } of addresses) {
+    if (isPrivateIp(address)) {
+      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
+    }
+  }
+};
+
+// src/utils/errors.ts
+class PdfError extends Error {
+  code;
+  constructor(code, message, options) {
+    super(message, options?.cause ? { cause: options.cause } : undefined);
+    this.code = code;
+    this.name = "PdfError";
+  }
+}
+
+// src/utils/logger.ts
+var LEVEL_THRESHOLD = {
+  debug: 0 /* DEBUG */,
+  info: 1 /* INFO */,
+  warn: 2 /* WARN */,
+  error: 3 /* ERROR */
+};
+var LEVEL_METHOD = {
+  debug: "log",
+  info: "info",
+  warn: "warn",
+  error: "error"
+};
+
+class Logger {
+  prefix;
+  minLevel;
+  constructor(component, minLevel = 1 /* INFO */) {
+    this.prefix = `[PDF Reader MCP${component ? ` - ${component}` : ""}]`;
+    this.minLevel = minLevel;
+  }
+  setLevel(level) {
+    this.minLevel = level;
+  }
+  debug(message, context) {
+    this.emit("debug", message, context);
+  }
+  info(message, context) {
+    this.emit("info", message, context);
+  }
+  warn(message, context) {
+    this.emit("warn", message, context);
+  }
+  error(message, context) {
+    this.emit("error", message, context);
+  }
+  emit(level, message, context) {
+    const threshold = LEVEL_THRESHOLD[level] ?? 3 /* ERROR */;
+    if (this.minLevel > threshold)
+      return;
+    const method = LEVEL_METHOD[level] ?? "log";
+    const prefixed = `${this.prefix} ${message}`;
+    console[method](prefixed);
+    if ((level === "error" || level === "warn") && context && Object.keys(context).length > 0) {
+      console[method](JSON.stringify({ timestamp: new Date().toISOString(), level, message, ...context }));
+    }
+  }
+}
+var createLogger = (component, minLevel) => new Logger(component, minLevel);
+var logger = new Logger("", 2 /* WARN */);
+
+// src/utils/pathUtils.ts
+import fs2 from "node:fs";
+import path3 from "node:path";
+var PROJECT_ROOT = process.cwd();
+var canonicalize = (p) => {
+  try {
+    return fs2.realpathSync(p);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      const parent = path3.dirname(p);
+      if (parent === p)
+        return p;
+      return path3.join(canonicalize(parent), path3.basename(p));
+    }
+    throw err;
+  }
+};
+var resolvePath = (userPath) => {
+  if (typeof userPath !== "string") {
+    throw new PdfError(-32602 /* InvalidParams */, "Path must be a string.");
+  }
+  const normalizedUserPath = path3.normalize(userPath);
+  const resolved = path3.isAbsolute(normalizedUserPath) ? normalizedUserPath : path3.resolve(PROJECT_ROOT, normalizedUserPath);
+  const canonical = canonicalize(resolved);
+  const { allowedDirs } = getSecurityConfig();
+  if (!isPathAllowed(canonical, allowedDirs)) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: path '${userPath}' is outside the allowed directories.`);
+  }
+  return canonical;
+};
+
+// src/utils/pdfjs.ts
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+var execFileAsync = promisify(execFile);
+var destroyLoadingTask = async (loadingTask, logger2, logLabel = "PDF document", logContext) => {
+  if (loadingTask && typeof loadingTask === "object" && "destroy" in loadingTask && typeof loadingTask.destroy === "function") {
+    try {
+      await loadingTask.destroy();
+    } catch (destroyError) {
+      logger2?.warn(`Error destroying ${logLabel}`, {
+        error: destroyError instanceof Error ? destroyError.message : String(destroyError),
+        ...logContext
+      });
+    }
+  }
+};
+
+// src/pdf/loader.ts
+var logger2 = createLogger("Loader");
+var require2 = createRequire(import.meta.url);
+var PDFJS_ROOT = require2.resolve("pdfjs-dist/package.json").replace("package.json", "");
+var CMAP_URL = `${PDFJS_ROOT}cmaps/`;
+var STANDARD_FONT_DATA_URL = `${PDFJS_ROOT}standard_fonts/`;
+var WASM_URL = `${PDFJS_ROOT}wasm/`;
+var ICC_URL = `${PDFJS_ROOT}iccs/`;
+var MAX_PDF_SIZE = 100 * 1024 * 1024;
+var URL_FETCH_TIMEOUT_MS = 30000;
+var MAX_REDIRECTS = 5;
+var formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(0)}MB`;
+var sanitizeSourceDescription = (description) => description.length > 200 ? `${description.slice(0, 197)}...` : description;
+var loadLocalFile = async (userPath) => {
+  const safePath = resolvePath(userPath);
+  let stats;
+  try {
+    stats = await fs3.stat(safePath);
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT") {
+      throw new PdfError(-32600 /* InvalidRequest */, `File not found at '${userPath}'.`, {
+        cause: err instanceof Error ? err : undefined
+      });
+    }
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to access file at '${userPath}'.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  }
+  if (!stats.isFile()) {
+    throw new PdfError(-32600 /* InvalidRequest */, `Path '${userPath}' is not a regular file.`);
+  }
+  if (stats.size > MAX_PDF_SIZE) {
+    throw new PdfError(-32600 /* InvalidRequest */, `PDF file exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}. File size: ${formatBytes(stats.size)}.`);
+  }
+  const buffer = await fs3.readFile(safePath);
+  return new Uint8Array(buffer);
+};
+var validateUrlHop = async (urlString, config) => {
+  if (!isUrlAllowed(urlString, config)) {
+    const reason = config.allowHttp ? "host is not in the allowed list or scheme is not http(s)" : "HTTP access is disabled";
+    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: URL '${urlString}' rejected (${reason}).`);
+  }
+  if (!config.allowPrivateIps) {
+    let hostname;
+    try {
+      hostname = new URL(urlString).hostname;
+    } catch {
+      throw new PdfError(-32600 /* InvalidRequest */, `Invalid URL: '${urlString}'.`);
+    }
+    try {
+      await assertUrlNotPrivate(hostname);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "SSRF check failed";
+      throw new PdfError(-32600 /* InvalidRequest */, `Access denied: ${reason}`);
+    }
+  }
+};
+var fetchUrlBody = async (url, config) => {
+  let currentUrl = url;
+  const controller = new AbortController;
+  const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
+  try {
+    for (let hop = 0;hop <= MAX_REDIRECTS; hop++) {
+      await validateUrlHop(currentUrl, config);
+      const response = await fetch(currentUrl, {
+        redirect: "manual",
+        signal: controller.signal
+      });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) {
+          throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: redirect without Location header.`);
+        }
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+      if (!response.ok) {
+        throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed with HTTP ${String(response.status)}.`);
+      }
+      const contentLengthHeader = response.headers.get("content-length");
+      if (contentLengthHeader !== null) {
+        const declared = Number.parseInt(contentLengthHeader, 10);
+        if (Number.isFinite(declared) && declared > MAX_PDF_SIZE) {
+          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} (Content-Length: ${formatBytes(declared)}).`);
+        }
+      }
+      if (!response.body) {
+        const ab = await response.arrayBuffer();
+        if (ab.byteLength > MAX_PDF_SIZE) {
+          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}.`);
+        }
+        return new Uint8Array(ab);
+      }
+      const reader = response.body.getReader();
+      const chunks = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        if (value) {
+          total += value.byteLength;
+          if (total > MAX_PDF_SIZE) {
+            await reader.cancel().catch(() => {});
+            throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} during streaming.`);
+          }
+          chunks.push(value);
+        }
+      }
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return combined;
+    }
+    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: exceeded redirect limit (${String(MAX_REDIRECTS)}).`);
+  } catch (err) {
+    if (err instanceof PdfError)
+      throw err;
+    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
+      throw new PdfError(-32600 /* InvalidRequest */, `URL fetch timed out after ${String(URL_FETCH_TIMEOUT_MS / 1000)}s.`, { cause: err });
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    logger2.warn("URL fetch failed", { url, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed for '${url}'.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+var loadPdfDocumentCore = async (source, sourceDescription) => {
+  const safeSource = sanitizeSourceDescription(sourceDescription);
+  let pdfData;
+  try {
+    if (source.path) {
+      pdfData = await loadLocalFile(source.path);
+    } else if (source.url) {
+      const config = getSecurityConfig();
+      pdfData = await fetchUrlBody(source.url, config);
+    } else {
+      throw new PdfError(-32602 /* InvalidParams */, `Source ${safeSource} missing 'path' or 'url'.`);
+    }
+  } catch (err) {
+    if (err instanceof PdfError) {
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    logger2.error("Unexpected error preparing PDF source", {
+      sourceDescription: safeSource,
+      error: message
+    });
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to prepare PDF source ${safeSource}.`, {
+      cause: err instanceof Error ? err : undefined
+    });
+  }
+  const loadingTask = getDocument({
+    data: pdfData,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true,
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+    wasmUrl: WASM_URL,
+    iccUrl: ICC_URL
+  });
+  try {
+    return await loadingTask.promise;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger2.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
+    throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${safeSource}.`, { cause: err instanceof Error ? err : undefined });
+  }
+};
+var loadPdfDocument = async (source, sourceDescription, session) => {
+  if (session) {
+    return session.acquire(source, sourceDescription);
+  }
+  return loadPdfDocumentCore(source, sourceDescription);
+};
+var releasePdfDocument = async (source, pdfDocument, sourceDescription, session) => {
+  if (session) {
+    session.release(source);
+    return;
+  }
+  await destroyLoadingTask(pdfDocument?.loadingTask, logger2, "PDF document", {
+    sourceDescription
+  });
+};
+
+// src/doctor.ts
+var require3 = createRequire2(import.meta.url);
+var packageRoot = path4.resolve(path4.dirname(require3.resolve("../package.json")));
+var probeNode = () => {
+  const version = process.versions.node;
+  const major = Number.parseInt(version.split(".")[0] ?? "0", 10);
+  if (major >= 22) {
+    return {
+      id: "node",
+      status: "ok",
+      message: `Node.js ${version} meets the >=22.13 requirement.`
+    };
+  }
+  return {
+    id: "node",
+    status: "warn",
+    message: `Node.js ${version} is below the recommended >=22.13 runtime.`
+  };
+};
+var probePdfjsResources = () => {
+  const pdfjsRoot = require3.resolve("pdfjs-dist/package.json").replace("package.json", "");
+  const requiredDirs = ["cmaps", "standard_fonts", "wasm", "iccs"];
+  const missing = requiredDirs.filter((dir) => !existsSync2(path4.join(pdfjsRoot, dir)));
+  if (missing.length === 0) {
+    return {
+      id: "pdfjs_resources",
+      status: "ok",
+      message: "pdfjs-dist CMap, font, WASM, and ICC resources are present."
+    };
+  }
+  return {
+    id: "pdfjs_resources",
+    status: "fail",
+    message: `pdfjs-dist install is incomplete; missing: ${missing.join(", ")}.`
+  };
+};
+var probeSamplePdf = async () => {
+  const samplePath = path4.join(packageRoot, "test/fixtures/sample.pdf");
+  if (!existsSync2(samplePath)) {
+    return {
+      id: "sample_probe",
+      status: "fail",
+      message: "Checked-in sample.pdf fixture is missing from the install tree."
+    };
+  }
+  try {
+    const document = await loadPdfDocumentCore({ path: samplePath }, samplePath);
+    const pages = document.numPages;
+    await destroyLoadingTask(document.loadingTask);
+    if (pages >= 1) {
+      return {
+        id: "sample_probe",
+        status: "ok",
+        message: `Sample PDF loads successfully (${String(pages)} page(s)).`
+      };
+    }
+    return {
+      id: "sample_probe",
+      status: "fail",
+      message: "Sample PDF loaded but reported zero pages."
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      id: "sample_probe",
+      status: "fail",
+      message: `Sample PDF probe failed: ${message}`
+    };
+  }
+};
+var probeDistEntry = () => {
+  const distEntry = path4.join(packageRoot, "dist/index.js");
+  if (existsSync2(distEntry)) {
+    return {
+      id: "dist_entry",
+      status: "ok",
+      message: "Built MCP adapter entrypoint dist/index.js is present."
+    };
+  }
+  return {
+    id: "dist_entry",
+    status: "warn",
+    message: "dist/index.js is not built yet. Run bun run build before wiring the MCP host to the published bin."
+  };
+};
+var probeRustHashCli = () => {
+  const binary = resolveRustCliBinary();
+  if (binary !== "pdf-reader-cli" && existsSync2(binary)) {
+    return {
+      id: "rust_hash_cli",
+      status: "ok",
+      message: `Rust hash CLI is available at ${binary}. Source hashing defaults to the native engine when built.`
+    };
+  }
+  return {
+    id: "rust_hash_cli",
+    status: "warn",
+    message: "Rust hash CLI is not built. Run `cargo build --release` to enable the default native hash path."
+  };
+};
+var probeTesseract = () => {
+  const result = spawnSync2("tesseract", ["--version"], {
+    encoding: "utf8",
+    timeout: 2500
+  });
+  if (result.status === 0) {
+    const versionLine = (result.stdout || result.stderr || "").split(`
+`)[0]?.trim();
+    return {
+      id: "tesseract",
+      status: "ok",
+      message: versionLine ? `Tesseract available (${versionLine})` : "Tesseract available"
+    };
+  }
+  return {
+    id: "tesseract",
+    status: "warn",
+    message: "Tesseract is not installed. OCR remains optional; text-layer extraction still works for selectable PDFs."
+  };
+};
+var aggregateStatus = (checks) => {
+  if (checks.some((check) => check.status === "fail")) {
+    return "unavailable";
+  }
+  if (checks.some((check) => check.status === "warn")) {
+    return "degraded";
+  }
+  return "ready";
+};
+async function runDoctor(version) {
+  const checks = [
+    probeNode(),
+    probePdfjsResources(),
+    probeRustHashCli(),
+    probeDistEntry(),
+    await probeSamplePdf(),
+    probeTesseract()
+  ];
+  return {
+    profile: "pdf_reader_doctor",
+    version,
+    status: aggregateStatus(checks),
+    checks
+  };
+}
+function formatDoctorReport(report) {
+  return JSON.stringify(report, null, 2);
+}
 
 // src/mcp.ts
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -190,6 +872,130 @@ var createServer = (options) => {
   };
 };
 
+// src/evidence/envelope.ts
+import { createHash as createHash2 } from "node:crypto";
+import { readFile } from "node:fs/promises";
+async function hashLocalFile(path5) {
+  if (shouldUseRustHashEngine()) {
+    const rustHash = hashLocalFileViaRustEngine(path5);
+    if (rustHash) {
+      return rustHash;
+    }
+  }
+  try {
+    const bytes = await readFile(path5);
+    return createHash2("sha256").update(bytes).digest("hex");
+  } catch {
+    return;
+  }
+}
+async function resolvePrimarySourceHash(sources) {
+  const firstPath = sources.find((source) => source.path)?.path;
+  if (!firstPath) {
+    return;
+  }
+  return hashLocalFile(firstPath);
+}
+var primarySourceLabel = (sources) => {
+  const first = sources[0];
+  return first?.path ?? first?.url ?? "unknown";
+};
+function buildPdfToolEvidence(input) {
+  const source = primarySourceLabel(input.sources);
+  const locator = {
+    tool: input.tool,
+    ...input.sources[0]?.path !== undefined ? { path: input.sources[0].path } : {},
+    ...input.sources[0]?.url !== undefined ? { url: input.sources[0].url } : {},
+    ...input.operation !== undefined ? { operation: input.operation } : {}
+  };
+  return {
+    subject: source,
+    source,
+    ...input.sourceHash !== undefined ? { sourceHash: input.sourceHash } : {},
+    freshness: {
+      indexedAt: new Date().toISOString(),
+      stale: false
+    },
+    locator,
+    route: {
+      extraction: input.route ?? "pdfjs-native-v3",
+      tool: input.tool,
+      ...input.operation !== undefined ? { operation: input.operation } : {}
+    },
+    confidence: "deterministic",
+    warnings: input.warnings ?? [],
+    nextActions: [
+      "Use search_pdf for literal retrieval with page and bbox locators",
+      "Use pdf_evidence for inspect, render, crop, OCR, or visual-region follow-up"
+    ]
+  };
+}
+function attachPdfToolEvidence(input) {
+  return {
+    evidence: buildPdfToolEvidence(input),
+    ...input.payload
+  };
+}
+
+// src/evidence/wrapResponse.ts
+var extractJsonText = (result) => {
+  if (Array.isArray(result)) {
+    const first = result[0];
+    return first?.type === "text" && typeof first.text === "string" ? first.text : undefined;
+  }
+  if (typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)) {
+    const first = result.content[0];
+    return first?.type === "text" && typeof first.text === "string" ? first.text : undefined;
+  }
+  const block = result;
+  if (block.type === "text" && typeof block.text === "string") {
+    return block.text;
+  }
+  return;
+};
+var buildAttachInput = (input) => ({
+  tool: input.tool,
+  sources: input.sources,
+  payload: input.payload,
+  ...input.operation !== undefined ? { operation: input.operation } : {},
+  ...input.sourceHash !== undefined ? { sourceHash: input.sourceHash } : {},
+  ...input.warnings !== undefined ? { warnings: input.warnings } : {},
+  ...input.route !== undefined ? { route: input.route } : {}
+});
+async function wrapPdfEvidenceResponse(input) {
+  const jsonText = extractJsonText(input.response);
+  if (!jsonText) {
+    return input.response;
+  }
+  let payload;
+  try {
+    payload = JSON.parse(jsonText);
+  } catch {
+    return input.response;
+  }
+  const sourceHash = await resolvePrimarySourceHash(input.sources);
+  const wrapped = attachPdfToolEvidence(buildAttachInput({
+    tool: input.tool,
+    operation: input.operation,
+    sources: input.sources,
+    payload,
+    sourceHash,
+    warnings: input.warnings,
+    route: input.route
+  }));
+  const wrappedText = text(JSON.stringify(wrapped, null, 2));
+  if (Array.isArray(input.response)) {
+    return [wrappedText, ...input.response.slice(1)];
+  }
+  if (typeof input.response === "object" && input.response !== null && "content" in input.response && Array.isArray(input.response.content)) {
+    return {
+      ...input.response,
+      content: [wrappedText, ...input.response.content.slice(1)]
+    };
+  }
+  return wrappedText;
+}
+
 // src/schema.ts
 import { z as z2 } from "zod";
 var applyActions = (schema, actions) => actions.reduce((current, action) => action(current), schema);
@@ -317,483 +1123,13 @@ var pdfEvidenceArgsSchema = object({
 // src/pdf/regionAnalysis.ts
 import fs4 from "node:fs/promises";
 import os from "node:os";
-import path3 from "node:path";
-
-// src/utils/errors.ts
-class PdfError extends Error {
-  code;
-  constructor(code, message, options) {
-    super(message, options?.cause ? { cause: options.cause } : undefined);
-    this.code = code;
-    this.name = "PdfError";
-  }
-}
-
-// src/utils/logger.ts
-var LEVEL_THRESHOLD = {
-  debug: 0 /* DEBUG */,
-  info: 1 /* INFO */,
-  warn: 2 /* WARN */,
-  error: 3 /* ERROR */
-};
-var LEVEL_METHOD = {
-  debug: "log",
-  info: "info",
-  warn: "warn",
-  error: "error"
-};
-
-class Logger {
-  prefix;
-  minLevel;
-  constructor(component, minLevel = 1 /* INFO */) {
-    this.prefix = `[PDF Reader MCP${component ? ` - ${component}` : ""}]`;
-    this.minLevel = minLevel;
-  }
-  setLevel(level) {
-    this.minLevel = level;
-  }
-  debug(message, context) {
-    this.emit("debug", message, context);
-  }
-  info(message, context) {
-    this.emit("info", message, context);
-  }
-  warn(message, context) {
-    this.emit("warn", message, context);
-  }
-  error(message, context) {
-    this.emit("error", message, context);
-  }
-  emit(level, message, context) {
-    const threshold = LEVEL_THRESHOLD[level] ?? 3 /* ERROR */;
-    if (this.minLevel > threshold)
-      return;
-    const method = LEVEL_METHOD[level] ?? "log";
-    const prefixed = `${this.prefix} ${message}`;
-    console[method](prefixed);
-    if ((level === "error" || level === "warn") && context && Object.keys(context).length > 0) {
-      console[method](JSON.stringify({ timestamp: new Date().toISOString(), level, message, ...context }));
-    }
-  }
-}
-var createLogger = (component, minLevel) => new Logger(component, minLevel);
-var logger = new Logger("", 2 /* WARN */);
-
-// src/utils/pdfjs.ts
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-var execFileAsync = promisify(execFile);
-var destroyLoadingTask = async (loadingTask, logger2, logLabel = "PDF document", logContext) => {
-  if (loadingTask && typeof loadingTask === "object" && "destroy" in loadingTask && typeof loadingTask.destroy === "function") {
-    try {
-      await loadingTask.destroy();
-    } catch (destroyError) {
-      logger2?.warn(`Error destroying ${logLabel}`, {
-        error: destroyError instanceof Error ? destroyError.message : String(destroyError),
-        ...logContext
-      });
-    }
-  }
-};
+import path5 from "node:path";
 
 // src/pdf/regions.ts
 import { PNG } from "pngjs";
 
-// src/pdf/loader.ts
-import fs3 from "node:fs/promises";
-import { createRequire } from "node:module";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-
-// src/utils/config.ts
-import dns from "node:dns";
-import fs from "node:fs";
-import net from "node:net";
-import path from "node:path";
-var splitList = (value, separators) => value.split(separators).map((s) => s.trim()).filter((s) => s.length > 0);
-var canonicalizeDir = (p) => {
-  try {
-    return fs.realpathSync(p);
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
-      const parent = path.dirname(p);
-      if (parent === p)
-        return p;
-      return path.join(canonicalizeDir(parent), path.basename(p));
-    }
-    throw err;
-  }
-};
-var parseDirs = (values) => values.map((dir) => canonicalizeDir(path.resolve(path.normalize(dir))));
-var parseBool = (value, fallback) => {
-  if (value === undefined)
-    return fallback;
-  const v = value.trim().toLowerCase();
-  if (v === "false" || v === "0" || v === "no" || v === "off")
-    return false;
-  if (v === "true" || v === "1" || v === "yes" || v === "on")
-    return true;
-  return fallback;
-};
-var parseCliFlags = (argv) => {
-  const dirs = [];
-  const hosts = [];
-  let noHttp = false;
-  let allowPrivateIps = false;
-  for (const arg of argv) {
-    if (arg.startsWith("--allow-dir=")) {
-      dirs.push(arg.slice("--allow-dir=".length));
-    } else if (arg.startsWith("--allow-host=")) {
-      hosts.push(arg.slice("--allow-host=".length).toLowerCase());
-    } else if (arg === "--no-http") {
-      noHttp = true;
-    } else if (arg === "--allow-private-ips") {
-      allowPrivateIps = true;
-    }
-  }
-  return { dirs, hosts, noHttp, allowPrivateIps };
-};
-var envList = (raw, separators, transform = (v) => v) => raw ? splitList(raw, separators).map(transform) : [];
-var readSecurityConfig = (argv = process.argv.slice(2), env = process.env) => {
-  const cli = parseCliFlags(argv);
-  const envDirs = envList(env["MCP_PDF_ALLOWED_DIRS"], /[:,]/);
-  const envHosts = envList(env["MCP_PDF_ALLOWED_HOSTS"], /,/, (h) => h.toLowerCase());
-  const mergedDirs = [...cli.dirs, ...envDirs];
-  const mergedHosts = [...cli.hosts, ...envHosts];
-  return {
-    allowedDirs: mergedDirs.length > 0 ? parseDirs(mergedDirs) : null,
-    allowHttp: cli.noHttp ? false : parseBool(env["MCP_PDF_ALLOW_HTTP"], true),
-    allowedHosts: mergedHosts.length > 0 ? mergedHosts : null,
-    allowPrivateIps: cli.allowPrivateIps || parseBool(env["MCP_PDF_ALLOW_PRIVATE_IPS"], false)
-  };
-};
-var cached = null;
-var getSecurityConfig = () => {
-  if (cached === null) {
-    cached = readSecurityConfig();
-  }
-  return cached;
-};
-var isPathAllowed = (absPath, allowedDirs) => {
-  if (allowedDirs === null)
-    return true;
-  if (allowedDirs.length === 0)
-    return false;
-  const normalized = path.resolve(absPath);
-  return allowedDirs.some((dir) => {
-    const rel = path.relative(dir, normalized);
-    if (rel === "")
-      return true;
-    if (rel.startsWith(".."))
-      return false;
-    if (path.isAbsolute(rel))
-      return false;
-    return true;
-  });
-};
-var isUrlAllowed = (urlString, config) => {
-  if (!config.allowHttp)
-    return false;
-  let parsed;
-  try {
-    parsed = new URL(urlString);
-  } catch {
-    return false;
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
-    return false;
-  if (config.allowedHosts === null)
-    return true;
-  return config.allowedHosts.includes(parsed.hostname.toLowerCase());
-};
-var PRIVATE_IPV4_PREDICATES = [
-  (a) => a === 10,
-  (a, b) => a === 172 && b >= 16 && b <= 31,
-  (a, b) => a === 192 && b === 168,
-  (a) => a === 127,
-  (a, b) => a === 169 && b === 254,
-  (a) => a === 0,
-  (a, b) => a === 100 && b >= 64 && b <= 127,
-  (a) => a >= 224
-];
-var isPrivateIpv4 = (ip) => {
-  const parts = ip.split(".").map((s) => Number.parseInt(s, 10));
-  const a = parts[0];
-  const b = parts[1];
-  if (a === undefined || b === undefined)
-    return true;
-  return PRIVATE_IPV4_PREDICATES.some((pred) => pred(a, b));
-};
-var isPrivateIpv6 = (ip) => {
-  const lower = ip.toLowerCase();
-  if (lower === "::1" || lower === "::")
-    return true;
-  if (lower.startsWith("fc") || lower.startsWith("fd"))
-    return true;
-  if (lower.startsWith("fe80"))
-    return true;
-  if (lower.startsWith("ff"))
-    return true;
-  if (lower.startsWith("::ffff:")) {
-    const tail = lower.slice("::ffff:".length);
-    if (net.isIPv4(tail))
-      return isPrivateIpv4(tail);
-  }
-  return false;
-};
-var isPrivateIp = (ip) => {
-  if (net.isIPv4(ip))
-    return isPrivateIpv4(ip);
-  if (net.isIPv6(ip))
-    return isPrivateIpv6(ip);
-  return true;
-};
-var assertUrlNotPrivate = async (hostname) => {
-  if (net.isIP(hostname)) {
-    if (isPrivateIp(hostname)) {
-      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
-    }
-    return;
-  }
-  let addresses;
-  try {
-    addresses = await dns.promises.lookup(hostname, { all: true });
-  } catch {
-    throw new Error(`URL host '${hostname}' could not be resolved.`);
-  }
-  if (addresses.length === 0) {
-    throw new Error(`URL host '${hostname}' resolved to no addresses.`);
-  }
-  for (const { address } of addresses) {
-    if (isPrivateIp(address)) {
-      throw new Error(`URL host '${hostname}' resolves to a non-public address (SSRF protection).`);
-    }
-  }
-};
-
-// src/utils/pathUtils.ts
-import fs2 from "node:fs";
-import path2 from "node:path";
-var PROJECT_ROOT = process.cwd();
-var canonicalize = (p) => {
-  try {
-    return fs2.realpathSync(p);
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
-      const parent = path2.dirname(p);
-      if (parent === p)
-        return p;
-      return path2.join(canonicalize(parent), path2.basename(p));
-    }
-    throw err;
-  }
-};
-var resolvePath = (userPath) => {
-  if (typeof userPath !== "string") {
-    throw new PdfError(-32602 /* InvalidParams */, "Path must be a string.");
-  }
-  const normalizedUserPath = path2.normalize(userPath);
-  const resolved = path2.isAbsolute(normalizedUserPath) ? normalizedUserPath : path2.resolve(PROJECT_ROOT, normalizedUserPath);
-  const canonical = canonicalize(resolved);
-  const { allowedDirs } = getSecurityConfig();
-  if (!isPathAllowed(canonical, allowedDirs)) {
-    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: path '${userPath}' is outside the allowed directories.`);
-  }
-  return canonical;
-};
-
-// src/pdf/loader.ts
-var logger2 = createLogger("Loader");
-var require2 = createRequire(import.meta.url);
-var PDFJS_ROOT = require2.resolve("pdfjs-dist/package.json").replace("package.json", "");
-var CMAP_URL = `${PDFJS_ROOT}cmaps/`;
-var STANDARD_FONT_DATA_URL = `${PDFJS_ROOT}standard_fonts/`;
-var WASM_URL = `${PDFJS_ROOT}wasm/`;
-var ICC_URL = `${PDFJS_ROOT}iccs/`;
-var MAX_PDF_SIZE = 100 * 1024 * 1024;
-var URL_FETCH_TIMEOUT_MS = 30000;
-var MAX_REDIRECTS = 5;
-var formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(0)}MB`;
-var sanitizeSourceDescription = (description2) => description2.length > 200 ? `${description2.slice(0, 197)}...` : description2;
-var loadLocalFile = async (userPath) => {
-  const safePath = resolvePath(userPath);
-  let stats;
-  try {
-    stats = await fs3.stat(safePath);
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT") {
-      throw new PdfError(-32600 /* InvalidRequest */, `File not found at '${userPath}'.`, {
-        cause: err instanceof Error ? err : undefined
-      });
-    }
-    throw new PdfError(-32600 /* InvalidRequest */, `Failed to access file at '${userPath}'.`, {
-      cause: err instanceof Error ? err : undefined
-    });
-  }
-  if (!stats.isFile()) {
-    throw new PdfError(-32600 /* InvalidRequest */, `Path '${userPath}' is not a regular file.`);
-  }
-  if (stats.size > MAX_PDF_SIZE) {
-    throw new PdfError(-32600 /* InvalidRequest */, `PDF file exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}. File size: ${formatBytes(stats.size)}.`);
-  }
-  const buffer = await fs3.readFile(safePath);
-  return new Uint8Array(buffer);
-};
-var validateUrlHop = async (urlString, config) => {
-  if (!isUrlAllowed(urlString, config)) {
-    const reason = config.allowHttp ? "host is not in the allowed list or scheme is not http(s)" : "HTTP access is disabled";
-    throw new PdfError(-32600 /* InvalidRequest */, `Access denied: URL '${urlString}' rejected (${reason}).`);
-  }
-  if (!config.allowPrivateIps) {
-    let hostname;
-    try {
-      hostname = new URL(urlString).hostname;
-    } catch {
-      throw new PdfError(-32600 /* InvalidRequest */, `Invalid URL: '${urlString}'.`);
-    }
-    try {
-      await assertUrlNotPrivate(hostname);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : "SSRF check failed";
-      throw new PdfError(-32600 /* InvalidRequest */, `Access denied: ${reason}`);
-    }
-  }
-};
-var fetchUrlBody = async (url, config) => {
-  let currentUrl = url;
-  const controller = new AbortController;
-  const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
-  try {
-    for (let hop = 0;hop <= MAX_REDIRECTS; hop++) {
-      await validateUrlHop(currentUrl, config);
-      const response = await fetch(currentUrl, {
-        redirect: "manual",
-        signal: controller.signal
-      });
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get("location");
-        if (!location) {
-          throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: redirect without Location header.`);
-        }
-        currentUrl = new URL(location, currentUrl).toString();
-        continue;
-      }
-      if (!response.ok) {
-        throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed with HTTP ${String(response.status)}.`);
-      }
-      const contentLengthHeader = response.headers.get("content-length");
-      if (contentLengthHeader !== null) {
-        const declared = Number.parseInt(contentLengthHeader, 10);
-        if (Number.isFinite(declared) && declared > MAX_PDF_SIZE) {
-          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} (Content-Length: ${formatBytes(declared)}).`);
-        }
-      }
-      if (!response.body) {
-        const ab = await response.arrayBuffer();
-        if (ab.byteLength > MAX_PDF_SIZE) {
-          throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)}.`);
-        }
-        return new Uint8Array(ab);
-      }
-      const reader = response.body.getReader();
-      const chunks = [];
-      let total = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done)
-          break;
-        if (value) {
-          total += value.byteLength;
-          if (total > MAX_PDF_SIZE) {
-            await reader.cancel().catch(() => {});
-            throw new PdfError(-32600 /* InvalidRequest */, `Remote PDF exceeds maximum size of ${formatBytes(MAX_PDF_SIZE)} during streaming.`);
-          }
-          chunks.push(value);
-        }
-      }
-      const combined = new Uint8Array(total);
-      let offset = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      return combined;
-    }
-    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed: exceeded redirect limit (${String(MAX_REDIRECTS)}).`);
-  } catch (err) {
-    if (err instanceof PdfError)
-      throw err;
-    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
-      throw new PdfError(-32600 /* InvalidRequest */, `URL fetch timed out after ${String(URL_FETCH_TIMEOUT_MS / 1000)}s.`, { cause: err });
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    logger2.warn("URL fetch failed", { url, error: message });
-    throw new PdfError(-32600 /* InvalidRequest */, `URL fetch failed for '${url}'.`, {
-      cause: err instanceof Error ? err : undefined
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-var loadPdfDocumentCore = async (source, sourceDescription) => {
-  const safeSource = sanitizeSourceDescription(sourceDescription);
-  let pdfData;
-  try {
-    if (source.path) {
-      pdfData = await loadLocalFile(source.path);
-    } else if (source.url) {
-      const config = getSecurityConfig();
-      pdfData = await fetchUrlBody(source.url, config);
-    } else {
-      throw new PdfError(-32602 /* InvalidParams */, `Source ${safeSource} missing 'path' or 'url'.`);
-    }
-  } catch (err) {
-    if (err instanceof PdfError) {
-      throw err;
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    logger2.error("Unexpected error preparing PDF source", {
-      sourceDescription: safeSource,
-      error: message
-    });
-    throw new PdfError(-32600 /* InvalidRequest */, `Failed to prepare PDF source ${safeSource}.`, {
-      cause: err instanceof Error ? err : undefined
-    });
-  }
-  const loadingTask = getDocument({
-    data: pdfData,
-    cMapUrl: CMAP_URL,
-    cMapPacked: true,
-    standardFontDataUrl: STANDARD_FONT_DATA_URL,
-    wasmUrl: WASM_URL,
-    iccUrl: ICC_URL
-  });
-  try {
-    return await loadingTask.promise;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    logger2.error("PDF.js loading error", { sourceDescription: safeSource, error: message });
-    throw new PdfError(-32600 /* InvalidRequest */, `Failed to load PDF document from ${safeSource}.`, { cause: err instanceof Error ? err : undefined });
-  }
-};
-var loadPdfDocument = async (source, sourceDescription, session) => {
-  if (session) {
-    return session.acquire(source, sourceDescription);
-  }
-  return loadPdfDocumentCore(source, sourceDescription);
-};
-var releasePdfDocument = async (source, pdfDocument, sourceDescription, session) => {
-  if (session) {
-    session.release(source);
-    return;
-  }
-  await destroyLoadingTask(pdfDocument?.loadingTask, logger2, "PDF document", {
-    sourceDescription
-  });
-};
-
 // src/pdf/renderer.ts
-import { createRequire as createRequire2 } from "node:module";
+import { createRequire as createRequire3 } from "node:module";
 import { pathToFileURL } from "node:url";
 
 // src/pdf/parser.ts
@@ -875,8 +1211,8 @@ var DEFAULT_RENDER_SCALE = 2;
 var DEFAULT_MAX_RENDER_PAGES = 5;
 var DEFAULT_MAX_RENDER_PIXELS = 16000000;
 var logger4 = createLogger("Renderer");
-var require3 = createRequire2(import.meta.url);
-var requireFromPdfjs = createRequire2(require3.resolve("pdfjs-dist/package.json"));
+var require4 = createRequire3(import.meta.url);
+var requireFromPdfjs = createRequire3(require4.resolve("pdfjs-dist/package.json"));
 var loadCanvasModule = async () => {
   try {
     const canvasEntry = requireFromPdfjs.resolve("@napi-rs/canvas");
@@ -1832,8 +2168,8 @@ var parseOpenAiCompatibleChatCompletionResponse = (stdout) => {
 };
 var analyzeRegionCropWithCommandProvider = async (region, context, options) => {
   const config = readRegionAnalysisProviderConfig();
-  const tempDir = await fs4.mkdtemp(path3.join(os.tmpdir(), "pdf-reader-mcp-region-analysis-"));
-  const inputPath = path3.join(tempDir, `region-${String(region.page)}.png`);
+  const tempDir = await fs4.mkdtemp(path5.join(os.tmpdir(), "pdf-reader-mcp-region-analysis-"));
+  const inputPath = path5.join(tempDir, `region-${String(region.page)}.png`);
   try {
     await fs4.writeFile(inputPath, Buffer.from(region.data, "base64"));
     const box = region.source_bounding_box;
@@ -2967,10 +3303,10 @@ var extractPageContent = async (pdfDocument, pageNum, includeImages, sourceDescr
 };
 
 // src/pdf/ocr.ts
-import { spawnSync } from "node:child_process";
+import { spawnSync as spawnSync3 } from "node:child_process";
 import fs5 from "node:fs/promises";
 import os2 from "node:os";
-import path4 from "node:path";
+import path6 from "node:path";
 var logger10 = createLogger("Ocr");
 var DEFAULT_OCR_TIMEOUT_MS = 60000;
 var DEFAULT_OCR_MAX_OUTPUT_CHARS = 200000;
@@ -2996,7 +3332,7 @@ var SUPPORTED_OCR_PRESETS = Object.keys(OCR_PROVIDER_PRESETS);
 var isOcrProviderPreset = (value) => SUPPORTED_OCR_PRESETS.includes(value);
 var checkOcrPresetExecutable = (preset) => {
   const command = OCR_PROVIDER_PRESETS[preset].command;
-  const result = spawnSync(command, ["--version"], {
+  const result = spawnSync3(command, ["--version"], {
     timeout: OCR_PRESET_HEALTHCHECK_TIMEOUT_MS,
     windowsHide: true,
     stdio: "ignore"
@@ -3325,8 +3661,8 @@ var parseOcrOutput = (stdout, options, context = {}) => {
 };
 var ocrRenderedPageWithCommandProvider = async (page, context, options) => {
   const config = readCommandProviderConfig();
-  const tempDir = await fs5.mkdtemp(path4.join(os2.tmpdir(), "pdf-reader-mcp-ocr-"));
-  const inputPath = path4.join(tempDir, `page-${String(page.page)}.png`);
+  const tempDir = await fs5.mkdtemp(path6.join(os2.tmpdir(), "pdf-reader-mcp-ocr-"));
+  const inputPath = path6.join(tempDir, `page-${String(page.page)}.png`);
   try {
     await fs5.writeFile(inputPath, Buffer.from(page.data, "base64"));
     const args = config.argsTemplate.map((arg) => replacePlaceholders2(arg, {
@@ -4038,55 +4374,62 @@ var providerOptions = (input) => ({
   ...input.max_output_chars !== undefined ? { max_output_chars: input.max_output_chars } : {},
   ...input.languages !== undefined ? { languages: input.languages } : {}
 });
+var wrapEvidenceOperation = async (operation, sources, response) => wrapPdfEvidenceResponse({
+  tool: "pdf_evidence",
+  operation,
+  sources,
+  route: `pdf-evidence-${operation}-v3`,
+  response
+});
 var pdfEvidence = tool().description("Runs focused PDF evidence operations behind one V3 tool: inspect, render pages, crop regions, OCR pages, or analyze visual regions.").input(pdfEvidenceArgsSchema).handler(async ({ input, ctx }) => {
   if (input.operation === "inspect") {
-    return inspectPdf.handler({
+    return wrapEvidenceOperation("inspect", input.sources, await inspectPdf.handler({
       input: {
         sources: toPdfSources(input.sources),
         ...input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {},
         ...input.include_metadata !== undefined ? { include_metadata: input.include_metadata } : {}
       },
       ctx
-    });
+    }));
   }
   if (input.operation === "render_page") {
-    return renderPage.handler({
+    return wrapEvidenceOperation("render_page", input.sources, await renderPage.handler({
       input: {
         sources: toPdfSources(input.sources),
         ...imageOptions(input)
       },
       ctx
-    });
+    }));
   }
   if (input.operation === "ocr_pages") {
-    return ocrPages.handler({
+    return wrapEvidenceOperation("ocr_pages", input.sources, await ocrPages.handler({
       input: {
         sources: toPdfSources(input.sources),
         ...providerOptions(input)
       },
       ctx
-    });
+    }));
   }
   const regionSources = toRegionSources(input.sources);
   if (!regionSources.success) {
     return toolError(regionSources.error);
   }
   if (input.operation === "extract_regions") {
-    return extractRegions.handler({
+    return wrapEvidenceOperation("extract_regions", input.sources, await extractRegions.handler({
       input: {
         sources: regionSources.sources,
         ...imageOptions(input)
       },
       ctx
-    });
+    }));
   }
-  return analyzeRegions.handler({
+  return wrapEvidenceOperation("analyze_regions", input.sources, await analyzeRegions.handler({
     input: {
       sources: regionSources.sources,
       ...providerOptions(input)
     },
     ctx
-  });
+  }));
 });
 
 // src/pdf/semanticPatterns.ts
@@ -5056,8 +5399,8 @@ var sectionRef = (node) => ({
   level: node.level ?? 1,
   page_start: node.page_start
 });
-var continuedFromSectionId = (path5, page) => {
-  const priorPageSection = path5.findLast((section) => section.page_start < page);
+var continuedFromSectionId = (path7, page) => {
+  const priorPageSection = path7.findLast((section) => section.page_start < page);
   return priorPageSection?.id;
 };
 var captionKind = (text2) => semanticCaptionKind(text2);
@@ -5363,11 +5706,11 @@ var syncSectionContext = (documentSectionStack, node) => {
         break;
       documentSectionStack.pop();
     }
-    const path6 = [...documentSectionStack.map(sectionRef), sectionRef(node)];
-    if (path6.length > 0) {
-      node.section_path = path6;
+    const path8 = [...documentSectionStack.map(sectionRef), sectionRef(node)];
+    if (path8.length > 0) {
+      node.section_path = path8;
     }
-    const continuedFrom2 = continuedFromSectionId(path6, node.page_start);
+    const continuedFrom2 = continuedFromSectionId(path8, node.page_start);
     if (continuedFrom2) {
       node.continued_from_section_id = continuedFrom2;
     }
@@ -5376,9 +5719,9 @@ var syncSectionContext = (documentSectionStack, node) => {
   }
   if (documentSectionStack.length === 0)
     return;
-  const path5 = documentSectionStack.map(sectionRef);
-  node.section_path = path5;
-  const continuedFrom = continuedFromSectionId(path5, node.page_start);
+  const path7 = documentSectionStack.map(sectionRef);
+  node.section_path = path7;
+  const continuedFrom = continuedFromSectionId(path7, node.page_start);
   if (continuedFrom) {
     node.continued_from_section_id = continuedFrom;
   }
@@ -8127,16 +8470,24 @@ var readPdf = tool().description("Primary V3 PDF reader. With only sources, it a
       }
       return result;
     });
-    content.push(text(JSON.stringify({
-      ...autoRead ? {
-        auto_read: {
-          enabled: true,
-          detail: autoDetail,
-          results: autoReadSummaries
-        }
-      } : {},
-      results: resultsForJson
-    }, null, 2)));
+    const sourceHash = await resolvePrimarySourceHash(input.sources);
+    const jsonPayload = attachPdfToolEvidence({
+      tool: "read_pdf",
+      sources: input.sources,
+      ...sourceHash !== undefined ? { sourceHash } : {},
+      route: autoRead ? "auto-read-v3" : "explicit-read-v3",
+      payload: {
+        ...autoRead ? {
+          auto_read: {
+            enabled: true,
+            detail: autoDetail,
+            results: autoReadSummaries
+          }
+        } : {},
+        results: resultsForJson
+      }
+    });
+    content.push(text(JSON.stringify(jsonPayload, null, 2)));
     const emitPerPageText = !options.includeMarkdown && !options.includeChunks;
     for (const result of results) {
       if (!result.success || !result.data?.page_contents)
@@ -8190,6 +8541,114 @@ ${page.text}`));
     await session.destroyAll();
   }
 });
+
+// src/engine/rust-text-search.ts
+import { spawnSync as spawnSync4 } from "node:child_process";
+import { existsSync as existsSync3 } from "node:fs";
+import path7 from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+var mapWireResult = (search) => ({
+  numPages: search.num_pages,
+  searchedPages: search.searched_pages,
+  totalMatches: search.total_matches,
+  route: search.route,
+  truncated: search.truncated,
+  matches: search.matches.map((match) => ({
+    id: match.id,
+    page: match.page,
+    text: match.text,
+    snippet: match.snippet,
+    matchStart: match.match_start,
+    matchEnd: match.match_end,
+    route: match.route
+  }))
+});
+var here2 = path7.dirname(fileURLToPath2(import.meta.url));
+function resolveRustCliBinary2() {
+  const env = process.env["PDF_READER_CLI"];
+  if (env && existsSync3(env)) {
+    return env;
+  }
+  const release = path7.join(here2, "../../target/release/pdf-reader-cli");
+  if (existsSync3(release)) {
+    return release;
+  }
+  const debug = path7.join(here2, "../../target/debug/pdf-reader-cli");
+  if (existsSync3(debug)) {
+    return debug;
+  }
+  return "pdf-reader-cli";
+}
+function isRustCliAvailable2() {
+  return resolveRustCliBinary2() !== "pdf-reader-cli";
+}
+function shouldUseRustTextSearchEngine(preferSpeed = false) {
+  if (process.env["PDF_READER_USE_RUST_TEXT_SEARCH"] === "0") {
+    return false;
+  }
+  if (process.env["PDF_READER_USE_RUST_TEXT_SEARCH"] === "1") {
+    return isRustCliAvailable2();
+  }
+  if (preferSpeed) {
+    return isRustCliAvailable2();
+  }
+  return false;
+}
+function searchPdfTextViaRustEngine(filePath, options) {
+  const binary = resolveRustCliBinary2();
+  const payload = JSON.stringify({
+    tool: "pdf_text_search",
+    input: {
+      path: filePath,
+      query: options.query,
+      case_sensitive: options.case_sensitive,
+      whole_word: options.whole_word,
+      max_pages: options.max_pages,
+      max_matches: options.max_matches_per_source,
+      context_chars: options.context_chars
+    }
+  });
+  const response = spawnSync4(binary, [], {
+    input: payload,
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024
+  });
+  if (response.error) {
+    return {
+      ok: false,
+      code: "ENGINE_UNAVAILABLE",
+      message: response.error.message
+    };
+  }
+  if (response.status !== 0) {
+    return {
+      ok: false,
+      code: "ENGINE_FAILED",
+      message: response.stderr || `Rust text search engine exited with status ${response.status}`
+    };
+  }
+  const envelope = JSON.parse(response.stdout);
+  if (envelope.status !== "ok") {
+    return {
+      ok: false,
+      code: envelope.code,
+      message: envelope.message
+    };
+  }
+  return { ok: true, result: mapWireResult(envelope.search) };
+}
+var mapRustMatchesToPdfSearchMatches = (matches) => matches.map((match) => ({
+  id: match.id,
+  page: match.page,
+  text: match.text,
+  snippet: match.snippet,
+  match_start: match.matchStart,
+  match_end: match.matchEnd,
+  provenance: {
+    engine: "rust-text-index",
+    source: "text-content"
+  }
+}));
 
 // src/pdf/search.ts
 var logger17 = createLogger("Search");
@@ -8337,6 +8796,23 @@ var searchPageContentItems = (page, items, options, matchOffset) => {
 };
 var searchPdfSource = async (source, options) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
+  if (source.path && shouldUseRustTextSearchEngine(options.prefer_speed === true) && !options.include_ocr_text_layer) {
+    const rustSearch = searchPdfTextViaRustEngine(source.path, options);
+    if (rustSearch.ok) {
+      return {
+        source: sourceDescription,
+        success: true,
+        num_pages: rustSearch.result.numPages,
+        searched_pages: rustSearch.result.searchedPages,
+        total_matches: rustSearch.result.totalMatches,
+        matches: mapRustMatchesToPdfSearchMatches(rustSearch.result.matches),
+        ...rustSearch.result.truncated ? { truncated: true } : {},
+        warnings: [
+          "Search route: rust-text-index via literal PDF text extraction. Bounding boxes are unavailable on this route; use read_pdf or pdf_evidence for geometry-backed evidence."
+        ]
+      };
+    }
+  }
   let pdfDocument = null;
   try {
     const targetPages = getTargetPages(source.pages, sourceDescription);
@@ -8415,7 +8891,8 @@ var searchPdfArgsSchema = object({
   include_ocr_text_layer: optional(bool(description("Also search a configured local OCR text layer for selected pages. Disabled by default because it renders pages and runs the OCR provider."))),
   max_pages: optional(num(int, gte(1), lte(1000), description("Maximum pages to search per source. Defaults to 100 and is capped at 1000."))),
   max_matches_per_source: optional(num(int, gte(1), lte(500), description("Maximum matches returned per source. Defaults to 50 and is capped at 500."))),
-  context_chars: optional(num(int, gte(0), lte(1000), description("Context characters to include around each match. Defaults to 120.")))
+  context_chars: optional(num(int, gte(0), lte(1000), description("Context characters to include around each match. Defaults to 120."))),
+  prefer_speed: optional(bool(description("Prefer the Rust literal text-index route for local files. Defaults to false so search_pdf keeps page + bounding-box evidence from pdfjs.")))
 });
 
 // src/handlers/searchPdf.ts
@@ -8427,7 +8904,8 @@ var buildOptions4 = (input) => ({
   ...input.include_ocr_text_layer !== undefined ? { include_ocr_text_layer: input.include_ocr_text_layer } : {},
   ...input.max_pages !== undefined ? { max_pages: input.max_pages } : {},
   ...input.max_matches_per_source !== undefined ? { max_matches_per_source: input.max_matches_per_source } : {},
-  ...input.context_chars !== undefined ? { context_chars: input.context_chars } : {}
+  ...input.context_chars !== undefined ? { context_chars: input.context_chars } : {},
+  ...input.prefer_speed !== undefined ? { prefer_speed: input.prefer_speed } : {}
 });
 var processSource4 = async (source, options) => {
   const sourceDescription = source.path ?? source.url ?? "unknown source";
@@ -8452,16 +8930,21 @@ var searchPdf = tool().description("Searches extracted PDF text with page, snipp
     const errorMessages = results.map((result) => result.error).join("; ");
     return toolError(`All PDF sources failed search: ${errorMessages}`);
   }
-  return text(JSON.stringify({
-    profile: "pdf_search_results",
-    search_options: options,
-    results
-  }, null, 2));
+  return wrapPdfEvidenceResponse({
+    tool: "search_pdf",
+    sources: input.sources,
+    route: "pdf-text-index-v3",
+    response: text(JSON.stringify({
+      profile: "pdf_search_results",
+      search_options: options,
+      results
+    }, null, 2))
+  });
 });
 
 // src/index.ts
-var require4 = createRequire3(import.meta.url);
-var packageJson = require4("../package.json");
+var require5 = createRequire4(import.meta.url);
+var packageJson = require5("../package.json");
 var transportType = process.env["MCP_TRANSPORT"] ?? "stdio";
 var httpPort = Number.parseInt(process.env["MCP_HTTP_PORT"] ?? "8080", 10);
 var httpHost = process.env["MCP_HTTP_HOST"] ?? "127.0.0.1";
@@ -8491,6 +8974,11 @@ var server = createServer({
   transport: createTransport()
 });
 async function main() {
+  if (process.argv[2] === "doctor") {
+    const report = await runDoctor(packageJson.version);
+    console.log(formatDoctorReport(report));
+    process.exit(report.status === "unavailable" ? 1 : 0);
+  }
   await server.start();
   if (transportType === "http") {
     console.log(`[PDF Reader MCP] Server running on http://${httpHost}:${httpPort}/mcp`);

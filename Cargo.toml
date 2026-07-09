@@ -1,5 +1,9 @@
 [workspace]
-members = ["crates/pdf-reader-core", "crates/pdf-reader-cli"]
+members = [
+    "crates/pdf-reader-core",
+    "crates/pdf-reader-cli",
+    "crates/pdf-reader-mcp-server",
+]
 resolver = "2"
 
 [workspace.package]

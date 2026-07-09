@@ -1,11 +1,11 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-07-08T20:54:41.391Z",
-  "artifact_dir": "/home/runner/work/pdf-reader-mcp/pdf-reader-mcp/benchmark-artifacts",
+  "generated_at": "2026-07-09T09:07:44.988Z",
+  "artifact_dir": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
-    "total": 41,
-    "passed": 41,
+    "total": 48,
+    "passed": 48,
     "failed": 0
   },
   "checks": [
@@ -118,6 +118,26 @@
       }
     },
     {
+      "id": "rust:hash_core",
+      "status": "passed",
+      "message": "Rust pdf-reader-core hash engine is present for Phase 1 native performance layer"
+    },
+    {
+      "id": "rust:text_index_core",
+      "status": "passed",
+      "message": "Rust pdf-reader-core text index engine is present for literal search_pdf acceleration"
+    },
+    {
+      "id": "rust:page_cache_core",
+      "status": "passed",
+      "message": "Rust pdf-reader-core page cache is present for repeated literal search acceleration"
+    },
+    {
+      "id": "rust:mcp_server",
+      "status": "passed",
+      "message": "Rust-native MCP transport (rmcp) is present instead of a TypeScript MCP adapter"
+    },
+    {
       "id": "performance:document-twin-present",
       "status": "passed",
       "message": "performance artifact includes the v3 Agent Document Twin scenario"
@@ -175,8 +195,8 @@
       "message": "corpus benchmark is fully passing",
       "evidence": {
         "score": 1,
-        "passed_assertions": 19,
-        "assertion_count": 19
+        "passed_assertions": 23,
+        "assertion_count": 23
       }
     },
     {
@@ -184,8 +204,8 @@
       "status": "passed",
       "message": "corpus benchmark includes the expected minimum case coverage",
       "evidence": {
-        "case_count": 4,
-        "observed_cases": 4
+        "case_count": 6,
+        "observed_cases": 6
       }
     },
     {
@@ -208,7 +228,9 @@
           "checked-in-sample-agent-document-twin",
           "runtime-report-reading-order",
           "runtime-scanned-ocr-routing",
-          "runtime-ocr-table-agent-evidence"
+          "runtime-ocr-table-agent-evidence",
+          "runtime-malformed-pdf-trust-routing",
+          "runtime-encrypted-pdf-trust-routing"
         ],
         "missing_case_ids": []
       }
@@ -242,7 +264,10 @@
           "ocr_table_extraction",
           "scanned_page",
           "scanned_table",
-          "text_layer"
+          "text_layer",
+          "malformed_pdf",
+          "encrypted_pdf",
+          "trust_routing"
         ],
         "missing_required_tags": [],
         "failing_tags": []
@@ -425,6 +450,56 @@
         "missing_required_tags": [],
         "failing_tags": []
       }
+    },
+    {
+      "id": "install:doctor-ready",
+      "status": "passed",
+      "message": "install doctor reports a ready or degraded runtime (no hard failures)",
+      "evidence": {
+        "doctorStatus": "ready",
+        "checks": [
+          {
+            "id": "node",
+            "status": "ok",
+            "message": "Node.js 26.3.0 meets the >=22.13 requirement."
+          },
+          {
+            "id": "pdfjs_resources",
+            "status": "ok",
+            "message": "pdfjs-dist CMap, font, WASM, and ICC resources are present."
+          },
+          {
+            "id": "rust_hash_cli",
+            "status": "ok",
+            "message": "Rust hash CLI is available at /home/codex/src/github.com/SylphxAI/pdf-reader-mcp/target/release/pdf-reader-cli. Source hashing defaults to the native engine when built."
+          },
+          {
+            "id": "dist_entry",
+            "status": "ok",
+            "message": "Built MCP adapter entrypoint dist/index.js is present."
+          },
+          {
+            "id": "sample_probe",
+            "status": "ok",
+            "message": "Sample PDF loads successfully (1 page(s))."
+          },
+          {
+            "id": "tesseract",
+            "status": "ok",
+            "message": "Tesseract available (tesseract 5.3.0)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "install:pdfjs-resources",
+      "status": "passed",
+      "message": "install doctor confirms pdfjs-dist resource bundles are present"
+    },
+    {
+      "id": "install:sample-probe",
+      "status": "passed",
+      "message": "install doctor loads the checked-in sample.pdf fixture successfully"
     }
   ]
 }

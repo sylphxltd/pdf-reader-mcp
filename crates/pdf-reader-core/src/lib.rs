@@ -1,6 +1,12 @@
 //! Rust hashing and text-index primitives for pdf-reader-mcp.
 
+pub mod page_cache;
 pub mod text_index;
+
+pub use page_cache::{
+    extract_page_texts_cached, load_cached_pages, page_cache_path, store_cached_pages,
+    PageCacheStatus, PageTextCacheEntry, PAGE_CACHE_DIR, PAGE_CACHE_SCHEMA_VERSION,
+};
 
 use std::fs;
 use std::path::Path;

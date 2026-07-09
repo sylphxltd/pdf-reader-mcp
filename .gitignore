@@ -12,3 +12,6 @@ docs/.vitepress/dist
 # Test Reports
 test-report.junit.xml
 .vercel
+
+# Local page-cache artifacts from Rust text-index tests
+**/.pdf-reader-mcp/

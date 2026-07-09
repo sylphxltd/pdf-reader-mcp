@@ -228,6 +228,20 @@ export const buildSotaReleaseGateReport = async (
     'Rust pdf-reader-core text index engine is present for literal search_pdf acceleration'
   );
 
+  addCheck(
+    checks,
+    'rust:page_cache_core',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-core/src/page_cache.rs')),
+    'Rust pdf-reader-core page cache is present for repeated literal search acceleration'
+  );
+
+  addCheck(
+    checks,
+    'rust:mcp_server',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/lib.rs')),
+    'Rust-native MCP transport (rmcp) is present instead of a TypeScript MCP adapter'
+  );
+
   const performanceResults = getArray(artifacts.performance, 'results');
   const documentTwinPerformance = performanceResults.find(
     (result) => result.name === 'v3_agent_document_twin'

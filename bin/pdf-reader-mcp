@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PDF_READER_ENGINE_SCRIPT="${PDF_READER_ENGINE_SCRIPT:-$ROOT/dist/engine-invoke.js}"
+
+resolve_rust_bin() {
+  if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
+    printf '%s\n' "${PDF_READER_MCP_RUST_BIN}"
+    return 0
+  fi
+
+  for candidate in \
+    "$ROOT/target/release/pdf-reader-mcp-server" \
+    "$ROOT/target/debug/pdf-reader-mcp-server"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+if [[ "${1:-}" == "legacy" ]]; then
+  shift
+  exec node "$ROOT/dist/index.js" "$@"
+fi
+
+if bin="$(resolve_rust_bin)"; then
+  exec "$bin" "$@"
+fi
+
+echo "[pdf-reader-mcp] Rust MCP binary missing; falling back to legacy TypeScript MCP transport." >&2
+exec node "$ROOT/dist/index.js" "$@"

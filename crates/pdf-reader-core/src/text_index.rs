@@ -5,6 +5,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::page_cache::{extract_page_texts_cached, PageCacheStatus};
+
 
 
 pub const TEXT_INDEX_ROUTE: &str = "rust-text-index";
@@ -28,6 +30,8 @@ pub struct TextSearchResult {
     pub matches: Vec<TextSearchMatch>,
     pub route: String,
     pub truncated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_cache: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +45,15 @@ pub enum TextIndexErrorCode {
 pub struct TextIndexError {
     pub code: TextIndexErrorCode,
     pub message: String,
+}
+
+impl From<crate::HashError> for TextIndexError {
+    fn from(error: crate::HashError) -> Self {
+        match error.code {
+            crate::HashErrorCode::InvalidParams => Self::invalid_params(error.message),
+            crate::HashErrorCode::InvalidRequest => Self::invalid_request(error.message),
+        }
+    }
 }
 
 impl TextIndexError {
@@ -120,7 +133,12 @@ pub fn search_pdf_text(
         return Err(TextIndexError::invalid_params("query must not be empty."));
     }
 
-    let pages = extract_page_texts(path, max_file_bytes)?;
+    let (pages, cache_status) = extract_page_texts_cached(path, max_file_bytes)?;
+    let page_cache = match cache_status {
+        PageCacheStatus::CacheHit => Some("cache_hit".into()),
+        PageCacheStatus::CacheMiss => Some("cache_miss".into()),
+        PageCacheStatus::CacheBypass => None,
+    };
     let num_pages = pages.len().max(1) as u32;
     let searched_pages: Vec<u32> = (1..=num_pages.min(max_pages.max(1))).collect();
     let mut matches = Vec::new();
@@ -162,6 +180,7 @@ pub fn search_pdf_text(
         matches,
         route: TEXT_INDEX_ROUTE.into(),
         truncated,
+        page_cache,
     })
 }
 
@@ -239,5 +258,46 @@ mod tests {
         let text = "risk risky risk";
         let matches = find_matches_in_text(text, "risk", false, true);
         assert_eq!(matches.len(), 2);
+    }
+
+    #[test]
+    fn reuses_page_cache_on_second_search() {
+        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/sample.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let pdf_path = temp.path().join("sample.pdf");
+        std::fs::copy(&fixture, &pdf_path).expect("copy fixture");
+
+        let first = search_pdf_text(
+            pdf_path.as_path(),
+            1024 * 1024,
+            "Lorem",
+            false,
+            false,
+            10,
+            10,
+            32,
+        )
+        .expect("first search");
+        assert_eq!(first.page_cache.as_deref(), Some("cache_miss"));
+        assert!(first.total_matches > 0);
+
+        let second = search_pdf_text(
+            pdf_path.as_path(),
+            1024 * 1024,
+            "Lorem",
+            false,
+            false,
+            10,
+            10,
+            32,
+        )
+        .expect("second search");
+        assert_eq!(second.page_cache.as_deref(), Some("cache_hit"));
+        assert_eq!(second.total_matches, first.total_matches);
     }
 }

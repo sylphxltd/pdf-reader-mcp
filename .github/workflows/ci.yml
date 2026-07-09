@@ -41,7 +41,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Rust hash core
+      - name: Build Rust core and MCP server
         run: bun run build:rust
 
       - name: Rust core tests
