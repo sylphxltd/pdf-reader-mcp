@@ -3,13 +3,13 @@ import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { hashLocalFile } from '../src/evidence/envelope.js';
 import {
   hashLocalFileViaRustEngine,
   isRustCliAvailable,
   resolveRustCliBinary,
   shouldUseRustHashEngine,
 } from '../src/engine/rust-hash.js';
+import { hashLocalFile } from '../src/evidence/envelope.js';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const fixturePath = path.resolve('test/fixtures/sample.pdf');

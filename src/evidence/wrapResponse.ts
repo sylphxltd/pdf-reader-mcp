@@ -1,15 +1,20 @@
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js';
-import { text, type ToolHandlerResult } from '../mcp.js';
-import {
-  attachPdfToolEvidence,
-  resolvePrimarySourceHash,
-  type PdfSourceRef,
-} from './envelope.js';
+import { type ToolHandlerResult, text } from '../mcp.js';
+import { attachPdfToolEvidence, type PdfSourceRef, resolvePrimarySourceHash } from './envelope.js';
+
+const textFromContentBlock = (block: unknown): string | undefined => {
+  if (typeof block !== 'object' || block === null) {
+    return undefined;
+  }
+  const candidate = block as ContentBlock;
+  return candidate.type === 'text' && typeof candidate.text === 'string'
+    ? candidate.text
+    : undefined;
+};
 
 const extractJsonText = (result: ToolHandlerResult): string | undefined => {
   if (Array.isArray(result)) {
-    const first = result[0];
-    return first?.type === 'text' && typeof first.text === 'string' ? first.text : undefined;
+    return textFromContentBlock(result[0]);
   }
 
   if (
@@ -18,16 +23,10 @@ const extractJsonText = (result: ToolHandlerResult): string | undefined => {
     'content' in result &&
     Array.isArray(result.content)
   ) {
-    const first = result.content[0];
-    return first?.type === 'text' && typeof first.text === 'string' ? first.text : undefined;
+    return textFromContentBlock(result.content[0]);
   }
 
-  const block = result as ContentBlock;
-  if (block.type === 'text' && typeof block.text === 'string') {
-    return block.text;
-  }
-
-  return undefined;
+  return textFromContentBlock(result);
 };
 
 const buildAttachInput = (input: {

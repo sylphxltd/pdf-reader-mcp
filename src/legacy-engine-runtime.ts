@@ -1,17 +1,18 @@
 #!/usr/bin/env node
+
 /**
  * Phase 1-3 legacy V3 engine runtime invoked only through pdf-reader-cli.
  * Not an MCP adapter — Rust rmcp owns MCP protocol; this script is temporary
  * migration glue for read_pdf/pdf_evidence until those paths live in Rust core.
  */
 
+import type { CallToolResult, ContentBlock } from '@modelcontextprotocol/sdk/types.js';
 import { pdfEvidence } from './handlers/pdfEvidence.js';
 import { readPdf } from './handlers/readPdf.js';
 import { searchPdf } from './handlers/searchPdf.js';
 import type { PdfEvidenceArgs } from './schemas/pdfEvidence.js';
 import type { ReadPdfArgs } from './schemas/readPdf.js';
 import type { SearchPdfArgs } from './schemas/searchPdf.js';
-import type { CallToolResult, ContentBlock } from '@modelcontextprotocol/sdk/types.js';
 
 type LegacyEngineRequest = {
   tool: string;
@@ -35,7 +36,8 @@ const readStdin = async (): Promise<string> => {
 const isCallToolResult = (result: unknown): result is CallToolResult =>
   typeof result === 'object' && result !== null && 'content' in result;
 
-const isContentArray = (result: unknown): result is readonly ContentBlock[] => Array.isArray(result);
+const isContentArray = (result: unknown): result is readonly ContentBlock[] =>
+  Array.isArray(result);
 
 const normalizeToolResult = (result: unknown): CallToolResult => {
   if (isContentArray(result)) {

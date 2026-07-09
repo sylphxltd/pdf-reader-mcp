@@ -4,8 +4,12 @@ import { buildCorpusBenchmarkReport } from '../../scripts/benchmark-pdf-corpus.j
 describe('corpus trust-routing archetypes', () => {
   test('covers malformed and encrypted PDF failure envelopes', async () => {
     const report = await buildCorpusBenchmarkReport();
-    const malformed = report.cases.find((entry) => entry.id === 'runtime-malformed-pdf-trust-routing');
-    const encrypted = report.cases.find((entry) => entry.id === 'runtime-encrypted-pdf-trust-routing');
+    const malformed = report.cases.find(
+      (entry) => entry.id === 'runtime-malformed-pdf-trust-routing'
+    );
+    const encrypted = report.cases.find(
+      (entry) => entry.id === 'runtime-encrypted-pdf-trust-routing'
+    );
 
     expect(malformed?.score).toBe(1);
     expect(encrypted?.score).toBe(1);

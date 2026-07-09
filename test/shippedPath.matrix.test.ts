@@ -62,11 +62,7 @@ describe('shipped path matrix (Rust core, no legacy flags)', () => {
   });
 
   it('pdf_text_search returns rust-text-index route', () => {
-    const envelope = invokeCli(
-      'pdf_text_search',
-      { path: samplePdf, query: 'Lorem' },
-      fakeNodeEnv
-    );
+    const envelope = invokeCli('pdf_text_search', { path: samplePdf, query: 'Lorem' }, fakeNodeEnv);
     expect(envelope.status).toBe('ok');
     expect(envelope.search?.route).toBe('rust-text-index');
     expect(existsSync(nodeInvokeLog)).toBe(false);

@@ -1,8 +1,50 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { runDoctor } from '../src/doctor.js';
+import type { DoctorReport } from '../src/doctor.js';
 import { writeBenchmarkReport } from './benchmark-utils.js';
+
+const runDoctorViaSubprocess = (version: string): DoctorReport => {
+  const repoRoot = path.resolve(import.meta.dirname, '..');
+  const result = spawnSync('bun', ['run', 'src/index.ts', 'doctor'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: process.env,
+    timeout: 60_000,
+  });
+
+  if (!result.stdout?.trim()) {
+    return {
+      profile: 'pdf_reader_doctor',
+      version,
+      status: 'unavailable',
+      checks: [
+        {
+          id: 'doctor:subprocess',
+          status: 'fail',
+          message: result.stderr?.slice(-500) ?? 'doctor subprocess produced no output',
+        },
+      ],
+    };
+  }
+
+  try {
+    return JSON.parse(result.stdout) as DoctorReport;
+  } catch {
+    return {
+      profile: 'pdf_reader_doctor',
+      version,
+      status: 'unavailable',
+      checks: [
+        {
+          id: 'doctor:subprocess',
+          status: 'fail',
+          message: 'doctor subprocess output was not valid JSON',
+        },
+      ],
+    };
+  }
+};
 
 const ARTIFACT_DIR_ENV = 'MCP_PDF_BENCHMARK_OUTPUT_DIR';
 const DEFAULT_ARTIFACT_DIR = 'benchmark-artifacts';
@@ -864,7 +906,7 @@ export const buildSotaReleaseGateReport = async (
   const packageJson = JSON.parse(
     await fs.promises.readFile(path.resolve(import.meta.dirname, '../package.json'), 'utf8')
   ) as { version?: string };
-  const doctor = await runDoctor(packageJson.version ?? '0.0.0');
+  const doctor = runDoctorViaSubprocess(packageJson.version ?? '0.0.0');
   addCheck(
     checks,
     'install:doctor-ready',

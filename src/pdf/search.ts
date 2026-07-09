@@ -1,9 +1,9 @@
+import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   mapRustMatchesToPdfSearchMatches,
   searchPdfTextViaRustEngine,
   shouldUseRustTextSearchEngine,
 } from '../engine/rust-text-search.js';
-import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   PageContentItem,
   PdfOcrPageData,

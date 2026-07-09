@@ -22,11 +22,18 @@ const writeJson = (filePath: string, value: JsonValue) => {
 const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   fs.mkdirSync(path.join(packageDir, 'dist'), { recursive: true });
   fs.mkdirSync(path.join(packageDir, 'corpus'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'bin', 'native'), { recursive: true });
+  fs.writeFileSync(path.join(packageDir, 'bin', 'pdf-reader-mcp'), '#!/usr/bin/env bash\n', 'utf8');
+  fs.writeFileSync(
+    path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server'),
+    'rust-smoke-binary',
+    'utf8'
+  );
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
     version: '0.0.0-smoke',
     bin: {
-      'pdf-reader-mcp': './dist/index.js',
+      'pdf-reader-mcp': './bin/pdf-reader-mcp',
     },
     exports: {
       '.': './dist/index.js',

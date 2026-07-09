@@ -1,6 +1,6 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { resolveRustCliBinary } from './engine/rust-hash.js';
 import { loadPdfDocumentCore } from './pdf/loader.js';

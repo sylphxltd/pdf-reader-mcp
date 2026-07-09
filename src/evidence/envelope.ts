@@ -1,9 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import {
-  hashLocalFileViaRustEngine,
-  shouldUseRustHashEngine,
-} from '../engine/rust-hash.js';
+import { hashLocalFileViaRustEngine, shouldUseRustHashEngine } from '../engine/rust-hash.js';
 
 export type Confidence = 'deterministic' | 'derived' | 'inferred' | 'unknown';
 

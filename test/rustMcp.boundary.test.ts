@@ -23,11 +23,9 @@ describe('MCP transport boundary', () => {
     expect(script).toContain('pdf-reader-mcp-server');
     expect(script).toContain('resolve_rust_bin');
     expect(script).toContain('use_ts_transport');
-    const dryRun = execFileSync(
-      'bash',
-      ['-c', `grep -v '^#' "${binWrapper}" | tail -n 8`],
-      { encoding: 'utf8' }
-    );
+    const dryRun = execFileSync('bash', ['-c', `grep -v '^#' "${binWrapper}" | tail -n 8`], {
+      encoding: 'utf8',
+    });
     expect(dryRun).toContain('exec "$bin"');
     expect(dryRun).not.toMatch(/^\s*exec node "\$TS_ENTRY"/m);
   });
