@@ -23,19 +23,20 @@ resolve_rust_bin() {
   return 1
 }
 
-use_rust_transport() {
-  [[ "${PDF_READER_MCP_TRANSPORT:-}" == "rust" ]] || [[ "${1:-}" == "rust" ]]
+use_ts_transport() {
+  [[ "${PDF_READER_MCP_TRANSPORT:-}" == "ts" ]] || [[ "${1:-}" == "ts" ]]
 }
 
-if use_rust_transport "$@"; then
-  if [[ "${1:-}" == "rust" ]]; then
+if use_ts_transport "$@"; then
+  if [[ "${1:-}" == "ts" ]]; then
     shift
   fi
-  if bin="$(resolve_rust_bin)"; then
-    exec "$bin" "$@"
-  fi
-  echo "[pdf-reader-mcp] Rust MCP transport requested but pdf-reader-mcp-server is not built. Run: bun run build:rust" >&2
-  exit 1
+  exec node "$TS_ENTRY" "$@"
 fi
 
-exec node "$TS_ENTRY" "$@"
+if bin="$(resolve_rust_bin)"; then
+  exec "$bin" "$@"
+fi
+
+echo "[pdf-reader-mcp] Rust MCP server (rmcp) is not built. Run: bun run build:rust" >&2
+exit 1

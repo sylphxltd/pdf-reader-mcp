@@ -18,47 +18,39 @@ describe('MCP transport boundary', () => {
     execSync('bun run build', { cwd: repoRoot, stdio: 'pipe', timeout: 180_000 });
   }, 300_000);
 
-  it('defaults the published bin wrapper to the TypeScript MCP adapter', () => {
+  it('defaults the published bin wrapper to the Rust rmcp MCP server', () => {
     const script = readFileSync(binWrapper, 'utf8');
-    expect(script).toContain('dist/index.js');
+    expect(script).toContain('pdf-reader-mcp-server');
+    expect(script).toContain('resolve_rust_bin');
+    expect(script).toContain('use_ts_transport');
     const dryRun = execFileSync(
       'bash',
-      ['-c', `grep -v '^#' "${binWrapper}" | tail -n 3`],
+      ['-c', `grep -v '^#' "${binWrapper}" | tail -n 8`],
       { encoding: 'utf8' }
     );
-    expect(dryRun).toContain('exec node');
-    expect(dryRun).toContain('$TS_ENTRY');
+    expect(dryRun).toContain('exec "$bin"');
+    expect(dryRun).not.toMatch(/^\s*exec node "\$TS_ENTRY"/m);
   });
 
-  it('executes the shipped default bin path through node dist/index.js', () => {
-    const probeDir = mkdtempSync(path.join(os.tmpdir(), 'pdf-reader-bin-probe-'));
-    const invokeLog = path.join(probeDir, 'node-invoke.log');
-    const fakeNode = path.join(probeDir, 'node');
-    writeFileSync(
-      fakeNode,
-      `#!/usr/bin/env bash\nprintf '%s\\n' "$@" >> "${invokeLog}"\nexec "${process.execPath}" "$@"\n`
-    );
-    chmodSync(fakeNode, 0o755);
-
+  it('executes the shipped default bin path through the Rust rmcp server', () => {
     const result = spawnSync(binWrapper, ['doctor'], {
       cwd: repoRoot,
       encoding: 'utf8',
       env: {
         ...process.env,
-        PATH: `${probeDir}:${process.env.PATH ?? ''}`,
         PDF_READER_MCP_TRANSPORT: '',
       },
       timeout: 30_000,
     });
 
+    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
     expect(result.status).toBe(0);
-    const logged = readFileSync(invokeLog, 'utf8');
-    expect(logged).toContain('dist/index.js');
-    expect(logged).toContain('doctor');
-    expect(logged).not.toContain('pdf-reader-mcp-server');
+    expect(output).toContain('Rust MCP server');
+    expect(output).toContain('engine cli');
+    expect(output).not.toContain('dist/index.js');
   });
 
-  it('builds the opt-in rmcp stdio server binary for Phase 4 preview', () => {
+  it('builds the rmcp stdio server binary for the default MCP path', () => {
     expect(existsSync(rustServerBin)).toBe(true);
     expect(existsSync(stagedRustBin)).toBe(true);
     expect(existsSync(rustCliBin)).toBe(true);
@@ -87,14 +79,35 @@ describe('MCP transport boundary', () => {
     expect(cliEnvelope.hash?.sourceHash?.length).toBe(64);
   });
 
-  it('launches the Rust MCP server only when rust transport is requested', () => {
-    const script = readFileSync(binWrapper, 'utf8');
-    expect(script).toContain('PDF_READER_MCP_TRANSPORT');
-    expect(script).toContain('pdf-reader-mcp-server');
-    expect(script).toContain('use_rust_transport');
+  it('allows opt-in TypeScript MCP transport via PDF_READER_MCP_TRANSPORT=ts', () => {
+    const probeDir = mkdtempSync(path.join(os.tmpdir(), 'pdf-reader-bin-probe-'));
+    const invokeLog = path.join(probeDir, 'node-invoke.log');
+    const fakeNode = path.join(probeDir, 'node');
+    writeFileSync(
+      fakeNode,
+      `#!/usr/bin/env bash\nprintf '%s\\n' "$@" >> "${invokeLog}"\nexec "${process.execPath}" "$@"\n`
+    );
+    chmodSync(fakeNode, 0o755);
+
+    const result = spawnSync(binWrapper, ['doctor'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${probeDir}:${process.env.PATH ?? ''}`,
+        PDF_READER_MCP_TRANSPORT: 'ts',
+      },
+      timeout: 30_000,
+    });
+
+    expect(result.status).toBe(0);
+    const logged = readFileSync(invokeLog, 'utf8');
+    expect(logged).toContain('dist/index.js');
+    expect(logged).toContain('doctor');
+    expect(logged).not.toContain('pdf-reader-mcp-server');
   });
 
-  it('reports doctor diagnostics from the opt-in Rust MCP entrypoint', () => {
+  it('reports doctor diagnostics from the default Rust MCP entrypoint', () => {
     const result = spawnSync(rustServerBin, ['doctor'], {
       cwd: repoRoot,
       encoding: 'utf8',

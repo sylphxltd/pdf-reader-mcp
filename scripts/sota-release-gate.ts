@@ -239,7 +239,7 @@ export const buildSotaReleaseGateReport = async (
     checks,
     'rust:mcp_server',
     fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/lib.rs')),
-    'Opt-in Rust MCP transport preview (rmcp) is present for Phase 4 evaluation'
+    'Rust MCP server (modelcontextprotocol/rust-sdk rmcp) is present'
   );
 
   const binWrapper = fs.readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
@@ -249,17 +249,17 @@ export const buildSotaReleaseGateReport = async (
   );
   addCheck(
     checks,
-    'mcp:ts_adapter_default',
-    binWrapper.includes('dist/index.js') &&
-      binWrapper.includes('exec node') &&
-      binWrapper.includes('use_rust_transport'),
-    'Default npm bin launches the TypeScript MCP adapter; Rust rmcp is opt-in only'
+    'mcp:rust_adapter_default',
+    binWrapper.includes('pdf-reader-mcp-server') &&
+      binWrapper.includes('resolve_rust_bin') &&
+      binWrapper.includes('use_ts_transport'),
+    'Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only'
   );
   addCheck(
     checks,
     'boundary:rust_cli_engine',
     cliBridge.includes('pdf-reader-cli') && !fs.existsSync(path.join(repoRoot, 'src/engine-invoke.ts')),
-    'Opt-in Rust MCP routes engine work through pdf-reader-cli; no TS engine-invoke bridge on default path'
+    'Rust MCP routes engine work through pdf-reader-cli; no TS engine-invoke bridge on default path'
   );
 
   const performanceResults = getArray(artifacts.performance, 'results');
