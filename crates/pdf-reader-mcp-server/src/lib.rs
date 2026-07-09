@@ -87,6 +87,32 @@ impl ServerHandler for PdfReaderMcp {
 #[cfg(test)]
 mod tests {
     use super::PdfReaderMcp;
+    use std::fs;
+    use std::path::PathBuf;
+
+    #[test]
+    fn rmcp_server_sources_use_cli_bridge_not_ts_engine_invoke() {
+        let src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+        for file in ["cli_bridge.rs", "lib.rs", "main.rs", "search.rs"] {
+            let source = fs::read_to_string(src_dir.join(file)).expect("read mcp-server source");
+            let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+            assert!(
+                !production.contains("invoke_ts_engine"),
+                "{file} must not call invoke_ts_engine"
+            );
+            assert!(
+                !production.contains("engine_bridge::"),
+                "{file} must not call engine_bridge"
+            );
+            assert!(
+                !production.contains("legacy-engine-runtime"),
+                "{file} must not spawn legacy runtime directly"
+            );
+        }
+        let lib_rs = fs::read_to_string(src_dir.join("lib.rs")).expect("read lib.rs");
+        let production_lib = lib_rs.split("#[cfg(test)]").next().unwrap_or(&lib_rs);
+        assert!(production_lib.contains("cli_bridge::invoke_cli_tool"));
+    }
 
     #[test]
     fn exposes_v3_tool_surface() {

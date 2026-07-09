@@ -39,6 +39,21 @@ describe('MCP transport boundary', () => {
     expect(existsSync(rustCliBin)).toBe(true);
   });
 
+  it('keeps rmcp server sources free of TS MCP adapter or engine-invoke bridges', () => {
+    const productionSources = ['cli_bridge.rs', 'lib.rs', 'main.rs', 'search.rs'].map((file) => {
+      const source = readFileSync(
+        path.join(repoRoot, 'crates/pdf-reader-mcp-server/src', file),
+        'utf8'
+      );
+      return source.split('#[cfg(test)]')[0] ?? source;
+    });
+    const combined = productionSources.join('\n');
+    expect(combined).toContain('cli_bridge');
+    expect(combined).toContain('pdf-reader-cli');
+    expect(combined).not.toMatch(/invoke_ts_engine|engine_bridge::|legacy-engine-runtime/);
+    expect(existsSync(path.join(repoRoot, 'src/engine-invoke.ts'))).toBe(false);
+  });
+
   it('routes unmigrated engine work through pdf-reader-cli, not a TS MCP adapter bridge', () => {
     expect(existsSync(legacyRuntime)).toBe(true);
     expect(existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/cli_bridge.rs'))).toBe(
