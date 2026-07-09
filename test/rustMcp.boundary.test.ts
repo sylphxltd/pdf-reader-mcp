@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { execFileSync, execSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
@@ -27,6 +28,34 @@ describe('MCP transport boundary', () => {
     );
     expect(dryRun).toContain('exec node');
     expect(dryRun).toContain('$TS_ENTRY');
+  });
+
+  it('executes the shipped default bin path through node dist/index.js', () => {
+    const probeDir = mkdtempSync(path.join(os.tmpdir(), 'pdf-reader-bin-probe-'));
+    const invokeLog = path.join(probeDir, 'node-invoke.log');
+    const fakeNode = path.join(probeDir, 'node');
+    writeFileSync(
+      fakeNode,
+      `#!/usr/bin/env bash\nprintf '%s\\n' "$@" >> "${invokeLog}"\nexec "${process.execPath}" "$@"\n`
+    );
+    chmodSync(fakeNode, 0o755);
+
+    const result = spawnSync(binWrapper, ['doctor'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${probeDir}:${process.env.PATH ?? ''}`,
+        PDF_READER_MCP_TRANSPORT: '',
+      },
+      timeout: 30_000,
+    });
+
+    expect(result.status).toBe(0);
+    const logged = readFileSync(invokeLog, 'utf8');
+    expect(logged).toContain('dist/index.js');
+    expect(logged).toContain('doctor');
+    expect(logged).not.toContain('pdf-reader-mcp-server');
   });
 
   it('builds the opt-in rmcp stdio server binary for Phase 4 preview', () => {
