@@ -1,3 +1,4 @@
+import { attachPdfToolEvidence, resolvePrimarySourceHash } from '../evidence/envelope.js';
 import { image, text, tool, toolError } from '../mcp.js';
 import {
   buildAutoInspections,
@@ -158,27 +159,28 @@ export const readPdf = tool()
         return result;
       });
 
-      // First content part: Structured JSON results
-      content.push(
-        text(
-          JSON.stringify(
-            {
-              ...(autoRead
-                ? {
-                    auto_read: {
-                      enabled: true,
-                      detail: autoDetail,
-                      results: autoReadSummaries,
-                    },
-                  }
-                : {}),
-              results: resultsForJson,
-            },
-            null,
-            2
-          )
-        )
-      );
+      const sourceHash = await resolvePrimarySourceHash(input.sources);
+      const jsonPayload = attachPdfToolEvidence({
+        tool: 'read_pdf',
+        sources: input.sources,
+        ...(sourceHash !== undefined ? { sourceHash } : {}),
+        route: autoRead ? 'auto-read-v3' : 'explicit-read-v3',
+        payload: {
+          ...(autoRead
+            ? {
+                auto_read: {
+                  enabled: true,
+                  detail: autoDetail,
+                  results: autoReadSummaries,
+                },
+              }
+            : {}),
+          results: resultsForJson,
+        },
+      });
+
+      // First content part: Structured JSON results with portfolio evidence envelope
+      content.push(text(JSON.stringify(jsonPayload, null, 2)));
 
       // Per-page text parts duplicate markdown/chunks already present in JSON.
       const emitPerPageText = !options.includeMarkdown && !options.includeChunks;

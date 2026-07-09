@@ -1,3 +1,4 @@
+import { wrapPdfEvidenceResponse } from '../evidence/wrapResponse.js';
 import { text, tool, toolError } from '../mcp.js';
 import { defaultSearchPdfOptions, searchPdfSource } from '../pdf/search.js';
 import { searchPdfArgsSchema } from '../schemas/searchPdf.js';
@@ -74,15 +75,20 @@ export const searchPdf = tool()
       return toolError(`All PDF sources failed search: ${errorMessages}`);
     }
 
-    return text(
-      JSON.stringify(
-        {
-          profile: 'pdf_search_results',
-          search_options: options,
-          results,
-        },
-        null,
-        2
-      )
-    );
+    return wrapPdfEvidenceResponse({
+      tool: 'search_pdf',
+      sources: input.sources,
+      route: 'pdf-text-index-v3',
+      response: text(
+        JSON.stringify(
+          {
+            profile: 'pdf_search_results',
+            search_options: options,
+            results,
+          },
+          null,
+          2
+        )
+      ),
+    });
   });
