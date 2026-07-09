@@ -1,5 +1,7 @@
 pub mod cli_bridge;
 pub mod evidence;
+pub mod pdf_evidence;
+pub mod read_pdf;
 pub mod schema;
 pub mod search;
 
@@ -38,7 +40,7 @@ impl PdfReaderMcp {
         &self,
         Parameters(args): Parameters<Value>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        cli_bridge::invoke_cli_tool("read_pdf", args)
+        read_pdf::read_pdf(args)
     }
 
     #[tool(
@@ -58,7 +60,7 @@ impl PdfReaderMcp {
         &self,
         Parameters(args): Parameters<Value>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        cli_bridge::invoke_cli_tool("pdf_evidence", args)
+        pdf_evidence::pdf_evidence(args)
     }
 }
 
@@ -111,7 +113,10 @@ mod tests {
         }
         let lib_rs = fs::read_to_string(src_dir.join("lib.rs")).expect("read lib.rs");
         let production_lib = lib_rs.split("#[cfg(test)]").next().unwrap_or(&lib_rs);
-        assert!(production_lib.contains("cli_bridge::invoke_cli_tool"));
+        assert!(production_lib.contains("read_pdf::read_pdf"));
+        assert!(production_lib.contains("pdf_evidence::pdf_evidence"));
+        assert!(!production_lib.contains("cli_bridge::invoke_cli_tool(\"read_pdf\""));
+        assert!(!production_lib.contains("cli_bridge::invoke_cli_tool(\"pdf_evidence\""));
     }
 
     #[test]

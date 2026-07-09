@@ -61,7 +61,53 @@ describe('MCP transport boundary', () => {
     expect(existsSync(tsEntry)).toBe(true);
   });
 
-  it('delegates Rust core engine work through pdf-reader-cli JSON boundary', () => {
+  it('delegates read_pdf through pdf-reader-cli without spawning legacy TypeScript runtime', () => {
+    const probeDir = mkdtempSync(path.join(os.tmpdir(), 'pdf-reader-read-pdf-probe-'));
+    const nodeInvokeLog = path.join(probeDir, 'node-invoke.log');
+    const fakeNode = path.join(probeDir, 'node');
+    writeFileSync(
+      fakeNode,
+      `#!/usr/bin/env bash\nprintf '%s\\n' "$@" >> "${nodeInvokeLog}"\nexit 99\n`
+    );
+    chmodSync(fakeNode, 0o755);
+
+    const cliProbe = spawnSync(rustCliBin, [], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PDF_READER_NODE: fakeNode,
+        PDF_READER_ALLOW_LEGACY_ENGINE: '',
+      },
+      input: JSON.stringify({
+        tool: 'read_pdf',
+        input: {
+          sources: [{ path: samplePdf }],
+          include_metadata: true,
+          include_page_count: true,
+          include_full_text: false,
+        },
+      }),
+      timeout: 30_000,
+    });
+
+    expect(cliProbe.status).toBe(0);
+    expect(existsSync(nodeInvokeLog)).toBe(false);
+
+    const cliEnvelope = JSON.parse(cliProbe.stdout) as {
+      status?: string;
+      tool?: string;
+      result?: { content?: Array<{ text?: string }> };
+    };
+    expect(cliEnvelope.status).toBe('ok');
+    expect(cliEnvelope.tool).toBe('read_pdf');
+    const payloadText = cliEnvelope.result?.content?.[0]?.text ?? '';
+    expect(payloadText).toContain('rust-read-pdf-v1');
+    expect(payloadText).toContain('"success":true');
+    expect(payloadText).not.toContain('legacy-engine-runtime');
+  });
+
+  it('delegates pdf_hash through pdf-reader-cli JSON boundary', () => {
     const cliProbe = spawnSync(rustCliBin, [], {
       cwd: repoRoot,
       encoding: 'utf8',

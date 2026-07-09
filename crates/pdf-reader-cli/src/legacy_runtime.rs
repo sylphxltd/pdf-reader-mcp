@@ -6,6 +6,13 @@ use serde_json::Value;
 
 const LEGACY_RUNTIME_RELATIVE: &str = "dist/legacy-engine-runtime.js";
 
+pub fn legacy_engine_allowed() -> bool {
+    std::env::var("PDF_READER_ALLOW_LEGACY_ENGINE")
+        .ok()
+        .as_deref()
+        == Some("1")
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct LegacyToolSuccessEnvelope {
     pub status: &'static str,
@@ -54,6 +61,18 @@ pub fn handle_legacy_v3_tool(
     tool: &str,
     input: &Value,
 ) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
+    if !legacy_engine_allowed() {
+        return Err(ErrorEnvelope {
+            status: "error",
+            code: "LEGACY_ENGINE_DISABLED".into(),
+            message: format!(
+                "Legacy TypeScript engine runtime is disabled for tool '{tool}'. \
+                 Use the Rust engine path or set PDF_READER_ALLOW_LEGACY_ENGINE=1 for opt-in legacy execution."
+            ),
+            next_action: "Use the default Rust rmcp server path or export PDF_READER_ALLOW_LEGACY_ENGINE=1.".into(),
+        });
+    }
+
     let script = resolve_legacy_runtime_script().ok_or_else(|| ErrorEnvelope {
         status: "error",
         code: "LEGACY_RUNTIME_UNAVAILABLE".into(),

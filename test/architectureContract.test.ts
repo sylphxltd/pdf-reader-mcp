@@ -23,7 +23,16 @@ describe('architecture contract (Rust core + Rust rmcp MCP)', () => {
     expect(script).toContain('use_ts_transport');
   });
 
-  it('routes rmcp tool calls through cli_bridge to pdf-reader-cli only', () => {
+  it('routes read_pdf through Rust core module instead of cli_bridge legacy path', () => {
+    const lib = readFileSync(path.join(mcpServerSrc, 'lib.rs'), 'utf8');
+    const production = lib.split('#[cfg(test)]')[0] ?? lib;
+    expect(production).toContain('read_pdf::read_pdf');
+    expect(production).not.toContain('cli_bridge::invoke_cli_tool("read_pdf"');
+    expect(production).toContain('pdf_evidence::pdf_evidence');
+    expect(production).not.toContain('cli_bridge::invoke_cli_tool("pdf_evidence"');
+  });
+
+  it('keeps cli_bridge available only for optional legacy search fallback', () => {
     const bridge = productionSource('cli_bridge.rs');
     expect(bridge).toContain('pdf-reader-cli');
     expect(bridge).not.toContain('invoke_ts_engine');

@@ -255,11 +255,32 @@ export const buildSotaReleaseGateReport = async (
       binWrapper.includes('use_ts_transport'),
     'Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only'
   );
+  const cliMain = fs.readFileSync(
+    path.join(repoRoot, 'crates/pdf-reader-cli/src/main.rs'),
+    'utf8'
+  );
+  const cliLegacy = fs.readFileSync(
+    path.join(repoRoot, 'crates/pdf-reader-cli/src/legacy_runtime.rs'),
+    'utf8'
+  );
+  const readPdfCore = fs.readFileSync(
+    path.join(repoRoot, 'crates/pdf-reader-core/src/read_pdf.rs'),
+    'utf8'
+  );
+  const mcpLib = fs.readFileSync(
+    path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/lib.rs'),
+    'utf8'
+  );
   addCheck(
     checks,
     'boundary:rust_cli_engine',
-    cliBridge.includes('pdf-reader-cli') && !fs.existsSync(path.join(repoRoot, 'src/engine-invoke.ts')),
-    'Rust MCP routes engine work through pdf-reader-cli; no TS engine-invoke bridge on default path'
+    cliBridge.includes('pdf-reader-cli') &&
+      !fs.existsSync(path.join(repoRoot, 'src/engine-invoke.ts')) &&
+      cliMain.includes('read_pdf_from_value') &&
+      cliLegacy.includes('legacy_engine_allowed') &&
+      readPdfCore.includes('rust-read-pdf-v1') &&
+      mcpLib.includes('read_pdf::read_pdf'),
+    'Rust MCP and CLI route read_pdf through pdf-reader-core; legacy TS runtime is opt-in only'
   );
 
   const performanceResults = getArray(artifacts.performance, 'results');

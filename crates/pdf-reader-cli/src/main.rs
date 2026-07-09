@@ -1,8 +1,13 @@
 mod legacy_runtime;
 
-use legacy_runtime::handle_legacy_v3_tool;
-use pdf_reader_core::text_index::{search_pdf_text, TextIndexErrorCode};
-use pdf_reader_core::{hash_file, HashErrorCode, ENGINE_NAME, ENGINE_VERSION};
+use legacy_runtime::{handle_legacy_v3_tool, LegacyToolSuccessEnvelope};
+use pdf_reader_core::read_pdf_from_value;
+use pdf_reader_core::text_index::{
+    extract_page_texts, search_pdf_text, TextIndexErrorCode,
+};
+use pdf_reader_core::{
+    hash_file, ReadPdfErrorCode, ENGINE_NAME, ENGINE_VERSION, READ_PDF_ROUTE,
+};
 use serde::Deserialize;
 use std::io::{self, Read};
 use std::path::PathBuf;
@@ -37,10 +42,10 @@ struct ErrorEnvelope {
     next_action: String,
 }
 
-fn policy_code(code: HashErrorCode) -> &'static str {
+fn policy_code(code: pdf_reader_core::HashErrorCode) -> &'static str {
     match code {
-        HashErrorCode::InvalidParams => "INVALID_PARAMS",
-        HashErrorCode::InvalidRequest => "INVALID_REQUEST",
+        pdf_reader_core::HashErrorCode::InvalidParams => "INVALID_PARAMS",
+        pdf_reader_core::HashErrorCode::InvalidRequest => "INVALID_REQUEST",
     }
 }
 
@@ -50,6 +55,23 @@ fn text_index_error_code(code: TextIndexErrorCode) -> &'static str {
         TextIndexErrorCode::InvalidRequest => "INVALID_REQUEST",
         TextIndexErrorCode::ExtractionFailed => "EXTRACTION_FAILED",
     }
+}
+
+fn read_pdf_error_code(code: ReadPdfErrorCode) -> &'static str {
+    match code {
+        ReadPdfErrorCode::InvalidParams => "INVALID_PARAMS",
+        ReadPdfErrorCode::InvalidRequest => "INVALID_REQUEST",
+        ReadPdfErrorCode::ExtractionFailed => "EXTRACTION_FAILED",
+    }
+}
+
+fn wrap_tool_call_result(payload: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "content": [{
+            "type": "text",
+            "text": serde_json::to_string(&payload).unwrap_or_else(|_| payload.to_string())
+        }]
+    })
 }
 
 fn handle_pdf_text_search(
@@ -162,6 +184,110 @@ fn handle_pdf_hash(input: &serde_json::Value) -> Result<HashSuccessEnvelope, Err
     }
 }
 
+fn handle_read_pdf(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
+    let response = read_pdf_from_value(input).map_err(|error| ErrorEnvelope {
+        status: "error",
+        code: read_pdf_error_code(error.code).into(),
+        message: error.message,
+        next_action: "Provide readable local PDF sources with valid read_pdf options.".into(),
+    })?;
+
+    Ok(LegacyToolSuccessEnvelope {
+        status: "ok",
+        engine: ENGINE_NAME,
+        version: ENGINE_VERSION,
+        tool: "read_pdf".into(),
+        result: wrap_tool_call_result(serde_json::to_value(response).expect("serialize read_pdf")),
+    })
+}
+
+fn handle_pdf_evidence(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
+    let operation = input
+        .get("operation")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| ErrorEnvelope {
+            status: "error",
+            code: "INVALID_PARAMS".into(),
+            message: "operation is required".into(),
+            next_action: "Pass operation=inspect for the Rust inspect route.".into(),
+        })?;
+
+    if operation != "inspect" {
+        return Err(ErrorEnvelope {
+            status: "error",
+            code: "LEGACY_ENGINE_DISABLED".into(),
+            message: format!(
+                "Rust pdf_evidence supports operation=inspect on the default engine path. \
+                 Set PDF_READER_ALLOW_LEGACY_ENGINE=1 to use legacy TypeScript for {operation}."
+            ),
+            next_action: "Use operation=inspect or export PDF_READER_ALLOW_LEGACY_ENGINE=1.".into(),
+        });
+    }
+
+    let sources = input
+        .get("sources")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| ErrorEnvelope {
+            status: "error",
+            code: "INVALID_PARAMS".into(),
+            message: "sources is required".into(),
+            next_action: "Pass sources with local PDF paths.".into(),
+        })?;
+
+    let mut results = Vec::new();
+    for source in sources {
+        let path = source
+            .get("path")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| ErrorEnvelope {
+                status: "error",
+                code: "INVALID_REQUEST".into(),
+                message: "Rust pdf_evidence inspect requires local path sources.".into(),
+                next_action: "Pass sources[].path.".into(),
+            })?;
+
+        let pages = extract_page_texts(PathBuf::from(path).as_path(), 256 * 1024 * 1024)
+            .map_err(|error| ErrorEnvelope {
+                status: "error",
+                code: text_index_error_code(error.code).into(),
+                message: error.message,
+                next_action: "Provide a readable PDF.".into(),
+            })?;
+
+        let num_pages = pages.len().max(1) as u32;
+        let text_chars: u32 = pages.iter().map(|page| page.chars().count() as u32).sum();
+        results.push(serde_json::json!({
+            "source": path,
+            "success": true,
+            "data": {
+                "profile": "pdf_inspection",
+                "num_pages": num_pages,
+                "recommendation": {
+                    "workflow": if text_chars > 80 { "text_extract" } else { "ocr_render" },
+                    "needs_ocr": text_chars <= 80,
+                    "route": "rust-pdf-inspect-v1",
+                },
+                "route": "rust-pdf-inspect-v1",
+            }
+        }));
+    }
+
+    let payload = serde_json::json!({
+        "profile": "pdf_inspection_results",
+        "operation": "inspect",
+        "results": results,
+        "route": READ_PDF_ROUTE,
+    });
+
+    Ok(LegacyToolSuccessEnvelope {
+        status: "ok",
+        engine: ENGINE_NAME,
+        version: ENGINE_VERSION,
+        tool: "pdf_evidence".into(),
+        result: wrap_tool_call_result(payload),
+    })
+}
+
 fn main() {
     let mut payload = String::new();
     if io::stdin().read_to_string(&mut payload).is_err() {
@@ -192,12 +318,18 @@ fn main() {
             Ok(success) => serde_json::to_string(&success).expect("serialize"),
             Err(error) => serde_json::to_string(&error).expect("serialize"),
         },
-        "read_pdf" | "search_pdf" | "pdf_evidence" => {
-            match handle_legacy_v3_tool(request.tool.as_str(), &request.input) {
-                Ok(success) => serde_json::to_string(&success).expect("serialize"),
-                Err(error) => serde_json::to_string(&error).expect("serialize"),
-            }
-        }
+        "read_pdf" => match handle_read_pdf(&request.input) {
+            Ok(success) => serde_json::to_string(&success).expect("serialize"),
+            Err(error) => serde_json::to_string(&error).expect("serialize"),
+        },
+        "pdf_evidence" => match handle_pdf_evidence(&request.input) {
+            Ok(success) => serde_json::to_string(&success).expect("serialize"),
+            Err(error) => serde_json::to_string(&error).expect("serialize"),
+        },
+        "search_pdf" => match handle_legacy_v3_tool(request.tool.as_str(), &request.input) {
+            Ok(success) => serde_json::to_string(&success).expect("serialize"),
+            Err(error) => serde_json::to_string(&error).expect("serialize"),
+        },
         other => serde_json::to_string(&ErrorEnvelope {
             status: "error",
             code: "UNSUPPORTED_TOOL".into(),

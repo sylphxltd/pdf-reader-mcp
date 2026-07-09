@@ -1,6 +1,6 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-07-09T09:40:38.773Z",
+  "generated_at": "2026-07-09T09:49:29.726Z",
   "artifact_dir": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
@@ -145,7 +145,7 @@
     {
       "id": "boundary:rust_cli_engine",
       "status": "passed",
-      "message": "Rust MCP routes engine work through pdf-reader-cli; no TS engine-invoke bridge on default path"
+      "message": "Rust MCP and CLI route read_pdf through pdf-reader-core; legacy TS runtime is opt-in only"
     },
     {
       "id": "performance:document-twin-present",
