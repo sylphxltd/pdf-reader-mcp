@@ -86,14 +86,17 @@ export function isRustCliAvailable(): boolean {
   return resolveRustCliBinary() !== 'pdf-reader-cli';
 }
 
-export function shouldUseRustTextSearchEngine(): boolean {
+export function shouldUseRustTextSearchEngine(preferSpeed = false): boolean {
   if (process.env['PDF_READER_USE_RUST_TEXT_SEARCH'] === '0') {
     return false;
   }
   if (process.env['PDF_READER_USE_RUST_TEXT_SEARCH'] === '1') {
-    return true;
+    return isRustCliAvailable();
   }
-  return isRustCliAvailable();
+  if (preferSpeed) {
+    return isRustCliAvailable();
+  }
+  return false;
 }
 
 export function searchPdfTextViaRustEngine(

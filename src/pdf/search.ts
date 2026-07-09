@@ -275,7 +275,7 @@ export const searchPdfSource = async (
 
   if (
     source.path &&
-    shouldUseRustTextSearchEngine() &&
+    shouldUseRustTextSearchEngine(options.prefer_speed === true) &&
     !options.include_ocr_text_layer
   ) {
     const rustSearch = searchPdfTextViaRustEngine(source.path, options);

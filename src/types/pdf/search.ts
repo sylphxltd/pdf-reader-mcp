@@ -40,4 +40,6 @@ export interface SearchPdfOptions {
   max_matches_per_source: number;
   context_chars: number;
   include_ocr_text_layer: boolean;
+  /** When true, prefer the Rust literal text-index route over pdfjs geometry search. */
+  prefer_speed?: boolean | undefined;
 }

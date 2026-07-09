@@ -17,9 +17,10 @@ describe('Rust text search core boundary', () => {
     execSync('cargo build -q --release', { cwd: repoRoot, stdio: 'pipe', timeout: 180_000 });
   }, 180_000);
 
-  it('defaults to the Rust CLI when it is built', () => {
+  it('keeps geometry-first search by default when the Rust CLI is built', () => {
     expect(isRustCliAvailable()).toBe(true);
-    expect(shouldUseRustTextSearchEngine()).toBe(true);
+    expect(shouldUseRustTextSearchEngine()).toBe(false);
+    expect(shouldUseRustTextSearchEngine(true)).toBe(true);
   });
 
   it('finds literal matches in the sample PDF fixture', () => {
@@ -34,10 +35,21 @@ describe('Rust text search core boundary', () => {
     expect(response.result.matches[0]?.page).toBeGreaterThan(0);
   });
 
-  it('routes search_pdf through the Rust text index for local files', async () => {
+  it('routes search_pdf through pdfjs by default for bounding-box evidence', async () => {
     const result = await searchPdfSource(
       { path: fixturePath },
       defaultSearchPdfOptions('Lorem ipsum')
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.matches?.length).toBeGreaterThan(0);
+    expect(result.matches?.[0]?.provenance.engine).toBe('pdfjs');
+  });
+
+  it('routes search_pdf through the Rust text index when prefer_speed is enabled', async () => {
+    const result = await searchPdfSource(
+      { path: fixturePath },
+      { ...defaultSearchPdfOptions('Lorem ipsum'), prefer_speed: true }
     );
 
     expect(result.success).toBe(true);
