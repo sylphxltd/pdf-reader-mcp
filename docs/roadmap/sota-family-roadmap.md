@@ -36,12 +36,15 @@ instead of letting agents mistake lossy text extraction for truth.
 
 ## Runtime Direction
 
-The current TypeScript package remains the stable public surface. Rust should
-enter as native acceleration for hot paths where benchmarks prove value:
+The current package remains the stable public surface. Rust should become the
+target for MCP serving and native hot paths where benchmarks prove value:
 hashing, search indexes, region lookup, page cache, streaming, layout indexing,
 and large-file handling.
 
-The public MCP tool surface should remain stable while internals migrate.
+The Rust MCP server should use `modelcontextprotocol/rust-sdk` / `rmcp` while
+preserving the public `read_pdf`, `search_pdf`, and `pdf_evidence` tool
+contracts. TypeScript can remain for generated clients, compatibility wrappers,
+and package-transition tests, but it is not the target MCP adapter runtime.
 WASM is useful only for sandboxed extractors or portable document transforms,
 not for the default high-throughput local server.
 
@@ -61,6 +64,7 @@ not for the default high-throughput local server.
 - Identify hot paths with benchmark evidence.
 - Add Rust native modules for search index, hash, region lookup, streaming, and
   cache operations only when they improve measured performance.
+- Add a Rust MCP server facade that preserves existing tool contracts.
 - Preserve exact Agent Document Twin semantics through golden fixtures.
 - Add install diagnostics for native acceleration being unavailable.
 
