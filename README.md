@@ -222,8 +222,9 @@ the evidence needed to verify the answer.
 
 ## Provider-Enabled Intelligence
 
-The default package stays TypeScript-first and local-first. Heavy engines are
-optional, deployment-controlled adapters.
+The current package stays local-first. The roadmap target is a Rust MCP server
+with the same public tool contract, plus optional deployment-controlled
+providers for OCR and visual enrichment.
 
 | Capability | Default behavior | Enable with |
 | --- | --- | --- |

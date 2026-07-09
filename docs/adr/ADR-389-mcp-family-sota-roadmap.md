@@ -25,10 +25,18 @@ and benchmark-gated release quality.
 - Smart Reader routes PDFs but does not replace PDF Reader internals.
 - Architecture Reader and Consultant MCP consume PDF evidence rather than
   duplicating PDF extraction.
-- Rust native acceleration may be added only where benchmarks preserve existing
-  tool semantics and improve measured hot paths.
+- Rust native acceleration and Rust MCP serving may be added only where
+  benchmarks and fixtures preserve existing tool semantics and improve measured
+  hot paths.
 - Provider routes, privacy behavior, confidence, and degraded extraction must
   stay explicit.
+
+## Amendment: Rust-Native MCP Runtime
+
+The family runtime direction now targets Rust MCP servers using
+`modelcontextprotocol/rust-sdk` / `rmcp`. PDF Reader MCP may keep TypeScript
+compatibility wrappers during migration, but the target MCP server runtime is
+Rust with the existing `read_pdf`, `search_pdf`, and `pdf_evidence` contracts.
 
 ## Verification
 
