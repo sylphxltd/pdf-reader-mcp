@@ -1,4 +1,6 @@
-//! Rust hashing primitives for pdf-reader-mcp.
+//! Rust hashing and text-index primitives for pdf-reader-mcp.
+
+pub mod text_index;
 
 use std::fs;
 use std::path::Path;

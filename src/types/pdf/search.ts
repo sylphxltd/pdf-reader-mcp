@@ -15,7 +15,7 @@ export interface PdfSearchMatch {
   bounding_box?: BoundingBox | undefined;
   bounding_box_level?: 'char_estimated' | 'text_item' | 'ocr_word' | undefined;
   provenance: {
-    engine: 'pdfjs' | 'external-command';
+    engine: 'pdfjs' | 'external-command' | 'rust-text-index';
     source: 'text-content' | 'ocr-provider';
   };
 }

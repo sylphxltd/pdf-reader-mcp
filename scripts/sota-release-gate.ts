@@ -221,6 +221,13 @@ export const buildSotaReleaseGateReport = async (
     'Rust pdf-reader-core hash engine is present for Phase 1 native performance layer'
   );
 
+  addCheck(
+    checks,
+    'rust:text_index_core',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-core/src/text_index.rs')),
+    'Rust pdf-reader-core text index engine is present for literal search_pdf acceleration'
+  );
+
   const performanceResults = getArray(artifacts.performance, 'results');
   const documentTwinPerformance = performanceResults.find(
     (result) => result.name === 'v3_agent_document_twin'
