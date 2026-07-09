@@ -38,6 +38,15 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Rust hash core
+        run: bun run build:rust
+
+      - name: Rust core tests
+        run: bun run test:rust
+
       - name: Build package
         run: bun run build
 

@@ -213,6 +213,14 @@ export const buildSotaReleaseGateReport = async (
     );
   }
 
+  const repoRoot = path.resolve(import.meta.dirname, '..');
+  addCheck(
+    checks,
+    'rust:hash_core',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-core/src/lib.rs')),
+    'Rust pdf-reader-core hash engine is present for Phase 1 native performance layer'
+  );
+
   const performanceResults = getArray(artifacts.performance, 'results');
   const documentTwinPerformance = performanceResults.find(
     (result) => result.name === 'v3_agent_document_twin'

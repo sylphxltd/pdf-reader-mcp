@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { resolveRustCliBinary } from './engine/rust-hash.js';
 import { loadPdfDocumentCore } from './pdf/loader.js';
 import { destroyLoadingTask } from './utils/pdfjs.js';
 
@@ -116,6 +117,24 @@ const probeDistEntry = (): DoctorCheck => {
   };
 };
 
+const probeRustHashCli = (): DoctorCheck => {
+  const binary = resolveRustCliBinary();
+  if (binary !== 'pdf-reader-cli' && existsSync(binary)) {
+    return {
+      id: 'rust_hash_cli',
+      status: 'ok',
+      message: `Rust hash CLI is available at ${binary}. Set PDF_READER_USE_RUST_HASH=1 to route source hashing through the native engine.`,
+    };
+  }
+
+  return {
+    id: 'rust_hash_cli',
+    status: 'warn',
+    message:
+      'Rust hash CLI is not built. Run `cargo build --release` to enable PDF_READER_USE_RUST_HASH=1.',
+  };
+};
+
 const probeTesseract = (): DoctorCheck => {
   const result = spawnSync('tesseract', ['--version'], {
     encoding: 'utf8',
@@ -153,6 +172,7 @@ export async function runDoctor(version: string): Promise<DoctorReport> {
   const checks = [
     probeNode(),
     probePdfjsResources(),
+    probeRustHashCli(),
     probeDistEntry(),
     await probeSamplePdf(),
     probeTesseract(),

@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import {
+  hashLocalFileViaRustEngine,
+  shouldUseRustHashEngine,
+} from '../engine/rust-hash.js';
 
 export type Confidence = 'deterministic' | 'derived' | 'inferred' | 'unknown';
 
@@ -33,6 +37,13 @@ export type PdfSourceRef = {
 };
 
 export async function hashLocalFile(path: string): Promise<string | undefined> {
+  if (shouldUseRustHashEngine()) {
+    const rustHash = hashLocalFileViaRustEngine(path);
+    if (rustHash) {
+      return rustHash;
+    }
+  }
+
   try {
     const bytes = await readFile(path);
     return createHash('sha256').update(bytes).digest('hex');
