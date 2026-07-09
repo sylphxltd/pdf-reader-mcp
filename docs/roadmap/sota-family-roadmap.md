@@ -3,6 +3,7 @@
 Status: adoption plan  
 Owner: PDF Reader MCP  
 Scope: repo-local future plan and its role in the SylphxAI MCP family
+Decision record: `docs/adr/ADR-389-mcp-family-sota-roadmap.md`
 
 ## Family Role
 
