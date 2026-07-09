@@ -35,8 +35,18 @@ export function resolveRustCliBinary(): string {
   return 'pdf-reader-cli';
 }
 
+export function isRustCliAvailable(): boolean {
+  return resolveRustCliBinary() !== 'pdf-reader-cli';
+}
+
 export function shouldUseRustHashEngine(): boolean {
-  return process.env['PDF_READER_USE_RUST_HASH'] === '1';
+  if (process.env['PDF_READER_USE_RUST_HASH'] === '0') {
+    return false;
+  }
+  if (process.env['PDF_READER_USE_RUST_HASH'] === '1') {
+    return true;
+  }
+  return isRustCliAvailable();
 }
 
 export function hashLocalFileViaRustEngine(

@@ -123,7 +123,7 @@ const probeRustHashCli = (): DoctorCheck => {
     return {
       id: 'rust_hash_cli',
       status: 'ok',
-      message: `Rust hash CLI is available at ${binary}. Set PDF_READER_USE_RUST_HASH=1 to route source hashing through the native engine.`,
+      message: `Rust hash CLI is available at ${binary}. Source hashing defaults to the native engine when built.`,
     };
   }
 
@@ -131,7 +131,7 @@ const probeRustHashCli = (): DoctorCheck => {
     id: 'rust_hash_cli',
     status: 'warn',
     message:
-      'Rust hash CLI is not built. Run `cargo build --release` to enable PDF_READER_USE_RUST_HASH=1.',
+      'Rust hash CLI is not built. Run `cargo build --release` to enable the default native hash path.',
   };
 };
 
