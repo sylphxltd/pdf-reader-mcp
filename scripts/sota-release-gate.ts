@@ -239,7 +239,15 @@ export const buildSotaReleaseGateReport = async (
     checks,
     'rust:mcp_server',
     fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/lib.rs')),
-    'Rust-native MCP transport (rmcp) is present instead of a TypeScript MCP adapter'
+    'Opt-in Rust MCP transport preview (rmcp) is present for Phase 4 evaluation'
+  );
+
+  const binWrapper = fs.readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
+  addCheck(
+    checks,
+    'mcp:ts_adapter_default',
+    binWrapper.includes('dist/index.js') && binWrapper.includes('exec node'),
+    'Default npm bin launches the TypeScript MCP adapter; Rust rmcp is opt-in only'
   );
 
   const performanceResults = getArray(artifacts.performance, 'results');
