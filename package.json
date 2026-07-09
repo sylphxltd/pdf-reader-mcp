@@ -61,7 +61,7 @@
     "document-processing"
   ],
   "scripts": {
-    "build:rust": "cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server",
+    "build:rust": "cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server && bun scripts/stage-rust-mcp.ts",
     "test:rust": "cargo test",
     "build": "bunup --no-dts && bun build src/engine-invoke.ts --outdir dist --target node",
     "watch": "tsc --watch",
@@ -94,7 +94,7 @@
     "package:smoke": "bun scripts/package-smoke.ts",
     "sync:server-json": "bun scripts/sync-server-json.ts",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "bun run clean && bun run build && bun run package:smoke",
+    "prepublishOnly": "bun run clean && bun run build && bun run build:rust && bun run package:smoke",
     "release:preflight": "bun run typecheck && bun run check && bun run build && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
     "release": "bun run release:preflight && changeset publish"
   },

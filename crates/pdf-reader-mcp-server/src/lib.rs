@@ -72,7 +72,10 @@ impl ServerHandler for PdfReaderMcp {
                 name: SERVER_NAME.into(),
                 title: None,
                 version: SERVER_VERSION.into(),
-                description: Some("Rust-native MCP transport for pdf-reader-mcp".into()),
+                description: Some(
+                    "Rust-native MCP server for pdf-reader-mcp (modelcontextprotocol/rust-sdk rmcp)"
+                        .into(),
+                ),
                 icons: None,
                 website_url: Some("https://sylphxai.github.io/pdf-reader-mcp/".into()),
             },

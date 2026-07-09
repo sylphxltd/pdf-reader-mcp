@@ -1,5 +1,7 @@
 node_modules/
 target/
+bin/native/*
+!bin/native/.gitkeep
 build/
 *.log
 coverage/

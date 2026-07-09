@@ -5,41 +5,41 @@ import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const rustServerBin = path.join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const stagedRustBin = path.join(repoRoot, 'bin/native/pdf-reader-mcp-server');
 const engineInvoke = path.join(repoRoot, 'dist/engine-invoke.js');
 const tsEntry = path.join(repoRoot, 'dist/index.js');
 const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
 
 describe('MCP transport boundary', () => {
   beforeAll(() => {
-    execSync('cargo build -q --release -p pdf-reader-mcp-server', {
-      cwd: repoRoot,
-      stdio: 'pipe',
-      timeout: 180_000,
-    });
+    execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
     execSync('bun run build', { cwd: repoRoot, stdio: 'pipe', timeout: 180_000 });
-  }, 180_000);
+  }, 300_000);
 
-  it('defaults the published bin wrapper to the TypeScript MCP adapter', () => {
+  it('defaults the published bin wrapper to the Rust rmcp MCP server', () => {
     const script = readFileSync(binWrapper, 'utf8');
-    expect(script).toContain('dist/index.js');
+    expect(script).toContain('pdf-reader-mcp-server');
+    expect(script).toContain('bin/native/pdf-reader-mcp-server');
     const dryRun = execFileSync(
       'bash',
-      ['-c', `grep -v '^#' "${binWrapper}" | tail -n 3`],
+      ['-c', `grep -v '^#' "${binWrapper}" | tail -n 6`],
       { encoding: 'utf8' }
     );
-    expect(dryRun).toContain('exec node');
+    expect(dryRun).toContain('resolve_rust_bin');
+    expect(dryRun).not.toMatch(/^\s*exec node "\$TS_ENTRY"/m);
   });
 
-  it('builds the opt-in rmcp stdio server binary for Phase 4 preview', () => {
+  it('builds and stages the rmcp stdio server binary for npm publish', () => {
     expect(existsSync(rustServerBin)).toBe(true);
+    expect(existsSync(stagedRustBin)).toBe(true);
   });
 
-  it('ships the engine bridge only for opt-in rust transport', () => {
+  it('ships the engine bridge for read_pdf and pdf_evidence delegation', () => {
     expect(existsSync(engineInvoke)).toBe(true);
     expect(existsSync(tsEntry)).toBe(true);
   });
 
-  it('reports doctor diagnostics from the opt-in Rust MCP entrypoint', () => {
+  it('reports doctor diagnostics from the default Rust MCP entrypoint', () => {
     const result = spawnSync(rustServerBin, ['doctor'], {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -54,9 +54,10 @@ describe('MCP transport boundary', () => {
     expect(output).toContain('engine bridge');
   });
 
-  it('launches the Rust MCP server only when rust transport is requested', () => {
+  it('keeps the legacy TypeScript MCP adapter available via ts transport', () => {
     const script = readFileSync(binWrapper, 'utf8');
     expect(script).toContain('PDF_READER_MCP_TRANSPORT');
-    expect(script).toContain('pdf-reader-mcp-server');
+    expect(script).toContain('dist/index.js');
+    expect(script).toContain('use_ts_transport');
   });
 });

@@ -11,6 +11,7 @@ resolve_rust_bin() {
   fi
 
   for candidate in \
+    "$ROOT/bin/native/pdf-reader-mcp-server" \
     "$ROOT/target/release/pdf-reader-mcp-server" \
     "$ROOT/target/debug/pdf-reader-mcp-server"; do
     if [[ -x "$candidate" ]]; then
@@ -22,20 +23,21 @@ resolve_rust_bin() {
   return 1
 }
 
-use_rust_transport() {
-  [[ "${PDF_READER_MCP_TRANSPORT:-}" == "rust" ]] || [[ "${1:-}" == "rust" ]]
+use_ts_transport() {
+  [[ "${PDF_READER_MCP_TRANSPORT:-}" == "ts" ]] || [[ "${1:-}" == "ts" ]]
 }
 
-if use_rust_transport "$@"; then
-  if [[ "${1:-}" == "rust" ]]; then
+if use_ts_transport "$@"; then
+  if [[ "${1:-}" == "ts" ]]; then
     shift
   fi
-  export PDF_READER_ENGINE_SCRIPT="${PDF_READER_ENGINE_SCRIPT:-$ROOT/dist/engine-invoke.js}"
-  if bin="$(resolve_rust_bin)"; then
-    exec "$bin" "$@"
-  fi
-  echo "[pdf-reader-mcp] Rust MCP transport requested but pdf-reader-mcp-server is not built. Run: bun run build:rust" >&2
-  exit 1
+  exec node "$TS_ENTRY" "$@"
 fi
 
-exec node "$TS_ENTRY" "$@"
+export PDF_READER_ENGINE_SCRIPT="${PDF_READER_ENGINE_SCRIPT:-$ROOT/dist/engine-invoke.js}"
+if bin="$(resolve_rust_bin)"; then
+  exec "$bin" "$@"
+fi
+
+echo "[pdf-reader-mcp] Rust MCP server (rmcp) is not built. Run: bun run build:rust" >&2
+exit 1
