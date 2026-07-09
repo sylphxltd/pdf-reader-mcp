@@ -20,7 +20,7 @@ evidence you can search, crop, and cite.
 **Local-first** · **One smart `read_pdf` call** · **Evidence with page + bbox** · **397 tests** · **39/39 release-gate checks**
 
 [⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
-· [Quick start](#quick-start) · [See it work](#see-it-work) · [Why not plain text?](#why-not-a-plain-text-dump)
+· [Quick start](#quick-start) · [See it work](#see-it-work) · [Roadmap](docs/roadmap/sota-family-roadmap.md) · [Why not plain text?](#why-not-a-plain-text-dump)
 
 <a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
 <img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>

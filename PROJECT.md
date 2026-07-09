@@ -49,6 +49,7 @@ own ADR/spec and commercial controls.
 - Boundary ADR:
   `docs/adr/0001-2027-sota-document-intelligence-boundary.md`
 - Tool/spec docs: `docs/specs/`
+- SOTA family roadmap: `docs/roadmap/sota-family-roadmap.md`
 - CI workflow: `.github/workflows/ci.yml`
 - Release workflow: `.github/workflows/release.yml`
 
