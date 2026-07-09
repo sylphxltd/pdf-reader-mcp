@@ -50,6 +50,13 @@ export const searchPdfArgsSchema = object({
       description('Context characters to include around each match. Defaults to 120.')
     )
   ),
+  prefer_speed: optional(
+    bool(
+      description(
+        'Prefer the Rust literal text-index route for local files. Defaults to false so search_pdf keeps page + bounding-box evidence from pdfjs.'
+      )
+    )
+  ),
 });
 
 export type SearchPdfArgs = InferOutput<typeof searchPdfArgsSchema>;

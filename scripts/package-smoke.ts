@@ -470,8 +470,8 @@ export const validateExtractedPackage = async (
   addCheck(
     checks,
     'package-json:bin',
-    bin?.['pdf-reader-mcp'] === './dist/index.js',
-    'package bin points to the published runtime artifact',
+    bin?.['pdf-reader-mcp'] === './bin/pdf-reader-mcp',
+    'package bin points to the Rust-first MCP launcher',
     { actual: bin?.['pdf-reader-mcp'] }
   );
   addCheck(
@@ -562,6 +562,12 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
       'tarball:public-provider-manifest',
       tarballEntries.includes('package/corpus/public-provider-accuracy.json'),
       'tarball includes public provider accuracy manifest'
+    );
+    addCheck(
+      checks,
+      'tarball:rust-mcp-server',
+      tarballEntries.includes('package/bin/native/pdf-reader-mcp-server'),
+      'tarball includes the staged Rust rmcp MCP server binary'
     );
 
     const extractDir = path.join(tempDir, 'extract');

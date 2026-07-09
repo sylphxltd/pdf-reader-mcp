@@ -1,3 +1,4 @@
+import { wrapPdfEvidenceResponse } from '../evidence/wrapResponse.js';
 import { tool, toolError } from '../mcp.js';
 import { type PdfEvidenceArgs, pdfEvidenceArgsSchema } from '../schemas/pdfEvidence.js';
 import { analyzeRegions } from './analyzeRegions.js';
@@ -57,6 +58,19 @@ const providerOptions = (input: PdfEvidenceArgs) => ({
   ...(input.languages !== undefined ? { languages: input.languages } : {}),
 });
 
+const wrapEvidenceOperation = async (
+  operation: PdfEvidenceArgs['operation'],
+  sources: EvidenceSource[],
+  response: Awaited<ReturnType<typeof inspectPdf.handler>>
+) =>
+  wrapPdfEvidenceResponse({
+    tool: 'pdf_evidence',
+    operation,
+    sources,
+    route: `pdf-evidence-${operation}-v3`,
+    response,
+  });
+
 export const pdfEvidence = tool()
   .description(
     'Runs focused PDF evidence operations behind one V3 tool: inspect, render pages, crop regions, OCR pages, or analyze visual regions.'
@@ -64,36 +78,48 @@ export const pdfEvidence = tool()
   .input(pdfEvidenceArgsSchema)
   .handler(async ({ input, ctx }) => {
     if (input.operation === 'inspect') {
-      return inspectPdf.handler({
-        input: {
-          sources: toPdfSources(input.sources),
-          ...(input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {}),
-          ...(input.include_metadata !== undefined
-            ? { include_metadata: input.include_metadata }
-            : {}),
-        },
-        ctx,
-      });
+      return wrapEvidenceOperation(
+        'inspect',
+        input.sources,
+        await inspectPdf.handler({
+          input: {
+            sources: toPdfSources(input.sources),
+            ...(input.sample_pages !== undefined ? { sample_pages: input.sample_pages } : {}),
+            ...(input.include_metadata !== undefined
+              ? { include_metadata: input.include_metadata }
+              : {}),
+          },
+          ctx,
+        })
+      );
     }
 
     if (input.operation === 'render_page') {
-      return renderPage.handler({
-        input: {
-          sources: toPdfSources(input.sources),
-          ...imageOptions(input),
-        },
-        ctx,
-      });
+      return wrapEvidenceOperation(
+        'render_page',
+        input.sources,
+        await renderPage.handler({
+          input: {
+            sources: toPdfSources(input.sources),
+            ...imageOptions(input),
+          },
+          ctx,
+        })
+      );
     }
 
     if (input.operation === 'ocr_pages') {
-      return ocrPages.handler({
-        input: {
-          sources: toPdfSources(input.sources),
-          ...providerOptions(input),
-        },
-        ctx,
-      });
+      return wrapEvidenceOperation(
+        'ocr_pages',
+        input.sources,
+        await ocrPages.handler({
+          input: {
+            sources: toPdfSources(input.sources),
+            ...providerOptions(input),
+          },
+          ctx,
+        })
+      );
     }
 
     const regionSources = toRegionSources(input.sources);
@@ -102,20 +128,28 @@ export const pdfEvidence = tool()
     }
 
     if (input.operation === 'extract_regions') {
-      return extractRegions.handler({
-        input: {
-          sources: regionSources.sources,
-          ...imageOptions(input),
-        },
-        ctx,
-      });
+      return wrapEvidenceOperation(
+        'extract_regions',
+        input.sources,
+        await extractRegions.handler({
+          input: {
+            sources: regionSources.sources,
+            ...imageOptions(input),
+          },
+          ctx,
+        })
+      );
     }
 
-    return analyzeRegions.handler({
-      input: {
-        sources: regionSources.sources,
-        ...providerOptions(input),
-      },
-      ctx,
-    });
+    return wrapEvidenceOperation(
+      'analyze_regions',
+      input.sources,
+      await analyzeRegions.handler({
+        input: {
+          sources: regionSources.sources,
+          ...providerOptions(input),
+        },
+        ctx,
+      })
+    );
   });

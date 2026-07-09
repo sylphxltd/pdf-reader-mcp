@@ -15,7 +15,7 @@ export interface PdfSearchMatch {
   bounding_box?: BoundingBox | undefined;
   bounding_box_level?: 'char_estimated' | 'text_item' | 'ocr_word' | undefined;
   provenance: {
-    engine: 'pdfjs' | 'external-command';
+    engine: 'pdfjs' | 'external-command' | 'rust-text-index';
     source: 'text-content' | 'ocr-provider';
   };
 }
@@ -40,4 +40,6 @@ export interface SearchPdfOptions {
   max_matches_per_source: number;
   context_chars: number;
   include_ocr_text_layer: boolean;
+  /** When true, prefer the Rust literal text-index route over pdfjs geometry search. */
+  prefer_speed?: boolean | undefined;
 }

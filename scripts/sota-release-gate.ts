@@ -1,6 +1,50 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { DoctorReport } from '../src/doctor.js';
 import { writeBenchmarkReport } from './benchmark-utils.js';
+
+const runDoctorViaSubprocess = (version: string): DoctorReport => {
+  const repoRoot = path.resolve(import.meta.dirname, '..');
+  const result = spawnSync('bun', ['run', 'src/index.ts', 'doctor'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: process.env,
+    timeout: 60_000,
+  });
+
+  if (!result.stdout?.trim()) {
+    return {
+      profile: 'pdf_reader_doctor',
+      version,
+      status: 'unavailable',
+      checks: [
+        {
+          id: 'doctor:subprocess',
+          status: 'fail',
+          message: result.stderr?.slice(-500) ?? 'doctor subprocess produced no output',
+        },
+      ],
+    };
+  }
+
+  try {
+    return JSON.parse(result.stdout) as DoctorReport;
+  } catch {
+    return {
+      profile: 'pdf_reader_doctor',
+      version,
+      status: 'unavailable',
+      checks: [
+        {
+          id: 'doctor:subprocess',
+          status: 'fail',
+          message: 'doctor subprocess output was not valid JSON',
+        },
+      ],
+    };
+  }
+};
 
 const ARTIFACT_DIR_ENV = 'MCP_PDF_BENCHMARK_OUTPUT_DIR';
 const DEFAULT_ARTIFACT_DIR = 'benchmark-artifacts';
@@ -10,6 +54,8 @@ const REQUIRED_CORPUS_CASE_IDS = [
   'runtime-report-reading-order',
   'runtime-scanned-ocr-routing',
   'runtime-ocr-table-agent-evidence',
+  'runtime-malformed-pdf-trust-routing',
+  'runtime-encrypted-pdf-trust-routing',
 ] as const;
 const REQUIRED_CORPUS_CAPABILITY_TAGS = [
   'document_map',
@@ -20,6 +66,9 @@ const REQUIRED_CORPUS_CAPABILITY_TAGS = [
   'scanned_page',
   'scanned_table',
   'text_layer',
+  'malformed_pdf',
+  'encrypted_pdf',
+  'trust_routing',
 ] as const;
 const REQUIRED_PROVIDER_CROP_CAPABILITY_TAGS = [
   'crop_provenance',
@@ -207,6 +256,76 @@ export const buildSotaReleaseGateReport = async (
     );
   }
 
+  const repoRoot = path.resolve(import.meta.dirname, '..');
+  addCheck(
+    checks,
+    'rust:hash_core',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-core/src/lib.rs')),
+    'Rust pdf-reader-core hash engine is present for Phase 1 native performance layer'
+  );
+
+  addCheck(
+    checks,
+    'rust:text_index_core',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-core/src/text_index.rs')),
+    'Rust pdf-reader-core text index engine is present for literal search_pdf acceleration'
+  );
+
+  addCheck(
+    checks,
+    'rust:page_cache_core',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-core/src/page_cache.rs')),
+    'Rust pdf-reader-core page cache is present for repeated literal search acceleration'
+  );
+
+  addCheck(
+    checks,
+    'rust:mcp_server',
+    fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/lib.rs')),
+    'Rust MCP server (modelcontextprotocol/rust-sdk rmcp) is present'
+  );
+
+  const binWrapper = fs.readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
+  const cliBridge = fs.readFileSync(
+    path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/cli_bridge.rs'),
+    'utf8'
+  );
+  addCheck(
+    checks,
+    'mcp:rust_adapter_default',
+    binWrapper.includes('pdf-reader-mcp-server') &&
+      binWrapper.includes('resolve_rust_bin') &&
+      binWrapper.includes('use_ts_transport'),
+    'Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only'
+  );
+  const matrixProbe = spawnSync(
+    'bun',
+    ['test', 'test/shippedPath.matrix.test.ts'],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PDF_READER_ALLOW_LEGACY_ENGINE: '',
+      },
+      timeout: 300_000,
+    }
+  );
+  addCheck(
+    checks,
+    'boundary:rust_cli_engine',
+    !fs.existsSync(path.join(repoRoot, 'src/engine-invoke.ts')) &&
+      matrixProbe.status === 0,
+    'Shipped-path matrix test proves all primary tools route through Rust core without legacy runtime',
+    matrixProbe.status === 0
+      ? { exitCode: 0 }
+      : {
+          exitCode: matrixProbe.status,
+          stderr: matrixProbe.stderr?.slice(-2000),
+          stdout: matrixProbe.stdout?.slice(-2000),
+        }
+  );
+
   const performanceResults = getArray(artifacts.performance, 'results');
   const documentTwinPerformance = performanceResults.find(
     (result) => result.name === 'v3_agent_document_twin'
@@ -291,7 +410,7 @@ export const buildSotaReleaseGateReport = async (
   addCheck(
     checks,
     'corpus:case-count',
-    corpusCases.length >= 4 && corpusCaseCount === corpusCases.length,
+    corpusCases.length >= 6 && corpusCaseCount === corpusCases.length,
     'corpus benchmark includes the expected minimum case coverage',
     { case_count: corpusCaseCount, observed_cases: corpusCases.length }
   );
@@ -782,6 +901,30 @@ export const buildSotaReleaseGateReport = async (
         failed_assertion_count: entry.failed_assertion_count,
       })),
     }
+  );
+
+  const packageJson = JSON.parse(
+    await fs.promises.readFile(path.resolve(import.meta.dirname, '../package.json'), 'utf8')
+  ) as { version?: string };
+  const doctor = runDoctorViaSubprocess(packageJson.version ?? '0.0.0');
+  addCheck(
+    checks,
+    'install:doctor-ready',
+    doctor.status !== 'unavailable',
+    'install doctor reports a ready or degraded runtime (no hard failures)',
+    { doctorStatus: doctor.status, checks: doctor.checks }
+  );
+  addCheck(
+    checks,
+    'install:pdfjs-resources',
+    doctor.checks.find((check) => check.id === 'pdfjs_resources')?.status === 'ok',
+    'install doctor confirms pdfjs-dist resource bundles are present'
+  );
+  addCheck(
+    checks,
+    'install:sample-probe',
+    doctor.checks.find((check) => check.id === 'sample_probe')?.status === 'ok',
+    'install doctor loads the checked-in sample.pdf fixture successfully'
   );
 
   const summary = summarizeChecks(checks);

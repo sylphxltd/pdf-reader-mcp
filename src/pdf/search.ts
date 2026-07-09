@@ -1,4 +1,9 @@
 import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import {
+  mapRustMatchesToPdfSearchMatches,
+  searchPdfTextViaRustEngine,
+  shouldUseRustTextSearchEngine,
+} from '../engine/rust-text-search.js';
 import type {
   PageContentItem,
   PdfOcrPageData,
@@ -267,6 +272,29 @@ export const searchPdfSource = async (
   options: SearchPdfOptions
 ): Promise<PdfSearchSourceResult> => {
   const sourceDescription = source.path ?? source.url ?? 'unknown source';
+
+  if (
+    source.path &&
+    shouldUseRustTextSearchEngine(options.prefer_speed === true) &&
+    !options.include_ocr_text_layer
+  ) {
+    const rustSearch = searchPdfTextViaRustEngine(source.path, options);
+    if (rustSearch.ok) {
+      return {
+        source: sourceDescription,
+        success: true,
+        num_pages: rustSearch.result.numPages,
+        searched_pages: rustSearch.result.searchedPages,
+        total_matches: rustSearch.result.totalMatches,
+        matches: mapRustMatchesToPdfSearchMatches(rustSearch.result.matches),
+        ...(rustSearch.result.truncated ? { truncated: true } : {}),
+        warnings: [
+          'Search route: rust-text-index via literal PDF text extraction. Bounding boxes are unavailable on this route; use read_pdf or pdf_evidence for geometry-backed evidence.',
+        ],
+      };
+    }
+  }
+
   let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
 
   try {

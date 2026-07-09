@@ -1,10 +1,10 @@
 {
   "profile": "pdf_corpus_benchmark",
-  "generated_at": "2026-07-08T20:54:37.467Z",
-  "corpus_scope": "checked-in repository PDFs plus runtime-generated report and scanned-page archetypes exercised through read_pdf agent-document-twin flows",
-  "case_count": 4,
-  "assertion_count": 19,
-  "passed_assertion_count": 19,
+  "generated_at": "2026-07-09T09:07:41.245Z",
+  "corpus_scope": "checked-in repository PDFs plus runtime-generated report, scanned-page, malformed, and encrypted archetypes exercised through read_pdf agent-document-twin flows",
+  "case_count": 6,
+  "assertion_count": 23,
+  "passed_assertion_count": 23,
   "score": 1,
   "capability_summary": [
     {
@@ -53,10 +53,28 @@
       "status": "passed"
     },
     {
+      "tag": "encrypted_pdf",
+      "case_count": 1,
+      "assertion_count": 2,
+      "passed_assertion_count": 2,
+      "failed_assertion_count": 0,
+      "score": 1,
+      "status": "passed"
+    },
+    {
       "tag": "layout_diagnostics",
       "case_count": 1,
       "assertion_count": 6,
       "passed_assertion_count": 6,
+      "failed_assertion_count": 0,
+      "score": 1,
+      "status": "passed"
+    },
+    {
+      "tag": "malformed_pdf",
+      "case_count": 1,
+      "assertion_count": 2,
+      "passed_assertion_count": 2,
       "failed_assertion_count": 0,
       "score": 1,
       "status": "passed"
@@ -108,9 +126,9 @@
     },
     {
       "tag": "runtime_generated",
-      "case_count": 3,
-      "assertion_count": 13,
-      "passed_assertion_count": 13,
+      "case_count": 5,
+      "assertion_count": 17,
+      "passed_assertion_count": 17,
       "failed_assertion_count": 0,
       "score": 1,
       "status": "passed"
@@ -170,6 +188,15 @@
       "status": "passed"
     },
     {
+      "tag": "trust_routing",
+      "case_count": 2,
+      "assertion_count": 4,
+      "passed_assertion_count": 4,
+      "failed_assertion_count": 0,
+      "score": 1,
+      "status": "passed"
+    },
+    {
       "tag": "word_boxes",
       "case_count": 1,
       "assertion_count": 4,
@@ -192,7 +219,7 @@
         "selectable_text",
         "text_layer"
       ],
-      "duration_ms": 158.27,
+      "duration_ms": 125.99,
       "assertion_count": 6,
       "passed_assertion_count": 6,
       "score": 1,
@@ -295,7 +322,7 @@
         "reading_order",
         "runtime_generated"
       ],
-      "duration_ms": 17.82,
+      "duration_ms": 18.3,
       "assertion_count": 6,
       "passed_assertion_count": 6,
       "score": 1,
@@ -411,7 +438,7 @@
         "scanned_page",
         "source_render_evidence"
       ],
-      "duration_ms": 48.41,
+      "duration_ms": 49.78,
       "assertion_count": 3,
       "passed_assertion_count": 3,
       "score": 1,
@@ -490,7 +517,7 @@
         "table_structure",
         "word_boxes"
       ],
-      "duration_ms": 29.47,
+      "duration_ms": 40.21,
       "assertion_count": 4,
       "passed_assertion_count": 4,
       "score": 1,
@@ -570,6 +597,84 @@
           "observed": {
             "table_count": 1,
             "ocr_provenance_in_ast": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "runtime-malformed-pdf-trust-routing",
+      "fixture_type": "runtime-generated",
+      "document_archetype": "truncated invalid PDF bytes",
+      "capability_tags": [
+        "malformed_pdf",
+        "runtime_generated",
+        "trust_routing"
+      ],
+      "duration_ms": 4.07,
+      "assertion_count": 2,
+      "passed_assertion_count": 2,
+      "score": 1,
+      "metrics": {
+        "error_message_chars": 123
+      },
+      "assertions": [
+        {
+          "id": "malformed:structured-failure",
+          "pass": true,
+          "expected": {
+            "structured_failure": true
+          },
+          "observed": {
+            "message": "All PDF sources failed to process: Failed to load PDF document from /tmp/pdf-reader-mcp-corpus-eoVslo/corpus-malformed.pdf."
+          }
+        },
+        {
+          "id": "malformed:sanitized-error",
+          "pass": true,
+          "expected": {
+            "sanitized_error": true
+          },
+          "observed": {
+            "message": "All PDF sources failed to process: Failed to load PDF document from /tmp/pdf-reader-mcp-corpus-eoVslo/corpus-malformed.pdf."
+          }
+        }
+      ]
+    },
+    {
+      "id": "runtime-encrypted-pdf-trust-routing",
+      "fixture_type": "runtime-generated",
+      "document_archetype": "password-protected PDF without supplied credentials",
+      "capability_tags": [
+        "encrypted_pdf",
+        "runtime_generated",
+        "trust_routing"
+      ],
+      "duration_ms": 1.6,
+      "assertion_count": 2,
+      "passed_assertion_count": 2,
+      "score": 1,
+      "metrics": {
+        "error_message_chars": 123
+      },
+      "assertions": [
+        {
+          "id": "encrypted:structured-failure",
+          "pass": true,
+          "expected": {
+            "structured_failure": true
+          },
+          "observed": {
+            "message": "All PDF sources failed to process: Failed to load PDF document from /tmp/pdf-reader-mcp-corpus-eoVslo/corpus-encrypted.pdf."
+          }
+        },
+        {
+          "id": "encrypted:sanitized-error",
+          "pass": true,
+          "expected": {
+            "sanitized_error": true
+          },
+          "observed": {
+            "message": "All PDF sources failed to process: Failed to load PDF document from /tmp/pdf-reader-mcp-corpus-eoVslo/corpus-encrypted.pdf."
           }
         }
       ]

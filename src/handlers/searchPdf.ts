@@ -1,3 +1,4 @@
+import { wrapPdfEvidenceResponse } from '../evidence/wrapResponse.js';
 import { text, tool, toolError } from '../mcp.js';
 import { defaultSearchPdfOptions, searchPdfSource } from '../pdf/search.js';
 import { searchPdfArgsSchema } from '../schemas/searchPdf.js';
@@ -15,6 +16,7 @@ const buildOptions = (input: {
   max_pages?: number | undefined;
   max_matches_per_source?: number | undefined;
   context_chars?: number | undefined;
+  prefer_speed?: boolean | undefined;
 }): SearchPdfOptions => ({
   ...defaultSearchPdfOptions(input.query),
   ...(input.case_sensitive !== undefined ? { case_sensitive: input.case_sensitive } : {}),
@@ -27,6 +29,7 @@ const buildOptions = (input: {
     ? { max_matches_per_source: input.max_matches_per_source }
     : {}),
   ...(input.context_chars !== undefined ? { context_chars: input.context_chars } : {}),
+  ...(input.prefer_speed !== undefined ? { prefer_speed: input.prefer_speed } : {}),
 });
 
 const processSource = async (
@@ -74,15 +77,20 @@ export const searchPdf = tool()
       return toolError(`All PDF sources failed search: ${errorMessages}`);
     }
 
-    return text(
-      JSON.stringify(
-        {
-          profile: 'pdf_search_results',
-          search_options: options,
-          results,
-        },
-        null,
-        2
-      )
-    );
+    return wrapPdfEvidenceResponse({
+      tool: 'search_pdf',
+      sources: input.sources,
+      route: 'pdf-text-index-v3',
+      response: text(
+        JSON.stringify(
+          {
+            profile: 'pdf_search_results',
+            search_options: options,
+            results,
+          },
+          null,
+          2
+        )
+      ),
+    });
   });

@@ -38,6 +38,15 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Rust core and MCP server
+        run: bun run build:rust
+
+      - name: Rust core tests
+        run: bun run test:rust
+
       - name: Build package
         run: bun run build
 
@@ -46,6 +55,9 @@ jobs:
 
       - name: Run Tests and Check Coverage
         run: bun run test:cov
+
+      - name: Public surface audit (README discovery)
+        run: bun test test/readmeDiscovery.test.ts
 
       - name: Build docs
         run: bun run docs:build

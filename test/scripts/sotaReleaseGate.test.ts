@@ -49,9 +49,9 @@ const writeValidQualityArtifact = (artifactDir: string) => {
 const writeValidCorpusArtifact = (artifactDir: string) => {
   writeArtifact(artifactDir, 'pdf_corpus_benchmark.json', {
     profile: 'pdf_corpus_benchmark',
-    case_count: 4,
-    assertion_count: 19,
-    passed_assertion_count: 19,
+    case_count: 6,
+    assertion_count: 23,
+    passed_assertion_count: 23,
     score: 1,
     cases: [
       {
@@ -91,6 +91,22 @@ const writeValidCorpusArtifact = (artifactDir: string) => {
         passed_assertion_count: 4,
         score: 1,
       },
+      {
+        id: 'runtime-malformed-pdf-trust-routing',
+        fixture_type: 'runtime-generated',
+        capability_tags: ['malformed_pdf', 'trust_routing'],
+        assertion_count: 2,
+        passed_assertion_count: 2,
+        score: 1,
+      },
+      {
+        id: 'runtime-encrypted-pdf-trust-routing',
+        fixture_type: 'runtime-generated',
+        capability_tags: ['encrypted_pdf', 'trust_routing'],
+        assertion_count: 2,
+        passed_assertion_count: 2,
+        score: 1,
+      },
     ],
     capability_summary: [
       {
@@ -98,6 +114,33 @@ const writeValidCorpusArtifact = (artifactDir: string) => {
         case_count: 4,
         assertion_count: 19,
         passed_assertion_count: 19,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'malformed_pdf',
+        case_count: 1,
+        assertion_count: 2,
+        passed_assertion_count: 2,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'encrypted_pdf',
+        case_count: 1,
+        assertion_count: 2,
+        passed_assertion_count: 2,
+        failed_assertion_count: 0,
+        score: 1,
+        status: 'passed',
+      },
+      {
+        tag: 'trust_routing',
+        case_count: 2,
+        assertion_count: 4,
+        passed_assertion_count: 4,
         failed_assertion_count: 0,
         score: 1,
         status: 'passed',

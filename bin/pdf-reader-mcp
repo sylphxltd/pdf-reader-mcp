@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TS_ENTRY="$ROOT/dist/index.js"
+
+resolve_rust_bin() {
+  if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
+    printf '%s\n' "${PDF_READER_MCP_RUST_BIN}"
+    return 0
+  fi
+
+  for candidate in \
+    "$ROOT/bin/native/pdf-reader-mcp-server" \
+    "$ROOT/target/release/pdf-reader-mcp-server" \
+    "$ROOT/target/debug/pdf-reader-mcp-server"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+use_ts_transport() {
+  [[ "${PDF_READER_MCP_TRANSPORT:-}" == "ts" ]] || [[ "${1:-}" == "ts" ]]
+}
+
+if use_ts_transport "$@"; then
+  if [[ "${1:-}" == "ts" ]]; then
+    shift
+  fi
+  exec node "$TS_ENTRY" "$@"
+fi
+
+if bin="$(resolve_rust_bin)"; then
+  exec "$bin" "$@"
+fi
+
+echo "[pdf-reader-mcp] Rust MCP server (rmcp) is not built. Run: bun run build:rust" >&2
+exit 1
