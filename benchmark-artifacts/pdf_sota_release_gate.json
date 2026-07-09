@@ -1,6 +1,6 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-07-09T09:37:55.798Z",
+  "generated_at": "2026-07-09T09:40:38.773Z",
   "artifact_dir": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
@@ -135,17 +135,17 @@
     {
       "id": "rust:mcp_server",
       "status": "passed",
-      "message": "Opt-in Rust MCP transport preview (rmcp) is present for Phase 4 evaluation"
+      "message": "Rust MCP server (modelcontextprotocol/rust-sdk rmcp) is present"
     },
     {
-      "id": "mcp:ts_adapter_default",
+      "id": "mcp:rust_adapter_default",
       "status": "passed",
-      "message": "Default npm bin launches the TypeScript MCP adapter; Rust rmcp is opt-in only"
+      "message": "Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only"
     },
     {
       "id": "boundary:rust_cli_engine",
       "status": "passed",
-      "message": "Opt-in Rust MCP routes engine work through pdf-reader-cli; no TS engine-invoke bridge on default path"
+      "message": "Rust MCP routes engine work through pdf-reader-cli; no TS engine-invoke bridge on default path"
     },
     {
       "id": "performance:document-twin-present",
