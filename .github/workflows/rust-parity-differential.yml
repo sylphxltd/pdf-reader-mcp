@@ -1,0 +1,153 @@
+# pdf-reader-mcp read_pdf + stdio transport TS↔Rust differential parity (rej-010).
+# Adopts rust-parity-drift-pass control-plane template: map-and-stale + differential + fan-in.
+name: rust-parity-differential
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+concurrency:
+  group: rust-parity-differential-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  map-and-stale:
+    name: rust-parity-drift-pass/map-and-stale
+    runs-on: sylphx-linux-standard
+    timeout-minutes: 5
+    outputs:
+      stale_capabilities: ${{ steps.map.outputs.stale }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Map changed files to capabilities
+        id: map
+        env:
+          MANIFEST: docs/specs/pdf-reader-mcp-parity-slice.json
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || 'origin/main' }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          CHANGED="$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}" 2>/dev/null || git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
+          python3 - <<'PY' "${MANIFEST}" <<<"${CHANGED}"
+          import json, sys, fnmatch
+          manifest, changed_raw = sys.argv[1], sys.stdin.read()
+          changed = [l.strip() for l in changed_raw.splitlines() if l.strip()]
+          data = json.load(open(manifest))
+          caps = list(data.get("capabilities") or [])
+          for d in data.get("domains") or []:
+              if isinstance(d, dict) and d.get("id"):
+                  caps.append(d)
+          stale = []
+          for cap in caps:
+              globs = (cap.get("proof") or {}).get("dependencyGlobs") or cap.get("dependencyGlobs") or []
+              ts = cap.get("tsSurface") or ""
+              if ts and any(ts in c or c.endswith(ts.split("#")[-1]) for c in changed):
+                  stale.append(cap["id"])
+              for g in globs:
+                  if any(fnmatch.fnmatch(c, g) for c in changed):
+                      stale.append(cap["id"])
+                      break
+          print(f"stale={json.dumps(sorted(set(stale)))}")
+          PY
+
+  differential:
+    name: rust-parity-drift-pass/differential
+    needs: map-and-stale
+    runs-on: sylphx-linux-large
+    timeout-minutes: 30
+    env:
+      CANDIDATE_SHA: ${{ github.event.merge_group.head_sha || github.sha }}
+      SCRATCH_DIR: ${{ runner.temp }}/pdf-reader-mcp-differential
+      DIFFERENTIAL_SCRIPT: scripts/run-pdf-reader-differential.sh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install jq
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run differential harness
+        run: bash "${DIFFERENTIAL_SCRIPT}"
+
+      - name: Assert proof SHA binding
+        run: |
+          set -euo pipefail
+          ARTIFACT="${SCRATCH_DIR}/verification.json"
+          if [ ! -f "$ARTIFACT" ]; then
+            echo "::error::verification artifact missing at $ARTIFACT"
+            exit 1
+          fi
+          LAST_COMPARED="$(jq -r '.lastComparedMainSha' "$ARTIFACT")"
+          STATUS="$(jq -r '.status' "$ARTIFACT")"
+          if [ "$STATUS" != "differential_green" ]; then
+            echo "::error::verification status must be differential_green (got $STATUS)"
+            exit 1
+          fi
+          if [ "$LAST_COMPARED" != "$CANDIDATE_SHA" ]; then
+            echo "::error::proof SHA binding failed: lastComparedMainSha=$LAST_COMPARED candidate=$CANDIDATE_SHA"
+            exit 1
+          fi
+          echo "proof SHA binding OK: lastComparedMainSha=$LAST_COMPARED"
+
+      - name: Warn on stale capabilities without re-proof
+        if: needs.map-and-stale.outputs.stale_capabilities != '[]'
+        run: |
+          echo "::warning::Stale capabilities detected — differential must pass before merge"
+          echo "${{ needs.map-and-stale.outputs.stale_capabilities }}"
+
+      - name: Upload verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-reader-mcp-differential-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ env.SCRATCH_DIR }}/verification.json
+            ${{ env.SCRATCH_DIR }}/differential.log
+            ${{ env.SCRATCH_DIR }}/oracle.json
+          if-no-files-found: error
+
+  rust-parity-drift-pass:
+    name: rust-parity-drift-pass/pass
+    runs-on: sylphx-linux-standard
+    timeout-minutes: 5
+    needs:
+      - map-and-stale
+      - differential
+    if: ${{ always() }}
+
+    steps:
+      - name: Evaluate rust-parity-drift-pass fan-in
+        env:
+          MAP_AND_STALE_RESULT: ${{ needs.map-and-stale.result }}
+          DIFFERENTIAL_RESULT: ${{ needs.differential.result }}
+        run: |
+          set -euo pipefail
+          failed=0
+          if [ "$MAP_AND_STALE_RESULT" != "success" ]; then failed=1; fi
+          if [ "$DIFFERENTIAL_RESULT" != "success" ]; then failed=1; fi
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::rust-parity-drift-pass failed — differential parity not proven at candidate SHA"
+            exit 1
+          fi
