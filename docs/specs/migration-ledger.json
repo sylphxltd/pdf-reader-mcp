@@ -1,0 +1,428 @@
+{
+  "schemaVersion": 3,
+  "repo": "SylphxAI/pdf-reader-mcp",
+  "repoLedgerPath": "docs/specs/migration-ledger.json",
+  "lockedAt": "2026-07-10T21:30:00Z",
+  "programSpec": {
+    "id": "rust-first-fleet-migration",
+    "controlPlaneRepo": "SylphxAI/rust-first-fleet-control-plane",
+    "programSpecPath": "PROGRAM-SPEC.json",
+    "completionStandard": "COMPLETION-STANDARD.md",
+    "parityStandard": "PARITY-VERIFICATION-STANDARD.md"
+  },
+  "adrRefs": [
+    {
+      "path": "docs/adr/ADR-PROPOSED-fleet-pdf-reader-mcp-rust-north-star.md",
+      "status": "proposed",
+      "note": "North Star ADR on disk \u2014 pending ADR PR; ADR number will equal introducing PR number per Doctrine"
+    }
+  ],
+  "reauditRef": "rej-010",
+  "verificationRef": "verification/pdf-reader-cycle64-read-pdf-rust-impl.json",
+  "inventorySource": [
+    "mcp-tools",
+    "manual"
+  ],
+  "inScopeBoundary": {
+    "includeGlobs": [
+      "src/**",
+      "crates/pdf-reader-core/**",
+      "crates/pdf-reader-cli/**",
+      "crates/pdf-reader-mcp-server/**",
+      "bin/**",
+      "corpus/**"
+    ],
+    "excludeGlobs": [
+      "node_modules/**",
+      "dist/**",
+      "benchmark-artifacts/**"
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "transport/web-mcp-http",
+      "domain": "transport",
+      "weight": 5,
+      "state": "rust_impl",
+      "proof": {
+        "status": "stale",
+        "staleReason": "rej-010 retroactive audit \u2014 no SHA-bound differential proof",
+        "staleAt": "2026-07-10T21:30:00Z"
+      },
+      "promotionHold": {
+        "active": true,
+        "reason": "rej-010 promotion freeze",
+        "rejectionRef": "rej-010",
+        "since": "2026-07-10T21:30:00Z"
+      },
+      "rustSurface": "crates/pdf-reader-mcp-server/src/http_transport.rs (rmcp StreamableHttpService)",
+      "parityTest": "test/httpTransport.matrix.test.ts; test/integration/http-transport.test.ts; test/check-no-ts-http-backend.test.ts; test/fixtures/read-pdf-golden.json; cargo test -p pdf-reader-mcp-server",
+      "prodProbe": "benchmark:release-gate \u2192 mcp:rust_web_http_transport; mcp:http_transport_parity; mcp:http_authority_rust",
+      "prUrl": "https://github.com/SylphxAI/pdf-reader-mcp/pull/396",
+      "notes": "S2: MCP_TRANSPORT=http routes exclusively to Rust rmcp before TS stdio opt-in; check-no-ts-http-backend gate blocks parallel TS Streamable HTTP. HTTP slice out of scope for v1 differential harness."
+    },
+    {
+      "id": "transport/stdio-rust-rmcp",
+      "domain": "transport",
+      "weight": 4,
+      "state": "rust_impl",
+      "proof": {
+        "status": "missing",
+        "dependencyGlobs": [
+          "scripts/differential/**",
+          "scripts/run-pdf-reader-differential.sh",
+          "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+          "test/fixtures/read-pdf-golden.json",
+          "test/integration/stdio-transport.test.ts"
+        ],
+        "staleReason": "rej-010: differential harness landed \u2014 awaiting differential_green at bound SHAs",
+        "verificationRef": "verification/pdf-reader-2026-07-10T2130-read-pdf-stdio-differential.json"
+      },
+      "promotionHold": {
+        "active": true,
+        "reason": "rej-010: differential harness landed \u2014 awaiting differential_green at bound SHAs; NO auto-promotion",
+        "rejectionRef": "rej-010",
+        "since": "2026-07-10T21:30:00Z"
+      },
+      "rustSurface": "crates/pdf-reader-mcp-server/src/main.rs (rmcp::transport::stdio())",
+      "parityTest": "test/stdioTransport.matrix.test.ts; test/integration/stdio-transport.test.ts; test/check-no-ts-stdio-backend.test.ts; test/fixtures/read-pdf-golden.json; cargo test -p pdf-reader-mcp-server",
+      "differentialTest": "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs#pdf_reader_mcp_differential_matches_ts_oracle; scripts/run-pdf-reader-differential.sh",
+      "prodProbe": "benchmark:release-gate \u2192 mcp:rust_adapter_default; mcp:stdio_transport_parity; mcp:stdio_deletion_prep_gate",
+      "notes": "S3: default npm bin launches Rust rmcp stdio; rej-010 SHA-bound differential harness at scripts/run-pdf-reader-differential.sh. parity_proven NOT restored until differential_green + prod smoke."
+    },
+    {
+      "id": "transport/stdio-ts-adapter",
+      "domain": "transport",
+      "weight": 4,
+      "state": "ts_only",
+      "tsSurface": "src/index.ts",
+      "parityTest": "scripts/check-ts-adapter-deletion-ready.sh; scripts/check-no-ts-stdio-backend.sh; test/tsAdapterDeletion.matrix.test.ts",
+      "notes": "Opt-in TS stdio MCP adapter (PDF_READER_MCP_TRANSPORT=ts env). Deletion slice ready when check:ts-adapter-deletion passes. ts_deleted NOT claimed (rej-001) \u2014 pending deletion PR merge + prod smoke."
+    },
+    {
+      "id": "tool/read_pdf",
+      "domain": "mcp-tools",
+      "weight": 5,
+      "state": "rust_impl",
+      "proof": {
+        "status": "missing",
+        "dependencyGlobs": [
+          "test/fixtures/read-pdf-golden.json",
+          "scripts/differential/**",
+          "scripts/run-pdf-reader-differential.sh",
+          "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+          "crates/pdf-reader-core/tests/read_pdf_golden_parity.rs",
+          "crates/pdf-reader-mcp-server/tests/read_pdf_golden_parity.rs"
+        ],
+        "staleReason": "rej-010: differential harness landed \u2014 awaiting differential_green at bound SHAs",
+        "verificationRef": "verification/pdf-reader-2026-07-10T2130-read-pdf-stdio-differential.json"
+      },
+      "promotionHold": {
+        "active": true,
+        "reason": "rej-010: differential harness landed \u2014 awaiting differential_green at bound SHAs; NO auto-promotion",
+        "rejectionRef": "rej-010",
+        "since": "2026-07-10T21:30:00Z"
+      },
+      "tsSurface": "src/handlers/readPdf.ts",
+      "rustSurface": "crates/pdf-reader-mcp-server/src/read_pdf.rs",
+      "parityTest": "test/fixtures/read-pdf-golden.json; crates/pdf-reader-core/tests/read_pdf_golden_parity.rs; crates/pdf-reader-mcp-server/tests/read_pdf_golden_parity.rs; test/readPdf.parity.test.ts; test/integration/http-transport.test.ts; test/integration/stdio-transport.test.ts",
+      "differentialTest": "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs#pdf_reader_mcp_differential_matches_ts_oracle; scripts/run-pdf-reader-differential.sh",
+      "prodProbe": "benchmark:release-gate \u2192 mcp:read_pdf_golden_parity; mcp:rmcp_read_pdf_parity; mcp:read_pdf_cross_parity",
+      "notes": "Golden fixture parity proven across Rust core, CLI, rmcp handler. rej-010: SHA-bound differential harness (frozen golden via pdf-reader-cli oracle vs rmcp stdio tools/call). parity_proven NOT restored until differential_green."
+    },
+    {
+      "id": "tool/search_pdf",
+      "domain": "mcp-tools",
+      "weight": 5,
+      "state": "rust_impl",
+      "proof": {
+        "status": "missing",
+        "dependencyGlobs": [
+          "crates/pdf-reader-mcp-server/src/search.rs",
+          "crates/pdf-reader-mcp-server/src/tool_routes.rs",
+          "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+          "scripts/run-pdf-reader-differential.sh"
+        ],
+        "staleReason": "rej-010: toolRouteContract slice landed \u2014 awaiting differential_green at bound SHAs",
+        "verificationRef": "scripts/run-pdf-reader-differential.sh"
+      },
+      "promotionHold": {
+        "active": true,
+        "reason": "rej-010: toolRouteContract slice landed \u2014 awaiting differential_green at bound SHAs; NO auto-promotion",
+        "rejectionRef": "rej-010",
+        "since": "2026-07-10T21:30:00Z"
+      },
+      "tsSurface": "src/handlers/searchPdf.ts",
+      "rustSurface": "crates/pdf-reader-mcp-server/src/search.rs",
+      "parityTest": "test/shippedPath.matrix.test.ts; test/integration/stdio-transport.test.ts; benchmark-artifacts/pdf_sota_release_gate.json",
+      "differentialTest": "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs#pdf_reader_mcp_differential_matches_ts_oracle; scripts/run-pdf-reader-differential.sh",
+      "prodProbe": "benchmark:release-gate \u2192 mcp:stdio_transport_parity; boundary:rust_cli_engine",
+      "notes": "S4: rmcp stdio routes search_pdf through rust-text-index. cycle43: stdioProbe.searchPdf live differential probe landed. proof.status missing until differential_green."
+    },
+    {
+      "id": "tool/pdf_evidence",
+      "domain": "mcp-tools",
+      "weight": 5,
+      "state": "rust_impl",
+      "proof": {
+        "status": "missing",
+        "dependencyGlobs": [
+          "crates/pdf-reader-mcp-server/src/pdf_evidence.rs",
+          "crates/pdf-reader-mcp-server/src/tool_routes.rs",
+          "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+          "scripts/run-pdf-reader-differential.sh"
+        ],
+        "staleReason": "rej-010: toolRouteContract slice landed \u2014 awaiting differential_green at bound SHAs",
+        "verificationRef": "scripts/run-pdf-reader-differential.sh"
+      },
+      "promotionHold": {
+        "active": true,
+        "reason": "rej-010: toolRouteContract slice landed \u2014 awaiting differential_green at bound SHAs; NO auto-promotion",
+        "rejectionRef": "rej-010",
+        "since": "2026-07-10T21:30:00Z"
+      },
+      "tsSurface": "src/handlers/pdfEvidence.ts",
+      "rustSurface": "crates/pdf-reader-mcp-server/src/pdf_evidence.rs",
+      "parityTest": "test/shippedPath.matrix.test.ts; test/integration/stdio-transport.test.ts; benchmark-artifacts/pdf_sota_release_gate.json",
+      "differentialTest": "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs#pdf_reader_mcp_differential_matches_ts_oracle; scripts/run-pdf-reader-differential.sh",
+      "prodProbe": "benchmark:release-gate \u2192 mcp:stdio_transport_parity; boundary:rust_cli_engine",
+      "notes": "S4: rmcp stdio routes pdf_evidence inspect through rust-pdf-inspect-v1. cycle43: stdioProbe.pdfEvidence live differential probe landed. proof.status missing until differential_green."
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "ts_only": 1,
+    "contracted": 0,
+    "rust_impl": 5,
+    "parity_proven": 0,
+    "authority_rust": 0,
+    "ts_deleted": 0,
+    "proof_missing": 5,
+    "completion_progress": 0.0,
+    "authority_progress": 0.0,
+    "weighted_progress": 0.46,
+    "cycle49_delta": {
+      "rust_impl_verified": 1,
+      "slice": "tool.search_pdf|tool.pdf_evidence",
+      "verificationRef": "verification/pdf-reader-cycle49-tool-route-contract-rust-impl.json",
+      "notes": "rej-010 rust_impl ONLY \u2014 cycle49 highest-value unimplemented slice: toolRouteContract + stdioProbe search/evidence bounded differential"
+    },
+    "cycle50_delta": {
+      "rust_impl_verified": 1,
+      "slice": "tool.read_pdf",
+      "verificationRef": "verification/pdf-reader-cycle50-read-pdf-rust-impl.json",
+      "notes": "rej-010 rust_impl ONLY \u2014 cycle50 next highest-value slice: tool.read_pdf bounded differential (6 golden cases)"
+    },
+    "cycle62_delta": {
+      "rust_impl_verified": 1,
+      "slice": "transport.stdio-rust-rmcp",
+      "verificationRef": "verification/pdf-reader-cycle62-stdio-transport-rust-impl.json",
+      "notes": "rej-010 rust_impl ONLY \u2014 cycle62 next bounded slice: transport.stdio-rust-rmcp stdioProbe differential (4 cases)"
+    },
+    "cycle63_delta": {
+      "rust_impl_verified": 1,
+      "slice": "tool.search_pdf",
+      "verificationRef": "verification/pdf-reader-cycle63-search-pdf-rust-impl.json",
+      "notes": "rej-010 rust_impl ONLY \u2014 cycle63 harness metadata: tool.search_pdf bounded differential (3 cases)"
+    },
+    "cycle64_delta": {
+      "rust_impl_verified": 1,
+      "slice": "tool.read_pdf",
+      "verificationRef": "verification/pdf-reader-cycle64-read-pdf-rust-impl.json",
+      "notes": "rej-010 rust_impl ONLY \u2014 cycle64 harness metadata: tool.read_pdf bounded differential re-verify (4 cases)"
+    }
+  },
+  "promotionFreeze": {
+    "active": true,
+    "reason": "rej-010 promotion freeze \u2014 0 capabilities with differential_green or canary_green proof",
+    "rejectionRef": "rej-010",
+    "since": "2026-07-10T21:30:00Z"
+  },
+  "postMergeGate": {
+    "deletionReadyScript": "scripts/check-ts-adapter-deletion-ready.sh",
+    "retirementGateScript": "scripts/check-no-ts-stdio-backend.sh",
+    "prodSmokeScript": "bun run benchmark:release-gate",
+    "verificationArtifact": "benchmark-artifacts/pdf_sota_release_gate.json",
+    "differentialHarness": "scripts/run-pdf-reader-differential.sh",
+    "capabilitiesAfterMerge": [
+      "transport/stdio-ts-adapter"
+    ],
+    "notes": "ts_deleted flip for transport/stdio-ts-adapter blocked until deletion PR merge + release-gate transcript (rej-001). differential_green required before parity_proven/authority_rust restore (rej-010)."
+  },
+  "slices": {
+    "S2": {
+      "status": "shipped",
+      "evidence": [
+        "scripts/check-no-ts-http-backend.sh",
+        "test/check-no-ts-http-backend.test.ts",
+        "test/integration/http-transport.test.ts",
+        "crates/pdf-reader-mcp-server/src/http_transport.rs",
+        "bin/pdf-reader-mcp"
+      ],
+      "notes": "transport/web-mcp-http rust_impl on disk. HTTP differential harness pending separate slice."
+    },
+    "S3": {
+      "status": "shipped",
+      "evidence": [
+        "scripts/check-no-ts-stdio-backend.sh",
+        "test/check-no-ts-stdio-backend.test.ts",
+        "test/stdioTransport.matrix.test.ts",
+        "test/integration/stdio-transport.test.ts",
+        "test/tsAdapterDeletion.matrix.test.ts",
+        "scripts/check-ts-adapter-deletion-ready.sh",
+        "scripts/run-pdf-reader-differential.sh",
+        "scripts/differential/pdf-reader-mcp-oracle.ts",
+        "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+        "bin/pdf-reader-mcp",
+        "crates/pdf-reader-mcp-server/src/main.rs"
+      ],
+      "notes": "rej-010: read_pdf + stdio differential harness landed. cycle37: read_pdf golden fixtures (test/fixtures/read-pdf-golden.json) + stdioProbe differential verified on disk. ts_deleted NOT claimed (rej-001) \u2014 deletion PR + prod smoke pending. NO promotions."
+    },
+    "S4": {
+      "status": "shipped",
+      "evidence": [
+        "crates/pdf-reader-mcp-server/src/search.rs",
+        "crates/pdf-reader-mcp-server/src/pdf_evidence.rs",
+        "crates/pdf-reader-mcp-server/src/tool_routes.rs",
+        "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+        "scripts/differential/pdf-reader-mcp-oracle.ts",
+        "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+        "scripts/run-pdf-reader-differential.sh",
+        "docs/specs/pdf-reader-mcp-parity-slice.json",
+        "test/differentialHarness.matrix.test.ts"
+      ],
+      "notes": "cycle39 rej-010: tool.search_pdf|tool.pdf_evidence rust_impl toolRouteContract slice in differential harness. proof.status missing until differential_green."
+    }
+  },
+  "cycle37": {
+    "boundedSlice": "tool.read_pdf|transport.stdio-rust-rmcp",
+    "status": "harness_landed_disk",
+    "evidenceRef": "/tmp/grok-goal-729a939ec6e2/implementer/cycle37-rust-impl/mcp-batch.json"
+  },
+  "cycle39": {
+    "boundedSlice": "tool.search_pdf|tool.pdf_evidence",
+    "status": "harness_landed_disk",
+    "evidenceRef": "/tmp/grok-goal-729a939ec6e2/implementer/cycle39-mcp-wave2.json",
+    "deliverables": [
+      "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+      "docs/specs/pdf-reader-mcp-parity-slice.json",
+      "test/differentialHarness.matrix.test.ts",
+      "scripts/run-pdf-reader-differential.sh"
+    ],
+    "notes": "cycle39 rej-010: search_pdf + pdf_evidence toolRouteContract rust_impl slice advanced. proof.status missing until differential_green at bound SHAs."
+  },
+  "cycle43": {
+    "boundedSlice": "tool.search_pdf|tool.pdf_evidence",
+    "status": "harness_landed_disk",
+    "deliverables": [
+      "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+      "scripts/differential/pdf-reader-mcp-oracle.ts",
+      "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+      "docs/specs/pdf-reader-mcp-parity-slice.json",
+      "test/differentialHarness.matrix.test.ts"
+    ],
+    "notes": "cycle43 rej-010: search_pdf + pdf_evidence stdioProbe live differential probes. rust_impl only \u2014 proof.status missing until differential_green at bound SHAs."
+  },
+  "cycle45": {
+    "boundedSlice": "tool.read_pdf|tool.search_pdf|tool.pdf_evidence|transport.stdio-rust-rmcp",
+    "status": "rust_impl_on_disk_verified",
+    "reauditRef": "rej-010",
+    "evidenceRef": "/tmp/grok-goal-729a939ec6e2/implementer/cycle45-mcp-reader-batch.json",
+    "deliverables": [
+      "docs/specs/pdf-reader-mcp-parity-slice.json",
+      "test/differentialHarness.matrix.test.ts",
+      "scripts/run-pdf-reader-differential.sh",
+      "scripts/differential/pdf-reader-mcp-oracle.ts",
+      "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+      "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+      "scripts/check-no-ts-stdio-backend.sh"
+    ],
+    "harnessPath": "scripts/run-pdf-reader-differential.sh",
+    "notes": "cycle45 rej-010: read_pdf + search_pdf + pdf_evidence + stdio transport rust_impl differential harness re-verified on disk. proof.status missing until differential_green at bound SHAs \u2014 NO promotion."
+  },
+  "cycle45Slice": "tool.read_pdf|tool.search_pdf|tool.pdf_evidence|transport.stdio-rust-rmcp \u2014 cycle45 MCP reader batch re-verify; bash scripts/run-pdf-reader-differential.sh",
+  "cycle49Slice": "tool.search_pdf|tool.pdf_evidence \u2014 bounded --slice entrypoint; bash scripts/run-pdf-reader-differential.sh --slice tool.search_pdf|tool.pdf_evidence",
+  "cycle50Slice": "tool.read_pdf \u2014 bounded --slice entrypoint; bash scripts/run-pdf-reader-differential.sh --slice tool.read_pdf",
+  "cycle62Slice": "transport.stdio-rust-rmcp \u2014 bounded --slice entrypoint; bash scripts/run-pdf-reader-differential.sh --slice transport.stdio-rust-rmcp; proof.status missing; authority_rust blocked per rej-010",
+  "cycle49": {
+    "boundedSlice": "tool.search_pdf|tool.pdf_evidence",
+    "status": "rust_impl_on_disk_verified",
+    "reauditRef": "rej-010",
+    "verificationRef": "verification/pdf-reader-cycle49-tool-route-contract-rust-impl.json",
+    "deliverables": [
+      "scripts/run-pdf-reader-differential.sh",
+      "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+      "scripts/differential/pdf-reader-mcp-oracle.ts",
+      "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+      "docs/specs/pdf-reader-mcp-parity-slice.json",
+      "test/differentialHarness.matrix.test.ts"
+    ],
+    "harnessPath": "scripts/run-pdf-reader-differential.sh --slice tool.search_pdf|tool.pdf_evidence",
+    "caseCounts": {
+      "toolRouteContract": 3,
+      "stdioProbeSearchEvidence": 2
+    },
+    "notes": "cycle49 rej-010: tool.search_pdf|tool.pdf_evidence bounded differential harness on-disk verify. rust_impl ONLY \u2014 proof.status missing until differential_green at bound SHAs."
+  },
+  "cycle50": {
+    "boundedSlice": "tool.read_pdf",
+    "status": "rust_impl_on_disk_verified",
+    "reauditRef": "rej-010",
+    "verificationRef": "verification/pdf-reader-cycle50-read-pdf-rust-impl.json",
+    "harnessPath": "scripts/run-pdf-reader-differential.sh --slice tool.read_pdf",
+    "deliverables": [
+      "scripts/run-pdf-reader-differential.sh",
+      "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+      "scripts/differential/pdf-reader-mcp-oracle.ts",
+      "scripts/differential/fixtures/pdf-reader-mcp-corpus.json",
+      "docs/specs/pdf-reader-mcp-parity-slice.json",
+      "test/differentialHarness.matrix.test.ts",
+      "test/fixtures/read-pdf-golden.json"
+    ],
+    "caseCounts": {
+      "readPdfTool": 6
+    },
+    "notes": "cycle50 rej-010: tool.read_pdf bounded differential harness on-disk verify. rust_impl ONLY \u2014 proof.status missing until differential_green at bound SHAs."
+  },
+  "cycle62": {
+    "boundedSlice": "transport.stdio-rust-rmcp",
+    "status": "rust_impl_on_disk_verified",
+    "reauditRef": "rej-010",
+    "verificationRef": "verification/pdf-reader-cycle62-stdio-transport-rust-impl.json",
+    "harnessPath": "scripts/run-pdf-reader-differential.sh --slice transport.stdio-rust-rmcp",
+    "deliverables": [
+      "scripts/run-pdf-reader-differential.sh",
+      "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs",
+      "scripts/differential/pdf-reader-mcp-oracle.ts",
+      "scripts/check-no-ts-stdio-backend.sh"
+    ],
+    "caseCounts": {
+      "stdioProbe": 4
+    },
+    "notes": "cycle62 rej-010: transport.stdio-rust-rmcp bounded differential harness on-disk verify. rust_impl ONLY \u2014 proof.status missing until differential_green at bound SHAs."
+  },
+  "cycle63Slice": "tool.search_pdf \u2014 bounded --slice entrypoint; bash scripts/run-pdf-reader-differential.sh --slice tool.search_pdf",
+  "cycle64Slice": "tool.read_pdf \u2014 bounded --slice entrypoint; bash scripts/run-pdf-reader-differential.sh --slice tool.read_pdf; proof.status missing; authority_rust blocked per rej-010",
+  "cycle63": {
+    "boundedSlice": "tool.search_pdf",
+    "status": "rust_impl_on_disk_verified",
+    "reauditRef": "rej-010",
+    "verificationRef": "verification/pdf-reader-cycle63-search-pdf-rust-impl.json",
+    "harnessPath": "scripts/run-pdf-reader-differential.sh --slice tool.search_pdf",
+    "caseCounts": {
+      "searchPdfTool": 3
+    },
+    "notes": "cycle63 rej-010: tool.search_pdf bounded differential harness on-disk verify. rust_impl ONLY \u2014 proof.status missing until differential_green at bound SHAs."
+  },
+  "cycle64": {
+    "boundedSlice": "tool.read_pdf",
+    "status": "rust_impl_on_disk_verified",
+    "reauditRef": "rej-010",
+    "verificationRef": "verification/pdf-reader-cycle64-read-pdf-rust-impl.json",
+    "harnessPath": "scripts/run-pdf-reader-differential.sh --slice tool.read_pdf",
+    "caseCounts": {
+      "readPdf": 4
+    },
+    "notes": "cycle64 rej-010: tool.read_pdf bounded differential harness on-disk verify. rust_impl ONLY \u2014 proof.status missing until differential_green at bound SHAs."
+  }
+}
