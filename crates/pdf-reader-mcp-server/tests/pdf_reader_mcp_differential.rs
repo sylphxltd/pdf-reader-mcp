@@ -384,7 +384,13 @@ fn compare_read_pdf_tool_case(case: &OracleCase) {
     let rmcp = read_pdf::read_pdf(args).unwrap_or_else(|error| {
         panic!("{}: rmcp read_pdf failed: {error:?}", case.id);
     });
-    let structured = normalize_structured(parse_rmcp_structured(&rmcp));
+    let raw_structured = parse_rmcp_structured(&rmcp);
+    let full_text_actual = raw_structured
+        .pointer("/results/0/data/full_text")
+        .or_else(|| raw_structured.pointer("/results/0/data/fullText"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let structured = normalize_structured(raw_structured);
 
     assert_eq!(
         structured.get("profile").and_then(Value::as_str),
@@ -433,10 +439,7 @@ fn compare_read_pdf_tool_case(case: &OracleCase) {
     }
 
     if let Some(needle) = case.output.get("full_text_contains").and_then(Value::as_str) {
-        let full_text = results[0]
-            .pointer("/data/full_text")
-            .and_then(Value::as_str)
-            .unwrap_or("");
+        let full_text = full_text_actual.as_deref().unwrap_or("");
         assert!(
             full_text.contains(needle),
             "{}: full_text should contain '{needle}'",
@@ -490,6 +493,8 @@ fn compare_stdio_probe_case(case: &OracleCase, client: &mut StdioMcpClient) {
                 "{}: initialize server name mismatch",
                 case.id
             );
+            client.send_notification("notifications/initialized", json!({}));
+            client.initialized = true;
         }
         "toolsList" => {
             client.initialize_session();
@@ -498,16 +503,18 @@ fn compare_stdio_probe_case(case: &OracleCase, client: &mut StdioMcpClient) {
                 .pointer("/result/tools")
                 .and_then(Value::as_array)
                 .expect("tools array");
-            let names: Vec<String> = tools
+            let mut names: Vec<String> = tools
                 .iter()
                 .filter_map(|tool| tool.get("name").and_then(Value::as_str).map(str::to_string))
                 .collect();
-            let expected = case.output["tools"]
+            names.sort();
+            let mut expected = case.output["tools"]
                 .as_array()
                 .expect("expected tools")
                 .iter()
                 .map(|value| value.as_str().expect("tool name").to_string())
                 .collect::<Vec<_>>();
+            expected.sort();
             assert_eq!(names, expected, "{}: tools/list mismatch", case.id);
         }
         "readPdf" => {
@@ -555,18 +562,22 @@ fn compare_stdio_probe_case(case: &OracleCase, client: &mut StdioMcpClient) {
                 case.id
             );
 
-            let structured = normalize_structured(
-                result
-                    .get("structuredContent")
-                    .cloned()
-                    .or_else(|| {
-                        result
-                            .pointer("/content/0/text")
-                            .and_then(Value::as_str)
-                            .and_then(|text| serde_json::from_str(text).ok())
-                    })
-                    .expect("structured read_pdf response"),
-            );
+            let raw_structured = result
+                .get("structuredContent")
+                .cloned()
+                .or_else(|| {
+                    result
+                        .pointer("/content/0/text")
+                        .and_then(Value::as_str)
+                        .and_then(|text| serde_json::from_str(text).ok())
+                })
+                .expect("structured read_pdf response");
+            let full_text_actual = raw_structured
+                .pointer("/results/0/data/full_text")
+                .or_else(|| raw_structured.pointer("/results/0/data/fullText"))
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            let structured = normalize_structured(raw_structured);
 
             assert_eq!(
                 structured.get("profile").and_then(Value::as_str),
@@ -614,10 +625,7 @@ fn compare_stdio_probe_case(case: &OracleCase, client: &mut StdioMcpClient) {
             }
 
             if let Some(needle) = case.output.get("full_text_contains").and_then(Value::as_str) {
-                let full_text = results[0]
-                    .pointer("/data/full_text")
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
+                let full_text = full_text_actual.as_deref().unwrap_or("");
                 assert!(
                     full_text.contains(needle),
                     "{}: stdio full_text should contain '{needle}'",
