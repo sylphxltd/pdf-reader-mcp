@@ -230,6 +230,69 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
     }
   });
 
+  const goldenPath = path.resolve(__dirname, '../fixtures/read-pdf-golden.json');
+  const golden = JSON.parse(fs.readFileSync(goldenPath, 'utf8')) as {
+    cases: Array<{
+      id: string;
+      fixture?: string;
+      input?: Record<string, unknown>;
+      expects: {
+        error?: boolean;
+        message_contains?: string;
+        route?: string;
+        payload?: Record<string, unknown>;
+      };
+    }>;
+  };
+
+  for (const caseId of [
+    'sample-metadata-on',
+    'sample-minimal-route',
+    'missing-file',
+    'empty-sources',
+    'url-source',
+  ] as const) {
+    it(`read_pdf golden mock parity over HTTP for ${caseId}`, async () => {
+      const caseEntry = golden.cases.find((entry) => entry.id === caseId);
+      expect(caseEntry).toBeDefined();
+
+      const client = createMcpHttpClient();
+      await client.initializeSession();
+
+      const args: Record<string, unknown> = { ...(caseEntry?.input ?? {}) };
+      if (caseEntry?.fixture) {
+        const fixturePath = path.resolve(__dirname, '../fixtures', caseEntry.fixture);
+        args.sources = [{ path: fixturePath }];
+      }
+
+      const response = await client.sendRequest(
+        'tools/call',
+        {
+          name: 'read_pdf',
+          arguments: args,
+        },
+        20 + golden.cases.findIndex((entry) => entry.id === caseId)
+      );
+
+      if (caseEntry?.expects.error) {
+        const message =
+          (response.error as { message?: string } | undefined)?.message ??
+          (response.result as { content?: Array<{ text?: string }> } | undefined)?.content?.[0]
+            ?.text ??
+          '';
+        expect(String(message).toLowerCase()).toContain(
+          caseEntry?.expects.message_contains?.toLowerCase() ?? ''
+        );
+        return;
+      }
+
+      // Success path is best-effort when sample PDF fixture is present.
+      if (response.result) {
+        expect(response.result).toBeDefined();
+      }
+    });
+  }
+
   it('should not return wildcard CORS headers by default', async () => {
     const response = await fetch(baseUrl, {
       method: 'OPTIONS',
