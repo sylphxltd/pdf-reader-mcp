@@ -37,19 +37,16 @@ const normalizePayload = (payload: Record<string, unknown>) => {
       }
       const entry = { ...(result as Record<string, unknown>) };
       if (typeof entry.source === 'string') {
-        entry.source = path
-          .relative(fixturesRoot, entry.source)
-          .split(path.sep)
-          .join('/');
+        entry.source = path.relative(fixturesRoot, entry.source).split(path.sep).join('/');
       }
       if (entry.data && typeof entry.data === 'object') {
         const data = { ...(entry.data as Record<string, unknown>) };
-        delete data.fullText;
-        delete data.full_text;
+        data.fullText = undefined;
+        data.full_text = undefined;
         if (data.info && typeof data.info === 'object') {
           const info = { ...(data.info as Record<string, unknown>) };
-          delete info.text_chars;
-          delete info.textChars;
+          info.text_chars = undefined;
+          info.textChars = undefined;
           data.info = info;
         }
         entry.data = data;
@@ -99,9 +96,8 @@ const invokeCli = (fixture: string, input: Record<string, unknown>) => {
 };
 
 const parseCliPayload = (envelope: Record<string, unknown>) => {
-  const text = (
-    envelope.result as { content?: Array<{ text?: string }> } | undefined
-  )?.content?.[0]?.text;
+  const text = (envelope.result as { content?: Array<{ text?: string }> } | undefined)?.content?.[0]
+    ?.text;
   if (!text) {
     throw new Error('CLI envelope missing read_pdf payload text');
   }
@@ -115,11 +111,14 @@ describe('read_pdf golden parity', () => {
     golden = JSON.parse(readFileSync(goldenPath, 'utf8')) as GoldenManifest;
     expect(golden.profile).toBe('pdf_reader_read_pdf_golden');
 
-    execSync('cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server', {
-      cwd: repoRoot,
-      stdio: 'pipe',
-      timeout: 300_000,
-    });
+    execSync(
+      'cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server',
+      {
+        cwd: repoRoot,
+        stdio: 'pipe',
+        timeout: 300_000,
+      }
+    );
   }, 300_000);
 
   for (const caseId of [
@@ -134,15 +133,15 @@ describe('read_pdf golden parity', () => {
       const caseEntry = golden.cases.find((entry) => entry.id === caseId);
       expect(caseEntry).toBeDefined();
 
-      const probe = invokeCli(caseEntry!.fixture, caseEntry!.input);
+      const probe = invokeCli(caseEntry?.fixture, caseEntry?.input);
 
-      if (caseEntry!.expects.error) {
+      if (caseEntry?.expects.error) {
         expect(probe.status).toBe(0);
         const envelope = probe.envelope as { status?: string; code?: string; message?: string };
         expect(envelope.status).toBe('error');
-        expect(envelope.code).toBe(caseEntry!.expects.code);
+        expect(envelope.code).toBe(caseEntry?.expects.code);
         expect(envelope.message?.toLowerCase()).toContain(
-          caseEntry!.expects.message_contains?.toLowerCase()
+          caseEntry?.expects.message_contains?.toLowerCase()
         );
         return;
       }
@@ -157,19 +156,17 @@ describe('read_pdf golden parity', () => {
       expect(envelope.tool).toBe('read_pdf');
 
       const actual = normalizePayload(parseCliPayload(envelope));
-      const expected = normalizePayload(caseEntry!.expects.payload as Record<string, unknown>);
+      const expected = normalizePayload(caseEntry?.expects.payload as Record<string, unknown>);
 
       expect(actual.profile).toBe(expected.profile);
       const actualResults = actual.results as Array<Record<string, unknown>>;
       const expectedResults = expected.results as Array<Record<string, unknown>>;
       expect(actualResults[0]?.success).toBe(expectedResults[0]?.success);
       expect((actualResults[0]?.data as Record<string, unknown> | undefined)?.route).toBe(
-        caseEntry!.expects.route
+        caseEntry?.expects.route
       );
       const expectedEngine = (
-        expectedResults[0]?.data as
-          | { engine?: { name?: string; version?: string } }
-          | undefined
+        expectedResults[0]?.data as { engine?: { name?: string; version?: string } } | undefined
       )?.engine;
       if (expectedEngine !== undefined) {
         expect(
@@ -211,11 +208,13 @@ describe('read_pdf golden parity', () => {
     const caseEntry = golden.cases.find((entry) => entry.id === 'sample-metadata-on');
     expect(caseEntry).toBeDefined();
 
-    const probe = invokeCli(caseEntry!.fixture, caseEntry!.input);
+    const probe = invokeCli(caseEntry?.fixture, caseEntry?.input);
     expect(probe.status).toBe(0);
 
     const payload = parseCliPayload(probe.envelope as Record<string, unknown>);
-    const firstResult = (payload.results as Array<{ data?: { numPages?: number; num_pages?: number } }>)[0];
+    const firstResult = (
+      payload.results as Array<{ data?: { numPages?: number; num_pages?: number } }>
+    )[0];
     const numPages = firstResult?.data?.numPages ?? firstResult?.data?.num_pages ?? 0;
     expect(numPages).toBeGreaterThan(0);
   });

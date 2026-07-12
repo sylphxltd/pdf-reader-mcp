@@ -170,12 +170,12 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
     });
 
     expect(response.id).toBe(1);
-    expect((response.result as { serverInfo?: { name?: string; version?: string } })?.serverInfo?.name).toBe(
-      'pdf-reader-mcp'
-    );
-    expect((response.result as { serverInfo?: { name?: string; version?: string } })?.serverInfo?.version).toBe(
-      packageJson.version
-    );
+    expect(
+      (response.result as { serverInfo?: { name?: string; version?: string } })?.serverInfo?.name
+    ).toBe('pdf-reader-mcp');
+    expect(
+      (response.result as { serverInfo?: { name?: string; version?: string } })?.serverInfo?.version
+    ).toBe(packageJson.version);
   });
 
   it('should list available tools over HTTP', async () => {

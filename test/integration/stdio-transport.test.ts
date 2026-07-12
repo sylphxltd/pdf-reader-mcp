@@ -85,20 +85,17 @@ const normalizePayload = (payload: Record<string, unknown>) => {
       }
       const entry = { ...(result as Record<string, unknown>) };
       if (typeof entry.source === 'string') {
-        entry.source = path
-          .relative(fixturesRoot, entry.source)
-          .split(path.sep)
-          .join('/');
+        entry.source = path.relative(fixturesRoot, entry.source).split(path.sep).join('/');
       }
       if (entry.data && typeof entry.data === 'object') {
         const data = { ...(entry.data as Record<string, unknown>) };
-        delete data.fullText;
-        delete data.full_text;
-        delete data.evidence;
+        data.fullText = undefined;
+        data.full_text = undefined;
+        data.evidence = undefined;
         if (data.info && typeof data.info === 'object') {
           const info = { ...(data.info as Record<string, unknown>) };
-          delete info.text_chars;
-          delete info.textChars;
+          info.text_chars = undefined;
+          info.textChars = undefined;
           data.info = info;
         }
         entry.data = data;
@@ -106,7 +103,7 @@ const normalizePayload = (payload: Record<string, unknown>) => {
       return entry;
     });
   }
-  delete normalized.evidence;
+  normalized.evidence = undefined;
   return normalized;
 };
 
@@ -255,28 +252,24 @@ describe('MCP Server stdio Transport Integration (Rust rmcp)', () => {
 
       sendMessage(
         freshProc,
-        createRequest(
-          10 + golden.cases.findIndex((entry) => entry.id === caseId),
-          'tools/call',
-          {
-            name: 'read_pdf',
-            arguments: buildRequestInput(caseEntry!.fixture, caseEntry!.input),
-          }
-        )
+        createRequest(10 + golden.cases.findIndex((entry) => entry.id === caseId), 'tools/call', {
+          name: 'read_pdf',
+          arguments: buildRequestInput(caseEntry?.fixture, caseEntry?.input),
+        })
       );
       const response = (await readResponse(freshProc, 60_000)) as {
         error?: { message?: string };
         result?: Record<string, unknown>;
       };
 
-      if (caseEntry!.expects.error) {
+      if (caseEntry?.expects.error) {
         const message =
           response.error?.message ??
           (response.result as { content?: Array<{ text?: string }> } | undefined)?.content?.[0]
             ?.text ??
           '';
         expect(message.toLowerCase()).toContain(
-          caseEntry!.expects.message_contains?.toLowerCase() ?? ''
+          caseEntry?.expects.message_contains?.toLowerCase() ?? ''
         );
         freshProc.kill('SIGTERM');
         return;
@@ -291,24 +284,21 @@ describe('MCP Server stdio Transport Integration (Rust rmcp)', () => {
       expect(structured).toBeDefined();
 
       const actual = normalizePayload(structured as Record<string, unknown>);
-      const expected = normalizePayload(caseEntry!.expects.payload as Record<string, unknown>);
+      const expected = normalizePayload(caseEntry?.expects.payload as Record<string, unknown>);
 
       expect(actual.profile).toBe(expected.profile);
       const actualResults = actual.results as Array<Record<string, unknown>>;
       const expectedResults = expected.results as Array<Record<string, unknown>>;
       expect(actualResults[0]?.success).toBe(expectedResults[0]?.success);
       expect((actualResults[0]?.data as Record<string, unknown> | undefined)?.route).toBe(
-        caseEntry!.expects.route
+        caseEntry?.expects.route
       );
       expect(
         (actualResults[0]?.data as { engine?: { name?: string; version?: string } } | undefined)
           ?.engine
       ).toEqual(
-        (
-          expectedResults[0]?.data as
-            | { engine?: { name?: string; version?: string } }
-            | undefined
-        )?.engine
+        (expectedResults[0]?.data as { engine?: { name?: string; version?: string } } | undefined)
+          ?.engine
       );
 
       const actualInfo = (actualResults[0]?.data as { info?: Record<string, unknown> } | undefined)

@@ -34,13 +34,13 @@ describe('Web MCP HTTP Rust authority gate', () => {
   });
 
   it('migration ledger marks transport/web-mcp-http as rust_impl under rej-010 promotion freeze', () => {
-    const ledger = JSON.parse(
-      readText('docs/specs/pdf-reader-mcp-migration-ledger.json')
-    ) as {
+    const ledger = JSON.parse(readText('docs/specs/pdf-reader-mcp-migration-ledger.json')) as {
       capabilities: Array<{ id: string; state: string }>;
     };
 
-    const http = ledger.capabilities.find((capability) => capability.id === 'transport/web-mcp-http');
+    const http = ledger.capabilities.find(
+      (capability) => capability.id === 'transport/web-mcp-http'
+    );
     expect(http?.state).toBe('rust_impl');
   });
 });

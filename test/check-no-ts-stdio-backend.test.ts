@@ -40,9 +40,7 @@ describe('MCP stdio Rust default-path gate (S3 deletion prep)', () => {
   });
 
   it('migration ledger marks transport/stdio-rust-rmcp as rust_impl with differential harness and stdio-ts-adapter as ts_only', () => {
-    const ledger = JSON.parse(
-      readText('docs/specs/pdf-reader-mcp-migration-ledger.json')
-    ) as {
+    const ledger = JSON.parse(readText('docs/specs/pdf-reader-mcp-migration-ledger.json')) as {
       capabilities: Array<{ id: string; state: string; differentialTest?: string }>;
     };
 

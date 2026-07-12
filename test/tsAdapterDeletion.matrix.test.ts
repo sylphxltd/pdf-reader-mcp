@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'bun:test';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
@@ -24,7 +24,9 @@ describe('TS stdio adapter deletion prep matrix', () => {
   it('TS adapter remains opt-in via PDF_READER_MCP_TRANSPORT=ts', () => {
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
     expect(bin).toContain('PDF_READER_MCP_TRANSPORT:-}" == "ts"');
-    expect(readFileSync(path.join(repoRoot, 'src/mcp.ts'), 'utf8')).toContain('StdioServerTransport');
+    expect(readFileSync(path.join(repoRoot, 'src/mcp.ts'), 'utf8')).toContain(
+      'StdioServerTransport'
+    );
   });
 
   it('ledger records web-mcp-http as rust_impl under rej-010 (deletion gate still requires authority_rust)', () => {
