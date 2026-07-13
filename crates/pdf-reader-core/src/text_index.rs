@@ -300,4 +300,30 @@ mod tests {
         assert_eq!(second.page_cache.as_deref(), Some("cache_hit"));
         assert_eq!(second.total_matches, first.total_matches);
     }
+
+
+    #[test]
+    fn bulk_normalize_case_and_empty_query() {
+        assert_eq!(normalize_for_search("AbC", false), "abc");
+        assert_eq!(normalize_for_search("AbC", true), "AbC");
+        assert!(find_matches_in_text("hello", "", false, false).is_empty());
+        assert!(find_matches_in_text("hello", "z", false, false).is_empty());
+    }
+
+    #[test]
+    fn bulk_whole_word_and_snippet_ellipsis() {
+        let text = "alpha beta alphabet";
+        let whole = find_matches_in_text(text, "alpha", false, true);
+        assert_eq!(whole.len(), 1, "{whole:?}");
+        let loose = find_matches_in_text(text, "alpha", false, false);
+        assert!(loose.len() >= 2, "{loose:?}");
+        assert!(is_word_char(Some('a')));
+        assert!(is_word_char(Some('_')));
+        assert!(!is_word_char(Some(' ')));
+        assert!(!is_word_char(None));
+        let snip = build_snippet("0123456789abcdefghij", 8, 12, 2);
+        assert!(snip.contains("..."), "{snip}");
+        let snip2 = build_snippet("short", 0, 5, 10);
+        assert_eq!(snip2, "short");
+    }
 }

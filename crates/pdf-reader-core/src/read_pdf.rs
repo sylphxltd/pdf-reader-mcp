@@ -268,4 +268,48 @@ mod tests {
         assert!(data.num_pages >= 1);
         assert!(data.info.is_some());
     }
+
+
+    #[test]
+    fn bulk_validate_source_path_url_matrix() {
+        assert!(validate_source(&ReadPdfSource {
+            path: Some("/tmp/a.pdf".into()),
+            url: None,
+            pages: None,
+        })
+        .is_ok());
+        assert!(validate_source(&ReadPdfSource {
+            path: None,
+            url: Some("https://x".into()),
+            pages: None,
+        })
+        .is_err());
+        assert!(validate_source(&ReadPdfSource {
+            path: None,
+            url: None,
+            pages: None,
+        })
+        .is_err());
+        assert!(validate_source(&ReadPdfSource {
+            path: Some("/tmp/a.pdf".into()),
+            url: Some("https://x".into()),
+            pages: None,
+        })
+        .is_err());
+        assert!(validate_source(&ReadPdfSource {
+            path: Some("".into()),
+            url: None,
+            pages: None,
+        })
+        .is_err());
+    }
+
+    #[test]
+    fn bulk_join_page_text_skips_empty() {
+        assert_eq!(join_page_text(&[]), "");
+        assert_eq!(
+            join_page_text(&["".into(), "a".into(), "".into(), "b".into()]),
+            "a\n\nb"
+        );
+    }
 }
