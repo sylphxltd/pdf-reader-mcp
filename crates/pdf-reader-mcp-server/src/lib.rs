@@ -1,4 +1,5 @@
 pub mod cli_bridge;
+pub mod http_transport;
 pub mod evidence;
 pub mod pdf_evidence;
 pub mod read_pdf;
@@ -131,5 +132,16 @@ mod tests {
         assert!(names.contains(&"read_pdf".to_string()));
         assert!(names.contains(&"search_pdf".to_string()));
         assert!(names.contains(&"pdf_evidence".to_string()));
+    }
+
+    #[test]
+    fn rust_http_transport_module_is_wired_for_web_mcp() {
+        let src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+        let main_rs = fs::read_to_string(src_dir.join("main.rs")).expect("read main.rs");
+        let http_rs =
+            fs::read_to_string(src_dir.join("http_transport.rs")).expect("read http_transport.rs");
+        assert!(main_rs.contains("http_transport::serve_http"));
+        assert!(http_rs.contains("StreamableHttpService"));
+        assert!(http_rs.contains("/mcp/health"));
     }
 }

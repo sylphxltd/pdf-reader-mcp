@@ -1,0 +1,154 @@
+{
+  "profile": "pdf_reader_read_pdf_golden",
+  "description": "Golden contract for read_pdf across Rust core, CLI, and rmcp handler surfaces.",
+  "cases": [
+    {
+      "id": "sample-metadata-on",
+      "fixture": "sample.pdf",
+      "input": {
+        "include_metadata": true,
+        "include_page_count": true,
+        "include_full_text": false
+      },
+      "expects": {
+        "status": "ok",
+        "route": "rust-read-pdf-v1",
+        "payload": {
+          "profile": "pdf_read_results",
+          "results": [
+            {
+              "success": true,
+              "data": {
+                "route": "rust-read-pdf-v1",
+                "engine": {
+                  "name": "pdf-reader-core",
+                  "version": "0.1.0"
+                },
+                "info": {
+                  "Title": "sample.pdf",
+                  "Producer": "pdf-reader-core",
+                  "PDFFormatVersion": "unknown",
+                  "route": "rust-read-pdf-v1"
+                }
+              }
+            }
+          ]
+        },
+        "evidence": {
+          "locator": {
+            "tool": "read_pdf"
+          },
+          "route": {
+            "extraction": "rust-read-pdf-v1",
+            "tool": "read_pdf"
+          },
+          "confidence": "deterministic"
+        }
+      }
+    },
+    {
+      "id": "sample-minimal-route",
+      "fixture": "sample.pdf",
+      "input": {
+        "include_metadata": false,
+        "include_page_count": false,
+        "include_full_text": false
+      },
+      "expects": {
+        "status": "ok",
+        "route": "rust-read-pdf-v1",
+        "payload": {
+          "profile": "pdf_read_results",
+          "results": [
+            {
+              "success": true,
+              "data": {
+                "route": "rust-read-pdf-v1",
+                "engine": {
+                  "name": "pdf-reader-core",
+                  "version": "0.1.0"
+                },
+                "info": {
+                  "route": "rust-read-pdf-v1"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-full-text",
+      "fixture": "sample.pdf",
+      "input": {
+        "include_metadata": false,
+        "include_page_count": false,
+        "include_full_text": true
+      },
+      "expects": {
+        "status": "ok",
+        "route": "rust-read-pdf-v1",
+        "payload": {
+          "profile": "pdf_read_results",
+          "results": [
+            {
+              "success": true,
+              "data": {
+                "route": "rust-read-pdf-v1",
+                "full_text_contains": "Lorem"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-file",
+      "fixture": "missing/does-not-exist.pdf",
+      "input": {
+        "include_metadata": false,
+        "include_page_count": false,
+        "include_full_text": false
+      },
+      "expects": {
+        "error": true,
+        "code": "INVALID_REQUEST",
+        "message_contains": "failed to process"
+      }
+    },
+    {
+      "id": "empty-sources",
+      "fixture": "sample.pdf",
+      "input": {
+        "sources": [],
+        "include_metadata": false,
+        "include_page_count": false,
+        "include_full_text": false
+      },
+      "expects": {
+        "error": true,
+        "code": "INVALID_PARAMS",
+        "message_contains": "sources must"
+      }
+    },
+    {
+      "id": "url-source",
+      "fixture": "sample.pdf",
+      "input": {
+        "sources": [
+          {
+            "url": "https://example.com/sample.pdf"
+          }
+        ],
+        "include_metadata": false,
+        "include_page_count": false,
+        "include_full_text": false
+      },
+      "expects": {
+        "error": true,
+        "code": "INVALID_REQUEST",
+        "message_contains": "local path"
+      }
+    }
+  ]
+}

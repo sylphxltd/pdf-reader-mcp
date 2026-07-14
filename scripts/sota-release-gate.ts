@@ -298,6 +298,84 @@ export const buildSotaReleaseGateReport = async (
       binWrapper.includes('use_ts_transport'),
     'Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only'
   );
+
+  const httpTransportSource = fs.readFileSync(
+    path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/http_transport.rs'),
+    'utf8'
+  );
+  addCheck(
+    checks,
+    'mcp:rust_web_http_transport',
+    httpTransportSource.includes('StreamableHttpService') &&
+      httpTransportSource.includes('/mcp/health') &&
+      binWrapper.includes('resolve_transport') &&
+      binWrapper.includes('MCP_TRANSPORT=http'),
+    'Rust rmcp streamable HTTP Web MCP transport is wired; npm bin routes MCP_TRANSPORT=http to Rust'
+  );
+
+  const httpIntegration = fs.readFileSync(
+    path.join(repoRoot, 'test/integration/http-transport.test.ts'),
+    'utf8'
+  );
+  const stdioIntegration = fs.readFileSync(
+    path.join(repoRoot, 'test/integration/stdio-transport.test.ts'),
+    'utf8'
+  );
+  const goldenFixture = path.join(repoRoot, 'test/fixtures/read-pdf-golden.json');
+  const coreGolden = path.join(repoRoot, 'crates/pdf-reader-core/tests/read_pdf_golden_parity.rs');
+  const rmcpGolden = path.join(
+    repoRoot,
+    'crates/pdf-reader-mcp-server/tests/read_pdf_golden_parity.rs'
+  );
+  const httpAuthorityGate = path.join(repoRoot, 'scripts/check-no-ts-http-backend.sh');
+  const stdioDeletionGate = path.join(repoRoot, 'scripts/check-no-ts-stdio-backend.sh');
+
+  addCheck(
+    checks,
+    'mcp:http_transport_parity',
+    httpIntegration.includes('MCP Server HTTP Transport Integration') &&
+      httpIntegration.includes('golden mock parity over HTTP'),
+    'HTTP integration harness proves read_pdf golden mock parity over streamable HTTP'
+  );
+  addCheck(
+    checks,
+    'mcp:stdio_transport_parity',
+    stdioIntegration.includes('MCP Server stdio Transport Integration') &&
+      stdioIntegration.includes('golden mock parity over stdio'),
+    'stdio integration harness proves read_pdf golden mock parity over Rust rmcp stdio'
+  );
+  addCheck(
+    checks,
+    'mcp:read_pdf_golden_parity',
+    fs.existsSync(goldenFixture) && fs.existsSync(coreGolden),
+    'read_pdf golden fixture + core golden parity harness are present'
+  );
+  addCheck(
+    checks,
+    'mcp:rmcp_read_pdf_parity',
+    fs.existsSync(rmcpGolden),
+    'rmcp server read_pdf golden parity harness is present'
+  );
+  addCheck(
+    checks,
+    'mcp:read_pdf_cross_parity',
+    fs.existsSync(path.join(repoRoot, 'test/readPdf.parity.test.ts')),
+    'cross-surface read_pdf parity tests (TS pure/oracle) are present'
+  );
+  addCheck(
+    checks,
+    'mcp:http_authority_rust',
+    fs.existsSync(httpAuthorityGate) &&
+      fs.readFileSync(httpAuthorityGate, 'utf8').includes('check-no-ts-http-backend'),
+    'HTTP authority gate forbids parallel TS HTTP backend on shipped bin path'
+  );
+  addCheck(
+    checks,
+    'mcp:stdio_deletion_prep_gate',
+    fs.existsSync(stdioDeletionGate),
+    'stdio TS adapter deletion-prep gate script is present'
+  );
+
   const matrixProbe = spawnSync(
     'bun',
     ['test', 'test/shippedPath.matrix.test.ts'],
