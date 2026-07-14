@@ -128,4 +128,16 @@ mod tests {
         let err = hash_file(&path, 32).expect_err("oversized");
         assert_eq!(err.code, HashErrorCode::InvalidRequest);
     }
+
+
+    #[test]
+    fn bulk_hash_rejects_oversize_and_missing() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("big.bin");
+        std::fs::write(&path, b"0123456789").expect("write");
+        let err = hash_file(&path, 5).expect_err("oversize");
+        assert_eq!(err.code, HashErrorCode::InvalidRequest);
+        let missing = hash_file(&temp.path().join("nope"), 100).expect_err("missing");
+        assert_eq!(missing.code, HashErrorCode::InvalidRequest);
+    }
 }

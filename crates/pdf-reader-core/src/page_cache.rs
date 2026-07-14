@@ -124,4 +124,15 @@ mod tests {
         let new_hash = hash_file(&pdf_path, 1024 * 1024).expect("hash");
         assert!(load_cached_pages(&pdf_path, &new_hash.source_hash).is_none());
     }
+
+
+    #[test]
+    fn bulk_page_cache_path_uses_parent_and_hash() {
+        use std::path::Path;
+        let p = page_cache_path(Path::new("/data/docs/file.pdf"), "abc123");
+        assert!(p.to_string_lossy().contains("abc123.json"));
+        assert!(p.to_string_lossy().contains("page-cache"));
+        let p2 = page_cache_path(Path::new("file.pdf"), "h");
+        assert!(p2.to_string_lossy().contains("h.json"));
+    }
 }
