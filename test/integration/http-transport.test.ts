@@ -260,7 +260,7 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
       await client.initializeSession();
 
       const args: Record<string, unknown> = { ...(caseEntry?.input ?? {}) };
-      if (caseEntry?.fixture) {
+      if (caseEntry?.fixture && !Object.hasOwn(args, 'sources')) {
         const fixturePath = path.resolve(__dirname, '../fixtures', caseEntry.fixture);
         args.sources = [{ path: fixturePath }];
       }
