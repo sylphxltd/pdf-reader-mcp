@@ -99,21 +99,26 @@ const probeSamplePdf = async (): Promise<DoctorCheck> => {
   }
 };
 
-const probeDistEntry = (): DoctorCheck => {
-  const distEntry = path.join(packageRoot, 'dist/index.js');
-  if (existsSync(distEntry)) {
+const probeRustMcpServer = (): DoctorCheck => {
+  const candidates = [
+    path.join(packageRoot, 'bin/native/pdf-reader-mcp-server'),
+    path.join(packageRoot, 'target/release/pdf-reader-mcp-server'),
+    path.join(packageRoot, 'target/debug/pdf-reader-mcp-server'),
+  ];
+  const native = candidates.find((candidate) => existsSync(candidate));
+  if (native) {
     return {
-      id: 'dist_entry',
+      id: 'rust_mcp_server',
       status: 'ok',
-      message: 'Built MCP adapter entrypoint dist/index.js is present.',
+      message: `Rust MCP server binary is present at ${native}.`,
     };
   }
 
   return {
-    id: 'dist_entry',
+    id: 'rust_mcp_server',
     status: 'warn',
     message:
-      'dist/index.js is not built yet. Run bun run build before wiring the MCP host to the published bin.',
+      'Rust MCP server binary is not built yet. Run `bun run build:rust` before wiring the MCP host to the published bin.',
   };
 };
 
@@ -173,7 +178,7 @@ export async function runDoctor(version: string): Promise<DoctorReport> {
     probeNode(),
     probePdfjsResources(),
     probeRustHashCli(),
-    probeDistEntry(),
+    probeRustMcpServer(),
     await probeSamplePdf(),
     probeTesseract(),
   ];

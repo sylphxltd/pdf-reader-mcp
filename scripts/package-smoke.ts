@@ -388,14 +388,15 @@ export const validateExtractedPackage = async (
   const checks: PackageSmokeCheck[] = [];
   const packageJsonPath = path.join(packageDir, 'package.json');
   const packageJson = await readJson(packageJsonPath);
-  const distIndexPath = path.join(packageDir, 'dist', 'index.js');
+  const distDoctorPath = path.join(packageDir, 'dist', 'doctor-cli.js');
+  const nativeServerPath = path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
   const publicProviderManifestPath = path.join(
     packageDir,
     'corpus',
     'public-provider-accuracy.json'
   );
-  const distIndexPrefix = await readTextPrefix(distIndexPath);
+  const distDoctorPrefix = await readTextPrefix(distDoctorPath);
   const publicCorpusManifest = await readJson(publicCorpusManifestPath);
   const publicProviderManifest = await readJson(publicProviderManifestPath);
   const publicCorpusSummary = summarizePublicCorpusManifest(publicCorpusManifest);
@@ -410,16 +411,23 @@ export const validateExtractedPackage = async (
   });
   addCheck(
     checks,
-    'runtime:dist-index',
-    await fileExists(distIndexPath),
-    'published package contains dist/index.js',
-    { path: 'package/dist/index.js' }
+    'runtime:dist-doctor',
+    await fileExists(distDoctorPath),
+    'published package contains dist/doctor-cli.js',
+    { path: 'package/dist/doctor-cli.js' }
   );
   addCheck(
     checks,
     'runtime:shebang',
-    distIndexPrefix?.startsWith('#!/usr/bin/env node') === true,
-    'dist/index.js keeps the executable Node shebang'
+    distDoctorPrefix?.startsWith('#!/usr/bin/env node') === true,
+    'dist/doctor-cli.js keeps the executable Node shebang'
+  );
+  addCheck(
+    checks,
+    'runtime:rust-mcp-server',
+    await fileExists(nativeServerPath),
+    'published package contains staged Rust MCP server binary',
+    { path: 'package/bin/native/pdf-reader-mcp-server' }
   );
   addCheck(
     checks,
@@ -477,8 +485,8 @@ export const validateExtractedPackage = async (
   addCheck(
     checks,
     'package-json:exports',
-    exportsField?.['.'] === './dist/index.js',
-    'package export points to the published runtime artifact',
+    exportsField?.['.'] === './dist/doctor-cli.js',
+    'package export points to the published doctor CLI artifact',
     { actual: exportsField?.['.'] }
   );
 
@@ -535,8 +543,8 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
     addCheck(
       checks,
       'tarball:dist-index',
-      tarballEntries.includes('package/dist/index.js'),
-      'tarball includes package/dist/index.js',
+      tarballEntries.includes('package/dist/doctor-cli.js'),
+      'tarball includes package/dist/doctor-cli.js',
       { entries: tarballEntries }
     );
     addCheck(

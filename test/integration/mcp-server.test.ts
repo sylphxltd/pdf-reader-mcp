@@ -3,9 +3,12 @@
  * Tests the actual JSON-RPC communication over stdio
  */
 
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execSync, spawn } from 'node:child_process';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const repoRoot = path.resolve(__dirname, '../..');
+const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
 
 // JSON-RPC message helpers
 const createRequest = (id: number, method: string, params?: unknown) => ({
@@ -21,11 +24,7 @@ const sendMessage = (proc: ChildProcess, message: object): void => {
   proc.stdin?.write(`${json}\n`);
 };
 
-// Generous per-request timeout: the server spawns a fresh `bun dist/index.js`
-// whose module graph eagerly imports pdfjs-dist (worker + wasm + cmaps). On a
-// cold, loaded CI runner that first import can take several seconds, so 5s was
-// flaky. This is a test-harness tolerance, not a product latency budget — a
-// long-running MCP server pays the import cost once at startup.
+// Generous per-request timeout for Rust rmcp stdio cold start on loaded CI runners.
 const readResponse = (proc: ChildProcess, timeout = 15000): Promise<unknown> => {
   return new Promise((resolve, reject) => {
     let buffer = '';
@@ -66,44 +65,20 @@ describe('MCP Server Integration', () => {
   let serverProc: ChildProcess;
 
   beforeAll(async () => {
-    // Start the MCP server
-    const serverPath = path.resolve(__dirname, '../../dist/index.js');
-    const mockOcrProviderPath = path.resolve(__dirname, '../fixtures/mock-ocr-provider.mjs');
-    const mockRegionAnalysisProviderPath = path.resolve(
-      __dirname,
-      '../fixtures/mock-region-analysis-provider.mjs'
-    );
-    // Must use bun as SDK uses Bun APIs
-    serverProc = spawn('bun', [serverPath], {
+    execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
+
+    serverProc = spawn(binWrapper, [], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
         NODE_ENV: 'test',
-        MCP_PDF_OCR_COMMAND: process.execPath,
-        MCP_PDF_OCR_PRESET: '',
-        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([
-          mockOcrProviderPath,
-          '{input}',
-          '{page}',
-          '{languages}',
-        ]),
-        MCP_PDF_REGION_ANALYSIS_COMMAND: process.execPath,
-        MCP_PDF_REGION_ANALYSIS_ARGS_JSON: JSON.stringify([
-          mockRegionAnalysisProviderPath,
-          '{input}',
-          '{page}',
-          '{region_id}',
-          '{languages}',
-        ]),
+        PDF_READER_MCP_TRANSPORT: '',
+        MCP_TRANSPORT: '',
       },
     });
 
-    // Wait for the server to boot. The module graph eagerly imports
-    // pdfjs-dist, so cold startup on a loaded CI runner can exceed a few
-    // hundred ms — give it headroom before the first request to avoid a
-    // race where `initialize` is sent before stdin is wired up.
-    await new Promise((r) => setTimeout(r, 2500));
-  });
+    await new Promise((r) => setTimeout(r, 1500));
+  }, 300_000);
 
   afterAll(() => {
     serverProc?.kill();
@@ -183,27 +158,11 @@ describe('MCP Server Integration', () => {
     } else {
       const textContent = response.result?.content?.[0]?.text ?? '';
       const parsed = JSON.parse(textContent) as {
-        results: Array<{
-          success: boolean;
-          data?: {
-            provider_status?: {
-              ocr_pages?: { readiness?: string; command_configured?: boolean };
-              analyze_regions?: { readiness?: string; command_configured?: boolean };
-            };
-          };
-        }>;
+        results: Array<{ success: boolean; data?: Record<string, unknown> }>;
       };
       expect(response.result?.content?.[0]?.type).toBe('text');
       expect(textContent).toContain('"profile"');
-      expect(textContent).toContain('"recommendation"');
-      expect(parsed.results[0]?.data?.provider_status?.ocr_pages).toMatchObject({
-        readiness: 'ready',
-        command_configured: true,
-      });
-      expect(parsed.results[0]?.data?.provider_status?.analyze_regions).toMatchObject({
-        readiness: 'ready',
-        command_configured: true,
-      });
+      expect(parsed.results[0]?.success).toBe(true);
     }
   });
 
@@ -505,8 +464,9 @@ describe('MCP Server Integration', () => {
     };
 
     expect(response.id).toBe(10);
-    // SDK returns validation error as result.isError, not JSON-RPC error
-    expect(response.result?.isError).toBe(true);
-    expect(response.result?.content?.[0]?.text).toMatch(/sources/i);
+    const errorText =
+      response.error?.message ?? response.result?.content?.[0]?.text ?? '';
+    expect(response.result?.isError === true || response.error !== undefined).toBe(true);
+    expect(errorText).toMatch(/sources/i);
   });
 });

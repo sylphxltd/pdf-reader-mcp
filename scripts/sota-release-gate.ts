@@ -6,7 +6,7 @@ import { writeBenchmarkReport } from './benchmark-utils.js';
 
 const runDoctorViaSubprocess = (version: string): DoctorReport => {
   const repoRoot = path.resolve(import.meta.dirname, '..');
-  const result = spawnSync('bun', ['run', 'src/index.ts', 'doctor'], {
+  const result = spawnSync('bun', ['run', 'src/doctor-cli.ts'], {
     cwd: repoRoot,
     encoding: 'utf8',
     env: process.env,
@@ -295,8 +295,9 @@ export const buildSotaReleaseGateReport = async (
     'mcp:rust_adapter_default',
     binWrapper.includes('pdf-reader-mcp-server') &&
       binWrapper.includes('resolve_rust_bin') &&
-      binWrapper.includes('use_ts_transport'),
-    'Default npm bin launches the Rust rmcp MCP server; TypeScript adapter is opt-in only'
+      !binWrapper.includes('use_ts_transport') &&
+      !binWrapper.includes('exec node'),
+    'Default npm bin launches the Rust rmcp MCP server; TypeScript stdio adapter is retired'
   );
 
   const httpTransportSource = fs.readFileSync(

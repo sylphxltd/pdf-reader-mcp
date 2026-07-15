@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # Rust-First gate: Web MCP HTTP transport must not retain a parallel TS HTTP backend.
-# TS stdio adapter remains opt-in (transport/stdio-ts-adapter) until deletion slice.
-# Forbidden: HTTP bin path via node; Streamable HTTP in src/index.ts when bin routes http.
+# Forbidden: HTTP bin path via node; Streamable HTTP in deleted TS MCP adapter.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN="${ROOT}/bin/pdf-reader-mcp"
-TS_ENTRY="${ROOT}/src/index.ts"
 HTTP_TRANSPORT="${ROOT}/crates/pdf-reader-mcp-server/src/http_transport.rs"
 GATE_TEST="${ROOT}/test/check-no-ts-http-backend.test.ts"
 TS_ADAPTER_GATE="${ROOT}/scripts/check-ts-adapter-deletion-ready.sh"
@@ -21,25 +19,11 @@ report_violation() {
 
 echo "=== check-no-ts-http-backend $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 
-if [[ ! -f "${BIN}" ]]; then
-	report_violation "missing bin/pdf-reader-mcp"
-fi
-
-if [[ ! -f "${HTTP_TRANSPORT}" ]]; then
-	report_violation "missing crates/pdf-reader-mcp-server/src/http_transport.rs"
-fi
-
-if [[ ! -f "${GATE_TEST}" ]]; then
-	report_violation "missing test/check-no-ts-http-backend.test.ts"
-fi
-
-if [[ ! -f "${TS_ADAPTER_GATE}" ]]; then
-	report_violation "missing scripts/check-ts-adapter-deletion-ready.sh"
-fi
-
-if [[ ! -f "${LEDGER}" ]]; then
-	report_violation "missing docs/specs/pdf-reader-mcp-migration-ledger.json"
-fi
+[[ -f "${BIN}" ]] || report_violation "missing bin/pdf-reader-mcp"
+[[ -f "${HTTP_TRANSPORT}" ]] || report_violation "missing crates/pdf-reader-mcp-server/src/http_transport.rs"
+[[ -f "${GATE_TEST}" ]] || report_violation "missing test/check-no-ts-http-backend.test.ts"
+[[ -f "${TS_ADAPTER_GATE}" ]] || report_violation "missing scripts/check-ts-adapter-deletion-ready.sh"
+[[ -f "${LEDGER}" ]] || report_violation "missing docs/specs/pdf-reader-mcp-migration-ledger.json"
 
 if [[ -f "${LEDGER}" ]]; then
 	node - "${LEDGER}" <<'NODE'
@@ -50,9 +34,9 @@ if (!entry) {
   console.error("[check-no-ts-http-backend] missing capability transport/web-mcp-http");
   process.exit(1);
 }
-if (entry.state !== "rust_impl") {
+if (!["rust_impl", "authority_rust", "ts_deleted"].includes(entry.state)) {
   console.error(
-    `[check-no-ts-http-backend] transport/web-mcp-http is ${entry.state}; expected rust_impl (rej-010 promotion freeze)`
+    `[check-no-ts-http-backend] transport/web-mcp-http is ${entry.state}; expected rust_impl, authority_rust, or ts_deleted`
   );
   process.exit(1);
 }
@@ -60,37 +44,18 @@ NODE
 fi
 
 if [[ -f "${BIN}" ]]; then
-	if ! grep -q 'resolve_rust_bin' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must resolve Rust rmcp server via resolve_rust_bin"
-	fi
-
-	if ! grep -q 'MCP_TRANSPORT=http' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must route MCP_TRANSPORT=http to Rust"
-	fi
-
-	if ! grep -q 'transport="$(resolve_transport)"' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must resolve transport before TS stdio opt-in"
-	fi
-
-	if ! grep -q '\[\[ "$transport" == "http" \]\]' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must branch on http transport before use_ts_transport"
-	fi
-fi
-
-if [[ -f "${TS_ENTRY}" ]]; then
-	if grep -qE 'StreamableHTTP|streamableHttp|http_transport|MCP_HTTP' "${TS_ENTRY}"; then
-		report_violation "src/index.ts must not implement Streamable HTTP transport"
+	grep -q 'resolve_rust_bin' "${BIN}" || report_violation "bin/pdf-reader-mcp must resolve Rust rmcp server via resolve_rust_bin"
+	grep -q 'MCP_TRANSPORT=http' "${BIN}" || report_violation "bin/pdf-reader-mcp must route MCP_TRANSPORT=http to Rust"
+	grep -q 'transport="$(resolve_transport)"' "${BIN}" || report_violation "bin/pdf-reader-mcp must resolve transport"
+	grep -q '\[\[ "$transport" == "http" \]\]' "${BIN}" || report_violation "bin/pdf-reader-mcp must branch on http transport"
+	if grep -qE 'use_ts_transport|exec node' "${BIN}"; then
+		report_violation "bin/pdf-reader-mcp must not retain TS transport opt-in"
 	fi
 fi
 
 if [[ -f "${HTTP_TRANSPORT}" ]]; then
-	if ! grep -q 'StreamableHttpService' "${HTTP_TRANSPORT}"; then
-		report_violation "Rust http_transport.rs must expose StreamableHttpService"
-	fi
-
-	if ! grep -q 'health_check' "${HTTP_TRANSPORT}"; then
-		report_violation "Rust http_transport.rs must expose /mcp/health"
-	fi
+	grep -q 'StreamableHttpService' "${HTTP_TRANSPORT}" || report_violation "Rust http_transport.rs must expose StreamableHttpService"
+	grep -q 'health_check' "${HTTP_TRANSPORT}" || report_violation "Rust http_transport.rs must expose /mcp/health"
 fi
 
 if [[ "${violations}" -gt 0 ]]; then

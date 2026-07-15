@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
+# PDF Reader MCP launcher — Rust rmcp only (fail-closed, no TS stdio fallback).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TS_ENTRY="$ROOT/dist/index.js"
 
 resolve_rust_bin() {
   if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
@@ -35,28 +35,12 @@ resolve_transport() {
   printf '%s\n' "stdio"
 }
 
-# HTTP routes exclusively to Rust rmcp before any TS stdio opt-in path.
 if bin="$(resolve_rust_bin)"; then
   transport="$(resolve_transport)"
   if [[ "$transport" == "http" ]]; then
     export MCP_TRANSPORT=http
     export PDF_READER_MCP_TRANSPORT=http
-    exec "$bin" "$@"
   fi
-fi
-
-use_ts_transport() {
-  [[ "${PDF_READER_MCP_TRANSPORT:-}" == "ts" ]] || [[ "${1:-}" == "ts" ]]
-}
-
-if use_ts_transport "$@"; then
-  if [[ "${1:-}" == "ts" ]]; then
-    shift
-  fi
-  exec node "$TS_ENTRY" "$@"
-fi
-
-if bin="$(resolve_rust_bin)"; then
   exec "$bin" "$@"
 fi
 

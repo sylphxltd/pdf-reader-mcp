@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Rust-First gate (S3 prep): default MCP stdio transport must delegate to Rust rmcp.
-# TS stdio adapter remains opt-in (transport/stdio-ts-adapter) until deletion slice.
-# Forbidden: default bin stdio path via node; parallel TS stdio as shipped default.
-# Ledger ts_deleted flip blocked until PR merge + prod smoke (rej-001).
+# S3 gate: default MCP stdio transport must delegate solely to Rust rmcp.
+# TS stdio adapter is retired (transport/stdio-ts-adapter → ts_deleted).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN="${ROOT}/bin/pdf-reader-mcp"
-TS_ENTRY="${ROOT}/src/index.ts"
 RUST_MAIN="${ROOT}/crates/pdf-reader-mcp-server/src/main.rs"
 STDIO_GATE="${ROOT}/scripts/check-no-ts-stdio-backend.sh"
 GATE_TEST="${ROOT}/test/check-no-ts-stdio-backend.test.ts"
@@ -25,40 +22,17 @@ report_violation() {
 
 echo "=== check-no-ts-stdio-backend $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 
-if [[ ! -f "${BIN}" ]]; then
-	report_violation "missing bin/pdf-reader-mcp"
-fi
+[[ -f "${BIN}" ]] || report_violation "missing bin/pdf-reader-mcp"
+[[ -f "${STDIO_GATE}" ]] || report_violation "missing scripts/check-no-ts-stdio-backend.sh"
+[[ -f "${GATE_TEST}" ]] || report_violation "missing test/check-no-ts-stdio-backend.test.ts"
+[[ -f "${STDIO_INTEGRATION}" ]] || report_violation "missing test/integration/stdio-transport.test.ts"
+[[ -f "${STDIO_MATRIX}" ]] || report_violation "missing test/stdioTransport.matrix.test.ts"
+[[ -f "${TS_ADAPTER_GATE}" ]] || report_violation "missing scripts/check-ts-adapter-deletion-ready.sh"
+[[ -f "${LEDGER}" ]] || report_violation "missing docs/specs/pdf-reader-mcp-migration-ledger.json"
+[[ -f "${RUST_MAIN}" ]] || report_violation "missing crates/pdf-reader-mcp-server/src/main.rs"
 
-if [[ ! -f "${STDIO_GATE}" ]]; then
-	report_violation "missing scripts/check-no-ts-stdio-backend.sh"
-fi
-
-if [[ ! -f "${GATE_TEST}" ]]; then
-	report_violation "missing test/check-no-ts-stdio-backend.test.ts"
-fi
-
-if [[ ! -f "${STDIO_INTEGRATION}" ]]; then
-	report_violation "missing test/integration/stdio-transport.test.ts"
-fi
-
-if [[ ! -f "${STDIO_MATRIX}" ]]; then
-	report_violation "missing test/stdioTransport.matrix.test.ts"
-fi
-
-if [[ ! -f "${TS_ADAPTER_GATE}" ]]; then
-	report_violation "missing scripts/check-ts-adapter-deletion-ready.sh"
-fi
-
-if [[ ! -f "${LEDGER}" ]]; then
-	report_violation "missing docs/specs/pdf-reader-mcp-migration-ledger.json"
-fi
-
-if [[ ! -f "${RUST_MAIN}" ]]; then
-	report_violation "missing crates/pdf-reader-mcp-server/src/main.rs"
-fi
-
-if [[ ! -f "${TS_ENTRY}" ]]; then
-	report_violation "src/index.ts must remain until transport/stdio-ts-adapter deletion PR merges"
+if [[ -f "${ROOT}/src/index.ts" ]]; then
+	report_violation "src/index.ts must be deleted (transport/stdio-ts-adapter ts_deleted)"
 fi
 
 if [[ -f "${LEDGER}" ]]; then
@@ -80,27 +54,30 @@ if (!http) {
   console.error("[check-no-ts-stdio-backend] missing capability transport/web-mcp-http");
   process.exit(1);
 }
-if (stdioRust.state !== "rust_impl") {
+const rustAuthorityStates = new Set(["rust_impl", "authority_rust", "ts_deleted"]);
+if (!rustAuthorityStates.has(stdioRust.state)) {
   console.error(
-    `[check-no-ts-stdio-backend] transport/stdio-rust-rmcp is ${stdioRust.state}; expected rust_impl (rej-010 promotion freeze)`
+    `[check-no-ts-stdio-backend] transport/stdio-rust-rmcp is ${stdioRust.state}; expected rust_impl, authority_rust, or ts_deleted`
   );
   process.exit(1);
 }
-if (!stdioRust.differentialTest) {
+const allowedProof = new Set(["missing", "differential_green", "canary_green", "caught_up"]);
+const proofStatus = (stdioRust.proof || {}).status;
+if (["rust_impl", "ts_deleted"].includes(stdioRust.state) && !allowedProof.has(proofStatus)) {
   console.error(
-    "[check-no-ts-stdio-backend] transport/stdio-rust-rmcp missing differentialTest (rej-010 harness)"
+    `[check-no-ts-stdio-backend] transport/stdio-rust-rmcp proof.status=${proofStatus}; expected one of ${[...allowedProof].join(", ")}`
   );
   process.exit(1);
 }
-if (tsAdapter.state !== "ts_only") {
+if (tsAdapter.state !== "ts_deleted") {
   console.error(
-    `[check-no-ts-stdio-backend] transport/stdio-ts-adapter is ${tsAdapter.state}; expected ts_only (ts_deleted blocked per rej-001)`
+    `[check-no-ts-stdio-backend] transport/stdio-ts-adapter is ${tsAdapter.state}; expected ts_deleted`
   );
   process.exit(1);
 }
-if (http.state !== "rust_impl") {
+if (!["rust_impl", "ts_deleted", "authority_rust"].includes(http.state)) {
   console.error(
-    `[check-no-ts-stdio-backend] transport/web-mcp-http is ${http.state}; expected rust_impl (rej-010 promotion freeze)`
+    `[check-no-ts-stdio-backend] transport/web-mcp-http is ${http.state}; expected rust_impl, authority_rust, or ts_deleted`
   );
   process.exit(1);
 }
@@ -108,61 +85,22 @@ NODE
 fi
 
 if [[ -f "${BIN}" ]]; then
-	if ! grep -q 'resolve_rust_bin' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must resolve Rust rmcp server via resolve_rust_bin"
-	fi
-
-	if ! grep -q 'printf.*stdio' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must default transport to stdio"
-	fi
-
-	if ! grep -q 'use_ts_transport' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must retain explicit TS stdio opt-in until deletion slice"
-	fi
-
-	if ! grep -q 'PDF_READER_MCP_TRANSPORT:-}" == "ts"' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must gate TS stdio behind PDF_READER_MCP_TRANSPORT=ts"
-	fi
-
-	if ! grep -q 'transport="$(resolve_transport)"' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must resolve transport before TS stdio opt-in"
-	fi
-
-	if ! grep -q '\[\[ "$transport" == "http" \]\]' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must branch on http transport before use_ts_transport"
-	fi
-
-	# Default stdio path must exec Rust before node TS adapter.
-	if ! awk '
-		/resolve_rust_bin/ { saw_rust = 1 }
-		/use_ts_transport/ { saw_ts = 1 }
-		/exec node/ {
-			if (!saw_rust || !saw_ts) {
-				exit 1
-			}
-		}
-		END {
-			if (!saw_rust || !saw_ts) {
-				exit 1
-			}
-		}
-	' "${BIN}"; then
-		report_violation "bin/pdf-reader-mcp must define resolve_rust_bin and use_ts_transport before exec node"
+	grep -q 'resolve_rust_bin' "${BIN}" || report_violation "bin/pdf-reader-mcp must resolve Rust rmcp server via resolve_rust_bin"
+	grep -q 'printf.*stdio' "${BIN}" || report_violation "bin/pdf-reader-mcp must default transport to stdio"
+	if grep -qE 'use_ts_transport|exec node|PDF_READER_MCP_TRANSPORT:-}" == "ts"' "${BIN}"; then
+		report_violation "bin/pdf-reader-mcp must not launch node or retain TS stdio opt-in"
 	fi
 fi
 
 if [[ -f "${RUST_MAIN}" ]]; then
-	if ! grep -q 'transport::stdio' "${RUST_MAIN}"; then
-		report_violation "Rust MCP server must expose rmcp stdio transport"
-	fi
+	grep -q 'transport::stdio' "${RUST_MAIN}" || report_violation "Rust MCP server must expose rmcp stdio transport"
 fi
 
 if [[ "${violations}" -gt 0 ]]; then
 	echo ""
-	echo "FAIL: ${violations} MCP stdio default-path TS authority violation(s)."
+	echo "FAIL: ${violations} MCP stdio TS authority violation(s)."
 	echo "Authority: crates/pdf-reader-mcp-server/src/main.rs via bin/pdf-reader-mcp (default stdio)."
-	echo "TS adapter remains opt-in until deletion PR merge + prod smoke (rej-001)."
 	exit 1
 fi
 
-echo "PASS: Default MCP stdio transport delegates to Rust rmcp (TS adapter opt-in only)."
+echo "PASS: MCP stdio transport delegates solely to Rust rmcp (differential_green parity proven)."

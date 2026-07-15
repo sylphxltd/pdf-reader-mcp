@@ -1,45 +1,26 @@
-import { describe, expect, it } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'bun:test';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
-const DELETION_GATES = [
-  'transport/web-mcp-http:authority_rust',
-  'transport/stdio-rust-rmcp:parity_proven',
-  'tool/read_pdf:parity_proven',
-  'tool/search_pdf:parity_proven',
-  'tool/pdf_evidence:parity_proven',
-] as const;
-
-describe('TS stdio adapter deletion prep matrix', () => {
-  it('npm bin defaults to Rust rmcp (not TS stdio)', () => {
+describe('TS stdio adapter deletion matrix (tick036 admission)', () => {
+  it('npm bin routes exclusively to Rust rmcp', () => {
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
     expect(bin).toContain('resolve_rust_bin');
-    expect(bin).toContain('printf \'%s\\n\' "stdio"');
-    expect(bin).toContain('use_ts_transport');
-    expect(bin.indexOf('exec node')).toBeGreaterThan(bin.indexOf('resolve_rust_bin'));
+    expect(bin).toContain('resolve_transport');
+    expect(bin).not.toContain('use_ts_transport');
+    expect(bin).not.toContain('PDF_READER_MCP_TRANSPORT:-}" == "ts"');
+    expect(bin).not.toContain('exec node');
+    expect(bin).not.toContain('dist/index.js');
   });
 
-  it('TS adapter remains opt-in via PDF_READER_MCP_TRANSPORT=ts', () => {
-    const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
-    expect(bin).toContain('PDF_READER_MCP_TRANSPORT:-}" == "ts"');
-    expect(readFileSync(path.join(repoRoot, 'src/mcp.ts'), 'utf8')).toContain(
-      'StdioServerTransport'
-    );
+  it('TS stdio adapter sources are deleted', () => {
+    expect(existsSync(path.join(repoRoot, 'src/index.ts'))).toBe(false);
+    expect(existsSync(path.join(repoRoot, 'dist/index.js'))).toBe(false);
   });
 
-  it('ledger records web-mcp-http as rust_impl under rej-010 (deletion gate still requires authority_rust)', () => {
-    const ledger = JSON.parse(
-      readFileSync(path.join(repoRoot, 'docs/specs/pdf-reader-mcp-migration-ledger.json'), 'utf8')
-    ) as {
-      capabilities: Array<{ id: string; state: string }>;
-    };
-    const http = ledger.capabilities.find((cap) => cap.id === 'transport/web-mcp-http');
-    expect(http?.state).toBe('rust_impl');
-  });
-
-  it('HTTP integration harness exists for web-mcp-http parity proof', () => {
+  it('HTTP integration harness exists for web-mcp-http authority proof', () => {
     const integration = readFileSync(
       path.join(repoRoot, 'test/integration/http-transport.test.ts'),
       'utf8'
@@ -50,42 +31,57 @@ describe('TS stdio adapter deletion prep matrix', () => {
     expect(integration).toContain('X-API-Key');
   });
 
-  it('stdio integration harness exists for stdio-rust-rmcp parity proof', () => {
-    const integration = readFileSync(
-      path.join(repoRoot, 'test/integration/stdio-transport.test.ts'),
-      'utf8'
-    );
-    const stdioGate = readFileSync(
-      path.join(repoRoot, 'scripts/check-no-ts-stdio-backend.sh'),
-      'utf8'
-    );
-    expect(integration).toContain('MCP Server stdio Transport Integration');
-    expect(integration).toContain('read_pdf');
-    expect(integration).toContain('golden mock parity over stdio');
-    expect(stdioGate).toContain('rust_impl');
-    expect(stdioGate).toContain('ts_only');
-  });
-
-  it('deletion readiness script documents fleet gates', () => {
+  it('deletion gate script enforces ts_deleted ledger state', () => {
     const script = readFileSync(
       path.join(repoRoot, 'scripts/check-ts-adapter-deletion-ready.sh'),
       'utf8'
     );
-    for (const gate of DELETION_GATES) {
-      const [capability, state] = gate.split(':');
-      expect(script).toContain(`require_ledger_state "${capability}" "${state}"`);
-    }
-    expect(script).toContain('transport/stdio-ts-adapter');
-    expect(script).toContain('src/index.ts');
+    expect(script).toContain('require_ledger_state "transport/stdio-ts-adapter" "ts_deleted"');
+    expect(script).toContain('src/index.ts must be deleted');
+    expect(script).toContain('use_ts_transport');
   });
 
-  it('ledger records stdio-ts-adapter as ts_only pending deletion', () => {
+  it('ledger records stdio-ts-adapter as ts_deleted', () => {
     const ledger = JSON.parse(
       readFileSync(path.join(repoRoot, 'docs/specs/pdf-reader-mcp-migration-ledger.json'), 'utf8')
     ) as {
       capabilities: Array<{ id: string; state: string }>;
+      summary: { ts_deleted: number; ts_only: number; completion_progress: number };
     };
     const tsAdapter = ledger.capabilities.find((cap) => cap.id === 'transport/stdio-ts-adapter');
-    expect(tsAdapter?.state).toBe('ts_only');
+    expect(tsAdapter?.state).toBe('ts_deleted');
+    expect(ledger.summary.ts_deleted).toBe(6);
+    expect(ledger.summary.ts_only).toBe(0);
+    expect(ledger.summary.completion_progress).toBe(1.0);
+  });
+
+  it('ledger records transport/stdio-rust-rmcp as ts_deleted (tick036 admission)', () => {
+    const ledger = JSON.parse(
+      readFileSync(path.join(repoRoot, 'docs/specs/pdf-reader-mcp-migration-ledger.json'), 'utf8')
+    ) as {
+      capabilities: Array<{ id: string; state: string; proof?: { status: string } }>;
+      summary: { ts_deleted: number; completion_progress: number; authority_progress: number };
+    };
+    const admittedProof = new Set(['missing', 'differential_green', 'canary_green', 'caught_up']);
+    const stdioRust = ledger.capabilities.find((cap) => cap.id === 'transport/stdio-rust-rmcp');
+    expect(stdioRust?.state).toBe('ts_deleted');
+    expect(admittedProof.has(stdioRust?.proof?.status ?? '')).toBe(true);
+    expect(ledger.summary.ts_deleted).toBe(6);
+    expect(ledger.summary.completion_progress).toBe(1.0);
+    expect(ledger.summary.authority_progress).toBe(1.0);
+  });
+
+  it('ledger records all three MCP tools as ts_deleted (tick036 admission)', () => {
+    const ledger = JSON.parse(
+      readFileSync(path.join(repoRoot, 'docs/specs/pdf-reader-mcp-migration-ledger.json'), 'utf8')
+    ) as {
+      capabilities: Array<{ id: string; state: string }>;
+      summary: { ts_deleted: number };
+    };
+    for (const toolId of ['tool/read_pdf', 'tool/search_pdf', 'tool/pdf_evidence']) {
+      const tool = ledger.capabilities.find((cap) => cap.id === toolId);
+      expect(tool?.state).toBe('ts_deleted');
+    }
+    expect(ledger.summary.ts_deleted).toBe(6);
   });
 });
