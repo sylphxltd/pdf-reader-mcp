@@ -20,7 +20,8 @@ describe('architecture contract (Rust core + Rust rmcp MCP)', () => {
     const script = readFileSync(binWrapper, 'utf8');
     expect(script).toContain('pdf-reader-mcp-server');
     expect(script).toContain('resolve_rust_bin');
-    expect(script).toContain('use_ts_transport');
+    expect(script).not.toContain('use_ts_transport');
+    expect(script).not.toContain('exec node');
   });
 
   it('routes read_pdf through Rust core module instead of cli_bridge legacy path', () => {

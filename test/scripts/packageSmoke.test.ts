@@ -36,7 +36,7 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
       'pdf-reader-mcp': './bin/pdf-reader-mcp',
     },
     exports: {
-      '.': './dist/index.js',
+      '.': './dist/doctor-cli.js',
     },
     files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],
   });
@@ -157,7 +157,7 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   });
   if (includeRuntime) {
     fs.writeFileSync(
-      path.join(packageDir, 'dist', 'index.js'),
+      path.join(packageDir, 'dist', 'doctor-cli.js'),
       '#!/usr/bin/env node\nconsole.log("smoke");\n',
       'utf8'
     );
@@ -181,7 +181,7 @@ describe('package smoke', () => {
 
       const checks = await validateExtractedPackage(tempDir);
 
-      expect(checks.find((check) => check.id === 'runtime:dist-index')?.status).toBe('failed');
+      expect(checks.find((check) => check.id === 'runtime:dist-doctor')?.status).toBe('failed');
     });
   });
 

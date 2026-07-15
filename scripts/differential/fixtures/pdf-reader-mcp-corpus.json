@@ -36,7 +36,7 @@
     {
       "id": "surface-bin-rmcp",
       "surface": "bin",
-      "markers": ["resolve_rust_bin", "resolve_transport", "use_ts_transport", "MCP_TRANSPORT=http"]
+      "markers": ["resolve_rust_bin", "resolve_transport", "exec \"$bin\"", "MCP_TRANSPORT=http"]
     },
     {
       "id": "surface-stdio-rmcp",
