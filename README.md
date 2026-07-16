@@ -1,10 +1,9 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/sylphxai-pdf-reader-mcp-badge.png)](https://mseep.ai/app/sylphxai-pdf-reader-mcp)
-
 <div align="center">
 
 <p align="center">
   <img src="docs/banner.png" alt="PDF Reader MCP banner" width="100%" />
 </p>
+
 # 📄 PDF Reader MCP
 
 ### Your agent read the PDF. **Did it read the truth?**
@@ -26,11 +25,6 @@ evidence you can search, crop, and cite.
 
 [⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
 · [Quick start](#quick-start) · [See it work](#see-it-work) · [Roadmap](docs/roadmap/sota-family-roadmap.md) · [Why not plain text?](#why-not-a-plain-text-dump)
-
-<a href="https://mseep.ai/app/SylphxAI-pdf-reader-mcp">
-<img src="https://mseep.net/pr/SylphxAI-pdf-reader-mcp-badge.png" alt="Security Validated" width="200"/>
-</a>
-
 </div>
 
 ---
