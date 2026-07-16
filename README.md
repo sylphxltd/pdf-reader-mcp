@@ -2,6 +2,10 @@
 
 <div align="center">
 
+<p align="center">
+  <img src="docs/banner.png" alt="PDF Reader MCP banner" width="100%" />
+</p>
+
 # 📄 PDF Reader MCP
 
 ### Your agent read the PDF. **Did it read the truth?**
