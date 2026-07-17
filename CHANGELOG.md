@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.16
+
+### Patch Changes
+
+- Restore full TypeScript MCP as production default (3.0.14 drop-in).
+
+  3.0.15 prematurely published an incomplete Rust-only MCP path that rejected
+  remote URLs and much of the Agent Document Twin / pdf_evidence surface.
+  Production default is restored to `dist/index.js` (full TS tools). Rust remains
+  opt-in only via `PDF_READER_MCP_ENGINE=rust` until pure-Rust capability parity
+  is proven. Includes the GHSA-f3xw-ff5r-rj7c SSRF guard fix on the TS path.
+
 ## 3.0.15
 
 ### Patch Changes

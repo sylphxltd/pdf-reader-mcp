@@ -141,6 +141,7 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
       env: {
         ...process.env,
         NODE_ENV: 'test',
+        PDF_READER_MCP_ENGINE: 'rust',
         MCP_TRANSPORT: 'http',
         MCP_HTTP_PORT: testPort.toString(),
         MCP_HTTP_HOST: TEST_HOST,
@@ -342,6 +343,7 @@ describe('MCP Server HTTP Transport Authentication (Rust rmcp)', () => {
       env: {
         ...process.env,
         NODE_ENV: 'test',
+        PDF_READER_MCP_ENGINE: 'rust',
         MCP_TRANSPORT: 'http',
         MCP_HTTP_PORT: testPort.toString(),
         MCP_HTTP_HOST: TEST_HOST,

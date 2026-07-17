@@ -388,15 +388,15 @@ export const validateExtractedPackage = async (
   const checks: PackageSmokeCheck[] = [];
   const packageJsonPath = path.join(packageDir, 'package.json');
   const packageJson = await readJson(packageJsonPath);
+  const distIndexPath = path.join(packageDir, 'dist', 'index.js');
   const distDoctorPath = path.join(packageDir, 'dist', 'doctor-cli.js');
-  const nativeServerPath = path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
   const publicProviderManifestPath = path.join(
     packageDir,
     'corpus',
     'public-provider-accuracy.json'
   );
-  const distDoctorPrefix = await readTextPrefix(distDoctorPath);
+  const distIndexPrefix = await readTextPrefix(distIndexPath);
   const publicCorpusManifest = await readJson(publicCorpusManifestPath);
   const publicProviderManifest = await readJson(publicProviderManifestPath);
   const publicCorpusSummary = summarizePublicCorpusManifest(publicCorpusManifest);
@@ -411,23 +411,23 @@ export const validateExtractedPackage = async (
   });
   addCheck(
     checks,
-    'runtime:dist-doctor',
-    await fileExists(distDoctorPath),
-    'published package contains dist/doctor-cli.js',
-    { path: 'package/dist/doctor-cli.js' }
+    'runtime:dist-index',
+    await fileExists(distIndexPath),
+    'published package contains dist/index.js (full TypeScript MCP surface)',
+    { path: 'package/dist/index.js' }
   );
   addCheck(
     checks,
     'runtime:shebang',
-    distDoctorPrefix?.startsWith('#!/usr/bin/env node') === true,
-    'dist/doctor-cli.js keeps the executable Node shebang'
+    distIndexPrefix?.startsWith('#!/usr/bin/env node') === true,
+    'dist/index.js keeps the executable Node shebang'
   );
   addCheck(
     checks,
-    'runtime:rust-mcp-server',
-    await fileExists(nativeServerPath),
-    'published package contains staged Rust MCP server binary',
-    { path: 'package/bin/native/pdf-reader-mcp-server' }
+    'runtime:dist-doctor',
+    await fileExists(distDoctorPath),
+    'published package contains dist/doctor-cli.js',
+    { path: 'package/dist/doctor-cli.js' }
   );
   addCheck(
     checks,
@@ -478,15 +478,15 @@ export const validateExtractedPackage = async (
   addCheck(
     checks,
     'package-json:bin',
-    bin?.['pdf-reader-mcp'] === './bin/pdf-reader-mcp',
-    'package bin points to the Rust-first MCP launcher',
+    bin?.['pdf-reader-mcp'] === './dist/index.js',
+    'package bin points to the full TypeScript MCP entry (3.0.14 drop-in)',
     { actual: bin?.['pdf-reader-mcp'] }
   );
   addCheck(
     checks,
     'package-json:exports',
-    exportsField?.['.'] === './dist/doctor-cli.js',
-    'package export points to the published doctor CLI artifact',
+    exportsField?.['.'] === './dist/index.js',
+    'package export points to the published TypeScript MCP entry',
     { actual: exportsField?.['.'] }
   );
 
@@ -543,8 +543,8 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
     addCheck(
       checks,
       'tarball:dist-index',
-      tarballEntries.includes('package/dist/doctor-cli.js'),
-      'tarball includes package/dist/doctor-cli.js',
+      tarballEntries.includes('package/dist/index.js'),
+      'tarball includes package/dist/index.js',
       { entries: tarballEntries }
     );
     addCheck(
@@ -571,13 +571,6 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
       tarballEntries.includes('package/corpus/public-provider-accuracy.json'),
       'tarball includes public provider accuracy manifest'
     );
-    addCheck(
-      checks,
-      'tarball:rust-mcp-server',
-      tarballEntries.includes('package/bin/native/pdf-reader-mcp-server'),
-      'tarball includes the staged Rust rmcp MCP server binary'
-    );
-
     const extractDir = path.join(tempDir, 'extract');
     fs.mkdirSync(extractDir, { recursive: true });
     await execFileAsync('tar', ['-xzf', tarballPath, '-C', extractDir], {

@@ -11,20 +11,26 @@ const productionSource = (file: string): string => {
   return source.split('#[cfg(test)]')[0] ?? source;
 };
 
-describe('architecture contract (Rust core + Rust rmcp MCP)', () => {
-  it('does not ship a TypeScript engine-invoke bridge', () => {
-    expect(existsSync(path.join(repoRoot, 'src/engine-invoke.ts'))).toBe(false);
+describe('architecture contract (TS production default + Rust opt-in)', () => {
+  it('ships the full TypeScript MCP adapter as production default', () => {
+    expect(existsSync(path.join(repoRoot, 'src/index.ts'))).toBe(true);
+    expect(existsSync(path.join(repoRoot, 'src/mcp.ts'))).toBe(true);
+    const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
+      bin?: Record<string, string>;
+    };
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
   });
 
-  it('defaults the published bin wrapper to the staged rmcp server binary', () => {
+  it('launcher defaults to TypeScript and keeps Rust as opt-in only', () => {
     const script = readFileSync(binWrapper, 'utf8');
-    expect(script).toContain('pdf-reader-mcp-server');
+    expect(script).toContain('dist/index.js');
+    expect(script).toContain('exec node');
+    expect(script).toContain('PDF_READER_MCP_ENGINE');
     expect(script).toContain('resolve_rust_bin');
-    expect(script).not.toContain('use_ts_transport');
-    expect(script).not.toContain('exec node');
+    expect(script).toContain('pdf-reader-mcp-server');
   });
 
-  it('routes read_pdf through Rust core module instead of cli_bridge legacy path', () => {
+  it('routes Rust opt-in read_pdf through Rust core module instead of cli_bridge legacy path', () => {
     const lib = readFileSync(path.join(mcpServerSrc, 'lib.rs'), 'utf8');
     const production = lib.split('#[cfg(test)]')[0] ?? lib;
     expect(production).toContain('read_pdf::read_pdf');
@@ -33,7 +39,7 @@ describe('architecture contract (Rust core + Rust rmcp MCP)', () => {
     expect(production).not.toContain('cli_bridge::invoke_cli_tool("pdf_evidence"');
   });
 
-  it('keeps cli_bridge available only for optional legacy search fallback', () => {
+  it('keeps cli_bridge available only for optional legacy search fallback on Rust path', () => {
     const bridge = productionSource('cli_bridge.rs');
     expect(bridge).toContain('pdf-reader-cli');
     expect(bridge).not.toContain('invoke_ts_engine');

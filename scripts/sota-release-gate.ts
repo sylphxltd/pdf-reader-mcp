@@ -292,12 +292,13 @@ export const buildSotaReleaseGateReport = async (
   );
   addCheck(
     checks,
-    'mcp:rust_adapter_default',
-    binWrapper.includes('pdf-reader-mcp-server') &&
-      binWrapper.includes('resolve_rust_bin') &&
-      !binWrapper.includes('use_ts_transport') &&
-      !binWrapper.includes('exec node'),
-    'Default npm bin launches the Rust rmcp MCP server; TypeScript stdio adapter is retired'
+    'mcp:ts_dropin_default',
+    binWrapper.includes('dist/index.js') &&
+      binWrapper.includes('exec node') &&
+      binWrapper.includes('printf \'%s\\n\' "ts"') &&
+      binWrapper.includes('PDF_READER_MCP_ENGINE') &&
+      fs.existsSync(path.join(repoRoot, 'src/index.ts')),
+    'Default production path is full TypeScript MCP (3.0.14 drop-in); Rust is opt-in only'
   );
 
   const httpTransportSource = fs.readFileSync(
@@ -309,9 +310,9 @@ export const buildSotaReleaseGateReport = async (
     'mcp:rust_web_http_transport',
     httpTransportSource.includes('StreamableHttpService') &&
       httpTransportSource.includes('/mcp/health') &&
-      binWrapper.includes('resolve_transport') &&
-      binWrapper.includes('MCP_TRANSPORT=http'),
-    'Rust rmcp streamable HTTP Web MCP transport is wired; npm bin routes MCP_TRANSPORT=http to Rust'
+      binWrapper.includes('resolve_rust_bin') &&
+      binWrapper.includes('PDF_READER_MCP_ENGINE'),
+    'Rust rmcp streamable HTTP remains available as opt-in engine (not production default)'
   );
 
   const httpIntegration = fs.readFileSync(
@@ -365,16 +366,15 @@ export const buildSotaReleaseGateReport = async (
   );
   addCheck(
     checks,
-    'mcp:http_authority_rust',
-    fs.existsSync(httpAuthorityGate) &&
-      fs.readFileSync(httpAuthorityGate, 'utf8').includes('check-no-ts-http-backend'),
-    'HTTP authority gate forbids parallel TS HTTP backend on shipped bin path'
+    'mcp:http_gate_script_present',
+    fs.existsSync(httpAuthorityGate),
+    'HTTP authority gate script remains present for future pure-Rust cutover'
   );
   addCheck(
     checks,
-    'mcp:stdio_deletion_prep_gate',
+    'mcp:stdio_gate_script_present',
     fs.existsSync(stdioDeletionGate),
-    'stdio TS adapter deletion-prep gate script is present'
+    'stdio gate script remains present for future pure-Rust cutover'
   );
 
   const matrixProbe = spawnSync(

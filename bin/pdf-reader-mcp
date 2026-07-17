@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-# PDF Reader MCP launcher — Rust rmcp only (fail-closed, no TS stdio fallback).
+# PDF Reader MCP launcher.
+#
+# DEFAULT = TypeScript full surface (100% drop-in with @sylphx/pdf-reader-mcp@3.0.14).
+# OPT-IN  = Rust rmcp subset via PDF_READER_MCP_ENGINE=rust (experimental; not drop-in).
+#
+# Never silently cut TS capabilities: incomplete Rust cutovers ship only behind an opt-in.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TS_ENTRY="$ROOT/dist/index.js"
 
 resolve_rust_bin() {
   if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
@@ -23,26 +29,46 @@ resolve_rust_bin() {
   return 1
 }
 
-resolve_transport() {
-  if [[ -n "${PDF_READER_MCP_TRANSPORT:-}" ]]; then
-    printf '%s\n' "${PDF_READER_MCP_TRANSPORT}"
+resolve_engine() {
+  # Explicit engine wins.
+  if [[ -n "${PDF_READER_MCP_ENGINE:-}" ]]; then
+    printf '%s\n' "${PDF_READER_MCP_ENGINE}"
     return 0
   fi
-  if [[ -n "${MCP_TRANSPORT:-}" ]]; then
-    printf '%s\n' "${MCP_TRANSPORT}"
+  # Historical opt-in names for the incomplete Rust path.
+  if [[ "${PDF_READER_MCP_TRANSPORT:-}" == "rust" ]]; then
+    printf '%s\n' "rust"
     return 0
   fi
-  printf '%s\n' "stdio"
+  if [[ "${1:-}" == "rust" ]]; then
+    printf '%s\n' "rust"
+    return 0
+  fi
+  # Default: full TypeScript surface (drop-in).
+  printf '%s\n' "ts"
 }
 
-if bin="$(resolve_rust_bin)"; then
-  transport="$(resolve_transport)"
-  if [[ "$transport" == "http" ]]; then
-    export MCP_TRANSPORT=http
-    export PDF_READER_MCP_TRANSPORT=http
+engine="$(resolve_engine "${1:-}")"
+
+if [[ "$engine" == "rust" ]]; then
+  if [[ "${1:-}" == "rust" ]]; then
+    shift
   fi
-  exec "$bin" "$@"
+  if bin="$(resolve_rust_bin)"; then
+    transport="${PDF_READER_MCP_TRANSPORT:-${MCP_TRANSPORT:-stdio}}"
+    if [[ "$transport" == "http" ]]; then
+      export MCP_TRANSPORT=http
+      export PDF_READER_MCP_TRANSPORT=http
+    fi
+    exec "$bin" "$@"
+  fi
+  echo "[pdf-reader-mcp] PDF_READER_MCP_ENGINE=rust requested but Rust binary is missing. Run: bun run build:rust" >&2
+  exit 1
 fi
 
-echo "[pdf-reader-mcp] Rust MCP server (rmcp) is not built. Run: bun run build:rust" >&2
-exit 1
+if [[ ! -f "$TS_ENTRY" ]]; then
+  echo "[pdf-reader-mcp] TypeScript MCP entry missing at ${TS_ENTRY}. Run: bun run build" >&2
+  exit 1
+fi
+
+exec node "$TS_ENTRY" "$@"

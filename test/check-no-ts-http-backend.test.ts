@@ -7,31 +7,28 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 const readText = (relativePath: string): string =>
   readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-describe('Web MCP HTTP Rust authority gate', () => {
-  it('check-no-ts-http-backend gate script exists and enforces Rust HTTP authority', () => {
-    const script = readText('scripts/check-no-ts-http-backend.sh');
+describe('Web MCP HTTP production default (TypeScript drop-in)', () => {
+  it('TypeScript MCP entry supports HTTP transport for production drop-in', () => {
+    const index = readText('src/index.ts');
+    const mcp = readText('src/mcp.ts');
 
-    expect(script).toContain('check-no-ts-http-backend');
-    expect(script).toContain('resolve_rust_bin');
-    expect(script).toContain('MCP_TRANSPORT=http');
-    expect(script).toContain('StreamableHttpService');
-    expect(script).toContain('check-ts-adapter-deletion-ready.sh');
+    expect(index).toContain('MCP_TRANSPORT');
+    expect(index).toContain('http');
+    expect(mcp).toContain('StreamableHTTPServerTransport');
     expect(existsSync(path.join(repoRoot, 'test/integration/http-transport.test.ts'))).toBe(true);
   });
 
-  it('npm bin routes HTTP to Rust rmcp without TS stdio opt-in', () => {
+  it('Rust HTTP remains opt-in via engine switch, not production default', () => {
     const bin = readText('bin/pdf-reader-mcp');
     const httpTransport = readText('crates/pdf-reader-mcp-server/src/http_transport.rs');
 
+    expect(bin).toContain('PDF_READER_MCP_ENGINE');
     expect(bin).toContain('resolve_rust_bin');
-    expect(bin).toContain('MCP_TRANSPORT=http');
-    expect(bin).toContain('transport="$(resolve_transport)"');
-    expect(bin).not.toContain('use_ts_transport');
     expect(httpTransport).toContain('StreamableHttpService');
     expect(httpTransport).toContain('health_check');
   });
 
-  it('migration ledger marks transport/web-mcp-http as ts_deleted after tick036 admission', () => {
+  it('migration ledger marks web-mcp-http as rust_impl (not production authority)', () => {
     const ledger = JSON.parse(readText('docs/specs/pdf-reader-mcp-migration-ledger.json')) as {
       capabilities: Array<{ id: string; state: string }>;
     };
@@ -39,6 +36,6 @@ describe('Web MCP HTTP Rust authority gate', () => {
     const http = ledger.capabilities.find(
       (capability) => capability.id === 'transport/web-mcp-http'
     );
-    expect(http?.state).toBe('ts_deleted');
+    expect(http?.state).toBe('rust_impl');
   });
 });

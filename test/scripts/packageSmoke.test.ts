@@ -22,21 +22,14 @@ const writeJson = (filePath: string, value: JsonValue) => {
 const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   fs.mkdirSync(path.join(packageDir, 'dist'), { recursive: true });
   fs.mkdirSync(path.join(packageDir, 'corpus'), { recursive: true });
-  fs.mkdirSync(path.join(packageDir, 'bin', 'native'), { recursive: true });
-  fs.writeFileSync(path.join(packageDir, 'bin', 'pdf-reader-mcp'), '#!/usr/bin/env bash\n', 'utf8');
-  fs.writeFileSync(
-    path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server'),
-    'rust-smoke-binary',
-    'utf8'
-  );
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
     version: '0.0.0-smoke',
     bin: {
-      'pdf-reader-mcp': './bin/pdf-reader-mcp',
+      'pdf-reader-mcp': './dist/index.js',
     },
     exports: {
-      '.': './dist/doctor-cli.js',
+      '.': './dist/index.js',
     },
     files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],
   });
@@ -157,8 +150,13 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   });
   if (includeRuntime) {
     fs.writeFileSync(
-      path.join(packageDir, 'dist', 'doctor-cli.js'),
+      path.join(packageDir, 'dist', 'index.js'),
       '#!/usr/bin/env node\nconsole.log("smoke");\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(packageDir, 'dist', 'doctor-cli.js'),
+      '#!/usr/bin/env node\nconsole.log("doctor");\n',
       'utf8'
     );
   }
@@ -181,7 +179,7 @@ describe('package smoke', () => {
 
       const checks = await validateExtractedPackage(tempDir);
 
-      expect(checks.find((check) => check.id === 'runtime:dist-doctor')?.status).toBe('failed');
+      expect(checks.find((check) => check.id === 'runtime:dist-index')?.status).toBe('failed');
     });
   });
 

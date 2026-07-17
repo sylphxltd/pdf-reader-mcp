@@ -23365,7 +23365,7 @@ class ChoiceWidgetAnnotationElement extends WidgetAnnotationElement {
     }
     if (this.data.combo) {
       this._setTextStyle(selectElement);
-    } else {}
+    }
     this._setBackgroundColor(selectElement);
     this._setDefaultPropertiesFromJS(selectElement);
     this.container.append(selectElement);
@@ -31897,20 +31897,115 @@ var isPrivateIpv4 = (ip) => {
     return true;
   return PRIVATE_IPV4_PREDICATES.some((pred) => pred(a, b));
 };
+var hextetsToIpv4 = (hi, lo) => `${hi >> 8 & 255}.${hi & 255}.${lo >> 8 & 255}.${lo & 255}`;
+var parseHextetParts = (parts) => {
+  if (parts.length !== 8)
+    return null;
+  const hextets = parts.map((h) => Number.parseInt(h || "0", 16));
+  return hextets.every((h) => !Number.isNaN(h) && h >= 0 && h <= 65535) ? hextets : null;
+};
+var replaceIpv4TailWithHextets = (s) => {
+  const v4Tail = s.match(/:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (!v4Tail)
+    return s;
+  const dotted = v4Tail[1];
+  if (dotted === undefined)
+    return null;
+  const octets = dotted.split(".").map((x) => Number.parseInt(x, 10));
+  const a = octets[0];
+  const b = octets[1];
+  const c = octets[2];
+  const d = octets[3];
+  if (octets.length !== 4 || a === undefined || b === undefined || c === undefined || d === undefined || octets.some((o) => Number.isNaN(o) || o < 0 || o > 255)) {
+    return null;
+  }
+  const hi = (a << 8 | b).toString(16);
+  const lo = (c << 8 | d).toString(16);
+  return `${s.slice(0, -dotted.length)}${hi}:${lo}`;
+};
+var expandCompressedIpv6 = (s) => {
+  if (s.indexOf("::") !== s.lastIndexOf("::"))
+    return null;
+  const [leftRaw, rightRaw] = s.split("::");
+  const left = leftRaw === undefined || leftRaw === "" ? [] : leftRaw.split(":");
+  const right = rightRaw === undefined || rightRaw === "" ? [] : rightRaw.split(":");
+  const missing = 8 - left.length - right.length;
+  if (missing < 0)
+    return null;
+  return parseHextetParts([...left, ...Array.from({ length: missing }, () => "0"), ...right]);
+};
+var expandIpv6Hextets = (ip) => {
+  let s = ip.toLowerCase();
+  const zone = s.indexOf("%");
+  if (zone !== -1)
+    s = s.slice(0, zone);
+  if (s.startsWith("[") && s.endsWith("]"))
+    s = s.slice(1, -1);
+  const normalized = replaceIpv4TailWithHextets(s);
+  if (normalized === null)
+    return null;
+  if (normalized.includes("::"))
+    return expandCompressedIpv6(normalized);
+  return parseHextetParts(normalized.split(":"));
+};
+var asHextet8 = (hextets) => {
+  if (hextets.length !== 8)
+    return null;
+  const h0 = hextets[0];
+  const h1 = hextets[1];
+  const h2 = hextets[2];
+  const h3 = hextets[3];
+  const h4 = hextets[4];
+  const h5 = hextets[5];
+  const h6 = hextets[6];
+  const h7 = hextets[7];
+  if (h0 === undefined || h1 === undefined || h2 === undefined || h3 === undefined || h4 === undefined || h5 === undefined || h6 === undefined || h7 === undefined) {
+    return null;
+  }
+  return [h0, h1, h2, h3, h4, h5, h6, h7];
+};
+var IPV6_ALWAYS_PRIVATE = [
+  ([h0, h1, h2, h3, h4, h5, h6, h7]) => h0 === 0 && h1 === 0 && h2 === 0 && h3 === 0 && h4 === 0 && h5 === 0 && h6 === 0 && (h7 === 0 || h7 === 1),
+  ([h0]) => (h0 & 65024) === 64512,
+  ([h0]) => (h0 & 65472) === 65152,
+  ([h0]) => (h0 & 65280) === 65280,
+  ([h0, h1, h2]) => h0 === 100 && h1 === 65435 && h2 === 1,
+  ([h0, h1]) => h0 === 8193 && h1 === 0,
+  ([h0, h1]) => h0 === 8193 && h1 === 3512,
+  ([h0, h1, h2, h3]) => h0 === 256 && h1 === 0 && h2 === 0 && h3 === 0
+];
+var IPV6_EMBEDDED_V4 = [
+  {
+    match: ([h0, h1, h2, h3, h4, h5]) => h0 === 0 && h1 === 0 && h2 === 0 && h3 === 0 && h4 === 0 && h5 === 65535,
+    extract: ([, , , , , , h6, h7]) => [h6, h7]
+  },
+  {
+    match: ([h0, h1, h2, h3, h4, h5]) => h0 === 0 && h1 === 0 && h2 === 0 && h3 === 0 && h4 === 0 && h5 === 0,
+    extract: ([, , , , , , h6, h7]) => [h6, h7]
+  },
+  {
+    match: ([h0, h1, h2, h3, h4, h5]) => h0 === 100 && h1 === 65435 && h2 === 0 && h3 === 0 && h4 === 0 && h5 === 0,
+    extract: ([, , , , , , h6, h7]) => [h6, h7]
+  },
+  {
+    match: ([h0]) => h0 === 8194,
+    extract: ([, h1, h2]) => [h1, h2]
+  }
+];
 var isPrivateIpv6 = (ip) => {
-  const lower = ip.toLowerCase();
-  if (lower === "::1" || lower === "::")
+  const expanded = expandIpv6Hextets(ip);
+  if (expanded === null)
     return true;
-  if (lower.startsWith("fc") || lower.startsWith("fd"))
+  const h = asHextet8(expanded);
+  if (h === null)
     return true;
-  if (lower.startsWith("fe80"))
+  if (IPV6_ALWAYS_PRIVATE.some((pred) => pred(h)))
     return true;
-  if (lower.startsWith("ff"))
-    return true;
-  if (lower.startsWith("::ffff:")) {
-    const tail = lower.slice("::ffff:".length);
-    if (net.isIPv4(tail))
-      return isPrivateIpv4(tail);
+  for (const rule of IPV6_EMBEDDED_V4) {
+    if (rule.match(h)) {
+      const [hi, lo] = rule.extract(h);
+      return isPrivateIpv4(hextetsToIpv4(hi, lo));
+    }
   }
   return false;
 };

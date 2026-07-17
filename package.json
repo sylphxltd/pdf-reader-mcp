@@ -1,11 +1,11 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "3.0.15",
+  "version": "3.0.16",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
   "description": "The most-starred PDF MCP server. Stop agent hallucinations on PDFs — one read_pdf call returns an Agent Document Twin with markdown, tables, trust reports, and source evidence (page + bbox). Local-first. Benchmark-gated.",
   "type": "module",
   "bin": {
-    "pdf-reader-mcp": "./bin/pdf-reader-mcp"
+    "pdf-reader-mcp": "./dist/index.js"
   },
   "files": [
     "bin/",
@@ -16,7 +16,7 @@
     "LICENSE"
   ],
   "exports": {
-    ".": "./dist/doctor-cli.js"
+    ".": "./dist/index.js"
   },
   "publishConfig": {
     "access": "public"
@@ -63,9 +63,9 @@
   "scripts": {
     "build:rust": "cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server && bun scripts/stage-rust-mcp.ts",
     "test:rust": "cargo test",
-    "build": "bun build src/doctor-cli.ts --outdir dist --target node && bun build src/legacy-engine-runtime.ts --outdir dist --target node",
+    "build": "bun build src/index.ts --outdir dist --target node && bun build src/doctor-cli.ts --outdir dist --target node && bun build src/legacy-engine-runtime.ts --outdir dist --target node",
     "watch": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector bin/pdf-reader-mcp",
+    "inspector": "npx @modelcontextprotocol/inspector dist/index.js",
     "test": "bun test --timeout=30000",
     "test:watch": "bun test --watch --timeout=30000",
     "test:cov": "bun test --coverage --timeout=30000",
@@ -79,9 +79,8 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "start": "./bin/pdf-reader-mcp",
+    "start": "node dist/index.js",
     "doctor": "bun run src/doctor-cli.ts",
-    "check:ts-adapter-deleted": "bash scripts/check-ts-adapter-deletion-ready.sh",
     "typecheck": "tsc --noEmit",
     "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
     "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",
@@ -95,8 +94,8 @@
     "package:smoke": "bun scripts/package-smoke.ts",
     "sync:server-json": "bun scripts/sync-server-json.ts",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "bun run clean && bun run build && bun run build:rust && bun run package:smoke",
-    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run build:rust && bun run package:smoke && bun run test:cov && bun run check:ts-adapter-deleted && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
+    "prepublishOnly": "bun run clean && bun run build && bun run package:smoke",
+    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
     "release": "bun run release:preflight && changeset publish"
   },
   "dependencies": {
