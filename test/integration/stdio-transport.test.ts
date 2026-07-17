@@ -187,8 +187,7 @@ describe('MCP Server stdio Transport Integration (Rust rmcp)', () => {
   it('should respond to initialize request over stdio', async () => {
     const freshProc = spawn(binWrapper, [], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env,
-        PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
+      env: { ...process.env, PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
     });
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -250,8 +249,7 @@ describe('MCP Server stdio Transport Integration (Rust rmcp)', () => {
 
       const freshProc = spawn(binWrapper, [], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env,
-        PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
+        env: { ...process.env, PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
       });
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await initializeSession(freshProc);
@@ -329,8 +327,7 @@ describe('MCP Server stdio Transport Integration (Rust rmcp)', () => {
 
     const freshProc = spawn(binWrapper, [], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env,
-        PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
+      env: { ...process.env, PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
     });
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await initializeSession(freshProc);
@@ -367,8 +364,7 @@ describe('MCP Server stdio Transport Integration (Rust rmcp)', () => {
 
     const freshProc = spawn(binWrapper, [], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env,
-        PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
+      env: { ...process.env, PDF_READER_MCP_ENGINE: 'rust', NODE_ENV: 'test' },
     });
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await initializeSession(freshProc);
