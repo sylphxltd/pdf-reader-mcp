@@ -2,7 +2,13 @@
   "schemaVersion": 1,
   "title": "Rust MCP drop-in parity matrix vs TypeScript 3.0.14/3.0.16",
   "goal": "Single production path: Rust rmcp transport + 100% TypeScript V3 behavior, then pure-Rust migration without dual defaults.",
-  "updatedAt": "2026-07-17T21:30:00Z",
+  "updatedAt": "2026-07-17T22:45:00Z",
+  "productionContractSuite": {
+    "path": "test/production/productionPath.contract.test.ts",
+    "matrix": "test/production/publicContract.matrix.json",
+    "gate": "bun run check:production-contract",
+    "wiredInto": ["prepublishOnly", "release:preflight"]
+  },
   "productionDefault": {
     "process": "Rust rmcp (bin/native/pdf-reader-mcp-server)",
     "engineMode": "full",

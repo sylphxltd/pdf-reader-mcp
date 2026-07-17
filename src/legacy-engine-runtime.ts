@@ -10,6 +10,7 @@ import type { CallToolResult, ContentBlock } from '@modelcontextprotocol/sdk/typ
 import { pdfEvidence } from './handlers/pdfEvidence.js';
 import { readPdf } from './handlers/readPdf.js';
 import { searchPdf } from './handlers/searchPdf.js';
+import { type Schema, safeParse } from './schema.js';
 import type { PdfEvidenceArgs } from './schemas/pdfEvidence.js';
 import type { ReadPdfArgs } from './schemas/readPdf.js';
 import type { SearchPdfArgs } from './schemas/searchPdf.js';
@@ -70,14 +71,29 @@ async function main(): Promise<void> {
   }
 
   try {
+    // Enforce full Zod contract (including refinements such as exclusive path/url)
+    // at the engine boundary — same fail-closed posture as the TS MCP adapter.
+    const parsed = safeParse(definition.inputSchema as Schema)(request.arguments);
+    if (!parsed.success) {
+      console.log(
+        JSON.stringify({
+          content: [
+            { type: 'text', text: `Invalid arguments for ${request.tool}: ${parsed.error}` },
+          ],
+          isError: true,
+        } satisfies CallToolResult)
+      );
+      return;
+    }
+
     const result = await (async () => {
       switch (request.tool) {
         case 'read_pdf':
-          return readPdf.handler({ input: request.arguments as ReadPdfArgs, ctx: {} });
+          return readPdf.handler({ input: parsed.data as ReadPdfArgs, ctx: {} });
         case 'search_pdf':
-          return searchPdf.handler({ input: request.arguments as SearchPdfArgs, ctx: {} });
+          return searchPdf.handler({ input: parsed.data as SearchPdfArgs, ctx: {} });
         case 'pdf_evidence':
-          return pdfEvidence.handler({ input: request.arguments as PdfEvidenceArgs, ctx: {} });
+          return pdfEvidence.handler({ input: parsed.data as PdfEvidenceArgs, ctx: {} });
         default:
           throw new Error(`Unsupported legacy engine tool: ${request.tool}`);
       }

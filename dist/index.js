@@ -32471,7 +32471,17 @@ var buildMcpServer = ({
     mcpServer.registerTool(name2, {
       description: definition.description,
       inputSchema: definition.inputSchema
-    }, async (input, ctx) => normalizeToolResult(await definition.handler({ input, ctx })));
+    }, async (input, ctx) => {
+      const parsed = definition.inputSchema.safeParse(input);
+      if (!parsed.success) {
+        const message = parsed.error.issues.map((issue2) => {
+          const path = issue2.path.length > 0 ? issue2.path.join(".") : "<root>";
+          return `${path}: ${issue2.message}`;
+        }).join("; ");
+        return toolError(`Invalid arguments for ${name2}: ${message}`);
+      }
+      return normalizeToolResult(await definition.handler({ input: parsed.data, ctx }));
+    });
   }
   return mcpServer;
 };

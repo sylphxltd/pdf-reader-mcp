@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "title": "Production-path public contract matrix (Rust process + full TS parity engine)",
+  "path": {
+    "process": "bin/pdf-reader-mcp → Rust rmcp",
+    "engineMode": "full",
+    "forbidden": ["PDF_READER_ENGINE_MODE=pure-rust as production stand-in"]
+  },
+  "requiredTools": ["read_pdf", "search_pdf", "pdf_evidence"],
+  "readPdfOptionSmoke": [
+    { "id": "meta-pages", "args": { "include_metadata": true, "include_page_count": true } },
+    { "id": "full-text", "args": { "include_full_text": true, "include_page_count": true } },
+    {
+      "id": "markdown-chunks",
+      "args": { "include_markdown": true, "include_chunks": true, "auto": false }
+    },
+    {
+      "id": "elements-semantic",
+      "args": { "include_elements": true, "include_semantic_hints": true, "auto": false }
+    },
+    { "id": "html", "args": { "include_html": true, "auto": false } },
+    { "id": "text-layer", "args": { "include_text_layer": true, "auto": false } },
+    { "id": "tables", "args": { "include_tables": true, "auto": false } },
+    {
+      "id": "outline-labels-permissions",
+      "args": {
+        "include_outline": true,
+        "include_page_labels": true,
+        "include_permissions": true,
+        "auto": false
+      }
+    },
+    {
+      "id": "annotations-geometry",
+      "args": { "include_annotations": true, "include_page_geometry": true, "auto": false }
+    },
+    {
+      "id": "forms-attachments",
+      "args": { "include_form_fields": true, "include_attachments": true, "auto": false }
+    },
+    {
+      "id": "structure-safety",
+      "args": { "include_structure_tree": true, "include_safety_findings": true, "auto": false }
+    },
+    {
+      "id": "layout-map",
+      "args": { "include_layout_diagnostics": true, "include_document_map": true, "auto": false }
+    },
+    {
+      "id": "ast-trust-a11y",
+      "args": {
+        "include_document_ast": true,
+        "include_trust_report": true,
+        "include_accessibility_report": true,
+        "auto": false
+      }
+    },
+    {
+      "id": "auto-balanced",
+      "args": { "auto": true, "auto_detail": "balanced", "sample_pages": 3 }
+    },
+    { "id": "auto-fast", "args": { "auto": true, "auto_detail": "fast", "sample_pages": 2 } },
+    {
+      "id": "page-range",
+      "args": { "sources_pages": "1", "include_full_text": true, "auto": false }
+    }
+  ],
+  "searchPdfCases": [
+    {
+      "id": "literal-basic",
+      "args": { "query": "a", "max_pages": 5, "max_matches_per_source": 10 }
+    },
+    { "id": "case-sensitive", "args": { "query": "a", "case_sensitive": true, "max_pages": 3 } },
+    { "id": "whole-word", "args": { "query": "a", "whole_word": true, "max_pages": 3 } },
+    { "id": "context", "args": { "query": "a", "context_chars": 40, "max_pages": 3 } }
+  ],
+  "pdfEvidenceCases": [
+    {
+      "id": "inspect",
+      "args": { "operation": "inspect", "sample_pages": 2, "include_metadata": true }
+    },
+    {
+      "id": "render_page",
+      "args": { "operation": "render_page", "max_pages": 1, "scale": 1, "include_image": true }
+    },
+    {
+      "id": "extract_regions",
+      "args": {
+        "operation": "extract_regions",
+        "include_image": true,
+        "max_regions": 1,
+        "sources": [
+          {
+            "path": "__SAMPLE__",
+            "regions": [
+              {
+                "id": "r1",
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 200, "top": 200 }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "securityCases": [
+    { "id": "ssrf-nat64-metadata", "url": "http://[64:ff9b::a9fe:a9fe]/latest/meta-data/" },
+    { "id": "ssrf-6to4-metadata", "url": "http://[2002:a9fe:a9fe::]/" },
+    { "id": "ssrf-loopback-v4", "url": "http://127.0.0.1:9/" },
+    { "id": "ssrf-link-local", "url": "http://169.254.169.254/latest/meta-data/" },
+    { "id": "invalid-both-locators", "pathAndUrl": true }
+  ]
+}

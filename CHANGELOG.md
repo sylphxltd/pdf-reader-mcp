@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.18
+
+### Patch Changes
+
+- Add star-project production-path public contract suite and fail-closed Zod validation.
+
+  - New production contract tests exercise the published bin with full-parity engine
+    (read_pdf option matrix, search_pdf, pdf_evidence ops, SSRF, fail-closed errors)
+  - Wire `check:production-contract` into prepublish and release preflight
+  - Enforce full Zod schema validation (including path/url exclusivity refinements)
+    at both the TS MCP adapter and the parity-bridge engine boundary
+
 ## 3.0.17
 
 ### Patch Changes

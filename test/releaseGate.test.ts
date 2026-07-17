@@ -12,6 +12,7 @@ describe('pdf reader SOTA release gate golden probes', () => {
     expect(report.checks.some((check) => check.id === 'mcp:rust_process_full_parity_default')).toBe(
       true
     );
+    expect(report.checks.some((check) => check.id === 'mcp:production_contract_suite')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:rust_web_http_transport')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:http_transport_parity')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:read_pdf_golden_parity')).toBe(true);

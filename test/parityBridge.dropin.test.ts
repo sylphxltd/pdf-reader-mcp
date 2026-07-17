@@ -40,6 +40,36 @@ describe('full TS parity bridge (drop-in engine)', () => {
     expect(text).toContain('success');
   });
 
+  test('legacy engine rejects dual path+url locator (public contract refine)', () => {
+    const payload = JSON.stringify({
+      tool: 'read_pdf',
+      arguments: {
+        sources: [{ path: samplePdf, url: 'https://example.com/x.pdf' }],
+        include_full_text: false,
+        auto: false,
+      },
+    });
+    const result = spawnSync('node', [legacyRuntime], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      input: payload,
+      timeout: 30_000,
+    });
+    expect(result.status).toBe(0);
+    const line = (result.stdout ?? '')
+      .split('\n')
+      .map((item) => item.trim())
+      .reverse()
+      .find((item) => item.startsWith('{'));
+    expect(line).toBeDefined();
+    const body = JSON.parse(line as string) as {
+      isError?: boolean;
+      content?: Array<{ text?: string }>;
+    };
+    expect(body.isError).toBe(true);
+    expect((body.content?.[0]?.text ?? '').toLowerCase()).toMatch(/exactly one|path|url|invalid/);
+  });
+
   test('legacy engine blocks private URL SSRF encodings (GHSA-f3xw-ff5r-rj7c)', () => {
     const payload = JSON.stringify({
       tool: 'read_pdf',

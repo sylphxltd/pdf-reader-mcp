@@ -300,6 +300,17 @@ export const buildSotaReleaseGateReport = async (
       fs.existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts')),
     'Default production path is Rust rmcp process with full TypeScript engine parity bridge'
   );
+  addCheck(
+    checks,
+    'mcp:production_contract_suite',
+    fs.existsSync(path.join(repoRoot, 'test/production/productionPath.contract.test.ts')) &&
+      fs.existsSync(path.join(repoRoot, 'test/production/publicContract.matrix.json')) &&
+      fs.existsSync(path.join(repoRoot, 'scripts/check-production-contract.ts')) &&
+      fs
+        .readFileSync(path.join(repoRoot, 'package.json'), 'utf8')
+        .includes('check:production-contract'),
+    'Star-project production-path public contract suite is wired into package scripts'
+  );
 
   const httpTransportSource = fs.readFileSync(
     path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/http_transport.rs'),

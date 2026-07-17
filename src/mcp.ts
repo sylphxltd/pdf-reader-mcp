@@ -279,7 +279,22 @@ const buildMcpServer = ({
         description: definition.description,
         inputSchema: definition.inputSchema,
       },
-      async (input, ctx) => normalizeToolResult(await definition.handler({ input, ctx }))
+      async (input, ctx) => {
+        // MCP SDK may project Zod schemas to JSON Schema for the wire, which can
+        // drop refinements (e.g. exclusive path/url). Re-validate with the full
+        // Zod schema before executing any tool handler — fail closed.
+        const parsed = definition.inputSchema.safeParse(input);
+        if (!parsed.success) {
+          const message = parsed.error.issues
+            .map((issue) => {
+              const path = issue.path.length > 0 ? issue.path.join('.') : '<root>';
+              return `${path}: ${issue.message}`;
+            })
+            .join('; ');
+          return toolError(`Invalid arguments for ${name}: ${message}`);
+        }
+        return normalizeToolResult(await definition.handler({ input: parsed.data as never, ctx }));
+      }
     );
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "3.0.17",
+  "version": "3.0.18",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
   "description": "The most-starred PDF MCP server. Stop agent hallucinations on PDFs — one read_pdf call returns an Agent Document Twin with markdown, tables, trust reports, and source evidence (page + bbox). Local-first. Benchmark-gated.",
   "type": "module",
@@ -69,6 +69,8 @@
     "test": "bun test --timeout=30000",
     "test:watch": "bun test --watch --timeout=30000",
     "test:cov": "bun test --coverage --timeout=30000",
+    "test:production-contract": "bun scripts/check-production-contract.ts",
+    "check:production-contract": "bun scripts/check-production-contract.ts",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
@@ -94,8 +96,8 @@
     "package:smoke": "bun scripts/package-smoke.ts",
     "sync:server-json": "bun scripts/sync-server-json.ts",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "bun run clean && bun run build && bun run build:rust && bun run package:smoke",
-    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run build:rust && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
+    "prepublishOnly": "bun run clean && bun run build && bun run build:rust && bun run package:smoke && bun run check:production-contract",
+    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run build:rust && bun run package:smoke && bun run check:production-contract && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
     "release": "bun run release:preflight && changeset publish"
   },
   "dependencies": {

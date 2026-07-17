@@ -17,7 +17,7 @@ use rmcp::{
 use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
-pub const SERVER_VERSION: &str = "3.0.17";
+pub const SERVER_VERSION: &str = "3.0.18";
 pub const SERVER_INSTRUCTIONS: &str = "V3 PDF intelligence MCP server (Rust rmcp transport + full TypeScript engine parity by default). Use read_pdf first with auto=true for smart Agent Document Twin extraction, search_pdf for cheap literal evidence retrieval, and pdf_evidence for focused inspect, render, crop, OCR, or visual-region evidence operations. Pure-Rust subset: PDF_READER_ENGINE_MODE=pure-rust.";
 
 #[derive(Clone)]

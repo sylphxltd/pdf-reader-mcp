@@ -24047,6 +24047,15 @@ var array3 = (schema, ...actions) => applyActions(exports_external.array(schema)
 var object3 = (shape, ...actions) => applyActions(exports_external.object(shape), actions);
 var optional3 = (schema) => schema.optional();
 var union3 = (...schemas3) => exports_external.union(schemas3);
+var formatIssuePath = (path2) => path2.length > 0 ? path2.map((part) => String(part)).join(".") : "<root>";
+var formatZodError = (error51) => error51.issues.map((issue2) => `${formatIssuePath(issue2.path)}: ${issue2.message}`).join("; ");
+var safeParse4 = (schema) => (input) => {
+  const result = schema.safeParse(input);
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  return { success: false, error: formatZodError(result.error) };
+};
 
 // src/schemas/extractRegions.ts
 var regionBoundingBoxSchema = object3({
@@ -64312,14 +64321,24 @@ async function main() {
     return;
   }
   try {
+    const parsed = safeParse4(definition.inputSchema)(request.arguments);
+    if (!parsed.success) {
+      console.log(JSON.stringify({
+        content: [
+          { type: "text", text: `Invalid arguments for ${request.tool}: ${parsed.error}` }
+        ],
+        isError: true
+      }));
+      return;
+    }
     const result = await (async () => {
       switch (request.tool) {
         case "read_pdf":
-          return readPdf.handler({ input: request.arguments, ctx: {} });
+          return readPdf.handler({ input: parsed.data, ctx: {} });
         case "search_pdf":
-          return searchPdf.handler({ input: request.arguments, ctx: {} });
+          return searchPdf.handler({ input: parsed.data, ctx: {} });
         case "pdf_evidence":
-          return pdfEvidence.handler({ input: request.arguments, ctx: {} });
+          return pdfEvidence.handler({ input: parsed.data, ctx: {} });
         default:
           throw new Error(`Unsupported legacy engine tool: ${request.tool}`);
       }
