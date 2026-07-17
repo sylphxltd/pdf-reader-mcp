@@ -72,6 +72,7 @@ describe('MCP Server Integration', () => {
       env: {
         ...process.env,
         NODE_ENV: 'test',
+        PDF_READER_ENGINE_MODE: 'pure-rust',
         PDF_READER_MCP_TRANSPORT: '',
         MCP_TRANSPORT: '',
       },
