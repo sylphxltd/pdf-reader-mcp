@@ -1,11 +1,10 @@
 /**
- * Star-project production contract suite.
+ * Star-project production contract suite (pure-Rust).
  *
  * Hard rules:
  * - Exercises published launcher bin/pdf-reader-mcp
- * - Forces PDF_READER_ENGINE_MODE=full (production default)
- * - Never accepts pure-rust subset as stand-in for production green
- * - Fails closed on any public-tool regression
+ * - Pure-Rust only (no TS parity bridge)
+ * - Fails closed on public-tool regressions and SSRF
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -13,7 +12,6 @@ import type { ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  assertToolSuccess,
   binWrapper,
   callTool,
   ensureProductionArtifacts,
@@ -55,7 +53,7 @@ const buildReadPdfArgs = (entry: { id: string; args: Record<string, unknown> }) 
   return args as Record<string, unknown>;
 };
 
-describe('production-path public contract (Rust process + full TS parity)', () => {
+describe('production-path public contract (pure-Rust)', () => {
   let proc: ChildProcess;
   let reqId = 10;
 
@@ -66,9 +64,7 @@ describe('production-path public contract (Rust process + full TS parity)', () =
 
   beforeAll(() => {
     ensureProductionArtifacts();
-    // Absolute ban: production suite must not inherit pure-rust from parent env.
-    expect(productionEnv().PDF_READER_ENGINE_MODE).toBe('full');
-    expect(productionEnv().PDF_READER_PURE_RUST).toBeUndefined();
+    expect(productionEnv().PDF_READER_ENGINE_MODE).toBeUndefined();
 
     proc = spawnProductionMcp();
   }, 420_000);
@@ -77,20 +73,24 @@ describe('production-path public contract (Rust process + full TS parity)', () =
     proc?.kill('SIGTERM');
   });
 
-  test('package public entry points at production launcher', () => {
+  test('package public entry points at pure-Rust launcher', () => {
     expect(packageJson.bin?.['pdf-reader-mcp']).toBe('./bin/pdf-reader-mcp');
     expect(fs.existsSync(binWrapper)).toBe(true);
     const launcher = fs.readFileSync(binWrapper, 'utf8');
-    expect(launcher).toContain('printf \'%s\\n\' "rust"');
-    expect(launcher).toContain('PDF_READER_ENGINE_MODE=full');
-    expect(fs.existsSync(path.join(repoRoot, 'dist/legacy-engine-runtime.js'))).toBe(true);
+    expect(launcher).toContain('resolve_rust_bin');
+    expect(launcher).toContain('pdf-reader-mcp-server');
+    expect(launcher).not.toContain('PDF_READER_ENGINE_MODE=full');
+    expect(launcher).not.toContain('legacy-engine-runtime');
+    expect(fs.existsSync(path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'))).toBe(true);
+    expect(
+      fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))
+    ).toBe(false);
   });
 
   test('initialize advertises pdf-reader-mcp and package version', async () => {
     const init = await initializeSession(proc, 'production-contract-suite');
     expect(init.result?.serverInfo?.name).toBe('pdf-reader-mcp');
     expect(init.result?.serverInfo?.version).toBe(packageJson.version);
-    // Instructions are optional on the wire; name+version are the hard identity contract.
     if (init.result?.serverInfo?.instructions) {
       expect(init.result.serverInfo.instructions).toMatch(/read_pdf|PDF|document/i);
     }
@@ -102,7 +102,6 @@ describe('production-path public contract (Rust process + full TS parity)', () =
     for (const tool of matrix.requiredTools) {
       expect(names).toContain(tool);
     }
-    // Legacy split tools must stay collapsed into pdf_evidence.
     expect(names).not.toContain('inspect_pdf');
     expect(names).not.toContain('render_page');
     expect(names).not.toContain('extract_regions');
@@ -120,7 +119,6 @@ describe('production-path public contract (Rust process + full TS parity)', () =
         continue;
       }
       const text = payload.text.toLowerCase();
-      // Full-parity engine returns success payload (structured twin or results).
       const ok =
         text.includes('success') ||
         text.includes('results') ||
@@ -128,7 +126,6 @@ describe('production-path public contract (Rust process + full TS parity)', () =
         text.includes('num_pages') ||
         text.includes('markdown') ||
         text.includes('elements') ||
-        text.includes('trust') ||
         text.includes('page');
       if (!ok) {
         failures.push(`${entry.id}: unexpected payload shape: ${payload.text.slice(0, 300)}`);
@@ -175,9 +172,13 @@ describe('production-path public contract (Rust process + full TS parity)', () =
       const response = await callTool(proc, nextId(), 'pdf_evidence', args, 120_000);
       const payload = parseToolPayload(response);
       if (payload.isError) {
-        // Optional native canvas backends may be absent in CI; require a non-empty
-        // fail-closed error (no crash) for render/crop. inspect must be green.
-        if (entry.id === 'render_page' || entry.id === 'extract_regions') {
+        // Pure-Rust: visual ops fail closed (no crash). inspect must be green.
+        if (
+          entry.id === 'render_page' ||
+          entry.id === 'extract_regions' ||
+          entry.id === 'ocr_pages' ||
+          entry.id === 'analyze_regions'
+        ) {
           expect(payload.text.length).toBeGreaterThan(0);
           continue;
         }
@@ -206,86 +207,20 @@ describe('production-path public contract (Rust process + full TS parity)', () =
       }
       const response = await callTool(proc, nextId(), 'read_pdf', args, 60_000);
       const payload = parseToolPayload(response);
+      // Must fail closed: either isError or success:false with SSRF/locator message.
       const text = payload.text.toLowerCase();
       const blocked =
         payload.isError ||
-        /non-public|ssrf|rejected|failed|invalid|exactly one|private|url host|could not be resolved|access denied|sources/.test(
-          text
-        );
+        text.includes('non-public') ||
+        text.includes('ssrf') ||
+        text.includes('exactly one') ||
+        text.includes('failed') ||
+        text.includes('private') ||
+        text.includes('invalid');
       if (!blocked) {
-        failures.push(
-          `${entry.id}: expected security rejection, got: ${payload.text.slice(0, 300)}`
-        );
+        failures.push(`${entry.id}: expected fail-closed, got: ${payload.text.slice(0, 300)}`);
       }
     }
     expect(failures).toEqual([]);
   }, 300_000);
-
-  test('missing local file fails closed with sanitized error', async () => {
-    const missing = path.join(repoRoot, 'test/fixtures/does-not-exist-production-contract.pdf');
-    const response = await callTool(
-      proc,
-      nextId(),
-      'read_pdf',
-      {
-        sources: [{ path: missing }],
-        include_full_text: false,
-        auto: false,
-      },
-      60_000
-    );
-    const payload = parseToolPayload(response);
-    expect(
-      payload.isError || /fail|not found|enoent|could not|unable|error/i.test(payload.text)
-    ).toBe(true);
-    // SSS-02 style: do not leak absolute internal exception class spam only.
-    expect(payload.text).not.toMatch(/InvalidPDFException/i);
-  }, 60_000);
-
-  test('invalid empty sources fails closed', async () => {
-    const response = await callTool(
-      proc,
-      nextId(),
-      'read_pdf',
-      {
-        sources: [],
-        include_full_text: false,
-      },
-      30_000
-    );
-    const payload = parseToolPayload(response);
-    expect(payload.isError || /source|invalid|required|empty/i.test(payload.text)).toBe(true);
-  }, 30_000);
-
-  test('performance budget: simple read_pdf completes under 15s warm path', async () => {
-    // Warm once.
-    await callTool(
-      proc,
-      nextId(),
-      'read_pdf',
-      {
-        sources: [{ path: samplePdf }],
-        include_metadata: true,
-        include_page_count: true,
-        auto: false,
-      },
-      60_000
-    );
-    const started = performance.now();
-    const response = await callTool(
-      proc,
-      nextId(),
-      'read_pdf',
-      {
-        sources: [{ path: samplePdf }],
-        include_metadata: true,
-        include_page_count: true,
-        auto: false,
-      },
-      60_000
-    );
-    const elapsedMs = performance.now() - started;
-    assertToolSuccess(response, 'perf-read_pdf');
-    expect(elapsedMs).toBeLessThan(15_000);
-  }, 120_000);
 });

@@ -184,57 +184,128 @@ pub fn search_pdf_text(
     })
 }
 
-fn normalize_for_search(value: &str, case_sensitive: bool) -> String {
-    if case_sensitive {
-        value.to_string()
-    } else {
-        value.to_lowercase()
-    }
-}
-
 fn is_word_char(value: Option<char>) -> bool {
     matches!(value, Some(ch) if ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 fn is_whole_word_match(text: &str, start: usize, end: usize) -> bool {
-    let before = text[..start].chars().last();
-    let after = text[end..].chars().next();
+    let before = text.get(..start).and_then(|s| s.chars().last());
+    let after = text.get(end..).and_then(|s| s.chars().next());
     !is_word_char(before) && !is_word_char(after)
 }
 
+/// Case-insensitive matching that keeps original-string byte indices.
+/// Avoids lowercasing the whole haystack (Unicode case folding can change length,
+/// e.g. ﬁ → fi), which previously produced mid-codepoint slice panics.
 fn find_matches_in_text(
     text: &str,
     query: &str,
     case_sensitive: bool,
     whole_word: bool,
 ) -> Vec<(usize, usize)> {
-    let searchable_text = normalize_for_search(text, case_sensitive);
-    let searchable_query = normalize_for_search(query, case_sensitive);
-    if searchable_query.is_empty() {
+    if query.is_empty() {
         return Vec::new();
     }
 
     let mut matches = Vec::new();
-    let mut search_from = 0;
-
-    while search_from + searchable_query.len() <= searchable_text.len() {
-        let Some(start) = searchable_text[search_from..].find(&searchable_query) else {
-            break;
-        };
-        let start = search_from + start;
-        let end = start + searchable_query.len();
-        if !whole_word || is_whole_word_match(&searchable_text, start, end) {
-            matches.push((start, end));
+    if case_sensitive {
+        let mut search_from = 0;
+        while search_from + query.len() <= text.len() {
+            let Some(rel) = text.get(search_from..).and_then(|slice| slice.find(query)) else {
+                break;
+            };
+            let start = search_from + rel;
+            let end = start + query.len();
+            if text.is_char_boundary(start)
+                && text.is_char_boundary(end)
+                && (!whole_word || is_whole_word_match(text, start, end))
+            {
+                matches.push((start, end));
+            }
+            search_from = end.max(start + 1);
+            while search_from < text.len() && !text.is_char_boundary(search_from) {
+                search_from += 1;
+            }
         }
-        search_from = end.max(start + 1);
+        return matches;
+    }
+
+    // Expand query into its lowercase char sequence (may be multi-char per input char).
+    let query_chars: Vec<char> = query.chars().flat_map(|c| c.to_lowercase()).collect();
+    if query_chars.is_empty() {
+        return matches;
+    }
+    let query_len = query_chars.len();
+    let text_chars: Vec<(usize, char)> = text.char_indices().collect();
+
+    // Precompute expanded lowercase stream with original char index ownership.
+    // Each expanded lowercase char maps back to the source char index that produced it.
+    let mut expanded: Vec<(usize, char)> = Vec::new();
+    for (idx, ch) in &text_chars {
+        for lower in ch.to_lowercase() {
+            expanded.push((*idx, lower));
+        }
+    }
+    if expanded.len() < query_len {
+        return matches;
+    }
+
+    let mut i = 0;
+    while i + query_len <= expanded.len() {
+        if expanded[i..i + query_len]
+            .iter()
+            .zip(query_chars.iter())
+            .all(|((_, hay), q)| hay == q)
+        {
+            let start_char_byte = expanded[i].0;
+            // End is the first byte after the last source char that contributed to the match.
+            let last_source_byte = expanded[i + query_len - 1].0;
+            let end = text_chars
+                .iter()
+                .find(|(byte, _)| *byte == last_source_byte)
+                .map(|(byte, ch)| byte + ch.len_utf8())
+                .unwrap_or(text.len());
+            if !whole_word || is_whole_word_match(text, start_char_byte, end) {
+                matches.push((start_char_byte, end));
+            }
+            // Advance past this match in expanded space (at least one expanded char).
+            i += query_len.max(1);
+        } else {
+            i += 1;
+        }
     }
 
     matches
 }
 
+fn floor_char_boundary(text: &str, index: usize) -> usize {
+    if index >= text.len() {
+        return text.len();
+    }
+    let mut index = index;
+    while index > 0 && !text.is_char_boundary(index) {
+        index -= 1;
+    }
+    index
+}
+
+fn ceil_char_boundary(text: &str, index: usize) -> usize {
+    if index >= text.len() {
+        return text.len();
+    }
+    let mut index = index;
+    while index < text.len() && !text.is_char_boundary(index) {
+        index += 1;
+    }
+    index
+}
+
 fn build_snippet(text: &str, start: usize, end: usize, context_chars: usize) -> String {
-    let snippet_start = start.saturating_sub(context_chars);
-    let snippet_end = (end + context_chars).min(text.len());
+    let start = floor_char_boundary(text, start.min(text.len()));
+    let end = ceil_char_boundary(text, end.min(text.len()));
+    // context_chars is a soft byte budget; clamp to char boundaries.
+    let snippet_start = floor_char_boundary(text, start.saturating_sub(context_chars));
+    let snippet_end = ceil_char_boundary(text, (end + context_chars).min(text.len()));
     let prefix = if snippet_start > 0 { "..." } else { "" };
     let suffix = if snippet_end < text.len() { "..." } else { "" };
     format!("{prefix}{}{suffix}", &text[snippet_start..snippet_end])
@@ -258,6 +329,19 @@ mod tests {
         let text = "risk risky risk";
         let matches = find_matches_in_text(text, "risk", false, true);
         assert_eq!(matches.len(), 2);
+    }
+
+    #[test]
+    fn does_not_panic_on_multibyte_ligature_when_searching_ascii() {
+        // ﬁ lowercases to "fi" (2 chars); naive byte-index search used to panic in snippets.
+        let text = "preﬁx and more text around here for context";
+        let matches = find_matches_in_text(text, "a", false, false);
+        assert!(!matches.is_empty());
+        for (start, end) in matches {
+            let _ = build_snippet(text, start, end, 40);
+            assert!(text.is_char_boundary(start));
+            assert!(text.is_char_boundary(end));
+        }
     }
 
     #[test]
@@ -304,8 +388,9 @@ mod tests {
 
     #[test]
     fn bulk_normalize_case_and_empty_query() {
-        assert_eq!(normalize_for_search("AbC", false), "abc");
-        assert_eq!(normalize_for_search("AbC", true), "AbC");
+        assert_eq!(find_matches_in_text("AbC", "abc", false, false).len(), 1);
+        assert_eq!(find_matches_in_text("AbC", "AbC", true, false).len(), 1);
+        assert!(find_matches_in_text("AbC", "abc", true, false).is_empty());
         assert!(find_matches_in_text("hello", "", false, false).is_empty());
         assert!(find_matches_in_text("hello", "z", false, false).is_empty());
     }

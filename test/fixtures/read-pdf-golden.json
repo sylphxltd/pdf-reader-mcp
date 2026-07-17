@@ -137,7 +137,7 @@
       "input": {
         "sources": [
           {
-            "url": "https://example.com/sample.pdf"
+            "url": "http://127.0.0.1/sample.pdf"
           }
         ],
         "include_metadata": false,
@@ -147,7 +147,7 @@
       "expects": {
         "error": true,
         "code": "INVALID_REQUEST",
-        "message_contains": "local path"
+        "message_contains": "non-public"
       }
     }
   ]

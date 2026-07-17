@@ -388,9 +388,6 @@ export const validateExtractedPackage = async (
   const checks: PackageSmokeCheck[] = [];
   const packageJsonPath = path.join(packageDir, 'package.json');
   const packageJson = await readJson(packageJsonPath);
-  const distIndexPath = path.join(packageDir, 'dist', 'index.js');
-  const distLegacyPath = path.join(packageDir, 'dist', 'legacy-engine-runtime.js');
-  const distDoctorPath = path.join(packageDir, 'dist', 'doctor-cli.js');
   const nativeServerPath = path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server');
   const launcherPath = path.join(packageDir, 'bin', 'pdf-reader-mcp');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
@@ -399,13 +396,14 @@ export const validateExtractedPackage = async (
     'corpus',
     'public-provider-accuracy.json'
   );
-  const distLegacyPrefix = await readTextPrefix(distLegacyPath);
   const publicCorpusManifest = await readJson(publicCorpusManifestPath);
   const publicProviderManifest = await readJson(publicProviderManifestPath);
   const publicCorpusSummary = summarizePublicCorpusManifest(publicCorpusManifest);
   const publicProviderSummary = summarizePublicProviderManifest(publicProviderManifest);
   const bin = isRecord(packageJson?.bin) ? packageJson.bin : undefined;
-  const exportsField = isRecord(packageJson?.exports) ? packageJson.exports : undefined;
+  const launcherText = (await fileExists(launcherPath))
+    ? await fs.promises.readFile(launcherPath, 'utf8')
+    : '';
 
   addCheck(checks, 'package-json:present', packageJson !== undefined, 'package.json exists and is valid JSON', {
     path: 'package/package.json',
@@ -428,30 +426,13 @@ export const validateExtractedPackage = async (
   );
   addCheck(
     checks,
-    'runtime:dist-legacy-engine',
-    await fileExists(distLegacyPath),
-    'published package contains dist/legacy-engine-runtime.js (full TS tool engine for drop-in parity)',
-    { path: 'package/dist/legacy-engine-runtime.js' }
-  );
-  addCheck(
-    checks,
-    'runtime:shebang',
-    distLegacyPrefix?.startsWith('#!/usr/bin/env node') === true,
-    'dist/legacy-engine-runtime.js keeps the executable Node shebang'
-  );
-  addCheck(
-    checks,
-    'runtime:dist-index',
-    await fileExists(distIndexPath),
-    'published package contains dist/index.js (TS process fallback)',
-    { path: 'package/dist/index.js' }
-  );
-  addCheck(
-    checks,
-    'runtime:dist-doctor',
-    await fileExists(distDoctorPath),
-    'published package contains dist/doctor-cli.js',
-    { path: 'package/dist/doctor-cli.js' }
+    'runtime:pure-rust-launcher',
+    launcherText.includes('resolve_rust_bin') &&
+      launcherText.includes('pdf-reader-mcp-server') &&
+      !launcherText.includes('legacy-engine-runtime') &&
+      !launcherText.includes('PDF_READER_ENGINE_MODE=full'),
+    'launcher is pure-Rust only (no TS parity bridge default)',
+    { path: 'package/bin/pdf-reader-mcp' }
   );
   addCheck(
     checks,
@@ -503,24 +484,17 @@ export const validateExtractedPackage = async (
     checks,
     'package-json:bin',
     bin?.['pdf-reader-mcp'] === './bin/pdf-reader-mcp',
-    'package bin points to the Rust rmcp launcher (full TS engine parity by default)',
+    'package bin points to the pure-Rust rmcp launcher',
     { actual: bin?.['pdf-reader-mcp'] }
-  );
-  addCheck(
-    checks,
-    'package-json:exports',
-    exportsField?.['.'] === './dist/index.js',
-    'package export keeps the TypeScript entry for library/doctor consumers',
-    { actual: exportsField?.['.'] }
   );
 
   const files = Array.isArray(packageJson?.files) ? packageJson.files : [];
   addCheck(
     checks,
     'package-json:files',
-    (files.includes('dist/') || files.includes('dist')) &&
+    (files.includes('bin/') || files.includes('bin')) &&
       (files.includes('corpus/') || files.includes('corpus')),
-    'package files allowlist includes dist and corpus',
+    'package files allowlist includes bin and corpus',
     { files }
   );
 
@@ -566,16 +540,10 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
     const tarballEntries = await listTarballEntries(tarballPath);
     addCheck(
       checks,
-      'tarball:dist-index',
-      tarballEntries.includes('package/dist/index.js'),
-      'tarball includes package/dist/index.js',
+      'tarball:launcher',
+      tarballEntries.includes('package/bin/pdf-reader-mcp'),
+      'tarball includes package/bin/pdf-reader-mcp',
       { entries: tarballEntries }
-    );
-    addCheck(
-      checks,
-      'tarball:legacy-engine',
-      tarballEntries.includes('package/dist/legacy-engine-runtime.js'),
-      'tarball includes package/dist/legacy-engine-runtime.js'
     );
     addCheck(
       checks,

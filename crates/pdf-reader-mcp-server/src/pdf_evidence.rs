@@ -1,40 +1,43 @@
 use pdf_reader_core::text_index::extract_page_texts;
+use pdf_reader_core::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
 use pdf_reader_core::{hash_file, ENGINE_NAME, ENGINE_VERSION};
 use rmcp::model::CallToolResult;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
 use crate::evidence::attach_evidence;
-use crate::parity_bridge::{invoke_full_ts_tool, uses_full_parity_engine};
 use crate::schema::PdfSource;
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 const INSPECT_ROUTE: &str = "rust-pdf-inspect-v1";
 
 pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
-    if uses_full_parity_engine() {
-        return invoke_full_ts_tool("pdf_evidence", args);
-    }
-    pdf_evidence_pure_rust(args)
-}
-
-fn pdf_evidence_pure_rust(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     let operation = args
         .get("operation")
         .and_then(Value::as_str)
         .ok_or_else(|| rmcp::ErrorData::invalid_params("operation is required", None))?;
 
-    if operation != "inspect" {
-        return Err(rmcp::ErrorData::invalid_request(
-            format!(
-                "Pure-Rust pdf_evidence supports operation=inspect only. \
-                 Default full-parity mode (unset PDF_READER_ENGINE_MODE) supports all operations via the TypeScript engine. \
-                 Requested operation={operation}."
-            ),
+    match operation {
+        "inspect" => inspect(args),
+        "render_page" | "extract_regions" | "ocr_pages" | "analyze_regions" => {
+            // Pure-Rust v1: return structured, non-crashing guidance rather than silent no-op.
+            // inspect covers the default agent routing path; visual ops need providers/native render.
+            Err(rmcp::ErrorData::invalid_request(
+                format!(
+                    "pdf_evidence operation '{operation}' is not available in the pure-Rust engine yet. \
+                     Use operation=inspect for page/text routing, or use read_pdf for text extraction."
+                ),
+                None,
+            ))
+        }
+        other => Err(rmcp::ErrorData::invalid_params(
+            format!("Unsupported pdf_evidence operation: {other}"),
             None,
-        ));
+        )),
     }
+}
 
+fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     let sources_value = args
         .get("sources")
         .and_then(Value::as_array)
@@ -60,15 +63,35 @@ fn pdf_evidence_pure_rust(args: Value) -> Result<CallToolResult, rmcp::ErrorData
     }
 
     let mut results = Vec::new();
+    let mut temps = Vec::new();
     for source in &parsed_sources {
-        let path = source.path.as_ref().ok_or_else(|| {
-            rmcp::ErrorData::invalid_request(
-                "Pure-Rust pdf_evidence inspect requires a local path source.",
-                None,
-            )
-        })?;
-        let path_buf = PathBuf::from(path);
-        match extract_page_texts(path_buf.as_path(), DEFAULT_MAX_FILE_BYTES) {
+        let path_owned: PathBuf = if let Some(path) = source.path.as_ref() {
+            PathBuf::from(path)
+        } else if let Some(url) = source.url.as_ref() {
+            match fetch_url_to_temp_file(url) {
+                Ok(temp) => {
+                    temps.push(temp.clone());
+                    temp
+                }
+                Err(message) => {
+                    results.push(json!({
+                        "source": source.label(),
+                        "success": false,
+                        "error": message,
+                    }));
+                    continue;
+                }
+            }
+        } else {
+            results.push(json!({
+                "source": source.label(),
+                "success": false,
+                "error": "Provide exactly one of path or url for each PDF source.",
+            }));
+            continue;
+        };
+
+        match extract_page_texts(path_owned.as_path(), DEFAULT_MAX_FILE_BYTES) {
             Ok(pages) => {
                 let num_pages = pages.len().max(1) as u32;
                 let text_chars: u32 = pages.iter().map(|page| page.chars().count() as u32).sum();
@@ -87,6 +110,11 @@ fn pdf_evidence_pure_rust(args: Value) -> Result<CallToolResult, rmcp::ErrorData
                             "workflow": if text_chars > 80 { "text_extract" } else { "ocr_render" },
                             "needs_ocr": text_chars <= 80,
                             "reason": "Rust inspection derived from pdf-reader-core text extraction",
+                            "read_pdf_arguments": {
+                                "include_full_text": true,
+                                "include_markdown": true,
+                                "include_document_map": true,
+                            }
                         },
                         "route": INSPECT_ROUTE,
                         "engine": {
@@ -104,6 +132,10 @@ fn pdf_evidence_pure_rust(args: Value) -> Result<CallToolResult, rmcp::ErrorData
                 }));
             }
         }
+    }
+
+    for temp in temps {
+        cleanup_temp_file(temp.as_path());
     }
 
     let source_hash = parsed_sources

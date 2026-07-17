@@ -9,7 +9,7 @@ describe('web MCP HTTP transport routing', () => {
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
     expect(bin).toContain('MCP_TRANSPORT=http');
     expect(bin).toContain('resolve_rust_bin');
-    expect(bin).toContain('PDF_READER_ENGINE_MODE=full');
+    expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
   });
 
   it('Rust MCP server exposes streamable HTTP transport module', () => {

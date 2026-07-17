@@ -129,7 +129,9 @@ describe('shipped path matrix (Rust core, no legacy flags)', () => {
     );
     expect(routes).toContain('read_pdf');
     expect(routes).toContain('search_pdf');
-    expect(routes).toContain('FullParity');
-    expect(routes).toContain('PureRust');
+    expect(routes).toContain('RustCore');
+    expect(routes).not.toContain('FullParity');
+    expect(routes).not.toContain('PureRust');
   });
 });
+

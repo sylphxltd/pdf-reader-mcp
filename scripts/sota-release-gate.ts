@@ -292,13 +292,13 @@ export const buildSotaReleaseGateReport = async (
   );
   addCheck(
     checks,
-    'mcp:rust_process_full_parity_default',
+    'mcp:pure_rust_default',
     binWrapper.includes('resolve_rust_bin') &&
-      binWrapper.includes('printf \'%s\\n\' "rust"') &&
-      binWrapper.includes('PDF_READER_ENGINE_MODE=full') &&
-      fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs')) &&
-      fs.existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts')),
-    'Default production path is Rust rmcp process with full TypeScript engine parity bridge'
+      binWrapper.includes('pdf-reader-mcp-server') &&
+      !binWrapper.includes('PDF_READER_ENGINE_MODE=full') &&
+      !binWrapper.includes('legacy-engine-runtime') &&
+      !fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs')),
+    'Default production path is pure-Rust rmcp (no TS parity bridge)'
   );
   addCheck(
     checks,

@@ -5,19 +5,11 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 use crate::evidence::attach_evidence;
-use crate::parity_bridge::{invoke_full_ts_tool, uses_full_parity_engine};
 use crate::schema::PdfSource;
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 
 pub fn read_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
-    if uses_full_parity_engine() {
-        return invoke_full_ts_tool("read_pdf", args);
-    }
-    read_pdf_pure_rust(args)
-}
-
-fn read_pdf_pure_rust(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     let sources = args
         .get("sources")
         .and_then(Value::as_array)
@@ -61,46 +53,4 @@ fn read_pdf_pure_rust(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     );
 
     Ok(CallToolResult::structured(structured))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-
-    #[test]
-    fn pure_rust_reads_fixture_through_rust_core_route() {
-        // Force pure-rust path for this unit test.
-        std::env::set_var("PDF_READER_ENGINE_MODE", "pure-rust");
-        let fixture =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/sample.pdf");
-        if !fixture.is_file() {
-            std::env::remove_var("PDF_READER_ENGINE_MODE");
-            return;
-        }
-
-        let result = read_pdf(serde_json::json!({
-            "sources": [{ "path": fixture }],
-            "include_metadata": true,
-            "include_page_count": true,
-            "include_full_text": false
-        }));
-        std::env::remove_var("PDF_READER_ENGINE_MODE");
-        let result = result.expect("read_pdf");
-
-        let structured = result.structured_content.expect("structured");
-        let results = structured
-            .get("results")
-            .and_then(Value::as_array)
-            .expect("results");
-        assert!(results[0]
-            .get("success")
-            .and_then(Value::as_bool)
-            .unwrap_or(false));
-        let route = results[0]
-            .pointer("/data/route")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        assert_eq!(route, READ_PDF_ROUTE);
-    }
 }

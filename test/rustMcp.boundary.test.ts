@@ -11,18 +11,17 @@ const stagedRustBin = path.join(repoRoot, 'bin/native/pdf-reader-mcp-server');
 const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
 const samplePdf = path.join(repoRoot, 'test/fixtures/sample.pdf');
 
-describe('MCP transport boundary', () => {
+describe('MCP transport boundary (pure-Rust)', () => {
   beforeAll(() => {
     execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
-    execSync('bun run build', { cwd: repoRoot, stdio: 'pipe', timeout: 180_000 });
   }, 300_000);
 
-  it('defaults the published launcher to Rust rmcp process', () => {
+  it('defaults the published launcher to Rust rmcp process only', () => {
     const script = readFileSync(binWrapper, 'utf8');
     expect(script).toContain('pdf-reader-mcp-server');
     expect(script).toContain('resolve_rust_bin');
-    expect(script).toContain('printf \'%s\\n\' "rust"');
-    expect(script).toContain('PDF_READER_ENGINE_MODE=full');
+    expect(script).not.toContain('PDF_READER_ENGINE_MODE=full');
+    expect(script).not.toContain('legacy-engine-runtime');
   });
 
   it('builds the rmcp stdio server binary for the production process path', () => {
@@ -31,32 +30,13 @@ describe('MCP transport boundary', () => {
     expect(existsSync(rustCliBin)).toBe(true);
   });
 
-  it('ships TypeScript tool engine for full-parity bridge', () => {
-    expect(existsSync(path.join(repoRoot, 'src/engine-invoke.ts'))).toBe(false);
-    expect(existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts'))).toBe(true);
-    expect(existsSync(path.join(repoRoot, 'dist/legacy-engine-runtime.js'))).toBe(true);
+  it('does not ship a parity bridge', () => {
     expect(
       existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it('full-parity engine executes read_pdf via TypeScript handlers', () => {
-    const result = spawnSync(rustServerBin, [], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        PDF_READER_ENGINE_MODE: 'full',
-      },
-      input: '',
-      timeout: 5_000,
-    });
-    // Process expects MCP stdio; just ensure binary starts (non-crash on empty input close).
-    expect([0, 1, null]).toContain(result.status);
-    expect(existsSync(path.join(repoRoot, 'dist/legacy-engine-runtime.js'))).toBe(true);
-  });
-
-  it('delegates read_pdf through pdf-reader-cli without spawning legacy TypeScript runtime', () => {
+  it('delegates read_pdf through pdf-reader-cli without spawning Node', () => {
     const probeDir = mkdtempSync(path.join(os.tmpdir(), 'pdf-reader-read-pdf-probe-'));
     const nodeInvokeLog = path.join(probeDir, 'node-invoke.log');
     const fakeNode = path.join(probeDir, 'node');

@@ -1,6 +1,6 @@
 /**
  * Shared helpers for production-path MCP contract tests.
- * Always exercise the published launcher with full-parity engine (never pure-rust).
+ * Exercises the published pure-Rust launcher (no TS parity bridge).
  */
 import { type ChildProcess, execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -29,7 +29,6 @@ export const packageJson = JSON.parse(
 ) as { version: string; bin?: Record<string, string> };
 
 export const ensureProductionArtifacts = () => {
-  execSync('bun run build', { cwd: repoRoot, stdio: 'pipe', timeout: 180_000 });
   execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
   if (!fs.existsSync(binWrapper)) {
     throw new Error(`missing launcher: ${binWrapper}`);
@@ -37,20 +36,12 @@ export const ensureProductionArtifacts = () => {
   if (!fs.existsSync(path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'))) {
     throw new Error('missing staged Rust MCP server binary');
   }
-  if (!fs.existsSync(path.join(repoRoot, 'dist/legacy-engine-runtime.js'))) {
-    throw new Error('missing full-parity TS engine runtime');
-  }
-  if (!fs.existsSync(path.join(repoRoot, 'dist/pdf.worker.mjs'))) {
-    throw new Error('missing staged pdfjs worker');
-  }
 };
 
 export const productionEnv = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
   const env = { ...process.env, ...overrides };
-  // Hard production contract: never allow pure-rust subset to masquerade as default.
   delete env.PDF_READER_PURE_RUST;
-  env.PDF_READER_ENGINE_MODE = 'full';
-  env.PDF_READER_MCP_ENGINE = env.PDF_READER_MCP_ENGINE ?? 'rust';
+  delete env.PDF_READER_ENGINE_MODE;
   env.NODE_ENV = env.NODE_ENV ?? 'test';
   env.MCP_TRANSPORT = env.MCP_TRANSPORT ?? '';
   env.PDF_READER_MCP_TRANSPORT = env.PDF_READER_MCP_TRANSPORT ?? '';

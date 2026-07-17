@@ -1,7 +1,6 @@
 pub mod cli_bridge;
 pub mod http_transport;
 pub mod evidence;
-pub mod parity_bridge;
 pub mod pdf_evidence;
 pub mod read_pdf;
 pub mod schema;
@@ -17,8 +16,8 @@ use rmcp::{
 use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
-pub const SERVER_VERSION: &str = "3.0.18";
-pub const SERVER_INSTRUCTIONS: &str = "V3 PDF intelligence MCP server (Rust rmcp transport + full TypeScript engine parity by default). Use read_pdf first with auto=true for smart Agent Document Twin extraction, search_pdf for cheap literal evidence retrieval, and pdf_evidence for focused inspect, render, crop, OCR, or visual-region evidence operations. Pure-Rust subset: PDF_READER_ENGINE_MODE=pure-rust.";
+pub const SERVER_VERSION: &str = "3.1.0";
+pub const SERVER_INSTRUCTIONS: &str = "Pure-Rust PDF MCP server. Use read_pdf for text/markdown extraction (local path or SSRF-safe URL), search_pdf for literal evidence retrieval, and pdf_evidence operation=inspect for page/text routing. Visual ops (render/crop/OCR/analyze) return fail-closed errors in this engine.";
 
 #[derive(Clone)]
 pub struct PdfReaderMcp {
@@ -36,7 +35,7 @@ impl PdfReaderMcp {
 #[tool_router]
 impl PdfReaderMcp {
     #[tool(
-        description = "Primary V3 PDF reader. With only sources, it auto-inspects and returns a routed Agent Document Twin; use auto_detail or explicit include_* options for precise control."
+        description = "Primary PDF reader. Returns text, markdown, chunks, and document map from local path or SSRF-safe URL sources."
     )]
     pub fn read_pdf(
         &self,
@@ -46,7 +45,7 @@ impl PdfReaderMcp {
     }
 
     #[tool(
-        description = "Searches extracted PDF text with page, snippet, bounding-box, and provenance evidence for agent retrieval."
+        description = "Searches extracted PDF text with page, snippet, and provenance evidence for agent retrieval."
     )]
     pub fn search_pdf(
         &self,
@@ -56,7 +55,7 @@ impl PdfReaderMcp {
     }
 
     #[tool(
-        description = "Focused PDF evidence operations: inspect, render, crop, OCR, or visual-region analysis with provenance."
+        description = "Focused PDF evidence operations. Pure-Rust supports operation=inspect; render/crop/OCR/analyze fail closed with guidance."
     )]
     pub fn pdf_evidence(
         &self,
@@ -76,10 +75,7 @@ impl ServerHandler for PdfReaderMcp {
                 name: SERVER_NAME.into(),
                 title: None,
                 version: SERVER_VERSION.into(),
-                description: Some(
-                    "MCP server for pdf-reader-mcp (Rust rmcp transport; full TS engine parity by default)"
-                        .into(),
-                ),
+                description: Some("Pure-Rust MCP server for pdf-reader-mcp (rmcp)".into()),
                 icons: None,
                 website_url: Some("https://sylphxai.github.io/pdf-reader-mcp/".into()),
             },
@@ -95,32 +91,17 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn rmcp_server_defaults_to_full_ts_parity_bridge() {
+    fn rmcp_server_is_pure_rust() {
         let src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
-        for file in ["cli_bridge.rs", "lib.rs", "main.rs", "search.rs", "read_pdf.rs", "pdf_evidence.rs"] {
-            let source = fs::read_to_string(src_dir.join(file)).expect("read mcp-server source");
-            let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
-            assert!(
-                !production.contains("invoke_ts_engine"),
-                "{file} must not call invoke_ts_engine"
-            );
-            assert!(
-                !production.contains("engine_bridge::"),
-                "{file} must not call engine_bridge"
-            );
-        }
+        assert!(!src_dir.join("parity_bridge.rs").exists());
         let lib_rs = fs::read_to_string(src_dir.join("lib.rs")).expect("read lib.rs");
         let production_lib = lib_rs.split("#[cfg(test)]").next().unwrap_or(&lib_rs);
         assert!(production_lib.contains("read_pdf::read_pdf"));
         assert!(production_lib.contains("pdf_evidence::pdf_evidence"));
         assert!(production_lib.contains("search::search_pdf"));
-        assert!(production_lib.contains("parity_bridge"));
-        let parity = fs::read_to_string(src_dir.join("parity_bridge.rs")).expect("parity_bridge");
-        assert!(parity.contains("legacy-engine-runtime.js"));
-        assert!(parity.contains("EngineMode::Full"));
+        assert!(!production_lib.contains("parity_bridge"));
         let routes = fs::read_to_string(src_dir.join("tool_routes.rs")).expect("read tool_routes");
-        assert!(routes.contains("search_pdf"));
-        assert!(routes.contains("FullParity"));
+        assert!(routes.contains("RustCore"));
     }
 
     #[test]

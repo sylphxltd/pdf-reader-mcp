@@ -7,10 +7,11 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 const readText = (relativePath: string): string =>
   readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-describe('Web MCP HTTP (Rust process + full TS parity)', () => {
-  it('TypeScript handlers remain available for full tool surface', () => {
-    expect(existsSync(path.join(repoRoot, 'src/handlers/pdfEvidence.ts'))).toBe(true);
-    expect(existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts'))).toBe(true);
+describe('Web MCP HTTP (pure-Rust)', () => {
+  it('parity bridge is not present', () => {
+    expect(
+      existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))
+    ).toBe(false);
   });
 
   it('Rust HTTP transport remains wired for production process', () => {
@@ -23,9 +24,9 @@ describe('Web MCP HTTP (Rust process + full TS parity)', () => {
     expect(httpTransport).toContain('health_check');
   });
 
-  it('parity bridge provides drop-in tool behavior on HTTP process', () => {
-    const parity = readText('crates/pdf-reader-mcp-server/src/parity_bridge.rs');
-    expect(parity).toContain('invoke_full_ts_tool');
-    expect(parity).toContain('EngineMode::Full');
+  it('HTTP process uses pure-Rust tool modules', () => {
+    const read = readText('crates/pdf-reader-mcp-server/src/read_pdf.rs');
+    expect(read).toContain('read_pdf_from_value');
+    expect(read).not.toContain('parity_bridge');
   });
 });

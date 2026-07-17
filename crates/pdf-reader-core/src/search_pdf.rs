@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::text_index::{search_pdf_text, TextIndexError, TextIndexErrorCode, TEXT_INDEX_ROUTE};
+use crate::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
 use crate::{ENGINE_NAME, ENGINE_VERSION};
 
 pub const SEARCH_PDF_ROUTE: &str = TEXT_INDEX_ROUTE;
@@ -129,16 +130,41 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
     let context_chars = input.context_chars.unwrap_or(DEFAULT_CONTEXT_CHARS);
 
     let mut results = Vec::new();
+    let mut temps = Vec::new();
     for source in &input.sources {
-        let path = source.path.as_ref().ok_or_else(|| {
-            SearchPdfError::invalid_request(format!(
-                "Rust search route requires a local path for {}",
-                source_label(source)
-            ))
-        })?;
+        let label = source_label(source);
+        let resolved: Result<PathBuf, String> = if let Some(path) = source
+            .path
+            .as_ref()
+            .filter(|value| !value.is_empty())
+        {
+            Ok(PathBuf::from(path))
+        } else if let Some(url) = source.url.as_ref().filter(|value| !value.is_empty()) {
+            match fetch_url_to_temp_file(url) {
+                Ok(temp) => {
+                    temps.push(temp.clone());
+                    Ok(temp)
+                }
+                Err(message) => Err(message),
+            }
+        } else {
+            Err("Provide exactly one of path or url for each PDF source.".into())
+        };
+
+        let path = match resolved {
+            Ok(path) => path,
+            Err(message) => {
+                results.push(json!({
+                    "source": label,
+                    "success": false,
+                    "error": message,
+                }));
+                continue;
+            }
+        };
 
         match search_pdf_text(
-            PathBuf::from(path).as_path(),
+            path.as_path(),
             DEFAULT_MAX_FILE_BYTES,
             &input.query,
             case_sensitive,
@@ -168,7 +194,7 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                     .collect();
 
                 results.push(json!({
-                    "source": source_label(source),
+                    "source": label,
                     "success": true,
                     "num_pages": search.num_pages,
                     "searched_pages": search.searched_pages,
@@ -186,12 +212,16 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
             }
             Err(error) => {
                 results.push(json!({
-                    "source": source_label(source),
+                    "source": label,
                     "success": false,
                     "error": error.message,
                 }));
             }
         }
+    }
+
+    for temp in temps {
+        cleanup_temp_file(temp.as_path());
     }
 
     if results.iter().all(|result| result.get("success") == Some(&Value::Bool(false))) {

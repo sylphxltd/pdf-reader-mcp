@@ -1,10 +1,14 @@
-//! Rust hashing and text-index primitives for pdf-reader-mcp.
+//! Rust hashing, SSRF-safe fetch, and text-index primitives for pdf-reader-mcp.
 
 pub mod legacy;
 pub mod page_cache;
 pub mod read_pdf;
 pub mod search_pdf;
+pub mod ssrf;
 pub mod text_index;
+pub mod url_fetch;
+
+pub use ssrf::{assert_host_not_private, is_private_ip};
 
 pub use legacy::legacy_engine_allowed;
 pub use read_pdf::{

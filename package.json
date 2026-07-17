@@ -1,23 +1,19 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "3.0.18",
+  "version": "3.1.0",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "The most-starred PDF MCP server. Stop agent hallucinations on PDFs — one read_pdf call returns an Agent Document Twin with markdown, tables, trust reports, and source evidence (page + bbox). Local-first. Benchmark-gated.",
+  "description": "Pure-Rust PDF MCP server. read_pdf, search_pdf, and pdf_evidence (inspect) with SSRF-safe URL loading. Local-first. Fast native binary.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./bin/pdf-reader-mcp"
   },
   "files": [
     "bin/",
-    "dist/",
     "examples/",
     "corpus/",
     "README.md",
     "LICENSE"
   ],
-  "exports": {
-    ".": "./dist/index.js"
-  },
   "publishConfig": {
     "access": "public"
   },
@@ -40,8 +36,8 @@
     "pdf",
     "reader",
     "parser",
-    "typescript",
-    "node",
+    "rust",
+    "native",
     "ai",
     "agent",
     "tool",
@@ -96,9 +92,9 @@
     "package:smoke": "bun scripts/package-smoke.ts",
     "sync:server-json": "bun scripts/sync-server-json.ts",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "bun run clean && bun run build && bun run build:rust && bun run package:smoke && bun run check:production-contract",
-    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run build:rust && bun run package:smoke && bun run check:production-contract && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
-    "release": "bun run release:preflight && changeset publish"
+    "prepublishOnly": "bun run build:rust && bun run package:smoke && bun run check:production-contract",
+    "release:preflight": "bun run build:rust && cargo test --workspace && bun run package:smoke && bun run check:production-contract && bun test test/architectureContract.test.ts test/check-no-ts-stdio-backend.test.ts test/stdioTransport.matrix.test.ts test/httpTransport.matrix.test.ts test/rustMcp.boundary.test.ts test/tsAdapterDeletion.matrix.test.ts test/shippedPath.matrix.test.ts test/production/productionPath.contract.test.ts --timeout=600000",
+    "release": "bun run release:preflight && npm publish --access public"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

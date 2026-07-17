@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.1.0
+
+### Major Changes
+
+- Pure-Rust production cutover. Remove the TypeScript parity bridge dual path.
+
+  - Production process: `bin/pdf-reader-mcp` → `bin/native/pdf-reader-mcp-server` (rmcp only)
+  - Tools: `read_pdf`, `search_pdf`, `pdf_evidence` (inspect) run entirely in Rust (`pdf-reader-core`)
+  - URL loading with SSRF protection (IPv4 private + IPv6 transition addresses)
+  - Visual ops (`render_page` / `extract_regions` / `ocr_pages` / `analyze_regions`) fail closed with guidance
+  - Deleted `parity_bridge` and no longer require `dist/legacy-engine-runtime.js` for MCP
+
 ## 3.0.18
 
 ### Patch Changes

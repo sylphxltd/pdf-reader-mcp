@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 1,
-  "title": "Production-path public contract matrix (Rust process + full TS parity engine)",
+  "schemaVersion": 2,
+  "title": "Production-path public contract matrix (pure-Rust)",
   "path": {
     "process": "bin/pdf-reader-mcp → Rust rmcp",
-    "engineMode": "full",
-    "forbidden": ["PDF_READER_ENGINE_MODE=pure-rust as production stand-in"]
+    "engineMode": "pure-rust",
+    "forbidden": ["parity_bridge", "legacy-engine-runtime as production default"]
   },
   "requiredTools": ["read_pdf", "search_pdf", "pdf_evidence"],
   "readPdfOptionSmoke": [

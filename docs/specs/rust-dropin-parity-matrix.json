@@ -1,88 +1,34 @@
 {
-  "schemaVersion": 1,
-  "title": "Rust MCP drop-in parity matrix vs TypeScript 3.0.14/3.0.16",
-  "goal": "Single production path: Rust rmcp transport + 100% TypeScript V3 behavior, then pure-Rust migration without dual defaults.",
-  "updatedAt": "2026-07-17T22:45:00Z",
-  "productionContractSuite": {
-    "path": "test/production/productionPath.contract.test.ts",
-    "matrix": "test/production/publicContract.matrix.json",
-    "gate": "bun run check:production-contract",
-    "wiredInto": ["prepublishOnly", "release:preflight"]
-  },
+  "schemaVersion": 2,
+  "title": "pdf-reader-mcp pure-Rust production matrix",
   "productionDefault": {
-    "process": "Rust rmcp (bin/native/pdf-reader-mcp-server)",
-    "engineMode": "full",
-    "engineImplementation": "dist/legacy-engine-runtime.js (TypeScript handlers)",
-    "env": {
-      "PDF_READER_ENGINE_MODE": "full (default)",
-      "PDF_READER_PURE_RUST": "unset"
-    },
-    "dropInTarget": "@sylphx/pdf-reader-mcp@3.0.14 and 3.0.16 TypeScript entry"
+    "process": "bin/pdf-reader-mcp → bin/native/pdf-reader-mcp-server (rmcp)",
+    "engineMode": "pure-rust",
+    "engineImplementation": "pdf-reader-core + pdf-reader-mcp-server (Rust only)",
+    "notes": "3.1.0 cutover: TypeScript parity bridge removed. Production is pure Rust."
   },
-  "experimentalPureRust": {
-    "env": "PDF_READER_ENGINE_MODE=pure-rust",
-    "status": "subset-not-drop-in",
-    "gaps": [
-      "read_pdf remote URL",
-      "read_pdf Agent Document Twin full options",
-      "pdf_evidence operations beyond inspect",
-      "search_pdf OCR layer / URL without legacy flag"
-    ]
-  },
-  "capabilities": [
+  "tools": [
     {
-      "id": "transport/stdio",
-      "tsSurface": "src/index.ts + src/mcp.ts stdio",
-      "rustSurface": "crates/pdf-reader-mcp-server stdio",
-      "parityStatus": "green",
-      "notes": "Rust owns protocol; full engine via parity bridge"
+      "name": "read_pdf",
+      "status": "shipped",
+      "rustSurface": "pdf-reader-core::read_pdf (path + SSRF-safe URL, text/markdown/chunks/map)",
+      "limitations": "No provider OCR/visual twin; optional flags are best-effort or ignored with warnings"
     },
     {
-      "id": "transport/http",
-      "tsSurface": "src/index.ts http + src/mcp.ts StreamableHTTP",
-      "rustSurface": "crates/pdf-reader-mcp-server/src/http_transport.rs",
-      "parityStatus": "green-protocol",
-      "notes": "Rust HTTP transport + full TS engine for tools"
+      "name": "search_pdf",
+      "status": "shipped",
+      "rustSurface": "pdf-reader-core::search_pdf (embedded text layer, path + URL)",
+      "limitations": "include_ocr_text_layer fails closed"
     },
     {
-      "id": "tool/read_pdf",
-      "tsSurface": "src/handlers/readPdf.ts",
-      "rustSurface": "parity_bridge → legacy-engine-runtime (full); pure-rust subset in read_pdf.rs",
-      "parityStatus": "green-via-bridge",
-      "pureRustStatus": "partial"
-    },
-    {
-      "id": "tool/search_pdf",
-      "tsSurface": "src/handlers/searchPdf.ts",
-      "rustSurface": "parity_bridge → legacy-engine-runtime (full); pure-rust text-index subset",
-      "parityStatus": "green-via-bridge",
-      "pureRustStatus": "partial"
-    },
-    {
-      "id": "tool/pdf_evidence",
-      "tsSurface": "src/handlers/pdfEvidence.ts",
-      "rustSurface": "parity_bridge → legacy-engine-runtime (full); pure-rust inspect only",
-      "parityStatus": "green-via-bridge",
-      "pureRustStatus": "inspect-only"
-    },
-    {
-      "id": "security/ssrf-url-guard",
-      "tsSurface": "src/utils/config.ts isPrivateIp (GHSA-f3xw-ff5r-rj7c)",
-      "rustSurface": "via full parity bridge (TS guard)",
-      "parityStatus": "green-via-bridge",
-      "pureRustStatus": "missing-native-port"
+      "name": "pdf_evidence",
+      "status": "shipped-partial",
+      "rustSurface": "operation=inspect via text extraction",
+      "limitations": "render_page / extract_regions / ocr_pages / analyze_regions fail closed with guidance"
     }
   ],
-  "exitCriteriaForPureRustDefault": [
-    "Every capability pureRustStatus=green with differential vs TS oracle",
-    "No dependency on dist/legacy-engine-runtime.js for production default",
-    "Package smoke + release gate green without Node engine for tool execution",
-    "Ledger admits authority_rust/ts_deleted only after drop-in proof"
-  ],
-  "nextPureRustSlices": [
-    "native SSRF/IP private checks + URL fetch with redirect revalidation",
-    "read_pdf auto document twin options parity",
-    "pdf_evidence render/crop/ocr/analyze ops",
-    "search_pdf OCR-layer parity without TS"
-  ]
+  "security": {
+    "ssrf": "IPv4 private + IPv6 transition (NAT64/6to4/Teredo/mapped) blocked before fetch",
+    "locator": "exactly one of path or url per source"
+  }
 }

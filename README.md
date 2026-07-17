@@ -8,20 +8,20 @@
 
 ### Your agent read the PDF. **Did it read the truth?**
 
-The most-starred PDF MCP server on GitHub. One call turns any PDF into an
-**Agent Document Twin** — structured text, tables, trust signals, and source
-evidence you can search, crop, and cite.
+The most-starred PDF MCP server on GitHub. **v3.1 is pure Rust** — a single native
+binary for `read_pdf`, `search_pdf`, and `pdf_evidence` (inspect), with SSRF-safe
+URL loading. Local-first. No Node runtime required for the MCP path.
 
 [![GitHub stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=for-the-badge&logo=github)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI/CD)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/SylphxAI/pdf-reader-mcp?style=flat-square)](https://codecov.io/gh/SylphxAI/pdf-reader-mcp)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
+[![Rust](https://img.shields.io/badge/Rust-pure-orange.svg?style=flat-square)](https://www.rust-lang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](#docker)
 
-**Local-first** · **One smart `read_pdf` call** · **Evidence with page + bbox** · **397 tests** · **39/39 release-gate checks**
+**Local-first** · **Pure-Rust MCP** · **SSRF-safe URL** · **Production contract suite**
 
 [⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
 · [Quick start](#quick-start) · [See it work](#see-it-work) · [Roadmap](docs/roadmap/sota-family-roadmap.md) · [Why not plain text?](#why-not-a-plain-text-dump)
