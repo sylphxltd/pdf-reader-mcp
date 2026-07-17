@@ -29,8 +29,23 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Cargo test workspace
-        run: cargo test --workspace
+      - name: Install bun (for optional differential oracle tests)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cargo test crates (unit + golden; differential when bun present)
+        run: |
+          set -euo pipefail
+          cargo test -p pdf-reader-core
+          cargo test -p pdf-reader-cli
+          cargo test -p pdf-reader-mcp-server --lib
+          cargo test -p pdf-reader-mcp-server --test read_pdf_golden_parity
+          # Differential needs bun + TS oracle; skip hard-fail if bun path missing in env.
+          cargo test -p pdf-reader-mcp-server --test pdf_reader_mcp_differential || {
+            echo "differential oracle test failed — re-run with bun available"
+            exit 1
+          }
 
       - name: Publish pdf-reader-core
         env:
@@ -38,9 +53,9 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
-            cargo publish -p pdf-reader-core --dry-run --allow-dirty
+            cargo publish -p pdf-reader-core --dry-run
           else
-            cargo publish -p pdf-reader-core --allow-dirty
+            cargo publish -p pdf-reader-core
           fi
 
       - name: Publish pdf-reader-mcp-server
@@ -49,11 +64,11 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
-            cargo publish -p pdf-reader-mcp-server --dry-run --allow-dirty
+            cargo publish -p pdf-reader-mcp-server --dry-run
           else
             # Wait for crates.io index to pick up core.
-            sleep 30
-            cargo publish -p pdf-reader-mcp-server --allow-dirty
+            sleep 45
+            cargo publish -p pdf-reader-mcp-server
           fi
 
       - name: Publish pdf-reader-cli
@@ -62,8 +77,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
-            cargo publish -p pdf-reader-cli --dry-run --allow-dirty
+            cargo publish -p pdf-reader-cli --dry-run
           else
-            sleep 30
-            cargo publish -p pdf-reader-cli --allow-dirty
+            sleep 45
+            cargo publish -p pdf-reader-cli
           fi
