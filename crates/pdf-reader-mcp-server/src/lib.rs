@@ -1,6 +1,7 @@
 pub mod cli_bridge;
 pub mod http_transport;
 pub mod evidence;
+pub mod parity_bridge;
 pub mod pdf_evidence;
 pub mod read_pdf;
 pub mod schema;
@@ -13,12 +14,11 @@ use rmcp::{
     model::{Implementation, ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router, ErrorData, ServerHandler,
 };
-use schema::SearchPdfArgs;
 use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
-pub const SERVER_VERSION: &str = "3.0.16";
-pub const SERVER_INSTRUCTIONS: &str = "V3 PDF intelligence MCP server (Rust rmcp transport). Use read_pdf first with auto=true for smart Agent Document Twin extraction, search_pdf for cheap literal evidence retrieval, and pdf_evidence for focused inspect, render, crop, OCR, or visual-region evidence operations.";
+pub const SERVER_VERSION: &str = "3.0.17";
+pub const SERVER_INSTRUCTIONS: &str = "V3 PDF intelligence MCP server (Rust rmcp transport + full TypeScript engine parity by default). Use read_pdf first with auto=true for smart Agent Document Twin extraction, search_pdf for cheap literal evidence retrieval, and pdf_evidence for focused inspect, render, crop, OCR, or visual-region evidence operations. Pure-Rust subset: PDF_READER_ENGINE_MODE=pure-rust.";
 
 #[derive(Clone)]
 pub struct PdfReaderMcp {
@@ -50,7 +50,7 @@ impl PdfReaderMcp {
     )]
     pub fn search_pdf(
         &self,
-        Parameters(args): Parameters<SearchPdfArgs>,
+        Parameters(args): Parameters<Value>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         search::search_pdf(args)
     }
@@ -77,7 +77,7 @@ impl ServerHandler for PdfReaderMcp {
                 title: None,
                 version: SERVER_VERSION.into(),
                 description: Some(
-                    "Rust-native MCP server for pdf-reader-mcp (modelcontextprotocol/rust-sdk rmcp)"
+                    "MCP server for pdf-reader-mcp (Rust rmcp transport; full TS engine parity by default)"
                         .into(),
                 ),
                 icons: None,
@@ -95,9 +95,9 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn rmcp_server_sources_use_cli_bridge_not_ts_engine_invoke() {
+    fn rmcp_server_defaults_to_full_ts_parity_bridge() {
         let src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
-        for file in ["cli_bridge.rs", "lib.rs", "main.rs", "search.rs"] {
+        for file in ["cli_bridge.rs", "lib.rs", "main.rs", "search.rs", "read_pdf.rs", "pdf_evidence.rs"] {
             let source = fs::read_to_string(src_dir.join(file)).expect("read mcp-server source");
             let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
             assert!(
@@ -108,21 +108,19 @@ mod tests {
                 !production.contains("engine_bridge::"),
                 "{file} must not call engine_bridge"
             );
-            assert!(
-                !production.contains("legacy-engine-runtime"),
-                "{file} must not spawn legacy runtime directly"
-            );
         }
         let lib_rs = fs::read_to_string(src_dir.join("lib.rs")).expect("read lib.rs");
         let production_lib = lib_rs.split("#[cfg(test)]").next().unwrap_or(&lib_rs);
         assert!(production_lib.contains("read_pdf::read_pdf"));
         assert!(production_lib.contains("pdf_evidence::pdf_evidence"));
         assert!(production_lib.contains("search::search_pdf"));
-        assert!(!production_lib.contains("cli_bridge::invoke_cli_tool(\"read_pdf\""));
-        assert!(!production_lib.contains("cli_bridge::invoke_cli_tool(\"pdf_evidence\""));
+        assert!(production_lib.contains("parity_bridge"));
+        let parity = fs::read_to_string(src_dir.join("parity_bridge.rs")).expect("parity_bridge");
+        assert!(parity.contains("legacy-engine-runtime.js"));
+        assert!(parity.contains("EngineMode::Full"));
         let routes = fs::read_to_string(src_dir.join("tool_routes.rs")).expect("read tool_routes");
         assert!(routes.contains("search_pdf"));
-        assert!(routes.contains("RustCore"));
+        assert!(routes.contains("FullParity"));
     }
 
     #[test]

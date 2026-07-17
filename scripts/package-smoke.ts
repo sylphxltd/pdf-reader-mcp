@@ -389,14 +389,17 @@ export const validateExtractedPackage = async (
   const packageJsonPath = path.join(packageDir, 'package.json');
   const packageJson = await readJson(packageJsonPath);
   const distIndexPath = path.join(packageDir, 'dist', 'index.js');
+  const distLegacyPath = path.join(packageDir, 'dist', 'legacy-engine-runtime.js');
   const distDoctorPath = path.join(packageDir, 'dist', 'doctor-cli.js');
+  const nativeServerPath = path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server');
+  const launcherPath = path.join(packageDir, 'bin', 'pdf-reader-mcp');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
   const publicProviderManifestPath = path.join(
     packageDir,
     'corpus',
     'public-provider-accuracy.json'
   );
-  const distIndexPrefix = await readTextPrefix(distIndexPath);
+  const distLegacyPrefix = await readTextPrefix(distLegacyPath);
   const publicCorpusManifest = await readJson(publicCorpusManifestPath);
   const publicProviderManifest = await readJson(publicProviderManifestPath);
   const publicCorpusSummary = summarizePublicCorpusManifest(publicCorpusManifest);
@@ -411,16 +414,37 @@ export const validateExtractedPackage = async (
   });
   addCheck(
     checks,
-    'runtime:dist-index',
-    await fileExists(distIndexPath),
-    'published package contains dist/index.js (full TypeScript MCP surface)',
-    { path: 'package/dist/index.js' }
+    'runtime:launcher',
+    await fileExists(launcherPath),
+    'published package contains bin/pdf-reader-mcp launcher',
+    { path: 'package/bin/pdf-reader-mcp' }
+  );
+  addCheck(
+    checks,
+    'runtime:rust-mcp-server',
+    await fileExists(nativeServerPath),
+    'published package contains staged Rust MCP server binary',
+    { path: 'package/bin/native/pdf-reader-mcp-server' }
+  );
+  addCheck(
+    checks,
+    'runtime:dist-legacy-engine',
+    await fileExists(distLegacyPath),
+    'published package contains dist/legacy-engine-runtime.js (full TS tool engine for drop-in parity)',
+    { path: 'package/dist/legacy-engine-runtime.js' }
   );
   addCheck(
     checks,
     'runtime:shebang',
-    distIndexPrefix?.startsWith('#!/usr/bin/env node') === true,
-    'dist/index.js keeps the executable Node shebang'
+    distLegacyPrefix?.startsWith('#!/usr/bin/env node') === true,
+    'dist/legacy-engine-runtime.js keeps the executable Node shebang'
+  );
+  addCheck(
+    checks,
+    'runtime:dist-index',
+    await fileExists(distIndexPath),
+    'published package contains dist/index.js (TS process fallback)',
+    { path: 'package/dist/index.js' }
   );
   addCheck(
     checks,
@@ -478,15 +502,15 @@ export const validateExtractedPackage = async (
   addCheck(
     checks,
     'package-json:bin',
-    bin?.['pdf-reader-mcp'] === './dist/index.js',
-    'package bin points to the full TypeScript MCP entry (3.0.14 drop-in)',
+    bin?.['pdf-reader-mcp'] === './bin/pdf-reader-mcp',
+    'package bin points to the Rust rmcp launcher (full TS engine parity by default)',
     { actual: bin?.['pdf-reader-mcp'] }
   );
   addCheck(
     checks,
     'package-json:exports',
     exportsField?.['.'] === './dist/index.js',
-    'package export points to the published TypeScript MCP entry',
+    'package export keeps the TypeScript entry for library/doctor consumers',
     { actual: exportsField?.['.'] }
   );
 
@@ -546,6 +570,18 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
       tarballEntries.includes('package/dist/index.js'),
       'tarball includes package/dist/index.js',
       { entries: tarballEntries }
+    );
+    addCheck(
+      checks,
+      'tarball:legacy-engine',
+      tarballEntries.includes('package/dist/legacy-engine-runtime.js'),
+      'tarball includes package/dist/legacy-engine-runtime.js'
+    );
+    addCheck(
+      checks,
+      'tarball:rust-mcp-server',
+      tarballEntries.includes('package/bin/native/pdf-reader-mcp-server'),
+      'tarball includes the staged Rust rmcp MCP server binary'
     );
     addCheck(
       checks,

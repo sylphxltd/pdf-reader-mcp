@@ -1,16 +1,24 @@
 use pdf_reader_core::text_index::extract_page_texts;
-use pdf_reader_core::{hash_file, READ_PDF_ROUTE, ENGINE_NAME, ENGINE_VERSION};
+use pdf_reader_core::{hash_file, ENGINE_NAME, ENGINE_VERSION};
 use rmcp::model::CallToolResult;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
 use crate::evidence::attach_evidence;
+use crate::parity_bridge::{invoke_full_ts_tool, uses_full_parity_engine};
 use crate::schema::PdfSource;
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 const INSPECT_ROUTE: &str = "rust-pdf-inspect-v1";
 
 pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
+    if uses_full_parity_engine() {
+        return invoke_full_ts_tool("pdf_evidence", args);
+    }
+    pdf_evidence_pure_rust(args)
+}
+
+fn pdf_evidence_pure_rust(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     let operation = args
         .get("operation")
         .and_then(Value::as_str)
@@ -19,8 +27,9 @@ pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     if operation != "inspect" {
         return Err(rmcp::ErrorData::invalid_request(
             format!(
-                "Rust pdf_evidence supports operation=inspect on the default engine path. \
-                 Use PDF_READER_MCP_TRANSPORT=ts for {operation} until the Rust visual pipeline lands."
+                "Pure-Rust pdf_evidence supports operation=inspect only. \
+                 Default full-parity mode (unset PDF_READER_ENGINE_MODE) supports all operations via the TypeScript engine. \
+                 Requested operation={operation}."
             ),
             None,
         ));
@@ -54,7 +63,7 @@ pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     for source in &parsed_sources {
         let path = source.path.as_ref().ok_or_else(|| {
             rmcp::ErrorData::invalid_request(
-                "Rust pdf_evidence inspect requires a local path source.",
+                "Pure-Rust pdf_evidence inspect requires a local path source.",
                 None,
             )
         })?;
@@ -78,13 +87,12 @@ pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
                             "workflow": if text_chars > 80 { "text_extract" } else { "ocr_render" },
                             "needs_ocr": text_chars <= 80,
                             "reason": "Rust inspection derived from pdf-reader-core text extraction",
-                            "route": INSPECT_ROUTE,
                         },
                         "route": INSPECT_ROUTE,
                         "engine": {
                             "name": ENGINE_NAME,
                             "version": ENGINE_VERSION,
-                        }
+                        },
                     }
                 }));
             }
@@ -98,29 +106,11 @@ pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         }
     }
 
-    if results.iter().all(|result| result.get("success") == Some(&Value::Bool(false))) {
-        let errors = results
-            .iter()
-            .filter_map(|result| result.get("error").and_then(Value::as_str))
-            .collect::<Vec<_>>()
-            .join("; ");
-        return Err(rmcp::ErrorData::invalid_request(
-            format!("All PDF sources failed inspection: {errors}"),
-            None,
-        ));
-    }
-
     let source_hash = parsed_sources
         .iter()
         .find_map(|source| source.path.as_ref())
         .and_then(|path| hash_file(PathBuf::from(path).as_path(), DEFAULT_MAX_FILE_BYTES).ok())
         .map(|hash| hash.source_hash);
-
-    let payload = json!({
-        "profile": "pdf_inspection_results",
-        "operation": "inspect",
-        "results": results,
-    });
 
     let structured = attach_evidence(
         "pdf_evidence",
@@ -129,9 +119,8 @@ pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         INSPECT_ROUTE,
         source_hash,
         Vec::new(),
-        payload,
+        json!({ "results": results }),
     );
 
-    let _ = READ_PDF_ROUTE;
     Ok(CallToolResult::structured(structured))
 }

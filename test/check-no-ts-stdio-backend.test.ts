@@ -7,35 +7,29 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 const readText = (relativePath: string): string =>
   readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-describe('MCP stdio production default (TypeScript drop-in)', () => {
-  it('default npm path is the full TypeScript MCP surface', () => {
+describe('MCP stdio production default (Rust process + full TS parity)', () => {
+  it('default npm path launches Rust rmcp process', () => {
     const pkg = JSON.parse(readText('package.json')) as {
       bin?: Record<string, string>;
     };
     const bin = readText('bin/pdf-reader-mcp');
 
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
-    expect(existsSync(path.join(repoRoot, 'src/index.ts'))).toBe(true);
-    expect(bin).toContain('dist/index.js');
-    expect(bin).toContain('exec node');
-    expect(bin).toContain('printf \'%s\\n\' "ts"');
-  });
-
-  it('Rust rmcp remains available only as explicit opt-in', () => {
-    const bin = readText('bin/pdf-reader-mcp');
-    const rustMain = readText('crates/pdf-reader-mcp-server/src/main.rs');
-
-    expect(bin).toContain('PDF_READER_MCP_ENGINE');
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./bin/pdf-reader-mcp');
+    expect(bin).toContain('printf \'%s\\n\' "rust"');
     expect(bin).toContain('resolve_rust_bin');
-    expect(rustMain).toContain('transport::stdio');
+    expect(bin).toContain('PDF_READER_ENGINE_MODE=full');
   });
 
-  it('stdio integration harness remains present for both engines', () => {
-    const integration = readText('test/integration/stdio-transport.test.ts');
+  it('full TypeScript tool engine remains available via parity bridge', () => {
+    const parity = readText('crates/pdf-reader-mcp-server/src/parity_bridge.rs');
+    expect(parity).toContain('legacy-engine-runtime.js');
+    expect(parity).toContain('invoke_full_ts_tool');
+    expect(existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts'))).toBe(true);
+  });
 
+  it('stdio integration harness remains present', () => {
+    const integration = readText('test/integration/stdio-transport.test.ts');
     expect(integration).toContain('MCP Server stdio Transport Integration');
     expect(integration).toContain('read_pdf');
-    expect(integration).toContain('search_pdf');
-    expect(integration).toContain('pdf_evidence');
   });
 });

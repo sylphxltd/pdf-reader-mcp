@@ -2,10 +2,12 @@ use pdf_reader_core::legacy_engine_allowed;
 use pdf_reader_core::search_pdf_from_value;
 use pdf_reader_core::{hash_file, SearchPdfErrorCode, SEARCH_PDF_ROUTE};
 use rmcp::model::CallToolResult;
+use serde_json::Value;
 use std::path::PathBuf;
 
 use crate::cli_bridge::invoke_cli_tool;
 use crate::evidence::attach_evidence;
+use crate::parity_bridge::{invoke_full_ts_tool, uses_full_parity_engine};
 use crate::schema::SearchPdfArgs;
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
@@ -23,20 +25,26 @@ pub fn should_use_legacy_search(args: &SearchPdfArgs) -> bool {
     false
 }
 
-pub fn search_pdf(args: SearchPdfArgs) -> Result<CallToolResult, rmcp::ErrorData> {
-    if should_use_legacy_search(&args) {
-        let arguments = serde_json::to_value(&args).map_err(|error| {
-            rmcp::ErrorData::internal_error(format!("Failed to serialize search args: {error}"), None)
-        })?;
-        return invoke_cli_tool("search_pdf", arguments);
+pub fn search_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
+    if uses_full_parity_engine() {
+        return invoke_full_ts_tool("search_pdf", args);
     }
+    search_pdf_pure_rust(args)
+}
 
-    let arguments = serde_json::to_value(&args).map_err(|error| {
-        rmcp::ErrorData::internal_error(format!("Failed to serialize search args: {error}"), None)
+fn search_pdf_pure_rust(args_value: Value) -> Result<CallToolResult, rmcp::ErrorData> {
+    let args: SearchPdfArgs = serde_json::from_value(args_value.clone()).map_err(|error| {
+        rmcp::ErrorData::invalid_params(format!("Invalid search_pdf arguments: {error}"), None)
     })?;
 
-    let response = search_pdf_from_value(&arguments).map_err(|error| match error.code {
-        SearchPdfErrorCode::InvalidParams => rmcp::ErrorData::invalid_params(error.message, None),
+    if should_use_legacy_search(&args) {
+        return invoke_cli_tool("search_pdf", args_value);
+    }
+
+    let response = search_pdf_from_value(&args_value).map_err(|error| match error.code {
+        SearchPdfErrorCode::InvalidParams => {
+            rmcp::ErrorData::invalid_params(error.message, None)
+        }
         SearchPdfErrorCode::InvalidRequest | SearchPdfErrorCode::ExtractionFailed => {
             rmcp::ErrorData::invalid_request(error.message, None)
         }
@@ -70,7 +78,8 @@ mod tests {
     use crate::schema::PdfSource;
 
     #[test]
-    fn defaults_to_rust_search_without_legacy_flag() {
+    fn defaults_to_rust_search_without_legacy_flag_in_pure_mode() {
+        std::env::remove_var("PDF_READER_ALLOW_LEGACY_ENGINE");
         let args = SearchPdfArgs {
             sources: vec![PdfSource {
                 path: Some("/tmp/sample.pdf".into()),
@@ -106,6 +115,7 @@ mod tests {
             context_chars: None,
             prefer_speed: None,
         };
+        std::env::remove_var("PDF_READER_ALLOW_LEGACY_ENGINE");
         assert!(!should_use_legacy_search(&args));
         std::env::set_var("PDF_READER_ALLOW_LEGACY_ENGINE", "1");
         assert!(should_use_legacy_search(&args));

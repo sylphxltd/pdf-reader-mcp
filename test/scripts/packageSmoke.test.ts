@@ -22,16 +22,23 @@ const writeJson = (filePath: string, value: JsonValue) => {
 const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   fs.mkdirSync(path.join(packageDir, 'dist'), { recursive: true });
   fs.mkdirSync(path.join(packageDir, 'corpus'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'bin', 'native'), { recursive: true });
+  fs.writeFileSync(path.join(packageDir, 'bin', 'pdf-reader-mcp'), '#!/usr/bin/env bash\n', 'utf8');
+  fs.writeFileSync(
+    path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server'),
+    'rust-smoke-binary',
+    'utf8'
+  );
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
     version: '0.0.0-smoke',
     bin: {
-      'pdf-reader-mcp': './dist/index.js',
+      'pdf-reader-mcp': './bin/pdf-reader-mcp',
     },
     exports: {
       '.': './dist/index.js',
     },
-    files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],
+    files: ['bin/', 'dist/', 'corpus/', 'README.md', 'LICENSE'],
   });
   writeJson(path.join(packageDir, 'corpus', 'public-url-corpus.json'), {
     cases: [
@@ -155,6 +162,11 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
       'utf8'
     );
     fs.writeFileSync(
+      path.join(packageDir, 'dist', 'legacy-engine-runtime.js'),
+      '#!/usr/bin/env node\nconsole.log("legacy");\n',
+      'utf8'
+    );
+    fs.writeFileSync(
       path.join(packageDir, 'dist', 'doctor-cli.js'),
       '#!/usr/bin/env node\nconsole.log("doctor");\n',
       'utf8'
@@ -179,7 +191,9 @@ describe('package smoke', () => {
 
       const checks = await validateExtractedPackage(tempDir);
 
-      expect(checks.find((check) => check.id === 'runtime:dist-index')?.status).toBe('failed');
+      expect(checks.find((check) => check.id === 'runtime:dist-legacy-engine')?.status).toBe(
+        'failed'
+      );
     });
   });
 

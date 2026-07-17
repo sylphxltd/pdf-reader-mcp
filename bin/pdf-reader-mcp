@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# PDF Reader MCP launcher.
+# PDF Reader MCP launcher — single production entry.
 #
-# DEFAULT = TypeScript full surface (100% drop-in with @sylphx/pdf-reader-mcp@3.0.14).
-# OPT-IN  = Rust rmcp subset via PDF_READER_MCP_ENGINE=rust (experimental; not drop-in).
+# DEFAULT engine process: Rust rmcp server
+# DEFAULT tool engine:    full TypeScript V3 handlers via parity bridge
+#                         (100% drop-in with 3.0.14/3.0.16 behavior)
 #
-# Never silently cut TS capabilities: incomplete Rust cutovers ship only behind an opt-in.
+# Pure-Rust subset (NOT drop-in yet):
+#   PDF_READER_ENGINE_MODE=pure-rust
+#
+# Force TypeScript MCP process (legacy dual-process escape hatch):
+#   PDF_READER_MCP_ENGINE=ts
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -29,46 +34,55 @@ resolve_rust_bin() {
   return 1
 }
 
-resolve_engine() {
-  # Explicit engine wins.
+resolve_process_engine() {
+  # Explicit process engine wins.
   if [[ -n "${PDF_READER_MCP_ENGINE:-}" ]]; then
     printf '%s\n' "${PDF_READER_MCP_ENGINE}"
     return 0
   fi
-  # Historical opt-in names for the incomplete Rust path.
-  if [[ "${PDF_READER_MCP_TRANSPORT:-}" == "rust" ]]; then
-    printf '%s\n' "rust"
+  if [[ "${1:-}" == "ts" || "${1:-}" == "rust" ]]; then
+    printf '%s\n' "${1}"
     return 0
   fi
-  if [[ "${1:-}" == "rust" ]]; then
-    printf '%s\n' "rust"
-    return 0
-  fi
-  # Default: full TypeScript surface (drop-in).
-  printf '%s\n' "ts"
+  # Production default: Rust rmcp process (full TS tool engine via parity bridge).
+  printf '%s\n' "rust"
 }
 
-engine="$(resolve_engine "${1:-}")"
+engine="$(resolve_process_engine "${1:-}")"
 
-if [[ "$engine" == "rust" ]]; then
-  if [[ "${1:-}" == "rust" ]]; then
+if [[ "$engine" == "ts" ]]; then
+  if [[ "${1:-}" == "ts" ]]; then
     shift
   fi
-  if bin="$(resolve_rust_bin)"; then
-    transport="${PDF_READER_MCP_TRANSPORT:-${MCP_TRANSPORT:-stdio}}"
-    if [[ "$transport" == "http" ]]; then
-      export MCP_TRANSPORT=http
-      export PDF_READER_MCP_TRANSPORT=http
-    fi
-    exec "$bin" "$@"
+  if [[ ! -f "$TS_ENTRY" ]]; then
+    echo "[pdf-reader-mcp] TypeScript MCP entry missing at ${TS_ENTRY}. Run: bun run build" >&2
+    exit 1
   fi
-  echo "[pdf-reader-mcp] PDF_READER_MCP_ENGINE=rust requested but Rust binary is missing. Run: bun run build:rust" >&2
-  exit 1
+  exec node "$TS_ENTRY" "$@"
 fi
 
-if [[ ! -f "$TS_ENTRY" ]]; then
-  echo "[pdf-reader-mcp] TypeScript MCP entry missing at ${TS_ENTRY}. Run: bun run build" >&2
-  exit 1
+if [[ "${1:-}" == "rust" ]]; then
+  shift
 fi
 
-exec node "$TS_ENTRY" "$@"
+if bin="$(resolve_rust_bin)"; then
+  transport="${PDF_READER_MCP_TRANSPORT:-${MCP_TRANSPORT:-stdio}}"
+  if [[ "$transport" == "http" ]]; then
+    export MCP_TRANSPORT=http
+    export PDF_READER_MCP_TRANSPORT=http
+  fi
+  # Ensure full parity engine unless operator explicitly chose pure-rust.
+  if [[ -z "${PDF_READER_ENGINE_MODE:-}" && -z "${PDF_READER_PURE_RUST:-}" ]]; then
+    export PDF_READER_ENGINE_MODE=full
+  fi
+  exec "$bin" "$@"
+fi
+
+# Fail soft to full TypeScript process if Rust binary is missing but TS entry exists.
+if [[ -f "$TS_ENTRY" ]]; then
+  echo "[pdf-reader-mcp] Rust binary missing; falling back to TypeScript MCP entry." >&2
+  exec node "$TS_ENTRY" "$@"
+fi
+
+echo "[pdf-reader-mcp] Neither Rust binary nor TypeScript entry is available. Run: bun run build && bun run build:rust" >&2
+exit 1

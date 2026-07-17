@@ -292,13 +292,13 @@ export const buildSotaReleaseGateReport = async (
   );
   addCheck(
     checks,
-    'mcp:ts_dropin_default',
-    binWrapper.includes('dist/index.js') &&
-      binWrapper.includes('exec node') &&
-      binWrapper.includes('printf \'%s\\n\' "ts"') &&
-      binWrapper.includes('PDF_READER_MCP_ENGINE') &&
-      fs.existsSync(path.join(repoRoot, 'src/index.ts')),
-    'Default production path is full TypeScript MCP (3.0.14 drop-in); Rust is opt-in only'
+    'mcp:rust_process_full_parity_default',
+    binWrapper.includes('resolve_rust_bin') &&
+      binWrapper.includes('printf \'%s\\n\' "rust"') &&
+      binWrapper.includes('PDF_READER_ENGINE_MODE=full') &&
+      fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs')) &&
+      fs.existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts')),
+    'Default production path is Rust rmcp process with full TypeScript engine parity bridge'
   );
 
   const httpTransportSource = fs.readFileSync(

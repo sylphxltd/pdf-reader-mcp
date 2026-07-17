@@ -11,48 +11,50 @@ const productionSource = (file: string): string => {
   return source.split('#[cfg(test)]')[0] ?? source;
 };
 
-describe('architecture contract (TS production default + Rust opt-in)', () => {
-  it('ships the full TypeScript MCP adapter as production default', () => {
+describe('architecture contract (Rust process + full TS parity engine)', () => {
+  it('ships TypeScript handlers and legacy engine runtime for drop-in parity', () => {
     expect(existsSync(path.join(repoRoot, 'src/index.ts'))).toBe(true);
-    expect(existsSync(path.join(repoRoot, 'src/mcp.ts'))).toBe(true);
+    expect(existsSync(path.join(repoRoot, 'src/handlers/readPdf.ts'))).toBe(true);
+    expect(existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts'))).toBe(true);
+    expect(
+      existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))
+    ).toBe(true);
+  });
+
+  it('launcher defaults to Rust process with full-parity engine mode', () => {
+    const script = readFileSync(binWrapper, 'utf8');
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
     };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
-  });
-
-  it('launcher defaults to TypeScript and keeps Rust as opt-in only', () => {
-    const script = readFileSync(binWrapper, 'utf8');
-    expect(script).toContain('dist/index.js');
-    expect(script).toContain('exec node');
-    expect(script).toContain('PDF_READER_MCP_ENGINE');
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./bin/pdf-reader-mcp');
+    expect(script).toContain('printf \'%s\\n\' "rust"');
+    expect(script).toContain('PDF_READER_ENGINE_MODE=full');
     expect(script).toContain('resolve_rust_bin');
-    expect(script).toContain('pdf-reader-mcp-server');
+    expect(script).toContain('dist/index.js');
   });
 
-  it('routes Rust opt-in read_pdf through Rust core module instead of cli_bridge legacy path', () => {
-    const lib = readFileSync(path.join(mcpServerSrc, 'lib.rs'), 'utf8');
-    const production = lib.split('#[cfg(test)]')[0] ?? lib;
-    expect(production).toContain('read_pdf::read_pdf');
-    expect(production).not.toContain('cli_bridge::invoke_cli_tool("read_pdf"');
-    expect(production).toContain('pdf_evidence::pdf_evidence');
-    expect(production).not.toContain('cli_bridge::invoke_cli_tool("pdf_evidence"');
+  it('parity bridge owns full TypeScript tool execution by default', () => {
+    const parity = productionSource('parity_bridge.rs');
+    expect(parity).toContain('legacy-engine-runtime.js');
+    expect(parity).toContain('EngineMode::Full');
+    expect(parity).toContain('invoke_full_ts_tool');
   });
 
-  it('keeps cli_bridge available only for optional legacy search fallback on Rust path', () => {
-    const bridge = productionSource('cli_bridge.rs');
-    expect(bridge).toContain('pdf-reader-cli');
-    expect(bridge).not.toContain('invoke_ts_engine');
-    expect(bridge).not.toContain('legacy-engine-runtime');
-    expect(bridge).not.toContain('dist/index.js');
+  it('keeps pure-rust tool modules available behind engine mode switch', () => {
+    const read = productionSource('read_pdf.rs');
+    const search = productionSource('search.rs');
+    const evidence = productionSource('pdf_evidence.rs');
+    expect(read).toContain('uses_full_parity_engine');
+    expect(search).toContain('uses_full_parity_engine');
+    expect(evidence).toContain('uses_full_parity_engine');
+    expect(read).toContain('read_pdf_pure_rust');
   });
 
-  it('keeps legacy TypeScript engine runtime out of rmcp server production sources', () => {
-    for (const file of ['lib.rs', 'main.rs', 'cli_bridge.rs', 'search.rs']) {
+  it('keeps legacy TypeScript engine runtime out of pure-rust helper modules except parity bridge', () => {
+    for (const file of ['cli_bridge.rs', 'main.rs']) {
       const production = productionSource(file);
       expect(production).not.toContain('legacy-engine-runtime');
       expect(production).not.toContain('invoke_ts_engine');
-      expect(production).not.toContain('engine-invoke');
     }
   });
 });

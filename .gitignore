@@ -17,3 +17,4 @@ test-report.junit.xml
 
 # Local page-cache artifacts from Rust text-index tests
 **/.pdf-reader-mcp/
+dist/pdf.worker*.mjs

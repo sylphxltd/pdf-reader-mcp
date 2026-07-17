@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.0.17
+
+### Patch Changes
+
+- Converge production to a single Rust MCP process with full TypeScript tool parity.
+
+  - Default process: Rust rmcp (`bin/pdf-reader-mcp` → `bin/native/pdf-reader-mcp-server`)
+  - Default tool engine: full TypeScript V3 handlers via parity bridge
+    (`dist/legacy-engine-runtime.js`) — drop-in with 3.0.14/3.0.16 behavior
+  - Pure-Rust subset remains opt-in only: `PDF_READER_ENGINE_MODE=pure-rust`
+  - Stage pdfjs worker into `dist/` for reliable engine runtime packaging
+  - Add `docs/specs/rust-dropin-parity-matrix.json` as the pure-Rust completion SSOT
+
+  This removes the dual production default (TS vs incomplete Rust) while keeping
+  full capability during pure-Rust migration.
+
 ## 3.0.16
 
 ### Patch Changes

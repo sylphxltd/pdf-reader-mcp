@@ -347,8 +347,8 @@ fn compare_tool_route_case(case: &OracleCase) {
     let tool = case.input["tool"].as_str().expect("tool route tool");
     let route = route_for_tool(tool).expect("tool must be routed");
     let route_name = match route {
-        ToolRoute::RustCore => "RustCore",
-        ToolRoute::LegacyOptIn => "LegacyOptIn",
+        ToolRoute::FullParity => "FullParity",
+        ToolRoute::PureRust => "PureRust",
     };
     let native = serde_json::json!({ "route": route_name });
     assert_eq!(
@@ -769,6 +769,10 @@ fn case_matches_slice(case: &OracleCase, slice: &str) -> bool {
 
 #[test]
 fn pdf_reader_mcp_differential_matches_ts_oracle() {
+    // This harness freezes the pure-Rust subset contract (route + engine fields).
+    // Production default is full TypeScript parity via parity_bridge; pure-rust remains
+    // the differential target until the full-parity oracle is admitted.
+    std::env::set_var("PDF_READER_ENGINE_MODE", "pure-rust");
     let _ = fs::read_to_string(corpus_fixture_path()).expect("read pdf-reader-mcp corpus fixture");
     let oracle = run_ts_oracle();
     assert_eq!(oracle.corpus_version, 1);

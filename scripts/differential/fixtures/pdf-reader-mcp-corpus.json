@@ -48,17 +48,17 @@
     {
       "id": "route-read-pdf",
       "tool": "read_pdf",
-      "expect": "RustCore"
+      "expect": "PureRust"
     },
     {
       "id": "route-search-pdf",
       "tool": "search_pdf",
-      "expect": "RustCore"
+      "expect": "PureRust"
     },
     {
       "id": "route-pdf-evidence",
       "tool": "pdf_evidence",
-      "expect": "RustCore"
+      "expect": "PureRust"
     }
   ],
   "readPdfCases": [
