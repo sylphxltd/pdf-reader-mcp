@@ -464,8 +464,7 @@ describe('MCP Server Integration', () => {
     };
 
     expect(response.id).toBe(10);
-    const errorText =
-      response.error?.message ?? response.result?.content?.[0]?.text ?? '';
+    const errorText = response.error?.message ?? response.result?.content?.[0]?.text ?? '';
     expect(response.result?.isError === true || response.error !== undefined).toBe(true);
     expect(errorText).toMatch(/sources/i);
   });
