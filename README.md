@@ -1,7 +1,7 @@
 <div align="center">
 
 <p align="center">
-  <img src="docs/banner.png" alt="PDF Reader MCP banner" width="100%" />
+  <img src="https://mark.sylphx.com/api/v1/banner?type=glass&theme=tokyonight&text=pdf+reader+mcp&desc=%F0%9F%93%84+The+PDF+intelligence+layer+for+AI+agents+%E2%80%94+Agent+Document+Twin%2C+evidence-firs&height=200&animation=rise&credit=0" alt="pdf-reader-mcp — Sylphx Mark banner" width="100%" />
 </p>
 
 # 📄 PDF Reader MCP
