@@ -8,9 +8,12 @@
 
 ### Your agent read the PDF. **Did it read the truth?**
 
-The most-starred PDF MCP server on GitHub. **v3.1 is pure Rust** — a single native
-binary for `read_pdf`, `search_pdf`, and `pdf_evidence` (inspect), with SSRF-safe
-URL loading. Local-first. No Node runtime required for the MCP path.
+The most-starred PDF MCP server on GitHub.
+
+> **Published stable: `@sylphx/pdf-reader-mcp@3.0.14` (TypeScript path).**  
+> Pure-Rust cutover is **in progress and not published**. Versions `3.0.15`–`3.1.1`
+> are **WITHDRAWN** (deprecated on npm). Do not install them.  
+> **Publish freeze** until capability parity is real — no more premature releases.
 
 [![GitHub stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=for-the-badge&logo=github)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)

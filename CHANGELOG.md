@@ -1,12 +1,15 @@
 # Changelog
 
-## Unpublished (2026-07-17)
+## Withdrawal (2026-07-17)
 
-- **PUBLISH FREEZE.** Premature cutover versions yanked/unpublished from registries.
-- npm: unpublish `3.0.15`–`3.1.1`; restore `latest` → **`3.0.14`** (last known good TS path).
-- crates.io: yank `pdf-reader-core` / `pdf-reader-mcp-server` / `pdf-reader-cli` `3.1.1`
-  (crates.io cannot fully delete versions — yank only).
-- No further registry publish until true capability parity + honest docs.
+- **PUBLISH FREEZE.** No further registry publish until true capability parity + honest docs.
+- **npm:** cannot unpublish (E405: package has dependents). Instead:
+  - `npm deprecate` **`3.0.15`–`3.1.1`** with WITHDRAWN message
+  - `dist-tag latest` restored to **`3.0.14`** (last known good TS path)
+- **crates.io:** `3.1.1` of `pdf-reader-core` / `pdf-reader-mcp-server` / `pdf-reader-cli`
+  cannot be deleted; **yank pending** (org token lacked yank scope — owner must
+  `cargo yank --vers 3.1.1 <crate>` with a yank-capable token).
+- GitHub releases `v3.0.15`–`v3.1.1` marked prerelease **WITHDRAWN**.
 
 ## 3.1.1 (unpublished)
 

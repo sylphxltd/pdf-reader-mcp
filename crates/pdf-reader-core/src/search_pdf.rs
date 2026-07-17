@@ -118,6 +118,11 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
     if input.query.trim().is_empty() {
         return Err(SearchPdfError::invalid_params("query must not be empty"));
     }
+    if input.include_ocr_text_layer.unwrap_or(false) {
+        return Err(SearchPdfError::invalid_request(
+            "search_pdf include_ocr_text_layer requires an OCR provider; pure-Rust search uses the embedded text layer only.",
+        ));
+    }
 
     for source in &input.sources {
         validate_source(source)?;

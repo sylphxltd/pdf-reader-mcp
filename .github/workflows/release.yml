@@ -100,7 +100,7 @@ jobs:
         uses: changesets/action@v1
         with:
           version: bun changeset version && bun run sync:server-json
-          publish: bun run release
+          publish: echo "PUBLISH FREEZE: refusing bun run release — set explicit owner approval to re-enable"
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
           createGithubReleases: true
