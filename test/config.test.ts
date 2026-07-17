@@ -208,6 +208,42 @@ describe('isPrivateIp (SSS-07 SSRF guard)', () => {
     expect(isPrivateIp('::ffff:8.8.8.8')).toBe(false);
   });
 
+  // GHSA-f3xw-ff5r-rj7c: IPv6 transition encodings that embed private IPv4.
+  it('blocks NAT64 well-known prefix embeddings of private IPv4 (RFC 6052)', () => {
+    // 169.254.169.254, 127.0.0.1, 10.0.0.1 via 64:ff9b::/96
+    expect(isPrivateIp('64:ff9b::a9fe:a9fe')).toBe(true);
+    expect(isPrivateIp('64:ff9b::7f00:1')).toBe(true);
+    expect(isPrivateIp('64:ff9b::a00:1')).toBe(true);
+    // Expanded form of the same NAT64 well-known mapping
+    expect(isPrivateIp('64:ff9b:0:0:0:0:a9fe:a9fe')).toBe(true);
+    // Public IPv4 via NAT64 remains allowed
+    expect(isPrivateIp('64:ff9b::808:808')).toBe(false); // 8.8.8.8
+  });
+
+  it('blocks NAT64 local-use prefix (RFC 8215)', () => {
+    expect(isPrivateIp('64:ff9b:1::a9fe:a9fe')).toBe(true);
+    expect(isPrivateIp('64:ff9b:1:0:0:0:a9fe:a9fe')).toBe(true);
+  });
+
+  it('blocks 6to4 embeddings of private IPv4 (RFC 3056)', () => {
+    expect(isPrivateIp('2002:a9fe:a9fe::')).toBe(true); // 169.254.169.254
+    expect(isPrivateIp('2002:7f00:1::')).toBe(true); // 127.0.0.1
+    expect(isPrivateIp('2002:0a00:0001::')).toBe(true); // 10.0.0.1
+    expect(isPrivateIp('2002:0808:0808::')).toBe(false); // 8.8.8.8
+  });
+
+  it('blocks the entire Teredo prefix (RFC 4380)', () => {
+    expect(isPrivateIp('2001:0000:4136:e378:8000:63bf:a9fe:a9fe')).toBe(true);
+    expect(isPrivateIp('2001:0:4136:e378:8000:63bf:a9fe:a9fe')).toBe(true);
+  });
+
+  it('blocks documentation and discard-only IPv6 ranges', () => {
+    expect(isPrivateIp('2001:db8::1')).toBe(true);
+    expect(isPrivateIp('2001:0db8:85a3::8a2e:370:7334')).toBe(true);
+    expect(isPrivateIp('100::')).toBe(true);
+    expect(isPrivateIp('100::1')).toBe(true);
+  });
+
   it('denies addresses that are not recognized as IPv4 or IPv6', () => {
     expect(isPrivateIp('not-an-ip')).toBe(true);
   });
@@ -221,6 +257,14 @@ describe('assertUrlNotPrivate (SSS-07 SSRF guard)', () => {
 
   it('throws for literal private IPv6 hostnames without DNS', async () => {
     await expect(assertUrlNotPrivate('::1')).rejects.toThrow(/non-public/);
+  });
+
+  it('throws for IPv6 transition encodings of private IPv4 (GHSA-f3xw-ff5r-rj7c)', async () => {
+    await expect(assertUrlNotPrivate('64:ff9b::a9fe:a9fe')).rejects.toThrow(/non-public/);
+    await expect(assertUrlNotPrivate('2002:a9fe:a9fe::')).rejects.toThrow(/non-public/);
+    await expect(assertUrlNotPrivate('2001:0:4136:e378:8000:63bf:a9fe:a9fe')).rejects.toThrow(
+      /non-public/
+    );
   });
 
   it('resolves successfully for literal public IPs', async () => {
