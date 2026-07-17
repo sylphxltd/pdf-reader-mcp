@@ -1,13 +1,15 @@
 # Publish pure-Rust crates to crates.io (pdf-reader-core, pdf-reader-mcp-server, pdf-reader-cli).
 name: Publish crates.io
 
+# PUBLISH FREEZE: do not publish until capability parity is real.
+
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type publish to confirm crates.io release"
+        description: "PUBLISH FREEZE — type I_UNDERSTAND_USER_IMPACT to publish crates"
         required: true
-        default: "publish"
+        default: ""
       dry_run:
         description: "If true, cargo publish --dry-run only"
         required: false
@@ -19,7 +21,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.confirm == 'publish' }}
+    if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_USER_IMPACT' }}
     steps:
       - uses: actions/checkout@v4
 

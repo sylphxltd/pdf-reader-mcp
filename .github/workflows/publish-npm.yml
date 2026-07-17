@@ -1,20 +1,22 @@
 name: Publish npm
 
+# PUBLISH FREEZE: do not publish until capability parity is real.
+
 # One-shot pure-Rust package publish for already-versioned package.json.
 # Uses secrets.NPM_TOKEN. Does not re-run the heavy changesets release matrix.
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type publish to confirm'
+        description: 'PUBLISH FREEZE active — type I_UNDERSTAND_USER_IMPACT to publish'
         required: true
-        default: 'publish'
+        default: ''
 
 jobs:
   publish:
     name: Publish @sylphx/pdf-reader-mcp
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.confirm == 'publish' }}
+    if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_USER_IMPACT' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.0

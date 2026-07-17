@@ -1,0 +1,62 @@
+# Emergency: unpublish/yank premature pure-Rust cutover versions that broke users.
+# npm: unpublish 3.0.15–3.1.1 (within 72h), restore latest → 3.0.14
+# crates.io: yank 3.1.1 (crates cannot fully delete versions)
+name: Unpublish bad versions
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type UNPUBLISH to confirm'
+        required: true
+        default: ''
+
+jobs:
+  unpublish:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'UNPUBLISH' }}
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Unpublish npm broken cutover versions
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${NPM_TOKEN:-}"
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
+          # Premature releases from pure-Rust cutover chaos (2026-07-17).
+          # Keep 3.0.14 as last known good TypeScript drop-in.
+          for v in 3.1.1 3.1.0 3.0.18 3.0.17 3.0.16 3.0.15; do
+            echo "=== npm unpublish @sylphx/pdf-reader-mcp@${v} ==="
+            npm unpublish "@sylphx/pdf-reader-mcp@${v}" --force || {
+              echo "WARN: unpublish ${v} failed (may already be gone or policy blocked)"
+            }
+          done
+          echo "=== restore dist-tag latest → 3.0.14 ==="
+          npm dist-tag add "@sylphx/pdf-reader-mcp@3.0.14" latest
+          echo "=== npm versions remaining ==="
+          npm view @sylphx/pdf-reader-mcp versions --json
+          echo "=== dist-tags ==="
+          npm view @sylphx/pdf-reader-mcp dist-tags --json
+
+      - name: Yank crates.io 3.1.1 (cannot fully unpublish)
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${CARGO_REGISTRY_TOKEN:-}"
+          for crate in pdf-reader-core pdf-reader-mcp-server pdf-reader-cli; do
+            echo "=== cargo yank ${crate}@3.1.1 ==="
+            cargo yank --vers 3.1.1 "$crate" || {
+              echo "WARN: yank ${crate}@3.1.1 failed"
+            }
+          done

@@ -1,8 +1,8 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "3.1.1",
+  "version": "3.0.14",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Pure-Rust PDF MCP server with full Agent Document Twin capabilities. Install via npm or cargo.",
+  "description": "Evidence-first PDF MCP. Stable published line is 3.0.14; pure-Rust cutover is in progress and not published.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./bin/pdf-reader-mcp"
