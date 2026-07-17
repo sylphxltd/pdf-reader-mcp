@@ -35,26 +35,22 @@ describe('MCP transport boundary', () => {
     expect(existsSync(path.join(repoRoot, 'src/engine-invoke.ts'))).toBe(false);
     expect(existsSync(path.join(repoRoot, 'src/legacy-engine-runtime.ts'))).toBe(true);
     expect(existsSync(path.join(repoRoot, 'dist/legacy-engine-runtime.js'))).toBe(true);
-    expect(existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))).toBe(
-      true
-    );
+    expect(
+      existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))
+    ).toBe(true);
   });
 
   it('full-parity engine executes read_pdf via TypeScript handlers', () => {
-    const result = spawnSync(
-      rustServerBin,
-      [],
-      {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          PDF_READER_ENGINE_MODE: 'full',
-        },
-        input: '',
-        timeout: 5_000,
-      }
-    );
+    const result = spawnSync(rustServerBin, [], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PDF_READER_ENGINE_MODE: 'full',
+      },
+      input: '',
+      timeout: 5_000,
+    });
     // Process expects MCP stdio; just ensure binary starts (non-crash on empty input close).
     expect([0, 1, null]).toContain(result.status);
     expect(existsSync(path.join(repoRoot, 'dist/legacy-engine-runtime.js'))).toBe(true);
