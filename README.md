@@ -24,7 +24,7 @@ The most-starred PDF MCP server on GitHub.
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](#docker)
 
-**Local-first** · **Pure-Rust MCP** · **SSRF-safe URL** · **Production contract suite**
+**Local-first** · **Published: TS 3.0.14** · **Pure-Rust experimental** · **Publish freeze**
 
 [⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
 · [Quick start](#quick-start) · [See it work](#see-it-work) · [Roadmap](docs/roadmap/sota-family-roadmap.md) · [Why not plain text?](#why-not-a-plain-text-dump)
@@ -62,7 +62,7 @@ Full capability matrix: [comparison guide](docs/comparison/index.md).
 **Install once. Call once.**
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.0.14
 ```
 
 ```json
@@ -141,10 +141,10 @@ pure-Rust engine either way.
 
 ```bash
 # Claude Code
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.0.14
 
 # Any MCP client (stdio)
-npx @sylphx/pdf-reader-mcp
+npx @sylphx/pdf-reader-mcp@3.0.14
 ```
 
 Claude Desktop (`claude_desktop_config.json`):
@@ -154,7 +154,7 @@ Claude Desktop (`claude_desktop_config.json`):
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["@sylphx/pdf-reader-mcp@3.0.14"]
     }
   }
 }
@@ -212,21 +212,20 @@ docker build -t pdf-reader-mcp . && \
 Need Cursor, VS Code, Windsurf, Cline, Warp, HTTP transport, Docker customization, or
 filesystem sandboxing? See the [installation guide](docs/guide/installation.md).
 
-## Why pure Rust?
+## Pure-Rust status (honest)
 
-PDF agents are latency- and reliability-sensitive. v3.1+ runs a **single native
-binary** for the full MCP surface — no dual TS/Rust runtime, no “migration in
-progress” path.
+Pure-Rust is a **work in progress**, not the published product.
 
-| Reason | What it means in production |
+| Claim | Status |
 | --- | --- |
-| Lower tool latency | Cold start and per-call extraction stay in one process with no Node bridge |
-| Smaller ops surface | One binary to stage, containerize, and pin |
-| Fail-closed security | SSRF URL policy (including IPv6 transition) lives in Rust |
-| Same public tools | `read_pdf`, `search_pdf`, `pdf_evidence` keep the Agent Document Twin fields |
+| Tool names `read_pdf` / `search_pdf` / `pdf_evidence` | Present in experimental engine |
+| Selectable-text extract / search | Partial |
+| Full Document Twin (geometry, outline, COS structure) | **Not yet** |
+| Evidence `render_page` / crop / OCR / analyze | **Not yet** (fail-closed) |
+| Cross-platform npm binary | **Not yet** |
+| Drop-in for 3.0.14 | **No** |
 
-Reproduce the numbers: `bun run build:rust && bun run benchmark:pure-rust`.
-Full write-up: [Why Rust + benchmark proof](docs/performance/why-rust.md).
+See [docs/performance/why-rust.md](docs/performance/why-rust.md). Speedups are exploratory only.
 
 ## MCP Tool Surface
 

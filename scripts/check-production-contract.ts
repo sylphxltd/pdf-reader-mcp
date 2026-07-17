@@ -10,12 +10,11 @@ const env = {
   ...process.env,
   PDF_READER_ENGINE_MODE: '',
   PDF_READER_PURE_RUST: '',
+  RUN_PURE_RUST_CAPABILITY: '',
 };
 
-const suites = [
-  'test/production/productionPath.contract.test.ts',
-  'test/production/capabilityParity.contract.test.ts',
-];
+// Published product path only (TypeScript 3.0.14). Pure-Rust capability suite is opt-in.
+const suites = ['test/production/productionPath.contract.test.ts'];
 
 for (const suite of suites) {
   const result = spawnSync('bun', ['test', suite, '--timeout=600000'], {
@@ -32,5 +31,5 @@ for (const suite of suites) {
 }
 
 console.log(
-  '[check-production-contract] PASS — pure-Rust production-path + capability parity contracts are green'
+  '[check-production-contract] PASS — published TypeScript production-path contract is green'
 );

@@ -1,19 +1,42 @@
 #!/usr/bin/env bash
-# PDF Reader MCP — pure Rust only.
+# Optional entry for local pure-Rust experiments.
+# Published npm bin is dist/index.js (TypeScript 3.0.14 path).
+# Pure-Rust is opt-in only: PDF_READER_ENGINE_MODE=pure-rust
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MODE="${PDF_READER_ENGINE_MODE:-}"
+
+if [[ "$MODE" != "pure-rust" && "$MODE" != "rust" ]]; then
+  if [[ -f "$ROOT/dist/index.js" ]]; then
+    exec node "$ROOT/dist/index.js" "$@"
+  fi
+  echo "[pdf-reader-mcp] TypeScript server not built. Run: bun run build" >&2
+  echo "[pdf-reader-mcp] (Pure-Rust is opt-in: PDF_READER_ENGINE_MODE=pure-rust bun run build:rust)" >&2
+  exit 1
+fi
 
 resolve_rust_bin() {
   if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
     printf '%s\n' "${PDF_READER_MCP_RUST_BIN}"
     return 0
   fi
+  local candidate
+  local platform
+  platform="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
+  # Future multi-platform layout: bin/native/<platform>/pdf-reader-mcp-server
   for candidate in \
+    "$ROOT/bin/native/${platform}/pdf-reader-mcp-server" \
     "$ROOT/bin/native/pdf-reader-mcp-server" \
     "$ROOT/target/release/pdf-reader-mcp-server" \
     "$ROOT/target/debug/pdf-reader-mcp-server"; do
     if [[ -x "$candidate" ]]; then
+      # Reject wrong-arch ELF if file(1) available
+      if command -v file >/dev/null 2>&1; then
+        if file "$candidate" | grep -qi 'ELF' && [[ "$(uname -s)" != "Linux" ]]; then
+          continue
+        fi
+      fi
       printf '%s\n' "$candidate"
       return 0
     fi
@@ -30,5 +53,7 @@ if bin="$(resolve_rust_bin)"; then
   exec "$bin" "$@"
 fi
 
-echo "[pdf-reader-mcp] Rust MCP server binary not found. Run: bun run build:rust" >&2
+echo "[pdf-reader-mcp] Pure-Rust binary not found or not runnable on this platform." >&2
+echo "Build for this host: bun run build:rust" >&2
+echo "Or use the published TypeScript path (default): unset PDF_READER_ENGINE_MODE && bun run build && node dist/index.js" >&2
 exit 1

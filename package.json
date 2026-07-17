@@ -2,18 +2,21 @@
   "name": "@sylphx/pdf-reader-mcp",
   "version": "3.0.14",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Evidence-first PDF MCP. Stable published line is 3.0.14; pure-Rust cutover is in progress and not published.",
+  "description": "Evidence-first PDF MCP. Published stable is 3.0.14 (TypeScript). Pure-Rust cutover is experimental/unpublished; 3.0.15\u20133.1.1 are withdrawn.",
   "type": "module",
   "bin": {
-    "pdf-reader-mcp": "./bin/pdf-reader-mcp"
+    "pdf-reader-mcp": "./dist/index.js"
   },
   "files": [
-    "bin/",
+    "dist/",
     "examples/",
     "corpus/",
     "README.md",
     "LICENSE"
   ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -36,8 +39,8 @@
     "pdf",
     "reader",
     "parser",
-    "rust",
-    "native",
+    "typescript",
+    "node",
     "ai",
     "agent",
     "tool",
@@ -57,16 +60,12 @@
     "document-processing"
   ],
   "scripts": {
-    "build:rust": "cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server && bun scripts/stage-rust-mcp.ts",
-    "test:rust": "cargo test",
     "build": "bun build src/index.ts --outdir dist --target node && bun build src/doctor-cli.ts --outdir dist --target node && bun build src/legacy-engine-runtime.ts --outdir dist --target node && bun scripts/stage-pdfjs-worker.ts",
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector dist/index.js",
-    "test": "bun test --timeout=30000",
-    "test:watch": "bun test --watch --timeout=30000",
-    "test:cov": "bun test --coverage --timeout=30000",
-    "test:production-contract": "bun scripts/check-production-contract.ts",
-    "check:production-contract": "bun scripts/check-production-contract.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:cov": "bun test --coverage",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
@@ -77,12 +76,9 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "start": "./bin/pdf-reader-mcp",
-    "doctor": "bun run src/doctor-cli.ts",
+    "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
-    "benchmark:pure-rust": "bun scripts/benchmark-pure-rust.ts",
-    "test:capability-parity": "bun test test/production/capabilityParity.contract.test.ts --timeout=600000",
     "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",
     "benchmark:providers": "bun scripts/benchmark-pdf-providers.ts",
     "benchmark:provider-manifest": "bun scripts/benchmark-pdf-provider-manifest.ts",
@@ -92,11 +88,15 @@
     "benchmark:release-artifacts": "MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_BENCHMARK_REQUIRED=true bun run benchmark:all && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_MANIFEST=${MCP_PDF_PROVIDER_MANIFEST:-test/fixtures/provider-crop-manifest.json} MCP_PDF_PROVIDER_MANIFEST_CROP_REQUIRED=true bun run benchmark:provider-manifest-crops && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} MCP_PDF_PROVIDER_MANIFEST=${MCP_PDF_PROVIDER_MANIFEST:-test/fixtures/provider-analysis-manifest.json} MCP_PDF_PROVIDER_MANIFEST_REQUIRED=true bun run benchmark:provider-manifest",
     "benchmark:release-gate": "bun scripts/sota-release-gate.ts",
     "package:smoke": "bun scripts/package-smoke.ts",
-    "sync:server-json": "bun scripts/sync-server-json.ts",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "bun run build:rust && bun run package:smoke && bun run check:production-contract",
-    "release:preflight": "bun run build:rust && cargo test --workspace && bun run package:smoke && bun run check:production-contract && bun test test/architectureContract.test.ts test/check-no-ts-stdio-backend.test.ts test/stdioTransport.matrix.test.ts test/httpTransport.matrix.test.ts test/rustMcp.boundary.test.ts test/tsAdapterDeletion.matrix.test.ts test/shippedPath.matrix.test.ts test/production/productionPath.contract.test.ts --timeout=600000",
-    "release": "bun run release:preflight && npm publish --access public"
+    "prepublishOnly": "bun run clean && bun run build && bun run package:smoke",
+    "release:preflight": "bun run typecheck && bun run check && bun run build && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
+    "release": "echo \"PUBLISH FREEZE: refusing release until capability parity is approved\" && exit 1",
+    "build:rust": "cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server && bun scripts/stage-rust-mcp.ts",
+    "test:rust": "cargo test",
+    "benchmark:pure-rust": "bun scripts/benchmark-pure-rust.ts",
+    "test:capability-parity": "bun test test/production/capabilityParity.contract.test.ts --timeout=600000",
+    "check:production-contract": "bun scripts/check-production-contract.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

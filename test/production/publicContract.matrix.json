@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 2,
-  "title": "Production-path public contract matrix (pure-Rust)",
+  "schemaVersion": 3,
+  "title": "Production-path public contract matrix (published TypeScript 3.0.14)",
   "path": {
-    "process": "bin/pdf-reader-mcp → Rust rmcp",
-    "engineMode": "pure-rust",
-    "forbidden": ["parity_bridge", "legacy-engine-runtime as production default"]
+    "process": "dist/index.js (TypeScript MCP)",
+    "engineMode": "typescript-3.0.14",
+    "forbiddenAsDefault": ["pure-rust as npm latest", "Linux-only ELF as cross-platform drop-in"]
   },
   "requiredTools": ["read_pdf", "search_pdf", "pdf_evidence"],
   "readPdfOptionSmoke": [

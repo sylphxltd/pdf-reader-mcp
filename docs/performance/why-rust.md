@@ -1,10 +1,14 @@
 ---
 layout: doc
-title: Why pure Rust + benchmark proof
-description: Why PDF Reader MCP moved to a pure-Rust engine, what stayed capability-compatible, and how to reproduce performance numbers.
+title: Why pure Rust + open gaps
 ---
 
-# Why pure Rust?
+# Why pure Rust + open gaps
+
+> **Status:** experimental. **Not** a full drop-in for TypeScript 3.0.14.
+> Published stable remains `@sylphx/pdf-reader-mcp@3.0.14`.
+
+
 
 ## The product decision
 

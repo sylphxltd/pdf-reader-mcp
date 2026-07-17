@@ -1,13 +1,13 @@
 /**
  * Shared helpers for production-path MCP contract tests.
- * Exercises the published pure-Rust launcher (no TS parity bridge).
+ * Default: published TypeScript path (dist/index.js).
+ * Pure-Rust: set PDF_READER_ENGINE_MODE=pure-rust (experimental, not published).
  */
 import { type ChildProcess, execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
 export const repoRoot = path.resolve(import.meta.dirname, '../..');
-export const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
 export const samplePdf = path.join(repoRoot, 'test/fixtures/sample.pdf');
 export const fixturesRoot = path.join(repoRoot, 'test/fixtures');
 
@@ -26,25 +26,36 @@ export type JsonRpcResponse = {
 
 export const packageJson = JSON.parse(
   fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')
-) as { version: string; bin?: Record<string, string> };
+) as {
+  version: string;
+  bin?: Record<string, string>;
+  exports?: Record<string, string>;
+  files?: string[];
+};
 
 export const ensureProductionArtifacts = () => {
-  execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
-  if (!fs.existsSync(binWrapper)) {
-    throw new Error(`missing launcher: ${binWrapper}`);
+  const mode = process.env.PDF_READER_ENGINE_MODE;
+  if (mode === 'pure-rust' || mode === 'rust') {
+    execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
+    if (!fs.existsSync(path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'))) {
+      throw new Error('missing staged Rust MCP server binary');
+    }
+    return;
   }
-  if (!fs.existsSync(path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'))) {
-    throw new Error('missing staged Rust MCP server binary');
+  execSync('bun run build', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
+  if (!fs.existsSync(path.join(repoRoot, 'dist/index.js'))) {
+    throw new Error('missing dist/index.js — TypeScript production path not built');
   }
 };
 
 export const productionEnv = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
   const env = { ...process.env, ...overrides };
-  env.PDF_READER_PURE_RUST = undefined;
-  env.PDF_READER_ENGINE_MODE = undefined;
+  // Default published path: do not force pure-rust
+  if (!overrides.PDF_READER_ENGINE_MODE) {
+    delete env.PDF_READER_ENGINE_MODE;
+  }
   env.NODE_ENV = env.NODE_ENV ?? 'test';
-  env.MCP_TRANSPORT = env.MCP_TRANSPORT ?? '';
-  env.PDF_READER_MCP_TRANSPORT = env.PDF_READER_MCP_TRANSPORT ?? '';
+  env.MCP_TRANSPORT = env.MCP_TRANSPORT ?? 'stdio';
   return env;
 };
 
@@ -69,16 +80,26 @@ export const readResponse = (proc: ChildProcess, timeoutMs = 45_000): Promise<Js
 
     const onData = (data: Buffer) => {
       buffer += data.toString();
-      const newlineIndex = buffer.indexOf('\n');
-      if (newlineIndex === -1) return;
-      const line = buffer.slice(0, newlineIndex).trim();
-      buffer = buffer.slice(newlineIndex + 1);
-      if (!line) return;
-      cleanup();
-      try {
-        resolve(JSON.parse(line) as JsonRpcResponse);
-      } catch {
-        reject(new Error(`Failed to parse MCP JSON line: ${line.slice(0, 500)}`));
+      // MCP SDK may use Content-Length framing or newline JSON.
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('Content-Length') || trimmed.startsWith('content-length')) {
+          continue;
+        }
+        // strip header body separator empties
+        if (trimmed === '') continue;
+        try {
+          const msg = JSON.parse(trimmed) as JsonRpcResponse;
+          if (msg.id !== undefined || msg.result !== undefined || msg.error !== undefined) {
+            cleanup();
+            resolve(msg);
+            return;
+          }
+        } catch {
+          // ignore non-json
+        }
       }
     };
 
@@ -99,12 +120,22 @@ export const readResponse = (proc: ChildProcess, timeoutMs = 45_000): Promise<Js
     proc.on('exit', onExit);
   });
 
-export const spawnProductionMcp = (envOverrides: NodeJS.ProcessEnv = {}): ChildProcess =>
-  spawn(binWrapper, [], {
+export const spawnProductionMcp = (envOverrides: NodeJS.ProcessEnv = {}): ChildProcess => {
+  const mode = envOverrides.PDF_READER_ENGINE_MODE ?? process.env.PDF_READER_ENGINE_MODE;
+  if (mode === 'pure-rust' || mode === 'rust') {
+    const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
+    return spawn(binWrapper, [], {
+      cwd: repoRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: productionEnv({ ...envOverrides, PDF_READER_ENGINE_MODE: 'pure-rust' }),
+    });
+  }
+  return spawn(process.execPath, [path.join(repoRoot, 'dist/index.js')], {
     cwd: repoRoot,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: productionEnv(envOverrides),
   });
+};
 
 export const initializeSession = async (
   proc: ChildProcess,
@@ -148,37 +179,30 @@ export const listTools = async (proc: ChildProcess, id = 2): Promise<JsonRpcResp
 
 export const parseToolPayload = (
   response: JsonRpcResponse
-): { isError: boolean; text: string; json?: Record<string, unknown> } => {
+): { isError: boolean; text: string; structured?: Record<string, unknown> } => {
   if (response.error) {
-    return { isError: true, text: response.error.message ?? 'rpc error' };
+    return { isError: true, text: response.error.message ?? JSON.stringify(response.error) };
   }
   const result = response.result;
   if (!result) {
     return { isError: true, text: 'missing result' };
   }
-  if (result.structuredContent && typeof result.structuredContent === 'object') {
+  if (result.isError) {
+    const text = (result.content ?? [])
+      .map((part) => part.text ?? '')
+      .join('\n');
+    return { isError: true, text: text || 'tool isError' };
+  }
+  if (result.structuredContent) {
     return {
-      isError: Boolean(result.isError),
+      isError: false,
       text: JSON.stringify(result.structuredContent),
-      json: result.structuredContent as Record<string, unknown>,
+      structured: result.structuredContent,
     };
   }
-  const text = result.content?.[0]?.text ?? '';
-  if (!text) {
-    return { isError: Boolean(result.isError), text: '' };
-  }
-  try {
-    const json = JSON.parse(text) as Record<string, unknown>;
-    return { isError: Boolean(result.isError), text, json };
-  } catch {
-    return { isError: Boolean(result.isError), text };
-  }
-};
-
-export const assertToolSuccess = (response: JsonRpcResponse, label: string) => {
-  const payload = parseToolPayload(response);
-  if (payload.isError) {
-    throw new Error(`${label} failed: ${payload.text.slice(0, 800)}`);
-  }
-  return payload;
+  const text = (result.content ?? [])
+    .filter((part) => part.type === 'text' || part.text)
+    .map((part) => part.text ?? '')
+    .join('\n');
+  return { isError: false, text };
 };

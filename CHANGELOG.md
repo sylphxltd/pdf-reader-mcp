@@ -1,5 +1,15 @@
 # Changelog
 
+## Recovery (2026-07-17, source only — no registry publish)
+
+- Restore published product path on main to TypeScript **3.0.14** surface
+  (`bin` → `dist/index.js`, `exports`, `files: [dist/…]`)
+- Pure-Rust is opt-in (`PDF_READER_ENGINE_MODE=pure-rust`), not npm latest
+- Fix pure-Rust `read_pdf` auto default when explicit `include_*` present
+- Fix pure-Rust `search_pdf` snake_case offsets + honor `sources[].pages`
+- Production contract tests target TypeScript path again
+- **No npm/crates publish**
+
 ## Withdrawal (2026-07-17)
 
 - **PUBLISH FREEZE.** No further registry publish until true capability parity + honest docs.

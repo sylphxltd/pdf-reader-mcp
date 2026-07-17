@@ -109,6 +109,34 @@ fn source_label(source: &SearchPdfSource) -> String {
         .unwrap_or_else(|| "unknown".into())
 }
 
+
+fn parse_page_filter(pages_spec: &Option<Value>) -> Option<Vec<u32>> {
+    let Some(spec) = pages_spec else {
+        return None;
+    };
+    if let Some(arr) = spec.as_array() {
+        let wanted: Vec<u32> = arr.iter().filter_map(|v| v.as_u64().map(|n| n as u32)).collect();
+        return if wanted.is_empty() { None } else { Some(wanted) };
+    }
+    if let Some(s) = spec.as_str() {
+        let mut wanted = Vec::new();
+        for part in s.split(',') {
+            let part = part.trim();
+            if let Some((a, b)) = part.split_once('-') {
+                if let (Ok(start), Ok(end)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) {
+                    if start <= end {
+                        wanted.extend(start..=end);
+                    }
+                }
+            } else if let Ok(n) = part.parse::<u32>() {
+                wanted.push(n);
+            }
+        }
+        return if wanted.is_empty() { None } else { Some(wanted) };
+    }
+    None
+}
+
 pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdfError> {
     if input.sources.is_empty() {
         return Err(SearchPdfError::invalid_params(
@@ -179,17 +207,19 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
             context_chars,
         ) {
             Ok(search) => {
+                let page_filter = parse_page_filter(&source.pages);
                 let matches: Vec<Value> = search
                     .matches
                     .iter()
+                    .filter(|item| page_filter.as_ref().map(|pages| pages.contains(&item.page)).unwrap_or(true))
                     .map(|item| {
                         json!({
                             "id": item.id,
                             "page": item.page,
                             "text": item.text,
                             "snippet": item.snippet,
-                            "matchStart": item.match_start,
-                            "matchEnd": item.match_end,
+                            "match_start": item.match_start,
+                            "match_end": item.match_end,
                             "provenance": {
                                 "engine": item.route,
                                 "route": item.route,

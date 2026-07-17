@@ -269,11 +269,46 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
     let text_chars = full_text.chars().count();
     let mut warnings = Vec::new();
 
-    let auto = input.auto.unwrap_or(true);
+    // auto is resolved in read_pdf_from_value for JSON callers; programmatic callers
+    // should set auto explicitly. Default remains true only when auto is None and no
+    // include flags are set (bool defaults are false, so all-false means sources-only).
+    let any_include = input.include_metadata
+        || input.include_page_count
+        || input.include_full_text
+        || input.include_markdown
+        || input.include_chunks
+        || input.include_elements
+        || input.include_text_layer
+        || input.include_document_map
+        || input.include_images
+        || input.include_tables
+        || input.include_html
+        || input.include_semantic_hints
+        || input.include_outline
+        || input.include_annotations
+        || input.include_page_labels
+        || input.include_page_geometry
+        || input.include_permissions
+        || input.include_form_fields
+        || input.include_attachments
+        || input.include_structure_tree
+        || input.include_safety_findings
+        || input.include_layout_diagnostics
+        || input.include_document_ast
+        || input.include_ocr_text_layer
+        || input.include_visual_enrichments
+        || input.include_trust_report
+        || input.include_accessibility_report;
+    let auto = match input.auto {
+        Some(v) => v,
+        // Presence of true include flags implies manual mode when auto omitted.
+        // (JSON path sets auto explicitly via read_pdf_from_value for key presence.)
+        None => !any_include,
+    };
     let detail = input.auto_detail.as_deref().unwrap_or("balanced");
     let auto_full = auto && detail == "full";
     let auto_balanced = auto && (detail == "balanced" || detail == "full");
-    let auto_fast = auto; // any auto enables core twin layers
+    let auto_fast = auto;
 
     let want_meta = input.include_metadata || input.include_page_count || auto_fast;
     let want_text = input.include_full_text || auto_fast;
@@ -741,10 +776,80 @@ pub fn read_pdf(input: &ReadPdfInput) -> Result<ReadPdfResponse, ReadPdfError> {
     })
 }
 
+fn json_has_explicit_read_options(input: &Value) -> bool {
+    const KEYS: &[&str] = &[
+        "include_full_text",
+        "include_metadata",
+        "include_page_count",
+        "include_images",
+        "include_tables",
+        "include_elements",
+        "include_semantic_hints",
+        "include_markdown",
+        "include_html",
+        "include_chunks",
+        "include_text_layer",
+        "include_ocr_text_layer",
+        "include_outline",
+        "include_annotations",
+        "include_page_labels",
+        "include_page_geometry",
+        "include_permissions",
+        "include_form_fields",
+        "include_attachments",
+        "include_structure_tree",
+        "include_safety_findings",
+        "include_layout_diagnostics",
+        "include_document_map",
+        "include_document_ast",
+        "include_visual_enrichments",
+        "max_visual_enrichments",
+        "include_trust_report",
+        "trust_report_redaction",
+        "include_accessibility_report",
+    ];
+    if KEYS.iter().any(|key| input.get(*key).is_some()) {
+        return true;
+    }
+    input
+        .get("sources")
+        .and_then(Value::as_array)
+        .map(|sources| sources.iter().any(|source| source.get("pages").is_some()))
+        .unwrap_or(false)
+}
+
 pub fn read_pdf_from_value(input: &Value) -> Result<ReadPdfResponse, ReadPdfError> {
-    let parsed: ReadPdfInput = serde_json::from_value(input.clone()).map_err(|error| {
+    let mut parsed: ReadPdfInput = serde_json::from_value(input.clone()).map_err(|error| {
         ReadPdfError::invalid_params(format!("Invalid read_pdf input: {error}"))
     })?;
+
+    // TypeScript-compatible auto default: omit auto => true only without explicit options.
+    if input.get("auto").is_none() {
+        parsed.auto = Some(!json_has_explicit_read_options(input));
+    }
+
+    if let Some(detail) = parsed.auto_detail.as_deref() {
+        if !matches!(detail, "fast" | "balanced" | "full") {
+            return Err(ReadPdfError::invalid_params(
+                "auto_detail must be one of: fast, balanced, full",
+            ));
+        }
+    }
+    if let Some(sample) = parsed.sample_pages {
+        if sample < 1 || sample > 20 {
+            return Err(ReadPdfError::invalid_params(
+                "sample_pages must be an integer between 1 and 20",
+            ));
+        }
+    }
+    if let Some(max_vis) = parsed.max_visual_enrichments {
+        if max_vis < 1 {
+            return Err(ReadPdfError::invalid_params(
+                "max_visual_enrichments must be >= 1 when provided",
+            ));
+        }
+    }
+
     read_pdf(&parsed)
 }
 
@@ -883,5 +988,36 @@ mod tests {
             data.accessibility_report.as_ref().unwrap()["profile"],
             "pdf_accessibility_report"
         );
+    }
+
+    #[test]
+    fn metadata_only_does_not_auto_enable_twin_layers() {
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/sample.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+        let response = read_pdf_from_value(&json!({
+            "sources": [{"path": fixture.to_string_lossy()}],
+            "include_metadata": true,
+            "include_page_count": true
+        }))
+        .expect("read");
+        let data = response.results[0].data.as_ref().unwrap();
+        assert!(data.info.is_some());
+        assert!(data.full_text.is_none(), "metadata-only must not force full_text");
+        assert!(data.markdown.is_none(), "metadata-only must not force markdown");
+        assert!(data.tables.is_none(), "metadata-only must not force tables");
+        assert!(data.trust_report.is_none(), "metadata-only must not force trust_report");
+    }
+
+    #[test]
+    fn rejects_invalid_auto_detail() {
+        let err = read_pdf_from_value(&json!({
+            "sources": [{"path": "/tmp/x.pdf"}],
+            "auto_detail": "garbage"
+        }))
+        .expect_err("invalid auto_detail");
+        assert_eq!(err.code, ReadPdfErrorCode::InvalidParams);
     }
 }

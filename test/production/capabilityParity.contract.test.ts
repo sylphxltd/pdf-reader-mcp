@@ -1,8 +1,11 @@
 /**
- * Capability parity contract — fails if any public include_* / operation surface
- * disappears from the pure-Rust production path.
+ * EXPERIMENTAL pure-Rust capability contract.
  *
- * This is the regression fence for "updating must not remove capabilities".
+ * NOT the published product path. Requires PDF_READER_ENGINE_MODE=pure-rust.
+ * Key-presence alone is insufficient for true parity; assertions below mix
+ * presence + a few semantic checks. Full TS↔Rust golden differential is still TODO.
+ *
+ * Skip unless explicitly enabled so default CI exercises the published TS path.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -91,7 +94,12 @@ function deepHasKey(value: unknown, key: string): boolean {
   return false;
 }
 
-describe('capability parity contract (pure-Rust production path)', () => {
+const pureRustEnabled =
+  process.env.PDF_READER_ENGINE_MODE === 'pure-rust' ||
+  process.env.PDF_READER_ENGINE_MODE === 'rust' ||
+  process.env.RUN_PURE_RUST_CAPABILITY === '1';
+
+describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
   let proc: ChildProcess;
   let reqId = 100;
 
@@ -101,8 +109,9 @@ describe('capability parity contract (pure-Rust production path)', () => {
   };
 
   beforeAll(async () => {
+    process.env.PDF_READER_ENGINE_MODE = 'pure-rust';
     ensureProductionArtifacts();
-    proc = spawnProductionMcp();
+    proc = spawnProductionMcp({ PDF_READER_ENGINE_MODE: 'pure-rust' });
     await initializeSession(proc, 'capability-parity-contract');
   }, 420_000);
 
