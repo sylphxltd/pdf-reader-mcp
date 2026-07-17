@@ -25,7 +25,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Unpublish npm broken cutover versions
+      - name: Deprecate npm broken cutover versions + restore latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -33,20 +33,25 @@ jobs:
           set -euo pipefail
           test -n "${NPM_TOKEN:-}"
           printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
-          # Premature releases from pure-Rust cutover chaos (2026-07-17).
-          # Keep 3.0.14 as last known good TypeScript drop-in.
+          # npm forbids unpublish when dependents exist (E405). Deprecate instead.
+          # Premature pure-Rust cutover chaos (2026-07-17). latest → 3.0.14.
+          MSG='WITHDRAWN: incomplete pure-Rust cutover — do not use. Pin @sylphx/pdf-reader-mcp@3.0.14 (last known good).'
           for v in 3.1.1 3.1.0 3.0.18 3.0.17 3.0.16 3.0.15; do
-            echo "=== npm unpublish @sylphx/pdf-reader-mcp@${v} ==="
-            npm unpublish "@sylphx/pdf-reader-mcp@${v}" --force || {
-              echo "WARN: unpublish ${v} failed (may already be gone or policy blocked)"
-            }
+            echo "=== npm deprecate @sylphx/pdf-reader-mcp@${v} ==="
+            npm deprecate "@sylphx/pdf-reader-mcp@${v}" "$MSG"
           done
           echo "=== restore dist-tag latest → 3.0.14 ==="
           npm dist-tag add "@sylphx/pdf-reader-mcp@3.0.14" latest
-          echo "=== npm versions remaining ==="
-          npm view @sylphx/pdf-reader-mcp versions --json
+          # Drop any non-latest tags that still point at withdrawn versions
+          for tag in next pure-rust; do
+            npm dist-tag rm @sylphx/pdf-reader-mcp "$tag" 2>/dev/null || true
+          done
           echo "=== dist-tags ==="
           npm view @sylphx/pdf-reader-mcp dist-tags --json
+          echo "=== deprecation sample ==="
+          npm view @sylphx/pdf-reader-mcp@3.1.1 deprecated || true
+          npm view @sylphx/pdf-reader-mcp@3.0.15 deprecated || true
+          npm view @sylphx/pdf-reader-mcp version
 
       - name: Yank crates.io 3.1.1 (cannot fully unpublish)
         env:
@@ -54,9 +59,15 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${CARGO_REGISTRY_TOKEN:-}"
+          failed=0
           for crate in pdf-reader-core pdf-reader-mcp-server pdf-reader-cli; do
             echo "=== cargo yank ${crate}@3.1.1 ==="
-            cargo yank --vers 3.1.1 "$crate" || {
-              echo "WARN: yank ${crate}@3.1.1 failed"
-            }
+            if ! cargo yank --vers 3.1.1 "$crate"; then
+              echo "ERROR: yank ${crate}@3.1.1 failed (token needs yank permission for the publishing owner)"
+              failed=1
+            fi
           done
+          if [[ "$failed" -ne 0 ]]; then
+            echo "::warning::crates.io yank failed — owner must yank 3.1.1 with a publish+yank token"
+            exit 1
+          fi
