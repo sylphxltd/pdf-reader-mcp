@@ -19,9 +19,9 @@ describe('architecture contract (pure-Rust MCP)', () => {
     expect(existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/search.rs'))).toBe(
       true
     );
-    expect(existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/pdf_evidence.rs'))).toBe(
-      true
-    );
+    expect(
+      existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/pdf_evidence.rs'))
+    ).toBe(true);
     expect(
       existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))
     ).toBe(false);
@@ -53,7 +53,13 @@ describe('architecture contract (pure-Rust MCP)', () => {
   });
 
   it('keeps legacy TypeScript engine runtime out of production Rust modules', () => {
-    for (const file of ['cli_bridge.rs', 'main.rs', 'read_pdf.rs', 'search.rs', 'pdf_evidence.rs']) {
+    for (const file of [
+      'cli_bridge.rs',
+      'main.rs',
+      'read_pdf.rs',
+      'search.rs',
+      'pdf_evidence.rs',
+    ]) {
       const production = productionSource(file);
       expect(production).not.toContain('legacy-engine-runtime');
       expect(production).not.toContain('invoke_ts_engine');

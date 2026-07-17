@@ -134,4 +134,3 @@ describe('shipped path matrix (Rust core, no legacy flags)', () => {
     expect(routes).not.toContain('PureRust');
   });
 });
-

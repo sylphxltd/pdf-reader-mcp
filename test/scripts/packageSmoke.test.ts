@@ -176,9 +176,7 @@ describe('package smoke', () => {
 
       const checks = await validateExtractedPackage(tempDir);
 
-      expect(checks.find((check) => check.id === 'runtime:rust-mcp-server')?.status).toBe(
-        'failed'
-      );
+      expect(checks.find((check) => check.id === 'runtime:rust-mcp-server')?.status).toBe('failed');
     });
   });
 

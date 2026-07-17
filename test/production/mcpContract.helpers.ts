@@ -40,8 +40,8 @@ export const ensureProductionArtifacts = () => {
 
 export const productionEnv = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
   const env = { ...process.env, ...overrides };
-  delete env.PDF_READER_PURE_RUST;
-  delete env.PDF_READER_ENGINE_MODE;
+  env.PDF_READER_PURE_RUST = undefined;
+  env.PDF_READER_ENGINE_MODE = undefined;
   env.NODE_ENV = env.NODE_ENV ?? 'test';
   env.MCP_TRANSPORT = env.MCP_TRANSPORT ?? '';
   env.PDF_READER_MCP_TRANSPORT = env.PDF_READER_MCP_TRANSPORT ?? '';

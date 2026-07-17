@@ -44,7 +44,7 @@ const matrix = JSON.parse(
 const buildReadPdfArgs = (entry: { id: string; args: Record<string, unknown> }) => {
   const args = { ...entry.args };
   const pageSpec = args.sources_pages;
-  delete args.sources_pages;
+  args.sources_pages = undefined;
   if (pageSpec !== undefined) {
     args.sources = [{ path: samplePdf, pages: pageSpec }];
   } else if (!args.sources) {
