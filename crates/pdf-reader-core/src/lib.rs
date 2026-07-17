@@ -1,5 +1,6 @@
 //! Rust hashing, SSRF-safe fetch, and text-index primitives for pdf-reader-mcp.
 
+pub mod document_twin;
 pub mod legacy;
 pub mod page_cache;
 pub mod read_pdf;
@@ -32,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const ENGINE_NAME: &str = "pdf-reader-core";
-pub const ENGINE_VERSION: &str = "0.1.0";
+pub const ENGINE_VERSION: &str = "3.1.1";
 pub const HASH_ROUTE: &str = "rust-sha256";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

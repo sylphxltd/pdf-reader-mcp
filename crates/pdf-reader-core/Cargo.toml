@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Rust hashing and indexing primitives for pdf-reader-mcp"
+description = "Pure-Rust PDF intelligence core for pdf-reader-mcp (read, search, document twin)"
+homepage.workspace = true
+authors.workspace = true
+readme.workspace = true
+keywords = ["pdf", "mcp", "rust", "document", "rag"]
+categories = ["parsing", "text-processing"]
 
 [lib]
 path = "src/lib.rs"

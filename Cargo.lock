@@ -990,7 +990,7 @@ dependencies = [
 
 [[package]]
 name = "pdf-reader-cli"
-version = "0.1.0"
+version = "3.1.1"
 dependencies = [
  "pdf-reader-core",
  "serde",
@@ -999,7 +999,7 @@ dependencies = [
 
 [[package]]
 name = "pdf-reader-core"
-version = "0.1.0"
+version = "3.1.1"
 dependencies = [
  "pdf-extract",
  "serde",
@@ -1012,7 +1012,7 @@ dependencies = [
 
 [[package]]
 name = "pdf-reader-mcp-server"
-version = "0.1.0"
+version = "3.1.1"
 dependencies = [
  "anyhow",
  "axum",

@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme.workspace = true
 description = "JSON CLI for pdf-reader-core"
 
 [[bin]]
@@ -11,6 +14,6 @@ name = "pdf-reader-cli"
 path = "src/main.rs"
 
 [dependencies]
-pdf-reader-core = { path = "../pdf-reader-core" }
+pdf-reader-core = { path = "../pdf-reader-core", version = "3.1.1" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

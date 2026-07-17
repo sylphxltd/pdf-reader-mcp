@@ -131,15 +131,20 @@ Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 
 ## Quick Start
 
-### Claude Code
+Install from **npm** (MCP clients) **or crates.io** (Rust / native binary). Same
+pure-Rust engine either way.
+
+### npm (MCP clients)
 
 ```bash
+# Claude Code
 claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+
+# Any MCP client (stdio)
+npx @sylphx/pdf-reader-mcp
 ```
 
-### Claude Desktop
-
-Add this to `claude_desktop_config.json`:
+Claude Desktop (`claude_desktop_config.json`):
 
 ```json
 {
@@ -152,14 +157,43 @@ Add this to `claude_desktop_config.json`:
 }
 ```
 
-### Any MCP Client
+The npm package ships a prebuilt native binary (`pdf-reader-mcp-server`). No
+Node runtime is required for the MCP path after install.
+
+### crates.io (Rust / cargo)
 
 ```bash
-npx @sylphx/pdf-reader-mcp
+# Library: hash, SSRF-safe fetch, read_pdf, search_pdf, document twin builders
+cargo add pdf-reader-core
+
+# MCP server binary (stdio / HTTP)
+cargo install pdf-reader-mcp-server --locked
+
+# JSON CLI helper
+cargo install pdf-reader-cli --locked
+
+# Run MCP over stdio
+pdf-reader-mcp-server
 ```
 
-Node.js `>=22.13` is required. The default package works without downloading
-OCR models, vision models, Ollama, LM Studio, llama.cpp, or cloud credentials.
+Programmatic Rust:
+
+```rust
+use pdf_reader_core::{read_pdf, ReadPdfInput, ReadPdfSource};
+
+let response = read_pdf(&ReadPdfInput {
+    sources: vec![ReadPdfSource {
+        path: Some("/absolute/path/to/report.pdf".into()),
+        url: None,
+        pages: None,
+    }],
+    include_full_text: true,
+    include_markdown: true,
+    include_document_map: true,
+    include_trust_report: true,
+    ..Default::default()
+})?;
+```
 
 ### Docker
 
@@ -174,6 +208,22 @@ docker build -t pdf-reader-mcp . && \
 
 Need Cursor, VS Code, Windsurf, Cline, Warp, HTTP transport, Docker customization, or
 filesystem sandboxing? See the [installation guide](docs/guide/installation.md).
+
+## Why pure Rust?
+
+PDF agents are latency- and reliability-sensitive. v3.1+ runs a **single native
+binary** for the full MCP surface — no dual TS/Rust runtime, no “migration in
+progress” path.
+
+| Reason | What it means in production |
+| --- | --- |
+| Lower tool latency | Cold start and per-call extraction stay in one process with no Node bridge |
+| Smaller ops surface | One binary to stage, containerize, and pin |
+| Fail-closed security | SSRF URL policy (including IPv6 transition) lives in Rust |
+| Same public tools | `read_pdf`, `search_pdf`, `pdf_evidence` keep the Agent Document Twin fields |
+
+Reproduce the numbers: `bun run build:rust && bun run benchmark:pure-rust`.
+Full write-up: [Why Rust + benchmark proof](docs/performance/why-rust.md).
 
 ## MCP Tool Surface
 

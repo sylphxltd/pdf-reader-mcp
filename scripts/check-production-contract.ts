@@ -6,23 +6,31 @@ import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
-const result = spawnSync(
-  'bun',
-  ['test', 'test/production/productionPath.contract.test.ts', '--timeout=600000'],
-  {
+const env = {
+  ...process.env,
+  PDF_READER_ENGINE_MODE: '',
+  PDF_READER_PURE_RUST: '',
+};
+
+const suites = [
+  'test/production/productionPath.contract.test.ts',
+  'test/production/capabilityParity.contract.test.ts',
+];
+
+for (const suite of suites) {
+  const result = spawnSync('bun', ['test', suite, '--timeout=600000'], {
     cwd: repoRoot,
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      PDF_READER_ENGINE_MODE: '',
-      PDF_READER_PURE_RUST: '',
-    },
+    env,
+  });
+  if (result.status !== 0) {
+    console.error(
+      `[check-production-contract] FAILED — suite not green: ${suite}`
+    );
+    process.exit(result.status ?? 1);
   }
-);
-
-if (result.status !== 0) {
-  console.error('[check-production-contract] FAILED — production-path contract is not green');
-  process.exit(result.status ?? 1);
 }
 
-console.log('[check-production-contract] PASS — pure-Rust production-path public contract is green');
+console.log(
+  '[check-production-contract] PASS — pure-Rust production-path + capability parity contracts are green'
+);

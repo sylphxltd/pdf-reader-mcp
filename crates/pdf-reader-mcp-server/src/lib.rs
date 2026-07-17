@@ -16,7 +16,7 @@ use rmcp::{
 use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
-pub const SERVER_VERSION: &str = "3.1.0";
+pub const SERVER_VERSION: &str = "3.1.1";
 pub const SERVER_INSTRUCTIONS: &str = "Pure-Rust PDF MCP server. Use read_pdf for text/markdown extraction (local path or SSRF-safe URL), search_pdf for literal evidence retrieval, and pdf_evidence operation=inspect for page/text routing. Visual ops (render/crop/OCR/analyze) return fail-closed errors in this engine.";
 
 #[derive(Clone)]

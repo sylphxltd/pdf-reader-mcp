@@ -1,0 +1,69 @@
+# Publish pure-Rust crates to crates.io (pdf-reader-core, pdf-reader-mcp-server, pdf-reader-cli).
+name: Publish crates.io
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type publish to confirm crates.io release"
+        required: true
+        default: "publish"
+      dry_run:
+        description: "If true, cargo publish --dry-run only"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'publish' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cargo test workspace
+        run: cargo test --workspace
+
+      - name: Publish pdf-reader-core
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            cargo publish -p pdf-reader-core --dry-run --allow-dirty
+          else
+            cargo publish -p pdf-reader-core --allow-dirty
+          fi
+
+      - name: Publish pdf-reader-mcp-server
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            cargo publish -p pdf-reader-mcp-server --dry-run --allow-dirty
+          else
+            # Wait for crates.io index to pick up core.
+            sleep 30
+            cargo publish -p pdf-reader-mcp-server --allow-dirty
+          fi
+
+      - name: Publish pdf-reader-cli
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            cargo publish -p pdf-reader-cli --dry-run --allow-dirty
+          else
+            sleep 30
+            cargo publish -p pdf-reader-cli --allow-dirty
+          fi

@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.1.1
+
+### Patch Changes
+
+- Complete pure-Rust Agent Document Twin capability surface + dual ecosystem install.
+
+  - `read_pdf` now populates the full public field set: tables, trust_report,
+    accessibility_report, document_ast, safety_findings, layout_diagnostics,
+    outline/annotations/forms/attachments/structure/page geometry labels,
+    OCR/visual provider placeholders with warnings
+  - New capability-parity production contract
+    (`test/production/capabilityParity.contract.test.ts`) fails if any public
+    include_* field disappears
+  - Pure-Rust benchmark harness (`bun run benchmark:pure-rust`) + industry write-up
+    (`docs/performance/why-rust.md`)
+  - crates.io packaging for `pdf-reader-core`, `pdf-reader-mcp-server`,
+    `pdf-reader-cli` + GitHub Actions publish workflow
+  - README dual install: npm MCP clients and cargo/crates.io Rust users
+
 ## 3.1.0
 
 ### Major Changes

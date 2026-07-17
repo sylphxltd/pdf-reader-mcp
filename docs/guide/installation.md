@@ -1,19 +1,58 @@
 # Installation
 
+You can install PDF Reader MCP from **npm** (agent/MCP clients) or **crates.io**
+(Rust library + native server binary). Both use the same pure-Rust engine.
+
 ## Requirements
 
-- Node.js >= 22.13.0
+### npm path
+
+- Node.js >= 22.13.0 only needed for the package launcher / npx
+- Runtime path is a native binary (no Node required after the binary is staged)
+
+### crates.io path
+
+- Rust stable toolchain (`rustup`)
+- `cargo install` / `cargo add`
 
 The default install does not require a local OCR engine, vision model, Ollama,
 LM Studio, llama.cpp, or cloud provider. Those are optional provider-enabled
 upgrades for scanned-page OCR and focused visual-region enrichment; core PDF
-inspection, selectable-text extraction, rendering, source crops, document maps,
-trust reports, and accessibility reports work from the package itself.
+inspection, selectable-text extraction, document maps, trust reports, and
+accessibility reports work from the package itself. Visual render/crop ops need
+a configured render backend (same optional model as before).
 
-## Claude Code
+## npm — Claude Code
 
 ```bash
 claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+```
+
+## crates.io — Rust users
+
+```bash
+# Library (read/search/document twin builders)
+cargo add pdf-reader-core
+
+# MCP server binary
+cargo install pdf-reader-mcp-server --locked
+pdf-reader-mcp-server   # stdio MCP
+
+# Optional JSON CLI
+cargo install pdf-reader-cli --locked
+```
+
+Claude Desktop / Cursor with a cargo-installed binary:
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "pdf-reader-mcp-server",
+      "args": []
+    }
+  }
+}
 ```
 
 ## Claude Desktop

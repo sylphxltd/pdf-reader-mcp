@@ -7,7 +7,10 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "3.1.1"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/SylphxAI/pdf-reader-mcp"
+homepage = "https://github.com/SylphxAI/pdf-reader-mcp"
+authors = ["Sylphx <contact@sylphx.com>"]
+readme = "README.md"

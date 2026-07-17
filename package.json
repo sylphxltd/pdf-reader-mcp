@@ -1,8 +1,8 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Pure-Rust PDF MCP server. read_pdf, search_pdf, and pdf_evidence (inspect) with SSRF-safe URL loading. Local-first. Fast native binary.",
+  "description": "Pure-Rust PDF MCP server with full Agent Document Twin capabilities. Install via npm or cargo.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./bin/pdf-reader-mcp"
@@ -81,6 +81,8 @@
     "doctor": "bun run src/doctor-cli.ts",
     "typecheck": "tsc --noEmit",
     "benchmark": "bun scripts/benchmark-pdf-intelligence.ts",
+    "benchmark:pure-rust": "bun scripts/benchmark-pure-rust.ts",
+    "test:capability-parity": "bun test test/production/capabilityParity.contract.test.ts --timeout=600000",
     "benchmark:quality": "bun scripts/benchmark-pdf-quality.ts",
     "benchmark:providers": "bun scripts/benchmark-pdf-providers.ts",
     "benchmark:provider-manifest": "bun scripts/benchmark-pdf-provider-manifest.ts",

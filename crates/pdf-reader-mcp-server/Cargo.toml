@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Rust-native MCP server for pdf-reader-mcp (rmcp)"
+description = "Pure-Rust MCP server binary for @sylphx/pdf-reader-mcp"
+homepage.workspace = true
+authors.workspace = true
+readme.workspace = true
+keywords = ["mcp", "pdf", "rmcp", "agent"]
+categories = ["command-line-utilities"]
 
 [lib]
 path = "src/lib.rs"
@@ -17,7 +22,7 @@ path = "src/main.rs"
 anyhow = "1"
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
-pdf-reader-core = { path = "../pdf-reader-core" }
+pdf-reader-core = { path = "../pdf-reader-core", version = "3.1.1" }
 rmcp = { version = "0.16.0", features = ["server", "transport-io", "transport-streamable-http-server"] }
 schemars = { version = "1", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }

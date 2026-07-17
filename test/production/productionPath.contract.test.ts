@@ -130,6 +130,23 @@ describe('production-path public contract (pure-Rust)', () => {
       if (!ok) {
         failures.push(`${entry.id}: unexpected payload shape: ${payload.text.slice(0, 300)}`);
       }
+      // Capability field presence for explicit include_* smokes
+      const requiredById: Record<string, string[]> = {
+        'full-text': ['full_text'],
+        'markdown-chunks': ['markdown', 'chunks'],
+        html: ['html'],
+        'text-layer': ['text_layer'],
+        tables: ['tables'],
+        'layout-map': ['document_map'],
+        'ast-trust-a11y': ['document_ast', 'trust_report', 'accessibility_report'],
+        'structure-safety': ['safety_findings'],
+      };
+      const required = requiredById[entry.id] ?? [];
+      for (const field of required) {
+        if (!text.includes(field)) {
+          failures.push(`${entry.id}: missing capability field '${field}'`);
+        }
+      }
     }
     expect(failures).toEqual([]);
   }, 600_000);
