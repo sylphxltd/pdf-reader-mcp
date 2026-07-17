@@ -14,7 +14,21 @@ if (!fs.existsSync(source)) {
 }
 
 fs.mkdirSync(targetDir, { recursive: true });
-fs.copyFileSync(source, target);
-fs.chmodSync(target, 0o755);
+
+// Copy via a temp path + atomic rename so staging succeeds even when an older
+// binary is still executing (Linux ETXTBSY on in-place overwrite).
+const tmp = path.join(targetDir, `.pdf-reader-mcp-server.${process.pid}.tmp`);
+try {
+  fs.copyFileSync(source, tmp);
+  fs.chmodSync(tmp, 0o755);
+  fs.renameSync(tmp, target);
+} catch (err) {
+  try {
+    fs.unlinkSync(tmp);
+  } catch {
+    // best-effort cleanup
+  }
+  throw err;
+}
 
 console.log(`[stage-rust-mcp] Staged ${target}`);
