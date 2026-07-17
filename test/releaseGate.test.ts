@@ -9,13 +9,14 @@ describe('pdf reader SOTA release gate golden probes', () => {
     );
 
     expect(report.profile).toBe('pdf_sota_release_gate');
+    expect(report.checks.some((check) => check.id === 'mcp:ts_dropin_default')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:rust_web_http_transport')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:http_transport_parity')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:read_pdf_golden_parity')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:rmcp_read_pdf_parity')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:read_pdf_cross_parity')).toBe(true);
-    expect(report.checks.some((check) => check.id === 'mcp:http_authority_rust')).toBe(true);
+    expect(report.checks.some((check) => check.id === 'mcp:http_gate_script_present')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:stdio_transport_parity')).toBe(true);
-    expect(report.checks.some((check) => check.id === 'mcp:stdio_deletion_prep_gate')).toBe(true);
+    expect(report.checks.some((check) => check.id === 'mcp:stdio_gate_script_present')).toBe(true);
   });
 });
