@@ -29,7 +29,10 @@ function buildPdf(): Buffer {
   );
 
   const objects = new Map<number, string>([
-    [1, '<< /Type /Catalog /Pages 2 0 R >>'],
+    [
+      1,
+      '<< /Type /Catalog /Pages 2 0 R /PageLabels 13 0 R /MarkInfo 14 0 R /Outlines 15 0 R >>',
+    ],
     [2, '<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 /MediaBox [0 0 612 792] /CropBox [20 30 580 760] /Rotate 90 /UserUnit 2 >>'],
     [
       3,
@@ -56,6 +59,14 @@ function buildPdf(): Buffer {
       '<< /Type /Annot /Subtype /Link /Contents (  Linked note  ) /Rect [100 200 50 150] /A << /S /URI /URI (https://example.com/a) >> >>',
     ],
     [12, '<< /Type /Annot /Subtype /Text /Contents () /Rect [1 2 1 2] >>'],
+    [13, '<< /Nums [0 << /S /D /P (P-) >> 1 << /S /r /St 4 >> 2 << /S /A /St 27 >>] >>'],
+    [14, '<< /Marked true /Suspects false /UserProperties true >>'],
+    [15, '<< /Type /Outlines /First 16 0 R /Last 16 0 R /Count 2 >>'],
+    [
+      16,
+      '<< /Title (External docs) /Parent 15 0 R /First 17 0 R /Last 17 0 R /Count 1 /F 3 /C [0.25 0.5 0.75] /A << /S /URI /URI (https://example.com/docs) >> >>',
+    ],
+    [17, '<< /Title (Page three) /Parent 16 0 R /Dest [7 0 R /Fit] >>'],
   ]);
 
   const chunks: Buffer[] = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'latin1')];

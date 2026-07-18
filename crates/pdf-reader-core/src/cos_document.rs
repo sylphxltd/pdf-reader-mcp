@@ -10,8 +10,14 @@ use crate::text_index::{TextIndexError, TextIndexErrorCode};
 pub(crate) struct ParsedPdf {
     pub document: Document,
     pub pages: Vec<(u32, ObjectId)>,
+    pub encryption_facts: Option<EncryptionFacts>,
     #[allow(dead_code)]
     pub source_hash: String,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct EncryptionFacts {
+    pub permissions: Option<i64>,
 }
 
 impl ParsedPdf {
@@ -48,6 +54,10 @@ impl ParsedPdf {
         }
         let source_hash = format!("{:x}", Sha256::digest(&bytes));
         let mut document = Document::load_mem(&bytes).map_err(extraction_error)?;
+        // lopdf automatically decrypts PDFs that accept the empty password and
+        // preserves the decoded security state. Capture /P from either the raw
+        // Encrypt dictionary or that preserved state before any explicit decrypt.
+        let encryption_facts = read_encryption_facts(&document);
         if document.is_encrypted() {
             document.decrypt("").map_err(|error| {
                 extraction_error(format!(
@@ -59,9 +69,27 @@ impl ParsedPdf {
         Ok(Self {
             document,
             pages,
+            encryption_facts,
             source_hash,
         })
     }
+}
+
+fn read_encryption_facts(document: &Document) -> Option<EncryptionFacts> {
+    if let Ok(dictionary) = document.get_encrypted() {
+        return Some(EncryptionFacts {
+            permissions: dictionary
+                .get(b"P")
+                .ok()
+                .and_then(|value| value.as_i64().ok()),
+        });
+    }
+    document
+        .encryption_state
+        .as_ref()
+        .map(|state| EncryptionFacts {
+            permissions: Some(state.permissions().p_value() as i64),
+        })
 }
 
 fn invalid_request(path: &Path, error: std::io::Error) -> TextIndexError {

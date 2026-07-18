@@ -116,6 +116,57 @@
       ],
       "warnings": []
     },
+    "read-catalog-signals": {
+      "outcome": "success",
+      "num_pages": 3,
+      "outline": [
+        {
+          "title": "External docs",
+          "bold": true,
+          "italic": true,
+          "color": [
+            64,
+            128,
+            191
+          ],
+          "url": "https://example.com/docs",
+          "dest": null,
+          "items": [
+            {
+              "title": "Page three",
+              "bold": false,
+              "italic": false,
+              "color": [
+                0,
+                0,
+                0
+              ],
+              "dest": [
+                {
+                  "num": 7,
+                  "gen": 0
+                },
+                {
+                  "name": "Fit"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "page_labels": [
+        "P-1",
+        "iv",
+        "AA"
+      ],
+      "permissions": null,
+      "mark_info": {
+        "Marked": true,
+        "UserProperties": true,
+        "Suspects": false
+      },
+      "warnings": []
+    },
     "search-ci-all": {
       "outcome": "success",
       "num_pages": 3,

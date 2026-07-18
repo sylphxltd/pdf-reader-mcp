@@ -1,5 +1,6 @@
 //! Rust hashing, SSRF-safe fetch, and text-index primitives for pdf-reader-mcp.
 
+mod catalog_signals;
 mod cos_document;
 pub mod document_twin;
 pub mod legacy;

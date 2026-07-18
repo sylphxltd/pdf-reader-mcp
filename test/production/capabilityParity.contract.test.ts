@@ -35,10 +35,7 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   layout: ['layout_diagnostics'],
   trust: ['trust_report'],
   a11y: ['accessibility_report'],
-  outline: ['outline'],
-  'page-labels': ['page_labels'],
   'page-geometry': ['page_geometry'],
-  permissions: ['permissions'],
   forms: ['form_fields'],
   attachments: ['attachments'],
   structure: ['structure_trees'],
@@ -200,6 +197,121 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       results?: Array<{ data?: { annotations?: unknown } }>;
     };
     expect(omitted.results?.[0]?.data?.annotations).toBeUndefined();
+  }, 180_000);
+
+  test('catalog signals match the immutable v3.0.14 subset and omit unavailable values', async () => {
+    const outlineResponse = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: signalPdf }],
+        auto: false,
+        include_outline: true,
+      },
+      90_000
+    );
+    const outlineData = (
+      JSON.parse(parseToolPayload(outlineResponse).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(outlineData?.outline).toEqual([
+      {
+        title: 'External docs',
+        bold: true,
+        italic: true,
+        color: [64, 128, 191],
+        url: 'https://example.com/docs',
+        dest: null,
+        items: [
+          {
+            title: 'Page three',
+            bold: false,
+            italic: false,
+            color: [0, 0, 0],
+            dest: [{ num: 7, gen: 0 }, { name: 'Fit' }],
+          },
+        ],
+      },
+    ]);
+    expect(outlineData?.page_labels).toBeUndefined();
+    expect(outlineData?.permissions).toBeUndefined();
+    expect(outlineData?.mark_info).toBeUndefined();
+
+    const pageLabelsResponse = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: signalPdf }],
+        auto: false,
+        include_page_labels: true,
+      },
+      90_000
+    );
+    const pageLabelsData = (
+      JSON.parse(parseToolPayload(pageLabelsResponse).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(pageLabelsData?.page_labels).toEqual(['P-1', 'iv', 'AA']);
+    expect(pageLabelsData?.outline).toBeUndefined();
+    expect(pageLabelsData?.permissions).toBeUndefined();
+    expect(pageLabelsData?.mark_info).toBeUndefined();
+
+    const permissionsResponse = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: signalPdf }],
+        auto: false,
+        include_permissions: true,
+      },
+      90_000
+    );
+    const permissionsData = (
+      JSON.parse(parseToolPayload(permissionsResponse).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(permissionsData?.permissions).toBeUndefined();
+    expect(permissionsData?.mark_info).toEqual({
+      Marked: true,
+      UserProperties: true,
+      Suspects: false,
+    });
+    expect(permissionsData?.outline).toBeUndefined();
+    expect(permissionsData?.page_labels).toBeUndefined();
+
+    const withoutSignals = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: samplePdf }],
+        auto: false,
+        include_outline: true,
+        include_page_labels: true,
+        include_permissions: true,
+      },
+      90_000
+    );
+    const omitted = JSON.parse(parseToolPayload(withoutSignals).text) as {
+      results?: Array<{
+        data?: {
+          outline?: unknown;
+          page_labels?: unknown;
+          permissions?: unknown;
+          mark_info?: unknown;
+        };
+      }>;
+    };
+    expect(omitted.results?.[0]?.data?.outline).toBeUndefined();
+    expect(omitted.results?.[0]?.data?.page_labels).toBeUndefined();
+    expect(omitted.results?.[0]?.data?.permissions).toBeUndefined();
+    expect(omitted.results?.[0]?.data?.mark_info).toBeUndefined();
   }, 180_000);
 
   test('auto balanced twin matches v3.0.14 depth without full text', async () => {

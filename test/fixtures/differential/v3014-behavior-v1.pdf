@@ -1,7 +1,7 @@
 %PDF-1.4
 %‚„œ”
 1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
+<< /Type /Catalog /Pages 2 0 R /PageLabels 13 0 R /MarkInfo 14 0 R /Outlines 15 0 R >>
 endobj
 2 0 obj
 << /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 /MediaBox [0 0 612 792] /CropBox [20 30 580 760] /Rotate 90 /UserUnit 2 >>
@@ -65,23 +65,43 @@ endobj
 12 0 obj
 << /Type /Annot /Subtype /Text /Contents () /Rect [1 2 1 2] >>
 endobj
+13 0 obj
+<< /Nums [0 << /S /D /P (P-) >> 1 << /S /r /St 4 >> 2 << /S /A /St 27 >>] >>
+endobj
+14 0 obj
+<< /Marked true /Suspects false /UserProperties true >>
+endobj
+15 0 obj
+<< /Type /Outlines /First 16 0 R /Last 16 0 R /Count 2 >>
+endobj
+16 0 obj
+<< /Title (External docs) /Parent 15 0 R /First 17 0 R /Last 17 0 R /Count 1 /F 3 /C [0.25 0.5 0.75] /A << /S /URI /URI (https://example.com/docs) >> >>
+endobj
+17 0 obj
+<< /Title (Page three) /Parent 16 0 R /Dest [7 0 R /Fit] >>
+endobj
 xref
-0 13
+0 18
 0000000000 65535 f 
 0000000015 00000 n 
-0000000064 00000 n 
-0000000205 00000 n 
-0000000336 00000 n 
-0000000479 00000 n 
-0000000605 00000 n 
-0000000770 00000 n 
-0000000896 00000 n 
-0000001026 00000 n 
-0000001123 00000 n 
-0000001337 00000 n 
-0000001484 00000 n 
+0000000117 00000 n 
+0000000258 00000 n 
+0000000389 00000 n 
+0000000532 00000 n 
+0000000658 00000 n 
+0000000823 00000 n 
+0000000949 00000 n 
+0000001079 00000 n 
+0000001176 00000 n 
+0000001390 00000 n 
+0000001537 00000 n 
+0000001616 00000 n 
+0000001709 00000 n 
+0000001781 00000 n 
+0000001855 00000 n 
+0000002024 00000 n 
 trailer
-<< /Size 13 /Root 1 0 R /Info 10 0 R >>
+<< /Size 18 /Root 1 0 R /Info 10 0 R >>
 startxref
-1563
+2100
 %%EOF
