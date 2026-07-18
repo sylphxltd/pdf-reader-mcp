@@ -522,7 +522,7 @@ pub(crate) fn rebuild_structured_outputs(
         data.document_ast = Some(build_document_ast(
             &context.pages,
             &semantic_elements,
-            tables,
+            &internal_chunks,
         ));
     }
     if context.emit_document_map {
@@ -791,7 +791,7 @@ fn build_data(
         Some(build_document_ast(
             pages,
             semantic_elements.as_ref().unwrap_or(&empty_array),
-            table_values,
+            internal_chunks.as_ref().unwrap_or(&empty_array),
         ))
     } else {
         None
@@ -1856,6 +1856,72 @@ mod tests {
                 "strategy":"page",
                 "bounding_boxes":[{"left":1.0,"bottom":2.0,"right":3.0,"top":4.0}]
             }]))
+        );
+    }
+
+    #[test]
+    fn document_ast_hides_dependencies_and_reuses_the_emitted_chunk_cache() {
+        let item = |text: &str| crate::text_index::PositionedTextItem {
+            text: text.into(),
+            bounding_box: None,
+            chars: Vec::new(),
+        };
+        let pages = vec![crate::document_twin::PageText {
+            page: 1,
+            text: "PrefaceChapter 1: IntroBody".into(),
+            positioned_items: vec![item("Preface"), item("Chapter 1: Intro"), item("Body")],
+        }];
+
+        let ast_only = build_data(
+            &pages,
+            1,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_document_ast: true,
+                ..Default::default()
+            },
+            None,
+            false,
+            BuildSignals::default(),
+        );
+        assert!(ast_only.elements.is_none());
+        assert!(ast_only.chunks.is_none());
+        let ast = ast_only.document_ast.as_ref().unwrap();
+        assert_eq!(
+            ast["root"]["chunk_ids"],
+            json!(["p1-chunk-1", "p1-chunk-2"])
+        );
+        assert_eq!(
+            ast["root"]["children"][0]["children"][1]["id"],
+            "p1-text-2-section"
+        );
+
+        let exposed_plain_chunks = build_data(
+            &pages,
+            1,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_chunks: true,
+                include_document_ast: true,
+                ..Default::default()
+            },
+            None,
+            false,
+            BuildSignals::default(),
+        );
+        assert_eq!(
+            exposed_plain_chunks
+                .chunks
+                .as_ref()
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            exposed_plain_chunks.document_ast.as_ref().unwrap()["root"]["chunk_ids"],
+            json!(["p1-chunk-1"])
         );
     }
 
