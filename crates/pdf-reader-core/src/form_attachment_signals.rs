@@ -16,6 +16,10 @@ pub(crate) struct FormAttachmentSignals {
     pub form_fields: Option<Vec<FormField>>,
     pub attachments: Option<Vec<Attachment>>,
     pub warnings: Vec<String>,
+    #[cfg(test)]
+    form_materialized_array_items: usize,
+    #[cfg(test)]
+    attachment_materialized_array_items: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -56,12 +60,12 @@ pub(crate) struct Attachment {
     size_bytes: Option<usize>,
 }
 
-#[derive(Clone, Default)]
-struct Inherited {
-    field_type: Option<Object>,
-    flags: Option<Object>,
-    value: Option<Object>,
-    default_value: Option<Object>,
+#[derive(Clone, Copy, Default)]
+struct Inherited<'a> {
+    field_type: Option<&'a Object>,
+    flags: Option<&'a Object>,
+    value: Option<&'a Object>,
+    default_value: Option<&'a Object>,
 }
 
 pub(crate) fn extract_form_attachment_signals(
@@ -71,12 +75,18 @@ pub(crate) fn extract_form_attachment_signals(
     want_attachments: bool,
 ) -> FormAttachmentSignals {
     let mut output = FormAttachmentSignals::default();
-    let Ok(catalog) = document.catalog().cloned() else {
+    let Ok(root) = document.trailer.get(b"Root") else {
         return output;
     };
     if want_forms {
         let mut walker = Walker::new(document);
-        output.form_fields = extract_forms(&mut walker, &catalog, pages);
+        output.form_fields = walker
+            .dict(root)
+            .and_then(|catalog| extract_forms(&mut walker, catalog, pages));
+        #[cfg(test)]
+        {
+            output.form_materialized_array_items = walker.materialized_array_items;
+        }
         if walker.limited {
             output.form_fields = None;
             output.warnings.push("include_form_fields: COS traversal exceeded the bounded form-field limit; the surface was omitted.".into());
@@ -84,7 +94,13 @@ pub(crate) fn extract_form_attachment_signals(
     }
     if want_attachments {
         let mut walker = Walker::new(document);
-        output.attachments = extract_attachments(&mut walker, &catalog);
+        output.attachments = walker
+            .dict(root)
+            .and_then(|catalog| extract_attachments(&mut walker, catalog));
+        #[cfg(test)]
+        {
+            output.attachment_materialized_array_items = walker.materialized_array_items;
+        }
         if walker.limited {
             output.attachments = None;
             output.warnings.push("include_attachments: COS traversal exceeded the bounded embedded-file limit; the surface was omitted.".into());
@@ -100,6 +116,8 @@ struct Walker<'a> {
     text_remaining: usize,
     failed: bool,
     limited: bool,
+    #[cfg(test)]
+    materialized_array_items: usize,
 }
 
 impl<'a> Walker<'a> {
@@ -111,11 +129,12 @@ impl<'a> Walker<'a> {
             text_remaining: MAX_TEXT_BYTES,
             failed: false,
             limited: false,
+            #[cfg(test)]
+            materialized_array_items: 0,
         }
     }
 
-    fn resolve(&mut self, value: &Object) -> Option<Object> {
-        let mut value = value.clone();
+    fn resolve(&mut self, mut value: &'a Object) -> Option<&'a Object> {
         let mut seen = HashSet::new();
         for _ in 0..MAX_DEPTH {
             self.work += 1;
@@ -126,75 +145,40 @@ impl<'a> Walker<'a> {
             let Object::Reference(id) = value else {
                 return Some(value);
             };
-            if !seen.insert(id) {
+            if !seen.insert(*id) {
                 self.failed = true;
                 return None;
             }
-            let Some(next) = self.document.objects.get(&id) else {
+            let Some(next) = self.document.objects.get(id) else {
                 self.failed = true;
                 return None;
             };
-            value = next.clone();
+            value = next;
         }
         self.limited = true;
         None
     }
 
-    fn dict(&mut self, value: &Object) -> Option<Dictionary> {
-        self.resolve(value)?.as_dict().ok().cloned()
+    fn dict(&mut self, value: &'a Object) -> Option<&'a Dictionary> {
+        self.resolve(value)?.as_dict().ok()
     }
 
-    fn array_bounded(&mut self, value: &Object, max_len: usize) -> Option<Vec<Object>> {
-        let mut reference = value.as_reference().ok();
-        let direct = if reference.is_none() {
-            Some(value)
-        } else {
-            None
-        };
-        let mut seen = HashSet::new();
-        let final_value = if let Some(value) = direct {
-            value
-        } else {
-            let mut resolved = None;
-            for _ in 0..MAX_DEPTH {
-                self.work += 1;
-                if self.work > MAX_OBJECTS {
-                    self.limited = true;
-                    return None;
-                }
-                let id = reference?;
-                if !seen.insert(id) {
-                    self.failed = true;
-                    return None;
-                }
-                let Some(value) = self.document.objects.get(&id) else {
-                    self.failed = true;
-                    return None;
-                };
-                if let Ok(next) = value.as_reference() {
-                    reference = Some(next);
-                } else {
-                    resolved = Some(value);
-                    break;
-                }
-            }
-            let Some(value) = resolved else {
-                self.limited = true;
-                return None;
-            };
-            value
-        };
-        let values = final_value.as_array().ok()?;
+    fn array_bounded(&mut self, value: &'a Object, max_len: usize) -> Option<Vec<&'a Object>> {
+        let values = self.resolve(value)?.as_array().ok()?;
         if values.len() > max_len {
             self.limited = true;
             return None;
         }
-        Some(values.clone())
+        #[cfg(test)]
+        {
+            self.materialized_array_items += values.len();
+        }
+        Some(values.iter().collect())
     }
 
-    fn text(&mut self, value: &Object) -> Option<String> {
+    fn text(&mut self, value: &'a Object) -> Option<String> {
         let value = self.resolve(value)?;
-        let bytes = match &value {
+        let bytes = match value {
             Object::String(bytes, _) | Object::Name(bytes) => bytes,
             _ => return None,
         };
@@ -202,9 +186,9 @@ impl<'a> Walker<'a> {
             self.limited = true;
             return None;
         }
-        let text = match &value {
+        let text = match value {
             Object::Name(bytes) => String::from_utf8_lossy(bytes).into_owned(),
-            _ => decode_text_string(&value).ok()?,
+            _ => decode_text_string(value).ok()?,
         };
         if text.len() > MAX_STRING_BYTES || text.len() > self.text_remaining {
             self.limited = true;
@@ -215,9 +199,9 @@ impl<'a> Walker<'a> {
     }
 }
 
-fn extract_forms(
-    walker: &mut Walker<'_>,
-    catalog: &Dictionary,
+fn extract_forms<'a>(
+    walker: &mut Walker<'a>,
+    catalog: &'a Dictionary,
     pages: &[(u32, ObjectId)],
 ) -> Option<Vec<FormField>> {
     let acroform = walker.dict(catalog.get(b"AcroForm").ok()?)?;
@@ -253,7 +237,7 @@ fn extract_forms(
         }
         walk_field(
             walker,
-            &field,
+            field,
             0,
             "",
             &Inherited::default(),
@@ -271,12 +255,12 @@ fn extract_forms(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn walk_field(
-    walker: &mut Walker<'_>,
-    value: &Object,
+fn walk_field<'a>(
+    walker: &mut Walker<'a>,
+    value: &'a Object,
     depth: usize,
     parent_name: &str,
-    inherited: &Inherited,
+    inherited: &Inherited<'a>,
     page_by_id: &HashMap<ObjectId, u32>,
     annotation_pages: &HashMap<ObjectId, u32>,
     visited: &mut HashSet<ObjectId>,
@@ -296,7 +280,7 @@ fn walk_field(
     let Some(resolved) = walker.resolve(value) else {
         return;
     };
-    let Ok(dict) = resolved.as_dict().cloned() else {
+    let Ok(dict) = resolved.as_dict() else {
         return;
     };
     if dict.get(b"Subtype").ok().and_then(|v| v.as_name().ok()) == Some(b"Link") {
@@ -314,26 +298,10 @@ fn walk_field(
         (false, false) => format!("{parent_name}.{partial}"),
     };
     let next = Inherited {
-        field_type: dict
-            .get(b"FT")
-            .ok()
-            .cloned()
-            .or_else(|| inherited.field_type.clone()),
-        flags: dict
-            .get(b"Ff")
-            .ok()
-            .cloned()
-            .or_else(|| inherited.flags.clone()),
-        value: dict
-            .get(b"V")
-            .ok()
-            .cloned()
-            .or_else(|| inherited.value.clone()),
-        default_value: dict
-            .get(b"DV")
-            .ok()
-            .cloned()
-            .or_else(|| inherited.default_value.clone()),
+        field_type: dict.get(b"FT").ok().or(inherited.field_type),
+        flags: dict.get(b"Ff").ok().or(inherited.flags),
+        value: dict.get(b"V").ok().or(inherited.value),
+        default_value: dict.get(b"DV").ok().or(inherited.default_value),
     };
     let kids = dict
         .get(b"Kids")
@@ -357,7 +325,7 @@ fn walk_field(
             });
         } else if let Some(field) = normalize_leaf(
             walker,
-            &dict,
+            dict,
             Some(id),
             public_name,
             &next,
@@ -371,7 +339,7 @@ fn walk_field(
         for kid in kids {
             walk_field(
                 walker,
-                &kid,
+                kid,
                 depth + 1,
                 &name,
                 &next,
@@ -385,23 +353,21 @@ fn walk_field(
     }
 }
 
-fn normalize_leaf(
-    walker: &mut Walker<'_>,
-    dict: &Dictionary,
+fn normalize_leaf<'a>(
+    walker: &mut Walker<'a>,
+    dict: &'a Dictionary,
     id: Option<ObjectId>,
     name: String,
-    inherited: &Inherited,
+    inherited: &Inherited<'a>,
     page_by_id: &HashMap<ObjectId, u32>,
     annotation_pages: &HashMap<ObjectId, u32>,
 ) -> Option<FormField> {
     let ft = inherited
         .field_type
-        .as_ref()
         .and_then(|v| walker.resolve(v))
         .and_then(|v| v.as_name().ok().map(<[u8]>::to_vec));
     let flags = inherited
         .flags
-        .as_ref()
         .and_then(|v| walker.resolve(v))
         .and_then(|v| v.as_i64().ok())
         .unwrap_or(0);
@@ -416,11 +382,8 @@ fn normalize_leaf(
         _ => None,
     }
     .map(str::to_string);
-    let raw_value = inherited.value.as_ref().map(|v| form_value(walker, v));
-    let mut default_value = inherited
-        .default_value
-        .as_ref()
-        .and_then(|v| form_value(walker, v));
+    let raw_value = inherited.value.map(|v| form_value(walker, v));
+    let mut default_value = inherited.default_value.and_then(|v| form_value(walker, v));
     let fallback = default_value.clone().filter(|value| !value.is_null());
     let mut value = raw_value.unwrap_or(fallback);
     match field_type.as_deref() {
@@ -482,10 +445,10 @@ fn first_choice_value(value: Option<Value>) -> Value {
     }
 }
 
-fn form_value(walker: &mut Walker<'_>, value: &Object) -> Option<Value> {
+fn form_value<'a>(walker: &mut Walker<'a>, value: &'a Object) -> Option<Value> {
     let value = walker.resolve(value)?;
-    match &value {
-        Object::String(_, _) | Object::Name(_) => walker.text(&value).map(Value::String),
+    match value {
+        Object::String(_, _) | Object::Name(_) => walker.text(value).map(Value::String),
         Object::Array(values) if values.len() <= 256 => {
             let values = values
                 .iter()
@@ -502,7 +465,7 @@ fn form_value(walker: &mut Walker<'_>, value: &Object) -> Option<Value> {
     }
 }
 
-fn rect(walker: &mut Walker<'_>, value: &Object) -> Option<BoxValue> {
+fn rect<'a>(walker: &mut Walker<'a>, value: &'a Object) -> Option<BoxValue> {
     let value = walker.resolve(value)?;
     let values = value.as_array().ok()?;
     if values.len() < 4 {
@@ -510,7 +473,7 @@ fn rect(walker: &mut Walker<'_>, value: &Object) -> Option<BoxValue> {
     }
     let mut n = [0.0; 4];
     for (index, value) in values.iter().take(4).enumerate() {
-        n[index] = number(&walker.resolve(value)?)?;
+        n[index] = number(walker.resolve(value)?)?;
     }
     Some(BoxValue {
         left: n[0].min(n[2]),
@@ -536,9 +499,12 @@ fn format_id((num, generation): ObjectId) -> String {
     }
 }
 
-fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<Vec<Attachment>> {
+fn extract_attachments<'a>(
+    walker: &mut Walker<'a>,
+    catalog: &'a Dictionary,
+) -> Option<Vec<Attachment>> {
     let names = walker.dict(catalog.get(b"Names").ok()?)?;
-    let root = names.get(b"EmbeddedFiles").ok()?.clone();
+    let root = names.get(b"EmbeddedFiles").ok()?;
     let mut queue = VecDeque::from([(root, 0usize)]);
     let mut tree_node_budget = MAX_ENTRIES.saturating_sub(1);
     let mut pair_budget = MAX_ENTRIES;
@@ -555,7 +521,7 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
                 return None;
             }
         }
-        let dict = walker.dict(&node)?;
+        let dict = walker.dict(node)?;
         if let Ok(kids_value) = dict.get(b"Kids") {
             if let Some(kids) = walker.array_bounded(kids_value, tree_node_budget) {
                 tree_node_budget -= kids.len();
@@ -581,7 +547,7 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
             }
             pair_budget -= pair_count;
             for pair in names.chunks_exact(2) {
-                pairs.push((pair[0].clone(), pair[1].clone()));
+                pairs.push((pair[0], pair[1]));
             }
         }
     }
@@ -593,15 +559,15 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
             walker.limited = true;
             return None;
         }
-        let name = walker.text(&key)?;
-        let spec = walker.dict(&spec)?;
-        let filename = filename(walker, &spec);
+        let name = walker.text(key)?;
+        let spec = walker.dict(spec)?;
+        let filename = filename(walker, spec);
         let description = spec
             .get(b"Desc")
             .ok()
             .and_then(|v| walker.text(v))
             .filter(|v| !v.is_empty());
-        let size_bytes = embedded_size(walker, &spec);
+        let size_bytes = embedded_size(walker, spec);
         let attachment = Attachment {
             name: name.clone(),
             filename,
@@ -621,7 +587,7 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
     (!output.is_empty()).then_some(output)
 }
 
-fn filename(walker: &mut Walker<'_>, spec: &Dictionary) -> Option<String> {
+fn filename<'a>(walker: &mut Walker<'a>, spec: &'a Dictionary) -> Option<String> {
     let mut raw = None;
     for key in [b"UF".as_slice(), b"F", b"Unix", b"Mac", b"DOS"] {
         if let Ok(value) = spec.get(key) {
@@ -640,12 +606,12 @@ fn filename(walker: &mut Walker<'_>, spec: &Dictionary) -> Option<String> {
     )
 }
 
-fn embedded_size(walker: &mut Walker<'_>, spec: &Dictionary) -> Option<usize> {
+fn embedded_size<'a>(walker: &mut Walker<'a>, spec: &'a Dictionary) -> Option<usize> {
     let ef = walker.dict(spec.get(b"EF").ok()?)?;
     let stream = [b"UF".as_slice(), b"F", b"Unix", b"Mac", b"DOS"]
         .into_iter()
-        .find_map(|key| ef.get(key).ok().cloned())?;
-    let stream = walker.resolve(&stream)?;
+        .find_map(|key| ef.get(key).ok())?;
+    let stream = walker.resolve(stream)?;
     let stream = stream.as_stream().ok()?;
     stream
         .dict
@@ -907,11 +873,12 @@ mod tests {
             } else {
                 vec![Object::Null; MAX_ENTRIES + 1]
             };
+            let acroform = document.add_object(dictionary! {"Fields"=>fields});
             finish_catalog(
                 &mut document,
                 pages,
                 dictionary! {
-                    "AcroForm"=>dictionary!{"Fields"=>fields},
+                    "AcroForm"=>acroform,
                     "Names"=>dictionary!{"EmbeddedFiles"=>attachment_tree}
                 },
             );
@@ -922,6 +889,11 @@ mod tests {
                 .warnings
                 .iter()
                 .any(|warning| warning.contains("include_form_fields")));
+            assert_eq!(
+                output.form_materialized_array_items,
+                usize::from(oversized_kids),
+                "an oversized direct array must not materialize its children"
+            );
         }
     }
 
@@ -954,6 +926,10 @@ mod tests {
                 .warnings
                 .iter()
                 .any(|warning| warning.contains("include_attachments")));
+            assert_eq!(
+                output.attachment_materialized_array_items, 0,
+                "an oversized NameTree collection must fail before item materialization"
+            );
         }
     }
 
@@ -964,10 +940,10 @@ mod tests {
         for _ in 0..=MAX_DEPTH {
             id = document.add_object(Object::Reference(id));
         }
+        document.trailer.set("Root", id);
+        let root = document.trailer.get(b"Root").unwrap();
         let mut walker = Walker::new(&document);
-        assert!(walker
-            .array_bounded(&Object::Reference(id), MAX_ENTRIES)
-            .is_none());
+        assert!(walker.array_bounded(root, MAX_ENTRIES).is_none());
         assert!(walker.limited);
         assert!(!walker.failed);
     }
