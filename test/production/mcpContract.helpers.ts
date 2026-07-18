@@ -85,7 +85,11 @@ export const readResponse = (proc: ChildProcess, timeoutMs = 45_000): Promise<Js
       buffer = lines.pop() ?? '';
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('Content-Length') || trimmed.startsWith('content-length')) {
+        if (
+          !trimmed ||
+          trimmed.startsWith('Content-Length') ||
+          trimmed.startsWith('content-length')
+        ) {
           continue;
         }
         // strip header body separator empties
@@ -188,9 +192,7 @@ export const parseToolPayload = (
     return { isError: true, text: 'missing result' };
   }
   if (result.isError) {
-    const text = (result.content ?? [])
-      .map((part) => part.text ?? '')
-      .join('\n');
+    const text = (result.content ?? []).map((part) => part.text ?? '').join('\n');
     return { isError: true, text: text || 'tool isError' };
   }
   if (result.structuredContent) {

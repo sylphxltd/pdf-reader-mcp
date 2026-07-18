@@ -5,10 +5,6 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::page_cache::{extract_page_texts_cached, PageCacheStatus};
-
-
-
 pub const TEXT_INDEX_ROUTE: &str = "rust-text-index";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,7 +77,10 @@ impl TextIndexError {
 
 pub fn extract_page_texts(path: &Path, max_file_bytes: u64) -> Result<Vec<String>, TextIndexError> {
     let meta = fs::metadata(path).map_err(|err| {
-        TextIndexError::invalid_request(format!("Unable to access file at '{}': {err}", path.display()))
+        TextIndexError::invalid_request(format!(
+            "Unable to access file at '{}': {err}",
+            path.display()
+        ))
     })?;
 
     if !meta.is_file() {
@@ -98,27 +97,21 @@ pub fn extract_page_texts(path: &Path, max_file_bytes: u64) -> Result<Vec<String
         )));
     }
 
-    let extracted = pdf_extract::extract_text(path).map_err(|err| {
+    let pages = pdf_extract::extract_text_by_pages(path).map_err(|err| {
         TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
     })?;
 
-    if extracted.is_empty() {
+    if pages.is_empty() {
         return Ok(vec![String::new()]);
     }
 
-    let pages: Vec<String> = extracted
-        .split('\x0c')
-        .map(str::trim)
-        .map(ToString::to_string)
-        .collect();
-
-    if pages.is_empty() {
-        return Ok(vec![extracted]);
-    }
-
-    Ok(pages)
+    Ok(pages
+        .into_iter()
+        .map(|page| page.trim().to_string())
+        .collect())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn search_pdf_text(
     path: &Path,
     max_file_bytes: u64,
@@ -129,25 +122,56 @@ pub fn search_pdf_text(
     max_matches: u32,
     context_chars: u32,
 ) -> Result<TextSearchResult, TextIndexError> {
+    search_pdf_text_pages(
+        path,
+        max_file_bytes,
+        query,
+        case_sensitive,
+        whole_word,
+        None,
+        max_pages,
+        max_matches,
+        context_chars,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn search_pdf_text_pages(
+    path: &Path,
+    max_file_bytes: u64,
+    query: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    requested_pages: Option<&[u32]>,
+    max_pages: u32,
+    max_matches: u32,
+    context_chars: u32,
+) -> Result<TextSearchResult, TextIndexError> {
     if query.is_empty() {
         return Err(TextIndexError::invalid_params("query must not be empty."));
     }
 
-    let (pages, cache_status) = extract_page_texts_cached(path, max_file_bytes)?;
-    let page_cache = match cache_status {
-        PageCacheStatus::CacheHit => Some("cache_hit".into()),
-        PageCacheStatus::CacheMiss => Some("cache_miss".into()),
-        PageCacheStatus::CacheBypass => None,
-    };
+    // TS 3.0.14 does not persist extracted document text beside the source.
+    // Keep search side-effect free; a future cache needs an explicit private-root contract.
+    let pages = extract_page_texts(path, max_file_bytes)?;
+    let page_cache = None;
     let num_pages = pages.len().max(1) as u32;
-    let searched_pages: Vec<u32> = (1..=num_pages.min(max_pages.max(1))).collect();
+    let searched_pages: Vec<u32> = requested_pages
+        .map(|requested| requested.to_vec())
+        .unwrap_or_else(|| (1..=num_pages).collect())
+        .into_iter()
+        .filter(|page| *page <= num_pages)
+        .take(max_pages.max(1) as usize)
+        .collect();
     let mut matches = Vec::new();
     let mut truncated = false;
 
     for &page in &searched_pages {
         let page_index = (page - 1) as usize;
         let text = pages.get(page_index).map(String::as_str).unwrap_or("");
-        let page_matches = find_matches_in_text(text, query, case_sensitive, whole_word);
+        let remaining = max_matches.saturating_add(1) as usize - matches.len();
+        let page_matches =
+            find_matches_in_text_bounded(text, query, case_sensitive, whole_word, remaining);
 
         for (start, end) in page_matches {
             if matches.len() >= max_matches as usize {
@@ -197,11 +221,22 @@ fn is_whole_word_match(text: &str, start: usize, end: usize) -> bool {
 /// Case-insensitive matching that keeps original-string byte indices.
 /// Avoids lowercasing the whole haystack (Unicode case folding can change length,
 /// e.g. ﬁ → fi), which previously produced mid-codepoint slice panics.
+#[cfg(test)]
 fn find_matches_in_text(
     text: &str,
     query: &str,
     case_sensitive: bool,
     whole_word: bool,
+) -> Vec<(usize, usize)> {
+    find_matches_in_text_bounded(text, query, case_sensitive, whole_word, usize::MAX)
+}
+
+fn find_matches_in_text_bounded(
+    text: &str,
+    query: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    max_results: usize,
 ) -> Vec<(usize, usize)> {
     if query.is_empty() {
         return Vec::new();
@@ -221,6 +256,9 @@ fn find_matches_in_text(
                 && (!whole_word || is_whole_word_match(text, start, end))
             {
                 matches.push((start, end));
+                if matches.len() >= max_results {
+                    break;
+                }
             }
             search_from = end.max(start + 1);
             while search_from < text.len() && !text.is_char_boundary(search_from) {
@@ -267,6 +305,9 @@ fn find_matches_in_text(
                 .unwrap_or(text.len());
             if !whole_word || is_whole_word_match(text, start_char_byte, end) {
                 matches.push((start_char_byte, end));
+                if matches.len() >= max_results {
+                    break;
+                }
             }
             // Advance past this match in expanded space (at least one expanded char).
             i += query_len.max(1);
@@ -315,6 +356,46 @@ fn build_snippet(text: &str, start: usize, end: usize, context_chars: usize) -> 
 mod tests {
     use super::*;
 
+    fn two_blank_page_pdf() -> Vec<u8> {
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 120 80] /Resources << >> /Contents 5 0 R >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 120 80] /Resources << >> /Contents 6 0 R >>".to_string(),
+            "<< /Length 0 >>\nstream\nendstream".to_string(),
+            "<< /Length 0 >>\nstream\nendstream".to_string(),
+        ];
+        let mut pdf = b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n".to_vec();
+        let mut offsets = Vec::with_capacity(objects.len());
+        for (index, object) in objects.iter().enumerate() {
+            offsets.push(pdf.len());
+            pdf.extend_from_slice(format!("{} 0 obj\n{object}\nendobj\n", index + 1).as_bytes());
+        }
+        let xref_offset = pdf.len();
+        pdf.extend_from_slice(format!("xref\n0 {}\n", objects.len() + 1).as_bytes());
+        pdf.extend_from_slice(b"0000000000 65535 f \n");
+        for offset in offsets {
+            pdf.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+        }
+        pdf.extend_from_slice(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n",
+                objects.len() + 1
+            )
+            .as_bytes(),
+        );
+        pdf
+    }
+
+    #[test]
+    fn preserves_real_pdf_page_boundaries_including_blank_pages() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("two-pages.pdf");
+        std::fs::write(&path, two_blank_page_pdf()).expect("write PDF");
+        let pages = extract_page_texts(&path, 1_000_000).expect("extract pages");
+        assert_eq!(pages, vec![String::new(), String::new()]);
+    }
+
     #[test]
     fn finds_literal_matches_with_snippets() {
         let text = "Sample PDF file with sample terms inside.";
@@ -345,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn reuses_page_cache_on_second_search() {
+    fn search_does_not_persist_extracted_text_beside_source() {
         let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../test/fixtures/sample.pdf");
         if !fixture.is_file() {
@@ -367,7 +448,7 @@ mod tests {
             32,
         )
         .expect("first search");
-        assert_eq!(first.page_cache.as_deref(), Some("cache_miss"));
+        assert_eq!(first.page_cache, None);
         assert!(first.total_matches > 0);
 
         let second = search_pdf_text(
@@ -381,10 +462,10 @@ mod tests {
             32,
         )
         .expect("second search");
-        assert_eq!(second.page_cache.as_deref(), Some("cache_hit"));
+        assert_eq!(second.page_cache, None);
         assert_eq!(second.total_matches, first.total_matches);
+        assert!(!temp.path().join(".pdf-reader-mcp").exists());
     }
-
 
     #[test]
     fn bulk_normalize_case_and_empty_query() {

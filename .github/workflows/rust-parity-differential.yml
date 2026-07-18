@@ -37,10 +37,14 @@ jobs:
           HEAD_SHA: ${{ github.event.merge_group.head_sha || github.sha }}
         run: |
           set -euo pipefail
-          CHANGED="$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}" 2>/dev/null || git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
-          python3 - <<'PY' "${MANIFEST}" <<<"${CHANGED}"
+          CHANGED_FILE="${RUNNER_TEMP}/pdf-reader-mcp-changed-files.txt"
+          git diff --name-only "${BASE_SHA}...${HEAD_SHA}" >"${CHANGED_FILE}" 2>/dev/null \
+            || git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" >"${CHANGED_FILE}"
+          python3 - "${MANIFEST}" "${CHANGED_FILE}" <<'PY' >>"${GITHUB_OUTPUT}"
           import json, sys, fnmatch
-          manifest, changed_raw = sys.argv[1], sys.stdin.read()
+          manifest, changed_file = sys.argv[1:3]
+          with open(changed_file, encoding="utf-8") as stream:
+              changed_raw = stream.read()
           changed = [l.strip() for l in changed_raw.splitlines() if l.strip()]
           data = json.load(open(manifest))
           caps = list(data.get("capabilities") or [])
@@ -63,11 +67,10 @@ jobs:
   differential:
     name: rust-parity-drift-pass/differential
     needs: map-and-stale
-    runs-on: sylphx-linux-large
+    runs-on: sylphx-linux-standard
     timeout-minutes: 30
     env:
       CANDIDATE_SHA: ${{ github.event.merge_group.head_sha || github.sha }}
-      SCRATCH_DIR: ${{ runner.temp }}/pdf-reader-mcp-differential
       DIFFERENTIAL_SCRIPT: scripts/run-pdf-reader-differential.sh
 
     steps:
@@ -76,6 +79,9 @@ jobs:
         with:
           ref: ${{ env.CANDIDATE_SHA }}
           fetch-depth: 0
+
+      - name: Configure differential scratch directory
+        run: echo "SCRATCH_DIR=${RUNNER_TEMP}/pdf-reader-mcp-differential" >>"${GITHUB_ENV}"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -102,8 +108,8 @@ jobs:
           fi
           LAST_COMPARED="$(jq -r '.lastComparedMainSha' "$ARTIFACT")"
           STATUS="$(jq -r '.status' "$ARTIFACT")"
-          if [ "$STATUS" != "differential_green" ]; then
-            echo "::error::verification status must be differential_green (got $STATUS)"
+          if [ "$STATUS" != "claimed_subset_green" ]; then
+            echo "::error::verification status must be claimed_subset_green (got $STATUS)"
             exit 1
           fi
           if [ "$LAST_COMPARED" != "$CANDIDATE_SHA" ]; then
@@ -115,7 +121,7 @@ jobs:
       - name: Warn on stale capabilities without re-proof
         if: needs.map-and-stale.outputs.stale_capabilities != '[]'
         run: |
-          echo "::warning::Stale capabilities detected — differential must pass before merge"
+          echo "::warning::Stale capabilities detected — claimed-subset checks must pass before merge"
           echo "${{ needs.map-and-stale.outputs.stale_capabilities }}"
 
       - name: Upload verification artifact
@@ -126,6 +132,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/verification.json
             ${{ env.SCRATCH_DIR }}/differential.log
             ${{ env.SCRATCH_DIR }}/oracle.json
+            ${{ env.SCRATCH_DIR }}/ts-vs-rust-text.json
           if-no-files-found: error
 
   rust-parity-drift-pass:
@@ -148,6 +155,6 @@ jobs:
           if [ "$MAP_AND_STALE_RESULT" != "success" ]; then failed=1; fi
           if [ "$DIFFERENTIAL_RESULT" != "success" ]; then failed=1; fi
           if [ "$failed" -ne 0 ]; then
-            echo "::error::rust-parity-drift-pass failed — differential parity not proven at candidate SHA"
+            echo "::error::rust-parity-drift-pass failed — claimed-subset checks not green at candidate SHA"
             exit 1
           fi

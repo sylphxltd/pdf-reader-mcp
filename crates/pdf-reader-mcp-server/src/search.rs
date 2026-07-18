@@ -51,7 +51,10 @@ pub fn search_pdf(args_value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
         source_hash,
         Vec::new(),
         serde_json::to_value(response).map_err(|error| {
-            rmcp::ErrorData::internal_error(format!("Failed to serialize search_pdf: {error}"), None)
+            rmcp::ErrorData::internal_error(
+                format!("Failed to serialize search_pdf: {error}"),
+                None,
+            )
         })?,
     );
 

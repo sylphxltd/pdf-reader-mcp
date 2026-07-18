@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::text_index::{search_pdf_text, TextIndexError, TextIndexErrorCode, TEXT_INDEX_ROUTE};
+use crate::text_index::{
+    search_pdf_text_pages, TextIndexError, TextIndexErrorCode, TEXT_INDEX_ROUTE,
+};
 use crate::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
 use crate::{ENGINE_NAME, ENGINE_VERSION};
 
@@ -15,6 +17,7 @@ const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 const DEFAULT_MAX_PAGES: u32 = 100;
 const DEFAULT_MAX_MATCHES: u32 = 50;
 const DEFAULT_CONTEXT_CHARS: u32 = 120;
+const MAX_SELECTED_PAGES: usize = 10_001;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct SearchPdfSource {
@@ -109,32 +112,91 @@ fn source_label(source: &SearchPdfSource) -> String {
         .unwrap_or_else(|| "unknown".into())
 }
 
-
-fn parse_page_filter(pages_spec: &Option<Value>) -> Option<Vec<u32>> {
+fn parse_page_filter(pages_spec: &Option<Value>) -> Result<Option<Vec<u32>>, SearchPdfError> {
     let Some(spec) = pages_spec else {
-        return None;
+        return Ok(None);
     };
+    let mut wanted = Vec::new();
     if let Some(arr) = spec.as_array() {
-        let wanted: Vec<u32> = arr.iter().filter_map(|v| v.as_u64().map(|n| n as u32)).collect();
-        return if wanted.is_empty() { None } else { Some(wanted) };
-    }
-    if let Some(s) = spec.as_str() {
-        let mut wanted = Vec::new();
-        for part in s.split(',') {
-            let part = part.trim();
-            if let Some((a, b)) = part.split_once('-') {
-                if let (Ok(start), Ok(end)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) {
-                    if start <= end {
-                        wanted.extend(start..=end);
-                    }
-                }
-            } else if let Ok(n) = part.parse::<u32>() {
-                wanted.push(n);
+        if arr.is_empty() {
+            return Err(SearchPdfError::invalid_params(
+                "Page specification resulted in an empty set of pages.",
+            ));
+        }
+        for value in arr {
+            let page = value
+                .as_u64()
+                .filter(|page| *page > 0 && *page <= u64::from(u32::MAX));
+            let Some(page) = page else {
+                return Err(SearchPdfError::invalid_params(
+                    "Page numbers in array must be positive integers.",
+                ));
+            };
+            wanted.push(page as u32);
+            if wanted.len() > MAX_SELECTED_PAGES {
+                return Err(SearchPdfError::invalid_params(
+                    "Page specification exceeds the maximum of 10001 selected pages.",
+                ));
             }
         }
-        return if wanted.is_empty() { None } else { Some(wanted) };
+    } else if let Some(ranges) = spec.as_str() {
+        for raw_part in ranges.split(',') {
+            let part = raw_part.trim();
+            if let Some((start_text, end_text)) = part.split_once('-') {
+                let start = parse_ts_positive_page(start_text);
+                let end = if end_text.trim().is_empty() {
+                    start.map(|page| page.saturating_add(10_000))
+                } else {
+                    parse_ts_positive_page(end_text)
+                };
+                let (Some(start), Some(end)) = (start, end) else {
+                    return Err(SearchPdfError::invalid_params(format!(
+                        "Invalid page range values: {part}"
+                    )));
+                };
+                if start > end {
+                    return Err(SearchPdfError::invalid_params(format!(
+                        "Invalid page range values: {part}"
+                    )));
+                }
+                wanted.extend(start..=end.min(start.saturating_add(10_000)));
+            } else {
+                let Some(page) = parse_ts_positive_page(part) else {
+                    return Err(SearchPdfError::invalid_params(format!(
+                        "Invalid page number: {part}"
+                    )));
+                };
+                wanted.push(page);
+            }
+            if wanted.len() > MAX_SELECTED_PAGES {
+                return Err(SearchPdfError::invalid_params(
+                    "Page specification exceeds the maximum of 10001 selected pages.",
+                ));
+            }
+        }
+    } else {
+        return Err(SearchPdfError::invalid_params(
+            "Page specification must be a non-empty range string or array of positive integers.",
+        ));
     }
-    None
+    wanted.sort_unstable();
+    wanted.dedup();
+    if wanted.is_empty() {
+        return Err(SearchPdfError::invalid_params(
+            "Page specification resulted in an empty set of pages.",
+        ));
+    }
+    Ok(Some(wanted))
+}
+
+fn parse_ts_positive_page(value: &str) -> Option<u32> {
+    let value = value.trim_start();
+    let value = value.strip_prefix('+').unwrap_or(value);
+    let digits: String = value.chars().take_while(char::is_ascii_digit).collect();
+    (!digits.is_empty())
+        .then(|| digits.parse::<u32>().ok())
+        .flatten()
+        .filter(|page| *page > 0)
 }
 
 pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdfError> {
@@ -143,7 +205,7 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
             "sources must include at least one PDF source.",
         ));
     }
-    if input.query.trim().is_empty() {
+    if input.query.is_empty() {
         return Err(SearchPdfError::invalid_params("query must not be empty"));
     }
     if input.include_ocr_text_layer.unwrap_or(false) {
@@ -152,8 +214,34 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
         ));
     }
 
+    if matches!(input.max_pages, Some(0)) {
+        return Err(SearchPdfError::invalid_params("max_pages must be >= 1"));
+    }
+    if matches!(input.max_matches_per_source, Some(0)) {
+        return Err(SearchPdfError::invalid_params(
+            "max_matches_per_source must be >= 1",
+        ));
+    }
+    if input.max_pages.is_some_and(|value| value > 1000) {
+        return Err(SearchPdfError::invalid_params("max_pages must be <= 1000"));
+    }
+    if input
+        .max_matches_per_source
+        .is_some_and(|value| value > 500)
+    {
+        return Err(SearchPdfError::invalid_params(
+            "max_matches_per_source must be <= 500",
+        ));
+    }
+    if input.context_chars.is_some_and(|value| value > 1000) {
+        return Err(SearchPdfError::invalid_params(
+            "context_chars must be <= 1000",
+        ));
+    }
+
     for source in &input.sources {
         validate_source(source)?;
+        parse_page_filter(&source.pages)?;
     }
 
     let case_sensitive = input.case_sensitive.unwrap_or(false);
@@ -166,23 +254,20 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
     let mut temps = Vec::new();
     for source in &input.sources {
         let label = source_label(source);
-        let resolved: Result<PathBuf, String> = if let Some(path) = source
-            .path
-            .as_ref()
-            .filter(|value| !value.is_empty())
-        {
-            Ok(PathBuf::from(path))
-        } else if let Some(url) = source.url.as_ref().filter(|value| !value.is_empty()) {
-            match fetch_url_to_temp_file(url) {
-                Ok(temp) => {
-                    temps.push(temp.clone());
-                    Ok(temp)
+        let resolved: Result<PathBuf, String> =
+            if let Some(path) = source.path.as_ref().filter(|value| !value.is_empty()) {
+                Ok(PathBuf::from(path))
+            } else if let Some(url) = source.url.as_ref().filter(|value| !value.is_empty()) {
+                match fetch_url_to_temp_file(url) {
+                    Ok(temp) => {
+                        temps.push(temp.clone());
+                        Ok(temp)
+                    }
+                    Err(message) => Err(message),
                 }
-                Err(message) => Err(message),
-            }
-        } else {
-            Err("Provide exactly one of path or url for each PDF source.".into())
-        };
+            } else {
+                Err("Provide exactly one of path or url for each PDF source.".into())
+            };
 
         let path = match resolved {
             Ok(path) => path,
@@ -196,25 +281,51 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
             }
         };
 
-        match search_pdf_text(
+        let page_filter = parse_page_filter(&source.pages)?;
+        match search_pdf_text_pages(
             path.as_path(),
             DEFAULT_MAX_FILE_BYTES,
             &input.query,
             case_sensitive,
             whole_word,
+            page_filter.as_deref(),
             max_pages,
             max_matches,
             context_chars,
         ) {
             Ok(search) => {
-                let page_filter = parse_page_filter(&source.pages);
+                let requested_pages =
+                    page_filter.unwrap_or_else(|| (1..=search.num_pages).collect());
+                let invalid_pages: Vec<u32> = requested_pages
+                    .iter()
+                    .copied()
+                    .filter(|page| *page > search.num_pages)
+                    .collect();
+                let valid_pages: Vec<u32> = requested_pages
+                    .iter()
+                    .copied()
+                    .filter(|page| *page <= search.num_pages)
+                    .collect();
+                let searched_pages: Vec<u32> = valid_pages
+                    .iter()
+                    .copied()
+                    .take(max_pages as usize)
+                    .collect();
+                if searched_pages.is_empty() {
+                    results.push(json!({
+                        "source": label,
+                        "success": false,
+                        "error": format!("No valid pages to search for source {}.", source_label(source)),
+                    }));
+                    continue;
+                }
                 let matches: Vec<Value> = search
                     .matches
                     .iter()
-                    .filter(|item| page_filter.as_ref().map(|pages| pages.contains(&item.page)).unwrap_or(true))
-                    .map(|item| {
+                    .enumerate()
+                    .map(|(index, item)| {
                         json!({
-                            "id": item.id,
+                            "id": format!("p{}-match-{}", item.page, index + 1),
                             "page": item.page,
                             "text": item.text,
                             "snippet": item.snippet,
@@ -228,15 +339,43 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                     })
                     .collect();
 
+                let mut warnings = Vec::new();
+                if !invalid_pages.is_empty() {
+                    warnings.push(format!(
+                        "Requested pages {} exceed document page count {} and were skipped.",
+                        invalid_pages
+                            .iter()
+                            .map(u32::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        search.num_pages
+                    ));
+                }
+                if valid_pages.len() > searched_pages.len() {
+                    warnings.push(format!(
+                        "Searched first {max_pages} selected pages; skipped {} due to max_pages.",
+                        valid_pages[max_pages as usize..]
+                            .iter()
+                            .map(u32::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+                if search.truncated {
+                    warnings.push(format!(
+                        "Search results truncated to {max_matches} matches for this source."
+                    ));
+                }
+
                 results.push(json!({
                     "source": label,
                     "success": true,
                     "num_pages": search.num_pages,
-                    "searched_pages": search.searched_pages,
-                    "total_matches": search.total_matches,
+                    "searched_pages": searched_pages,
+                    "total_matches": matches.len(),
                     "matches": matches,
                     "truncated": search.truncated,
-                    "warnings": [],
+                    "warnings": warnings,
                     "route": search.route,
                     "page_cache": search.page_cache,
                     "engine": {
@@ -259,7 +398,10 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
         cleanup_temp_file(temp.as_path());
     }
 
-    if results.iter().all(|result| result.get("success") == Some(&Value::Bool(false))) {
+    if results
+        .iter()
+        .all(|result| result.get("success") == Some(&Value::Bool(false)))
+    {
         let errors = results
             .iter()
             .filter_map(|result| result.get("error").and_then(Value::as_str))
@@ -317,10 +459,92 @@ mod tests {
         .expect("search fixture");
 
         assert_eq!(response.profile, "pdf_search_results");
-        assert!(response.results[0].get("success").and_then(Value::as_bool).unwrap_or(false));
+        assert!(response.results[0]
+            .get("success")
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
         assert_eq!(
             response.results[0].get("route").and_then(Value::as_str),
             Some(SEARCH_PDF_ROUTE)
         );
+    }
+
+    #[test]
+    fn rejects_descending_and_invalid_page_specs() {
+        for pages in [
+            json!("5-3"),
+            json!("0"),
+            json!(""),
+            json!([]),
+            json!([1, 0]),
+        ] {
+            let error = parse_page_filter(&Some(pages)).expect_err("invalid page spec");
+            assert_eq!(error.code, SearchPdfErrorCode::InvalidParams);
+        }
+        assert_eq!(
+            parse_page_filter(&Some(json!("1x"))).expect("TS parseInt-compatible page"),
+            Some(vec![1])
+        );
+    }
+
+    #[test]
+    fn enforces_search_limits_at_core_boundary() {
+        let source = SearchPdfSource {
+            path: Some("/does/not/matter.pdf".into()),
+            url: None,
+            pages: None,
+        };
+        for input in [
+            SearchPdfInput {
+                sources: vec![source.clone()],
+                query: "x".into(),
+                max_pages: Some(0),
+                ..Default::default()
+            },
+            SearchPdfInput {
+                sources: vec![source.clone()],
+                query: "x".into(),
+                max_matches_per_source: Some(0),
+                ..Default::default()
+            },
+        ] {
+            let error = search_pdf(&input).expect_err("zero limit must fail");
+            assert_eq!(error.code, SearchPdfErrorCode::InvalidParams);
+        }
+    }
+
+    #[test]
+    fn accepts_whitespace_query_like_v3_0_14_schema_and_handler() {
+        let error = search_pdf(&SearchPdfInput {
+            sources: vec![SearchPdfSource {
+                path: Some("/missing.pdf".into()),
+                url: None,
+                pages: None,
+            }],
+            query: " ".into(),
+            ..Default::default()
+        })
+        .expect_err("missing source should fail after query validation");
+        assert_eq!(error.code, SearchPdfErrorCode::InvalidRequest);
+    }
+
+    #[test]
+    fn page_filter_is_applied_before_search_success() {
+        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/sample.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+        let error = search_pdf(&SearchPdfInput {
+            sources: vec![SearchPdfSource {
+                path: Some(fixture.to_string_lossy().to_string()),
+                url: None,
+                pages: Some(json!([9999])),
+            }],
+            query: "Lorem".into(),
+            ..Default::default()
+        })
+        .expect_err("out-of-range selection must not search page one");
+        assert!(error.message.contains("No valid pages to search"));
     }
 }

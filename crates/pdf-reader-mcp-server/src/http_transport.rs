@@ -204,9 +204,7 @@ pub async fn serve_http(config: HttpConfig) -> anyhow::Result<()> {
 
     let app = Router::new().nest("/mcp", mcp_router);
 
-    eprintln!(
-        "[pdf-reader-mcp] Streamable HTTP MCP listening on http://{addr}/mcp"
-    );
+    eprintln!("[pdf-reader-mcp] Streamable HTTP MCP listening on http://{addr}/mcp");
     eprintln!("[pdf-reader-mcp] Health check: http://{addr}/mcp/health");
     if let Some(api_key) = shared_config.api_key.as_deref() {
         let _ = api_key;

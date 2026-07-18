@@ -73,7 +73,10 @@ fn run_ts_oracle() -> Option<OracleCorpus> {
 
     let script = repo_root().join("scripts/differential/pdf-reader-mcp-oracle.ts");
     if !script.is_file() {
-        eprintln!("SKIP pdf_reader_mcp_differential: missing oracle script {}", script.display());
+        eprintln!(
+            "SKIP pdf_reader_mcp_differential: missing oracle script {}",
+            script.display()
+        );
         return None;
     }
     let output = Command::new("bun")
@@ -147,9 +150,7 @@ fn normalize_structured(mut value: Value) -> Value {
                     {
                         result_object.insert("source".into(), Value::String(source));
                     }
-                    if let Some(data) = result_object
-                        .get_mut("data")
-                        .and_then(Value::as_object_mut)
+                    if let Some(data) = result_object.get_mut("data").and_then(Value::as_object_mut)
                     {
                         data.remove("full_text");
                         if let Some(info) = data.get_mut("info").and_then(Value::as_object_mut) {
@@ -208,7 +209,9 @@ impl StdioMcpClient {
             .env_remove("MCP_TRANSPORT")
             .env_remove("PDF_READER_MCP_TRANSPORT")
             .spawn()
-            .unwrap_or_else(|error| panic!("spawn rmcp stdio server at {}: {error}", binary.display()));
+            .unwrap_or_else(|error| {
+                panic!("spawn rmcp stdio server at {}: {error}", binary.display())
+            });
 
         let stdout = child.stdout.take().expect("rmcp stdio server stdout");
         let stdin = child.stdin.take().expect("rmcp stdio server stdin");
@@ -456,7 +459,11 @@ fn compare_read_pdf_tool_case(case: &OracleCase) {
         }
     }
 
-    if let Some(needle) = case.output.get("full_text_contains").and_then(Value::as_str) {
+    if let Some(needle) = case
+        .output
+        .get("full_text_contains")
+        .and_then(Value::as_str)
+    {
         let full_text = full_text_actual.as_deref().unwrap_or("");
         assert!(
             full_text.contains(needle),
@@ -573,7 +580,9 @@ fn compare_stdio_probe_case(case: &OracleCase, client: &mut StdioMcpClient) {
                 return;
             }
 
-            let result = response.get("result").expect("tools/call result");
+            let result = response
+                .get("result")
+                .unwrap_or_else(|| panic!("{}: tools/call result missing: {response}", case.id));
             assert!(
                 result.get("isError").and_then(Value::as_bool) != Some(true),
                 "{}: read_pdf over stdio failed: {response}",
@@ -627,7 +636,8 @@ fn compare_stdio_probe_case(case: &OracleCase, client: &mut StdioMcpClient) {
                 case.id
             );
 
-            if let Some(expected_info) = case.output.get("expectedInfo").and_then(Value::as_object) {
+            if let Some(expected_info) = case.output.get("expectedInfo").and_then(Value::as_object)
+            {
                 let actual_info = results[0]
                     .pointer("/data/info")
                     .and_then(Value::as_object)
@@ -642,7 +652,11 @@ fn compare_stdio_probe_case(case: &OracleCase, client: &mut StdioMcpClient) {
                 }
             }
 
-            if let Some(needle) = case.output.get("full_text_contains").and_then(Value::as_str) {
+            if let Some(needle) = case
+                .output
+                .get("full_text_contains")
+                .and_then(Value::as_str)
+            {
                 let full_text = full_text_actual.as_deref().unwrap_or("");
                 assert!(
                     full_text.contains(needle),
@@ -789,7 +803,9 @@ fn case_matches_slice(case: &OracleCase, slice: &str) -> bool {
 fn pdf_reader_mcp_differential_matches_ts_oracle() {
     // Pure-Rust is the only production engine.
     let _ = fs::read_to_string(corpus_fixture_path()).expect("read pdf-reader-mcp corpus fixture");
-    let Some(oracle) = run_ts_oracle() else { return; };
+    let Some(oracle) = run_ts_oracle() else {
+        return;
+    };
     assert_eq!(oracle.corpus_version, 1);
     assert_eq!(oracle.profile, "pdf_reader_read_pdf_golden");
     assert!(!oracle.fixture_corpus_hash.is_empty());

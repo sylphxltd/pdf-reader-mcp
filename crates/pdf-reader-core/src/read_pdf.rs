@@ -55,6 +55,8 @@ pub struct ReadPdfInput {
     pub include_accessibility_report: bool,
     pub trust_report_redaction: Option<String>,
     pub max_visual_enrichments: Option<u32>,
+    #[serde(skip)]
+    auto_policy_resolved: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,13 +68,16 @@ pub struct EngineInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ReadPdfData {
-    pub num_pages: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub num_pages: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub info: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub full_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_texts: Option<Vec<crate::document_twin::PageText>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -195,6 +200,7 @@ impl From<TextIndexError> for ReadPdfError {
 }
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_SELECTED_PAGES: usize = 10_001;
 
 fn validate_source(source: &ReadPdfSource) -> Result<(), ReadPdfError> {
     let has_path = source.path.as_ref().is_some_and(|value| !value.is_empty());
@@ -210,61 +216,167 @@ fn validate_source(source: &ReadPdfSource) -> Result<(), ReadPdfError> {
     }
 }
 
-fn join_page_text(pages: &[String]) -> String {
+fn join_page_text(pages: &[crate::document_twin::PageText]) -> String {
     pages
         .iter()
-        .map(String::as_str)
+        .map(|page| page.text.as_str())
         .filter(|page| !page.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
 }
 
-fn select_pages(pages: &[String], pages_spec: &Option<Value>) -> Vec<(u32, String)> {
-    let all: Vec<(u32, String)> = pages
-        .iter()
-        .enumerate()
-        .map(|(i, t)| ((i + 1) as u32, t.clone()))
-        .collect();
+fn parse_page_spec(pages_spec: &Option<Value>) -> Result<Option<Vec<u32>>, ReadPdfError> {
     let Some(spec) = pages_spec else {
-        return all;
+        return Ok(None);
     };
+    let mut wanted = Vec::new();
     if let Some(arr) = spec.as_array() {
-        let wanted: Vec<u32> = arr.iter().filter_map(|v| v.as_u64().map(|n| n as u32)).collect();
-        if wanted.is_empty() {
-            return all;
+        if arr.is_empty() {
+            return Err(ReadPdfError::invalid_params(
+                "Page specification resulted in an empty set of pages.",
+            ));
         }
-        return all.into_iter().filter(|(p, _)| wanted.contains(p)).collect();
-    }
-    if let Some(s) = spec.as_str() {
-        let mut wanted = Vec::new();
-        for part in s.split(',') {
-            let part = part.trim();
-            if let Some((a, b)) = part.split_once('-') {
-                if let (Ok(start), Ok(end)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) {
-                    if start <= end {
-                        wanted.extend(start..=end);
-                    }
-                }
-            } else if let Ok(n) = part.parse::<u32>() {
-                wanted.push(n);
+        for value in arr {
+            let page = value
+                .as_u64()
+                .filter(|page| *page > 0 && *page <= u64::from(u32::MAX));
+            let Some(page) = page else {
+                return Err(ReadPdfError::invalid_params(
+                    "Page numbers in array must be positive integers.",
+                ));
+            };
+            wanted.push(page as u32);
+            if wanted.len() > MAX_SELECTED_PAGES {
+                return Err(ReadPdfError::invalid_params(
+                    "Page specification exceeds the maximum of 10001 selected pages.",
+                ));
             }
         }
-        if wanted.is_empty() {
-            return all;
+    } else if let Some(ranges) = spec.as_str() {
+        if ranges.is_empty() {
+            return Err(ReadPdfError::invalid_params("Invalid page number: "));
         }
-        return all.into_iter().filter(|(p, _)| wanted.contains(p)).collect();
+        for raw_part in ranges.split(',') {
+            let part = raw_part.trim();
+            if let Some((start_text, end_text)) = part.split_once('-') {
+                let start = parse_ts_positive_page(start_text);
+                let end = if end_text.trim().is_empty() {
+                    start.map(|page| page.saturating_add(10_000))
+                } else {
+                    parse_ts_positive_page(end_text)
+                };
+                let (Some(start), Some(end)) = (start, end) else {
+                    return Err(ReadPdfError::invalid_params(format!(
+                        "Invalid page range values: {part}"
+                    )));
+                };
+                if start > end {
+                    return Err(ReadPdfError::invalid_params(format!(
+                        "Invalid page range values: {part}"
+                    )));
+                }
+                wanted.extend(start..=end.min(start.saturating_add(10_000)));
+            } else {
+                let Some(page) = parse_ts_positive_page(part) else {
+                    return Err(ReadPdfError::invalid_params(format!(
+                        "Invalid page number: {part}"
+                    )));
+                };
+                wanted.push(page);
+            }
+            if wanted.len() > MAX_SELECTED_PAGES {
+                return Err(ReadPdfError::invalid_params(
+                    "Page specification exceeds the maximum of 10001 selected pages.",
+                ));
+            }
+        }
+    } else {
+        return Err(ReadPdfError::invalid_params(
+            "Page specification must be a non-empty range string or array of positive integers.",
+        ));
     }
-    all
+    wanted.sort_unstable();
+    wanted.dedup();
+    if wanted.is_empty() {
+        return Err(ReadPdfError::invalid_params(
+            "Page specification resulted in an empty set of pages.",
+        ));
+    }
+    Ok(Some(wanted))
 }
 
-fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> ReadPdfData {
+fn parse_ts_positive_page(value: &str) -> Option<u32> {
+    let value = value.trim_start();
+    let value = value.strip_prefix('+').unwrap_or(value);
+    let digits: String = value.chars().take_while(char::is_ascii_digit).collect();
+    (!digits.is_empty())
+        .then(|| digits.parse::<u32>().ok())
+        .flatten()
+        .filter(|page| *page > 0)
+}
+
+fn evenly_sample_pages(total_pages: u32, max_samples: u32) -> Vec<u32> {
+    let max_samples = max_samples.clamp(1, 20).min(total_pages.max(1));
+    if total_pages <= max_samples {
+        return (1..=total_pages).collect();
+    }
+    if max_samples == 1 {
+        return vec![1];
+    }
+    let mut selected = Vec::with_capacity(max_samples as usize);
+    for index in 0..max_samples {
+        let numerator = u64::from(index) * u64::from(total_pages - 1);
+        let denominator = u64::from(max_samples - 1);
+        // Math.round for non-negative values.
+        let offset = (numerator + denominator / 2) / denominator;
+        selected.push(1 + offset as u32);
+    }
+    selected.sort_unstable();
+    selected.dedup();
+    selected
+}
+
+fn select_pages(
+    pages: &[String],
+    requested_pages: Option<&[u32]>,
+) -> (Vec<crate::document_twin::PageText>, Vec<u32>) {
+    let all: Vec<crate::document_twin::PageText> = pages
+        .iter()
+        .enumerate()
+        .map(|(i, text)| crate::document_twin::PageText {
+            page: (i + 1) as u32,
+            text: text.clone(),
+        })
+        .collect();
+    let Some(wanted) = requested_pages else {
+        return (all, Vec::new());
+    };
+    let total_pages = pages.len() as u32;
+    let invalid = wanted
+        .iter()
+        .copied()
+        .filter(|page| *page > total_pages)
+        .collect();
+    let selected = all
+        .into_iter()
+        .filter(|page| wanted.binary_search(&page.page).is_ok())
+        .collect();
+    (selected, invalid)
+}
+
+fn build_data(
+    pages: &[crate::document_twin::PageText],
+    total_pages: u32,
+    input: &ReadPdfInput,
+    source_label: &str,
+    explicit_page_selection: bool,
+) -> ReadPdfData {
     use crate::document_twin::{
         build_accessibility_report, build_document_ast, build_document_map, build_elements,
         build_layout_diagnostics, build_page_geometry, build_page_labels, build_safety_findings,
         build_tables, build_trust_report, empty_structure_arrays,
     };
 
-    let num_pages = pages.len().max(1) as u32;
     let full_text = join_page_text(pages);
     let text_chars = full_text.chars().count();
     let mut warnings = Vec::new();
@@ -299,36 +411,41 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
         || input.include_visual_enrichments
         || input.include_trust_report
         || input.include_accessibility_report;
-    let auto = match input.auto {
-        Some(v) => v,
-        // Presence of true include flags implies manual mode when auto omitted.
-        // (JSON path sets auto explicitly via read_pdf_from_value for key presence.)
-        None => !any_include,
+    let auto = if input.auto_policy_resolved {
+        false
+    } else {
+        match input.auto {
+            Some(v) => v,
+            // Presence of true include flags implies manual mode when auto omitted.
+            // (JSON path sets auto explicitly via read_pdf_from_value for key presence.)
+            None => !any_include,
+        }
     };
     let detail = input.auto_detail.as_deref().unwrap_or("balanced");
     let auto_full = auto && detail == "full";
-    let auto_balanced = auto && (detail == "balanced" || detail == "full");
+    let auto_balanced = auto && matches!(detail, "balanced" | "full");
     let auto_fast = auto;
 
-    let want_meta = input.include_metadata || input.include_page_count || auto_fast;
-    let want_text = input.include_full_text || auto_fast;
+    let want_meta = input.include_metadata || auto_fast;
+    let want_page_count = input.include_page_count || auto_fast;
+    let want_text = input.include_full_text || auto_full;
     let want_md = input.include_markdown || auto_fast;
     let want_chunks = input.include_chunks || auto_fast;
-    let want_elements = input.include_elements || auto_balanced || auto_full;
-    let want_semantic = input.include_semantic_hints || auto_balanced || auto_full;
+    let want_elements = input.include_elements || auto_full;
+    let want_semantic = input.include_semantic_hints || auto_fast;
     let want_text_layer = input.include_text_layer || auto_full;
     let want_map = input.include_document_map || auto_fast;
-    let want_tables = input.include_tables || auto_balanced || auto_full;
+    let want_tables = input.include_tables || auto_fast;
     let want_html = input.include_html || auto_full;
     let want_safety = input.include_safety_findings || auto_balanced || auto_full;
-    let want_layout = input.include_layout_diagnostics || auto_balanced || auto_full;
+    let want_layout = input.include_layout_diagnostics || auto_fast;
     let want_ast = input.include_document_ast || auto_full;
     let want_trust = input.include_trust_report || auto_balanced || auto_full;
     let want_a11y = input.include_accessibility_report || auto_balanced || auto_full;
     let want_outline = input.include_outline || auto_full;
     let want_annotations = input.include_annotations || auto_full;
     let want_labels = input.include_page_labels || auto_full;
-    let want_geometry = input.include_page_geometry || auto_full;
+    let want_geometry = input.include_page_geometry || auto_fast;
     let want_permissions = input.include_permissions || auto_full;
     let want_forms = input.include_form_fields || auto_full;
     let want_attachments = input.include_attachments || auto_full;
@@ -399,18 +516,17 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
     let chunks = if want_chunks || want_map {
         Some(json!(pages
             .iter()
-            .enumerate()
-            .filter(|(_, t)| !t.trim().is_empty())
-            .map(|(i, t)| json!({
-                "id": format!("chunk-p{}", i + 1),
-                "page": i + 1,
-                "text": t,
+            .filter(|page| !page.text.trim().is_empty())
+            .map(|page| json!({
+                "id": format!("chunk-p{}", page.page),
+                "page": page.page,
+                "text": page.text,
                 "element_ids": elements
                     .as_ref()
                     .and_then(|e| e.as_array())
                     .into_iter()
                     .flatten()
-                    .filter(|el| el.get("page").and_then(Value::as_u64) == Some((i + 1) as u64))
+                    .filter(|el| el.get("page").and_then(Value::as_u64) == Some(u64::from(page.page)))
                     .filter_map(|el| el.get("id").cloned())
                     .collect::<Vec<_>>(),
             }))
@@ -448,10 +564,11 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
         empty_structure_arrays();
 
     let mut data = ReadPdfData {
-        num_pages,
+        num_pages: want_page_count.then_some(total_pages),
         info: None,
         metadata: None,
         full_text: None,
+        page_texts: None,
         markdown: None,
         html: None,
         chunks: None,
@@ -485,30 +602,41 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
     };
 
     if want_meta {
-        let info = json!({
+        let mut info = json!({
             "Title": Path::new(source_label).file_name().and_then(|n| n.to_str()).unwrap_or("document"),
             "Producer": "pdf-reader-core",
             "PDFFormatVersion": "unknown",
-            "num_pages": num_pages,
             "text_chars": text_chars,
             "route": READ_PDF_ROUTE,
         });
+        if want_page_count {
+            info.as_object_mut()
+                .expect("info object")
+                .insert("num_pages".into(), json!(total_pages));
+        }
         data.info = Some(info.clone());
-        data.metadata = Some(json!({
+        let mut metadata = json!({
             "info": info,
-            "num_pages": num_pages,
             "text_chars": text_chars,
-        }));
+        });
+        if want_page_count {
+            metadata
+                .as_object_mut()
+                .expect("metadata object")
+                .insert("num_pages".into(), json!(total_pages));
+        }
+        data.metadata = Some(metadata);
     }
-    if want_text {
+    if explicit_page_selection {
+        data.page_texts = Some(pages.to_vec());
+    } else if want_text {
         data.full_text = Some(full_text.clone());
     }
     if want_md {
         let mut md_parts = pages
             .iter()
-            .enumerate()
-            .filter(|(_, t)| !t.trim().is_empty())
-            .map(|(i, t)| format!("## Page {}\n\n{}", i + 1, t.trim()))
+            .filter(|page| !page.text.trim().is_empty())
+            .map(|page| format!("## Page {}\n\n{}", page.page, page.text.trim()))
             .collect::<Vec<_>>();
         if let Some(tables_val) = tables.as_ref() {
             if let Some(arr) = tables_val.as_array() {
@@ -525,7 +653,11 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
                                 if ri == 0 {
                                     lines.push(format!(
                                         "| {} |",
-                                        cells_s.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")
+                                        cells_s
+                                            .iter()
+                                            .map(|_| "---")
+                                            .collect::<Vec<_>>()
+                                            .join(" | ")
                                     ));
                                 }
                             }
@@ -547,12 +679,11 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
         data.html = Some(
             pages
                 .iter()
-                .enumerate()
-                .map(|(i, t)| {
+                .map(|page| {
                     format!(
                         "<section data-page=\"{}\"><pre>{}</pre></section>",
-                        i + 1,
-                        html_escape(t)
+                        page.page,
+                        html_escape(&page.text)
                     )
                 })
                 .collect::<Vec<_>>()
@@ -568,12 +699,12 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
     if want_text_layer {
         data.text_layer = Some(json!({
             "profile": "pdf_text_layer",
-            "pages": pages.iter().enumerate().map(|(i, t)| json!({
-                "page": i + 1,
-                "text": t,
-                "char_count": t.chars().count(),
-                "runs": t.lines().filter(|l| !l.trim().is_empty()).enumerate().map(|(j, line)| json!({
-                    "id": format!("run-{}-{}", i + 1, j + 1),
+            "pages": pages.iter().map(|page| json!({
+                "page": page.page,
+                "text": page.text,
+                "char_count": page.text.chars().count(),
+                "runs": page.text.lines().filter(|l| !l.trim().is_empty()).enumerate().map(|(j, line)| json!({
+                    "id": format!("run-{}-{}", page.page, j + 1),
                     "text": line,
                 })).collect::<Vec<_>>(),
             })).collect::<Vec<_>>(),
@@ -630,10 +761,12 @@ fn build_data(pages: &[String], input: &ReadPdfInput, source_label: &str) -> Rea
         );
     }
     if want_labels {
-        data.page_labels = Some(build_page_labels(num_pages));
+        data.page_labels = Some(build_page_labels(total_pages));
     }
     if want_geometry {
-        data.page_geometry = Some(build_page_geometry(num_pages));
+        data.page_geometry = Some(build_page_geometry(
+            &pages.iter().map(|page| page.page).collect::<Vec<_>>(),
+        ));
     }
     if want_permissions {
         data.permissions = Some(json!([]));
@@ -734,11 +867,38 @@ fn read_local_pdf_filtered(
 ) -> Result<ReadPdfSourceResult, ReadPdfError> {
     let _hash: FileHash = hash_file(path, DEFAULT_MAX_FILE_BYTES)?;
     let pages = extract_page_texts(path, DEFAULT_MAX_FILE_BYTES)?;
-    let selected = select_pages(&pages, pages_spec);
-    let selected_texts: Vec<String> = selected.into_iter().map(|(_, t)| t).collect();
-    // Keep full page count from original document
-    let mut data = build_data(&selected_texts, input, source_label);
-    data.num_pages = pages.len().max(1) as u32;
+    let total_pages = pages.len().max(1) as u32;
+    let explicit_pages = parse_page_spec(pages_spec)?;
+    let auto_pages = if explicit_pages.is_none()
+        && input.auto.unwrap_or(false)
+        && input.auto_detail.as_deref().unwrap_or("balanced") != "full"
+    {
+        Some(evenly_sample_pages(
+            total_pages,
+            input.sample_pages.unwrap_or(5),
+        ))
+    } else {
+        None
+    };
+    let requested_pages = explicit_pages.as_deref().or(auto_pages.as_deref());
+    let (selected, invalid_pages) = select_pages(&pages, requested_pages);
+    let mut data = build_data(
+        &selected,
+        total_pages,
+        input,
+        source_label,
+        explicit_pages.is_some(),
+    );
+    if !invalid_pages.is_empty() {
+        data.warnings.get_or_insert_with(Vec::new).push(format!(
+            "Requested pages {} exceed document page count {total_pages} and were skipped.",
+            invalid_pages
+                .iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
     Ok(ReadPdfSourceResult {
         source: source_label.to_string(),
         success: true,
@@ -752,6 +912,31 @@ pub fn read_pdf(input: &ReadPdfInput) -> Result<ReadPdfResponse, ReadPdfError> {
         return Err(ReadPdfError::invalid_params(
             "sources must include at least one PDF source.",
         ));
+    }
+
+    if let Some(detail) = input.auto_detail.as_deref() {
+        if !matches!(detail, "fast" | "balanced" | "full") {
+            return Err(ReadPdfError::invalid_params(
+                "auto_detail must be one of: fast, balanced, full",
+            ));
+        }
+    }
+    if let Some(sample) = input.sample_pages {
+        if !(1..=20).contains(&sample) {
+            return Err(ReadPdfError::invalid_params(
+                "sample_pages must be an integer between 1 and 20",
+            ));
+        }
+    }
+    if let Some(max_vis) = input.max_visual_enrichments {
+        if max_vis < 1 {
+            return Err(ReadPdfError::invalid_params(
+                "max_visual_enrichments must be >= 1 when provided",
+            ));
+        }
+    }
+    for source in &input.sources {
+        parse_page_spec(&source.pages)?;
     }
 
     let mut results = Vec::new();
@@ -828,26 +1013,59 @@ pub fn read_pdf_from_value(input: &Value) -> Result<ReadPdfResponse, ReadPdfErro
         parsed.auto = Some(!json_has_explicit_read_options(input));
     }
 
-    if let Some(detail) = parsed.auto_detail.as_deref() {
-        if !matches!(detail, "fast" | "balanced" | "full") {
-            return Err(ReadPdfError::invalid_params(
-                "auto_detail must be one of: fast, balanced, full",
-            ));
-        }
+    // TS v3.0.14 defaults these two independent metadata surfaces to true.
+    if input.get("include_metadata").is_none() {
+        parsed.include_metadata = true;
     }
-    if let Some(sample) = parsed.sample_pages {
-        if sample < 1 || sample > 20 {
-            return Err(ReadPdfError::invalid_params(
-                "sample_pages must be an integer between 1 and 20",
-            ));
-        }
+    if input.get("include_page_count").is_none() {
+        parsed.include_page_count = true;
     }
-    if let Some(max_vis) = parsed.max_visual_enrichments {
-        if max_vis < 1 {
-            return Err(ReadPdfError::invalid_params(
-                "max_visual_enrichments must be >= 1 when provided",
-            ));
+
+    if parsed.auto.unwrap_or(false) {
+        let detail = parsed.auto_detail.as_deref().unwrap_or("balanced");
+        let enable = |key: &str, field: &mut bool| {
+            if input.get(key).is_none() {
+                *field = true;
+            }
+        };
+        enable("include_metadata", &mut parsed.include_metadata);
+        enable("include_page_count", &mut parsed.include_page_count);
+        enable("include_page_geometry", &mut parsed.include_page_geometry);
+        enable("include_document_map", &mut parsed.include_document_map);
+        enable("include_chunks", &mut parsed.include_chunks);
+        enable("include_markdown", &mut parsed.include_markdown);
+        enable("include_tables", &mut parsed.include_tables);
+        enable("include_semantic_hints", &mut parsed.include_semantic_hints);
+        enable(
+            "include_layout_diagnostics",
+            &mut parsed.include_layout_diagnostics,
+        );
+        if matches!(detail, "balanced" | "full") {
+            enable(
+                "include_safety_findings",
+                &mut parsed.include_safety_findings,
+            );
+            enable("include_trust_report", &mut parsed.include_trust_report);
+            enable(
+                "include_accessibility_report",
+                &mut parsed.include_accessibility_report,
+            );
         }
+        if detail == "full" {
+            enable("include_full_text", &mut parsed.include_full_text);
+            enable("include_html", &mut parsed.include_html);
+            enable("include_elements", &mut parsed.include_elements);
+            enable("include_text_layer", &mut parsed.include_text_layer);
+            enable("include_document_ast", &mut parsed.include_document_ast);
+            enable("include_outline", &mut parsed.include_outline);
+            enable("include_annotations", &mut parsed.include_annotations);
+            enable("include_page_labels", &mut parsed.include_page_labels);
+            enable("include_permissions", &mut parsed.include_permissions);
+            enable("include_form_fields", &mut parsed.include_form_fields);
+            enable("include_attachments", &mut parsed.include_attachments);
+            enable("include_structure_tree", &mut parsed.include_structure_tree);
+        }
+        parsed.auto_policy_resolved = true;
     }
 
     read_pdf(&parsed)
@@ -909,7 +1127,10 @@ mod tests {
         });
         // either all-fail error or per-source error
         match response {
-            Err(e) => assert!(e.message.to_lowercase().contains("non-public") || e.message.to_lowercase().contains("failed")),
+            Err(e) => assert!(
+                e.message.to_lowercase().contains("non-public")
+                    || e.message.to_lowercase().contains("failed")
+            ),
             Ok(ok) => assert!(!ok.results[0].success),
         }
     }
@@ -983,7 +1204,10 @@ mod tests {
         assert!(data.structure_trees.is_some());
         assert!(data.ocr_text_layer.is_some());
         assert!(data.visual_enrichments.is_some());
-        assert_eq!(data.trust_report.as_ref().unwrap()["profile"], "pdf_trust_report");
+        assert_eq!(
+            data.trust_report.as_ref().unwrap()["profile"],
+            "pdf_trust_report"
+        );
         assert_eq!(
             data.accessibility_report.as_ref().unwrap()["profile"],
             "pdf_accessibility_report"
@@ -1005,10 +1229,19 @@ mod tests {
         .expect("read");
         let data = response.results[0].data.as_ref().unwrap();
         assert!(data.info.is_some());
-        assert!(data.full_text.is_none(), "metadata-only must not force full_text");
-        assert!(data.markdown.is_none(), "metadata-only must not force markdown");
+        assert!(
+            data.full_text.is_none(),
+            "metadata-only must not force full_text"
+        );
+        assert!(
+            data.markdown.is_none(),
+            "metadata-only must not force markdown"
+        );
         assert!(data.tables.is_none(), "metadata-only must not force tables");
-        assert!(data.trust_report.is_none(), "metadata-only must not force trust_report");
+        assert!(
+            data.trust_report.is_none(),
+            "metadata-only must not force trust_report"
+        );
     }
 
     #[test]
@@ -1019,5 +1252,116 @@ mod tests {
         }))
         .expect_err("invalid auto_detail");
         assert_eq!(err.code, ReadPdfErrorCode::InvalidParams);
+    }
+
+    #[test]
+    fn rejects_invalid_page_specifications_instead_of_falling_back_to_all_pages() {
+        for pages in [
+            json!("5-3"),
+            json!("0"),
+            json!(""),
+            json!([]),
+            json!([1, 0]),
+        ] {
+            let error = parse_page_spec(&Some(pages)).expect_err("invalid page spec");
+            assert_eq!(error.code, ReadPdfErrorCode::InvalidParams);
+        }
+        assert_eq!(
+            parse_page_spec(&Some(json!("1x"))).expect("TS parseInt-compatible page"),
+            Some(vec![1])
+        );
+    }
+
+    #[test]
+    fn selected_pages_keep_original_page_numbers() {
+        let pages = vec!["one".into(), "two".into(), "three".into()];
+        let (selected, invalid) = select_pages(&pages, Some(&[2, 4]));
+        assert_eq!(
+            selected,
+            vec![crate::document_twin::PageText {
+                page: 2,
+                text: "two".into(),
+            }]
+        );
+        assert_eq!(invalid, vec![4]);
+    }
+
+    #[test]
+    fn explicit_page_selection_returns_page_texts_instead_of_full_text() {
+        let pages = vec![crate::document_twin::PageText {
+            page: 2,
+            text: "selected".into(),
+        }];
+        let data = build_data(
+            &pages,
+            3,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_full_text: true,
+                ..Default::default()
+            },
+            "fixture.pdf",
+            true,
+        );
+        assert!(data.full_text.is_none());
+        assert_eq!(data.page_texts, Some(pages));
+    }
+
+    #[test]
+    fn auto_sampling_matches_ts_evenly_spaced_policy() {
+        assert_eq!(evenly_sample_pages(10, 5), vec![1, 3, 6, 8, 10]);
+        assert_eq!(evenly_sample_pages(3, 5), vec![1, 2, 3]);
+        assert_eq!(evenly_sample_pages(10, 1), vec![1]);
+    }
+
+    #[test]
+    fn include_page_count_false_omits_num_pages() {
+        let pages = vec![crate::document_twin::PageText {
+            page: 1,
+            text: "text".into(),
+        }];
+        let data = build_data(
+            &pages,
+            4,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_metadata: true,
+                include_page_count: false,
+                ..Default::default()
+            },
+            "fixture.pdf",
+            false,
+        );
+        let serialized = serde_json::to_value(data).expect("serialize data");
+        assert!(serialized.get("num_pages").is_none());
+        assert!(serialized["metadata"].get("num_pages").is_none());
+    }
+
+    #[test]
+    fn fast_auto_policy_does_not_enable_full_only_layers() {
+        let pages = vec![crate::document_twin::PageText {
+            page: 1,
+            text: "Heading\nBody".into(),
+        }];
+        let data = build_data(
+            &pages,
+            1,
+            &ReadPdfInput {
+                auto: Some(true),
+                auto_detail: Some("fast".into()),
+                ..Default::default()
+            },
+            "fixture.pdf",
+            false,
+        );
+        assert!(data.markdown.is_some());
+        assert!(data.tables.is_some());
+        assert!(data.document_map.is_some());
+        assert!(data.layout_diagnostics.is_some());
+        assert!(data.page_geometry.is_some());
+        assert!(data.full_text.is_none());
+        assert!(data.html.is_none());
+        assert!(data.text_layer.is_none());
+        assert!(data.trust_report.is_none());
     }
 }

@@ -4,6 +4,7 @@ pub mod document_twin;
 pub mod legacy;
 pub mod page_cache;
 pub mod read_pdf;
+pub mod render;
 pub mod search_pdf;
 pub mod ssrf;
 pub mod text_index;
@@ -15,6 +16,11 @@ pub use legacy::legacy_engine_allowed;
 pub use read_pdf::{
     read_pdf, read_pdf_from_value, ReadPdfError, ReadPdfErrorCode, ReadPdfInput, ReadPdfResponse,
     ReadPdfSource, ReadPdfSourceResult, READ_PDF_ROUTE,
+};
+pub use render::{
+    crop_pixels_for_bounding_box, crop_rendered_page_png, render_pdf_page, BoundingBox, CropPixels,
+    RenderError, RenderErrorCode, RenderProvenance, RenderedPage, DEFAULT_MAX_RENDER_PIXELS,
+    DEFAULT_RENDER_SCALE, RENDERER_NAME, RENDER_ENGINE,
 };
 pub use search_pdf::{
     search_pdf, search_pdf_from_value, SearchPdfError, SearchPdfErrorCode, SearchPdfInput,
@@ -58,13 +64,6 @@ pub struct HashError {
 }
 
 impl HashError {
-    fn invalid_params(message: impl Into<String>) -> Self {
-        Self {
-            code: HashErrorCode::InvalidParams,
-            message: message.into(),
-        }
-    }
-
     fn invalid_request(message: impl Into<String>) -> Self {
         Self {
             code: HashErrorCode::InvalidRequest,
@@ -75,7 +74,10 @@ impl HashError {
 
 pub fn hash_file(path: &Path, max_file_bytes: u64) -> Result<FileHash, HashError> {
     let meta = fs::metadata(path).map_err(|err| {
-        HashError::invalid_request(format!("Unable to access file at '{}': {err}", path.display()))
+        HashError::invalid_request(format!(
+            "Unable to access file at '{}': {err}",
+            path.display()
+        ))
     })?;
 
     if !meta.is_file() {
@@ -93,9 +95,8 @@ pub fn hash_file(path: &Path, max_file_bytes: u64) -> Result<FileHash, HashError
         )));
     }
 
-    let bytes = fs::read(path).map_err(|err| {
-        HashError::invalid_request(format!("Failed to read file bytes: {err}"))
-    })?;
+    let bytes = fs::read(path)
+        .map_err(|err| HashError::invalid_request(format!("Failed to read file bytes: {err}")))?;
 
     Ok(FileHash {
         path: path.to_string_lossy().to_string(),
@@ -133,7 +134,6 @@ mod tests {
         let err = hash_file(&path, 32).expect_err("oversized");
         assert_eq!(err.code, HashErrorCode::InvalidRequest);
     }
-
 
     #[test]
     fn bulk_hash_rejects_oversize_and_missing() {

@@ -2,9 +2,7 @@ mod legacy_runtime;
 
 use legacy_runtime::{handle_legacy_v3_tool, LegacyToolSuccessEnvelope};
 use pdf_reader_core::read_pdf_from_value;
-use pdf_reader_core::text_index::{
-    extract_page_texts, search_pdf_text, TextIndexErrorCode,
-};
+use pdf_reader_core::text_index::{extract_page_texts, search_pdf_text, TextIndexErrorCode};
 use pdf_reader_core::{
     hash_file, search_pdf_from_value, ReadPdfErrorCode, SearchPdfErrorCode, ENGINE_NAME,
     ENGINE_VERSION, READ_PDF_ROUTE,
@@ -246,7 +244,9 @@ fn handle_read_pdf(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelop
     })
 }
 
-fn handle_pdf_evidence(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
+fn handle_pdf_evidence(
+    input: &serde_json::Value,
+) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
     let operation = input
         .get("operation")
         .and_then(|value| value.as_str())
@@ -291,13 +291,14 @@ fn handle_pdf_evidence(input: &serde_json::Value) -> Result<LegacyToolSuccessEnv
                 next_action: "Pass sources[].path.".into(),
             })?;
 
-        let pages = extract_page_texts(PathBuf::from(path).as_path(), 256 * 1024 * 1024)
-            .map_err(|error| ErrorEnvelope {
+        let pages = extract_page_texts(PathBuf::from(path).as_path(), 256 * 1024 * 1024).map_err(
+            |error| ErrorEnvelope {
                 status: "error",
                 code: text_index_error_code(error.code).into(),
                 message: error.message,
                 next_action: "Provide a readable PDF.".into(),
-            })?;
+            },
+        )?;
 
         let num_pages = pages.len().max(1) as u32;
         let text_chars: u32 = pages.iter().map(|page| page.chars().count() as u32).sum();

@@ -44,17 +44,13 @@ pub fn resolve_cli_binary() -> Option<PathBuf> {
         }
     }
 
-    for candidate in [
+    [
         PathBuf::from("target/release/pdf-reader-cli"),
         PathBuf::from("target/debug/pdf-reader-cli"),
         PathBuf::from(CLI_RELATIVE),
-    ] {
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-
-    None
+    ]
+    .into_iter()
+    .find(|candidate| candidate.is_file())
 }
 
 pub fn invoke_cli_tool(tool: &str, arguments: Value) -> Result<CallToolResult, rmcp::ErrorData> {
@@ -76,7 +72,10 @@ pub fn invoke_cli_tool(tool: &str, arguments: Value) -> Result<CallToolResult, r
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| {
-            rmcp::ErrorData::internal_error(format!("Failed to spawn pdf-reader-cli: {error}"), None)
+            rmcp::ErrorData::internal_error(
+                format!("Failed to spawn pdf-reader-cli: {error}"),
+                None,
+            )
         })?;
 
     if let Some(mut stdin) = child.stdin.take() {

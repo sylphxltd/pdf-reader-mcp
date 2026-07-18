@@ -15,6 +15,7 @@ use rmcp::{
 };
 
 use crate::schema::{PdfEvidenceArgs, ReadPdfArgs, SearchPdfArgs};
+use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
 /// Experimental pure-Rust engine version — not the published npm product line.
@@ -22,6 +23,26 @@ pub const SERVER_VERSION: &str = "0.0.0-pure-rust-experimental";
 pub const SERVER_INSTRUCTIONS: &str = "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
 Supported depth: selectable-text read_pdf, search_pdf, pdf_evidence inspect. \
 render/crop/OCR/analyze fail closed. For production drop-in use @sylphx/pdf-reader-mcp@3.0.14 (TypeScript).";
+
+fn omit_absent_optional_fields(value: Value) -> Value {
+    match value {
+        Value::Object(object) => Value::Object(
+            object
+                .into_iter()
+                .filter_map(|(key, value)| {
+                    (!value.is_null()).then(|| (key, omit_absent_optional_fields(value)))
+                })
+                .collect(),
+        ),
+        Value::Array(values) => Value::Array(
+            values
+                .into_iter()
+                .map(omit_absent_optional_fields)
+                .collect(),
+        ),
+        other => other,
+    }
+}
 
 #[derive(Clone)]
 pub struct PdfReaderMcp {
@@ -36,6 +57,12 @@ impl PdfReaderMcp {
     }
 }
 
+impl Default for PdfReaderMcp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[tool_router]
 impl PdfReaderMcp {
     #[tool(
@@ -45,9 +72,13 @@ impl PdfReaderMcp {
         &self,
         Parameters(args): Parameters<ReadPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        let value = serde_json::to_value(args).map_err(|error| {
-            ErrorData::invalid_params(format!("Failed to encode read_pdf args: {error}"), None)
-        })?;
+        args.validate()
+            .map_err(|message| ErrorData::invalid_params(message, None))?;
+        let value = serde_json::to_value(args)
+            .map(omit_absent_optional_fields)
+            .map_err(|error| {
+                ErrorData::invalid_params(format!("Failed to encode read_pdf args: {error}"), None)
+            })?;
         read_pdf::read_pdf(value)
     }
 
@@ -58,9 +89,16 @@ impl PdfReaderMcp {
         &self,
         Parameters(args): Parameters<SearchPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        let value = serde_json::to_value(args).map_err(|error| {
-            ErrorData::invalid_params(format!("Failed to encode search_pdf args: {error}"), None)
-        })?;
+        args.validate()
+            .map_err(|message| ErrorData::invalid_params(message, None))?;
+        let value = serde_json::to_value(args)
+            .map(omit_absent_optional_fields)
+            .map_err(|error| {
+                ErrorData::invalid_params(
+                    format!("Failed to encode search_pdf args: {error}"),
+                    None,
+                )
+            })?;
         search::search_pdf(value)
     }
 
@@ -71,9 +109,16 @@ impl PdfReaderMcp {
         &self,
         Parameters(args): Parameters<PdfEvidenceArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        let value = serde_json::to_value(args).map_err(|error| {
-            ErrorData::invalid_params(format!("Failed to encode pdf_evidence args: {error}"), None)
-        })?;
+        args.validate()
+            .map_err(|message| ErrorData::invalid_params(message, None))?;
+        let value = serde_json::to_value(args)
+            .map(omit_absent_optional_fields)
+            .map_err(|error| {
+                ErrorData::invalid_params(
+                    format!("Failed to encode pdf_evidence args: {error}"),
+                    None,
+                )
+            })?;
         pdf_evidence::pdf_evidence(value)
     }
 }
@@ -102,6 +147,8 @@ impl ServerHandler for PdfReaderMcp {
 #[cfg(test)]
 mod tests {
     use super::PdfReaderMcp;
+    use rmcp::handler::server::wrapper::Parameters;
+    use serde_json::Value;
     use std::fs;
     use std::path::PathBuf;
 
@@ -160,6 +207,103 @@ mod tests {
         }
     }
 
+    fn tool_schema(name: &str) -> Value {
+        let tool = PdfReaderMcp::new()
+            .tool_router
+            .list_all()
+            .into_iter()
+            .find(|tool| tool.name == name)
+            .unwrap_or_else(|| panic!("missing tool {name}"));
+        serde_json::to_value(tool.input_schema).expect("schema json")
+    }
+
+    fn v3_0_14_schema_oracle() -> Value {
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test/fixtures/v3.0.14-input-schema-oracle.json"
+        )))
+        .expect("parse v3.0.14 schema oracle")
+    }
+
+    #[test]
+    fn tools_list_schema_encodes_immutable_v3_0_14_enums_and_ranges() {
+        let oracle = v3_0_14_schema_oracle();
+        for fact in oracle["schemaFacts"].as_array().expect("schema facts") {
+            let tool = fact["tool"].as_str().expect("fact tool");
+            let pointer = fact["pointer"].as_str().expect("fact pointer");
+            let schema = tool_schema(tool);
+            let actual = schema.pointer(pointer).expect("schema fact pointer");
+            let expected = &fact["expected"];
+            let matches = match (actual.as_f64(), expected.as_f64()) {
+                (Some(actual), Some(expected)) => actual == expected,
+                _ => actual == expected,
+            };
+            assert!(
+                matches,
+                "v3.0.14 schema fact {tool}{pointer}: expected {expected}, got {actual}"
+            );
+        }
+
+        for fact in oracle["enumFacts"].as_array().expect("enum facts") {
+            let tool = fact["tool"].as_str().expect("enum tool");
+            let schema_json = tool_schema(tool).to_string();
+            for value in fact["values"].as_array().expect("enum values") {
+                let value = value.as_str().expect("enum string");
+                assert!(
+                    schema_json.contains(&format!("\"{value}\"")),
+                    "v3.0.14 {tool} missing enum {value}"
+                );
+            }
+        }
+
+        for fact in oracle["absentProperties"]
+            .as_array()
+            .expect("absent properties")
+        {
+            let tool = fact["tool"].as_str().expect("absent tool");
+            let property = fact["property"].as_str().expect("absent property");
+            let schema = tool_schema(tool);
+            let properties = schema["properties"].as_object().expect("tool properties");
+            assert!(
+                !properties.contains_key(property),
+                "v3.0.14 {tool} must not expose {property}"
+            );
+        }
+
+        let read_json = tool_schema("read_pdf").to_string();
+        assert!(
+            read_json.contains("\"oneOf\""),
+            "source locator XOR must be machine-readable"
+        );
+    }
+
+    #[test]
+    fn tool_entrypoints_reject_values_outside_v3_0_14_runtime_bounds() {
+        let server = PdfReaderMcp::new();
+        let read = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": "sample.pdf"}],
+            "sample_pages": 21
+        }))
+        .expect("structurally valid read args");
+        assert!(server.read_pdf(Parameters(read)).is_err());
+
+        let search = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": "sample.pdf"}],
+            "query": "needle",
+            "context_chars": 1001
+        }))
+        .expect("structurally valid search args");
+        assert!(server.search_pdf(Parameters(search)).is_err());
+
+        let evidence = serde_json::from_value(serde_json::json!({
+            "operation": "inspect",
+            "sources": [{"path": "sample.pdf"}],
+            "scale": 4.01
+        }))
+        .expect("structurally valid evidence args");
+        assert!(server.pdf_evidence(Parameters(evidence)).is_err());
+    }
+
     #[test]
     fn rust_http_transport_module_is_wired_for_web_mcp() {
         let src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
@@ -173,7 +317,10 @@ mod tests {
 
     #[test]
     fn server_version_is_marked_experimental_not_published_line() {
-        assert!(super::SERVER_VERSION.contains("experimental") || super::SERVER_VERSION.starts_with("0."));
+        assert!(
+            super::SERVER_VERSION.contains("experimental")
+                || super::SERVER_VERSION.starts_with("0.")
+        );
         assert_ne!(super::SERVER_VERSION, "3.1.1");
         assert_ne!(super::SERVER_VERSION, "3.0.14");
     }
