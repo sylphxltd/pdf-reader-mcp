@@ -13,6 +13,7 @@ ARTIFACT="$SCRATCH/verification.json"
 ORACLE_JSON="$SCRATCH/oracle.json"
 TEXT_DIFFERENTIAL_JSON="$SCRATCH/ts-vs-rust-text.json"
 V3014_BEHAVIOR_JSON="$SCRATCH/v3014-behavior-result.json"
+V3014_TEXT_LAYER_JSON="$SCRATCH/v3014-text-layer-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -73,6 +74,11 @@ echo "--- immutable v3.0.14 behavior differential (14 exact cases) ---" | tee -a
 bun "$REPO_ROOT/scripts/differential/check-v3014-behavior-differential.ts" \
   --output "$V3014_BEHAVIOR_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 selectable-text layer/element/chunk geometry differential (1 exact case) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-text-layer-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-text-layer-differential.ts" \
+  --output "$V3014_TEXT_LAYER_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -103,6 +109,8 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-behavior-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-behavior-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-behavior-fixtures.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-text-layer-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-text-layer-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-fixtures.json" \
@@ -118,6 +126,11 @@ V3014_BEHAVIOR_PASSED="$(jq '.passed' "$V3014_BEHAVIOR_JSON")"
 V3014_BEHAVIOR_SKIPPED="$(jq '.skipped' "$V3014_BEHAVIOR_JSON")"
 V3014_BEHAVIOR_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_BEHAVIOR_JSON")"
 V3014_BEHAVIOR_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_BEHAVIOR_JSON")"
+V3014_TEXT_LAYER_CASE_COUNT="$(jq '.caseCount' "$V3014_TEXT_LAYER_JSON")"
+V3014_TEXT_LAYER_PASSED="$(jq '.passed' "$V3014_TEXT_LAYER_JSON")"
+V3014_TEXT_LAYER_SKIPPED="$(jq '.skipped' "$V3014_TEXT_LAYER_JSON")"
+V3014_TEXT_LAYER_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_TEXT_LAYER_JSON")"
+V3014_TEXT_LAYER_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_TEXT_LAYER_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -141,6 +154,8 @@ jq -n \
   --arg goldenFixtureHash "$GOLDEN_FIXTURE_HASH" \
   --arg v3014BehaviorCorpusHash "$V3014_BEHAVIOR_CORPUS_HASH" \
   --arg v3014BehaviorOracleHash "$V3014_BEHAVIOR_ORACLE_HASH" \
+  --arg v3014TextLayerCorpusHash "$V3014_TEXT_LAYER_CORPUS_HASH" \
+  --arg v3014TextLayerOracleHash "$V3014_TEXT_LAYER_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -152,6 +167,9 @@ jq -n \
   --argjson v3014BehaviorCaseCount "$V3014_BEHAVIOR_CASE_COUNT" \
   --argjson v3014BehaviorPassed "$V3014_BEHAVIOR_PASSED" \
   --argjson v3014BehaviorSkipped "$V3014_BEHAVIOR_SKIPPED" \
+  --argjson v3014TextLayerCaseCount "$V3014_TEXT_LAYER_CASE_COUNT" \
+  --argjson v3014TextLayerPassed "$V3014_TEXT_LAYER_PASSED" \
+  --argjson v3014TextLayerSkipped "$V3014_TEXT_LAYER_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -177,6 +195,11 @@ jq -n \
     v3014BehaviorCaseCount: $v3014BehaviorCaseCount,
     v3014BehaviorPassed: $v3014BehaviorPassed,
     v3014BehaviorSkipped: $v3014BehaviorSkipped,
+    v3014TextLayerCorpusHash: $v3014TextLayerCorpusHash,
+    v3014TextLayerOracleHash: $v3014TextLayerOracleHash,
+    v3014TextLayerCaseCount: $v3014TextLayerCaseCount,
+    v3014TextLayerPassed: $v3014TextLayerPassed,
+    v3014TextLayerSkipped: $v3014TextLayerSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -187,11 +210,13 @@ jq -n \
     immutableInputOracle: "scripts/check-v3014-input-schema-oracle.ts",
     immutableBehaviorOracle: "scripts/differential/fixtures/v3014-behavior-oracle.json",
     immutableBehaviorDifferential: "scripts/differential/check-v3014-behavior-differential.ts",
+    immutableTextLayerOracle: "scripts/differential/fixtures/v3014-text-layer-oracle.json",
+    immutableTextLayerDifferential: "scripts/differential/check-v3014-text-layer-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
     structuralConsistencyOracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
-    nonClaims: ["full TS 3.0.14 behavioral parity", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "mixed selectable/OCR table continuation and full AST hierarchy parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
+    nonClaims: ["full TS 3.0.14 behavioral parity", "text-layer/element/chunk geometry outside the immutable 1-case selectable-text corpus", "complete citation-chunk schema parity", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "mixed selectable/OCR table continuation and full AST hierarchy parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
     retirementGate: "scripts/check-no-ts-stdio-backend.sh (runs only when dropInFor3014=true)"
   }' >"$ARTIFACT"
 

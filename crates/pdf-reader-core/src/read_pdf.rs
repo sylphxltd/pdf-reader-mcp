@@ -367,15 +367,16 @@ fn evenly_sample_pages(total_pages: u32, max_samples: u32) -> Vec<u32> {
 }
 
 fn select_pages(
-    pages: &[String],
+    pages: &[crate::text_index::ExtractedPageText],
     requested_pages: Option<&[u32]>,
 ) -> (Vec<crate::document_twin::PageText>, Vec<u32>) {
     let all: Vec<crate::document_twin::PageText> = pages
         .iter()
         .enumerate()
-        .map(|(i, text)| crate::document_twin::PageText {
+        .map(|(i, extracted)| crate::document_twin::PageText {
             page: (i + 1) as u32,
-            text: text.clone(),
+            text: extracted.text.clone(),
+            positioned_items: extracted.positioned_items.clone(),
         })
         .collect();
     let Some(wanted) = requested_pages else {
@@ -399,7 +400,12 @@ fn build_structured_chunks(pages: &[crate::document_twin::PageText], elements: &
         .iter()
         .filter(|page| !page.text.trim().is_empty())
         .map(|page| {
-            json!({
+            let bounding_boxes = elements.as_array().into_iter().flatten()
+                .filter(|element| element.get("page").and_then(Value::as_u64) == Some(u64::from(page.page)))
+                .filter(|element| element.get("type").and_then(Value::as_str) != Some("table"))
+                .filter_map(|element| element.get("bounding_box").cloned())
+                .collect::<Vec<_>>();
+            let mut chunk = json!({
                 "id": format!("chunk-p{}", page.page),
                 "page": page.page,
                 "text": page.text,
@@ -408,7 +414,11 @@ fn build_structured_chunks(pages: &[crate::document_twin::PageText], elements: &
                     .filter(|element| element.get("type").and_then(Value::as_str) != Some("table"))
                     .filter_map(|element| element.get("id").cloned())
                     .collect::<Vec<_>>(),
-            })
+            });
+            if !bounding_boxes.is_empty() {
+                chunk["bounding_boxes"] = json!(bounding_boxes);
+            }
+            chunk
         })
         .collect::<Vec<_>>();
     for element in elements
@@ -651,7 +661,7 @@ fn build_data(
 ) -> ReadPdfData {
     use crate::document_twin::{
         build_document_ast, build_document_map, build_elements, build_layout_diagnostics,
-        build_safety_findings, build_tables, build_trust_report,
+        build_safety_findings, build_tables, build_text_layer, build_trust_report,
     };
 
     let BuildSignals {
@@ -780,23 +790,10 @@ fn build_data(
     };
 
     let chunks = if want_chunks || want_map {
-        Some(json!(pages
-            .iter()
-            .filter(|page| !page.text.trim().is_empty())
-            .map(|page| json!({
-                "id": format!("chunk-p{}", page.page),
-                "page": page.page,
-                "text": page.text,
-                "element_ids": elements
-                    .as_ref()
-                    .and_then(|e| e.as_array())
-                    .into_iter()
-                    .flatten()
-                    .filter(|el| el.get("page").and_then(Value::as_u64) == Some(u64::from(page.page)))
-                    .filter_map(|el| el.get("id").cloned())
-                    .collect::<Vec<_>>(),
-            }))
-            .collect::<Vec<_>>()))
+        Some(build_structured_chunks(
+            pages,
+            elements.as_ref().unwrap_or(&json!([])),
+        ))
     } else {
         None
     };
@@ -1002,18 +999,7 @@ fn build_data(
         data.elements = elements.clone();
     }
     if want_text_layer {
-        data.text_layer = Some(json!({
-            "profile": "pdf_text_layer",
-            "pages": pages.iter().map(|page| json!({
-                "page": page.page,
-                "text": page.text,
-                "char_count": page.text.chars().count(),
-                "runs": page.text.lines().filter(|l| !l.trim().is_empty()).enumerate().map(|(j, line)| json!({
-                    "id": format!("run-{}-{}", page.page, j + 1),
-                    "text": line,
-                })).collect::<Vec<_>>(),
-            })).collect::<Vec<_>>(),
-        }));
+        data.text_layer = Some(build_text_layer(pages));
     }
     if want_tables {
         data.tables = tables.clone();
@@ -1158,17 +1144,16 @@ fn read_local_pdf_filtered(
     let requires_text = requires_text_extraction(input);
     let (pages, pdf_info) = if requires_text {
         let extracted = extract_pdf_text_from_document(&parsed.document)?;
-        (
-            extracted
-                .pages
-                .into_iter()
-                .map(|page| page.text)
-                .collect::<Vec<_>>(),
-            extracted.info,
-        )
+        (extracted.pages, extracted.info)
     } else {
         (
-            vec![String::new(); parsed.pages.len().max(1)],
+            (0..parsed.pages.len().max(1))
+                .map(|_| crate::text_index::ExtractedPageText {
+                    text: String::new(),
+                    items: Vec::new(),
+                    positioned_items: Vec::new(),
+                })
+                .collect(),
             crate::text_index::read_pdf_info(&parsed.document),
         )
     };
@@ -1677,14 +1662,17 @@ mod tests {
                 crate::document_twin::PageText {
                     page: 2,
                     text: "selectable".into(),
+                    positioned_items: Vec::new(),
                 },
                 crate::document_twin::PageText {
                     page: 4,
                     text: String::new(),
+                    positioned_items: Vec::new(),
                 },
                 crate::document_twin::PageText {
                     page: 7,
                     text: "  \n".into(),
+                    positioned_items: Vec::new(),
                 },
             ],
             7,
@@ -1700,10 +1688,12 @@ mod tests {
                 crate::document_twin::PageText {
                     page: 2,
                     text: "first".into(),
+                    positioned_items: Vec::new(),
                 },
                 crate::document_twin::PageText {
                     page: 5,
                     text: "second".into(),
+                    positioned_items: Vec::new(),
                 },
             ],
             5,
@@ -1779,13 +1769,21 @@ mod tests {
 
     #[test]
     fn selected_pages_keep_original_page_numbers() {
-        let pages = vec!["one".into(), "two".into(), "three".into()];
+        let pages = ["one", "two", "three"]
+            .into_iter()
+            .map(|text| crate::text_index::ExtractedPageText {
+                text: text.into(),
+                items: vec![text.into()],
+                positioned_items: Vec::new(),
+            })
+            .collect::<Vec<_>>();
         let (selected, invalid) = select_pages(&pages, Some(&[2, 4]));
         assert_eq!(
             selected,
             vec![crate::document_twin::PageText {
                 page: 2,
                 text: "two".into(),
+                positioned_items: Vec::new(),
             }]
         );
         assert_eq!(invalid, vec![4]);
@@ -1796,6 +1794,7 @@ mod tests {
         let pages = vec![crate::document_twin::PageText {
             page: 2,
             text: "selected".into(),
+            positioned_items: Vec::new(),
         }];
         let data = build_data(
             &pages,
@@ -1837,6 +1836,7 @@ mod tests {
         let pages = vec![crate::document_twin::PageText {
             page: 1,
             text: "text".into(),
+            positioned_items: Vec::new(),
         }];
         let data = build_data(
             &pages,
@@ -1861,6 +1861,7 @@ mod tests {
         let pages = vec![crate::document_twin::PageText {
             page: 1,
             text: "Heading\nBody".into(),
+            positioned_items: Vec::new(),
         }];
         let data = build_data(
             &pages,

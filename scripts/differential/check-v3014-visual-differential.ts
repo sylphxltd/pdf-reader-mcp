@@ -499,11 +499,16 @@ async function main() {
         failures.push({ id: entry.id, expected, actual });
       }
     }
+    const candidateSha = git('rev-parse', 'HEAD').toString().trim();
+    if (process.env.CANDIDATE_SHA && process.env.CANDIDATE_SHA !== candidateSha) {
+      throw new Error(
+        `candidate SHA assertion mismatch: expected ${process.env.CANDIDATE_SHA}, executed ${candidateSha}`
+      );
+    }
     const report = {
       schemaVersion: 1,
       profile: 'pdf_reader_v3014_visual_result',
-      candidateSha:
-        process.env.CANDIDATE_SHA ?? git('rev-parse', 'HEAD').toString().trim(),
+      candidateSha,
       ...authority,
       caseCount: corpus.cases.length,
       passed: corpus.cases.length - failures.length,
