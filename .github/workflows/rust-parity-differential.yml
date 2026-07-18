@@ -10,7 +10,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: rust-parity-differential-${{ github.workflow }}-${{ github.ref }}
+  # Bind cancellation to one immutable candidate. A wedged runner proving an
+  # older candidate must not block admission proof for a newer exact head.
+  group: rust-parity-differential-${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 permissions:
