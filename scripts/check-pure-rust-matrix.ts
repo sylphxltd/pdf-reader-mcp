@@ -31,6 +31,12 @@ const citationChunkCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }> };
+const semanticHintCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-semantic-hint-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -71,6 +77,15 @@ if (matrix.productTruth.dropInFor3014) {
 if (!matrix.productTruth.dropInFor3014 && matrix.productTruth.publishFreeze !== true) {
   failures.push('publishFreeze must remain true while dropInFor3014 is false');
 }
+if (matrix.productTruth.dropInFor3014 !== false) {
+  failures.push('semantic-hint bounded slice must keep dropInFor3014=false');
+}
+if (matrix.productTruth.publishFreeze !== true) {
+  failures.push('semantic-hint bounded slice must keep publishFreeze=true');
+}
+if (matrix.tools.read_pdf.include_semantic_hints !== 'PARTIAL') {
+  failures.push('bounded semantic-hint claim must remain PARTIAL');
+}
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
   !differentialWorkflow.includes(`.caseCount == ${behaviorCaseCount}`) ||
@@ -104,6 +119,23 @@ if (
 if (citationChunkCaseCount !== 6) {
   failures.push(
     `frozen citation-chunk differential must contain exactly 6 cases (got ${citationChunkCaseCount})`
+  );
+}
+const semanticHintCaseCount = semanticHintCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-semantic-hint-differential')) {
+  failures.push('rust parity workflow must execute the frozen semantic-hint differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${semanticHintCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${semanticHintCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${semanticHintCaseCount}/${semanticHintCaseCount} semantic-hint corpus`
+  );
+}
+if (semanticHintCaseCount !== 3) {
+  failures.push(
+    `frozen semantic-hint differential must contain exactly 3 cases (got ${semanticHintCaseCount})`
   );
 }
 if (failures.length) {

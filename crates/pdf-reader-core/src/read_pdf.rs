@@ -72,6 +72,7 @@ pub struct EngineInfo {
 #[derive(Debug, Clone)]
 pub struct StructuredFusionContext {
     pub pages: Vec<crate::document_twin::PageText>,
+    pub page_geometry: Option<Value>,
     pub selectable_tables: Value,
     pub semantic_hints: bool,
     pub emit_markdown: bool,
@@ -476,15 +477,25 @@ pub(crate) fn rebuild_structured_outputs(
     tables: &Value,
 ) {
     use crate::document_twin::{
-        build_citation_chunks, build_document_ast, build_document_map, build_elements_with_tables,
+        build_citation_chunks, build_document_ast, build_document_map,
+        build_elements_with_tables_and_geometry,
     };
 
-    let output_elements =
-        build_elements_with_tables(&context.pages, tables, context.semantic_hints);
+    let output_elements = build_elements_with_tables_and_geometry(
+        &context.pages,
+        tables,
+        context.semantic_hints,
+        context.page_geometry.as_ref(),
+    );
     let semantic_elements = if context.semantic_hints {
         output_elements.clone()
     } else {
-        build_elements_with_tables(&context.pages, tables, true)
+        build_elements_with_tables_and_geometry(
+            &context.pages,
+            tables,
+            true,
+            context.page_geometry.as_ref(),
+        )
     };
     let output_chunks = build_citation_chunks(&output_elements, context.semantic_hints);
     let internal_chunks = if context.emit_chunks {
@@ -612,9 +623,9 @@ fn build_data(
     signals: BuildSignals,
 ) -> ReadPdfData {
     use crate::document_twin::{
-        build_citation_chunks, build_document_ast, build_document_map, build_elements_with_tables,
-        build_layout_diagnostics, build_safety_findings, build_tables, build_text_layer,
-        build_trust_report,
+        build_citation_chunks, build_document_ast, build_document_map,
+        build_elements_with_tables_and_geometry, build_layout_diagnostics, build_safety_findings,
+        build_tables, build_text_layer, build_trust_report,
     };
 
     let BuildSignals {
@@ -696,10 +707,12 @@ fn build_data(
     };
     let empty_array = json!([]);
     let table_values = tables.as_ref().unwrap_or(&empty_array);
-    let plain_elements = ((want_elements || want_chunks) && !want_semantic)
-        .then(|| build_elements_with_tables(pages, table_values, false));
-    let semantic_elements = (want_semantic || want_ast || want_map || want_a11y)
-        .then(|| build_elements_with_tables(pages, table_values, true));
+    let plain_elements = ((want_elements || want_chunks) && !want_semantic).then(|| {
+        build_elements_with_tables_and_geometry(pages, table_values, false, page_geometry.as_ref())
+    });
+    let semantic_elements = (want_semantic || want_ast || want_map || want_a11y).then(|| {
+        build_elements_with_tables_and_geometry(pages, table_values, true, page_geometry.as_ref())
+    });
     let elements = if want_elements || want_semantic {
         if want_semantic {
             semantic_elements.clone()
@@ -854,6 +867,7 @@ fn build_data(
             && (want_tables || want_ast || want_map || want_visual || want_trust))
             .then(|| StructuredFusionContext {
                 pages: pages.to_vec(),
+                page_geometry: page_geometry.clone(),
                 selectable_tables: tables.clone().unwrap_or_else(|| json!([])),
                 semantic_hints: want_semantic,
                 emit_markdown: want_md,
@@ -1150,7 +1164,13 @@ fn read_local_pdf_filtered(
     let (selected, invalid_pages) = select_pages(&pages, requested_pages);
     let selected_page_numbers = selected.iter().map(|page| page.page).collect::<Vec<_>>();
     let auto = auto_enabled(input);
-    let want_geometry = input.include_page_geometry || auto;
+    let want_geometry = input.include_page_geometry
+        || auto
+        || input.include_semantic_hints
+        || input.include_document_map
+        || input.include_document_ast
+        || input.include_visual_enrichments
+        || input.include_trust_report;
     let want_private_a11y = input.include_accessibility_report
         || (auto
             && matches!(
@@ -1837,6 +1857,70 @@ mod tests {
                 "bounding_boxes":[{"left":1.0,"bottom":2.0,"right":3.0,"top":4.0}]
             }]))
         );
+    }
+
+    #[test]
+    fn semantic_hints_consume_private_page_geometry_without_exposing_it() {
+        let pages = vec![crate::document_twin::PageText {
+            page: 1,
+            text: "Confidential Report".into(),
+            positioned_items: vec![crate::text_index::PositionedTextItem {
+                text: "Confidential Report".into(),
+                bounding_box: Some(crate::text_index::TextBoundingBox {
+                    left: 72.0,
+                    bottom: 760.0,
+                    right: 190.0,
+                    top: 772.0,
+                }),
+                chars: Vec::new(),
+            }],
+        }];
+        let geometry = json!([{
+            "page":1,
+            "width":612,
+            "height":792,
+            "rotation":0,
+            "user_unit":1,
+            "view_box":{"left":0,"bottom":0,"right":612,"top":792}
+        }]);
+        let data = build_data(
+            &pages,
+            1,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_semantic_hints: true,
+                ..Default::default()
+            },
+            None,
+            false,
+            BuildSignals {
+                page_geometry: Some(geometry.clone()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            data.elements.as_ref().unwrap()[0]["semantic_hint"],
+            json!({"role":"header","confidence":0.82,"signals":["page-top-band","compact-edge-text","header-pattern"]})
+        );
+        assert!(data.page_geometry.is_none());
+
+        let exposed = build_data(
+            &pages,
+            1,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_semantic_hints: true,
+                include_page_geometry: true,
+                ..Default::default()
+            },
+            None,
+            false,
+            BuildSignals {
+                page_geometry: Some(geometry.clone()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(exposed.page_geometry, Some(geometry));
     }
 
     #[test]
