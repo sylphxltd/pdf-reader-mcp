@@ -21,6 +21,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 axum = "0.8"
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 pdf-reader-core = { path = "../pdf-reader-core", version = "3.1.1" }
 rmcp = { version = "0.16.0", features = ["server", "transport-io", "transport-streamable-http-server"] }

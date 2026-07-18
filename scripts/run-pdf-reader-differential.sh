@@ -13,6 +13,7 @@ ARTIFACT="$SCRATCH/verification.json"
 ORACLE_JSON="$SCRATCH/oracle.json"
 TEXT_DIFFERENTIAL_JSON="$SCRATCH/ts-vs-rust-text.json"
 V3014_BEHAVIOR_JSON="$SCRATCH/v3014-behavior-result.json"
+V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
 
@@ -72,6 +73,14 @@ echo "--- immutable v3.0.14 behavior differential (10 exact cases) ---" | tee -a
 bun "$REPO_ROOT/scripts/differential/check-v3014-behavior-differential.ts" \
   --output "$V3014_BEHAVIOR_JSON" >>"$LOG"
 
+echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
+
+echo "--- immutable v3.0.14 render/crop differential (7 semantic cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-visual-differential.ts" \
+  --output "$V3014_VISUAL_JSON" >>"$LOG"
+
 echo "--- live TypeScript handler -> Rust text claimed-subset check ---" | tee -a "$LOG"
 env -u PDF_READER_USE_RUST_TEXT_SEARCH -u PDF_READER_ENGINE_MODE \
   bun "$REPO_ROOT/scripts/differential/ts-vs-rust-text-oracle.ts" \
@@ -94,6 +103,9 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-behavior-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-behavior-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-behavior-fixtures.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-oracle.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-fixtures.json" \
   2>/dev/null | awk '{print $1}' | sha256sum | awk '{print $1}' || echo missing)"
 FIXTURE_CORPUS_HASH="$(jq -r '.fixtureCorpusHash' "$ORACLE_JSON")"
 GOLDEN_FIXTURE_HASH="$(jq -r '.goldenFixtureHash' "$ORACLE_JSON")"
@@ -106,6 +118,11 @@ V3014_BEHAVIOR_PASSED="$(jq '.passed' "$V3014_BEHAVIOR_JSON")"
 V3014_BEHAVIOR_SKIPPED="$(jq '.skipped' "$V3014_BEHAVIOR_JSON")"
 V3014_BEHAVIOR_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_BEHAVIOR_JSON")"
 V3014_BEHAVIOR_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_BEHAVIOR_JSON")"
+V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
+V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
+V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
+V3014_VISUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_VISUAL_JSON")"
+V3014_VISUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_VISUAL_JSON")"
 
 case "$SLICE_FILTER" in
   tool.read_pdf) ARTIFACT_SLICE="tool.read_pdf" ;;
@@ -124,6 +141,8 @@ jq -n \
   --arg goldenFixtureHash "$GOLDEN_FIXTURE_HASH" \
   --arg v3014BehaviorCorpusHash "$V3014_BEHAVIOR_CORPUS_HASH" \
   --arg v3014BehaviorOracleHash "$V3014_BEHAVIOR_ORACLE_HASH" \
+  --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
+  --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
   --arg slice "$ARTIFACT_SLICE" \
   --argjson caseCount "$CASE_COUNT" \
@@ -133,6 +152,9 @@ jq -n \
   --argjson v3014BehaviorCaseCount "$V3014_BEHAVIOR_CASE_COUNT" \
   --argjson v3014BehaviorPassed "$V3014_BEHAVIOR_PASSED" \
   --argjson v3014BehaviorSkipped "$V3014_BEHAVIOR_SKIPPED" \
+  --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
+  --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
+  --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
   '{
     schemaVersion: 2,
     slice: $slice,
@@ -155,14 +177,21 @@ jq -n \
     v3014BehaviorCaseCount: $v3014BehaviorCaseCount,
     v3014BehaviorPassed: $v3014BehaviorPassed,
     v3014BehaviorSkipped: $v3014BehaviorSkipped,
+    v3014VisualCorpusHash: $v3014VisualCorpusHash,
+    v3014VisualOracleHash: $v3014VisualOracleHash,
+    v3014VisualCaseCount: $v3014VisualCaseCount,
+    v3014VisualPassed: $v3014VisualPassed,
+    v3014VisualSkipped: $v3014VisualSkipped,
     harness: "scripts/run-pdf-reader-differential.sh",
     differentialTest: "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs#pdf_reader_mcp_differential_matches_ts_oracle",
     immutableInputOracle: "scripts/check-v3014-input-schema-oracle.ts",
     immutableBehaviorOracle: "scripts/differential/fixtures/v3014-behavior-oracle.json",
     immutableBehaviorDifferential: "scripts/differential/check-v3014-behavior-differential.ts",
+    immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
+    immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
     structuralConsistencyOracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
-    nonClaims: ["full TS 3.0.14 behavioral parity", "visual parity", "Document Twin semantic parity"],
+    nonClaims: ["full TS 3.0.14 behavioral parity", "visual parity outside the immutable 7-case render/crop corpus", "Document Twin semantic parity"],
     retirementGate: "scripts/check-no-ts-stdio-backend.sh (runs only when dropInFor3014=true)"
   }' >"$ARTIFACT"
 

@@ -233,6 +233,46 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
     }
   });
 
+  it('should return bounded PNG evidence over HTTP', async () => {
+    const client = createMcpHttpClient();
+    await client.initializeSession();
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+
+    const response = await client.sendRequest(
+      'tools/call',
+      {
+        name: 'pdf_evidence',
+        arguments: {
+          operation: 'render_page',
+          sources: [{ path: testPdfPath, pages: [1] }],
+          scale: 1,
+          max_pages: 1,
+        },
+      },
+      4
+    );
+
+    expect(response.error).toBeUndefined();
+    const result = response.result as
+      | {
+          isError?: boolean;
+          content?: Array<{ type?: string; text?: string; data?: string; mimeType?: string }>;
+        }
+      | undefined;
+    expect(result?.isError).not.toBe(true);
+    expect(result?.content?.[0]?.type).toBe('text');
+    expect(result?.content?.[1]?.type).toBe('image');
+    expect(result?.content?.[1]?.mimeType).toBe('image/png');
+    const imageData = result?.content?.[1]?.data ?? '';
+    expect(Buffer.from(imageData, 'base64').subarray(0, 8)).toEqual(
+      Buffer.from('\x89PNG\r\n\x1a\n', 'binary')
+    );
+    const payload = JSON.parse(result?.content?.[0]?.text ?? '{}') as {
+      results?: Array<{ rendered_pages?: Array<{ image_content_index?: number }> }>;
+    };
+    expect(payload.results?.[0]?.rendered_pages?.[0]?.image_content_index).toBe(1);
+  });
+
   const goldenPath = path.resolve(__dirname, '../fixtures/read-pdf-golden.json');
   const golden = JSON.parse(fs.readFileSync(goldenPath, 'utf8')) as {
     cases: Array<{

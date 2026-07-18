@@ -1294,6 +1294,7 @@ version = "3.1.1"
 dependencies = [
  "anyhow",
  "axum",
+ "base64",
  "chrono",
  "pdf-reader-core",
  "rmcp",

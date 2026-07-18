@@ -200,7 +200,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  mcpIt('should fail closed for unavailable pdf_evidence render_page', async () => {
+  mcpIt('should render bounded PNG evidence through pdf_evidence render_page', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(5, 'tools/call', {
@@ -225,13 +225,38 @@ describe('MCP Server Integration', () => {
 
     expect(response.id).toBe(5);
 
-    expect(response.error || response.result?.isError).toBeTruthy();
-    expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
-      "pdf_evidence operation 'render_page' is not available in the pure-Rust engine yet"
+    expect(response.error).toBeUndefined();
+    expect(response.result?.isError).not.toBe(true);
+    expect(response.result?.content?.[0]?.type).toBe('text');
+    expect(response.result?.content?.[1]?.type).toBe('image');
+    expect(response.result?.content?.[1]?.mimeType).toBe('image/png');
+    const imageData = response.result?.content?.[1]?.data ?? '';
+    expect(imageData.startsWith('data:')).toBe(false);
+    expect(Buffer.from(imageData, 'base64').subarray(0, 8)).toEqual(
+      Buffer.from('\x89PNG\r\n\x1a\n', 'binary')
+    );
+    const payload = JSON.parse(response.result?.content?.[0]?.text ?? '{}') as {
+      profile?: string;
+      rendered_pages?: unknown;
+      results?: Array<{
+        success?: boolean;
+        rendered_pages?: Array<{
+          data?: string;
+          image_content_index?: number;
+          byte_length?: number;
+        }>;
+      }>;
+    };
+    expect(payload.profile).toBe('page_render_evidence');
+    expect(payload.results?.[0]?.success).toBe(true);
+    expect(payload.results?.[0]?.rendered_pages?.[0]?.data).toBeUndefined();
+    expect(payload.results?.[0]?.rendered_pages?.[0]?.image_content_index).toBe(1);
+    expect(payload.results?.[0]?.rendered_pages?.[0]?.byte_length).toBe(
+      Buffer.from(imageData, 'base64').byteLength
     );
   });
 
-  mcpIt('should fail closed for unavailable pdf_evidence extract_regions', async () => {
+  mcpIt('should crop bounded PNG evidence through pdf_evidence extract_regions', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(6, 'tools/call', {
@@ -267,10 +292,37 @@ describe('MCP Server Integration', () => {
 
     expect(response.id).toBe(6);
 
-    expect(response.error || response.result?.isError).toBeTruthy();
-    expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
-      "pdf_evidence operation 'extract_regions' is not available in the pure-Rust engine yet"
+    expect(response.error).toBeUndefined();
+    expect(response.result?.isError).not.toBe(true);
+    expect(response.result?.content?.[0]?.type).toBe('text');
+    expect(response.result?.content?.[1]?.type).toBe('image');
+    expect(response.result?.content?.[1]?.mimeType).toBe('image/png');
+    const imageData = response.result?.content?.[1]?.data ?? '';
+    expect(imageData.startsWith('data:')).toBe(false);
+    expect(Buffer.from(imageData, 'base64').subarray(0, 8)).toEqual(
+      Buffer.from('\x89PNG\r\n\x1a\n', 'binary')
     );
+    const payload = JSON.parse(response.result?.content?.[0]?.text ?? '{}') as {
+      profile?: string;
+      results?: Array<{
+        success?: boolean;
+        regions?: Array<{
+          region_id?: string;
+          data?: string;
+          image_content_index?: number;
+          crop_pixels?: { width?: number; height?: number };
+        }>;
+      }>;
+    };
+    expect(payload.profile).toBe('region_crop_evidence');
+    expect(payload.results?.[0]?.success).toBe(true);
+    expect(payload.results?.[0]?.regions?.[0]?.region_id).toBe('bottom-left');
+    expect(payload.results?.[0]?.regions?.[0]?.data).toBeUndefined();
+    expect(payload.results?.[0]?.regions?.[0]?.image_content_index).toBe(1);
+    expect(payload.results?.[0]?.regions?.[0]?.crop_pixels).toMatchObject({
+      width: 100,
+      height: 100,
+    });
   });
 
   mcpIt('should fail closed for unavailable pdf_evidence analyze_regions', async () => {

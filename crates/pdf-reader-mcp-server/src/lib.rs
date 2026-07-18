@@ -6,6 +6,7 @@ pub mod read_pdf;
 pub mod schema;
 pub mod search;
 pub mod tool_routes;
+mod visual_evidence;
 
 use rmcp::{
     handler::server::router::tool::ToolRouter,
@@ -20,9 +21,11 @@ use serde_json::Value;
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
 /// Experimental pure-Rust engine version — not the published npm product line.
 pub const SERVER_VERSION: &str = "0.0.0-pure-rust-experimental";
-pub const SERVER_INSTRUCTIONS: &str = "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
+pub const SERVER_INSTRUCTIONS: &str =
+    "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
 Supported depth: selectable-text read_pdf, search_pdf, pdf_evidence inspect. \
-render/crop/OCR/analyze fail closed. For production drop-in use @sylphx/pdf-reader-mcp@3.0.14 (TypeScript).";
+Bounded page render and region crop are available with Hayro provenance; OCR/analyze fail closed. \
+For production drop-in use @sylphx/pdf-reader-mcp@3.0.14 (TypeScript).";
 
 fn omit_absent_optional_fields(value: Value) -> Value {
     match value {
@@ -103,7 +106,7 @@ impl PdfReaderMcp {
     }
 
     #[tool(
-        description = "Focused PDF evidence operations. Pure-Rust supports operation=inspect; render/crop/OCR/analyze fail closed with guidance."
+        description = "Focused PDF evidence operations. Pure-Rust supports inspect, bounded page rendering, and region crops; OCR/analyze fail closed with guidance."
     )]
     pub fn pdf_evidence(
         &self,

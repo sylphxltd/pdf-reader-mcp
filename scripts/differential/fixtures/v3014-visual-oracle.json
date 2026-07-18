@@ -1,0 +1,552 @@
+{
+  "schemaVersion": 1,
+  "profile": "pdf_reader_v3014_visual_oracle",
+  "baseline": {
+    "tag": "v3.0.14",
+    "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
+    "tree": "f6fc4e58f692736c8bd6aaf9d4c9cfa806d113ab",
+    "bunLockSha256": "07f469c8200fb82c9092cef178c1bdd67f8cf61fe6c027303665395eede9dd45",
+    "entrypointSha256": {
+      "src/handlers/pdfEvidence.ts": "64f54e17c30de61c93ea2083d59b6463def08fcd08e100489e10380d72db1228",
+      "src/handlers/renderPage.ts": "7c0b57658eca56ec995c376a4a20455cc967f13a807a1194a1d746d23db89e7a",
+      "src/handlers/extractRegions.ts": "a125e4fa3b9c3aee1087f7e60a5092ce2354d918d2b1d01bc70f222d42219c33",
+      "src/pdf/renderer.ts": "29cf9917feaa470d3e3dafea5b432439fe0450eaee90b350458fb1e41bfe75a8",
+      "src/pdf/regions.ts": "f7bc3c939e57fd33260d1bf5d8210c0bde0f7cb3ea756c4912b371c1997e4f91"
+    }
+  },
+  "normalization": {
+    "png": "dimensions, signature, interior RGBA samples, and self-consistent byte length; encoded PNG bytes intentionally differ by renderer",
+    "provenance": "source role is compared; producer identity must be truthful and is checked independently"
+  },
+  "expectations": {
+    "render-default-page-one": {
+      "outcome": "success",
+      "profile": "page_render_evidence",
+      "options": {
+        "scale": 2,
+        "max_pages": 5,
+        "max_pixels_per_page": 16000000,
+        "include_image": true
+      },
+      "content_count": 2,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "rendered_pages": [
+            {
+              "page": 1,
+              "evidence_id": "page-1-render-scale-2",
+              "width": 240,
+              "height": 160,
+              "scale": 2,
+              "pixel_count": 38400,
+              "format": "png",
+              "mime_type": "image/png",
+              "rotation": 0,
+              "provenance_source": "page-render",
+              "image_content_index": 1,
+              "inline_data_absent": true,
+              "image": {
+                "mime_type": "image/png",
+                "raw_base64": true,
+                "png_signature": true,
+                "width": 240,
+                "height": 160,
+                "samples": [
+                  [
+                    0,
+                    0,
+                    255,
+                    255
+                  ],
+                  [
+                    255,
+                    255,
+                    0,
+                    255
+                  ],
+                  [
+                    255,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    0,
+                    255,
+                    0,
+                    255
+                  ]
+                ],
+                "byte_length_consistent": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "render-selection-warnings-no-image": {
+      "outcome": "success",
+      "profile": "page_render_evidence",
+      "options": {
+        "scale": 1,
+        "max_pages": 1,
+        "max_pixels_per_page": 16000000,
+        "include_image": false
+      },
+      "content_count": 1,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [
+            "Requested pages 99 exceed document page count 3.",
+            "Rendered first 1 selected pages; skipped 2 due to max_pages."
+          ],
+          "rendered_pages": [
+            {
+              "page": 1,
+              "evidence_id": "page-1-render-scale-1",
+              "width": 120,
+              "height": 80,
+              "scale": 1,
+              "pixel_count": 9600,
+              "format": "png",
+              "mime_type": "image/png",
+              "rotation": 0,
+              "provenance_source": "page-render",
+              "image_content_index": null,
+              "inline_data_absent": true,
+              "image": null
+            }
+          ]
+        }
+      ]
+    },
+    "crop-order-padding-fractional": {
+      "outcome": "success",
+      "profile": "region_crop_evidence",
+      "options": {
+        "scale": 1,
+        "max_regions": 20,
+        "max_pixels_per_page": 16000000,
+        "include_image": true
+      },
+      "content_count": 4,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "regions": [
+            {
+              "region_id": "A",
+              "page": 2,
+              "evidence_id": "page-2-A-crop-scale-1",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 20,
+                "top": 30
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 88,
+                "width": 22,
+                "height": 32
+              },
+              "scale": 1,
+              "format": "png",
+              "mime_type": "image/png",
+              "provenance_source": "region-crop",
+              "page_render_evidence_id": "page-2-render-scale-1",
+              "image_content_index": 1,
+              "inline_data_absent": true,
+              "image": {
+                "mime_type": "image/png",
+                "raw_base64": true,
+                "png_signature": true,
+                "width": 22,
+                "height": 32,
+                "samples": [
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ]
+                ],
+                "byte_length_consistent": true
+              }
+            },
+            {
+              "region_id": "C",
+              "page": 2,
+              "evidence_id": "page-2-C-crop-scale-1",
+              "source_bounding_box": {
+                "left": 10.2,
+                "bottom": 30.4,
+                "right": 40.6,
+                "top": 60.8
+              },
+              "crop_pixels": {
+                "left": 10,
+                "top": 59,
+                "width": 31,
+                "height": 31
+              },
+              "scale": 1,
+              "format": "png",
+              "mime_type": "image/png",
+              "provenance_source": "region-crop",
+              "page_render_evidence_id": "page-2-render-scale-1",
+              "image_content_index": 2,
+              "inline_data_absent": true,
+              "image": {
+                "mime_type": "image/png",
+                "raw_base64": true,
+                "png_signature": true,
+                "width": 31,
+                "height": 31,
+                "samples": [
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ]
+                ],
+                "byte_length_consistent": true
+              }
+            },
+            {
+              "region_id": "region-2",
+              "page": 1,
+              "evidence_id": "page-1-region-2-crop-scale-1",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 30,
+                "top": 20
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 57,
+                "width": 33,
+                "height": 23
+              },
+              "scale": 1,
+              "format": "png",
+              "mime_type": "image/png",
+              "provenance_source": "region-crop",
+              "page_render_evidence_id": "page-1-render-scale-1",
+              "image_content_index": 3,
+              "inline_data_absent": true,
+              "image": {
+                "mime_type": "image/png",
+                "raw_base64": true,
+                "png_signature": true,
+                "width": 33,
+                "height": 23,
+                "samples": [
+                  [
+                    255,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    255,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    255,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    255,
+                    0,
+                    0,
+                    255
+                  ]
+                ],
+                "byte_length_consistent": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "render-rotated-page": {
+      "outcome": "success",
+      "profile": "page_render_evidence",
+      "options": {
+        "scale": 1,
+        "max_pages": 1,
+        "max_pixels_per_page": 16000000,
+        "include_image": true
+      },
+      "content_count": 2,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "rendered_pages": [
+            {
+              "page": 3,
+              "evidence_id": "page-3-render-scale-1",
+              "width": 80,
+              "height": 120,
+              "scale": 1,
+              "pixel_count": 9600,
+              "format": "png",
+              "mime_type": "image/png",
+              "rotation": 90,
+              "provenance_source": "page-render",
+              "image_content_index": 1,
+              "inline_data_absent": true,
+              "image": {
+                "mime_type": "image/png",
+                "raw_base64": true,
+                "png_signature": true,
+                "width": 80,
+                "height": 120,
+                "samples": [
+                  [
+                    255,
+                    0,
+                    255,
+                    255
+                  ],
+                  [
+                    255,
+                    0,
+                    255,
+                    255
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    255
+                  ]
+                ],
+                "byte_length_consistent": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "crop-rotated-v3014-formula": {
+      "outcome": "success",
+      "profile": "region_crop_evidence",
+      "options": {
+        "scale": 1,
+        "max_regions": 20,
+        "max_pixels_per_page": 16000000,
+        "include_image": true
+      },
+      "content_count": 2,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "regions": [
+            {
+              "region_id": "rotated",
+              "page": 3,
+              "evidence_id": "page-3-rotated-crop-scale-1",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 60,
+                "top": 80
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 40,
+                "width": 60,
+                "height": 80
+              },
+              "scale": 1,
+              "format": "png",
+              "mime_type": "image/png",
+              "provenance_source": "region-crop",
+              "page_render_evidence_id": "page-3-render-scale-1",
+              "image_content_index": 1,
+              "inline_data_absent": true,
+              "image": {
+                "mime_type": "image/png",
+                "raw_base64": true,
+                "png_signature": true,
+                "width": 60,
+                "height": 80,
+                "samples": [
+                  [
+                    0,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    255
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    255
+                  ]
+                ],
+                "byte_length_consistent": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "render-mixed-source-partial": {
+      "outcome": "success",
+      "profile": "page_render_evidence",
+      "options": {
+        "scale": 1,
+        "max_pages": 1,
+        "max_pixels_per_page": 16000000,
+        "include_image": true
+      },
+      "content_count": 2,
+      "results": [
+        {
+          "source": "missing-visual.pdf",
+          "success": false,
+          "category": "file_not_found"
+        },
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "rendered_pages": [
+            {
+              "page": 2,
+              "evidence_id": "page-2-render-scale-1",
+              "width": 80,
+              "height": 120,
+              "scale": 1,
+              "pixel_count": 9600,
+              "format": "png",
+              "mime_type": "image/png",
+              "rotation": 0,
+              "provenance_source": "page-render",
+              "image_content_index": 1,
+              "inline_data_absent": true,
+              "image": {
+                "mime_type": "image/png",
+                "raw_base64": true,
+                "png_signature": true,
+                "width": 80,
+                "height": 120,
+                "samples": [
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ],
+                  [
+                    0,
+                    204,
+                    204,
+                    255
+                  ]
+                ],
+                "byte_length_consistent": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "crop-degenerate-all-fail": {
+      "outcome": "error",
+      "category": "invalid_bounding_box"
+    }
+  }
+}
