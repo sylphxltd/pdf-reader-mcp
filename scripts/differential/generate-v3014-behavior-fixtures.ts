@@ -31,7 +31,7 @@ function buildPdf(): Buffer {
   const objects = new Map<number, string>([
     [
       1,
-      '<< /Type /Catalog /Pages 2 0 R /PageLabels 13 0 R /MarkInfo 14 0 R /Outlines 15 0 R >>',
+      '<< /Type /Catalog /Pages 2 0 R /PageLabels 13 0 R /MarkInfo 14 0 R /Outlines 15 0 R /Names 18 0 R /AcroForm 23 0 R >>',
     ],
     [2, '<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 /MediaBox [0 0 612 792] /CropBox [20 30 580 760] /Rotate 90 /UserUnit 2 >>'],
     [
@@ -67,6 +67,18 @@ function buildPdf(): Buffer {
       '<< /Title (External docs) /Parent 15 0 R /First 17 0 R /Last 17 0 R /Count 1 /F 3 /C [0.25 0.5 0.75] /A << /S /URI /URI (https://example.com/docs) >> >>',
     ],
     [17, '<< /Title (Page three) /Parent 16 0 R /Dest [7 0 R /Fit] >>'],
+    [18, '<< /EmbeddedFiles 19 0 R >>'],
+    [19, '<< /Names [(source.csv) 20 0 R (evidence) 28 0 R] >>'],
+    [20, '<< /Type /Filespec /F (source.csv) /UF (source.csv) /Desc (Source data) /EF << /F 21 0 R /UF 21 0 R >> >>'],
+    [21, '<< /Type /EmbeddedFile /Length 19 >>\nstream\nname,value\nalpha,1\nendstream'],
+    [22, '<< /Type /Annot /Subtype /Widget /FT /Tx /T (customer_name) /V (Ada Lovelace) /DV () /Rect [72 635 260 660] /P 3 0 R /F 4 >>'],
+    [23, '<< /Fields [22 0 R 24 0 R 26 0 R 27 0 R] >>'],
+    [24, '<< /FT /Tx /T (profile) /V (Grace Hopper) /DV (Unknown) /Ff 3 /Kids [25 0 R] >>'],
+    [25, '<< /Type /Annot /Subtype /Widget /Parent 24 0 R /Rect [72 500 260 525] /P 5 0 R >>'],
+    [26, '<< /Type /Annot /Subtype /Widget /FT /Btn /T (consent) /V /Yes /AS /Yes /Rect [72 450 90 468] /P 5 0 R >>'],
+    [27, '<< /Type /Annot /Subtype /Widget /FT /Ch /T (tier) /V (gold) /DV (silver) /Ff 2 /Rect [72 400 200 425] /P 7 0 R >>'],
+    [28, '<< /Type /Filespec /UF (C:\\\\reports\\\\report.txt) /EF << /UF 29 0 R >> >>'],
+    [29, '<< /Type /EmbeddedFile /Length 5 >>\nstream\nhelloendstream'],
   ]);
 
   const chunks: Buffer[] = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'latin1')];

@@ -574,6 +574,8 @@ struct BuildSignals {
     permissions: Option<Value>,
     mark_info: Option<Value>,
     outline: Option<Value>,
+    form_fields: Option<Value>,
+    attachments: Option<Value>,
     warnings: Vec<String>,
 }
 
@@ -657,6 +659,8 @@ fn build_data(
         permissions,
         mark_info,
         outline,
+        form_fields,
+        attachments,
         mut warnings,
     } = signals;
     let full_text = join_page_text(pages);
@@ -804,7 +808,7 @@ fn build_data(
         None
     };
 
-    let (_, _, form_fields, attachments, structure_trees) = empty_structure_arrays();
+    let (_, _, _, _, structure_trees) = empty_structure_arrays();
 
     let mut data = ReadPdfData {
         num_pages: want_page_count.then_some(total_pages),
@@ -1026,10 +1030,10 @@ fn build_data(
         data.annotations = annotations;
     }
     if want_forms {
-        data.form_fields = Some(form_fields);
+        data.form_fields = form_fields;
     }
     if want_attachments {
-        data.attachments = Some(attachments);
+        data.attachments = attachments;
     }
     if want_structure {
         data.structure_trees = Some(structure_trees);
@@ -1196,6 +1200,14 @@ fn read_local_pdf_filtered(
             outline: input.include_outline || auto_full,
         },
     );
+    let form_attachment_signals = crate::form_attachment_signals::extract_form_attachment_signals(
+        &parsed.document,
+        &parsed.pages,
+        input.include_form_fields || auto_full,
+        input.include_attachments || auto_full,
+    );
+    let mut signal_warnings = signals.warnings;
+    signal_warnings.extend(form_attachment_signals.warnings);
     let mut data = build_data(
         &selected,
         total_pages,
@@ -1209,7 +1221,13 @@ fn read_local_pdf_filtered(
             permissions: catalog_signals.permissions.map(|value| json!(value)),
             mark_info: catalog_signals.mark_info.map(|value| json!(value)),
             outline: catalog_signals.outline.map(|value| json!(value)),
-            warnings: signals.warnings,
+            form_fields: form_attachment_signals
+                .form_fields
+                .map(|value| json!(value)),
+            attachments: form_attachment_signals
+                .attachments
+                .map(|value| json!(value)),
+            warnings: signal_warnings,
         },
     );
     if !invalid_pages.is_empty() {
@@ -1580,8 +1598,8 @@ mod tests {
         assert!(data.page_geometry.is_some());
         assert!(data.permissions.is_none());
         assert!(data.mark_info.is_none());
-        assert!(data.form_fields.is_some());
-        assert!(data.attachments.is_some());
+        assert!(data.form_fields.is_none());
+        assert!(data.attachments.is_none());
         assert!(data.structure_trees.is_some());
         // Provider-backed fields remain absent until the server fuses a
         // normalized outcome; returning an empty placeholder would diverge

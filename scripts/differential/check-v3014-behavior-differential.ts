@@ -77,8 +77,8 @@ function verifyAuthority(): Record<string, string> {
     }
   }
   const ids = corpus.cases.map((entry) => entry.id);
-  if (ids.length !== 12 || new Set(ids).size !== ids.length) {
-    throw new Error(`behavior corpus must contain 12 unique cases (got ${ids.length})`);
+  if (ids.length !== 14 || new Set(ids).size !== ids.length) {
+    throw new Error(`behavior corpus must contain 14 unique cases (got ${ids.length})`);
   }
   if (JSON.stringify(ids.sort()) !== JSON.stringify(Object.keys(oracle.expectations).sort())) {
     throw new Error('corpus and oracle case IDs differ');
@@ -230,6 +230,14 @@ function canonicalRead(id: string, envelope: Record<string, unknown>): Json {
     canonical.page_labels = (data.page_labels ?? null) as Json;
     canonical.permissions = (data.permissions ?? null) as Json;
     canonical.mark_info = (data.mark_info ?? null) as Json;
+  }
+  if (id === 'read-forms') {
+    canonical.form_fields = (data.form_fields ?? null) as Json;
+    canonical.attachments = (data.attachments ?? null) as Json;
+  }
+  if (id === 'read-attachments') {
+    canonical.attachments = (data.attachments ?? null) as Json;
+    canonical.form_fields = (data.form_fields ?? null) as Json;
   }
   canonical.warnings = warnings(data.warnings);
   return canonical;

@@ -167,6 +167,97 @@
       },
       "warnings": []
     },
+    "read-forms": {
+      "outcome": "success",
+      "num_pages": 3,
+      "form_fields": [
+        {
+          "name": "customer_name",
+          "type": "text",
+          "value": "Ada Lovelace",
+          "default_value": "",
+          "page": 1,
+          "id": "22R",
+          "editable": true,
+          "bounding_box": {
+            "left": 72,
+            "bottom": 635,
+            "right": 260,
+            "top": 660
+          }
+        },
+        {
+          "name": "profile",
+          "id": "24R"
+        },
+        {
+          "name": "profile",
+          "type": "text",
+          "value": "Grace Hopper",
+          "default_value": "Unknown",
+          "page": 2,
+          "id": "25R",
+          "editable": false,
+          "bounding_box": {
+            "left": 72,
+            "bottom": 500,
+            "right": 260,
+            "top": 525
+          }
+        },
+        {
+          "name": "consent",
+          "type": "checkbox",
+          "value": "Yes",
+          "default_value": null,
+          "page": 2,
+          "id": "26R",
+          "editable": true,
+          "bounding_box": {
+            "left": 72,
+            "bottom": 450,
+            "right": 90,
+            "top": 468
+          }
+        },
+        {
+          "name": "tier",
+          "type": "listbox",
+          "value": "gold",
+          "default_value": "silver",
+          "page": 3,
+          "id": "27R",
+          "editable": true,
+          "bounding_box": {
+            "left": 72,
+            "bottom": 400,
+            "right": 200,
+            "top": 425
+          }
+        }
+      ],
+      "attachments": null,
+      "warnings": []
+    },
+    "read-attachments": {
+      "outcome": "success",
+      "num_pages": 3,
+      "attachments": [
+        {
+          "name": "source.csv",
+          "filename": "source.csv",
+          "description": "Source data",
+          "size_bytes": 19
+        },
+        {
+          "name": "evidence",
+          "filename": "report.txt",
+          "size_bytes": 5
+        }
+      ],
+      "form_fields": null,
+      "warnings": []
+    },
     "search-ci-all": {
       "outcome": "success",
       "num_pages": 3,
