@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use lopdf::{Dictionary, Document, Object, ObjectId};
 use pdf_extract::decode_text_string;
@@ -31,7 +31,7 @@ pub(crate) struct MarkInfo {
     suspects: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub(crate) struct OutlineItem {
     title: String,
     bold: bool,
@@ -44,7 +44,7 @@ pub(crate) struct OutlineItem {
     items: Option<Vec<OutlineItem>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 enum Destination {
     Text(String),
@@ -52,7 +52,7 @@ enum Destination {
     Null,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 enum DestinationPart {
     Integer(i64),
@@ -460,105 +460,73 @@ fn roman(mut number: u32, lower: bool) -> Option<String> {
 fn extract_outline(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<Vec<OutlineItem>> {
     let root = walker.dict(catalog.get(b"Outlines").ok()?)?;
     let first = root.get(b"First").ok()?.clone();
-    if first.as_reference().is_err() {
-        return None;
-    }
-    let mut path = HashSet::new();
+    let first_id = first.as_reference().ok()?;
     let mut processed = HashSet::new();
-    processed.insert(first.as_reference().ok()?);
-    let items = outline_siblings(walker, first, 0, &mut path, &mut processed);
-    (!walker.truncated && !walker.failed).then_some(items)
-}
+    processed.insert(first_id);
+    let mut arena = vec![OutlineArenaNode::default()];
+    let mut queue = VecDeque::from([(first, 0usize, 0usize)]);
 
-fn outline_siblings(
-    walker: &mut Walker<'_>,
-    mut current: Object,
-    depth: usize,
-    path: &mut HashSet<ObjectId>,
-    processed: &mut HashSet<ObjectId>,
-) -> Vec<OutlineItem> {
-    let mut output = Vec::new();
-    let mut siblings = HashSet::new();
-    while output.len() < MAX_ENTRIES {
-        if depth >= MAX_TREE_DEPTH {
+    while let Some((value, parent, depth)) = queue.pop_front() {
+        if depth >= MAX_TREE_DEPTH || walker.entries >= MAX_ENTRIES {
             walker.truncated = true;
             break;
         }
-        if let Ok(id) = current.as_reference() {
-            if !siblings.insert(id) || !path.insert(id) {
-                walker.truncated = true;
-                break;
-            }
-        }
-        let current_id = current.as_reference().ok();
-        let Some(dict) = walker.dict(&current) else {
+        let Some(object) = walker.resolve_owned(&value) else {
             break;
         };
-        if walker.entries >= MAX_ENTRIES {
-            walker.truncated = true;
+        if matches!(object, Object::Null) {
+            continue;
+        }
+        let Ok(dict) = object.as_dict() else {
+            walker.failed = true;
             break;
-        }
+        };
         walker.entries += 1;
-        let child = dict
-            .get(b"First")
-            .ok()
-            .cloned()
-            .filter(|value| value.as_reference().is_ok())
-            .and_then(|value| {
-                let child_id = value.as_reference().ok()?;
-                if path.contains(&child_id) {
-                    walker.truncated = true;
-                    None
-                } else if processed.insert(child_id) {
-                    Some(value)
-                } else {
-                    None
-                }
-            });
-        // PDF.js admits both First and Next refs to its global processed set
-        // while processing the current item, before either queued item runs.
-        let next = dict
-            .get(b"Next")
-            .ok()
-            .cloned()
-            .filter(|value| value.as_reference().is_ok())
-            .and_then(|value| {
-                let next_id = value.as_reference().ok()?;
-                if siblings.contains(&next_id) || path.contains(&next_id) {
-                    walker.truncated = true;
-                    None
-                } else if processed.insert(next_id) {
-                    Some(value)
-                } else {
-                    None
-                }
-            });
-        let mut item = normalize_outline_item(walker, &dict);
-        let mut children = Vec::new();
-        if let Some(first) = child {
-            children = outline_siblings(walker, first, depth + 1, path, processed);
+        let node = arena.len();
+        arena.push(OutlineArenaNode {
+            item: normalize_outline_item(walker, dict),
+            children: Vec::new(),
+        });
+        arena[parent].children.push(node);
+
+        for (key, child_parent, child_depth) in [
+            (b"First".as_slice(), node, depth + 1),
+            (b"Next".as_slice(), parent, depth),
+        ] {
+            let Ok(next) = dict.get(key) else { continue };
+            let Ok(next_id) = next.as_reference() else {
+                continue;
+            };
+            if processed.insert(next_id) {
+                queue.push_back((next.clone(), child_parent, child_depth));
+            }
         }
-        if let Some(mut item) = item.take() {
+    }
+    if walker.truncated || walker.failed {
+        return None;
+    }
+    Some(build_outline_children(&arena, 0))
+}
+
+#[derive(Default)]
+struct OutlineArenaNode {
+    item: Option<OutlineItem>,
+    children: Vec<usize>,
+}
+
+fn build_outline_children(arena: &[OutlineArenaNode], parent: usize) -> Vec<OutlineItem> {
+    arena[parent]
+        .children
+        .iter()
+        .filter_map(|child| {
+            let mut item = arena[*child].item.as_ref()?.clone();
+            let children = build_outline_children(arena, *child);
             if !children.is_empty() {
                 item.items = Some(children);
             }
-            output.push(item);
-        }
-        if let Some(id) = current_id {
-            path.remove(&id);
-        }
-        if walker.truncated {
-            break;
-        }
-        let Some(value) = next else {
-            break;
-        };
-        current = value;
-    }
-    if output.len() >= MAX_ENTRIES {
-        walker.truncated = true;
-    }
-    output
+            Some(item)
+        })
+        .collect()
 }
 
 fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<OutlineItem> {
@@ -854,7 +822,7 @@ mod tests {
     }
 
     #[test]
-    fn outline_cycle_omits_the_whole_surface() {
+    fn outline_cycle_is_suppressed_by_pdfjs_global_processed_set() {
         let mut doc = document(dictionary! {});
         let first = doc.add_object(dictionary! {"Title"=>Object::string_literal("Cycle")});
         doc.get_object_mut(first)
@@ -874,7 +842,9 @@ mod tests {
                 outline: true,
             },
         );
-        assert!(out.outline.is_none());
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value.as_array().unwrap().len(), 1);
+        assert_eq!(value[0]["title"], "Cycle");
     }
 
     #[test]
@@ -1095,5 +1065,47 @@ mod tests {
         assert_eq!(value[0]["items"][0]["title"], "Child");
         assert!(value[0]["items"][0].get("items").is_none());
         assert_eq!(value[1]["title"], "Shared");
+    }
+
+    #[test]
+    fn outline_fifo_assigns_deep_shared_ref_to_earlier_queued_sibling() {
+        let mut doc = document(dictionary! {});
+        let z = doc.add_object(dictionary! {"Title"=>Object::string_literal("Z")});
+        let x = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("X"),
+            "First"=>z,
+        });
+        let b = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("B"),
+            "First"=>z,
+        });
+        let c = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("C"),
+            "First"=>x,
+        });
+        let a = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("A"),
+            "First"=>c,
+            "Next"=>b,
+        });
+        let outlines = doc.add_object(dictionary! {"First"=>a});
+        doc.catalog_mut().unwrap().set("Outlines", outlines);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value[0]["title"], "A");
+        assert_eq!(value[0]["items"][0]["title"], "C");
+        assert_eq!(value[0]["items"][0]["items"][0]["title"], "X");
+        assert!(value[0]["items"][0]["items"][0].get("items").is_none());
+        assert_eq!(value[1]["title"], "B");
+        assert_eq!(value[1]["items"][0]["title"], "Z");
     }
 }
