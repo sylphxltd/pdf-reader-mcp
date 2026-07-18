@@ -138,6 +138,113 @@
         "scale": 1,
         "max_pages": 1
       }
+    },
+    {
+      "id": "analyze-command-rich-normalization",
+      "input": {
+        "operation": "analyze_regions",
+        "sources": [
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "rich",
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 30, "top": 20 }
+              }
+            ]
+          }
+        ],
+        "scale": 2,
+        "max_regions": 1,
+        "languages": ["fra", "eng"]
+      }
+    },
+    {
+      "id": "analyze-order-and-plain-truncation",
+      "input": {
+        "operation": "analyze_regions",
+        "sources": [
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "formula",
+                "page": 2,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 20, "top": 30 }
+              },
+              {
+                "id": "plain",
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 30, "top": 20 }
+              }
+            ]
+          }
+        ],
+        "scale": 1,
+        "max_regions": 2,
+        "max_output_chars": 1000
+      }
+    },
+    {
+      "id": "analyze-mixed-source-partial",
+      "input": {
+        "operation": "analyze_regions",
+        "sources": [
+          {
+            "fixture": "missing-visual.pdf",
+            "regions": [
+              {
+                "id": "missing",
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 20, "top": 20 }
+              }
+            ]
+          },
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "formula",
+                "page": 2,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 20, "top": 30 }
+              }
+            ]
+          }
+        ],
+        "scale": 1,
+        "max_regions": 1
+      }
+    },
+    {
+      "id": "analyze-late-provider-failure-partial",
+      "input": {
+        "operation": "analyze_regions",
+        "sources": [
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "formula",
+                "page": 2,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 20, "top": 30 }
+              }
+            ]
+          },
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "fail",
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 30, "top": 20 }
+              }
+            ]
+          }
+        ],
+        "scale": 1,
+        "max_regions": 1
+      }
     }
   ]
 }

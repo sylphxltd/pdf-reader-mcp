@@ -1,18 +1,14 @@
 //! Optional command-provider OCR over the bounded pure-Rust page renderer.
 
 use std::env;
-use std::process::Stdio;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread;
 use std::time::{Duration, Instant};
 
-use command_group::AsyncCommandGroup;
 use rmcp::model::{CallToolResult, Content};
 use serde_json::{json, Value};
 use tempfile::TempDir;
-use tokio::io::{AsyncRead, AsyncReadExt};
-use tokio::process::Command;
 
+use crate::command_provider::{self, CommandInvocation, CommandRunError};
 use crate::schema::PdfEvidenceArgs;
 use crate::visual_evidence;
 
@@ -90,6 +86,10 @@ impl RequestOcrBudget {
             ));
         }
         Ok(())
+    }
+
+    fn charge_failed_provider(&mut self, provider_bytes: usize) -> Result<(), String> {
+        self.charge(provider_bytes, 0)
     }
 }
 
@@ -211,85 +211,6 @@ fn replace_placeholders(
         )
 }
 
-async fn read_bounded<R: AsyncRead + Unpin>(reader: R, maximum: usize) -> std::io::Result<Vec<u8>> {
-    let mut bytes = Vec::new();
-    reader
-        .take(u64::try_from(maximum).unwrap_or(u64::MAX).saturating_add(1))
-        .read_to_end(&mut bytes)
-        .await?;
-    Ok(bytes)
-}
-
-async fn run_provider_async(
-    config: ProviderConfig,
-    png: Vec<u8>,
-    page: u64,
-    source: String,
-    languages: Vec<String>,
-    timeout_ms: u64,
-    max_output_chars: usize,
-) -> Result<String, String> {
-    let temp = TempDir::with_prefix("pdf-reader-mcp-ocr-")
-        .map_err(|_| "Failed to create OCR provider workspace.".to_string())?;
-    let input = temp.path().join(format!("page-{page}.png"));
-    std::fs::write(&input, png)
-        .map_err(|_| "Failed to write OCR provider input image.".to_string())?;
-    let input = input.to_string_lossy();
-    let args = config
-        .args_template
-        .iter()
-        .map(|arg| replace_placeholders(arg, &input, page, &source, &languages))
-        .collect::<Vec<_>>();
-    let mut command = Command::new(&config.command);
-    command
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    let mut child = command
-        .group_spawn()
-        .map_err(|_| format!("OCR provider command failed for page {page}."))?;
-    let maximum = max_output_chars.saturating_mul(4).max(1024 * 1024);
-    let stdout = child
-        .inner()
-        .stdout
-        .take()
-        .ok_or_else(|| "OCR provider stdout was unavailable.".to_string())?;
-    let stderr = child
-        .inner()
-        .stderr
-        .take()
-        .ok_or_else(|| "OCR provider stderr was unavailable.".to_string())?;
-    let execution = async {
-        tokio::join!(
-            child.inner().wait(),
-            read_bounded(stdout, maximum),
-            read_bounded(stderr, 64 * 1024)
-        )
-    };
-    let (status, stdout, stderr) =
-        match tokio::time::timeout(Duration::from_millis(timeout_ms), execution).await {
-            Ok(results) => results,
-            Err(_) => {
-                // The timed-out read futures are cancelled and their local pipe handles drop
-                // before this branch. Tree termination and leader reaping are both best-effort
-                // and bounded, so an escaped Unix descendant cannot extend the request deadline.
-                let _ = child.start_kill();
-                let _ = tokio::time::timeout(Duration::from_secs(2), child.inner().wait()).await;
-                return Err(format!("OCR provider command timed out for page {page}."));
-            }
-        };
-    // Terminate any helper left in the process group/job after the leader and pipes close.
-    let _ = child.start_kill();
-    let status = status.map_err(|_| format!("OCR provider command failed for page {page}."))?;
-    let stdout = stdout.map_err(|_| "OCR provider stdout reader failed.".to_string())?;
-    let _stderr = stderr.map_err(|_| "OCR provider stderr reader failed.".to_string())?;
-    if !status.success() || stdout.len() > maximum {
-        return Err(format!("OCR provider command failed for page {page}."));
-    }
-    Ok(String::from_utf8_lossy(&stdout).into_owned())
-}
-
 fn run_provider(
     config: &ProviderConfig,
     png: &[u8],
@@ -298,28 +219,27 @@ fn run_provider(
     languages: &[String],
     timeout_ms: u64,
     max_output_chars: usize,
-) -> Result<String, String> {
-    let config = config.clone();
-    let png = png.to_vec();
-    let source = source.to_string();
-    let languages = languages.to_vec();
-    thread::spawn(move || {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|_| "Failed to start bounded OCR provider runtime.".to_string())?
-            .block_on(run_provider_async(
-                config,
-                png,
-                page,
-                source,
-                languages,
-                timeout_ms,
-                max_output_chars,
-            ))
+) -> Result<String, CommandRunError> {
+    let temp = TempDir::with_prefix("pdf-reader-mcp-ocr-")
+        .map_err(|_| CommandRunError::new("Failed to create OCR provider workspace.".into(), 0))?;
+    let input = temp.path().join(format!("page-{page}.png"));
+    std::fs::write(&input, png)
+        .map_err(|_| CommandRunError::new("Failed to write OCR provider input image.".into(), 0))?;
+    let input = input.to_string_lossy();
+    let args = config
+        .args_template
+        .iter()
+        .map(|arg| replace_placeholders(arg, &input, page, source, languages))
+        .collect::<Vec<_>>();
+    let maximum = max_output_chars.saturating_mul(4).max(1024 * 1024);
+    command_provider::run(CommandInvocation {
+        command: config.command.clone(),
+        args,
+        timeout_ms,
+        max_stdout_bytes: maximum,
+        failure_message: format!("OCR provider command failed for page {page}."),
+        timeout_message: format!("OCR provider command timed out for page {page}."),
     })
-    .join()
-    .map_err(|_| "OCR provider worker failed.".to_string())?
 }
 
 fn normalize_confidence(value: &Value) -> Option<f64> {
@@ -543,7 +463,7 @@ pub fn ocr_pages(value: Value) -> Result<CallToolResult, rmcp::ErrorData> {
                         "Request exceeds OCR provider time limit of {MAX_REQUEST_OCR_TIMEOUT_MS} milliseconds."
                     ));
                 }
-                let stdout = run_provider(
+                let stdout = match run_provider(
                     &config,
                     &png,
                     page_number,
@@ -551,7 +471,13 @@ pub fn ocr_pages(value: Value) -> Result<CallToolResult, rmcp::ErrorData> {
                     &languages,
                     timeout_ms.min(remaining_ms),
                     max_output_chars,
-                )?;
+                ) {
+                    Ok(stdout) => stdout,
+                    Err(error) => {
+                        request_budget.charge_failed_provider(error.charge_bytes)?;
+                        return Err(error.message);
+                    }
+                };
                 let mut normalized = normalize_output(&stdout, max_output_chars, &languages, scale);
                 let output_chars = normalized["text"]
                     .as_str()

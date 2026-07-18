@@ -285,7 +285,7 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       expect(payload.text).toContain(
         operation === 'ocr_pages'
           ? 'OCR provider is not configured'
-          : "'analyze_regions' is not available"
+          : 'Region analysis provider is not configured'
       );
     }
   }, 240_000);

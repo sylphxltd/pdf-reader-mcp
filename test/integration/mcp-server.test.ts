@@ -325,7 +325,7 @@ describe('MCP Server Integration', () => {
     });
   });
 
-  mcpIt('should fail closed for unavailable pdf_evidence analyze_regions', async () => {
+  mcpIt('should fail closed when pdf_evidence analyze_regions has no provider', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(7, 'tools/call', {
@@ -361,7 +361,7 @@ describe('MCP Server Integration', () => {
 
     expect(response.error || response.result?.isError).toBeTruthy();
     expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
-      "pdf_evidence operation 'analyze_regions' is not available in the pure-Rust engine yet"
+      'Region analysis provider is not configured'
     );
   });
 

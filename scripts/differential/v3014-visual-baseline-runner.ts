@@ -8,15 +8,24 @@ import { pdfEvidence } from './src/handlers/pdfEvidence.ts';
 type Content = { type: string; text?: string; data?: string; mimeType?: string };
 type ToolResult = { content: Content[]; isError?: boolean };
 
-const [corpusPath, fixtureDir, providerPath] = process.argv.slice(2);
-if (!corpusPath || !fixtureDir || !providerPath) {
-  throw new Error('usage: runner <corpus.json> <fixture-dir> <provider.ts>');
+const [corpusPath, fixtureDir, providerPath, regionProviderPath] = process.argv.slice(2);
+if (!corpusPath || !fixtureDir || !providerPath || !regionProviderPath) {
+  throw new Error('usage: runner <corpus.json> <fixture-dir> <ocr-provider.ts> <region-provider.ts>');
 }
 process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
 process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([
   providerPath,
   '{input}',
   '{page}',
+  '{languages}',
+]);
+process.env['MCP_PDF_REGION_ANALYSIS_COMMAND'] = process.execPath;
+process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([
+  regionProviderPath,
+  '{input}',
+  '{page}',
+  '{region_id}',
+  '{evidence_id}',
   '{languages}',
 ]);
 const corpus = JSON.parse(readFileSync(corpusPath, 'utf8')) as {
@@ -167,12 +176,37 @@ function canonicalize(result: ToolResult): Record<string, unknown> {
         provenance: page.provenance,
       }));
     }
+    if (Array.isArray(source.region_analyses)) {
+      output.region_analyses = source.region_analyses.map((region: Record<string, unknown>) => ({
+        region_id: region.region_id,
+        page: region.page,
+        kind: region.kind,
+        description: region.description ?? null,
+        text: region.text ?? null,
+        markdown: region.markdown ?? null,
+        confidence: region.confidence ?? null,
+        table: region.table ?? null,
+        formula: region.formula ?? null,
+        chart: region.chart ?? null,
+        warnings: region.warnings ?? [],
+        provider: region.provider,
+        source_crop_evidence_id: region.source_crop_evidence_id,
+        source_bounding_box: region.source_bounding_box,
+        crop_pixels: region.crop_pixels,
+        scale: region.scale,
+        provenance: region.provenance,
+      }));
+    }
     return output;
   });
   return {
     outcome: 'success',
     profile: payload.profile,
-    options: payload.render_options ?? payload.crop_options ?? payload.ocr_options,
+    options:
+      payload.render_options ??
+      payload.crop_options ??
+      payload.ocr_options ??
+      payload.analysis_options,
     content_count: result.content.length,
     results,
   };

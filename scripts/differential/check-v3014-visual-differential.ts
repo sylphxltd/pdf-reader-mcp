@@ -18,6 +18,7 @@ const corpusPath = join(scriptDir, 'fixtures/v3014-visual-corpus.json');
 const oraclePath = join(scriptDir, 'fixtures/v3014-visual-oracle.json');
 const fixtureManifestPath = join(scriptDir, 'fixtures/v3014-visual-fixtures.json');
 const providerPath = join(scriptDir, 'reference-ocr-provider.ts');
+const regionProviderPath = join(scriptDir, 'reference-region-analysis-provider.ts');
 const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
 const outputFlag = process.argv.indexOf('--output');
 const outputPath = outputFlag >= 0 ? process.argv[outputFlag + 1] : undefined;
@@ -35,6 +36,7 @@ const oracle = JSON.parse(readFileSync(oraclePath, 'utf8')) as {
   };
   expectations: Record<string, Json>;
   providerSha256: string;
+  regionProviderSha256: string;
 };
 const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, 'utf8')) as {
   fixtures: Array<{ path: string; bytes: number; sha256: string }>;
@@ -68,11 +70,14 @@ function verifyAuthority(): Record<string, string> {
     }
   }
   const ids = corpus.cases.map((entry) => entry.id);
-  if (ids.length !== 10 || new Set(ids).size !== ids.length) {
-    throw new Error(`visual/OCR corpus must contain 10 unique cases (got ${ids.length})`);
+  if (ids.length !== 14 || new Set(ids).size !== ids.length) {
+    throw new Error(`visual/OCR/analysis corpus must contain 14 unique cases (got ${ids.length})`);
   }
   if (sha256(readFileSync(providerPath)) !== oracle.providerSha256) {
     throw new Error('reference OCR provider digest mismatch');
+  }
+  if (sha256(readFileSync(regionProviderPath)) !== oracle.regionProviderSha256) {
+    throw new Error('reference region analysis provider digest mismatch');
   }
   if (JSON.stringify(ids.sort()) !== JSON.stringify(Object.keys(oracle.expectations).sort())) {
     throw new Error('visual corpus and oracle IDs differ');
@@ -258,12 +263,48 @@ function canonicalize(result: ToolResult): Json {
         };
       });
     }
+    if (Array.isArray(source.region_analyses)) {
+      output.region_analyses = source.region_analyses.map((region: Record<string, unknown>) => {
+        const provenance = region.provenance as Record<string, unknown>;
+        if (
+          provenance?.engine !== 'external-command' ||
+          provenance?.source !== 'region-analysis-provider'
+        ) {
+          throw new Error('Rust region analysis provider provenance is not truthful');
+        }
+        return {
+          region_id: region.region_id,
+          page: region.page,
+          kind: region.kind,
+          description: region.description ?? null,
+          text: region.text ?? null,
+          markdown: region.markdown ?? null,
+          confidence: region.confidence ?? null,
+          table: region.table ?? null,
+          formula: region.formula ?? null,
+          chart: region.chart ?? null,
+          warnings: region.warnings ?? [],
+          provider: region.provider,
+          source_crop_evidence_id: region.source_crop_evidence_id,
+          source_bounding_box: region.source_bounding_box,
+          crop_pixels: region.crop_pixels,
+          scale: region.scale,
+          provenance: region.provenance,
+        };
+      });
+    }
     return output;
   });
   return {
     outcome: 'success',
     profile: (payload.profile ?? null) as Json,
-    options: (payload.render_options ?? payload.crop_options ?? payload.ocr_options ?? null) as Json,
+    options: (
+      payload.render_options ??
+      payload.crop_options ??
+      payload.ocr_options ??
+      payload.analysis_options ??
+      null
+    ) as Json,
     content_count: result.content.length,
     results: results as Json,
   };
@@ -284,6 +325,15 @@ async function main() {
         providerPath,
         '{input}',
         '{page}',
+        '{languages}',
+      ]),
+      MCP_PDF_REGION_ANALYSIS_COMMAND: process.execPath,
+      MCP_PDF_REGION_ANALYSIS_ARGS_JSON: JSON.stringify([
+        regionProviderPath,
+        '{input}',
+        '{page}',
+        '{region_id}',
+        '{evidence_id}',
         '{languages}',
       ]),
     },
