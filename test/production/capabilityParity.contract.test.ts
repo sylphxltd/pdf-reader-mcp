@@ -41,41 +41,44 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   visual: ['visual_enrichments'],
 };
 
-const READ_PDF_CASES: Array<{ id: string; args: Record<string, unknown>; fields: string[] }> =
-  Object.entries(READ_PDF_REQUIRED_FIELDS).map(([id, fields]) => {
-    const flagMap: Record<string, Record<string, unknown>> = {
-      'meta-pages': { include_metadata: true, include_page_count: true },
-      'full-text': { include_full_text: true },
-      markdown: { include_markdown: true },
-      html: { include_html: true },
-      chunks: { include_chunks: true },
-      elements: { include_elements: true, include_semantic_hints: true },
-      'text-layer': { include_text_layer: true },
-      tables: { include_tables: true },
-      'document-map': { include_document_map: true },
-      'document-ast': { include_document_ast: true },
-      safety: { include_safety_findings: true },
-      layout: { include_layout_diagnostics: true },
-      trust: { include_trust_report: true },
-      a11y: { include_accessibility_report: true },
-      outline: { include_outline: true },
-      annotations: { include_annotations: true },
-      'page-labels': { include_page_labels: true },
-      'page-geometry': { include_page_geometry: true },
-      permissions: { include_permissions: true },
-      forms: { include_form_fields: true },
-      attachments: { include_attachments: true },
-      structure: { include_structure_tree: true },
-      images: { include_images: true },
-      ocr: { include_ocr_text_layer: true },
-      visual: { include_visual_enrichments: true },
-    };
-    return {
-      id,
-      args: { auto: false, ...flagMap[id] },
-      fields,
-    };
-  });
+const READ_PDF_CASES: Array<{
+  id: string;
+  args: Record<string, unknown>;
+  fields: string[];
+}> = Object.entries(READ_PDF_REQUIRED_FIELDS).map(([id, fields]) => {
+  const flagMap: Record<string, Record<string, unknown>> = {
+    'meta-pages': { include_metadata: true, include_page_count: true },
+    'full-text': { include_full_text: true },
+    markdown: { include_markdown: true },
+    html: { include_html: true },
+    chunks: { include_chunks: true },
+    elements: { include_elements: true, include_semantic_hints: true },
+    'text-layer': { include_text_layer: true },
+    tables: { include_tables: true },
+    'document-map': { include_document_map: true },
+    'document-ast': { include_document_ast: true },
+    safety: { include_safety_findings: true },
+    layout: { include_layout_diagnostics: true },
+    trust: { include_trust_report: true },
+    a11y: { include_accessibility_report: true },
+    outline: { include_outline: true },
+    annotations: { include_annotations: true },
+    'page-labels': { include_page_labels: true },
+    'page-geometry': { include_page_geometry: true },
+    permissions: { include_permissions: true },
+    forms: { include_form_fields: true },
+    attachments: { include_attachments: true },
+    structure: { include_structure_tree: true },
+    images: { include_images: true },
+    ocr: { include_ocr_text_layer: true },
+    visual: { include_visual_enrichments: true },
+  };
+  return {
+    id,
+    args: { auto: false, ...flagMap[id] },
+    fields,
+  };
+});
 
 function deepHasKey(value: unknown, key: string): boolean {
   if (value === null || value === undefined) return false;
@@ -93,6 +96,7 @@ const pureRustEnabled =
   process.env.PDF_READER_ENGINE_MODE === 'rust' ||
   process.env.RUN_PURE_RUST_CAPABILITY === '1';
 const signalPdf = join(import.meta.dir, '../fixtures/differential/v3014-behavior-v1.pdf');
+const structurePdf = join(import.meta.dir, '../fixtures/differential/v3014-structure-v1.pdf');
 
 describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
   let proc: ChildProcess;
@@ -127,7 +131,7 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
         nextId(),
         'read_pdf',
         {
-          sources: [{ path: samplePdf }],
+          sources: [{ path: entry.id === 'structure' ? structurePdf : samplePdf }],
           ...entry.args,
         },
         90_000
@@ -152,6 +156,59 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     }
     expect(failures).toEqual([]);
   }, 600_000);
+
+  test('structure trees match the immutable tagged subset and untagged PDFs omit the field', async () => {
+    const tagged = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: structurePdf, pages: [2, 1, 1] }],
+        auto: false,
+        include_structure_tree: true,
+      },
+      90_000
+    );
+    const taggedData = (
+      JSON.parse(parseToolPayload(tagged).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(taggedData?.structure_trees).toEqual([
+      {
+        page: 1,
+        tree: {
+          role: 'Root',
+          children: [
+            { role: 'H1', children: [{ type: 'content', id: 'p3R_mc0' }] },
+            {
+              role: 'Figure',
+              children: [{ type: 'annotation', id: 'pdfjs_internal_id_7R' }],
+            },
+          ],
+        },
+      },
+      { page: 2, tree: { role: 'Root' } },
+    ]);
+
+    const untagged = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: samplePdf }],
+        auto: false,
+        include_structure_tree: true,
+      },
+      90_000
+    );
+    const untaggedData = (
+      JSON.parse(parseToolPayload(untagged).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(untaggedData?.structure_trees).toBeUndefined();
+  }, 180_000);
 
   test('annotations match the immutable Link subset and omit empty placeholders', async () => {
     const withAnnotation = await callTool(
@@ -188,7 +245,11 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       proc,
       nextId(),
       'read_pdf',
-      { sources: [{ path: samplePdf }], auto: false, include_annotations: true },
+      {
+        sources: [{ path: samplePdf }],
+        auto: false,
+        include_annotations: true,
+      },
       90_000
     );
     const omitted = JSON.parse(parseToolPayload(withoutAnnotation).text) as {
@@ -202,7 +263,11 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       proc,
       nextId(),
       'read_pdf',
-      { sources: [{ path: signalPdf }], auto: false, include_form_fields: true },
+      {
+        sources: [{ path: signalPdf }],
+        auto: false,
+        include_form_fields: true,
+      },
       90_000
     );
     const formsData = (
@@ -259,7 +324,11 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       proc,
       nextId(),
       'read_pdf',
-      { sources: [{ path: signalPdf }], auto: false, include_attachments: true },
+      {
+        sources: [{ path: signalPdf }],
+        auto: false,
+        include_attachments: true,
+      },
       90_000
     );
     const attachmentsData = (
@@ -268,7 +337,12 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       }
     ).results?.[0]?.data;
     expect(attachmentsData?.attachments).toEqual([
-      { name: 'source.csv', filename: 'source.csv', description: 'Source data', size_bytes: 19 },
+      {
+        name: 'source.csv',
+        filename: 'source.csv',
+        description: 'Source data',
+        size_bytes: 19,
+      },
       { name: 'evidence', filename: 'report.txt', size_bytes: 5 },
     ]);
     expect(attachmentsData?.form_fields).toBeUndefined();
@@ -491,7 +565,11 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       proc,
       nextId(),
       'pdf_evidence',
-      { operation: 'inspect', sources: [{ path: samplePdf }], sample_pages: 2 },
+      {
+        operation: 'inspect',
+        sources: [{ path: samplePdf }],
+        sample_pages: 2,
+      },
       60_000
     );
     const inspectPayload = parseToolPayload(inspect);
@@ -500,6 +578,75 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     expect(deepHasKey(inspectJson, 'recommendation') || deepHasKey(inspectJson, 'num_pages')).toBe(
       true
     );
+
+    const taggedInspect = await callTool(
+      proc,
+      nextId(),
+      'pdf_evidence',
+      {
+        operation: 'inspect',
+        sources: [{ path: structurePdf }],
+        sample_pages: 2,
+      },
+      60_000
+    );
+    const taggedInspectJson = JSON.parse(parseToolPayload(taggedInspect).text) as {
+      results?: Array<{
+        data?: {
+          profile?: string;
+          sampled_pages?: number[];
+          page_signals?: unknown[];
+          document_signals?: Record<string, boolean>;
+          recommendation?: {
+            workflow?: string;
+            needs_ocr?: boolean;
+            read_pdf_arguments?: Record<string, unknown>;
+          };
+        };
+      }>;
+    };
+    expect(taggedInspectJson.results?.[0]?.data?.profile).toBe('low_text_or_form');
+    expect(taggedInspectJson.results?.[0]?.data?.sampled_pages).toEqual([1, 2]);
+    expect(taggedInspectJson.results?.[0]?.data?.page_signals).toEqual([
+      {
+        page: 1,
+        text_chars: 14,
+        text_items: 1,
+        estimated_tokens: 4,
+        image_paint_operations: 0,
+        likely_scanned: false,
+        low_text_density: true,
+      },
+      {
+        page: 2,
+        text_chars: 0,
+        text_items: 0,
+        estimated_tokens: 0,
+        image_paint_operations: 0,
+        likely_scanned: false,
+        low_text_density: true,
+      },
+    ]);
+    expect(taggedInspectJson.results?.[0]?.data?.document_signals).toEqual({
+      has_outline: false,
+      has_page_labels: false,
+      has_permissions: false,
+      has_mark_info: true,
+      has_form_fields: false,
+      has_attachments: false,
+      has_structure_tree: true,
+    });
+    expect(taggedInspectJson.results?.[0]?.data?.recommendation).toMatchObject({
+      workflow: 'metadata_review',
+      needs_ocr: false,
+      read_pdf_arguments: {
+        sources: [{ path: structurePdf }],
+        include_metadata: true,
+        include_page_count: true,
+        include_page_geometry: true,
+        include_structure_tree: true,
+      },
+    });
 
     for (const operation of ['render_page', 'extract_regions']) {
       const response = await callTool(
@@ -517,7 +664,12 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
                       {
                         id: 'r1',
                         page: 1,
-                        bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+                        bounding_box: {
+                          left: 0,
+                          bottom: 0,
+                          right: 100,
+                          top: 100,
+                        },
                       },
                     ]
                   : undefined,
@@ -552,7 +704,12 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
                       {
                         id: 'r1',
                         page: 1,
-                        bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+                        bounding_box: {
+                          left: 0,
+                          bottom: 0,
+                          right: 100,
+                          top: 100,
+                        },
                       },
                     ]
                   : undefined,

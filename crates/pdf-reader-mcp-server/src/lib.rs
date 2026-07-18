@@ -3,6 +3,7 @@ mod command_provider;
 pub mod evidence;
 pub mod http_transport;
 mod ocr_evidence;
+mod page_selection;
 pub mod pdf_evidence;
 pub mod read_pdf;
 mod region_analysis_evidence;

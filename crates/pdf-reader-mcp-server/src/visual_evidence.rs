@@ -12,15 +12,14 @@ use pdf_reader_core::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
 use rmcp::model::{CallToolResult, Content};
 use serde_json::{json, Value};
 
+use crate::page_selection::selected_pages;
 use crate::schema::{
-    PageSpecifier, PdfEvidenceArgs, PdfEvidenceRegion, PdfEvidenceSource, PdfSource,
-    RegionBoundingBox,
+    PdfEvidenceArgs, PdfEvidenceRegion, PdfEvidenceSource, PdfSource, RegionBoundingBox,
 };
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 const DEFAULT_MAX_RENDER_PAGES: usize = 5;
 const DEFAULT_MAX_REGIONS: usize = 20;
-const MAX_SELECTED_PAGES: usize = 10_001;
 const MAX_AGGREGATE_IMAGE_BYTES: usize = 256 * 1024 * 1024;
 const MAX_SOURCES_PER_REQUEST: usize = 32;
 const MAX_REQUEST_RENDERED_PAGES: usize = 64;
@@ -333,60 +332,6 @@ fn read_pdf(path: &Path) -> Result<Vec<u8>, String> {
         ));
     }
     fs::read(path).map_err(|error| format!("Failed to read PDF bytes: {error}"))
-}
-
-fn parse_ts_positive_page(value: &str) -> Option<u32> {
-    let value = value.trim_start();
-    let value = value.strip_prefix('+').unwrap_or(value);
-    let digits: String = value.chars().take_while(char::is_ascii_digit).collect();
-    (!digits.is_empty())
-        .then(|| digits.parse::<u32>().ok())
-        .flatten()
-        .filter(|page| *page > 0)
-}
-
-fn selected_pages(spec: &Option<PageSpecifier>) -> Result<Option<Vec<u32>>, String> {
-    let Some(spec) = spec else {
-        return Ok(None);
-    };
-    let mut pages = Vec::new();
-    match spec {
-        PageSpecifier::Pages(values) => pages.extend(values.iter().map(|page| page.0)),
-        PageSpecifier::Range(value) => {
-            for raw in value.split(',') {
-                let part = raw.trim();
-                if let Some((start, end)) = part.split_once('-') {
-                    let start = parse_ts_positive_page(start);
-                    let end = if end.trim().is_empty() {
-                        start.map(|page| page.saturating_add(10_000))
-                    } else {
-                        parse_ts_positive_page(end)
-                    };
-                    let (Some(start), Some(end)) = (start, end) else {
-                        return Err(format!("Invalid page range values: {part}"));
-                    };
-                    if start > end {
-                        return Err(format!("Invalid page range values: {part}"));
-                    }
-                    pages.extend(start..=end.min(start.saturating_add(10_000)));
-                } else {
-                    let Some(page) = parse_ts_positive_page(part) else {
-                        return Err(format!("Invalid page number: {part}"));
-                    };
-                    pages.push(page);
-                }
-                if pages.len() > MAX_SELECTED_PAGES {
-                    return Err("Page specification exceeds 10001 selected pages.".into());
-                }
-            }
-        }
-    }
-    pages.sort_unstable();
-    pages.dedup();
-    if pages.is_empty() {
-        return Err("Page specification resulted in an empty set of pages.".into());
-    }
-    Ok(Some(pages))
 }
 
 fn render_warnings(
@@ -810,6 +755,8 @@ pub fn extract_regions(value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::page_selection::MAX_SELECTED_PAGES;
+    use crate::schema::PageSpecifier;
 
     fn fixture_path() -> String {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -829,6 +776,18 @@ mod tests {
         assert_eq!(
             selected_pages(&Some(PageSpecifier::Range("2-4".into()))).unwrap(),
             Some(vec![2, 3, 4])
+        );
+        for open in ["1--5", "1-   "] {
+            let pages = selected_pages(&Some(PageSpecifier::Range(open.into())))
+                .unwrap()
+                .unwrap();
+            assert_eq!(pages.len(), MAX_SELECTED_PAGES);
+            assert_eq!(pages.first(), Some(&1));
+            assert_eq!(pages.last(), Some(&10_001));
+        }
+        assert_eq!(
+            selected_pages(&Some(PageSpecifier::Range("1-2-999".into()))).unwrap(),
+            Some(vec![1, 2])
         );
     }
 

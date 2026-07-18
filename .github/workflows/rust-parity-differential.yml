@@ -106,6 +106,7 @@ jobs:
           RUN_PURE_RUST_CAPABILITY: "1"
         run: |
           bun run check:pure-rust-matrix
+          bun run test:v3014-structure-differential
           bun run test:capability-parity
 
       - name: Assert proof SHA binding

@@ -41,7 +41,7 @@
       "include_annotations": "PARTIAL",
       "include_form_fields": "PARTIAL",
       "include_attachments": "PARTIAL",
-      "include_structure_tree": "STUB",
+      "include_structure_tree": "PARTIAL",
       "include_page_labels": "PARTIAL",
       "include_page_geometry": "PARTIAL",
       "include_permissions": "PARTIAL",
@@ -73,6 +73,7 @@
   "claimedForDifferential": [
     "exact 14-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, missing and malformed inputs, mixed-source partial success, inherited crop/media/rotation geometry with page UserUnit, an indirect Link/URI annotation, common catalog signals, a bounded AcroForm text/parent-widget/checkbox/listbox subset, and EmbeddedFiles metadata with distinct ASCII tree keys, path-normalized filenames, descriptions, fixture ordering, and unfiltered content sizes",
     "exact 16-case immutable TS v3.0.14 render/crop/command-provider semantic subset over stdio: defaults, page selection and warnings, region ordering, padding and fractional bounds, rotated pages, mixed-source and late-provider partial success, all-source failure, MCP image indexing, standalone OCR normalization, read_pdf OCR text-layer/map fusion, boxed OCR table projection into elements/chunks/markdown/html/document_ast/document_map, rich region-analysis normalization, plain-text truncation, and truthful provenance; exact pdf.js pixels and antialiasing are not claimed",
+    "exact 11-case immutable TS v3.0.14 tagged-structure and inspect subset: RoleMap, ParentTree, StructParents, inherited page association, scalar-reference, scalar-direct, combined-scalar, and array StructTreeRoot/StructElem /K plus ParentTree values, MCID/MCR and OBJR identifiers, sorted/deduplicated selected pages, empty Root pages, untagged omission, accessibility-private consumption, document-map accessibility routing, auto-full explicit-false override, and tagged-fixture inspect profile/page/document/recommendation signals; fixture, runner, projection, normalizer, generator, TS source, and pdf.js 6.0.227 digests are bound with mutation-sensitivity checks",
     "DNS-pinned URL fetch: one resolution per redirect hop, reject mixed public/non-public answers, disable ambient proxies, and revalidate every redirect; still PARTIAL because resolver timeout and TLS-SNI fixtures remain open",
     "auto off when include_* keys are present"
   ],
@@ -81,7 +82,8 @@
     "text/search geometry, geometry-perfect pdf.js boxes outside the frozen page-geometry subset, direct-annotation PDF.js presentation normalization, non-Link annotation/action parity, and general bounding-box parity",
     "render/crop/OCR/analyze/read-fusion/table-projection semantic parity outside the immutable 16-case subset, including exact pdf.js pixels and antialiasing",
     "OCR success paths outside the opt-in command JSON/plain-text subset, including tesseract-tsv; mixed selectable/OCR table continuation and full AST hierarchy parity; analyze_regions HTTP and preset providers",
-    "full COS outline/PageLabels/permissions parity outside the frozen common catalog subset; AcroForm radio/pushbutton/signature, button-array V coercion, and malformed-field breadth, integer-like/duplicate attachment-key ordering, odd-length Names arrays (PDF.js may materialize a final unnamed entry), filtered embedded-stream decoded sizes, Associated Files, and structure trees",
+    "full COS outline/PageLabels/permissions parity outside the frozen common catalog subset; AcroForm radio/pushbutton/signature, button-array V coercion, and malformed-field breadth, integer-like/duplicate attachment-key ordering, odd-length Names arrays (PDF.js may materialize a final unnamed entry), filtered embedded-stream decoded sizes, and Associated Files",
+    "structure-tree, accessibility, and inspect parity outside the immutable 6-case subset, including broader malformed/deep-number-tree corpus coverage, image-paint inspection, provider recommendations, and non-reference top-level StructElem forms",
     "cross-platform npm native binary",
     "npm library exports for pure-Rust",
     "2.0x/3.3x industry benchmark headline"
