@@ -31,15 +31,23 @@ const differentialWorkflow = readFileSync(
 );
 
 const failures: string[] = [];
-if (!matrix.productTruth.dropInFor3014 && !String(matrix.productTruth.publishedStable).includes('3.0.14')) {
+if (
+  !matrix.productTruth.dropInFor3014 &&
+  !String(matrix.productTruth.publishedStable).includes('3.0.14')
+) {
   failures.push('publishedStable must reference 3.0.14 while Rust is not drop-in');
 }
 const capabilityStatuses = Object.entries(matrix.tools).flatMap(([tool, capabilities]) =>
-  Object.entries(capabilities).map(([capability, status]) => ({ tool, capability, status }))
+  Object.entries(capabilities).map(([capability, status]) => ({
+    tool,
+    capability,
+    status,
+  }))
 );
 const allowedStatuses = new Set(['FULL', 'PARTIAL', 'STUB', 'FAIL_CLOSED', 'MISSING']);
 for (const { tool, capability, status } of capabilityStatuses) {
-  if (!allowedStatuses.has(status)) failures.push(`${tool}.${capability} has invalid status ${status}`);
+  if (!allowedStatuses.has(status))
+    failures.push(`${tool}.${capability} has invalid status ${status}`);
 }
 if (matrix.productTruth.dropInFor3014) {
   const incomplete = capabilityStatuses.filter(({ status }) => status !== 'FULL');
@@ -66,12 +74,14 @@ if (
     `rust parity workflow must require the exact ${behaviorCaseCount}/${behaviorCaseCount} behavior corpus`
   );
 }
-const structureCaseCount = structureCorpus.cases.length;
+const structureCaseCount = structureCorpus.cases.length + 1;
 if (!differentialWorkflow.includes('bun run test:v3014-structure-differential')) {
   failures.push('rust parity workflow must execute the frozen structure differential');
 }
-if (structureCaseCount !== 5) {
-  failures.push(`frozen structure differential must contain exactly 5 cases (got ${structureCaseCount})`);
+if (structureCaseCount !== 6) {
+  failures.push(
+    `frozen structure/inspect differential must contain exactly 6 cases (got ${structureCaseCount})`
+  );
 }
 if (failures.length) {
   console.error(failures.join('\n'));

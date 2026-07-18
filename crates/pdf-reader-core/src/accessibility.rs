@@ -46,6 +46,7 @@ pub(crate) struct AccessibilityInput<'a> {
     pub permissions: Option<&'a Value>,
     pub mark_info: Option<&'a Value>,
     pub outline: Option<&'a Value>,
+    pub structure_valid: bool,
 }
 
 pub(crate) fn build_accessibility_report(input: AccessibilityInput<'_>) -> Value {
@@ -276,7 +277,7 @@ pub(crate) fn build_accessibility_report(input: AccessibilityInput<'_>) -> Value
     };
     json!({
         "version":"2026-06-15","profile":"pdf_accessibility_report","score":total_score,
-        "grade":grade(total_score),"tagged":marked==Some(true)||tagged_pages>0,
+        "grade":grade(total_score),"tagged":input.structure_valid && (marked==Some(true)||tagged_pages>0),
         "suspected_tagging_issues":suspects==Some(true),
         "summary":{
             "selected_pages":selected_pages,"page_count":page_reports.len(),

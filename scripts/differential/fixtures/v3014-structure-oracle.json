@@ -11,7 +11,8 @@
       "src/pdf/readCoordinator.ts": "827cb1018a8621287de154132c0a00a00188497b84622a168a343d0df3ce5eca",
       "src/pdf/accessibilityReport.ts": "6750f3d60218d7aaa6d2bddb4bddfef28f482a55104a240f1612b907fb527560",
       "src/pdf/autoReadPolicy.ts": "168b5b00ae00229a7cf2c0e84b68e1bb41e288eefe957bd46e3f84db2af9537a",
-      "src/pdf/documentMap.ts": "b40714620bcbcec45eddc095c4815a9d8cd20c4524e8cbd1f40d8ba8e6bfc352"
+      "src/pdf/documentMap.ts": "b40714620bcbcec45eddc095c4815a9d8cd20c4524e8cbd1f40d8ba8e6bfc352",
+      "src/pdf/inspector.ts": "97d5543f9e1628f85fc73005187c6eeee0b4af5eb65c2bb59a65b2b31c2372be"
     }
   },
   "expectations": {
@@ -573,6 +574,64 @@
         "outline": true
       },
       "accessibility_map": null
+    },
+    "inspect-tagged": {
+      "profile": "low_text_or_form",
+      "num_pages": 2,
+      "sampled_pages": [
+        1,
+        2
+      ],
+      "page_signals": [
+        {
+          "page": 1,
+          "text_chars": 14,
+          "text_items": 1,
+          "estimated_tokens": 4,
+          "image_paint_operations": 0,
+          "likely_scanned": false,
+          "low_text_density": true
+        },
+        {
+          "page": 2,
+          "text_chars": 0,
+          "text_items": 0,
+          "estimated_tokens": 0,
+          "image_paint_operations": 0,
+          "likely_scanned": false,
+          "low_text_density": true
+        }
+      ],
+      "document_signals": {
+        "has_outline": false,
+        "has_page_labels": false,
+        "has_permissions": false,
+        "has_mark_info": true,
+        "has_form_fields": false,
+        "has_attachments": false,
+        "has_structure_tree": true
+      },
+      "recommendation": {
+        "workflow": "metadata_review",
+        "needs_ocr": false,
+        "reason": "Sampled pages expose limited text; inspect metadata, forms, attachments, structure, and selected pages before running a heavier extraction.",
+        "read_pdf_arguments": {
+          "sources": [
+            {
+              "path": "v3014-structure-v1.pdf"
+            }
+          ],
+          "include_metadata": true,
+          "include_page_count": true,
+          "include_page_geometry": true,
+          "include_structure_tree": true
+        }
+      }
     }
+  },
+  "harness": {
+    "baselineRunnerSha256": "0a4b3ad1ba94fa314c6843a95f7a7128b72152f904d8772c647fbf5f3436d189",
+    "normalizerRunnerSha256": "6fb67ff8bf7baf42b2c86a95063eaab9f1f63e8cbb1c978fed070c9fe9a3c0b6",
+    "projectionSha256": "f312646b702ac3a86f88685ed846676f9aab6b48f393b7358304a8e8d8b34568"
   }
 }

@@ -97,52 +97,80 @@ fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
                     .unwrap_or(5)
                     .clamp(1, 20) as usize;
                 let sampled_pages = sample_pages(num_pages, targets.as_deref(), sample_count);
-                let has_structure_tree = pdf_reader_core::inspect_structure_tree_presence(
+                let document_signals = match pdf_reader_core::inspect_document_signal_presence(
                     path_owned.as_path(),
                     DEFAULT_MAX_FILE_BYTES,
                     &sampled_pages,
-                )
-                .map(|(_, value)| value)
-                .unwrap_or(false);
-                let sampled_text = sampled_pages
+                ) {
+                    Ok((_, value)) => value,
+                    Err(error) => {
+                        results.push(json!({
+                            "source": source.label(),
+                            "success": false,
+                            "error": error.message,
+                        }));
+                        continue;
+                    }
+                };
+                let page_signals = sampled_pages
                     .iter()
-                    .filter_map(|page| pages.get(*page as usize - 1))
+                    .filter_map(|page_number| {
+                        pages.get(*page_number as usize - 1).map(|page| {
+                            let text_chars = page.trim().chars().count();
+                            let text_items = page
+                                .lines()
+                                .filter(|value| !value.trim().is_empty())
+                                .count();
+                            json!({
+                                "page": page_number,
+                                "text_chars": text_chars,
+                                "text_items": text_items,
+                                "estimated_tokens": text_chars.div_ceil(4),
+                                "image_paint_operations": 0,
+                                "likely_scanned": false,
+                                "low_text_density": text_chars < 80,
+                            })
+                        })
+                    })
                     .collect::<Vec<_>>();
-                let text_chars: u32 = sampled_text
+                let profile = if page_signals
                     .iter()
-                    .map(|page| page.chars().count() as u32)
-                    .sum();
+                    .any(|signal| signal["text_chars"].as_u64().unwrap_or(0) >= 80)
+                {
+                    "digital_text"
+                } else {
+                    "low_text_or_form"
+                };
+                let has_structure_tree = document_signals["has_structure_tree"]
+                    .as_bool()
+                    .unwrap_or(false);
+                let mut read_pdf_arguments = json!({
+                    "sources": [source],
+                    "include_metadata": true,
+                    "include_page_count": true,
+                    "include_page_geometry": true,
+                });
+                if has_structure_tree {
+                    read_pdf_arguments["include_structure_tree"] = json!(true);
+                }
                 results.push(json!({
                     "source": source.label(),
                     "success": true,
                     "data": {
-                        "profile": "pdf_inspection",
+                        "profile": profile,
                         "num_pages": num_pages,
                         "sampled_pages": sampled_pages,
-                        "page_signals": sampled_pages.iter().filter_map(|page_number| pages.get(*page_number as usize - 1).map(|page| json!({
-                            "page": page_number,
-                            "text_chars": page.chars().count(),
-                            "has_selectable_text": !page.trim().is_empty(),
-                        }))).collect::<Vec<_>>(),
-                        "document_signals": {
-                            "has_outline": false,
-                            "has_page_labels": false,
-                            "has_permissions": false,
-                            "has_mark_info": false,
-                            "has_form_fields": false,
-                            "has_attachments": false,
-                            "has_structure_tree": has_structure_tree,
-                        },
+                        "page_signals": page_signals,
+                        "document_signals": document_signals,
                         "recommendation": {
-                            "workflow": if text_chars > 80 { "text_extract" } else { "ocr_render" },
-                            "needs_ocr": text_chars <= 80,
-                            "reason": "Rust inspection derived from pdf-reader-core text extraction",
-                            "read_pdf_arguments": {
-                                "include_full_text": true,
-                                "include_markdown": true,
-                                "include_document_map": true,
-                                "include_structure_tree": has_structure_tree,
-                            }
+                            "workflow": if profile == "digital_text" { "agentic_rag" } else { "metadata_review" },
+                            "needs_ocr": false,
+                            "reason": if profile == "digital_text" {
+                                "Sampled pages expose selectable text; the agent document map, citation chunks, semantic hints, table extraction, safety findings, and visual enrichment fusion are the highest-value next read_pdf options when providers are ready."
+                            } else {
+                                "Sampled pages expose limited text; inspect metadata, forms, attachments, structure, and selected pages before running a heavier extraction."
+                            },
+                            "read_pdf_arguments": read_pdf_arguments,
                         },
                         "route": INSPECT_ROUTE,
                         "engine": {

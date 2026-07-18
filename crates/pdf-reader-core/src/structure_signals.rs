@@ -6,13 +6,19 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 const PDFJS_MAX_DEPTH: usize = 40;
-const MAX_OBJECTS_PER_PAGE: usize = 10_000;
+const MAX_REQUEST_WORK: usize = 10_000;
 const MAX_ARRAY_ITEMS: usize = 10_000;
+const MAX_ROLE_MAP_TEXT_BYTES: usize = 1_048_576;
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct PageStructureTree {
     page: u32,
     tree: StructureNode,
+}
+
+pub(crate) struct StructureTreeExtraction {
+    pub(crate) trees: Vec<PageStructureTree>,
+    pub(crate) complete: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -36,25 +42,54 @@ struct StructureContent {
     id: Option<String>,
 }
 
+#[cfg(test)]
 pub(crate) fn extract_structure_trees(
     document: &Document,
     pages: &[(u32, ObjectId)],
     selected_pages: &[u32],
 ) -> Vec<PageStructureTree> {
-    let Ok(root_value) = document.trailer.get(b"Root") else {
-        return Vec::new();
-    };
-    let mut setup = Walker::new(document);
-    let Some(catalog) = setup.dict(root_value) else {
-        return Vec::new();
-    };
-    let Some(struct_root) = catalog
-        .get(b"StructTreeRoot")
+    extract_structure_trees_checked(document, pages, selected_pages)
         .ok()
-        .and_then(|value| setup.dict(value))
-    else {
-        return Vec::new();
+        .flatten()
+        .map(|value| value.trees)
+        .unwrap_or_default()
+}
+
+pub(crate) fn extract_structure_trees_checked(
+    document: &Document,
+    pages: &[(u32, ObjectId)],
+    selected_pages: &[u32],
+) -> Result<Option<StructureTreeExtraction>, ()> {
+    let mut budget = RequestBudget::default();
+    if budget.admit_items(selected_pages.len()).is_none() {
+        return Err(());
+    }
+    let mut selected = selected_pages.to_vec();
+    budget.materialized(selected.len());
+    selected.sort_unstable();
+    selected.dedup();
+    let Ok(root_value) = document.trailer.get(b"Root") else {
+        return Err(());
     };
+    let mut setup = Walker::new(document, &mut budget);
+    let Some(catalog) = setup.dict(root_value) else {
+        return Err(());
+    };
+    let struct_root_value = match catalog.get(b"StructTreeRoot") {
+        Ok(value) => value,
+        Err(_) => return Ok(None),
+    };
+    let Some(struct_root) = setup.dict(struct_root_value) else {
+        return Err(());
+    };
+    if struct_root
+        .get(b"Type")
+        .ok()
+        .and_then(|value| value.as_name().ok())
+        != Some(b"StructTreeRoot")
+    {
+        return Err(());
+    }
     let role_map = read_role_map(&mut setup, struct_root);
     let Some(top_level) = struct_root
         .get(b"K")
@@ -64,40 +99,54 @@ pub(crate) fn extract_structure_trees(
         .ok()
         .flatten()
     else {
-        return Vec::new();
+        return Err(());
     };
-    let parent_tree = struct_root
-        .get(b"ParentTree")
-        .ok()
-        .and_then(|value| read_number_tree(&mut setup, value));
+    let parent_tree = match struct_root.get(b"ParentTree") {
+        Ok(value) => match read_number_tree(&mut setup, value) {
+            Some(tree) => Some(tree),
+            None => return Err(()),
+        },
+        Err(_) => None,
+    };
     if setup.failed || setup.limited {
-        return Vec::new();
+        return Err(());
     }
 
+    drop(setup);
+    if budget.admit_items(pages.len()).is_none() {
+        return Err(());
+    }
     let page_by_number = pages.iter().copied().collect::<HashMap<_, _>>();
-    let mut selected = selected_pages.to_vec();
-    selected.sort_unstable();
-    selected.dedup();
-    selected
-        .into_iter()
-        .filter_map(|page| {
-            let page_id = *page_by_number.get(&page)?;
-            let mut walker = Walker::new(document);
-            extract_page_tree(
-                &mut walker,
-                page,
-                page_id,
-                struct_root,
-                &top_level,
-                &role_map,
-                parent_tree.as_ref(),
-            )
-        })
-        .collect()
+    budget.materialized(pages.len());
+    let mut output = Vec::new();
+    let mut complete = true;
+    for page in selected {
+        let Some(page_id) = page_by_number.get(&page).copied() else {
+            continue;
+        };
+        let mut walker = Walker::new(document, &mut budget);
+        if let Some(tree) = extract_page_tree(
+            &mut walker,
+            page,
+            page_id,
+            struct_root,
+            &top_level,
+            &role_map,
+            parent_tree.as_ref(),
+        ) {
+            output.push(tree);
+        } else {
+            complete = false;
+        }
+    }
+    Ok(Some(StructureTreeExtraction {
+        trees: output,
+        complete,
+    }))
 }
 
 fn extract_page_tree<'a>(
-    walker: &mut Walker<'a>,
+    walker: &mut Walker<'a, '_>,
     page: u32,
     page_id: ObjectId,
     struct_root: &'a Dictionary,
@@ -213,31 +262,35 @@ fn extract_page_tree<'a>(
 }
 
 fn admit_ancestry(
-    walker: &mut Walker<'_>,
+    walker: &mut Walker<'_, '_>,
     mut id: ObjectId,
     struct_root: &Dictionary,
     included: &mut HashSet<ObjectId>,
 ) -> Option<()> {
+    let mut path = Vec::new();
+    let mut seen = HashSet::new();
     for _ in 0..=PDFJS_MAX_DEPTH {
         walker.admit_node()?;
-        if !included.insert(id) {
+        if included.contains(&id) {
             return Some(());
         }
+        if !seen.insert(id) {
+            walker.failed = true;
+            return None;
+        }
+        path.push(id);
         let dict = walker.document.objects.get(&id)?.as_dict().ok()?;
-        let parent = dict.get(b"P").ok()?;
-        let parent = walker.resolve(parent)?;
+        let raw_parent = dict.get(b"P").ok()?;
+        let parent = walker.resolve(raw_parent)?;
         let parent_dict = parent.as_dict().ok()?;
         if std::ptr::eq(parent_dict, struct_root) {
+            included.extend(path);
             return Some(());
         }
-        let parent_id = parent.as_reference().ok().or_else(|| {
-            dict.get(b"P")
-                .ok()
-                .and_then(|value| value.as_reference().ok())
-        })?;
+        let parent_id = raw_parent.as_reference().ok()?;
         if !parent_contains(walker, parent_dict, id) {
-            included.remove(&id);
-            return Some(());
+            walker.failed = true;
+            return None;
         }
         id = parent_id;
     }
@@ -245,7 +298,11 @@ fn admit_ancestry(
     None
 }
 
-fn parent_contains<'a>(walker: &mut Walker<'a>, parent: &'a Dictionary, child: ObjectId) -> bool {
+fn parent_contains<'a>(
+    walker: &mut Walker<'a, '_>,
+    parent: &'a Dictionary,
+    child: ObjectId,
+) -> bool {
     parent
         .get(b"K")
         .ok()
@@ -258,7 +315,7 @@ fn parent_contains<'a>(walker: &mut Walker<'a>, parent: &'a Dictionary, child: O
 
 #[allow(clippy::too_many_arguments)]
 fn serialize_node(
-    walker: &mut Walker<'_>,
+    walker: &mut Walker<'_, '_>,
     id: ObjectId,
     page_id: ObjectId,
     role_map: &HashMap<Vec<u8>, Vec<u8>>,
@@ -380,7 +437,10 @@ fn content(kind: &str, id: Option<String>) -> StructureChild {
     })
 }
 
-fn read_role_map<'a>(walker: &mut Walker<'a>, root: &'a Dictionary) -> HashMap<Vec<u8>, Vec<u8>> {
+fn read_role_map<'a>(
+    walker: &mut Walker<'a, '_>,
+    root: &'a Dictionary,
+) -> HashMap<Vec<u8>, Vec<u8>> {
     let Some(dict) = root
         .get(b"RoleMap")
         .ok()
@@ -388,21 +448,33 @@ fn read_role_map<'a>(walker: &mut Walker<'a>, root: &'a Dictionary) -> HashMap<V
     else {
         return HashMap::new();
     };
-    dict.iter()
-        .filter_map(|(key, value)| {
-            walker
-                .resolve(value)
-                .and_then(|value| value.as_name().ok())
-                .map(|value| (key.clone(), value.to_vec()))
-        })
-        .collect()
+    if walker.admit_items(dict.len()).is_none() {
+        return HashMap::new();
+    }
+    let mut output = HashMap::new();
+    for (key, value) in dict.iter() {
+        let Some(value) = walker.resolve(value).and_then(|value| value.as_name().ok()) else {
+            continue;
+        };
+        if walker
+            .admit_text(key.len().saturating_add(value.len()))
+            .is_none()
+        {
+            return HashMap::new();
+        }
+        output.insert(key.clone(), value.to_vec());
+        walker.materialized(1);
+    }
+    output
 }
 
 fn read_number_tree<'a>(
-    walker: &mut Walker<'a>,
+    walker: &mut Walker<'a, '_>,
     root: &'a Object,
 ) -> Option<HashMap<i64, &'a Object>> {
+    walker.admit_work()?;
     let mut queue = VecDeque::from([(root, 0usize)]);
+    walker.materialized(1);
     let mut seen = HashSet::new();
     let mut output = HashMap::new();
     while let Some((value, depth)) = queue.pop_front() {
@@ -415,6 +487,9 @@ fn read_number_tree<'a>(
                 walker.failed = true;
                 return None;
             }
+        }
+        if depth > 0 {
+            walker.admit_work()?;
         }
         let dict = walker.dict(value)?;
         if let Ok(kids) = dict.get(b"Kids") {
@@ -439,36 +514,80 @@ fn read_number_tree<'a>(
     Some(output)
 }
 
-fn object_list<'a>(walker: &mut Walker<'a>, value: &'a Object) -> Result<Vec<&'a Object>, ()> {
+fn object_list<'a>(walker: &mut Walker<'a, '_>, value: &'a Object) -> Result<Vec<&'a Object>, ()> {
     let value = walker.resolve(value).ok_or(())?;
     if let Ok(values) = value.as_array() {
-        if values.len() > MAX_ARRAY_ITEMS {
+        if values.len() > MAX_ARRAY_ITEMS || walker.admit_items(values.len()).is_none() {
             walker.limited = true;
             return Err(());
         }
-        Ok(values.iter().collect())
+        let output = values.iter().collect::<Vec<_>>();
+        walker.materialized(output.len());
+        Ok(output)
     } else if matches!(value, Object::Null) {
         Ok(Vec::new())
     } else {
-        Ok(vec![value])
+        walker.admit_items(1).ok_or(())?;
+        let output = vec![value];
+        walker.materialized(1);
+        Ok(output)
     }
 }
 
-struct Walker<'a> {
-    document: &'a Document,
+#[derive(Default)]
+struct RequestBudget {
     work: usize,
     admitted: usize,
+    text_bytes: usize,
+    materialized: usize,
+}
+
+impl RequestBudget {
+    fn admit_items(&mut self, count: usize) -> Option<()> {
+        let next = self.admitted.checked_add(count)?;
+        if next > MAX_REQUEST_WORK {
+            return None;
+        }
+        self.admitted = next;
+        Some(())
+    }
+
+    fn admit_work(&mut self) -> Option<()> {
+        let next = self.work.checked_add(1)?;
+        if next > MAX_REQUEST_WORK {
+            return None;
+        }
+        self.work = next;
+        Some(())
+    }
+
+    fn admit_text(&mut self, count: usize) -> Option<()> {
+        let next = self.text_bytes.checked_add(count)?;
+        if next > MAX_ROLE_MAP_TEXT_BYTES {
+            return None;
+        }
+        self.text_bytes = next;
+        Some(())
+    }
+
+    fn materialized(&mut self, count: usize) {
+        self.materialized = self.materialized.saturating_add(count);
+    }
+}
+
+struct Walker<'a, 'budget> {
+    document: &'a Document,
+    budget: &'budget mut RequestBudget,
     failed: bool,
     limited: bool,
     annotation_ids: HashSet<ObjectId>,
 }
 
-impl<'a> Walker<'a> {
-    fn new(document: &'a Document) -> Self {
+impl<'a, 'budget> Walker<'a, 'budget> {
+    fn new(document: &'a Document, budget: &'budget mut RequestBudget) -> Self {
         Self {
             document,
-            work: 0,
-            admitted: 0,
+            budget,
             failed: false,
             limited: false,
             annotation_ids: HashSet::new(),
@@ -478,14 +597,13 @@ impl<'a> Walker<'a> {
     fn resolve(&mut self, mut value: &'a Object) -> Option<&'a Object> {
         let mut seen = HashSet::new();
         for _ in 0..=PDFJS_MAX_DEPTH {
-            self.work += 1;
-            if self.work > MAX_OBJECTS_PER_PAGE {
-                self.limited = true;
-                return None;
-            }
             let Object::Reference(id) = value else {
                 return Some(value);
             };
+            if self.budget.admit_work().is_none() {
+                self.limited = true;
+                return None;
+            }
             if !seen.insert(*id) {
                 self.failed = true;
                 return None;
@@ -519,13 +637,40 @@ impl<'a> Walker<'a> {
     }
 
     fn admit_node(&mut self) -> Option<()> {
-        self.admitted += 1;
-        if self.admitted > MAX_OBJECTS_PER_PAGE {
+        if self.budget.admit_items(1).is_none() {
             self.limited = true;
             None
         } else {
             Some(())
         }
+    }
+
+    fn admit_items(&mut self, count: usize) -> Option<()> {
+        let result = self.budget.admit_items(count);
+        if result.is_none() {
+            self.limited = true;
+        }
+        result
+    }
+
+    fn admit_text(&mut self, count: usize) -> Option<()> {
+        let result = self.budget.admit_text(count);
+        if result.is_none() {
+            self.limited = true;
+        }
+        result
+    }
+
+    fn admit_work(&mut self) -> Option<()> {
+        let result = self.budget.admit_work();
+        if result.is_none() {
+            self.limited = true;
+        }
+        result
+    }
+
+    fn materialized(&mut self, count: usize) {
+        self.budget.materialized(count);
     }
 }
 
@@ -592,7 +737,7 @@ fn normalize_public_tree(raw: &Value) -> Option<Value> {
         }
         Some(value)
     }
-    let mut remaining = MAX_OBJECTS_PER_PAGE;
+    let mut remaining = MAX_REQUEST_WORK;
     node(raw, 0, &mut remaining)
 }
 
@@ -718,9 +863,12 @@ mod tests {
             .unwrap()
             .set("Annots", Object::Array(oversized));
 
-        let trees = extract_structure_trees(&document, &pages, &[1, 2]);
+        let extraction = extract_structure_trees_checked(&document, &pages, &[1, 2])
+            .unwrap()
+            .unwrap();
+        assert!(!extraction.complete);
         assert_eq!(
-            serde_json::to_value(trees).unwrap(),
+            serde_json::to_value(extraction.trees).unwrap(),
             json!([
                 {"page":2,"tree":{"role":"Root"}}
             ])
@@ -746,5 +894,302 @@ mod tests {
             cursor = child;
         }
         panic!("normalizer admitted a node beyond the pdf.js depth boundary");
+    }
+
+    #[test]
+    fn array_admission_is_exact_and_precedes_materialization() {
+        let document = Document::with_version("1.7");
+        let exact = Object::Array(vec![Object::Null; MAX_REQUEST_WORK]);
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert_eq!(
+            object_list(&mut walker, &exact).unwrap().len(),
+            MAX_REQUEST_WORK
+        );
+        assert_eq!(budget.admitted, MAX_REQUEST_WORK);
+        assert_eq!(budget.materialized, MAX_REQUEST_WORK);
+
+        let oversized = Object::Array(vec![Object::Null; MAX_REQUEST_WORK + 1]);
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert!(object_list(&mut walker, &oversized).is_err());
+        assert_eq!(budget.admitted, 0);
+        assert_eq!(budget.materialized, 0);
+    }
+
+    #[test]
+    fn node_work_and_selected_page_admission_have_exact_request_boundaries() {
+        let document = Document::with_version("1.7");
+        let mut budget = RequestBudget::default();
+        {
+            let mut walker = Walker::new(&document, &mut budget);
+            for _ in 0..MAX_REQUEST_WORK {
+                assert!(walker.admit_node().is_some());
+            }
+            assert!(walker.admit_node().is_none());
+        }
+        assert_eq!(budget.admitted, MAX_REQUEST_WORK);
+        assert_eq!(budget.materialized, 0);
+
+        let mut budget = RequestBudget::default();
+        for _ in 0..MAX_REQUEST_WORK {
+            assert!(budget.admit_work().is_some());
+        }
+        assert!(budget.admit_work().is_none());
+        assert_eq!(budget.work, MAX_REQUEST_WORK);
+
+        let mut budget = RequestBudget::default();
+        assert!(budget.admit_items(MAX_REQUEST_WORK).is_some());
+        assert!(budget.admit_items(1).is_none());
+        assert_eq!(budget.admitted, MAX_REQUEST_WORK);
+        assert_eq!(budget.materialized, 0);
+    }
+
+    #[test]
+    fn parent_tree_nums_exact_array_boundary_counts_duplicates_and_invalid_values() {
+        let document = Document::with_version("1.7");
+        let mut nums = Vec::with_capacity(MAX_ARRAY_ITEMS);
+        for index in 0..MAX_ARRAY_ITEMS / 2 {
+            nums.push(Object::Integer((index % 2) as i64));
+            nums.push(if index % 3 == 0 {
+                Object::Null
+            } else {
+                Object::Name(b"invalid-direct".to_vec())
+            });
+        }
+        let root = Object::Dictionary(dictionary! {"Nums"=>nums});
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        let tree = read_number_tree(&mut walker, &root).unwrap();
+        assert_eq!(tree.len(), 2);
+        assert_eq!(budget.admitted, MAX_ARRAY_ITEMS);
+        assert_eq!(budget.materialized, MAX_ARRAY_ITEMS + 1);
+
+        let oversized =
+            Object::Dictionary(dictionary! {"Nums"=>vec![Object::Null; MAX_ARRAY_ITEMS + 1]});
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert!(read_number_tree(&mut walker, &oversized).is_none());
+        assert_eq!(budget.admitted, 0);
+        assert_eq!(budget.materialized, 1);
+    }
+
+    #[test]
+    fn indirect_arrays_and_reference_depth_are_bounded_before_copying() {
+        let mut document = Document::with_version("1.7");
+        let array = document.add_object(Object::Array(vec![Object::Null; MAX_REQUEST_WORK]));
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert_eq!(
+            object_list(&mut walker, &Object::Reference(array))
+                .unwrap()
+                .len(),
+            MAX_REQUEST_WORK
+        );
+        assert_eq!(budget.work, 1);
+        assert_eq!(budget.materialized, MAX_REQUEST_WORK);
+
+        let mut document = Document::with_version("1.7");
+        let terminal = document.add_object(Object::Integer(7));
+        let mut current = terminal;
+        for _ in 0..PDFJS_MAX_DEPTH - 1 {
+            current = document.add_object(Object::Reference(current));
+        }
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert_eq!(
+            walker.resolve(&Object::Reference(current)),
+            Some(&Object::Integer(7))
+        );
+
+        current = document.add_object(Object::Reference(current));
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        let too_deep = Object::Reference(current);
+        assert!(walker.resolve(&too_deep).is_none());
+        assert!(walker.limited);
+    }
+
+    #[test]
+    fn role_map_admission_and_text_budget_precede_cloning() {
+        let document = Document::with_version("1.7");
+        let mut exact = Dictionary::new();
+        for index in 0..MAX_REQUEST_WORK {
+            exact.set(format!("R{index}"), Object::Name(b"P".to_vec()));
+        }
+        let root = dictionary! {"RoleMap"=>exact};
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert_eq!(read_role_map(&mut walker, &root).len(), MAX_REQUEST_WORK);
+        assert_eq!(budget.materialized, MAX_REQUEST_WORK);
+
+        let mut oversized = Dictionary::new();
+        for index in 0..=MAX_REQUEST_WORK {
+            oversized.set(format!("R{index}"), Object::Name(b"P".to_vec()));
+        }
+        let root = dictionary! {"RoleMap"=>oversized};
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert!(read_role_map(&mut walker, &root).is_empty());
+        assert_eq!(budget.materialized, 0);
+
+        let huge = vec![b'x'; MAX_ROLE_MAP_TEXT_BYTES + 1];
+        let root = dictionary! {"RoleMap"=>dictionary!{b"R".to_vec()=>Object::Name(huge)}};
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert!(read_role_map(&mut walker, &root).is_empty());
+        assert_eq!(budget.materialized, 0);
+    }
+
+    #[test]
+    fn parent_tree_fanout_and_shared_cycles_fail_before_queue_growth() {
+        let mut document = Document::with_version("1.7");
+        let leaf = document.add_object(dictionary! {"Nums"=>Vec::<Object>::new()});
+        let shared = document
+            .add_object(dictionary! {"Kids"=>vec![Object::Reference(leaf); MAX_ARRAY_ITEMS]});
+        let root = dictionary! {"Kids"=>vec![Object::Reference(shared); MAX_REQUEST_WORK]};
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        assert!(read_number_tree(&mut walker, &Object::Dictionary(root)).is_none());
+        assert_eq!(budget.admitted, MAX_REQUEST_WORK);
+        assert_eq!(budget.materialized, MAX_REQUEST_WORK + 1);
+
+        let root_id = document.new_object_id();
+        document.set_object(
+            root_id,
+            dictionary! {"Kids"=>vec![Object::Reference(root_id)]},
+        );
+        let mut budget = RequestBudget::default();
+        let mut walker = Walker::new(&document, &mut budget);
+        let root_reference = Object::Reference(root_id);
+        assert!(read_number_tree(&mut walker, &root_reference).is_none());
+        assert!(walker.failed);
+    }
+
+    #[test]
+    fn cumulative_page_budget_does_not_reset_between_selected_pages() {
+        let (mut document, pages, _) = tagged_document();
+        for (_, page_id) in &pages {
+            document
+                .objects
+                .get_mut(page_id)
+                .unwrap()
+                .as_dict_mut()
+                .unwrap()
+                .set("Annots", Object::Array(vec![Object::Null; 6_000]));
+        }
+        let trees = extract_structure_trees(&document, &pages, &[1, 2]);
+        assert_eq!(trees.len(), 1);
+        assert_eq!(serde_json::to_value(&trees[0]).unwrap()["page"], 1);
+    }
+
+    #[test]
+    fn cyclic_ancestry_is_not_exposed_as_an_empty_valid_root() {
+        let (mut document, pages, _) = tagged_document();
+        let struct_root = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .ok()
+            .and_then(|catalog| document.objects.get(&catalog))
+            .and_then(|value| value.as_dict().ok())
+            .and_then(|catalog| catalog.get(b"StructTreeRoot").ok())
+            .and_then(|value| value.as_reference().ok())
+            .unwrap();
+        let kids = document.objects[&struct_root]
+            .as_dict()
+            .unwrap()
+            .get(b"K")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let heading = kids[0].as_reference().unwrap();
+        let figure = kids[1].as_reference().unwrap();
+        document
+            .objects
+            .get_mut(&heading)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("P", figure);
+        document
+            .objects
+            .get_mut(&heading)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("K", figure);
+        document
+            .objects
+            .get_mut(&figure)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("P", heading);
+        document
+            .objects
+            .get_mut(&figure)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("K", heading);
+        let trees = extract_structure_trees(&document, &pages, &[1, 2]);
+        assert_eq!(
+            serde_json::to_value(trees).unwrap(),
+            json!([
+                {"page":2,"tree":{"role":"Root"}}
+            ])
+        );
+    }
+
+    #[test]
+    fn serializes_mcr_and_non_annotation_objr_ids() {
+        let (mut document, pages, _) = tagged_document();
+        let struct_root = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let catalog = document.objects[&struct_root].as_dict().unwrap();
+        let tree_root = catalog
+            .get(b"StructTreeRoot")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let heading = document.objects[&tree_root]
+            .as_dict()
+            .unwrap()
+            .get(b"K")
+            .unwrap()
+            .as_array()
+            .unwrap()[0]
+            .as_reference()
+            .unwrap();
+        let object = document.add_object(dictionary! {"Type"=>"XObject"});
+        document
+            .objects
+            .get_mut(&heading)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set(
+                "K",
+                vec![
+                    Object::Integer(0),
+                    Object::Dictionary(dictionary! {"Type"=>"MCR","Pg"=>pages[0].1,"MCID"=>1}),
+                    Object::Dictionary(dictionary! {"Type"=>"OBJR","Pg"=>pages[0].1,"Obj"=>object}),
+                ],
+            );
+        let value = serde_json::to_value(extract_structure_trees(&document, &pages, &[1])).unwrap();
+        assert_eq!(
+            value[0]["tree"]["children"][0]["children"],
+            json!([
+                {"type":"content","id":format!("p{}_mc0",format_id(pages[0].1))},
+                {"type":"content","id":format!("p{}_mc1",format_id(pages[0].1))},
+                {"type":"object","id":format_id(object)}
+            ])
+        );
     }
 }

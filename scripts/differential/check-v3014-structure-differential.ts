@@ -4,6 +4,19 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  callTool,
+  ensureProductionArtifacts,
+  initializeSession,
+  parseToolPayload,
+  spawnProductionMcp,
+} from "../../test/production/mcpContract.helpers.ts";
+import {
+  assertStructureMutationSensitivity,
+  canonicalEqual,
+  canonicalInspect,
+  canonicalReadStructure,
+} from "./v3014-structure-projection.ts";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "../..");
 const fixtureDir = join(repoRoot, "test/fixtures/differential");
@@ -14,7 +27,8 @@ const cli = join(repoRoot, "target/release/pdf-reader-cli");
 const corpus = JSON.parse(readFileSync(corpusPath, "utf8"));
 const oracle = JSON.parse(readFileSync(oraclePath, "utf8"));
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const sha = (v: Uint8Array) => createHash("sha256").update(v).digest("hex");
+const sha = (v: Uint8Array | string) =>
+  createHash("sha256").update(v).digest("hex");
 const git = (...args: string[]) => {
   const r = spawnSync("git", args, { cwd: repoRoot });
   if (r.status !== 0) throw new Error(String(r.stderr));
@@ -51,6 +65,36 @@ if (
   throw new Error("generator mismatch");
 if (corpus.cases.length !== 5)
   throw new Error("structure corpus must contain 5 cases");
+const packageJson = JSON.parse(
+  readFileSync(join(repoRoot, "package.json"), "utf8")
+);
+if (packageJson.dependencies?.["pdfjs-dist"] !== "^6.0.227") {
+  throw new Error("candidate pdfjs-dist dependency is not 6.0.227");
+}
+const installedPdfjs = JSON.parse(
+  readFileSync(join(repoRoot, "node_modules/pdfjs-dist/package.json"), "utf8")
+);
+if (
+  oracle.baseline.pdfjs !== "6.0.227" ||
+  installedPdfjs.version !== "6.0.227"
+) {
+  throw new Error("frozen pdfjs-dist runtime is not exactly 6.0.227");
+}
+const harness = {
+  baselineRunnerSha256: sha(
+    readFileSync(join(scriptDir, "v3014-structure-baseline-runner.ts"))
+  ),
+  normalizerRunnerSha256: sha(
+    readFileSync(
+      join(scriptDir, "v3014-structure-normalizer-baseline-runner.ts")
+    )
+  ),
+  projectionSha256: sha(
+    readFileSync(join(scriptDir, "v3014-structure-projection.ts"))
+  ),
+};
+if (!canonicalEqual(harness, oracle.harness))
+  throw new Error("harness digest mismatch");
 const materialize = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(materialize);
   if (value && typeof value === "object")
@@ -64,46 +108,6 @@ const materialize = (value: unknown): unknown => {
     );
   return value;
 };
-const canonical = (data: any) => ({
-  num_pages: data.num_pages,
-  structure_trees: data.structure_trees ?? null,
-  accessibility_report: data.accessibility_report ?? null,
-  private_surface_absence: {
-    annotations: data.annotations === undefined,
-    form_fields: data.form_fields === undefined,
-    permissions: data.permissions === undefined,
-    mark_info: data.mark_info === undefined,
-    outline: data.outline === undefined,
-  },
-  accessibility_map: data.document_map
-    ? {
-        pages: data.document_map.pages.map((page: any) => ({
-          page: page.page,
-          accessibility_report_page_index: page.accessibility_report_page_index,
-          accessibility_issue_indexes: page.accessibility_issue_indexes,
-          accessibility_high_issue_indexes:
-            page.accessibility_high_issue_indexes,
-          accessibility_medium_issue_indexes:
-            page.accessibility_medium_issue_indexes,
-          accessibility_low_issue_indexes: page.accessibility_low_issue_indexes,
-          accessibility_grade: page.accessibility_grade,
-          accessibility_score: page.accessibility_score,
-          accessibility_issue_count: page.accessibility_issue_count,
-        })),
-        routing: {
-          accessibility_review_pages:
-            data.document_map.routing.accessibility_review_pages,
-          accessibility_high_issue_pages:
-            data.document_map.routing.accessibility_high_issue_pages,
-          accessibility_medium_issue_pages:
-            data.document_map.routing.accessibility_medium_issue_pages,
-          accessibility_low_issue_pages:
-            data.document_map.routing.accessibility_low_issue_pages,
-        },
-        summary: data.document_map.summary,
-      }
-    : null,
-});
 const actual: Record<string, unknown> = {};
 for (const entry of corpus.cases) {
   const r = spawnSync(cli, [], {
@@ -119,27 +123,44 @@ for (const entry of corpus.cases) {
     throw new Error(`Rust CLI failed ${entry.id}: ${r.stderr}`);
   const envelope = JSON.parse(r.stdout);
   const payload = JSON.parse(envelope.result.content[0].text);
-  actual[entry.id] = canonical(payload.results[0].data);
+  actual[entry.id] = canonicalReadStructure(payload.results[0].data);
 }
-const sort = (value: any): any =>
-  Array.isArray(value)
-    ? value.map(sort)
-    : value && typeof value === "object"
-    ? Object.fromEntries(
-        Object.entries(value)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, entry]) => [key, sort(entry)])
-      )
-    : value;
-const expected = JSON.stringify(sort(oracle.expectations));
-const observed = JSON.stringify(sort(actual));
-const pass = expected === observed;
+ensureProductionArtifacts("pure-rust");
+const proc = spawnProductionMcp({
+  PDF_READER_ENGINE_MODE: "pure-rust",
+  MCP_PDF_OCR_COMMAND: "",
+  MCP_PDF_OCR_PRESET: "",
+});
+try {
+  await initializeSession(proc, "v3014-structure-inspect-differential");
+  const response = await callTool(
+    proc,
+    2,
+    "pdf_evidence",
+    {
+      operation: "inspect",
+      sources: [{ path: join(fixtureDir, "v3014-structure-v1.pdf") }],
+      sample_pages: 2,
+    },
+    90_000
+  );
+  const payload = parseToolPayload(response);
+  if (payload.isError) throw new Error(`Rust inspect failed: ${payload.text}`);
+  const inspected = JSON.parse(payload.text).results?.[0];
+  if (!inspected?.success)
+    throw new Error(`Rust inspect source failed: ${inspected?.error}`);
+  actual["inspect-tagged"] = canonicalInspect(inspected.data);
+} finally {
+  proc.kill("SIGTERM");
+}
+assertStructureMutationSensitivity(oracle.expectations);
+const pass = canonicalEqual(oracle.expectations, actual);
 const result = {
   schemaVersion: 1,
   profile: "pdf_reader_v3014_structure_result",
   candidateSha: git("rev-parse", "HEAD").toString().trim(),
-  caseCount: corpus.cases.length,
-  passed: pass ? corpus.cases.length : 0,
+  caseCount: corpus.cases.length + 1,
+  passed: pass ? corpus.cases.length + 1 : 0,
   skipped: 0,
   pass,
   failures: pass ? [] : [{ expected: oracle.expectations, actual }],

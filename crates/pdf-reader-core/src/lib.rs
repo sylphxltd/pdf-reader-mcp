@@ -27,13 +27,75 @@ pub fn inspect_structure_tree_presence(
 ) -> Result<(u32, bool), text_index::TextIndexError> {
     let parsed = cos_document::ParsedPdf::load(path, max_file_bytes)?;
     let total = parsed.pages.len().max(1) as u32;
-    let has_tree = !structure_signals::extract_structure_trees(
+    let trees = structure_signals::extract_structure_trees_checked(
         &parsed.document,
         &parsed.pages,
         selected_pages,
     )
-    .is_empty();
+    .map_err(|()| text_index::TextIndexError {
+        code: text_index::TextIndexErrorCode::ExtractionFailed,
+        message: "Tagged structure inspection exceeded safety limits or is malformed.".into(),
+    })?;
+    if trees.as_ref().is_some_and(|value| !value.complete) {
+        return Err(text_index::TextIndexError {
+            code: text_index::TextIndexErrorCode::ExtractionFailed,
+            message: "Tagged structure inspection failed for one or more sampled pages.".into(),
+        });
+    }
+    let has_tree = trees.is_some_and(|value| !value.trees.is_empty());
     Ok((total, has_tree))
+}
+
+pub fn inspect_document_signal_presence(
+    path: &Path,
+    max_file_bytes: u64,
+    selected_pages: &[u32],
+) -> Result<(u32, serde_json::Value), text_index::TextIndexError> {
+    let parsed = cos_document::ParsedPdf::load(path, max_file_bytes)?;
+    let total = parsed.pages.len().max(1) as u32;
+    let catalog = catalog_signals::extract_catalog_signals(
+        &parsed.document,
+        parsed.encryption_facts,
+        total,
+        catalog_signals::CatalogSignalRequest {
+            page_labels: true,
+            permissions: true,
+            outline: true,
+        },
+    );
+    let forms = form_attachment_signals::extract_form_attachment_signals(
+        &parsed.document,
+        &parsed.pages,
+        true,
+        true,
+    );
+    let trees = structure_signals::extract_structure_trees_checked(
+        &parsed.document,
+        &parsed.pages,
+        selected_pages,
+    )
+    .map_err(|()| text_index::TextIndexError {
+        code: text_index::TextIndexErrorCode::ExtractionFailed,
+        message: "Tagged structure inspection exceeded safety limits or is malformed.".into(),
+    })?;
+    if trees.as_ref().is_some_and(|value| !value.complete) {
+        return Err(text_index::TextIndexError {
+            code: text_index::TextIndexErrorCode::ExtractionFailed,
+            message: "Tagged structure inspection failed for one or more sampled pages.".into(),
+        });
+    }
+    Ok((
+        total,
+        serde_json::json!({
+            "has_outline": catalog.outline.as_ref().is_some_and(|value| !value.is_empty()),
+            "has_page_labels": catalog.page_labels.as_ref().is_some_and(|value| !value.is_empty()),
+            "has_permissions": catalog.permissions.as_ref().is_some_and(|value| !value.is_empty()),
+            "has_mark_info": catalog.mark_info.is_some(),
+            "has_form_fields": forms.form_fields.as_ref().is_some_and(|value| !value.is_empty()),
+            "has_attachments": forms.attachments.as_ref().is_some_and(|value| !value.is_empty()),
+            "has_structure_tree": trees.is_some_and(|value| !value.trees.is_empty()),
+        }),
+    ))
 }
 
 pub use legacy::legacy_engine_allowed;

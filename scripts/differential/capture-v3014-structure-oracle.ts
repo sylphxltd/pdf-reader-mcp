@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -17,6 +18,21 @@ const normalizerOracle = JSON.parse(
 );
 const oracle = JSON.parse(readFileSync(oraclePath, "utf8"));
 const refresh = process.argv.includes("--refresh");
+const sha256 = (value: Uint8Array | string) =>
+  createHash("sha256").update(value).digest("hex");
+const harness = {
+  baselineRunnerSha256: sha256(
+    readFileSync(join(scriptDir, "v3014-structure-baseline-runner.ts"))
+  ),
+  normalizerRunnerSha256: sha256(
+    readFileSync(
+      join(scriptDir, "v3014-structure-normalizer-baseline-runner.ts")
+    )
+  ),
+  projectionSha256: sha256(
+    readFileSync(join(scriptDir, "v3014-structure-projection.ts"))
+  ),
+};
 const run = (cmd: string, args: string[], cwd: string, capture = false) => {
   const result = spawnSync(cmd, args, {
     cwd,
@@ -42,6 +58,10 @@ try {
     runner,
     readFileSync(join(scriptDir, "v3014-structure-baseline-runner.ts"))
   );
+  writeFileSync(
+    join(worktree, "v3014-structure-projection.ts"),
+    readFileSync(join(scriptDir, "v3014-structure-projection.ts"))
+  );
   const expectations = JSON.parse(
     run("bun", [runner, corpusPath, fixtureDir], worktree, true)
   );
@@ -61,8 +81,10 @@ try {
   if (refresh) {
     writeFileSync(
       oraclePath,
-      `${JSON.stringify({ ...oracle, expectations }, null, 2)}\n`
+      `${JSON.stringify({ ...oracle, harness, expectations }, null, 2)}\n`
     );
+  } else if (JSON.stringify(harness) !== JSON.stringify(oracle.harness)) {
+    throw new Error("stored structure harness digests differ");
   } else if (
     JSON.stringify(expectations) !== JSON.stringify(oracle.expectations)
   ) {

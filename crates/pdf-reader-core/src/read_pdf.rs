@@ -577,6 +577,8 @@ struct BuildSignals {
     form_fields: Option<Value>,
     attachments: Option<Value>,
     structure_trees: Option<Value>,
+    accessibility_structure_trees: Option<Value>,
+    accessibility_structure_valid: bool,
     warnings: Vec<String>,
 }
 
@@ -662,6 +664,8 @@ fn build_data(
         form_fields,
         attachments,
         structure_trees,
+        accessibility_structure_trees,
+        accessibility_structure_valid,
         mut warnings,
     } = signals;
     let full_text = join_page_text(pages);
@@ -762,12 +766,13 @@ fn build_data(
             crate::accessibility::AccessibilityInput {
                 pages,
                 elements: elements.as_ref().unwrap_or(&json!([])),
-                structure_trees: structure_trees.as_ref(),
+                structure_trees: accessibility_structure_trees.as_ref(),
                 annotations: annotations.as_ref(),
                 form_fields: form_fields.as_ref(),
                 permissions: permissions.as_ref(),
                 mark_info: mark_info.as_ref(),
                 outline: outline.as_ref(),
+                structure_valid: accessibility_structure_valid,
             },
         ))
     } else {
@@ -1227,15 +1232,28 @@ fn read_local_pdf_filtered(
                 input.auto_detail.as_deref().unwrap_or("balanced"),
                 "balanced" | "full"
             ));
-    let structure_trees = want_private_structure
-        .then(|| {
-            crate::structure_signals::extract_structure_trees(
-                &parsed.document,
-                &parsed.pages,
-                &selected_page_numbers,
-            )
-        })
-        .and_then(|trees| (!trees.is_empty()).then(|| json!(trees)));
+    let checked_structure = want_private_structure.then(|| {
+        crate::structure_signals::extract_structure_trees_checked(
+            &parsed.document,
+            &parsed.pages,
+            &selected_page_numbers,
+        )
+    });
+    let accessibility_structure_valid = checked_structure.as_ref().is_none_or(|result| {
+        result
+            .as_ref()
+            .ok()
+            .and_then(Option::as_ref)
+            .is_none_or(|value| value.complete)
+    });
+    let structure_extraction = checked_structure.and_then(Result::ok).flatten();
+    let structure_trees = structure_extraction
+        .as_ref()
+        .and_then(|value| (!value.trees.is_empty()).then(|| json!(value.trees)));
+    let accessibility_structure_trees = structure_extraction
+        .as_ref()
+        .filter(|value| value.complete)
+        .and_then(|value| (!value.trees.is_empty()).then(|| json!(value.trees)));
     let mut signal_warnings = signals.warnings;
     signal_warnings.extend(form_attachment_signals.warnings);
     let mut data = build_data(
@@ -1258,6 +1276,8 @@ fn read_local_pdf_filtered(
                 .attachments
                 .map(|value| json!(value)),
             structure_trees,
+            accessibility_structure_trees,
+            accessibility_structure_valid,
             warnings: signal_warnings,
         },
     );
@@ -1935,6 +1955,88 @@ mod tests {
             data.document_map.as_ref().unwrap()["routing"]["accessibility_review_pages"],
             json!([1])
         );
+    }
+
+    #[test]
+    fn malformed_structure_ancestry_cannot_mark_accessibility_as_tagged() {
+        let mut document = lopdf::Document::load(tagged_structure_fixture()).unwrap();
+        let catalog_id = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let tree_root = document.objects[&catalog_id]
+            .as_dict()
+            .unwrap()
+            .get(b"StructTreeRoot")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let kids = document.objects[&tree_root]
+            .as_dict()
+            .unwrap()
+            .get(b"K")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let heading = kids[0].as_reference().unwrap();
+        let figure = kids[1].as_reference().unwrap();
+        document
+            .objects
+            .get_mut(&heading)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("P", figure);
+        document
+            .objects
+            .get_mut(&heading)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("K", figure);
+        document
+            .objects
+            .get_mut(&figure)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("P", heading);
+        document
+            .objects
+            .get_mut(&figure)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("K", heading);
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("malformed-structure.pdf");
+        document.save(&path).unwrap();
+
+        let response = read_pdf(&ReadPdfInput {
+            sources: vec![ReadPdfSource {
+                path: Some(path.to_string_lossy().into_owned()),
+                url: None,
+                pages: None,
+            }],
+            auto: Some(false),
+            include_accessibility_report: true,
+            include_structure_tree: true,
+            ..Default::default()
+        })
+        .unwrap();
+        let data = response.results[0].data.as_ref().unwrap();
+        assert_eq!(
+            data.structure_trees,
+            Some(json!([{"page":2,"tree":{"role":"Root"}}]))
+        );
+        assert_eq!(data.accessibility_report.as_ref().unwrap()["tagged"], false);
+        assert!(data.accessibility_report.as_ref().unwrap()["issues"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["type"] == "structure_tree_missing"));
     }
 
     #[test]
