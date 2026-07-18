@@ -8,8 +8,17 @@ import { pdfEvidence } from './src/handlers/pdfEvidence.ts';
 type Content = { type: string; text?: string; data?: string; mimeType?: string };
 type ToolResult = { content: Content[]; isError?: boolean };
 
-const [corpusPath, fixtureDir] = process.argv.slice(2);
-if (!corpusPath || !fixtureDir) throw new Error('usage: runner <corpus.json> <fixture-dir>');
+const [corpusPath, fixtureDir, providerPath] = process.argv.slice(2);
+if (!corpusPath || !fixtureDir || !providerPath) {
+  throw new Error('usage: runner <corpus.json> <fixture-dir> <provider.ts>');
+}
+process.env['MCP_PDF_OCR_COMMAND'] = process.execPath;
+process.env['MCP_PDF_OCR_ARGS_JSON'] = JSON.stringify([
+  providerPath,
+  '{input}',
+  '{page}',
+  '{languages}',
+]);
 const corpus = JSON.parse(readFileSync(corpusPath, 'utf8')) as {
   cases: Array<{ id: string; input: Record<string, unknown> }>;
 };
@@ -142,12 +151,28 @@ function canonicalize(result: ToolResult): Record<string, unknown> {
         };
       });
     }
+    if (Array.isArray(source.ocr_pages)) {
+      output.ocr_pages = source.ocr_pages.map((page: Record<string, unknown>) => ({
+        page: page.page,
+        text: page.text,
+        confidence: page.confidence ?? null,
+        language: page.language ?? null,
+        words: page.words ?? [],
+        provider: page.provider,
+        source_render_evidence_id: page.source_render_evidence_id,
+        source_render_scale: page.source_render_scale,
+        source_render_width: page.source_render_width,
+        source_render_height: page.source_render_height,
+        warnings: page.warnings ?? [],
+        provenance: page.provenance,
+      }));
+    }
     return output;
   });
   return {
     outcome: 'success',
     profile: payload.profile,
-    options: payload.render_options ?? payload.crop_options,
+    options: payload.render_options ?? payload.crop_options ?? payload.ocr_options,
     content_count: result.content.length,
     results,
   };

@@ -1,6 +1,7 @@
 pub mod cli_bridge;
 pub mod evidence;
 pub mod http_transport;
+mod ocr_evidence;
 pub mod pdf_evidence;
 pub mod read_pdf;
 pub mod schema;
@@ -15,7 +16,7 @@ use rmcp::{
     tool, tool_handler, tool_router, ErrorData, ServerHandler,
 };
 
-use crate::schema::{PdfEvidenceArgs, ReadPdfArgs, SearchPdfArgs};
+use crate::schema::{PdfEvidenceArgs, PdfEvidenceOperation, ReadPdfArgs, SearchPdfArgs};
 use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
@@ -23,8 +24,8 @@ pub const SERVER_NAME: &str = "pdf-reader-mcp";
 pub const SERVER_VERSION: &str = "0.0.0-pure-rust-experimental";
 pub const SERVER_INSTRUCTIONS: &str =
     "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
-Supported depth: selectable-text read_pdf, search_pdf, pdf_evidence inspect. \
-Bounded page render and region crop are available with Hayro provenance; OCR/analyze fail closed. \
+Supported depth: selectable-text read_pdf, search_pdf, and focused pdf_evidence operations. \
+Bounded Hayro render/crop and opt-in command-provider OCR are available; analyze_regions fails closed. \
 For production drop-in use @sylphx/pdf-reader-mcp@3.0.14 (TypeScript).";
 
 fn omit_absent_optional_fields(value: Value) -> Value {
@@ -106,14 +107,15 @@ impl PdfReaderMcp {
     }
 
     #[tool(
-        description = "Focused PDF evidence operations. Pure-Rust supports inspect, bounded page rendering, and region crops; OCR/analyze fail closed with guidance."
+        description = "Focused PDF evidence operations. Pure-Rust supports inspect, bounded page rendering/crops, and opt-in command-provider OCR; analyze_regions fails closed with guidance."
     )]
-    pub fn pdf_evidence(
+    pub async fn pdf_evidence(
         &self,
         Parameters(args): Parameters<PdfEvidenceArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
             .map_err(|message| ErrorData::invalid_params(message, None))?;
+        let provider_operation = matches!(args.operation, PdfEvidenceOperation::OcrPages);
         let value = serde_json::to_value(args)
             .map(omit_absent_optional_fields)
             .map_err(|error| {
@@ -122,7 +124,15 @@ impl PdfReaderMcp {
                     None,
                 )
             })?;
-        pdf_evidence::pdf_evidence(value)
+        if provider_operation {
+            tokio::task::spawn_blocking(move || pdf_evidence::pdf_evidence(value))
+                .await
+                .map_err(|error| {
+                    ErrorData::internal_error(format!("OCR worker failed: {error}"), None)
+                })?
+        } else {
+            pdf_evidence::pdf_evidence(value)
+        }
     }
 }
 
@@ -280,8 +290,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn tool_entrypoints_reject_values_outside_v3_0_14_runtime_bounds() {
+    #[tokio::test]
+    async fn tool_entrypoints_reject_values_outside_v3_0_14_runtime_bounds() {
         let server = PdfReaderMcp::new();
         let read = serde_json::from_value(serde_json::json!({
             "sources": [{"path": "sample.pdf"}],
@@ -304,7 +314,7 @@ mod tests {
             "scale": 4.01
         }))
         .expect("structurally valid evidence args");
-        assert!(server.pdf_evidence(Parameters(evidence)).is_err());
+        assert!(server.pdf_evidence(Parameters(evidence)).await.is_err());
     }
 
     #[test]

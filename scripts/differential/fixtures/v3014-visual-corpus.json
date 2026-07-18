@@ -107,6 +107,37 @@
         ],
         "scale": 1
       }
+    },
+    {
+      "id": "ocr-command-json-normalization",
+      "input": {
+        "operation": "ocr_pages",
+        "sources": [{ "fixture": "v3014-visual-v1.pdf", "pages": [1] }],
+        "scale": 2,
+        "max_pages": 1,
+        "languages": ["fra", "eng"]
+      }
+    },
+    {
+      "id": "ocr-selection-warnings",
+      "input": {
+        "operation": "ocr_pages",
+        "sources": [{ "fixture": "v3014-visual-v1.pdf", "pages": [2, 99, 1, 2] }],
+        "scale": 1,
+        "max_pages": 1
+      }
+    },
+    {
+      "id": "ocr-mixed-source-partial",
+      "input": {
+        "operation": "ocr_pages",
+        "sources": [
+          { "fixture": "missing-visual.pdf", "pages": [1] },
+          { "fixture": "v3014-visual-v1.pdf", "pages": [2] }
+        ],
+        "scale": 1,
+        "max_pages": 1
+      }
     }
   ]
 }

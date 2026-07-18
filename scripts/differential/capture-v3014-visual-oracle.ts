@@ -12,6 +12,7 @@ const corpusPath = join(scriptDir, 'fixtures/v3014-visual-corpus.json');
 const oraclePath = join(scriptDir, 'fixtures/v3014-visual-oracle.json');
 const fixtureDir = join(repoRoot, 'test/fixtures/differential');
 const runnerSource = join(scriptDir, 'v3014-visual-baseline-runner.ts');
+const providerPath = join(scriptDir, 'reference-ocr-provider.ts');
 const refresh = process.argv.includes('--refresh');
 const oracle = JSON.parse(readFileSync(oraclePath, 'utf8')) as {
   baseline: { tag: string; commit: string };
@@ -40,7 +41,7 @@ try {
   run('bun', ['install', '--frozen-lockfile'], worktree);
   const runner = join(worktree, 'v3014-visual-baseline-runner.ts');
   writeFileSync(runner, readFileSync(runnerSource));
-  const stdout = run('bun', [runner, corpusPath, fixtureDir], worktree, true);
+  const stdout = run('bun', [runner, corpusPath, fixtureDir, providerPath], worktree, true);
   const expectations = JSON.parse(stdout) as Record<string, unknown>;
   if (refresh) {
     writeFileSync(oraclePath, `${JSON.stringify({ ...oracle, expectations }, null, 2)}\n`);

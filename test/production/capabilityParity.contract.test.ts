@@ -282,7 +282,11 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       );
       const payload = parseToolPayload(response);
       expect(payload.isError).toBe(true);
-      expect(payload.text).toContain(`'${operation}' is not available`);
+      expect(payload.text).toContain(
+        operation === 'ocr_pages'
+          ? 'OCR provider is not configured'
+          : "'analyze_regions' is not available"
+      );
     }
   }, 240_000);
 });

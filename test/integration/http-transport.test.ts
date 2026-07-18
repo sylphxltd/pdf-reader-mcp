@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(__dirname, '../..');
 const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
+const ocrProvider = path.join(repoRoot, 'scripts/differential/reference-ocr-provider.ts');
 const RUST_HTTP_READY = 'Streamable HTTP MCP listening on http://';
 
 const TEST_HOST = '127.0.0.1';
@@ -146,6 +147,8 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
         MCP_TRANSPORT: 'http',
         MCP_HTTP_PORT: testPort.toString(),
         MCP_HTTP_HOST: TEST_HOST,
+        MCP_PDF_OCR_COMMAND: process.execPath,
+        MCP_PDF_OCR_ARGS_JSON: JSON.stringify([ocrProvider, '{input}', '{page}', '{languages}']),
       },
     });
 
@@ -271,6 +274,43 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
       results?: Array<{ rendered_pages?: Array<{ image_content_index?: number }> }>;
     };
     expect(payload.results?.[0]?.rendered_pages?.[0]?.image_content_index).toBe(1);
+  });
+
+  it('should return normalized command-provider OCR over HTTP', async () => {
+    const client = createMcpHttpClient();
+    await client.initializeSession();
+    const fixture = path.resolve(__dirname, '../fixtures/differential/v3014-visual-v1.pdf');
+    const response = await client.sendRequest(
+      'tools/call',
+      {
+        name: 'pdf_evidence',
+        arguments: {
+          operation: 'ocr_pages',
+          sources: [{ path: fixture, pages: [1] }],
+          scale: 1,
+          max_pages: 1,
+          languages: ['eng'],
+        },
+      },
+      5
+    );
+    expect(response.error).toBeUndefined();
+    const result = response.result as {
+      isError?: boolean;
+      content?: Array<{ type?: string; text?: string }>;
+    };
+    expect(result.isError).not.toBe(true);
+    expect(result.content).toHaveLength(1);
+    const payload = JSON.parse(result.content?.[0]?.text ?? '{}') as {
+      results?: Array<{ ocr_pages?: Array<Record<string, unknown>> }>;
+    };
+    expect(payload.results?.[0]?.ocr_pages?.[0]).toMatchObject({
+      page: 1,
+      text: 'Reference OCR page 1 at 120x80',
+      language: 'eng',
+      provider: 'command',
+      provenance: { engine: 'external-command', source: 'ocr-provider' },
+    });
   });
 
   const goldenPath = path.resolve(__dirname, '../fixtures/read-pdf-golden.json');

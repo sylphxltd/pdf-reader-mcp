@@ -17,6 +17,7 @@ const fixtureDir = join(repoRoot, 'test/fixtures/differential');
 const corpusPath = join(scriptDir, 'fixtures/v3014-visual-corpus.json');
 const oraclePath = join(scriptDir, 'fixtures/v3014-visual-oracle.json');
 const fixtureManifestPath = join(scriptDir, 'fixtures/v3014-visual-fixtures.json');
+const providerPath = join(scriptDir, 'reference-ocr-provider.ts');
 const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
 const outputFlag = process.argv.indexOf('--output');
 const outputPath = outputFlag >= 0 ? process.argv[outputFlag + 1] : undefined;
@@ -33,6 +34,7 @@ const oracle = JSON.parse(readFileSync(oraclePath, 'utf8')) as {
     entrypointSha256: Record<string, string>;
   };
   expectations: Record<string, Json>;
+  providerSha256: string;
 };
 const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, 'utf8')) as {
   fixtures: Array<{ path: string; bytes: number; sha256: string }>;
@@ -66,8 +68,11 @@ function verifyAuthority(): Record<string, string> {
     }
   }
   const ids = corpus.cases.map((entry) => entry.id);
-  if (ids.length !== 7 || new Set(ids).size !== ids.length) {
-    throw new Error(`visual corpus must contain 7 unique cases (got ${ids.length})`);
+  if (ids.length !== 10 || new Set(ids).size !== ids.length) {
+    throw new Error(`visual/OCR corpus must contain 10 unique cases (got ${ids.length})`);
+  }
+  if (sha256(readFileSync(providerPath)) !== oracle.providerSha256) {
+    throw new Error('reference OCR provider digest mismatch');
   }
   if (JSON.stringify(ids.sort()) !== JSON.stringify(Object.keys(oracle.expectations).sort())) {
     throw new Error('visual corpus and oracle IDs differ');
@@ -231,12 +236,34 @@ function canonicalize(result: ToolResult): Json {
         };
       });
     }
+    if (Array.isArray(source.ocr_pages)) {
+      output.ocr_pages = source.ocr_pages.map((page: Record<string, unknown>) => {
+        const provenance = page.provenance as Record<string, unknown>;
+        if (provenance?.engine !== 'external-command' || provenance?.source !== 'ocr-provider') {
+          throw new Error('Rust OCR provider provenance is not truthful');
+        }
+        return {
+          page: page.page,
+          text: page.text,
+          confidence: page.confidence ?? null,
+          language: page.language ?? null,
+          words: page.words ?? [],
+          provider: page.provider,
+          source_render_evidence_id: page.source_render_evidence_id,
+          source_render_scale: page.source_render_scale,
+          source_render_width: page.source_render_width,
+          source_render_height: page.source_render_height,
+          warnings: page.warnings ?? [],
+          provenance: page.provenance,
+        };
+      });
+    }
     return output;
   });
   return {
     outcome: 'success',
     profile: (payload.profile ?? null) as Json,
-    options: (payload.render_options ?? payload.crop_options ?? null) as Json,
+    options: (payload.render_options ?? payload.crop_options ?? payload.ocr_options ?? null) as Json,
     content_count: result.content.length,
     results: results as Json,
   };
@@ -248,7 +275,18 @@ async function main() {
   const child = spawn(serverPath, [], {
     cwd: repoRoot,
     stdio: ['pipe', 'pipe', 'inherit'],
-    env: { ...process.env, PDF_READER_MCP_TRANSPORT: '', MCP_TRANSPORT: '' },
+    env: {
+      ...process.env,
+      PDF_READER_MCP_TRANSPORT: '',
+      MCP_TRANSPORT: '',
+      MCP_PDF_OCR_COMMAND: process.execPath,
+      MCP_PDF_OCR_ARGS_JSON: JSON.stringify([
+        providerPath,
+        '{input}',
+        '{page}',
+        '{languages}',
+      ]),
+    },
   });
   let buffer = '';
   const pending = new Map<number, (value: Record<string, unknown>) => void>();

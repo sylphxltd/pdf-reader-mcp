@@ -1,0 +1,697 @@
+//! Optional command-provider OCR over the bounded pure-Rust page renderer.
+
+use std::env;
+use std::process::Stdio;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+use std::time::{Duration, Instant};
+
+use command_group::AsyncCommandGroup;
+use rmcp::model::{CallToolResult, Content};
+use serde_json::{json, Value};
+use tempfile::TempDir;
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::process::Command;
+
+use crate::schema::PdfEvidenceArgs;
+use crate::visual_evidence;
+
+const DEFAULT_TIMEOUT_MS: u64 = 60_000;
+const DEFAULT_MAX_OUTPUT_CHARS: usize = 200_000;
+const OCR_COMMAND_ENV: &str = "MCP_PDF_OCR_COMMAND";
+const OCR_ARGS_ENV: &str = "MCP_PDF_OCR_ARGS_JSON";
+const OCR_PRESET_ENV: &str = "MCP_PDF_OCR_PRESET";
+const MAX_SOURCES_PER_REQUEST: usize = 32;
+const MAX_REQUEST_OCR_TIMEOUT_MS: u64 = 600_000;
+const MAX_REQUEST_OCR_OUTPUT_CHARS: usize = 2_000_000;
+const MAX_REQUEST_OCR_PROVIDER_BYTES: usize = 16 * 1024 * 1024;
+const MAX_CONCURRENT_OCR_REQUESTS: usize = 2;
+static ACTIVE_OCR_REQUESTS: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug)]
+struct OcrRequestPermit;
+
+impl OcrRequestPermit {
+    fn acquire() -> Result<Self, String> {
+        ACTIVE_OCR_REQUESTS
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+                (active < MAX_CONCURRENT_OCR_REQUESTS).then_some(active + 1)
+            })
+            .map(|_| Self)
+            .map_err(|_| {
+                format!(
+                    "OCR provider concurrency limit of {MAX_CONCURRENT_OCR_REQUESTS} active requests reached; retry later."
+                )
+            })
+    }
+}
+
+impl Drop for OcrRequestPermit {
+    fn drop(&mut self) {
+        ACTIVE_OCR_REQUESTS.fetch_sub(1, Ordering::Release);
+    }
+}
+
+#[derive(Default)]
+struct RequestOcrBudget {
+    output_chars: usize,
+    provider_bytes: usize,
+    exhausted: Option<String>,
+}
+
+impl RequestOcrBudget {
+    fn ensure_available(&self) -> Result<(), String> {
+        self.exhausted.clone().map_or(Ok(()), Err)
+    }
+
+    fn exhaust(&mut self, message: String) -> Result<(), String> {
+        self.exhausted = Some(message.clone());
+        Err(message)
+    }
+
+    fn charge(&mut self, provider_bytes: usize, output_chars: usize) -> Result<(), String> {
+        self.ensure_available()?;
+        let Some(next_provider_bytes) = self.provider_bytes.checked_add(provider_bytes) else {
+            return self.exhaust("Request OCR provider byte count overflow.".to_string());
+        };
+        self.provider_bytes = next_provider_bytes;
+        if self.provider_bytes > MAX_REQUEST_OCR_PROVIDER_BYTES {
+            return self.exhaust(format!(
+                "Request exceeds OCR provider output limit of {MAX_REQUEST_OCR_PROVIDER_BYTES} bytes."
+            ));
+        }
+        let Some(next_output_chars) = self.output_chars.checked_add(output_chars) else {
+            return self.exhaust("Request OCR output character count overflow.".to_string());
+        };
+        self.output_chars = next_output_chars;
+        if self.output_chars > MAX_REQUEST_OCR_OUTPUT_CHARS {
+            return self.exhaust(format!(
+                "Request exceeds OCR output limit of {MAX_REQUEST_OCR_OUTPUT_CHARS} characters."
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct ProviderConfig {
+    command: String,
+    args_template: Vec<String>,
+}
+
+fn parse_args(value: &Value) -> Result<PdfEvidenceArgs, rmcp::ErrorData> {
+    let args: PdfEvidenceArgs = serde_json::from_value(value.clone()).map_err(|error| {
+        rmcp::ErrorData::invalid_params(format!("Invalid pdf_evidence arguments: {error}"), None)
+    })?;
+    args.validate()
+        .map_err(|message| rmcp::ErrorData::invalid_params(message, None))?;
+    Ok(args)
+}
+
+fn provider_config_from(
+    command_value: Option<String>,
+    preset_value: Option<String>,
+    args_value: Option<String>,
+) -> Result<ProviderConfig, String> {
+    let preset = preset_value
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty());
+    if preset
+        .as_deref()
+        .is_some_and(|value| !matches!(value, "tesseract" | "tesseract-tsv"))
+    {
+        return Err(
+            "Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract, tesseract-tsv.".into(),
+        );
+    }
+    if preset.as_deref() == Some("tesseract-tsv") {
+        return Err("MCP_PDF_OCR_PRESET=tesseract-tsv is not available in the pure-Rust engine yet; use tesseract plain text or a command provider that returns normalized JSON.".into());
+    }
+    let command = command_value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| preset.as_ref().map(|_| "tesseract".into()))
+        .ok_or_else(|| {
+            "OCR provider is not configured. Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages."
+                .to_string()
+        })?;
+    let default_args = match preset.as_deref() {
+        Some("tesseract-tsv") => vec![
+            "{input}".into(),
+            "stdout".into(),
+            "-l".into(),
+            "{languages_tesseract}".into(),
+            "tsv".into(),
+        ],
+        Some("tesseract") => vec![
+            "{input}".into(),
+            "stdout".into(),
+            "-l".into(),
+            "{languages_tesseract}".into(),
+        ],
+        _ => vec!["{input}".into()],
+    };
+    let args_template = match args_value {
+        None => default_args,
+        Some(raw) => {
+            let value: Value = serde_json::from_str(&raw)
+                .map_err(|_| "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.".to_string())?;
+            let array = value
+                .as_array()
+                .ok_or_else(|| "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.".to_string())?;
+            let args = array
+                .iter()
+                .map(|entry| {
+                    entry.as_str().map(ToOwned::to_owned).ok_or_else(|| {
+                        "MCP_PDF_OCR_ARGS_JSON must be a JSON string array.".to_string()
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if !args.iter().any(|arg| arg.contains("{input}")) {
+                return Err("MCP_PDF_OCR_ARGS_JSON must include the {input} placeholder so the OCR provider receives the rendered page image.".into());
+            }
+            args
+        }
+    };
+    Ok(ProviderConfig {
+        command,
+        args_template,
+    })
+}
+
+fn provider_config() -> Result<ProviderConfig, String> {
+    provider_config_from(
+        env::var(OCR_COMMAND_ENV).ok(),
+        env::var(OCR_PRESET_ENV).ok(),
+        env::var(OCR_ARGS_ENV).ok(),
+    )
+}
+
+fn replace_placeholders(
+    template: &str,
+    input: &str,
+    page: u64,
+    source: &str,
+    languages: &[String],
+) -> String {
+    template
+        .replace("{input}", input)
+        .replace("{page}", &page.to_string())
+        .replace("{source}", source)
+        .replace("{language}", languages.first().map_or("", String::as_str))
+        .replace("{languages}", &languages.join(","))
+        .replace(
+            "{languages_tesseract}",
+            if languages.is_empty() {
+                "eng".into()
+            } else {
+                languages.join("+")
+            }
+            .as_str(),
+        )
+}
+
+async fn read_bounded<R: AsyncRead + Unpin>(reader: R, maximum: usize) -> std::io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    reader
+        .take(u64::try_from(maximum).unwrap_or(u64::MAX).saturating_add(1))
+        .read_to_end(&mut bytes)
+        .await?;
+    Ok(bytes)
+}
+
+async fn run_provider_async(
+    config: ProviderConfig,
+    png: Vec<u8>,
+    page: u64,
+    source: String,
+    languages: Vec<String>,
+    timeout_ms: u64,
+    max_output_chars: usize,
+) -> Result<String, String> {
+    let temp = TempDir::with_prefix("pdf-reader-mcp-ocr-")
+        .map_err(|_| "Failed to create OCR provider workspace.".to_string())?;
+    let input = temp.path().join(format!("page-{page}.png"));
+    std::fs::write(&input, png)
+        .map_err(|_| "Failed to write OCR provider input image.".to_string())?;
+    let input = input.to_string_lossy();
+    let args = config
+        .args_template
+        .iter()
+        .map(|arg| replace_placeholders(arg, &input, page, &source, &languages))
+        .collect::<Vec<_>>();
+    let mut command = Command::new(&config.command);
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command
+        .group_spawn()
+        .map_err(|_| format!("OCR provider command failed for page {page}."))?;
+    let maximum = max_output_chars.saturating_mul(4).max(1024 * 1024);
+    let stdout = child
+        .inner()
+        .stdout
+        .take()
+        .ok_or_else(|| "OCR provider stdout was unavailable.".to_string())?;
+    let stderr = child
+        .inner()
+        .stderr
+        .take()
+        .ok_or_else(|| "OCR provider stderr was unavailable.".to_string())?;
+    let execution = async {
+        tokio::join!(
+            child.inner().wait(),
+            read_bounded(stdout, maximum),
+            read_bounded(stderr, 64 * 1024)
+        )
+    };
+    let (status, stdout, stderr) =
+        match tokio::time::timeout(Duration::from_millis(timeout_ms), execution).await {
+            Ok(results) => results,
+            Err(_) => {
+                // The timed-out read futures are cancelled and their local pipe handles drop
+                // before this branch. Tree termination and leader reaping are both best-effort
+                // and bounded, so an escaped Unix descendant cannot extend the request deadline.
+                let _ = child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(2), child.inner().wait()).await;
+                return Err(format!("OCR provider command timed out for page {page}."));
+            }
+        };
+    // Terminate any helper left in the process group/job after the leader and pipes close.
+    let _ = child.start_kill();
+    let status = status.map_err(|_| format!("OCR provider command failed for page {page}."))?;
+    let stdout = stdout.map_err(|_| "OCR provider stdout reader failed.".to_string())?;
+    let _stderr = stderr.map_err(|_| "OCR provider stderr reader failed.".to_string())?;
+    if !status.success() || stdout.len() > maximum {
+        return Err(format!("OCR provider command failed for page {page}."));
+    }
+    Ok(String::from_utf8_lossy(&stdout).into_owned())
+}
+
+fn run_provider(
+    config: &ProviderConfig,
+    png: &[u8],
+    page: u64,
+    source: &str,
+    languages: &[String],
+    timeout_ms: u64,
+    max_output_chars: usize,
+) -> Result<String, String> {
+    let config = config.clone();
+    let png = png.to_vec();
+    let source = source.to_string();
+    let languages = languages.to_vec();
+    thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|_| "Failed to start bounded OCR provider runtime.".to_string())?
+            .block_on(run_provider_async(
+                config,
+                png,
+                page,
+                source,
+                languages,
+                timeout_ms,
+                max_output_chars,
+            ))
+    })
+    .join()
+    .map_err(|_| "OCR provider worker failed.".to_string())?
+}
+
+fn normalize_confidence(value: &Value) -> Option<f64> {
+    let value = value.as_f64()?;
+    value.is_finite().then(|| {
+        let value = if value > 1.0 { value / 100.0 } else { value };
+        value.clamp(0.0, 1.0)
+    })
+}
+
+fn round_coordinate(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+fn normalize_words(value: &Value, scale: f64) -> Option<Vec<Value>> {
+    let words = value
+        .as_array()?
+        .iter()
+        .filter_map(|word| {
+            let word = word.as_object()?;
+            let text = word.get("text")?.as_str()?;
+            if text.trim().is_empty() {
+                return None;
+            }
+            let mut output = json!({"text": text});
+            if let Some(confidence) = word.get("confidence").and_then(normalize_confidence) {
+                output["confidence"] = json!(confidence);
+            }
+            if let Some(box_) = word.get("bounding_box").and_then(Value::as_object) {
+                let left = box_.get("left").and_then(Value::as_f64);
+                let bottom = box_.get("bottom").and_then(Value::as_f64);
+                let right = box_.get("right").and_then(Value::as_f64);
+                let top = box_.get("top").and_then(Value::as_f64);
+                if let (Some(left), Some(bottom), Some(right), Some(top)) =
+                    (left, bottom, right, top)
+                {
+                    if [left, bottom, right, top]
+                        .iter()
+                        .all(|value| value.is_finite())
+                        && right > left
+                        && top > bottom
+                    {
+                        output["bounding_box"] = json!({
+                            "left": round_coordinate(left / scale),
+                            "bottom": round_coordinate(bottom / scale),
+                            "right": round_coordinate(right / scale),
+                            "top": round_coordinate(top / scale),
+                        });
+                    }
+                }
+            }
+            Some(output)
+        })
+        .collect::<Vec<_>>();
+    (!words.is_empty()).then_some(words)
+}
+
+fn truncate_utf16(text: &str, maximum: usize) -> (String, bool) {
+    let mut units = 0usize;
+    let mut end = text.len();
+    for (index, character) in text.char_indices() {
+        let next = units + character.len_utf16();
+        if next > maximum {
+            end = index;
+            break;
+        }
+        units = next;
+    }
+    (
+        text[..end].to_string(),
+        text.encode_utf16().count() > maximum,
+    )
+}
+
+fn normalize_output(
+    stdout: &str,
+    max_output_chars: usize,
+    languages: &[String],
+    scale: f64,
+) -> Value {
+    let trimmed = stdout.trim();
+    let parsed = serde_json::from_str::<Value>(trimmed)
+        .ok()
+        .filter(Value::is_object);
+    let raw_text = parsed
+        .as_ref()
+        .and_then(|value| value.get("text"))
+        .and_then(Value::as_str)
+        .unwrap_or(trimmed);
+    let (text, truncated) = truncate_utf16(raw_text, max_output_chars);
+    let mut output = json!({"text": text});
+    if let Some(confidence) = parsed
+        .as_ref()
+        .and_then(|value| value.get("confidence"))
+        .and_then(normalize_confidence)
+    {
+        output["confidence"] = json!(confidence);
+    }
+    if let Some(words) = parsed
+        .as_ref()
+        .and_then(|value| value.get("words"))
+        .and_then(|value| normalize_words(value, scale))
+    {
+        output["words"] = json!(words);
+    }
+    if let Some(language) = parsed
+        .as_ref()
+        .and_then(|value| value.get("language"))
+        .and_then(Value::as_str)
+        .or_else(|| languages.first().map(String::as_str))
+    {
+        output["language"] = json!(language);
+    }
+    if truncated {
+        output["warnings"] = json!([format!(
+            "OCR output truncated to {max_output_chars} characters."
+        )]);
+    }
+    output
+}
+
+fn text_result(payload: Value) -> CallToolResult {
+    let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
+    CallToolResult {
+        content: vec![Content::text(text)],
+        structured_content: Some(payload),
+        is_error: Some(false),
+        meta: None,
+    }
+}
+
+fn error_result(message: String) -> CallToolResult {
+    CallToolResult::error(vec![Content::text(message)])
+}
+
+pub fn ocr_pages(value: Value) -> Result<CallToolResult, rmcp::ErrorData> {
+    let args = parse_args(&value)?;
+    if args.sources.len() > MAX_SOURCES_PER_REQUEST {
+        return Err(rmcp::ErrorData::invalid_params(
+            format!("pdf_evidence accepts at most {MAX_SOURCES_PER_REQUEST} sources per request."),
+            None,
+        ));
+    }
+    if args.sources.is_empty() {
+        return Ok(error_result("All PDF sources failed OCR: ".into()));
+    }
+    let config = match provider_config() {
+        Ok(config) => config,
+        Err(message) => {
+            return Ok(error_result(format!(
+                "All PDF sources failed OCR: {message}"
+            )))
+        }
+    };
+    let _permit = match OcrRequestPermit::acquire() {
+        Ok(permit) => permit,
+        Err(message) => {
+            return Ok(error_result(format!(
+                "All PDF sources failed OCR: {message}"
+            )))
+        }
+    };
+    let scale = args.scale.unwrap_or(2.0);
+    let max_pages = args.max_pages.unwrap_or(5);
+    let max_pixels = args.max_pixels_per_page.unwrap_or(16_000_000);
+    let timeout_ms = u64::from(args.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS as u32));
+    let max_output_chars = args
+        .max_output_chars
+        .map_or(DEFAULT_MAX_OUTPUT_CHARS, |value| value as usize);
+    let languages_provided = args.languages.is_some();
+    let languages = args.languages.unwrap_or_default();
+    let request_deadline = Instant::now() + Duration::from_millis(MAX_REQUEST_OCR_TIMEOUT_MS);
+    let mut request_budget = RequestOcrBudget::default();
+    let mut render_input = value;
+    render_input["operation"] = json!("render_page");
+    render_input["include_image"] = json!(true);
+    let rendered = visual_evidence::render_pages(render_input)?;
+    let encoded = serde_json::to_value(&rendered).map_err(|error| {
+        rmcp::ErrorData::internal_error(format!("Failed to encode render evidence: {error}"), None)
+    })?;
+    let Some(payload) = rendered.structured_content else {
+        let message = encoded["content"][0]["text"]
+            .as_str()
+            .unwrap_or("All PDF sources failed OCR.");
+        return Ok(error_result(
+            message.replace("failed to render", "failed OCR"),
+        ));
+    };
+    let mut results = Vec::new();
+    for source in payload["results"].as_array().into_iter().flatten() {
+        let source_label = source["source"].as_str().unwrap_or("unknown source");
+        if source["success"] != true {
+            results.push(json!({
+                "source": source_label,
+                "success": false,
+                "error": source["error"],
+            }));
+            continue;
+        }
+        let output = (|| -> Result<Value, String> {
+            let mut ocr_pages = Vec::new();
+            for page in source["rendered_pages"].as_array().into_iter().flatten() {
+                request_budget.ensure_available()?;
+                let page_number = page["page"].as_u64().unwrap_or(0);
+                let index = page["image_content_index"]
+                    .as_u64()
+                    .ok_or_else(|| "Rendered OCR input image index is missing.".to_string())?;
+                let data = encoded["content"][index as usize]["data"]
+                    .as_str()
+                    .ok_or_else(|| "Rendered OCR input image is missing.".to_string())?;
+                let png = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data)
+                    .map_err(|_| "Rendered OCR input image is invalid.".to_string())?;
+                let remaining_ms = u64::try_from(
+                    request_deadline
+                        .saturating_duration_since(Instant::now())
+                        .as_millis(),
+                )
+                .unwrap_or(u64::MAX);
+                if remaining_ms == 0 {
+                    return Err(format!(
+                        "Request exceeds OCR provider time limit of {MAX_REQUEST_OCR_TIMEOUT_MS} milliseconds."
+                    ));
+                }
+                let stdout = run_provider(
+                    &config,
+                    &png,
+                    page_number,
+                    source_label,
+                    &languages,
+                    timeout_ms.min(remaining_ms),
+                    max_output_chars,
+                )?;
+                let mut normalized = normalize_output(&stdout, max_output_chars, &languages, scale);
+                let output_chars = normalized["text"]
+                    .as_str()
+                    .map_or(0, |text| text.encode_utf16().count());
+                request_budget.charge(stdout.len(), output_chars)?;
+                normalized["page"] = json!(page_number);
+                normalized["provider"] = json!("command");
+                normalized["source_render_evidence_id"] = page["evidence_id"].clone();
+                normalized["source_render_scale"] = page["scale"].clone();
+                normalized["source_render_width"] = page["width"].clone();
+                normalized["source_render_height"] = page["height"].clone();
+                normalized["provenance"] =
+                    json!({"engine": "external-command", "source": "ocr-provider"});
+                ocr_pages.push(normalized);
+            }
+            let mut result = json!({
+                "source": source_label,
+                "success": true,
+                "num_pages": source["num_pages"],
+                "ocr_pages": ocr_pages,
+            });
+            if source.get("warnings").is_some() {
+                result["warnings"] = source["warnings"].clone();
+            }
+            Ok(result)
+        })();
+        results.push(output.unwrap_or_else(
+            |error| json!({"source": source_label, "success": false, "error": error}),
+        ));
+    }
+    if results.iter().all(|result| result["success"] != true) {
+        let errors = results
+            .iter()
+            .filter_map(|result| result["error"].as_str())
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Ok(error_result(format!(
+            "All PDF sources failed OCR: {errors}"
+        )));
+    }
+    let mut options = json!({
+        "scale": scale,
+        "max_pages": max_pages,
+        "max_pixels_per_page": max_pixels,
+        "timeout_ms": timeout_ms,
+        "max_output_chars": max_output_chars,
+    });
+    if languages_provided {
+        options["languages"] = json!(languages);
+    }
+    Ok(text_result(json!({
+        "profile": "ocr_text_layer",
+        "ocr_options": options,
+        "results": results,
+    })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_json_provider_output_and_utf16_truncation() {
+        let output = normalize_output(
+            r#"{"text":"A😀B","confidence":87,"language":"fra","words":[{"text":"A","confidence":50,"bounding_box":{"left":2,"bottom":4,"right":6,"top":8}}]}"#,
+            3,
+            &[],
+            2.0,
+        );
+        assert_eq!(output["text"], "A😀");
+        assert_eq!(output["confidence"], 0.87);
+        assert_eq!(output["language"], "fra");
+        assert_eq!(output["words"][0]["confidence"], 0.5);
+        assert_eq!(
+            output["words"][0]["bounding_box"],
+            json!({"left": 1.0, "bottom": 2.0, "right": 3.0, "top": 4.0})
+        );
+        assert_eq!(
+            output["warnings"][0],
+            "OCR output truncated to 3 characters."
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_provider_configuration_without_shell_parsing() {
+        let error = provider_config_from(
+            Some("provider".into()),
+            None,
+            Some(r#"["--no-input"]"#.into()),
+        )
+        .err()
+        .expect("invalid args");
+        assert!(error.contains("{input}"));
+        assert!(
+            provider_config_from(None, Some("tesseract-tsv".into()), None)
+                .err()
+                .expect("tsv fails closed")
+                .contains("not available")
+        );
+    }
+
+    #[test]
+    fn request_budget_is_request_wide_and_fail_closed() {
+        let mut budget = RequestOcrBudget::default();
+        budget
+            .charge(
+                MAX_REQUEST_OCR_PROVIDER_BYTES - 1,
+                MAX_REQUEST_OCR_OUTPUT_CHARS - 1,
+            )
+            .expect("within budget");
+        assert!(budget
+            .charge(2, 0)
+            .expect_err("byte overflow")
+            .contains("bytes"));
+
+        let mut budget = RequestOcrBudget::default();
+        budget
+            .charge(0, MAX_REQUEST_OCR_OUTPUT_CHARS - 1)
+            .expect("within budget");
+        assert!(budget
+            .charge(0, 2)
+            .expect_err("character overflow")
+            .contains("characters"));
+        assert!(budget
+            .ensure_available()
+            .expect_err("exhaustion is sticky")
+            .contains("characters"));
+    }
+
+    #[test]
+    fn provider_concurrency_admission_is_process_wide_and_recoverable() {
+        let first = OcrRequestPermit::acquire().expect("first permit");
+        let second = OcrRequestPermit::acquire().expect("second permit");
+        assert!(OcrRequestPermit::acquire()
+            .expect_err("third request rejected")
+            .contains("concurrency limit"));
+        drop(first);
+        let replacement = OcrRequestPermit::acquire().expect("released slot is reusable");
+        drop(second);
+        drop(replacement);
+        assert_eq!(ACTIVE_OCR_REQUESTS.load(Ordering::Acquire), 0);
+    }
+}
