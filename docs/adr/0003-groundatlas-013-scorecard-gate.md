@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Superseded by Control Plane ADR-0014.
 
 ## Context
 
@@ -50,3 +50,11 @@ evidence/read models only. They are not project-control source of truth.
 - Dependabot PR #360 is superseded because it only bumped the action reference;
   this ADR requires the package spec, assertions, and artifact upload to move
   together.
+
+## Supersession
+
+Control Plane ADR-0014 retired repository-local GroundAtlas package dogfood in
+favor of central Repository Ingestion. The historical evidence above remains
+part of the decision record, but it is no longer a current CI requirement.
+`project.manifest.json` and `.doctrine/project.json` remain local semantic
+authorities; central inventory and reports remain derived read models.
