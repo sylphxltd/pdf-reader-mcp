@@ -74,18 +74,27 @@ impl PdfReaderMcp {
     #[tool(
         description = "Primary PDF reader. Pure-Rust experimental: selectable text, markdown, chunks, and best-effort twin fields. Not full 3.0.14 geometry/evidence parity."
     )]
-    pub fn read_pdf(
+    pub async fn read_pdf(
         &self,
         Parameters(args): Parameters<ReadPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
             .map_err(|message| ErrorData::invalid_params(message, None))?;
+        let provider_operation = args.include_ocr_text_layer == Some(true);
         let value = serde_json::to_value(args)
             .map(omit_absent_optional_fields)
             .map_err(|error| {
                 ErrorData::invalid_params(format!("Failed to encode read_pdf args: {error}"), None)
             })?;
-        read_pdf::read_pdf(value)
+        if provider_operation {
+            tokio::task::spawn_blocking(move || read_pdf::read_pdf(value))
+                .await
+                .map_err(|error| {
+                    ErrorData::internal_error(format!("read_pdf worker failed: {error}"), None)
+                })?
+        } else {
+            read_pdf::read_pdf(value)
+        }
     }
 
     #[tool(
@@ -303,7 +312,7 @@ mod tests {
             "sample_pages": 21
         }))
         .expect("structurally valid read args");
-        assert!(server.read_pdf(Parameters(read)).is_err());
+        assert!(server.read_pdf(Parameters(read)).await.is_err());
 
         let search = serde_json::from_value(serde_json::json!({
             "sources": [{"path": "sample.pdf"}],

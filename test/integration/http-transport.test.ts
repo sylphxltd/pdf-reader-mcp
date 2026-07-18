@@ -326,6 +326,56 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
     });
   });
 
+  it('should fuse command-provider OCR into read_pdf over HTTP', async () => {
+    const client = createMcpHttpClient();
+    await client.initializeSession();
+    const fixture = path.resolve(__dirname, '../fixtures/differential/v3014-visual-v1.pdf');
+    const response = await client.sendRequest(
+      'tools/call',
+      {
+        name: 'read_pdf',
+        arguments: {
+          sources: [{ path: fixture, pages: [1] }],
+          auto: false,
+          include_document_map: true,
+          include_ocr_text_layer: true,
+        },
+      },
+      51
+    );
+    expect(response.error).toBeUndefined();
+    const result = response.result as {
+      isError?: boolean;
+      content?: Array<{ type?: string; text?: string }>;
+      structuredContent?: {
+        evidence?: { confidence?: string };
+        results?: Array<{
+          success?: boolean;
+          data?: {
+            ocr_text_layer?: { profile?: string; pages?: Array<Record<string, unknown>> };
+            document_map?: { layers?: string[]; routing?: Record<string, unknown> };
+          };
+        }>;
+      };
+    };
+    expect(result.isError).not.toBe(true);
+    const data = result.structuredContent?.results?.[0]?.data;
+    expect(data?.ocr_text_layer).toMatchObject({
+      profile: 'ocr_text_layer',
+      pages: [
+        {
+          page: 1,
+          text: 'Reference OCR page 1 at 240x160',
+          provider: 'command',
+        },
+      ],
+    });
+    expect(data?.document_map?.layers).toContain('ocr_text_layer');
+    expect(data?.document_map?.routing).toMatchObject({ ocr_applied_pages: [1] });
+    expect(result.structuredContent?.evidence?.confidence).toBe('provider-dependent');
+    expect(result.content?.at(-1)?.text).toBe('[Page 1 OCR]\nReference OCR page 1 at 240x160');
+  });
+
   it('should return normalized command-provider region analysis over HTTP', async () => {
     const client = createMcpHttpClient();
     await client.initializeSession();

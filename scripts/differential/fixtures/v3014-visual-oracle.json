@@ -14,6 +14,8 @@
       "src/handlers/extractRegions.ts": "a125e4fa3b9c3aee1087f7e60a5092ce2354d918d2b1d01bc70f222d42219c33",
       "src/handlers/ocrPages.ts": "3ecca45d73471c422b225bba1a2bfee704d316826bf9f509ccf8d860f2ea6ac4",
       "src/handlers/analyzeRegions.ts": "b84d5e9741ff8a6ea0ac37ee3b764ec94f08229662b51d0552f6ebddf3723dc8",
+      "src/handlers/readPdf.ts": "1e7488cba29dc66ef8b6a86322d871ac3a3e5bf01981e9ab98a47ec4b0b1d5c4",
+      "src/pdf/readCoordinator.ts": "827cb1018a8621287de154132c0a00a00188497b84622a168a343d0df3ce5eca",
       "src/pdf/ocr.ts": "9c2f89afb8426fea801501f7a2264a90e536609c7f5d64e7257945d4038041ee",
       "src/pdf/regionAnalysis.ts": "26ffb87a2af378665fdb59b9b9c8f6b9060b1015083da8c898479157bd1d80ef",
       "src/pdf/renderer.ts": "29cf9917feaa470d3e3dafea5b432439fe0450eaee90b350458fb1e41bfe75a8",
@@ -713,6 +715,69 @@
               }
             }
           ]
+        }
+      ]
+    },
+    "read-ocr-command-fusion": {
+      "outcome": "success",
+      "content_ocr": [
+        "[Page 1 OCR]\nReference OCR page 1 at 240x160"
+      ],
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "ocr_text_layer": {
+            "profile": "ocr_text_layer",
+            "pages": [
+              {
+                "page": 1,
+                "text": "Reference OCR page 1 at 240x160",
+                "confidence": 0.87,
+                "words": [
+                  {
+                    "text": "Reference",
+                    "confidence": 0.91,
+                    "bounding_box": {
+                      "left": 10,
+                      "bottom": 5,
+                      "right": 50,
+                      "top": 15
+                    }
+                  }
+                ],
+                "provider": "command",
+                "source_render_evidence_id": "page-1-render-scale-2",
+                "source_render_scale": 2,
+                "source_render_width": 240,
+                "source_render_height": 160,
+                "provenance": {
+                  "engine": "external-command",
+                  "source": "ocr-provider"
+                }
+              }
+            ],
+            "summary": {
+              "page_count": 1,
+              "text_chars": 31,
+              "word_count": 1,
+              "words_with_bounding_boxes": 1,
+              "source_render_count": 1,
+              "average_confidence": 0.87
+            },
+            "warnings": []
+          },
+          "document_map": {
+            "has_ocr_layer": true,
+            "needs_ocr_pages": [
+              1
+            ],
+            "ocr_applied_pages": [
+              1
+            ],
+            "ocr_page_count": 1,
+            "ocr_text_chars": 31
+          }
         }
       ]
     },

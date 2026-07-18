@@ -13,7 +13,8 @@ use rmcp::model::{CallToolResult, Content};
 use serde_json::{json, Value};
 
 use crate::schema::{
-    PageSpecifier, PdfEvidenceArgs, PdfEvidenceRegion, PdfEvidenceSource, RegionBoundingBox,
+    PageSpecifier, PdfEvidenceArgs, PdfEvidenceRegion, PdfEvidenceSource, PdfSource,
+    RegionBoundingBox,
 };
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
@@ -27,29 +28,38 @@ const MAX_REQUEST_REGIONS: usize = 200;
 const MAX_REQUEST_RENDER_PIXELS: u64 = 256_000_000;
 
 #[derive(Default)]
-struct RequestWorkBudget {
-    rendered_pages: usize,
+pub(crate) struct RequestWorkBudget {
+    pub(crate) rendered_pages: usize,
     regions: usize,
-    render_pixels: u64,
+    pub(crate) render_pixels: u64,
+    exhausted: Option<String>,
 }
 
 impl RequestWorkBudget {
-    fn charge_page(&mut self, pixels: u64) -> Result<(), String> {
-        let rendered_pages = self
-            .rendered_pages
-            .checked_add(1)
-            .ok_or_else(|| "Request render page work overflow.".to_string())?;
+    pub(crate) fn ensure_available(&self) -> Result<(), String> {
+        self.exhausted.clone().map_or(Ok(()), Err)
+    }
+
+    pub(crate) fn exhaust(&mut self, message: String) -> Result<(), String> {
+        self.exhausted = Some(message.clone());
+        Err(message)
+    }
+
+    pub(crate) fn charge_page(&mut self, pixels: u64) -> Result<(), String> {
+        self.ensure_available()?;
+        let Some(rendered_pages) = self.rendered_pages.checked_add(1) else {
+            return self.exhaust("Request render page work overflow.".to_string());
+        };
         if rendered_pages > MAX_REQUEST_RENDERED_PAGES {
-            return Err(format!(
+            return self.exhaust(format!(
                 "Request exceeds render work limit of {MAX_REQUEST_RENDERED_PAGES} pages."
             ));
         }
-        let render_pixels = self
-            .render_pixels
-            .checked_add(pixels)
-            .ok_or_else(|| "Request render pixel work overflow.".to_string())?;
+        let Some(render_pixels) = self.render_pixels.checked_add(pixels) else {
+            return self.exhaust("Request render pixel work overflow.".to_string());
+        };
         if render_pixels > MAX_REQUEST_RENDER_PIXELS {
-            return Err(format!(
+            return self.exhaust(format!(
                 "Request exceeds render work limit of {MAX_REQUEST_RENDER_PIXELS} pixels."
             ));
         }
@@ -59,12 +69,12 @@ impl RequestWorkBudget {
     }
 
     fn charge_region(&mut self) -> Result<(), String> {
-        let regions = self
-            .regions
-            .checked_add(1)
-            .ok_or_else(|| "Request region work overflow.".to_string())?;
+        self.ensure_available()?;
+        let Some(regions) = self.regions.checked_add(1) else {
+            return self.exhaust("Request region work overflow.".to_string());
+        };
         if regions > MAX_REQUEST_REGIONS {
-            return Err(format!(
+            return self.exhaust(format!(
                 "Request exceeds crop work limit of {MAX_REQUEST_REGIONS} regions."
             ));
         }
@@ -73,10 +83,53 @@ impl RequestWorkBudget {
     }
 }
 
-struct MaterializedSource {
+pub(crate) struct MaterializedSource {
+    source_index: usize,
     label: String,
     path: PathBuf,
     temporary: bool,
+}
+
+impl MaterializedSource {
+    pub(crate) fn source_index(&self) -> usize {
+        self.source_index
+    }
+
+    pub(crate) fn label(&self) -> &str {
+        &self.label
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct RenderedOcrPage {
+    pub(crate) page: u32,
+    pub(crate) png: Vec<u8>,
+    pub(crate) evidence_id: String,
+    pub(crate) scale: f64,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+}
+
+#[derive(Debug)]
+pub(crate) struct RenderedOcrSource {
+    pub(crate) source_index: usize,
+    pub(crate) source: String,
+    pub(crate) pages: Vec<RenderedOcrPage>,
+    pub(crate) warnings: Vec<String>,
+    pub(crate) error: Option<String>,
+}
+
+pub(crate) struct OcrRenderRequest<'a> {
+    pub(crate) requested_pages: &'a [u32],
+    pub(crate) scale_value: f64,
+    pub(crate) max_pages: usize,
+    pub(crate) max_pixels: u64,
+    pub(crate) request_deadline: std::time::Instant,
+    pub(crate) deadline_error: &'a str,
 }
 
 impl Drop for MaterializedSource {
@@ -131,6 +184,7 @@ fn parse_args(value: Value) -> Result<PdfEvidenceArgs, rmcp::ErrorData> {
 fn materialize(source: &PdfEvidenceSource) -> Result<MaterializedSource, String> {
     if let Some(path) = source.path.as_ref() {
         return Ok(MaterializedSource {
+            source_index: 0,
             label: path.clone(),
             path: PathBuf::from(path),
             temporary: false,
@@ -138,12 +192,133 @@ fn materialize(source: &PdfEvidenceSource) -> Result<MaterializedSource, String>
     }
     if let Some(url) = source.url.as_ref() {
         return fetch_url_to_temp_file(url).map(|path| MaterializedSource {
+            source_index: 0,
             label: url.clone(),
             path,
             temporary: true,
         });
     }
     Err("Provide exactly one of path or url for each PDF source.".into())
+}
+
+/// Resolve each read source exactly once. URL-backed temporary files live until
+/// the returned owner is dropped, allowing extraction and OCR rendering to
+/// share the same bytes without a second fetch.
+pub(crate) fn materialize_read_source(
+    source_index: usize,
+    source: &PdfSource,
+) -> Result<MaterializedSource, String> {
+    if let Some(path) = source.path.as_ref() {
+        return Ok(MaterializedSource {
+            source_index,
+            label: path.clone(),
+            path: PathBuf::from(path),
+            temporary: false,
+        });
+    }
+    if let Some(url) = source.url.as_ref() {
+        return fetch_url_to_temp_file(url).map(|path| MaterializedSource {
+            source_index,
+            label: url.clone(),
+            path,
+            temporary: true,
+        });
+    }
+    Err("Provide exactly one of path or url for each PDF source.".into())
+}
+
+pub(crate) fn render_ocr_source(
+    source: &MaterializedSource,
+    request: OcrRenderRequest<'_>,
+    work_budget: &mut RequestWorkBudget,
+) -> RenderedOcrSource {
+    let output = (|| -> Result<(Vec<RenderedOcrPage>, Vec<String>), String> {
+        work_budget.ensure_available()?;
+        if std::time::Instant::now() >= request.request_deadline {
+            let error = work_budget
+                .exhaust(request.deadline_error.to_string())
+                .expect_err("deadline exhausts render budget");
+            return Err(error);
+        }
+        let document =
+            RenderDocument::new(read_pdf(source.path())?).map_err(|error| error.message)?;
+        let num_pages = document.page_count();
+        if num_pages == 0 {
+            return Err("PDF contains no pages.".into());
+        }
+        let valid = request
+            .requested_pages
+            .iter()
+            .copied()
+            .filter(|page| (*page as usize) <= num_pages)
+            .collect::<Vec<_>>();
+        let invalid = request
+            .requested_pages
+            .iter()
+            .copied()
+            .filter(|page| (*page as usize) > num_pages)
+            .collect::<Vec<_>>();
+        let pages_to_render = &valid[..valid.len().min(request.max_pages)];
+        let truncated = &valid[pages_to_render.len()..];
+        if pages_to_render.is_empty() {
+            return Err(format!(
+                "No valid OCR candidate pages for source {}.",
+                source.label()
+            ));
+        }
+        let warnings = render_warnings(&invalid, truncated, num_pages, request.max_pages);
+        let scale = request.scale_value as f32;
+        let mut pages = Vec::with_capacity(pages_to_render.len());
+        for page in pages_to_render {
+            work_budget.ensure_available()?;
+            if std::time::Instant::now() >= request.request_deadline {
+                let error = work_budget
+                    .exhaust(request.deadline_error.to_string())
+                    .expect_err("deadline exhausts render budget");
+                return Err(error);
+            }
+            let pixels = document
+                .planned_render_pixel_count(*page as usize, scale)
+                .map_err(|error| error.message)?;
+            work_budget.charge_page(pixels)?;
+            let rendered = document
+                .render_page(
+                    *page as usize,
+                    scale,
+                    request.max_pixels,
+                    DEFAULT_MAX_RENDER_OUTPUT_BYTES,
+                )
+                .map_err(|error| error.message)?;
+            pages.push(RenderedOcrPage {
+                page: rendered.page as u32,
+                png: rendered.png,
+                evidence_id: format!(
+                    "page-{}-render-scale-{}",
+                    rendered.page, request.scale_value
+                ),
+                scale: request.scale_value,
+                width: rendered.width,
+                height: rendered.height,
+            });
+        }
+        Ok((pages, warnings))
+    })();
+    match output {
+        Ok((pages, warnings)) => RenderedOcrSource {
+            source_index: source.source_index(),
+            source: source.label().to_string(),
+            pages,
+            warnings,
+            error: None,
+        },
+        Err(error) => RenderedOcrSource {
+            source_index: source.source_index(),
+            source: source.label().to_string(),
+            pages: Vec::new(),
+            warnings: Vec::new(),
+            error: Some(error),
+        },
+    }
 }
 
 fn read_pdf(path: &Path) -> Result<Vec<u8>, String> {
@@ -264,6 +439,7 @@ pub fn render_pages(value: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         let source_label = source.label();
         let image_base_index = images.len();
         let output = (|| -> Result<(Value, Vec<ImagePart>, usize), String> {
+            work_budget.ensure_available()?;
             let mut source_images = Vec::new();
             let mut source_bytes = 0usize;
             let materialized = materialize(source)?;
@@ -457,6 +633,7 @@ pub fn extract_regions(value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
         let source_label = source.label();
         let image_base_index = images.len();
         let output = (|| -> Result<(Value, Vec<ImagePart>, usize), String> {
+            work_budget.ensure_available()?;
             let mut source_images = Vec::new();
             let mut source_bytes = 0usize;
             let materialized = materialize(source)?;
@@ -796,6 +973,10 @@ mod tests {
         }
         assert!(budget.charge_page(1).unwrap_err().contains("pages"));
         assert_eq!(budget.rendered_pages, MAX_REQUEST_RENDERED_PAGES);
+        assert!(budget
+            .ensure_available()
+            .expect_err("page exhaustion is sticky")
+            .contains("pages"));
 
         let mut pixel_budget = RequestWorkBudget::default();
         pixel_budget
@@ -803,6 +984,10 @@ mod tests {
             .expect("pixels at bound");
         assert!(pixel_budget.charge_page(1).unwrap_err().contains("pixels"));
         assert_eq!(pixel_budget.render_pixels, MAX_REQUEST_RENDER_PIXELS);
+        assert!(pixel_budget
+            .ensure_available()
+            .expect_err("pixel exhaustion is sticky")
+            .contains("pixels"));
 
         let mut region_budget = RequestWorkBudget::default();
         for _ in 0..MAX_REQUEST_REGIONS {
@@ -813,6 +998,10 @@ mod tests {
             .unwrap_err()
             .contains("regions"));
         assert_eq!(region_budget.regions, MAX_REQUEST_REGIONS);
+        assert!(region_budget
+            .ensure_available()
+            .expect_err("region exhaustion is sticky")
+            .contains("regions"));
     }
 
     #[test]

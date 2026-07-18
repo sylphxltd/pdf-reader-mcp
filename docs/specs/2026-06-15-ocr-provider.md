@@ -108,6 +108,11 @@ Confidence values above 1 are treated as percentages and normalized to 0-1.
 
 ## `read_pdf` Fusion
 
+> Pure-Rust migration status (2026-07-18): command-provider text-layer and
+> document-map linkage are implemented and differentially fenced. OCR-derived
+> table/document-AST fusion and `tesseract-tsv` remain open; the published
+> TypeScript 3.0.14 behavior described below remains the parity authority.
+
 `read_pdf` accepts:
 
 ```json

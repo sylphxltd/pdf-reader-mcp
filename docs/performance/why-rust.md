@@ -38,7 +38,7 @@ their current status is recorded in the
 | Structure | `tables`, `document_map`, `document_ast`, `layout_diagnostics` |
 | Safety / trust | `safety_findings`, `trust_report`, `accessibility_report` |
 | Document signals | `outline`, `annotations`, `form_fields`, `attachments`, `structure_trees`, `page_labels`, `page_geometry`, `permissions` |
-| Provider opt-in | `ocr_text_layer`, `visual_enrichments` (empty + warning without providers — same model as optional TS providers) |
+| Provider opt-in | `ocr_text_layer` has a bounded command-provider fusion subset; without a provider the field is omitted with an explicit warning, matching TS failure semantics. `visual_enrichments` remains a placeholder. |
 | Evidence | `pdf_evidence` `inspect` (routing); visual ops fail closed with guidance when no render/OCR backend is configured |
 
 The following commands exercise only the currently claimed subset. They are
@@ -115,13 +115,17 @@ Artifact: `benchmark-artifacts/pdf_pure_rust_benchmark.json`.
 ## Capability honesty
 
 Pure-Rust text extraction currently uses the selectable text layer. Geometry,
-OCR, visual evidence, and full Document Twin parity remain open work. Empty
+visual evidence, and full Document Twin parity remain open work. Empty
 placeholder arrays prove only response shape; they do not prove capability.
 
 Visual `pdf_evidence` operations now have bounded Hayro render/crop plus opt-in
-command-provider OCR and region-analysis subsets. They remain partial: OCR TSV,
-region-analysis HTTP/presets, broader renderer fixtures, and full Document Twin
-fusion are open. Unavailable paths fail closed; this is not TS 3.0.14 parity.
+command-provider OCR and region-analysis subsets. `read_pdf` can now select OCR
+pages, invoke that bounded command provider, return the normalized parallel OCR
+layer, link applied pages into `document_map`, and emit OCR MCP text parts. The
+immutable detached TS 3.0.14 differential covers this bounded fusion case.
+It remains partial: OCR-derived tables/AST, OCR TSV, region-analysis
+HTTP/presets, broader renderer fixtures, and full Document Twin fusion are
+open. Unavailable paths fail closed; this is not TS 3.0.14 parity.
 
 ## Install
 

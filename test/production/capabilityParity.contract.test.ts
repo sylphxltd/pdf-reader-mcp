@@ -43,7 +43,6 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   attachments: ['attachments'],
   structure: ['structure_trees'],
   images: ['images'],
-  ocr: ['ocr_text_layer'],
   visual: ['visual_enrichments'],
 };
 
@@ -111,7 +110,12 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
   beforeAll(async () => {
     process.env.PDF_READER_ENGINE_MODE = 'pure-rust';
     ensureProductionArtifacts();
-    proc = spawnProductionMcp({ PDF_READER_ENGINE_MODE: 'pure-rust' });
+    proc = spawnProductionMcp({
+      PDF_READER_ENGINE_MODE: 'pure-rust',
+      MCP_PDF_OCR_COMMAND: '',
+      MCP_PDF_OCR_ARGS_JSON: '',
+      MCP_PDF_OCR_PRESET: '',
+    });
     await initializeSession(proc, 'capability-parity-contract');
   }, 420_000);
 
@@ -181,6 +185,33 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     }
     expect(missing).toEqual([]);
     expect(deepHasKey(parsed, 'full_text')).toBe(false);
+  }, 120_000);
+
+  test('provider-backed OCR is omitted with an explicit warning when no provider is configured', async () => {
+    const response = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: samplePdf, pages: [1] }],
+        auto: false,
+        include_ocr_text_layer: true,
+      },
+      90_000
+    );
+    const payload = parseToolPayload(response);
+    expect(payload.isError).toBe(false);
+    const parsed = JSON.parse(payload.text) as {
+      results?: Array<{
+        success?: boolean;
+        data?: { ocr_text_layer?: unknown; warnings?: string[] };
+      }>;
+    };
+    expect(parsed.results?.[0]?.success).toBe(true);
+    expect(parsed.results?.[0]?.data?.ocr_text_layer).toBeUndefined();
+    expect(parsed.results?.[0]?.data?.warnings).toContain(
+      'OCR text layer unavailable: OCR provider is not configured. Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract to enable ocr_pages.'
+    );
   }, 120_000);
 
   test('search_pdf public options remain available', async () => {

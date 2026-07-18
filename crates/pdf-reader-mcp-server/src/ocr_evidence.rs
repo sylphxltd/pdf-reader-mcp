@@ -4,6 +4,7 @@ use std::env;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
+use pdf_reader_core::{OcrPage, SourceOcrOutcome};
 use rmcp::model::{CallToolResult, Content};
 use serde_json::{json, Value};
 use tempfile::TempDir;
@@ -11,6 +12,7 @@ use tempfile::TempDir;
 use crate::command_provider::{self, CommandInvocation, CommandRunError};
 use crate::schema::PdfEvidenceArgs;
 use crate::visual_evidence;
+use crate::visual_evidence::{MaterializedSource, OcrRenderRequest, RequestWorkBudget};
 
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_MAX_OUTPUT_CHARS: usize = 200_000;
@@ -91,6 +93,21 @@ impl RequestOcrBudget {
     fn charge_failed_provider(&mut self, provider_bytes: usize) -> Result<(), String> {
         self.charge(provider_bytes, 0)
     }
+}
+
+fn admit_read_ocr_source(
+    request_budget: &RequestOcrBudget,
+    render_budget: &mut RequestWorkBudget,
+    request_deadline: Instant,
+) -> Result<(), String> {
+    request_budget.ensure_available()?;
+    render_budget.ensure_available()?;
+    if Instant::now() >= request_deadline {
+        return render_budget.exhaust(format!(
+            "Request exceeds OCR provider time limit of {MAX_REQUEST_OCR_TIMEOUT_MS} milliseconds."
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -361,6 +378,209 @@ fn normalize_output(
     output
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ReadOcrOptions {
+    pub(crate) scale: f64,
+    pub(crate) max_pages: usize,
+    pub(crate) max_pixels_per_page: u64,
+    pub(crate) timeout_ms: u64,
+    pub(crate) max_output_chars: usize,
+}
+
+impl Default for ReadOcrOptions {
+    fn default() -> Self {
+        Self {
+            scale: 2.0,
+            max_pages: 5,
+            max_pixels_per_page: 16_000_000,
+            timeout_ms: DEFAULT_TIMEOUT_MS,
+            max_output_chars: DEFAULT_MAX_OUTPUT_CHARS,
+        }
+    }
+}
+
+/// Render and OCR read_pdf candidates without converting image bytes through
+/// MCP content/base64. All effects are synchronous by design; callers must run
+/// this boundary on a blocking worker.
+pub(crate) fn run_read_ocr(
+    sources: &[(&MaterializedSource, Vec<u32>)],
+    options: ReadOcrOptions,
+) -> Vec<SourceOcrOutcome> {
+    if sources.len() > MAX_SOURCES_PER_REQUEST {
+        let error =
+            format!("read_pdf OCR accepts at most {MAX_SOURCES_PER_REQUEST} sources per request.");
+        return sources
+            .iter()
+            .map(|(source, _)| SourceOcrOutcome {
+                source_index: source.source_index(),
+                pages: Vec::new(),
+                warnings: Vec::new(),
+                error: Some(error.clone()),
+            })
+            .collect();
+    }
+    let config = match provider_config() {
+        Ok(config) => config,
+        Err(error) => {
+            return sources
+                .iter()
+                .map(|(source, _)| SourceOcrOutcome {
+                    source_index: source.source_index(),
+                    pages: Vec::new(),
+                    warnings: Vec::new(),
+                    error: Some(error.clone()),
+                })
+                .collect()
+        }
+    };
+    let _permit = match OcrRequestPermit::acquire() {
+        Ok(permit) => permit,
+        Err(error) => {
+            return sources
+                .iter()
+                .map(|(source, _)| SourceOcrOutcome {
+                    source_index: source.source_index(),
+                    pages: Vec::new(),
+                    warnings: Vec::new(),
+                    error: Some(error.clone()),
+                })
+                .collect()
+        }
+    };
+
+    let request_deadline = Instant::now() + Duration::from_millis(MAX_REQUEST_OCR_TIMEOUT_MS);
+    let mut request_budget = RequestOcrBudget::default();
+    let mut render_budget = RequestWorkBudget::default();
+    let languages = Vec::new();
+    sources
+        .iter()
+        .map(|(source, candidate_pages)| {
+            let deadline_error = format!(
+                "Request exceeds OCR provider time limit of {MAX_REQUEST_OCR_TIMEOUT_MS} milliseconds."
+            );
+            if let Err(error) =
+                admit_read_ocr_source(&request_budget, &mut render_budget, request_deadline)
+            {
+                return SourceOcrOutcome {
+                    source_index: source.source_index(),
+                    pages: Vec::new(),
+                    warnings: Vec::new(),
+                    error: Some(error),
+                };
+            }
+            let rendered = visual_evidence::render_ocr_source(
+                source,
+                OcrRenderRequest {
+                    requested_pages: candidate_pages,
+                    scale_value: options.scale,
+                    max_pages: options.max_pages,
+                    max_pixels: options.max_pixels_per_page,
+                    request_deadline,
+                    deadline_error: &deadline_error,
+                },
+                &mut render_budget,
+            );
+            if let Some(error) = rendered.error {
+                return SourceOcrOutcome {
+                    source_index: rendered.source_index,
+                    pages: Vec::new(),
+                    warnings: rendered.warnings,
+                    error: Some(error),
+                };
+            }
+            let mut pages = Vec::with_capacity(rendered.pages.len());
+            for page in rendered.pages {
+                if let Err(error) = request_budget.ensure_available() {
+                    return SourceOcrOutcome {
+                        source_index: rendered.source_index,
+                        pages: Vec::new(),
+                        warnings: rendered.warnings,
+                        error: Some(error),
+                    };
+                }
+                let remaining_ms = u64::try_from(
+                    request_deadline
+                        .saturating_duration_since(Instant::now())
+                        .as_millis(),
+                )
+                .unwrap_or(u64::MAX);
+                if remaining_ms == 0 {
+                    return SourceOcrOutcome {
+                        source_index: rendered.source_index,
+                        pages: Vec::new(),
+                        warnings: rendered.warnings,
+                        error: Some(format!(
+                            "Request exceeds OCR provider time limit of {MAX_REQUEST_OCR_TIMEOUT_MS} milliseconds."
+                        )),
+                    };
+                }
+                let stdout = match run_provider(
+                    &config,
+                    &page.png,
+                    u64::from(page.page),
+                    &rendered.source,
+                    &languages,
+                    options.timeout_ms.min(remaining_ms),
+                    options.max_output_chars,
+                ) {
+                    Ok(stdout) => stdout,
+                    Err(error) => {
+                        let _ = request_budget.charge_failed_provider(error.charge_bytes);
+                        return SourceOcrOutcome {
+                            source_index: rendered.source_index,
+                            pages: Vec::new(),
+                            warnings: rendered.warnings,
+                            error: Some(error.message),
+                        };
+                    }
+                };
+                let mut normalized = normalize_output(
+                    &stdout,
+                    options.max_output_chars,
+                    &languages,
+                    options.scale,
+                );
+                let output_chars = normalized["text"]
+                    .as_str()
+                    .map_or(0, |text| text.encode_utf16().count());
+                if let Err(error) = request_budget.charge(stdout.len(), output_chars) {
+                    return SourceOcrOutcome {
+                        source_index: rendered.source_index,
+                        pages: Vec::new(),
+                        warnings: rendered.warnings,
+                        error: Some(error),
+                    };
+                }
+                normalized["page"] = json!(page.page);
+                normalized["provider"] = json!("command");
+                normalized["source_render_evidence_id"] = json!(page.evidence_id);
+                normalized["source_render_scale"] = json!(page.scale);
+                normalized["source_render_width"] = json!(page.width);
+                normalized["source_render_height"] = json!(page.height);
+                normalized["provenance"] =
+                    json!({"engine": "external-command", "source": "ocr-provider"});
+                match serde_json::from_value::<OcrPage>(normalized) {
+                    Ok(page) => pages.push(page),
+                    Err(error) => {
+                        return SourceOcrOutcome {
+                            source_index: rendered.source_index,
+                            pages: Vec::new(),
+                            warnings: rendered.warnings,
+                            error: Some(format!("Failed to normalize OCR provider output: {error}")),
+                        }
+                    }
+                }
+            }
+            SourceOcrOutcome {
+                source_index: rendered.source_index,
+                pages,
+                warnings: rendered.warnings,
+                error: None,
+            }
+        })
+        .collect()
+}
+
 fn text_result(payload: Value) -> CallToolResult {
     let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
     CallToolResult {
@@ -605,6 +825,30 @@ mod tests {
             .ensure_available()
             .expect_err("exhaustion is sticky")
             .contains("characters"));
+    }
+
+    #[test]
+    fn exhausted_provider_budget_blocks_later_render_and_provider_effects() {
+        let mut request_budget = RequestOcrBudget::default();
+        request_budget
+            .charge(0, MAX_REQUEST_OCR_OUTPUT_CHARS + 1)
+            .expect_err("exhaust provider budget");
+        let mut render_budget = RequestWorkBudget::default();
+        let mut sentinel_invocations = 0usize;
+
+        if admit_read_ocr_source(
+            &request_budget,
+            &mut render_budget,
+            Instant::now() + Duration::from_secs(1),
+        )
+        .is_ok()
+        {
+            sentinel_invocations += 1;
+        }
+
+        assert_eq!(sentinel_invocations, 0);
+        assert_eq!(render_budget.rendered_pages, 0);
+        assert_eq!(render_budget.render_pixels, 0);
     }
 
     #[test]
