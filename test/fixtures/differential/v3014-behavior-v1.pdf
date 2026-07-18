@@ -4,10 +4,10 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 /MediaBox [0 0 612 792] /CropBox [20 30 580 760] /Rotate 90 /UserUnit 2 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /UserUnit 2 /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R /Annots [11 0 R] >>
 endobj
 4 0 obj
 << /Length 94 >>
@@ -59,21 +59,29 @@ endobj
 10 0 obj
 << /Title (Parity Corpus V1) /Author (Sylphx Oracle) /Subject (TS 3.0.14 behavioral contract) /Keywords (parity multipage search) /Creator (fixture-generator-v1) /Producer (fixture-generator-v1) >>
 endobj
+11 0 obj
+<< /Type /Annot /Subtype /Link /Contents (  Linked note  ) /Rect [100 200 50 150] /A << /S /URI /URI (https://example.com/a) >> >>
+endobj
+12 0 obj
+<< /Type /Annot /Subtype /Text /Contents () /Rect [1 2 1 2] >>
+endobj
 xref
-0 11
+0 13
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
-0000000133 00000 n 
-0000000259 00000 n 
-0000000402 00000 n 
-0000000528 00000 n 
-0000000693 00000 n 
-0000000819 00000 n 
-0000000949 00000 n 
-0000001046 00000 n 
+0000000205 00000 n 
+0000000336 00000 n 
+0000000479 00000 n 
+0000000605 00000 n 
+0000000770 00000 n 
+0000000896 00000 n 
+0000001026 00000 n 
+0000001123 00000 n 
+0000001337 00000 n 
+0000001484 00000 n 
 trailer
-<< /Size 11 /Root 1 0 R /Info 10 0 R >>
+<< /Size 13 /Root 1 0 R /Info 10 0 R >>
 startxref
-1260
+1563
 %%EOF

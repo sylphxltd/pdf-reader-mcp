@@ -1,10 +1,12 @@
 //! Rust hashing, SSRF-safe fetch, and text-index primitives for pdf-reader-mcp.
 
+mod cos_document;
 pub mod document_twin;
 pub mod legacy;
 pub mod ocr_fusion;
 pub mod ocr_tables;
 pub mod page_cache;
+mod page_signals;
 pub mod read_pdf;
 pub mod render;
 pub mod search_pdf;

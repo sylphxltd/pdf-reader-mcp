@@ -86,6 +86,10 @@ async function readCase(id: string, input: Record<string, unknown>) {
       text: normalizeText(page.text),
     }));
   }
+  if (id === 'read-page-signals') {
+    output.page_geometry = first.data?.page_geometry ?? null;
+    output.annotations = first.data?.annotations ?? null;
+  }
   output.warnings = canonicalWarnings(first.data?.warnings);
   return output;
 }

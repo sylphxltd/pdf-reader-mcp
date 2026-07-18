@@ -38,12 +38,12 @@
       "include_accessibility_report": "PARTIAL",
       "include_metadata": "PARTIAL",
       "include_outline": "STUB",
-      "include_annotations": "STUB",
+      "include_annotations": "PARTIAL",
       "include_form_fields": "STUB",
       "include_attachments": "STUB",
       "include_structure_tree": "STUB",
       "include_page_labels": "STUB",
-      "include_page_geometry": "STUB",
+      "include_page_geometry": "PARTIAL",
       "include_permissions": "STUB",
       "include_images": "STUB",
       "include_ocr_text_layer": "PARTIAL",
@@ -71,17 +71,17 @@
     }
   },
   "claimedForDifferential": [
-    "exact 10-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, missing and malformed inputs, and mixed-source partial success",
+    "exact 11-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, missing and malformed inputs, mixed-source partial success, inherited crop/media/rotation geometry with page UserUnit, and an indirect Link/URI annotation",
     "exact 16-case immutable TS v3.0.14 render/crop/command-provider semantic subset over stdio: defaults, page selection and warnings, region ordering, padding and fractional bounds, rotated pages, mixed-source and late-provider partial success, all-source failure, MCP image indexing, standalone OCR normalization, read_pdf OCR text-layer/map fusion, boxed OCR table projection into elements/chunks/markdown/html/document_ast/document_map, rich region-analysis normalization, plain-text truncation, and truthful provenance; exact pdf.js pixels and antialiasing are not claimed",
     "DNS-pinned URL fetch: one resolution per redirect hop, reject mixed public/non-public answers, disable ambient proxies, and revalidate every redirect; still PARTIAL because resolver timeout and TLS-SNI fixtures remain open",
     "auto off when include_* keys are present"
   ],
   "explicitlyNotClaimed": [
-    "complete TS 3.0.14 semantic parity outside the immutable 10-case subset",
-    "text/search geometry, geometry-perfect pdf.js boxes, and general bounding-box parity",
+    "complete TS 3.0.14 semantic parity outside the immutable 11-case subset",
+    "text/search geometry, geometry-perfect pdf.js boxes outside the frozen page-geometry subset, direct-annotation PDF.js presentation normalization, non-Link annotation/action parity, and general bounding-box parity",
     "render/crop/OCR/analyze/read-fusion/table-projection semantic parity outside the immutable 16-case subset, including exact pdf.js pixels and antialiasing",
     "OCR success paths outside the opt-in command JSON/plain-text subset, including tesseract-tsv; mixed selectable/OCR table continuation and full AST hierarchy parity; analyze_regions HTTP and preset providers",
-    "COS outline/annotations/forms",
+    "COS outline/forms, page labels, permissions, attachments, and structure trees",
     "cross-platform npm native binary",
     "npm library exports for pure-Rust",
     "2.0x/3.3x industry benchmark headline"

@@ -263,9 +263,15 @@ pub fn extract_pdf_text(
             TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
         })?;
     }
-    let info = read_pdf_info(&doc);
+    extract_pdf_text_from_document(&doc)
+}
+
+pub(crate) fn extract_pdf_text_from_document(
+    doc: &Document,
+) -> Result<ExtractedPdfText, TextIndexError> {
+    let info = read_pdf_info(doc);
     let mut output = TextItemOutput::default();
-    output_doc(&doc, &mut output).map_err(|err| {
+    output_doc(doc, &mut output).map_err(|err| {
         TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
     })?;
 
