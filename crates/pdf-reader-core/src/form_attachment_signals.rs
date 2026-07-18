@@ -19,6 +19,8 @@ pub(crate) struct FormAttachmentSignals {
     #[cfg(test)]
     form_materialized_array_items: usize,
     #[cfg(test)]
+    form_annotation_materialized_array_items: usize,
+    #[cfg(test)]
     attachment_materialized_array_items: usize,
 }
 
@@ -86,6 +88,8 @@ pub(crate) fn extract_form_attachment_signals(
         #[cfg(test)]
         {
             output.form_materialized_array_items = walker.materialized_array_items;
+            output.form_annotation_materialized_array_items =
+                walker.annotation_materialized_array_items;
         }
         if walker.limited {
             output.form_fields = None;
@@ -114,10 +118,13 @@ struct Walker<'a> {
     work: usize,
     entries: usize,
     text_remaining: usize,
+    form_value_nodes_remaining: usize,
     failed: bool,
     limited: bool,
     #[cfg(test)]
     materialized_array_items: usize,
+    #[cfg(test)]
+    annotation_materialized_array_items: usize,
 }
 
 impl<'a> Walker<'a> {
@@ -127,10 +134,13 @@ impl<'a> Walker<'a> {
             work: 0,
             entries: 0,
             text_remaining: MAX_TEXT_BYTES,
+            form_value_nodes_remaining: MAX_ENTRIES,
             failed: false,
             limited: false,
             #[cfg(test)]
             materialized_array_items: 0,
+            #[cfg(test)]
+            annotation_materialized_array_items: 0,
         }
     }
 
@@ -176,6 +186,19 @@ impl<'a> Walker<'a> {
         Some(values.iter().collect())
     }
 
+    fn annotation_array_bounded(
+        &mut self,
+        value: &'a Object,
+        max_len: usize,
+    ) -> Option<Vec<&'a Object>> {
+        let values = self.array_bounded(value, max_len)?;
+        #[cfg(test)]
+        {
+            self.annotation_materialized_array_items += values.len();
+        }
+        Some(values)
+    }
+
     fn text(&mut self, value: &'a Object) -> Option<String> {
         let value = self.resolve(value)?;
         let bytes = match value {
@@ -208,24 +231,44 @@ fn extract_forms<'a>(
     let mut raw_node_budget = MAX_ENTRIES;
     let fields = walker.array_bounded(acroform.get(b"Fields").ok()?, raw_node_budget)?;
     raw_node_budget -= fields.len();
+    if pages.len() > MAX_ENTRIES {
+        walker.limited = true;
+        return None;
+    }
+    let mut page_annotation_budget = MAX_ENTRIES - pages.len();
+    let mut admitted_annotations = Vec::new();
+    for (page, page_id) in pages {
+        let Some(page_value) = walker.document.objects.get(page_id) else {
+            continue;
+        };
+        let Some(page_dict) = walker.dict(page_value) else {
+            if walker.failed || walker.limited {
+                return None;
+            }
+            continue;
+        };
+        let Ok(annots_value) = page_dict.get(b"Annots") else {
+            continue;
+        };
+        let Some(annots) = walker.annotation_array_bounded(annots_value, page_annotation_budget)
+        else {
+            if walker.failed || walker.limited {
+                return None;
+            }
+            continue;
+        };
+        page_annotation_budget -= annots.len();
+        admitted_annotations.push((*page, annots));
+    }
     let page_by_id = pages
         .iter()
         .map(|(page, id)| (*id, *page))
         .collect::<HashMap<_, _>>();
     let mut annotation_pages = HashMap::new();
-    for (page, page_id) in pages {
-        let Ok(page_dict) = walker
-            .document
-            .get_object(*page_id)
-            .and_then(Object::as_dict)
-        else {
-            continue;
-        };
-        if let Ok(annots) = page_dict.get(b"Annots").and_then(Object::as_array) {
-            for annot in annots {
-                if let Ok(id) = annot.as_reference() {
-                    annotation_pages.insert(id, *page);
-                }
+    for (page, annots) in admitted_annotations {
+        for annot in annots {
+            if let Ok(id) = annot.as_reference() {
+                annotation_pages.insert(id, page);
             }
         }
     }
@@ -446,19 +489,42 @@ fn first_choice_value(value: Option<Value>) -> Value {
 }
 
 fn form_value<'a>(walker: &mut Walker<'a>, value: &'a Object) -> Option<Value> {
+    form_value_at_depth(walker, value, 0)
+}
+
+fn form_value_at_depth<'a>(
+    walker: &mut Walker<'a>,
+    value: &'a Object,
+    depth: usize,
+) -> Option<Value> {
+    if depth >= MAX_DEPTH || walker.form_value_nodes_remaining == 0 {
+        walker.limited = true;
+        return None;
+    }
+    walker.form_value_nodes_remaining -= 1;
     let value = walker.resolve(value)?;
     match value {
         Object::String(_, _) | Object::Name(_) => walker.text(value).map(Value::String),
-        Object::Array(values) if values.len() <= 256 => {
-            let values = values
-                .iter()
-                .filter_map(|value| form_value(walker, value))
-                .filter(|value| !value.is_null())
-                .collect::<Vec<_>>();
-            Some(if values.is_empty() {
+        Object::Array(values) => {
+            if values.len() > 256 || values.len() > walker.form_value_nodes_remaining {
+                walker.limited = true;
+                return None;
+            }
+            let mut decoded = Vec::new();
+            for value in values {
+                if let Some(value) = form_value_at_depth(walker, value, depth + 1) {
+                    if !value.is_null() {
+                        decoded.push(value);
+                    }
+                }
+                if walker.limited {
+                    return None;
+                }
+            }
+            Some(if decoded.is_empty() {
                 Value::Null
             } else {
-                Value::Array(values)
+                Value::Array(decoded)
             })
         }
         _ => Some(Value::Null),
@@ -930,6 +996,90 @@ mod tests {
                 output.attachment_materialized_array_items, 0,
                 "an oversized NameTree collection must fail before item materialization"
             );
+        }
+    }
+
+    #[test]
+    fn page_and_annotation_admission_is_bounded_before_form_maps() {
+        for indirect_annots in [false, true] {
+            let (mut document, pages_root) = base_document();
+            let form = valid_form(&mut document);
+            let attachment_tree = valid_attachment_tree(&mut document);
+            let annots = vec![Object::Null; MAX_ENTRIES + 1];
+            let page = if indirect_annots {
+                let annots = document.add_object(annots);
+                document.add_object(dictionary! {"Type"=>"Page","Annots"=>annots})
+            } else {
+                document.add_object(dictionary! {"Type"=>"Page","Annots"=>annots})
+            };
+            finish_catalog(
+                &mut document,
+                pages_root,
+                dictionary! {
+                    "AcroForm"=>dictionary!{"Fields"=>vec![form.into()]},
+                    "Names"=>dictionary!{"EmbeddedFiles"=>attachment_tree}
+                },
+            );
+            let output = extract_form_attachment_signals(&document, &[(1, page)], true, true);
+            assert!(output.form_fields.is_none());
+            assert!(output.attachments.is_some());
+            assert!(output
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("include_form_fields")));
+            assert_eq!(output.form_annotation_materialized_array_items, 0);
+        }
+
+        let (mut document, pages_root) = base_document();
+        let form = valid_form(&mut document);
+        let attachment_tree = valid_attachment_tree(&mut document);
+        let page = document.add_object(dictionary! {"Type"=>"Page"});
+        finish_catalog(
+            &mut document,
+            pages_root,
+            dictionary! {
+                "AcroForm"=>dictionary!{"Fields"=>vec![form.into()]},
+                "Names"=>dictionary!{"EmbeddedFiles"=>attachment_tree}
+            },
+        );
+        let pages = vec![(1, page); MAX_ENTRIES + 1];
+        let output = extract_form_attachment_signals(&document, &pages, true, true);
+        assert!(output.form_fields.is_none());
+        assert!(output.attachments.is_some());
+        assert_eq!(output.form_annotation_materialized_array_items, 0);
+    }
+
+    #[test]
+    fn form_value_depth_and_aggregate_nodes_are_bounded() {
+        let mut deep = Object::Name(b"leaf".to_vec());
+        for _ in 0..=MAX_DEPTH {
+            deep = Object::Array(vec![deep]);
+        }
+        let child = Object::Array(vec![Object::Null; 256]);
+        let aggregate = Object::Array(vec![child; (MAX_ENTRIES / 256) + 2]);
+        let oversized = Object::Array(vec![Object::Null; 257]);
+        for value in [deep, aggregate, oversized] {
+            let (mut document, pages) = base_document();
+            let field = document.add_object(dictionary! {
+                "Subtype"=>"Widget","FT"=>"Ch","T"=>Object::string_literal("hostile"),
+                "V"=>value
+            });
+            let attachment_tree = valid_attachment_tree(&mut document);
+            finish_catalog(
+                &mut document,
+                pages,
+                dictionary! {
+                    "AcroForm"=>dictionary!{"Fields"=>vec![field.into()]},
+                    "Names"=>dictionary!{"EmbeddedFiles"=>attachment_tree}
+                },
+            );
+            let output = extract_form_attachment_signals(&document, &[], true, true);
+            assert!(output.form_fields.is_none());
+            assert!(output.attachments.is_some());
+            assert!(output
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("include_form_fields")));
         }
     }
 
