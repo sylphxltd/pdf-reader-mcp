@@ -228,6 +228,7 @@ fn sample_pages(total: u32, targets: Option<&[u32]>, max: usize) -> Vec<u32> {
     if total == 0 || max == 0 {
         return Vec::new();
     }
+    let max = max.min(20);
     let mut values = targets
         .map(|pages| {
             pages
@@ -300,6 +301,10 @@ mod tests {
         );
         assert_eq!(sample_pages(u32::MAX, None, 1), vec![1]);
         assert!(sample_pages(u32::MAX, None, 0).is_empty());
+        let maximally_requested = sample_pages(u32::MAX, None, usize::MAX);
+        assert_eq!(maximally_requested.len(), 20);
+        assert_eq!(maximally_requested.first(), Some(&1));
+        assert_eq!(maximally_requested.last(), Some(&u32::MAX));
     }
 
     #[test]
