@@ -15,6 +15,7 @@ TEXT_DIFFERENTIAL_JSON="$SCRATCH/ts-vs-rust-text.json"
 V3014_BEHAVIOR_JSON="$SCRATCH/v3014-behavior-result.json"
 V3014_TEXT_LAYER_JSON="$SCRATCH/v3014-text-layer-result.json"
 V3014_CITATION_CHUNK_JSON="$SCRATCH/v3014-citation-chunk-result.json"
+V3014_SEMANTIC_HINT_JSON="$SCRATCH/v3014-semantic-hint-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -86,6 +87,12 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-citation-chunk-oracle.ts" 2>&
 bun "$REPO_ROOT/scripts/differential/check-v3014-citation-chunk-differential.ts" \
   --output "$V3014_CITATION_CHUNK_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 semantic-hint classifier/chunk propagation differential (3 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/generate-v3014-semantic-hint-fixture.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-semantic-hint-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-semantic-hint-differential.ts" \
+  --output "$V3014_SEMANTIC_HINT_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -121,6 +128,9 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-fixture.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-semantic-hint-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-semantic-hint-oracle.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-semantic-hint-fixture.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-fixtures.json" \
@@ -146,6 +156,11 @@ V3014_CITATION_CHUNK_PASSED="$(jq '.passed' "$V3014_CITATION_CHUNK_JSON")"
 V3014_CITATION_CHUNK_SKIPPED="$(jq '.skipped' "$V3014_CITATION_CHUNK_JSON")"
 V3014_CITATION_CHUNK_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_CITATION_CHUNK_JSON")"
 V3014_CITATION_CHUNK_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_CITATION_CHUNK_JSON")"
+V3014_SEMANTIC_HINT_CASE_COUNT="$(jq '.caseCount' "$V3014_SEMANTIC_HINT_JSON")"
+V3014_SEMANTIC_HINT_PASSED="$(jq '.passed' "$V3014_SEMANTIC_HINT_JSON")"
+V3014_SEMANTIC_HINT_SKIPPED="$(jq '.skipped' "$V3014_SEMANTIC_HINT_JSON")"
+V3014_SEMANTIC_HINT_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_SEMANTIC_HINT_JSON")"
+V3014_SEMANTIC_HINT_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_SEMANTIC_HINT_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -173,6 +188,8 @@ jq -n \
   --arg v3014TextLayerOracleHash "$V3014_TEXT_LAYER_ORACLE_HASH" \
   --arg v3014CitationChunkCorpusHash "$V3014_CITATION_CHUNK_CORPUS_HASH" \
   --arg v3014CitationChunkOracleHash "$V3014_CITATION_CHUNK_ORACLE_HASH" \
+  --arg v3014SemanticHintCorpusHash "$V3014_SEMANTIC_HINT_CORPUS_HASH" \
+  --arg v3014SemanticHintOracleHash "$V3014_SEMANTIC_HINT_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -190,6 +207,9 @@ jq -n \
   --argjson v3014CitationChunkCaseCount "$V3014_CITATION_CHUNK_CASE_COUNT" \
   --argjson v3014CitationChunkPassed "$V3014_CITATION_CHUNK_PASSED" \
   --argjson v3014CitationChunkSkipped "$V3014_CITATION_CHUNK_SKIPPED" \
+  --argjson v3014SemanticHintCaseCount "$V3014_SEMANTIC_HINT_CASE_COUNT" \
+  --argjson v3014SemanticHintPassed "$V3014_SEMANTIC_HINT_PASSED" \
+  --argjson v3014SemanticHintSkipped "$V3014_SEMANTIC_HINT_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -225,6 +245,11 @@ jq -n \
     v3014CitationChunkCaseCount: $v3014CitationChunkCaseCount,
     v3014CitationChunkPassed: $v3014CitationChunkPassed,
     v3014CitationChunkSkipped: $v3014CitationChunkSkipped,
+    v3014SemanticHintCorpusHash: $v3014SemanticHintCorpusHash,
+    v3014SemanticHintOracleHash: $v3014SemanticHintOracleHash,
+    v3014SemanticHintCaseCount: $v3014SemanticHintCaseCount,
+    v3014SemanticHintPassed: $v3014SemanticHintPassed,
+    v3014SemanticHintSkipped: $v3014SemanticHintSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -239,11 +264,13 @@ jq -n \
     immutableTextLayerDifferential: "scripts/differential/check-v3014-text-layer-differential.ts",
     immutableCitationChunkOracle: "scripts/differential/fixtures/v3014-citation-chunk-oracle.json",
     immutableCitationChunkDifferential: "scripts/differential/check-v3014-citation-chunk-differential.ts",
+    immutableSemanticHintOracle: "scripts/differential/fixtures/v3014-semantic-hint-oracle.json",
+    immutableSemanticHintDifferential: "scripts/differential/check-v3014-semantic-hint-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
     structuralConsistencyOracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
-    nonClaims: ["full TS 3.0.14 behavioral parity", "text-layer/element/chunk geometry outside the immutable 1-case selectable-text corpus", "citation-chunk semantics outside the immutable 6-case schema/boundary/dependency corpus, including the complete TS semantic-hint classifier and selectable-table detection", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "mixed selectable/OCR table continuation and full AST hierarchy parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
+    nonClaims: ["full TS 3.0.14 behavioral parity", "text-layer/element/chunk geometry outside the immutable 1-case selectable-text corpus", "citation-chunk semantics outside the immutable 6-case schema/boundary/dependency corpus", "semantic-hint classification outside the immutable 3-case classifier/chunk-propagation corpus, including layout variants not represented by the deterministic fixtures", "selectable-table detection parity", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "mixed selectable/OCR table continuation and full AST hierarchy parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
     retirementGate: "scripts/check-no-ts-stdio-backend.sh (runs only when dropInFor3014=true)"
   }' >"$ARTIFACT"
 

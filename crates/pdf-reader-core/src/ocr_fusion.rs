@@ -427,6 +427,7 @@ mod tests {
                 text: String::new(),
                 positioned_items: Vec::new(),
             }],
+            page_geometry: None,
             selectable_tables: json!([]),
             semantic_hints: true,
             emit_markdown: true,
