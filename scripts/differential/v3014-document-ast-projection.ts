@@ -40,6 +40,12 @@ const SUMMARY_KEYS = [
   'visual_enrichment_kind_counts',
   'max_depth',
 ] as const;
+const ELEMENT_KEYS = [
+  'id', 'type', 'page', 'content', 'bounding_box', 'provenance', 'semantic_hint',
+] as const;
+const CHUNK_KEYS = [
+  'id', 'page_start', 'page_end', 'text', 'element_ids', 'strategy', 'heading', 'bounding_boxes',
+] as const;
 export const DOCUMENT_AST_DEPENDENCY_SURFACES = [
   'elements',
   'chunks',
@@ -172,6 +178,15 @@ const semanticHint = (value: unknown, context: string): Json => {
     ...(Object.hasOwn(source, 'level') ? { level: number(source.level, `${context}.level`) } : {}),
   };
 };
+const elementProvenance = (value: unknown, context: string): void => {
+  const source = record(value, context);
+  exactKeys(source, ['engine', 'source', 'ocr_source_render_evidence_id'], context);
+  string(required(source, 'engine', context), `${context}.engine`);
+  string(required(source, 'source', context), `${context}.source`);
+  if (Object.hasOwn(source, 'ocr_source_render_evidence_id')) {
+    string(source.ocr_source_render_evidence_id, `${context}.ocr_source_render_evidence_id`);
+  }
+};
 
 export const canonicalDocumentAstResult = (value: unknown): Json => {
   const data = record(value, 'result.data');
@@ -180,6 +195,11 @@ export const canonicalDocumentAstResult = (value: unknown): Json => {
   const elements = Object.hasOwn(data, 'elements')
     ? array(data.elements, 'result.data.elements').map((entry, index) => {
         const element = record(entry, `elements[${index}]`);
+        exactKeys(element, ELEMENT_KEYS, `elements[${index}]`);
+        elementProvenance(
+          required(element, 'provenance', `elements[${index}]`),
+          `elements[${index}].provenance`
+        );
         return {
           id: string(required(element, 'id', `elements[${index}]`), `elements[${index}].id`),
           type: string(required(element, 'type', `elements[${index}]`), `elements[${index}].type`),
@@ -195,6 +215,7 @@ export const canonicalDocumentAstResult = (value: unknown): Json => {
   const chunks = Object.hasOwn(data, 'chunks')
     ? array(data.chunks, 'result.data.chunks').map((entry, index) => {
         const chunk = record(entry, `chunks[${index}]`);
+        exactKeys(chunk, CHUNK_KEYS, `chunks[${index}]`);
         return {
           id: string(required(chunk, 'id', `chunks[${index}]`), `chunks[${index}].id`),
           page_start: number(required(chunk, 'page_start', `chunks[${index}]`), `chunks[${index}].page_start`),
@@ -247,7 +268,9 @@ export const DOCUMENT_AST_MUTATION_MANIFEST = {
     'top_level_warnings[0]',
     'document_ast.warnings[0]',
   ],
-  unexpectedFields: ['document_ast', 'document_ast.root', 'document_ast.summary'],
+  unexpectedFields: [
+    'document_ast', 'document_ast.root', 'document_ast.summary', 'elements[0]', 'chunks[0]',
+  ],
   requiredOmissions: [
     'document_ast.version',
     'document_ast.root.id',

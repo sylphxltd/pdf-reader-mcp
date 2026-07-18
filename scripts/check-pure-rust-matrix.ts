@@ -166,11 +166,12 @@ if (documentAstCaseCount !== 6) {
 }
 if (
   !differentialWorkflow.includes(
-    '.mutationSensitive.mutationManifestSha256 == "d07970ccd8f59d5d8a4835626b34d3322209dd06335ae31b31b711b6a9aa947d"'
+    '.mutationSensitive.mutationManifestSha256 == "6a24391c42d4d6b7fd2e6007f0f807058a1aa78872dbb7f83ab6525752c40dfb"'
   ) ||
-  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 2384')
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 2384') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 5')
 ) {
-  failures.push('document-AST workflow must bind the exact mutation manifest and leaf count');
+  failures.push('document-AST workflow must bind the exact mutation manifest, leaf count, and unexpected-field probes');
 }
 if (failures.length) {
   console.error(failures.join('\n'));

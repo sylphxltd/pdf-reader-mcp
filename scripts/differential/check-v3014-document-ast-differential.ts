@@ -238,9 +238,14 @@ for (const [caseId, expectation] of Object.entries(oracle.expectations)) {
 
 const baseRaw = rawResults['ast-only-hidden-semantic-chunk-dependencies'];
 const warningRaw = rawResults['ast-heading-with-invalid-page-warning'];
-if (!baseRaw || !warningRaw) throw new Error('raw mutation probe cases are missing');
-const assertProjectionRejects = (mutate: (value: Record<string, unknown>) => void, label: string) => {
-  const mutated = structuredClone(baseRaw);
+const exposedRaw = rawResults['ast-reuses-exposed-semantic-elements-and-chunks'];
+if (!baseRaw || !warningRaw || !exposedRaw) throw new Error('raw mutation probe cases are missing');
+const assertProjectionRejects = (
+  mutate: (value: Record<string, unknown>) => void,
+  label: string,
+  source = baseRaw
+) => {
+  const mutated = structuredClone(source);
   mutate(mutated);
   try {
     canonicalDocumentAstResult(mutated);
@@ -289,6 +294,12 @@ assertProjectionRejects((value) => {
 assertProjectionRejects((value) => { astRecord(value).unexpected = true; }, 'unexpected AST field');
 assertProjectionRejects((value) => { rootRecord(value).unexpected = true; }, 'unexpected node field');
 assertProjectionRejects((value) => { summaryRecord(value).unexpected = true; }, 'unexpected summary field');
+assertProjectionRejects((value) => {
+  (value.elements as Array<Record<string, unknown>>)[0]!.unexpected_private = 'LEAK';
+}, 'unexpected exposed element field', exposedRaw);
+assertProjectionRejects((value) => {
+  (value.chunks as Array<Record<string, unknown>>)[0]!.unexpected_private = 'LEAK';
+}, 'unexpected exposed chunk field', exposedRaw);
 
 assertProjectionRejects((value) => { delete astRecord(value).version; }, 'required AST omission');
 assertProjectionRejects((value) => { delete rootRecord(value).id; }, 'required node id omission');
