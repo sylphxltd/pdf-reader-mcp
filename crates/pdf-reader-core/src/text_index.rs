@@ -50,28 +50,50 @@ impl TextBoundingBox {
             })
     }
 
-    fn union(self, other: Self) -> Self {
-        Self {
+    fn union(self, other: Self) -> Option<Self> {
+        let union = Self {
             left: self.left.min(other.left),
             bottom: self.bottom.min(other.bottom),
             right: self.right.max(other.right),
             top: self.top.max(other.top),
-        }
+        };
+        let width = union.right - union.left;
+        let height = union.top - union.bottom;
+        [
+            union.left,
+            union.bottom,
+            union.right,
+            union.top,
+            width,
+            height,
+        ]
+        .into_iter()
+        .all(f64::is_finite)
+        .then_some(union)
     }
 
     fn estimated_utf16_range(self, text_len: u32, start: u32, end: u32) -> Option<Self> {
-        if text_len == 0 || end <= start || self.right <= self.left {
+        let width = self.right - self.left;
+        if text_len == 0 || end <= start || self.right <= self.left || !width.is_finite() {
             return None;
         }
-        let width = self.right - self.left;
         let start_ratio = f64::from(start.min(text_len)) / f64::from(text_len);
         let end_ratio = f64::from(end.min(text_len).max(start)) / f64::from(text_len);
-        Some(Self {
+        let estimated = Self {
             left: canonical_zero(self.left + width * start_ratio),
             bottom: self.bottom,
             right: canonical_zero(self.left + width * end_ratio),
             top: self.top,
-        })
+        };
+        [
+            estimated.left,
+            estimated.bottom,
+            estimated.right,
+            estimated.top,
+        ]
+        .into_iter()
+        .all(f64::is_finite)
+        .then_some(estimated)
     }
 }
 
@@ -223,6 +245,7 @@ struct TextItemOutput {
     pages: Vec<Vec<PositionedTextItem>>,
     current_item: Option<PositionedTextItem>,
     current_item_utf16_len: u32,
+    current_item_geometry_valid: bool,
     text_bytes: usize,
     geometry_chars: usize,
 }
@@ -233,7 +256,12 @@ impl TextItemOutput {
             return;
         };
         self.current_item_utf16_len = 0;
-        if let Some(item_box) = item.bounding_box {
+        if !self.current_item_geometry_valid {
+            item.bounding_box = None;
+            for character in &mut item.chars {
+                character.bounding_box = None;
+            }
+        } else if let Some(item_box) = item.bounding_box {
             let text_len = item
                 .text
                 .encode_utf16()
@@ -248,6 +276,7 @@ impl TextItemOutput {
                 );
             }
         }
+        self.current_item_geometry_valid = false;
         if !item.text.is_empty() {
             if let Some(page) = self.pages.last_mut() {
                 page.push(item);
@@ -298,12 +327,25 @@ impl OutputDev for TextItemOutput {
                 .unwrap_or(u32::MAX);
             let end = start.saturating_add(char_units);
             self.current_item_utf16_len = end;
-            let bounding_box = TextBoundingBox::from_character(trm, width, font_size);
+            let mut bounding_box = self
+                .current_item_geometry_valid
+                .then(|| TextBoundingBox::from_character(trm, width, font_size))
+                .flatten();
             if let Some(box_) = bounding_box {
-                item.bounding_box = Some(
-                    item.bounding_box
-                        .map_or(box_, |current| current.union(box_)),
-                );
+                if let Some(current) = item.bounding_box {
+                    if let Some(union) = current.union(box_) {
+                        item.bounding_box = Some(union);
+                    } else {
+                        self.current_item_geometry_valid = false;
+                        item.bounding_box = None;
+                        for existing in &mut item.chars {
+                            existing.bounding_box = None;
+                        }
+                        bounding_box = None;
+                    }
+                } else {
+                    item.bounding_box = Some(box_);
+                }
             }
             item.chars.push(TextCharacterGeometry {
                 text: character.to_string(),
@@ -325,6 +367,7 @@ impl OutputDev for TextItemOutput {
                 bounding_box: None,
                 chars: Vec::new(),
             });
+            self.current_item_geometry_valid = true;
         }
         Ok(())
     }
@@ -585,7 +628,11 @@ fn match_bounding_box(
                 && character.item_char_end <= end_utf16
         })
         .filter_map(|character| character.bounding_box)
-        .reduce(TextBoundingBox::union);
+        .try_fold(None::<TextBoundingBox>, |current, box_| match current {
+            None => Some(Some(box_)),
+            Some(current) => current.union(box_).map(Some),
+        })
+        .flatten();
     if let Some(box_) = char_box {
         (Some(box_), Some("char_estimated".to_string()))
     } else if let Some(box_) = item.bounding_box {
@@ -899,6 +946,52 @@ mod tests {
             .output_character(&Transform::identity(), 1.0, 0.0, 12.0, "x")
             .expect_err("budget must fail closed");
         assert!(error.to_string().contains("bounded extraction budget"));
+    }
+
+    #[test]
+    fn opposite_extreme_finite_coordinates_fail_item_geometry_closed() {
+        let left = TextBoundingBox {
+            left: -1.0e308,
+            bottom: 0.0,
+            right: -9.0e307,
+            top: 12.0,
+        };
+        let right = TextBoundingBox {
+            left: 9.0e307,
+            bottom: 0.0,
+            right: 1.0e308,
+            top: 12.0,
+        };
+        assert!(left.union(right).is_none());
+        assert!(TextBoundingBox {
+            left: -1.0e308,
+            bottom: 0.0,
+            right: 1.0e308,
+            top: 12.0,
+        }
+        .estimated_utf16_range(2, 0, 1)
+        .is_none());
+
+        let mut output = TextItemOutput {
+            pages: vec![Vec::new()],
+            ..TextItemOutput::default()
+        };
+        output.begin_word().expect("begin word");
+        let left_transform = Transform::row_major(1.0, 0.0, 0.0, 1.0, -1.0e308, 10.0);
+        let right_transform = Transform::row_major(1.0, 0.0, 0.0, 1.0, 1.0e308, 10.0);
+        output
+            .output_character(&left_transform, 1.0, 0.0, 12.0, "a")
+            .expect("left character");
+        output
+            .output_character(&right_transform, 1.0, 0.0, 12.0, "b")
+            .expect("right character");
+        output.end_line().expect("end line");
+        let item = &output.pages[0][0];
+        assert_eq!(item.bounding_box, None);
+        assert!(item
+            .chars
+            .iter()
+            .all(|character| character.bounding_box.is_none()));
     }
 
     #[test]
