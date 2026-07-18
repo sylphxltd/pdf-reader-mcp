@@ -71,12 +71,12 @@
     }
   },
   "claimedForDifferential": [
-    "read_pdf full_text (normalized whitespace) on sample.pdf",
-    "search_pdf match page+text for fixed query on sample.pdf",
-    "loopback URL rejected with the explicit non-public-address SSRF policy error",
-    "auto off when include_* keys present"
+    "exact 10-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, missing and malformed inputs, and mixed-source partial success",
+    "DNS-pinned URL fetch: one resolution per redirect hop, reject mixed public/non-public answers, disable ambient proxies, and revalidate every redirect; still PARTIAL because resolver timeout and TLS-SNI fixtures remain open",
+    "auto off when include_* keys are present"
   ],
   "explicitlyNotClaimed": [
+    "complete TS 3.0.14 semantic parity outside the immutable 10-case subset",
     "geometry/bboxes",
     "render/crop/OCR/analyze success path",
     "COS outline/annotations/forms",

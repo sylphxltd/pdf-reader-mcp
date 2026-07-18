@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::text_index::{extract_page_texts, TextIndexError, TextIndexErrorCode};
+use crate::text_index::{extract_pdf_text, PdfInfo, TextIndexError, TextIndexErrorCode};
 use crate::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
 use crate::{hash_file, FileHash, HashError, ENGINE_NAME, ENGINE_VERSION};
 
@@ -368,7 +368,7 @@ fn build_data(
     pages: &[crate::document_twin::PageText],
     total_pages: u32,
     input: &ReadPdfInput,
-    source_label: &str,
+    pdf_info: Option<&PdfInfo>,
     explicit_page_selection: bool,
 ) -> ReadPdfData {
     use crate::document_twin::{
@@ -602,13 +602,22 @@ fn build_data(
     };
 
     if want_meta {
-        let mut info = json!({
-            "Title": Path::new(source_label).file_name().and_then(|n| n.to_str()).unwrap_or("document"),
-            "Producer": "pdf-reader-core",
-            "PDFFormatVersion": "unknown",
-            "text_chars": text_chars,
-            "route": READ_PDF_ROUTE,
-        });
+        let mut info = pdf_info
+            .map(|pdf_info| {
+                let mut values = serde_json::Map::new();
+                values.insert("PDFFormatVersion".into(), json!(pdf_info.format_version));
+                for (key, value) in &pdf_info.fields {
+                    values.insert(key.clone(), json!(value));
+                }
+                Value::Object(values)
+            })
+            .unwrap_or_else(|| json!({}));
+        info.as_object_mut()
+            .expect("info object")
+            .insert("text_chars".into(), json!(text_chars));
+        info.as_object_mut()
+            .expect("info object")
+            .insert("route".into(), json!(READ_PDF_ROUTE));
         if want_page_count {
             info.as_object_mut()
                 .expect("info object")
@@ -866,8 +875,13 @@ fn read_local_pdf_filtered(
     source_label: &str,
 ) -> Result<ReadPdfSourceResult, ReadPdfError> {
     let _hash: FileHash = hash_file(path, DEFAULT_MAX_FILE_BYTES)?;
-    let pages = extract_page_texts(path, DEFAULT_MAX_FILE_BYTES)?;
-    let total_pages = pages.len().max(1) as u32;
+    let extracted = extract_pdf_text(path, DEFAULT_MAX_FILE_BYTES)?;
+    let total_pages = extracted.pages.len().max(1) as u32;
+    let pages = extracted
+        .pages
+        .iter()
+        .map(|page| page.text.clone())
+        .collect::<Vec<_>>();
     let explicit_pages = parse_page_spec(pages_spec)?;
     let auto_pages = if explicit_pages.is_none()
         && input.auto.unwrap_or(false)
@@ -886,7 +900,7 @@ fn read_local_pdf_filtered(
         &selected,
         total_pages,
         input,
-        source_label,
+        Some(&extracted.info),
         explicit_pages.is_some(),
     );
     if !invalid_pages.is_empty() {
@@ -1300,7 +1314,7 @@ mod tests {
                 include_full_text: true,
                 ..Default::default()
             },
-            "fixture.pdf",
+            None,
             true,
         );
         assert!(data.full_text.is_none());
@@ -1329,7 +1343,7 @@ mod tests {
                 include_page_count: false,
                 ..Default::default()
             },
-            "fixture.pdf",
+            None,
             false,
         );
         let serialized = serde_json::to_value(data).expect("serialize data");
@@ -1351,7 +1365,7 @@ mod tests {
                 auto_detail: Some("fast".into()),
                 ..Default::default()
             },
-            "fixture.pdf",
+            None,
             false,
         );
         assert!(data.markdown.is_some());

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "generator": "scripts/differential/generate-v3014-behavior-fixtures.ts",
+  "fixtures": [
+    {
+      "path": "test/fixtures/differential/v3014-behavior-v1.pdf",
+      "bytes": 1559,
+      "sha256": "b457e7452b3fc57d1d7c1416600b71a3ce928c1e966a39e19ef462508064be38"
+    },
+    {
+      "path": "test/fixtures/differential/v3014-malformed-v1.pdf",
+      "bytes": 36,
+      "sha256": "9d2af66045549c01cbad6e0d8c8c5a64bb644cfad2b76a0e7a6fbd578d3efabf"
+    }
+  ]
+}

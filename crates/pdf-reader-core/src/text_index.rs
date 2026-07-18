@@ -1,8 +1,13 @@
 //! Literal PDF text indexing and search for pdf-reader-mcp.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+use pdf_extract::{
+    decode_text_string, output_doc, ColorSpace, Document, MediaBox, Object, OutputDev, OutputError,
+    Path as PdfPath, Transform,
+};
 use serde::{Deserialize, Serialize};
 
 pub const TEXT_INDEX_ROUTE: &str = "rust-text-index";
@@ -15,7 +20,26 @@ pub struct TextSearchMatch {
     pub snippet: String,
     pub match_start: u32,
     pub match_end: u32,
+    pub text_item_index: u32,
     pub route: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractedPageText {
+    pub text: String,
+    pub items: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PdfInfo {
+    pub format_version: String,
+    pub fields: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractedPdfText {
+    pub pages: Vec<ExtractedPageText>,
+    pub info: PdfInfo,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,7 +99,7 @@ impl TextIndexError {
     }
 }
 
-pub fn extract_page_texts(path: &Path, max_file_bytes: u64) -> Result<Vec<String>, TextIndexError> {
+fn validate_pdf_path(path: &Path, max_file_bytes: u64) -> Result<(), TextIndexError> {
     let meta = fs::metadata(path).map_err(|err| {
         TextIndexError::invalid_request(format!(
             "Unable to access file at '{}': {err}",
@@ -97,18 +121,177 @@ pub fn extract_page_texts(path: &Path, max_file_bytes: u64) -> Result<Vec<String
         )));
     }
 
-    let pages = pdf_extract::extract_text_by_pages(path).map_err(|err| {
+    Ok(())
+}
+
+#[derive(Default)]
+struct TextItemOutput {
+    pages: Vec<Vec<String>>,
+    current_item: Option<String>,
+}
+
+impl TextItemOutput {
+    fn finish_item(&mut self) {
+        let Some(item) = self.current_item.take() else {
+            return;
+        };
+        if !item.is_empty() {
+            if let Some(page) = self.pages.last_mut() {
+                page.push(item);
+            }
+        }
+    }
+}
+
+impl OutputDev for TextItemOutput {
+    fn begin_page(
+        &mut self,
+        _page_num: u32,
+        _media_box: &MediaBox,
+        _art_box: Option<(f64, f64, f64, f64)>,
+    ) -> Result<(), OutputError> {
+        self.finish_item();
+        self.pages.push(Vec::new());
+        Ok(())
+    }
+
+    fn end_page(&mut self) -> Result<(), OutputError> {
+        self.finish_item();
+        Ok(())
+    }
+
+    fn output_character(
+        &mut self,
+        _trm: &Transform,
+        _width: f64,
+        _spacing: f64,
+        _font_size: f64,
+        character: &str,
+    ) -> Result<(), OutputError> {
+        if let Some(item) = self.current_item.as_mut() {
+            item.push_str(character);
+        }
+        Ok(())
+    }
+
+    fn begin_word(&mut self) -> Result<(), OutputError> {
+        // A TJ operator can emit several strings for one logical PDF.js text item.
+        // Keep those fragments together until the text matrix advances to a new line.
+        if self.current_item.is_none() {
+            self.current_item = Some(String::new());
+        }
+        Ok(())
+    }
+
+    fn end_word(&mut self) -> Result<(), OutputError> {
+        Ok(())
+    }
+
+    fn end_line(&mut self) -> Result<(), OutputError> {
+        self.finish_item();
+        Ok(())
+    }
+
+    fn stroke(
+        &mut self,
+        _ctm: &Transform,
+        _colorspace: &ColorSpace,
+        _color: &[f64],
+        _path: &PdfPath,
+    ) -> Result<(), OutputError> {
+        Ok(())
+    }
+
+    fn fill(
+        &mut self,
+        _ctm: &Transform,
+        _colorspace: &ColorSpace,
+        _color: &[f64],
+        _path: &PdfPath,
+    ) -> Result<(), OutputError> {
+        Ok(())
+    }
+}
+
+fn read_pdf_info(doc: &Document) -> PdfInfo {
+    let mut fields = BTreeMap::new();
+    let info_object = doc
+        .trailer
+        .get(b"Info")
+        .ok()
+        .and_then(|object| match object {
+            Object::Reference(id) => doc.get_object(*id).ok(),
+            Object::Dictionary(_) => Some(object),
+            _ => None,
+        });
+    if let Some(info) = info_object.and_then(|object| object.as_dict().ok()) {
+        for key in [
+            "Title",
+            "Author",
+            "Subject",
+            "Keywords",
+            "Creator",
+            "Producer",
+            "CreationDate",
+            "ModDate",
+            "Trapped",
+        ] {
+            if let Ok(value) = info.get(key.as_bytes()) {
+                if let Ok(decoded) = decode_text_string(value) {
+                    fields.insert(key.to_string(), decoded);
+                }
+            }
+        }
+    }
+    PdfInfo {
+        format_version: doc.version.clone(),
+        fields,
+    }
+}
+
+pub fn extract_pdf_text(
+    path: &Path,
+    max_file_bytes: u64,
+) -> Result<ExtractedPdfText, TextIndexError> {
+    validate_pdf_path(path, max_file_bytes)?;
+
+    let mut doc = Document::load(path).map_err(|err| {
+        TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
+    })?;
+    if doc.is_encrypted() {
+        doc.decrypt("").map_err(|err| {
+            TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
+        })?;
+    }
+    let info = read_pdf_info(&doc);
+    let mut output = TextItemOutput::default();
+    output_doc(&doc, &mut output).map_err(|err| {
         TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
     })?;
 
-    if pages.is_empty() {
-        return Ok(vec![String::new()]);
-    }
+    let pages = if output.pages.is_empty() {
+        vec![ExtractedPageText {
+            text: String::new(),
+            items: Vec::new(),
+        }]
+    } else {
+        output
+            .pages
+            .into_iter()
+            .map(|items| ExtractedPageText {
+                text: items.concat(),
+                items,
+            })
+            .collect()
+    };
 
-    Ok(pages
-        .into_iter()
-        .map(|page| page.trim().to_string())
-        .collect())
+    Ok(ExtractedPdfText { pages, info })
+}
+
+pub fn extract_page_texts(path: &Path, max_file_bytes: u64) -> Result<Vec<String>, TextIndexError> {
+    let extracted = extract_pdf_text(path, max_file_bytes)?;
+
+    Ok(extracted.pages.into_iter().map(|page| page.text).collect())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -153,7 +336,8 @@ pub fn search_pdf_text_pages(
 
     // TS 3.0.14 does not persist extracted document text beside the source.
     // Keep search side-effect free; a future cache needs an explicit private-root contract.
-    let pages = extract_page_texts(path, max_file_bytes)?;
+    let extracted = extract_pdf_text(path, max_file_bytes)?;
+    let pages = extracted.pages;
     let page_cache = None;
     let num_pages = pages.len().max(1) as u32;
     let searched_pages: Vec<u32> = requested_pages
@@ -168,28 +352,40 @@ pub fn search_pdf_text_pages(
 
     for &page in &searched_pages {
         let page_index = (page - 1) as usize;
-        let text = pages.get(page_index).map(String::as_str).unwrap_or("");
-        let remaining = max_matches.saturating_add(1) as usize - matches.len();
-        let page_matches =
-            find_matches_in_text_bounded(text, query, case_sensitive, whole_word, remaining);
+        let page_text = pages.get(page_index);
+        for (text_item_index, text) in page_text
+            .map(|page| page.items.iter())
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
+            let remaining = max_matches.saturating_add(1) as usize - matches.len();
+            let item_matches =
+                find_matches_in_text_bounded(text, query, case_sensitive, whole_word, remaining);
 
-        for (start, end) in page_matches {
-            if matches.len() >= max_matches as usize {
-                truncated = true;
-                break;
+            for (start, end) in item_matches {
+                if matches.len() >= max_matches as usize {
+                    truncated = true;
+                    break;
+                }
+
+                let matched_text = text[start..end].to_string();
+                let snippet = build_snippet(text, start, end, context_chars as usize);
+                matches.push(TextSearchMatch {
+                    id: format!("p{page}-match-{}", matches.len() + 1),
+                    page,
+                    text: matched_text,
+                    snippet,
+                    match_start: utf16_offset(text, start),
+                    match_end: utf16_offset(text, end),
+                    text_item_index: text_item_index as u32,
+                    route: TEXT_INDEX_ROUTE.into(),
+                });
             }
 
-            let matched_text = text[start..end].to_string();
-            let snippet = build_snippet(text, start, end, context_chars as usize);
-            matches.push(TextSearchMatch {
-                id: format!("p{page}-match-{}", matches.len() + 1),
-                page,
-                text: matched_text,
-                snippet,
-                match_start: start as u32,
-                match_end: end as u32,
-                route: TEXT_INDEX_ROUTE.into(),
-            });
+            if truncated {
+                break;
+            }
         }
 
         if truncated {
@@ -206,6 +402,14 @@ pub fn search_pdf_text_pages(
         truncated,
         page_cache,
     })
+}
+
+fn utf16_offset(text: &str, byte_offset: usize) -> u32 {
+    text[..byte_offset.min(text.len())]
+        .encode_utf16()
+        .count()
+        .try_into()
+        .unwrap_or(u32::MAX)
 }
 
 fn is_word_char(value: Option<char>) -> bool {
@@ -423,6 +627,14 @@ mod tests {
             assert!(text.is_char_boundary(start));
             assert!(text.is_char_boundary(end));
         }
+    }
+
+    #[test]
+    fn reports_offsets_in_javascript_utf16_code_units() {
+        let text = "😀Café";
+        let (start, end) = find_matches_in_text(text, "Café", true, false)[0];
+        assert_eq!(utf16_offset(text, start), 2);
+        assert_eq!(utf16_offset(text, end), 6);
     }
 
     #[test]

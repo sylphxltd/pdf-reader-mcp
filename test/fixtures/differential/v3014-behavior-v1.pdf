@@ -1,0 +1,79 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 94 >>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+(PAGE_ONE_ALPHA) Tj
+0 -18 Td
+(Needle at start. cat catalog CAT.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 115 >>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+(PAGE_TWO_BETA) Tj
+0 -18 Td
+(prefix Needle suffix) Tj
+0 -18 Td
+(Caf\351 r\351sum\351) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 81 >>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+(PAGE_THREE_GAMMA) Tj
+0 -18 Td
+(needle tail NEEDLE) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+10 0 obj
+<< /Title (Parity Corpus V1) /Author (Sylphx Oracle) /Subject (TS 3.0.14 behavioral contract) /Keywords (parity multipage search) /Creator (fixture-generator-v1) /Producer (fixture-generator-v1) >>
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000133 00000 n 
+0000000259 00000 n 
+0000000402 00000 n 
+0000000528 00000 n 
+0000000693 00000 n 
+0000000819 00000 n 
+0000000949 00000 n 
+0000001046 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R /Info 10 0 R >>
+startxref
+1260
+%%EOF

@@ -1,0 +1,238 @@
+#!/usr/bin/env bun
+
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(scriptDir, '../..');
+const fixtureDir = join(repoRoot, 'test/fixtures/differential');
+const corpusPath = join(scriptDir, 'fixtures/v3014-behavior-corpus.json');
+const oraclePath = join(scriptDir, 'fixtures/v3014-behavior-oracle.json');
+const fixtureManifestPath = join(scriptDir, 'fixtures/v3014-behavior-fixtures.json');
+const rustCliPath = join(repoRoot, 'target/release/pdf-reader-cli');
+const outputFlag = process.argv.indexOf('--output');
+const outputPath = outputFlag >= 0 ? process.argv[outputFlag + 1] : undefined;
+
+type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+type Case = { id: string; tool: string; input: Record<string, unknown> };
+type Oracle = {
+  baseline: {
+    tag: string;
+    commit: string;
+    tree: string;
+    bunLockSha256: string;
+    entrypointSha256: Record<string, string>;
+  };
+  expectations: Record<string, Json>;
+};
+
+const corpus = JSON.parse(readFileSync(corpusPath, 'utf8')) as { cases: Case[] };
+const oracle = JSON.parse(readFileSync(oraclePath, 'utf8')) as Oracle;
+const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, 'utf8')) as {
+  fixtures: Array<{ path: string; bytes: number; sha256: string }>;
+};
+const sha256 = (bytes: Uint8Array | string): string =>
+  createHash('sha256').update(bytes).digest('hex');
+const git = (...args: string[]): Buffer => {
+  const result = spawnSync('git', args, { cwd: repoRoot });
+  if (result.status !== 0) throw new Error(result.stderr.toString());
+  return result.stdout;
+};
+const normalizeText = (value: string): string =>
+  value.replaceAll('\r\n', '\n').normalize('NFC');
+
+function verifyAuthority(): Record<string, string> {
+  const commit = git('rev-list', '-n', '1', oracle.baseline.tag).toString().trim();
+  if (commit !== oracle.baseline.commit) {
+    throw new Error(`${oracle.baseline.tag} moved: expected ${oracle.baseline.commit}, got ${commit}`);
+  }
+  const tree = git('rev-parse', `${commit}^{tree}`).toString().trim();
+  if (tree !== oracle.baseline.tree) throw new Error(`baseline tree mismatch: ${tree}`);
+  const lockDigest = sha256(git('show', `${commit}:bun.lock`));
+  if (lockDigest !== oracle.baseline.bunLockSha256) throw new Error('baseline bun.lock mismatch');
+  for (const [path, expected] of Object.entries(oracle.baseline.entrypointSha256)) {
+    const actual = sha256(git('show', `${commit}:${path}`));
+    if (actual !== expected) throw new Error(`baseline entrypoint mismatch: ${path}`);
+  }
+  for (const fixture of fixtureManifest.fixtures) {
+    const path = join(repoRoot, fixture.path);
+    if (!existsSync(path)) throw new Error(`missing fixture: ${fixture.path}`);
+    const bytes = readFileSync(path);
+    if (bytes.length !== fixture.bytes || sha256(bytes) !== fixture.sha256) {
+      throw new Error(`fixture digest mismatch: ${fixture.path}`);
+    }
+  }
+  const ids = corpus.cases.map((entry) => entry.id);
+  if (ids.length !== 10 || new Set(ids).size !== ids.length) {
+    throw new Error(`behavior corpus must contain 10 unique cases (got ${ids.length})`);
+  }
+  if (JSON.stringify(ids.sort()) !== JSON.stringify(Object.keys(oracle.expectations).sort())) {
+    throw new Error('corpus and oracle case IDs differ');
+  }
+  return {
+    baselineCommit: commit,
+    baselineTree: tree,
+    corpusSha256: sha256(readFileSync(corpusPath)),
+    oracleSha256: sha256(readFileSync(oraclePath)),
+    fixtureManifestSha256: sha256(readFileSync(fixtureManifestPath)),
+  };
+}
+
+function materializeInput(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(materializeInput);
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const mapped: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(record)) {
+      mapped[key === 'fixture' ? 'path' : key] =
+        key === 'fixture' && typeof entry === 'string'
+          ? join(fixtureDir, entry)
+          : materializeInput(entry);
+    }
+    return mapped;
+  }
+  return value;
+}
+
+function rustCall(entry: Case): Record<string, unknown> {
+  if (!existsSync(rustCliPath)) throw new Error(`missing Rust CLI: ${rustCliPath}`);
+  const result = spawnSync(rustCliPath, [], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    input: JSON.stringify({ tool: entry.tool, input: materializeInput(entry.input) }),
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (!result.stdout) throw new Error(`Rust CLI produced no JSON: ${result.stderr}`);
+  return JSON.parse(result.stdout) as Record<string, unknown>;
+}
+
+function unwrapPayload(envelope: Record<string, unknown>): Record<string, unknown> | undefined {
+  const result = envelope.result as { content?: Array<{ text?: string }> } | undefined;
+  const text = result?.content?.[0]?.text;
+  return typeof text === 'string' ? (JSON.parse(text) as Record<string, unknown>) : undefined;
+}
+
+function errorCategory(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('not found') || lower.includes('no such file') || lower.includes('unable to access')) {
+    return 'file_not_found';
+  }
+  if (lower.includes('pdf') && (lower.includes('parse') || lower.includes('cross reference'))) {
+    return 'invalid_pdf';
+  }
+  return 'unknown_error';
+}
+
+function warnings(value: unknown): Json[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((warning) => {
+    const text = String(warning);
+    const match = text.match(/(?:page numbers?|pages?)\s+([0-9, ]+).*?(?:total pages|page count)\s*\(?([0-9]+)\)?/i);
+    return match
+      ? {
+          category: 'page_out_of_range',
+          requested: match[1]!.split(',').map((part) => Number(part.trim())),
+          total: Number(match[2]),
+        }
+      : { category: 'unknown_warning' };
+  });
+}
+
+function canonicalRead(id: string, envelope: Record<string, unknown>): Json {
+  if (envelope.status === 'error') {
+    return { outcome: 'error', category: errorCategory(String(envelope.message ?? '')) };
+  }
+  const payload = unwrapPayload(envelope);
+  const results = payload?.results as Array<Record<string, unknown>> | undefined;
+  if (!results) return { outcome: 'error', category: 'invalid_envelope' };
+  if (id === 'read-mixed-source-partial') {
+    return {
+      outcome: 'success',
+      results: results.map((result) => {
+        const data = result.data as Record<string, unknown> | undefined;
+        return result.success === true
+          ? { success: true, num_pages: Number(data?.num_pages) }
+          : { success: false, category: errorCategory(String(result.error ?? '')) };
+      }),
+    };
+  }
+  const first = results[0];
+  if (!first?.success) {
+    return { outcome: 'error', category: errorCategory(String(first?.error ?? '')) };
+  }
+  const data = first.data as Record<string, unknown>;
+  const canonical: Record<string, Json> = {
+    outcome: 'success',
+    num_pages: Number(data.num_pages),
+  };
+  if (id === 'read-all-metadata') {
+    const info = data.info as Record<string, unknown> | undefined;
+    canonical.info = Object.fromEntries(
+      ['PDFFormatVersion', 'Title', 'Author', 'Subject', 'Keywords', 'Creator', 'Producer'].map(
+        (key) => [key, (info?.[key] ?? null) as Json]
+      )
+    );
+    canonical.full_text = normalizeText(String(data.full_text ?? ''));
+  }
+  if (id.startsWith('read-pages-')) {
+    canonical.page_texts = Array.isArray(data.page_texts)
+      ? data.page_texts.map((page) => ({
+          page: Number((page as Record<string, unknown>).page),
+          text: normalizeText(String((page as Record<string, unknown>).text ?? '')),
+        }))
+      : [];
+  }
+  canonical.warnings = warnings(data.warnings);
+  return canonical;
+}
+
+function canonicalSearch(envelope: Record<string, unknown>): Json {
+  const payload = unwrapPayload(envelope);
+  const first = (payload?.results as Array<Record<string, unknown>> | undefined)?.[0];
+  if (!first?.success) {
+    return { outcome: 'error', category: errorCategory(String(first?.error ?? envelope.message ?? '')) };
+  }
+  return {
+    outcome: 'success',
+    num_pages: Number(first.num_pages),
+    searched_pages: (first.searched_pages ?? []) as Json,
+    matches: ((first.matches ?? []) as Array<Record<string, unknown>>).map((match) => ({
+      page: Number(match.page),
+      text: normalizeText(String(match.text ?? '')),
+      match_start: Number(match.match_start),
+      match_end: Number(match.match_end),
+      text_item_index: Number(match.text_item_index),
+    })),
+  };
+}
+
+const authority = verifyAuthority();
+const failures: Array<{ id: string; expected: Json; actual: Json }> = [];
+const observations: Record<string, Json> = {};
+for (const entry of corpus.cases) {
+  const envelope = rustCall(entry);
+  const actual = entry.tool === 'read_pdf' ? canonicalRead(entry.id, envelope) : canonicalSearch(envelope);
+  const expected = oracle.expectations[entry.id]!;
+  observations[entry.id] = actual;
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) failures.push({ id: entry.id, expected, actual });
+}
+const report = {
+  schemaVersion: 1,
+  profile: 'pdf_reader_v3014_behavior_result',
+  candidateSha:
+    process.env.CANDIDATE_SHA ?? git('rev-parse', 'HEAD').toString().trim(),
+  ...authority,
+  caseCount: corpus.cases.length,
+  passed: corpus.cases.length - failures.length,
+  skipped: 0,
+  pass: failures.length === 0,
+  observations,
+  failures,
+};
+const serialized = `${JSON.stringify(report, null, 2)}\n`;
+if (outputPath) await Bun.write(outputPath, serialized);
+console.log(serialized.trimEnd());
+if (failures.length > 0) process.exit(1);
