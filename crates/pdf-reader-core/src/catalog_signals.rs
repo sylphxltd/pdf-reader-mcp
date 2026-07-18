@@ -299,19 +299,33 @@ fn collect_label_ranges(
         }
         return;
     };
-    if let Ok(kids) = dict.get(b"Kids").and_then(Object::as_array) {
+    if let Ok(value) = dict.get(b"Kids") {
+        let Some(kids) = walker
+            .resolve_owned(value)
+            .and_then(|value| value.as_array().ok().cloned())
+        else {
+            *invalid = true;
+            return;
+        };
         if kids.len() > MAX_ENTRIES {
             walker.truncated = true;
             return;
         }
-        for kid in kids {
+        for kid in &kids {
             collect_label_ranges(walker, kid, depth + 1, path, output, invalid);
             if walker.truncated {
                 return;
             }
         }
     }
-    if let Ok(nums) = dict.get(b"Nums").and_then(Object::as_array) {
+    if let Ok(value) = dict.get(b"Nums") {
+        let Some(nums) = walker
+            .resolve_owned(value)
+            .and_then(|value| value.as_array().ok().cloned())
+        else {
+            *invalid = true;
+            return;
+        };
         if nums.len() % 2 != 0 || nums.len() / 2 > MAX_ENTRIES.saturating_sub(output.len()) {
             walker.truncated = true;
             return;
@@ -449,6 +463,9 @@ fn roman(mut number: u32, lower: bool) -> Option<String> {
 fn extract_outline(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<Vec<OutlineItem>> {
     let root = walker.dict(catalog.get(b"Outlines").ok()?)?;
     let first = root.get(b"First").ok()?.clone();
+    if first.as_reference().is_err() {
+        return None;
+    }
     let mut path = HashSet::new();
     let items = outline_siblings(walker, first, 0, &mut path);
     (!walker.truncated && !walker.failed).then_some(items)
@@ -485,9 +502,11 @@ fn outline_siblings(
             }
             walker.entries += 1;
             if let Ok(first) = dict.get(b"First") {
-                let children = outline_siblings(walker, first.clone(), depth + 1, path);
-                if !children.is_empty() {
-                    item.items = Some(children);
+                if first.as_reference().is_ok() {
+                    let children = outline_siblings(walker, first.clone(), depth + 1, path);
+                    if !children.is_empty() {
+                        item.items = Some(children);
+                    }
                 }
             }
             output.push(item);
@@ -495,7 +514,9 @@ fn outline_siblings(
         if let Some(id) = current_id {
             path.remove(&id);
         }
-        let Some(value) = next else { break };
+        let Some(value) = next.filter(|value| value.as_reference().is_ok()) else {
+            break;
+        };
         current = value;
     }
     if output.len() >= MAX_ENTRIES {
@@ -541,7 +562,7 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
         .filter(|_| action_kind == Some(b"URI"))
         .and_then(|a| a.get(b"URI").ok())
         .and_then(|v| walker.text(v))
-        .and_then(|value| safe_outline_url(&value));
+        .and_then(|value| safe_outline_url(walker, &value));
     let action_dest = action
         .as_ref()
         .filter(|_| action_kind == Some(b"GoTo"))
@@ -562,10 +583,25 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
     })
 }
 
-fn safe_outline_url(value: &str) -> Option<String> {
+fn safe_outline_url(walker: &mut Walker<'_>, value: &str) -> Option<String> {
     let parsed = url::Url::parse(value).ok()?;
-    matches!(parsed.scheme(), "http" | "https" | "ftp" | "mailto" | "tel")
-        .then(|| parsed.to_string())
+    if !matches!(parsed.scheme(), "http" | "https" | "ftp" | "mailto" | "tel") {
+        return None;
+    }
+    let normalized = parsed.to_string();
+    if normalized.len() > MAX_STRING_BYTES {
+        walker.text_remaining = 0;
+        walker.truncated = true;
+        return None;
+    }
+    let expansion = normalized.len().saturating_sub(value.len());
+    if expansion > walker.text_remaining {
+        walker.text_remaining = 0;
+        walker.truncated = true;
+        return None;
+    }
+    walker.text_remaining -= expansion;
+    Some(normalized)
 }
 
 fn finite_number(value: &Object) -> Option<f64> {
@@ -851,5 +887,71 @@ mod tests {
             },
         );
         assert!(out.mark_info.is_none());
+    }
+
+    #[test]
+    fn indirect_number_tree_array_is_resolved() {
+        let mut doc = document(dictionary! {});
+        let nums = doc.add_object(Object::Array(vec![
+            0.into(),
+            Object::Dictionary(dictionary! {"S"=>"D"}),
+        ]));
+        let labels = doc.add_object(dictionary! {"Nums"=>nums});
+        doc.catalog_mut().unwrap().set("PageLabels", labels);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            2,
+            CatalogSignalRequest {
+                page_labels: true,
+                permissions: false,
+                outline: false,
+            },
+        );
+        assert_eq!(out.page_labels, Some(vec!["1".into(), "2".into()]));
+    }
+
+    #[test]
+    fn direct_outline_link_is_omitted_like_pdfjs() {
+        let doc = document(dictionary! {
+            "Outlines"=>dictionary!{"First"=>dictionary!{"Title"=>Object::string_literal("Direct")}},
+        });
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        assert!(out.outline.is_none());
+    }
+
+    #[test]
+    fn url_normalization_expansion_respects_the_field_cap() {
+        let mut doc = document(dictionary! {});
+        let oversized_after_normalization = format!("https://example.com/{}", "\"".repeat(30_000));
+        let first = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("Expanded"),
+            "A"=>dictionary!{
+                "S"=>"URI",
+                "URI"=>Object::string_literal(oversized_after_normalization),
+            },
+        });
+        let outlines = doc.add_object(dictionary! {"First"=>first});
+        doc.catalog_mut().unwrap().set("Outlines", outlines);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        assert!(out.outline.is_none());
     }
 }
