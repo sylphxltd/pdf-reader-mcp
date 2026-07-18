@@ -54,9 +54,10 @@ impl ParsedPdf {
         }
         let source_hash = format!("{:x}", Sha256::digest(&bytes));
         let mut document = Document::load_mem(&bytes).map_err(extraction_error)?;
-        let encryption_facts = document
-            .is_encrypted()
-            .then(|| read_encryption_facts(&document));
+        // lopdf automatically decrypts PDFs that accept the empty password and
+        // preserves the decoded security state. Capture /P from either the raw
+        // Encrypt dictionary or that preserved state before any explicit decrypt.
+        let encryption_facts = read_encryption_facts(&document);
         if document.is_encrypted() {
             document.decrypt("").map_err(|error| {
                 extraction_error(format!(
@@ -74,21 +75,21 @@ impl ParsedPdf {
     }
 }
 
-fn read_encryption_facts(document: &Document) -> EncryptionFacts {
-    let dictionary = document
-        .trailer
-        .get(b"Encrypt")
-        .ok()
-        .and_then(|value| match value {
-            lopdf::Object::Reference(id) => document.get_object(*id).ok(),
-            value => Some(value),
-        })
-        .and_then(|value| value.as_dict().ok());
-    EncryptionFacts {
-        permissions: dictionary
-            .and_then(|dict| dict.get(b"P").ok())
-            .and_then(|value| value.as_i64().ok()),
+fn read_encryption_facts(document: &Document) -> Option<EncryptionFacts> {
+    if let Ok(dictionary) = document.get_encrypted() {
+        return Some(EncryptionFacts {
+            permissions: dictionary
+                .get(b"P")
+                .ok()
+                .and_then(|value| value.as_i64().ok()),
+        });
     }
+    document
+        .encryption_state
+        .as_ref()
+        .map(|state| EncryptionFacts {
+            permissions: Some(state.permissions().p_value() as i64),
+        })
 }
 
 fn invalid_request(path: &Path, error: std::io::Error) -> TextIndexError {

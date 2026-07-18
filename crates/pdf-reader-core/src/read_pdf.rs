@@ -1397,6 +1397,7 @@ pub fn read_pdf_from_value(input: &Value) -> Result<ReadPdfResponse, ReadPdfErro
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lopdf::{EncryptionState, EncryptionVersion, Permissions};
 
     #[test]
     fn reads_fixture() {
@@ -1425,6 +1426,60 @@ mod tests {
             .unwrap()
             .full_text
             .is_some());
+    }
+
+    #[test]
+    fn encrypted_pdf_permissions_are_captured_before_blank_password_decrypt() {
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/sample.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+        let mut document = lopdf::Document::load(&fixture).expect("load source fixture");
+        let permissions = Permissions::PRINTABLE
+            | Permissions::COPYABLE
+            | Permissions::FILLABLE
+            | Permissions::COPYABLE_FOR_ACCESSIBILITY;
+        let state = EncryptionState::try_from(EncryptionVersion::V2 {
+            document: &document,
+            owner_password: "catalog-test-owner",
+            user_password: "",
+            key_length: 128,
+            permissions,
+        })
+        .expect("build deterministic standard-security state");
+        document.encrypt(&state).expect("encrypt fixture");
+        let temp = tempfile::tempdir().expect("tempdir");
+        let encrypted = temp.path().join("catalog-permissions.pdf");
+        document.save(&encrypted).expect("save encrypted fixture");
+        let parsed = crate::cos_document::ParsedPdf::load(&encrypted, DEFAULT_MAX_FILE_BYTES)
+            .expect("parse encrypted fixture");
+        assert_eq!(
+            parsed.encryption_facts.and_then(|facts| facts.permissions),
+            Some(permissions.p_value() as i64)
+        );
+
+        let response = read_pdf(&ReadPdfInput {
+            sources: vec![ReadPdfSource {
+                path: Some(encrypted.to_string_lossy().to_string()),
+                url: None,
+                pages: None,
+            }],
+            auto: Some(false),
+            include_permissions: true,
+            ..Default::default()
+        })
+        .expect("read encrypted fixture");
+        let data = response.results[0].data.as_ref().expect("data");
+        assert_eq!(
+            data.permissions,
+            Some(json!([
+                "print",
+                "copy",
+                "fill_forms",
+                "copy_for_accessibility"
+            ]))
+        );
     }
 
     #[test]

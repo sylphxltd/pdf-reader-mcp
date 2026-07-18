@@ -101,6 +101,7 @@ struct Walker<'a> {
     entries: usize,
     text_remaining: usize,
     truncated: bool,
+    failed: bool,
 }
 
 impl<'a> Walker<'a> {
@@ -111,6 +112,7 @@ impl<'a> Walker<'a> {
             entries: 0,
             text_remaining: MAX_TEXT_BYTES,
             truncated: false,
+            failed: false,
         }
     }
 
@@ -130,7 +132,11 @@ impl<'a> Walker<'a> {
                 self.truncated = true;
                 return None;
             }
-            current = self.document.get_object(id).ok()?.clone();
+            let Ok(next) = self.document.get_object(id) else {
+                self.failed = true;
+                return None;
+            };
+            current = next.clone();
         }
         self.truncated = true;
         None
@@ -147,14 +153,22 @@ impl<'a> Walker<'a> {
             _ => return None,
         };
         if raw_len > MAX_STRING_BYTES || raw_len > self.text_remaining {
+            self.text_remaining = 0;
             self.truncated = true;
             return None;
         }
         let decoded = match &value {
             Object::Name(bytes) => String::from_utf8_lossy(bytes).into_owned(),
-            _ => decode_text_string(&value).ok()?,
+            _ => match decode_text_string(&value) {
+                Ok(value) => value,
+                Err(_) => {
+                    self.failed = true;
+                    return None;
+                }
+            },
         };
         if decoded.len() > MAX_STRING_BYTES || decoded.len() > self.text_remaining {
+            self.text_remaining = 0;
             self.truncated = true;
             return None;
         }
@@ -176,7 +190,7 @@ fn extract_mark_info(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<Ma
         user_properties: boolean(b"UserProperties").unwrap_or(false),
         suspects: boolean(b"Suspects").unwrap_or(false),
     };
-    Some(value)
+    (!walker.truncated && !walker.failed).then_some(value)
 }
 
 fn extract_permissions(facts: Option<EncryptionFacts>) -> Option<Vec<String>> {
@@ -223,7 +237,7 @@ fn extract_page_labels(
     let mut path = HashSet::new();
     let mut invalid = false;
     collect_label_ranges(walker, &root, 0, &mut path, &mut ranges, &mut invalid);
-    if invalid || walker.truncated {
+    if invalid || walker.truncated || walker.failed {
         return None;
     }
     ranges.sort_by_key(|range| range.start);
@@ -266,10 +280,11 @@ fn collect_label_ranges(
     output: &mut Vec<LabelRange>,
     invalid: &mut bool,
 ) {
-    if depth >= MAX_TREE_DEPTH || output.len() >= MAX_ENTRIES {
+    if depth >= MAX_TREE_DEPTH || output.len() >= MAX_ENTRIES || walker.entries >= MAX_ENTRIES {
         walker.truncated = true;
         return;
     }
+    walker.entries += 1;
     let id = value.as_reference().ok();
     if let Some(id) = id {
         if !path.insert(id) {
@@ -278,21 +293,30 @@ fn collect_label_ranges(
         }
     }
     let Some(dict) = walker.dict(value) else {
+        *invalid = true;
         if let Some(id) = id {
             path.remove(&id);
         }
         return;
     };
     if let Ok(kids) = dict.get(b"Kids").and_then(Object::as_array) {
-        for kid in kids.iter().take(MAX_ENTRIES.saturating_sub(output.len())) {
+        if kids.len() > MAX_ENTRIES {
+            walker.truncated = true;
+            return;
+        }
+        for kid in kids {
             collect_label_ranges(walker, kid, depth + 1, path, output, invalid);
+            if walker.truncated {
+                return;
+            }
         }
     }
     if let Ok(nums) = dict.get(b"Nums").and_then(Object::as_array) {
-        for pair in nums
-            .chunks_exact(2)
-            .take(MAX_ENTRIES.saturating_sub(output.len()))
-        {
+        if nums.len() % 2 != 0 || nums.len() / 2 > MAX_ENTRIES.saturating_sub(output.len()) {
+            walker.truncated = true;
+            return;
+        }
+        for pair in nums.chunks_exact(2) {
             let Some(start) = walker
                 .resolve_owned(&pair[0])
                 .and_then(|value| value.as_i64().ok())
@@ -364,9 +388,6 @@ fn collect_label_ranges(
                 first,
             });
         }
-        if nums.len() % 2 != 0 {
-            walker.truncated = true;
-        }
     }
     if let Some(id) = id {
         path.remove(&id);
@@ -429,7 +450,8 @@ fn extract_outline(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<Vec<
     let root = walker.dict(catalog.get(b"Outlines").ok()?)?;
     let first = root.get(b"First").ok()?.clone();
     let mut path = HashSet::new();
-    Some(outline_siblings(walker, first, 0, &mut path))
+    let items = outline_siblings(walker, first, 0, &mut path);
+    (!walker.truncated && !walker.failed).then_some(items)
 }
 
 fn outline_siblings(
@@ -518,7 +540,8 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
         .as_ref()
         .filter(|_| action_kind == Some(b"URI"))
         .and_then(|a| a.get(b"URI").ok())
-        .and_then(|v| walker.text(v));
+        .and_then(|v| walker.text(v))
+        .and_then(|value| safe_outline_url(&value));
     let action_dest = action
         .as_ref()
         .filter(|_| action_kind == Some(b"GoTo"))
@@ -537,6 +560,12 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
         dest,
         items: None,
     })
+}
+
+fn safe_outline_url(value: &str) -> Option<String> {
+    let parsed = url::Url::parse(value).ok()?;
+    matches!(parsed.scheme(), "http" | "https" | "ftp" | "mailto" | "tel")
+        .then(|| parsed.to_string())
 }
 
 fn finite_number(value: &Object) -> Option<f64> {
@@ -638,7 +667,7 @@ mod tests {
         let value = serde_json::to_value(out.outline).unwrap();
         assert_eq!(value[0]["title"], "Root");
         assert_eq!(value[0]["bold"], true);
-        assert_eq!(value[0]["items"][0]["url"], "https://example.com");
+        assert_eq!(value[0]["items"][0]["url"], "https://example.com/");
     }
 
     #[test]
@@ -716,5 +745,111 @@ mod tests {
             },
         );
         assert!(out.page_labels.is_none());
+    }
+
+    #[test]
+    fn decoded_text_expansion_sticky_exhausts_the_source_budget() {
+        let doc = document(dictionary! {});
+        let mut walker = Walker::new(&doc);
+        walker.text_remaining = 1;
+        assert!(walker.text(&Object::string_literal(vec![0x80])).is_none());
+        assert_eq!(walker.text_remaining, 0);
+        assert!(walker.text(&Object::string_literal("x")).is_none());
+    }
+
+    #[test]
+    fn unsafe_outline_uri_is_omitted_and_destination_remains_null() {
+        let mut doc = document(dictionary! {});
+        let first = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("Unsafe"),
+            "A"=>dictionary!{"S"=>"URI","URI"=>Object::string_literal("javascript:alert(1)")},
+        });
+        let outlines = doc.add_object(dictionary! {"First"=>first});
+        doc.catalog_mut().unwrap().set("Outlines", outlines);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert!(value[0].get("url").is_none());
+        assert_eq!(value[0]["dest"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn outline_cycle_omits_the_whole_surface() {
+        let mut doc = document(dictionary! {});
+        let first = doc.add_object(dictionary! {"Title"=>Object::string_literal("Cycle")});
+        doc.get_object_mut(first)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("Next", first);
+        let outlines = doc.add_object(dictionary! {"First"=>first});
+        doc.catalog_mut().unwrap().set("Outlines", outlines);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        assert!(out.outline.is_none());
+    }
+
+    #[test]
+    fn page_label_overflow_omits_only_that_surface() {
+        let mut doc = document(dictionary! {});
+        let excessive_kids = (0..=MAX_ENTRIES)
+            .map(|_| Object::Dictionary(Dictionary::new()))
+            .collect::<Vec<_>>();
+        let labels = doc.add_object(dictionary! {"Kids"=>excessive_kids});
+        doc.catalog_mut().unwrap().set("PageLabels", labels);
+
+        let first = doc.add_object(dictionary! {"Title"=>Object::string_literal("Still valid")});
+        let outlines = doc.add_object(dictionary! {"First"=>first});
+        doc.catalog_mut().unwrap().set("Outlines", outlines);
+
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            1,
+            CatalogSignalRequest {
+                page_labels: true,
+                permissions: false,
+                outline: true,
+            },
+        );
+        assert!(out.page_labels.is_none());
+        assert_eq!(out.outline.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn mark_info_reference_cycle_omits_instead_of_inventing_false() {
+        let mut doc = document(dictionary! {});
+        let cycle = doc.add_object(Object::Null);
+        *doc.get_object_mut(cycle).unwrap() = Object::Reference(cycle);
+        doc.catalog_mut()
+            .unwrap()
+            .set("MarkInfo", dictionary! {"Marked"=>cycle});
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: true,
+                outline: false,
+            },
+        );
+        assert!(out.mark_info.is_none());
     }
 }
