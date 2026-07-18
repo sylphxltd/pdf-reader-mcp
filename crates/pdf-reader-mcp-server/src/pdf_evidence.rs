@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::evidence::attach_evidence;
 use crate::ocr_evidence;
 use crate::region_analysis_evidence;
-use crate::schema::PdfSource;
+use crate::schema::{PageSpecifier, PdfSource};
 use crate::visual_evidence;
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
@@ -90,18 +90,49 @@ fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         match extract_page_texts(path_owned.as_path(), DEFAULT_MAX_FILE_BYTES) {
             Ok(pages) => {
                 let num_pages = pages.len().max(1) as u32;
-                let text_chars: u32 = pages.iter().map(|page| page.chars().count() as u32).sum();
+                let targets = source.pages.as_ref().map(page_targets);
+                let sample_count = args
+                    .get("sample_pages")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(5)
+                    .clamp(1, 20) as usize;
+                let sampled_pages = sample_pages(num_pages, targets.as_deref(), sample_count);
+                let has_structure_tree = pdf_reader_core::inspect_structure_tree_presence(
+                    path_owned.as_path(),
+                    DEFAULT_MAX_FILE_BYTES,
+                    &sampled_pages,
+                )
+                .map(|(_, value)| value)
+                .unwrap_or(false);
+                let sampled_text = sampled_pages
+                    .iter()
+                    .filter_map(|page| pages.get(*page as usize - 1))
+                    .collect::<Vec<_>>();
+                let text_chars: u32 = sampled_text
+                    .iter()
+                    .map(|page| page.chars().count() as u32)
+                    .sum();
                 results.push(json!({
                     "source": source.label(),
                     "success": true,
                     "data": {
                         "profile": "pdf_inspection",
                         "num_pages": num_pages,
-                        "page_signals": pages.iter().enumerate().map(|(index, page)| json!({
-                            "page": index as u32 + 1,
+                        "sampled_pages": sampled_pages,
+                        "page_signals": sampled_pages.iter().filter_map(|page_number| pages.get(*page_number as usize - 1).map(|page| json!({
+                            "page": page_number,
                             "text_chars": page.chars().count(),
                             "has_selectable_text": !page.trim().is_empty(),
-                        })).collect::<Vec<_>>(),
+                        }))).collect::<Vec<_>>(),
+                        "document_signals": {
+                            "has_outline": false,
+                            "has_page_labels": false,
+                            "has_permissions": false,
+                            "has_mark_info": false,
+                            "has_form_fields": false,
+                            "has_attachments": false,
+                            "has_structure_tree": has_structure_tree,
+                        },
                         "recommendation": {
                             "workflow": if text_chars > 80 { "text_extract" } else { "ocr_render" },
                             "needs_ocr": text_chars <= 80,
@@ -110,6 +141,7 @@ fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
                                 "include_full_text": true,
                                 "include_markdown": true,
                                 "include_document_map": true,
+                                "include_structure_tree": has_structure_tree,
                             }
                         },
                         "route": INSPECT_ROUTE,
@@ -151,4 +183,68 @@ fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     );
 
     Ok(CallToolResult::structured(structured))
+}
+
+fn page_targets(specifier: &PageSpecifier) -> Vec<u32> {
+    match specifier {
+        PageSpecifier::Pages(pages) => pages.iter().map(|page| page.0).collect(),
+        PageSpecifier::Range(range) => range
+            .split(',')
+            .flat_map(|part| {
+                let mut bounds = part.trim().split('-');
+                let start = bounds.next().and_then(|value| value.parse::<u32>().ok());
+                let end = bounds.next().and_then(|value| value.parse::<u32>().ok());
+                match (start, end) {
+                    (Some(start), Some(end)) if start <= end => (start..=end).collect(),
+                    (Some(page), None) => vec![page],
+                    _ => Vec::new(),
+                }
+            })
+            .collect(),
+    }
+}
+
+fn sample_pages(total: u32, targets: Option<&[u32]>, max: usize) -> Vec<u32> {
+    let mut values = targets
+        .map(|pages| {
+            pages
+                .iter()
+                .copied()
+                .filter(|page| (1..=total).contains(page))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| (1..=total).collect());
+    values.sort_unstable();
+    values.dedup();
+    if values.len() <= max {
+        return values;
+    }
+    if max == 1 {
+        return values.into_iter().take(1).collect();
+    }
+    let mut selected = (0..max)
+        .filter_map(|index| {
+            let position =
+                ((index as f64 * (values.len() - 1) as f64) / (max - 1) as f64).round() as usize;
+            values.get(position).copied()
+        })
+        .collect::<Vec<_>>();
+    selected.sort_unstable();
+    selected.dedup();
+    selected
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sampling_matches_frozen_even_spacing_and_target_normalization() {
+        assert_eq!(sample_pages(100, None, 5), vec![1, 26, 51, 75, 100]);
+        assert_eq!(
+            sample_pages(12, Some(&[12, 2, 8, 6, 4, 10, 2, 99]), 3),
+            vec![2, 8, 12]
+        );
+        assert_eq!(sample_pages(12, Some(&[9, 1, 9]), 5), vec![1, 9]);
+    }
 }

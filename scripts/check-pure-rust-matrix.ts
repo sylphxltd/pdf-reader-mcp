@@ -22,6 +22,9 @@ const matrix = JSON.parse(
 const behaviorCorpus = JSON.parse(
   readFileSync(join(root, 'scripts/differential/fixtures/v3014-behavior-corpus.json'), 'utf8')
 ) as { cases: Array<{ id: string }> };
+const structureCorpus = JSON.parse(
+  readFileSync(join(root, 'scripts/differential/fixtures/v3014-structure-corpus.json'), 'utf8')
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -62,6 +65,13 @@ if (
   failures.push(
     `rust parity workflow must require the exact ${behaviorCaseCount}/${behaviorCaseCount} behavior corpus`
   );
+}
+const structureCaseCount = structureCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-structure-differential')) {
+  failures.push('rust parity workflow must execute the frozen structure differential');
+}
+if (structureCaseCount !== 5) {
+  failures.push(`frozen structure differential must contain exactly 5 cases (got ${structureCaseCount})`);
 }
 if (failures.length) {
   console.error(failures.join('\n'));

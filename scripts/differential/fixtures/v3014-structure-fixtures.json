@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "generator": "scripts/differential/generate-v3014-structure-fixtures.ts",
+  "generatorSha256": "8f7ea09cfbbfe3e02e710b4f0351bb232dd767323f2b7e92cc65fe56a9e95054",
+  "fixtures": [
+    {
+      "path": "test/fixtures/differential/v3014-structure-v1.pdf",
+      "bytes": 1722,
+      "sha256": "f7701321fc5cd464ee726c3d86b44c1fcea7788b8c24bebca3972124dc5a9ad6"
+    }
+  ]
+}

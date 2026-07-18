@@ -518,7 +518,8 @@ pub fn build_trust_report(
     })
 }
 
-pub fn build_accessibility_report(pages: &[PageText]) -> Value {
+#[cfg(test)]
+fn build_text_only_accessibility_fixture(pages: &[PageText]) -> Value {
     let mut page_reports = Vec::new();
     let mut heading_count = 0u32;
     let mut issues = Vec::new();
@@ -770,25 +771,123 @@ pub fn build_document_map(
     if a11y.is_some() {
         layers.push("accessibility_report");
     }
+    let accessibility_page_reports = a11y
+        .and_then(|report| report.get("page_reports"))
+        .and_then(Value::as_array);
+    let accessibility_issues = a11y
+        .and_then(|report| report.get("issues"))
+        .and_then(Value::as_array);
+    let mapped_pages = pages
+        .iter()
+        .map(|selected_page| {
+            let page = selected_page.page;
+            let page_elements = elements
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|e| e.get("page").and_then(Value::as_u64) == Some(u64::from(page)))
+                .count();
+            let page_chunks = chunks
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|c| c.get("page").and_then(Value::as_u64) == Some(u64::from(page)))
+                .count();
+            let page_tables = tables
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|t| t.get("page").and_then(Value::as_u64) == Some(u64::from(page)))
+                .count();
+            let mut value = json!({
+                "page": page,
+                "element_count": page_elements,
+                "chunk_count": page_chunks,
+                "table_count": page_tables,
+                "text_chars": selected_page.text.chars().count(),
+            });
+            if let Some((index, report)) = accessibility_page_reports.and_then(|reports| {
+                reports.iter().enumerate().find(|(_, report)| {
+                    report.get("page").and_then(Value::as_u64) == Some(u64::from(page))
+                })
+            }) {
+                let issue_indexes = accessibility_issues
+                    .into_iter()
+                    .flatten()
+                    .enumerate()
+                    .filter(|(_, issue)| {
+                        issue.get("page").and_then(Value::as_u64) == Some(u64::from(page))
+                    })
+                    .map(|(index, _)| index)
+                    .collect::<Vec<_>>();
+                value["accessibility_report_page_index"] = json!(index);
+                value["accessibility_issue_indexes"] = json!(issue_indexes);
+                for severity in ["high", "medium", "low"] {
+                    let indexes = accessibility_issues
+                        .into_iter()
+                        .flatten()
+                        .enumerate()
+                        .filter(|(_, issue)| {
+                            issue.get("page").and_then(Value::as_u64) == Some(u64::from(page))
+                                && issue.get("severity").and_then(Value::as_str) == Some(severity)
+                        })
+                        .map(|(index, _)| index)
+                        .collect::<Vec<_>>();
+                    value[format!("accessibility_{severity}_issue_indexes")] = json!(indexes);
+                }
+                for key in [
+                    "grade",
+                    "score",
+                    "issue_count",
+                    "high_issue_count",
+                    "medium_issue_count",
+                    "low_issue_count",
+                ] {
+                    if let Some(entry) = report.get(key) {
+                        value[format!("accessibility_{key}")] = entry.clone();
+                    }
+                }
+            }
+            value
+        })
+        .collect::<Vec<_>>();
+    let review_pages = |severity: Option<&str>| {
+        accessibility_page_reports
+            .into_iter()
+            .flatten()
+            .filter(|report| {
+                let key = severity
+                    .map(|value| format!("{value}_issue_count"))
+                    .unwrap_or_else(|| "issue_count".into());
+                report.get(key).and_then(Value::as_u64).unwrap_or(0) > 0
+            })
+            .filter_map(|report| report.get("page").and_then(Value::as_u64))
+            .collect::<Vec<_>>()
+    };
+    let accessibility_summary = a11y
+        .and_then(|report| report.get("summary"))
+        .map(|summary| json!({
+            "accessibility_report_page_count": summary.get("page_count"),
+            "accessibility_score": a11y.and_then(|report| report.get("score")),
+            "accessibility_grade": a11y.and_then(|report| report.get("grade")),
+            "accessibility_issue_count": summary.get("issue_count"),
+            "accessibility_document_issue_count": summary.get("document_issue_count"),
+            "accessibility_page_issue_count": summary.get("page_issue_count"),
+            "accessibility_high_issue_count": summary.get("high_issue_count"),
+            "accessibility_medium_issue_count": summary.get("medium_issue_count"),
+            "accessibility_low_issue_count": summary.get("low_issue_count"),
+            "accessibility_pages_with_issues_count": summary.get("pages_with_issues_count"),
+            "accessibility_pages_with_high_issues_count": summary.get("pages_with_high_issues_count"),
+            "accessibility_page_grade_counts": summary.get("page_grade_counts"),
+        }))
+        .unwrap_or_else(|| json!({}));
 
     json!({
         "profile": "agent-document-map-v1",
         "num_pages": num_pages,
         "text_chars": text_chars,
         "layers": layers,
-        "pages": pages.iter().map(|selected_page| {
-            let page = selected_page.page;
-            let page_elements = elements.as_array().into_iter().flatten().filter(|e| e.get("page").and_then(Value::as_u64) == Some(u64::from(page))).count();
-            let page_chunks = chunks.as_array().into_iter().flatten().filter(|c| c.get("page").and_then(Value::as_u64) == Some(u64::from(page))).count();
-            let page_tables = tables.as_array().into_iter().flatten().filter(|t| t.get("page").and_then(Value::as_u64) == Some(u64::from(page))).count();
-            json!({
-                "page": page,
-                "element_count": page_elements,
-                "chunk_count": page_chunks,
-                "table_count": page_tables,
-                "text_chars": selected_page.text.chars().count(),
-            })
-        }).collect::<Vec<_>>(),
+        "pages": mapped_pages,
         "indexes": {
             "element_count": elements.as_array().map(|a| a.len()).unwrap_or(0),
             "chunk_count": chunks.as_array().map(|a| a.len()).unwrap_or(0),
@@ -800,8 +899,13 @@ pub fn build_document_map(
         "routing": {
             "trust_report": trust.is_some(),
             "accessibility_report": a11y.is_some(),
+            "accessibility_review_pages": review_pages(None),
+            "accessibility_high_issue_pages": review_pages(Some("high")),
+            "accessibility_medium_issue_pages": review_pages(Some("medium")),
+            "accessibility_low_issue_pages": review_pages(Some("low")),
             "visual_evidence": false,
         },
+        "summary": accessibility_summary,
         "engine": "pdf-reader-core",
     })
 }
@@ -882,7 +986,7 @@ mod tests {
         let layout = build_layout_diagnostics(&pages);
         let trust = build_trust_report(&pages, &safety, &layout, "standard");
         assert_eq!(trust["profile"], "pdf_trust_report");
-        let a11y = build_accessibility_report(&pages);
+        let a11y = build_text_only_accessibility_fixture(&pages);
         assert_eq!(a11y["profile"], "pdf_accessibility_report");
     }
 
@@ -906,7 +1010,7 @@ mod tests {
         assert_eq!(layout[1]["page"], 7);
         let trust = build_trust_report(&pages, &build_safety_findings(&pages), &layout, "standard");
         assert_eq!(trust["summary"]["selected_pages"], json!([2, 7]));
-        let a11y = build_accessibility_report(&pages);
+        let a11y = build_text_only_accessibility_fixture(&pages);
         assert_eq!(a11y["summary"]["selected_pages"], json!([2, 7]));
     }
 }

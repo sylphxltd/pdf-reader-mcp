@@ -1,5 +1,6 @@
 //! Rust hashing, SSRF-safe fetch, and text-index primitives for pdf-reader-mcp.
 
+mod accessibility;
 mod catalog_signals;
 mod cos_document;
 pub mod document_twin;
@@ -13,10 +14,27 @@ pub mod read_pdf;
 pub mod render;
 pub mod search_pdf;
 pub mod ssrf;
+mod structure_signals;
 pub mod text_index;
 pub mod url_fetch;
 
 pub use ssrf::{assert_host_not_private, is_private_ip};
+
+pub fn inspect_structure_tree_presence(
+    path: &Path,
+    max_file_bytes: u64,
+    selected_pages: &[u32],
+) -> Result<(u32, bool), text_index::TextIndexError> {
+    let parsed = cos_document::ParsedPdf::load(path, max_file_bytes)?;
+    let total = parsed.pages.len().max(1) as u32;
+    let has_tree = !structure_signals::extract_structure_trees(
+        &parsed.document,
+        &parsed.pages,
+        selected_pages,
+    )
+    .is_empty();
+    Ok((total, has_tree))
+}
 
 pub use legacy::legacy_engine_allowed;
 pub use ocr_fusion::{fuse_ocr_outcomes, OcrPage, OcrWord, SourceOcrOutcome, OCR_STUB_WARNING};

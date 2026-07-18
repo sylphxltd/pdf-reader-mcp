@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "authority": {
+    "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
+    "extractorSha256": "3fd4b3e6ad257efcc89a9fc4faa82ff50caa809bae9829ec6dab12767304c1c0"
+  },
+  "input": {
+    "role": "  ",
+    "alt": "leak",
+    "lang": "leak",
+    "bbox": [1, 2, 3, 4],
+    "mathML": "leak",
+    "children": [
+      null,
+      7,
+      "primitive",
+      { "type": " ", "id": " abc ", "alt": "leak" },
+      { "id": " only " },
+      { "type": "object" },
+      { "role": " ", "lang": "leak", "children": [{ "type": 7, "id": 9 }, { "type": "", "id": "" }] },
+      { "children": "not-array" },
+      { "type": "", "id": "" }
+    ]
+  },
+  "expected": {
+    "role": "Unknown",
+    "children": [
+      { "type": "content", "id": "abc" },
+      { "type": "content", "id": "only" },
+      { "type": "object" },
+      { "role": "Unknown" },
+      { "role": "Unknown" }
+    ]
+  }
+}

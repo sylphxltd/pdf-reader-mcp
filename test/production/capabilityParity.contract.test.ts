@@ -93,6 +93,7 @@ const pureRustEnabled =
   process.env.PDF_READER_ENGINE_MODE === 'rust' ||
   process.env.RUN_PURE_RUST_CAPABILITY === '1';
 const signalPdf = join(import.meta.dir, '../fixtures/differential/v3014-behavior-v1.pdf');
+const structurePdf = join(import.meta.dir, '../fixtures/differential/v3014-structure-v1.pdf');
 
 describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
   let proc: ChildProcess;
@@ -127,7 +128,7 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
         nextId(),
         'read_pdf',
         {
-          sources: [{ path: samplePdf }],
+          sources: [{ path: entry.id === 'structure' ? structurePdf : samplePdf }],
           ...entry.args,
         },
         90_000
@@ -152,6 +153,55 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     }
     expect(failures).toEqual([]);
   }, 600_000);
+
+  test('structure trees match the immutable tagged subset and untagged PDFs omit the field', async () => {
+    const tagged = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: structurePdf, pages: [2, 1, 1] }],
+        auto: false,
+        include_structure_tree: true,
+      },
+      90_000
+    );
+    const taggedData = (
+      JSON.parse(parseToolPayload(tagged).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(taggedData?.structure_trees).toEqual([
+      {
+        page: 1,
+        tree: {
+          role: 'Root',
+          children: [
+            { role: 'H1', children: [{ type: 'content', id: 'p3R_mc0' }] },
+            {
+              role: 'Figure',
+              children: [{ type: 'annotation', id: 'pdfjs_internal_id_7R' }],
+            },
+          ],
+        },
+      },
+      { page: 2, tree: { role: 'Root' } },
+    ]);
+
+    const untagged = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      { sources: [{ path: samplePdf }], auto: false, include_structure_tree: true },
+      90_000
+    );
+    const untaggedData = (
+      JSON.parse(parseToolPayload(untagged).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(untaggedData?.structure_trees).toBeUndefined();
+  }, 180_000);
 
   test('annotations match the immutable Link subset and omit empty placeholders', async () => {
     const withAnnotation = await callTool(
@@ -500,6 +550,33 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     expect(deepHasKey(inspectJson, 'recommendation') || deepHasKey(inspectJson, 'num_pages')).toBe(
       true
     );
+
+    const taggedInspect = await callTool(
+      proc,
+      nextId(),
+      'pdf_evidence',
+      {
+        operation: 'inspect',
+        sources: [{ path: structurePdf, pages: [2, 1, 2] }],
+        sample_pages: 2,
+      },
+      60_000
+    );
+    const taggedInspectJson = JSON.parse(parseToolPayload(taggedInspect).text) as {
+      results?: Array<{
+        data?: {
+          sampled_pages?: number[];
+          document_signals?: { has_structure_tree?: boolean };
+          recommendation?: { read_pdf_arguments?: { include_structure_tree?: boolean } };
+        };
+      }>;
+    };
+    expect(taggedInspectJson.results?.[0]?.data?.sampled_pages).toEqual([1, 2]);
+    expect(taggedInspectJson.results?.[0]?.data?.document_signals?.has_structure_tree).toBe(true);
+    expect(
+      taggedInspectJson.results?.[0]?.data?.recommendation?.read_pdf_arguments
+        ?.include_structure_tree
+    ).toBe(true);
 
     for (const operation of ['render_page', 'extract_regions']) {
       const response = await callTool(
