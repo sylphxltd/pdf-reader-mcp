@@ -113,15 +113,7 @@ Visual `pdf_evidence` operations (`render_page`, `extract_regions`, `ocr_pages`,
 `analyze_regions`) fail closed with explicit guidance when no render/OCR backend
 is configured, matching the previous optional-canvas / optional-provider model.
 
-## Install both ecosystems
+## Install
 
-```bash
-# MCP users
-npx @sylphx/pdf-reader-mcp
-
-# Rust users
-cargo install pdf-reader-mcp-server --locked
-cargo add pdf-reader-core
-```
-
-See the [installation guide](../guide/installation.md) for client-specific wiring.
+Production: pin `@sylphx/pdf-reader-mcp@3.0.14` (TypeScript).  
+See [installation guide](../guide/installation.md). Pure-Rust remains experimental source-only.
