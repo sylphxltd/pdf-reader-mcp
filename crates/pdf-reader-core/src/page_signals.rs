@@ -10,6 +10,27 @@ const MAX_ANNOTATIONS_PER_SOURCE: usize = 10_000;
 const MAX_STRING_BYTES: usize = 64 * 1024;
 const MAX_SIGNAL_TEXT_BYTES: usize = 2 * 1024 * 1024;
 
+struct SignalTextBudget {
+    remaining: usize,
+    truncated: bool,
+}
+
+impl SignalTextBudget {
+    fn consume(&mut self, bytes: usize) -> bool {
+        if bytes > self.remaining {
+            self.truncated = true;
+            false
+        } else {
+            self.remaining -= bytes;
+            true
+        }
+    }
+
+    fn reject_oversized(&mut self) {
+        self.truncated = true;
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct PageSignals {
     pub geometry: Vec<Value>,
@@ -27,7 +48,10 @@ pub(crate) fn extract_page_signals(
     let mut signals = PageSignals::default();
     let selected: HashSet<u32> = selected_pages.iter().copied().collect();
     let mut annotation_work = 0usize;
-    let mut text_budget = MAX_SIGNAL_TEXT_BYTES;
+    let mut text_budget = SignalTextBudget {
+        remaining: MAX_SIGNAL_TEXT_BYTES,
+        truncated: false,
+    };
     for (page, page_id) in pages {
         if !selected.contains(page) {
             continue;
@@ -64,16 +88,20 @@ pub(crate) fn extract_page_signals(
             "include_annotations: source reached the {MAX_ANNOTATIONS_PER_SOURCE} annotation work limit."
         ));
     }
+    if want_annotations && text_budget.truncated {
+        signals.warnings.push(format!(
+            "include_annotations: annotation strings exceeded the {MAX_STRING_BYTES}-byte field or {MAX_SIGNAL_TEXT_BYTES}-byte source text limit."
+        ));
+    }
     signals
 }
 
 fn page_geometry(document: &Document, page: u32, page_id: ObjectId) -> Option<Value> {
     let media = inherited_array(document, page_id, b"MediaBox")
-        .and_then(|value| box_values(document, value))
-        .map(normalize_box)
+        .and_then(|value| page_box_values(document, value))
         .unwrap_or([0.0, 0.0, 612.0, 792.0]);
     let crop = inherited_array(document, page_id, b"CropBox")
-        .and_then(|value| box_values(document, value))
+        .and_then(|value| page_box_values(document, value))
         .and_then(|crop| intersect_boxes(media, crop))
         .unwrap_or(media);
     let raw_rotation = inherited_number(document, page_id, b"Rotate").unwrap_or(0.0);
@@ -119,7 +147,7 @@ fn page_annotations(
     page: u32,
     page_id: ObjectId,
     limit: usize,
-    text_budget: &mut usize,
+    text_budget: &mut SignalTextBudget,
 ) -> (Vec<Value>, bool, usize) {
     let Some(annots) = inherited_array(document, page_id, b"Annots") else {
         return (Vec::new(), false, 0);
@@ -141,7 +169,7 @@ fn normalize_annotation(
     document: &Document,
     page: u32,
     value: &Object,
-    text_budget: &mut usize,
+    text_budget: &mut SignalTextBudget,
 ) -> Option<Value> {
     let id = match value {
         Object::Reference((object, generation)) => Some(if *generation == 0 {
@@ -278,6 +306,15 @@ fn box_values(document: &Document, value: &Object) -> Option<[f64; 4]> {
         .then_some(parsed)
 }
 
+fn page_box_values(document: &Document, value: &Object) -> Option<[f64; 4]> {
+    let values = resolve(document, value).ok()?.as_array().ok()?;
+    if values.len() != 4 {
+        return None;
+    }
+    let value = normalize_box(box_values(document, value)?);
+    (value[0] < value[2] && value[1] < value[3]).then_some(value)
+}
+
 fn number(value: &Object) -> Option<f64> {
     match value {
         Object::Integer(value) => Some(*value as f64),
@@ -307,35 +344,47 @@ fn normalize_box(value: [f64; 4]) -> [f64; 4] {
     ]
 }
 
-fn bounded_name(value: &Object, budget: &mut usize) -> Option<String> {
+fn bounded_name(value: &Object, budget: &mut SignalTextBudget) -> Option<String> {
     let bytes = value.as_name().ok()?;
-    if bytes.len() > MAX_STRING_BYTES || bytes.len() > *budget {
+    if bytes.len() > MAX_STRING_BYTES {
+        budget.reject_oversized();
         return None;
     }
     let decoded = String::from_utf8_lossy(bytes).into_owned();
-    if decoded.len() > *budget {
+    if !budget.consume(decoded.len()) {
         return None;
     }
-    *budget -= decoded.len();
     Some(decoded)
 }
 
-fn decoded_string(document: &Document, value: &Object, budget: &mut usize) -> Option<String> {
+fn decoded_string(
+    document: &Document,
+    value: &Object,
+    budget: &mut SignalTextBudget,
+) -> Option<String> {
     let value = resolve(document, value).ok()?;
     if let Object::String(bytes, _) = value {
-        if bytes.len() > MAX_STRING_BYTES || bytes.len() > *budget {
+        if bytes.len() > MAX_STRING_BYTES {
+            budget.reject_oversized();
             return None;
         }
     }
     let decoded = decode_text_string(value).ok()?;
-    if decoded.len() > MAX_STRING_BYTES || decoded.len() > *budget {
+    if decoded.len() > MAX_STRING_BYTES {
+        budget.reject_oversized();
         return None;
     }
-    *budget -= decoded.len();
+    if !budget.consume(decoded.len()) {
+        return None;
+    }
     Some(decoded)
 }
 
-fn destination(document: &Document, value: &Object, budget: &mut usize) -> Option<Value> {
+fn destination(
+    document: &Document,
+    value: &Object,
+    budget: &mut SignalTextBudget,
+) -> Option<Value> {
     let value = resolve(document, value).ok()?;
     match value {
         Object::String(_, _) => decoded_string(document, value, budget).map(Value::String),
@@ -448,9 +497,15 @@ mod tests {
                 "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into()],
                 "Rotate" => -90,
             },
+            dictionary! { "MediaBox" => vec![0.into(), 0.into(), 0.into(), 0.into()] },
+            dictionary! { "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into(), 999.into()] },
+            dictionary! {
+                "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into()],
+                "CropBox" => vec![10.into(), 10.into(), 10.into(), 20.into()],
+            },
         ]);
         let pages = document.get_pages().into_iter().collect::<Vec<_>>();
-        let signals = extract_page_signals(&document, &pages, &[1, 2, 3, 4], true, false);
+        let signals = extract_page_signals(&document, &pages, &[1, 2, 3, 4, 5, 6, 7], true, false);
         assert_eq!(
             signals.geometry,
             vec![
@@ -458,6 +513,9 @@ mod tests {
                 json!({"page":2,"width":612.0,"height":792.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":612.0,"top":792.0}}),
                 json!({"page":3,"width":200.0,"height":300.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":200.0,"top":300.0}}),
                 json!({"page":4,"width":300.0,"height":200.0,"rotation":270.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":200.0,"top":300.0}}),
+                json!({"page":5,"width":612.0,"height":792.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":612.0,"top":792.0}}),
+                json!({"page":6,"width":612.0,"height":792.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":612.0,"top":792.0}}),
+                json!({"page":7,"width":200.0,"height":300.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":200.0,"top":300.0}}),
             ]
         );
     }
@@ -477,6 +535,27 @@ mod tests {
         assert!(signals.annotations.is_empty());
         assert_eq!(signals.warnings, vec![format!(
             "include_annotations: source reached the {MAX_ANNOTATIONS_PER_SOURCE} annotation work limit."
+        )]);
+    }
+
+    #[test]
+    fn oversized_annotation_strings_are_omitted_with_a_warning() {
+        let annotation = Object::Dictionary(dictionary! {
+            "Subtype" => "Text",
+            "Contents" => Object::string_literal("x".repeat(MAX_STRING_BYTES + 1)),
+        });
+        let document = document_with_pages(vec![dictionary! {
+            "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+            "Annots" => vec![annotation],
+        }]);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(signals.annotations[0]["annotations"][0]["subtype"], "Text");
+        assert!(signals.annotations[0]["annotations"][0]
+            .get("contents")
+            .is_none());
+        assert_eq!(signals.warnings, vec![format!(
+            "include_annotations: annotation strings exceeded the {MAX_STRING_BYTES}-byte field or {MAX_SIGNAL_TEXT_BYTES}-byte source text limit."
         )]);
     }
 }
