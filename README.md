@@ -197,7 +197,8 @@ Pure-Rust is a **work in progress**, not the published product.
 | Tool names `read_pdf` / `search_pdf` / `pdf_evidence` | Present in experimental engine |
 | Selectable-text extract / search | Partial |
 | Full Document Twin (geometry, outline, COS structure) | **Not yet** |
-| Evidence `render_page` / crop / OCR / analyze | **Not yet** (fail-closed) |
+| Evidence `render_page` / `extract_regions` | Partial: bounded Hayro PNG render/crop in the source experiment |
+| Evidence OCR / analyze | **Not yet** (fail-closed) |
 | Cross-platform npm binary | **Not yet** |
 | Drop-in for 3.0.14 | **No** |
 

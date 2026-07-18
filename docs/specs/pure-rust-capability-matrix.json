@@ -64,21 +64,23 @@
     },
     "pdf_evidence": {
       "inspect": "PARTIAL",
-      "render_page": "FAIL_CLOSED",
-      "extract_regions": "FAIL_CLOSED",
+      "render_page": "PARTIAL",
+      "extract_regions": "PARTIAL",
       "ocr_pages": "FAIL_CLOSED",
       "analyze_regions": "FAIL_CLOSED"
     }
   },
   "claimedForDifferential": [
     "exact 10-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, missing and malformed inputs, and mixed-source partial success",
+    "exact 7-case immutable TS v3.0.14 render/crop semantic subset over stdio: defaults, page selection and warnings, region ordering, padding and fractional bounds, rotated pages, mixed-source partial success, all-source failure, MCP image indexing, and truthful Hayro provenance; exact pdf.js pixels and antialiasing are not claimed",
     "DNS-pinned URL fetch: one resolution per redirect hop, reject mixed public/non-public answers, disable ambient proxies, and revalidate every redirect; still PARTIAL because resolver timeout and TLS-SNI fixtures remain open",
     "auto off when include_* keys are present"
   ],
   "explicitlyNotClaimed": [
     "complete TS 3.0.14 semantic parity outside the immutable 10-case subset",
-    "geometry/bboxes",
-    "render/crop/OCR/analyze success path",
+    "text/search geometry, geometry-perfect pdf.js boxes, and general bounding-box parity",
+    "render/crop semantic parity outside the immutable 7-case subset, including exact pdf.js pixels and antialiasing",
+    "OCR/analyze success path",
     "COS outline/annotations/forms",
     "cross-platform npm native binary",
     "npm library exports for pure-Rust",

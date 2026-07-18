@@ -18,9 +18,11 @@ pub use read_pdf::{
     ReadPdfSource, ReadPdfSourceResult, READ_PDF_ROUTE,
 };
 pub use render::{
-    crop_pixels_for_bounding_box, crop_rendered_page_png, render_pdf_page, BoundingBox, CropPixels,
-    RenderError, RenderErrorCode, RenderProvenance, RenderedPage, DEFAULT_MAX_RENDER_PIXELS,
-    DEFAULT_RENDER_SCALE, RENDERER_NAME, RENDER_ENGINE,
+    crop_pixels_for_bounding_box, crop_pixels_for_rendered_page, crop_rendered_page_png,
+    crop_rendered_page_png_with_limit, crop_rendered_page_region, pdf_page_count, render_pdf_page,
+    BoundingBox, CropPixels, RenderDocument, RenderError, RenderErrorCode, RenderLimits,
+    RenderProvenance, RenderedPage, DEFAULT_MAX_RENDER_OUTPUT_BYTES, DEFAULT_MAX_RENDER_PAGES,
+    DEFAULT_MAX_RENDER_PIXELS, DEFAULT_RENDER_SCALE, RENDERER_NAME, RENDER_ENGINE,
 };
 pub use search_pdf::{
     search_pdf, search_pdf_from_value, SearchPdfError, SearchPdfErrorCode, SearchPdfInput,

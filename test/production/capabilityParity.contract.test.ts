@@ -153,7 +153,7 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     expect(failures).toEqual([]);
   }, 600_000);
 
-  test('auto balanced twin returns core agent document twin layers', async () => {
+  test('auto balanced twin matches v3.0.14 depth without full text', async () => {
     const response = await callTool(
       proc,
       nextId(),
@@ -168,8 +168,8 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     const payload = parseToolPayload(response);
     expect(payload.isError).toBe(false);
     const parsed = JSON.parse(payload.text) as unknown;
+    const missing: string[] = [];
     for (const field of [
-      'full_text',
       'markdown',
       'chunks',
       'document_map',
@@ -177,8 +177,10 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       'trust_report',
       'accessibility_report',
     ]) {
-      expect(deepHasKey(parsed, field)).toBe(true);
+      if (!deepHasKey(parsed, field)) missing.push(field);
     }
+    expect(missing).toEqual([]);
+    expect(deepHasKey(parsed, 'full_text')).toBe(false);
   }, 120_000);
 
   test('search_pdf public options remain available', async () => {
@@ -201,7 +203,7 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     }
   }, 180_000);
 
-  test('pdf_evidence inspect remains available; visual ops fail closed with guidance', async () => {
+  test('pdf_evidence inspect and bounded visual ops work; provider ops fail closed', async () => {
     const inspect = await callTool(
       proc,
       nextId(),
@@ -216,7 +218,7 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       true
     );
 
-    for (const operation of ['render_page', 'extract_regions', 'ocr_pages', 'analyze_regions']) {
+    for (const operation of ['render_page', 'extract_regions']) {
       const response = await callTool(
         proc,
         nextId(),
@@ -244,12 +246,43 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
         60_000
       );
       const payload = parseToolPayload(response);
-      // Must not hang/crash. Either structured guidance error or success with empty image.
-      expect(payload.text.length).toBeGreaterThan(0);
-      if (!payload.isError) {
-        // If success path exists, it must still be parseable JSON.
-        expect(() => JSON.parse(payload.text)).not.toThrow();
-      }
+      expect(payload.isError).toBe(false);
+      const result = JSON.parse(payload.text) as unknown;
+      expect(deepHasKey(result, operation === 'render_page' ? 'rendered_pages' : 'regions')).toBe(
+        true
+      );
+    }
+
+    for (const operation of ['ocr_pages', 'analyze_regions']) {
+      const response = await callTool(
+        proc,
+        nextId(),
+        'pdf_evidence',
+        {
+          operation,
+          sources: [
+            {
+              path: samplePdf,
+              regions:
+                operation === 'analyze_regions'
+                  ? [
+                      {
+                        id: 'r1',
+                        page: 1,
+                        bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+                      },
+                    ]
+                  : undefined,
+            },
+          ],
+          max_pages: 1,
+          max_regions: 1,
+        },
+        60_000
+      );
+      const payload = parseToolPayload(response);
+      expect(payload.isError).toBe(true);
+      expect(payload.text).toContain(`'${operation}' is not available`);
     }
   }, 240_000);
 });

@@ -15,5 +15,6 @@ package-lock.json text eol=lf
 pnpm-lock.yaml text eol=lf
 
 # Ensure specific files are treated as binary (if needed)
+*.pdf binary
 # *.png binary
 # *.jpg binary

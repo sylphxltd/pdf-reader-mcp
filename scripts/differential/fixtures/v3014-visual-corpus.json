@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "profile": "pdf_reader_v3014_visual_corpus",
+  "cases": [
+    {
+      "id": "render-default-page-one",
+      "input": {
+        "operation": "render_page",
+        "sources": [{ "fixture": "v3014-visual-v1.pdf" }]
+      }
+    },
+    {
+      "id": "render-selection-warnings-no-image",
+      "input": {
+        "operation": "render_page",
+        "sources": [{ "fixture": "v3014-visual-v1.pdf", "pages": [2, 99, 1, 2] }],
+        "scale": 1,
+        "max_pages": 1,
+        "include_image": false
+      }
+    },
+    {
+      "id": "crop-order-padding-fractional",
+      "input": {
+        "operation": "extract_regions",
+        "sources": [
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "A",
+                "page": 2,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 20, "top": 30 },
+                "padding": 2
+              },
+              {
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 30, "top": 20 },
+                "padding": 3
+              },
+              {
+                "id": "C",
+                "page": 2,
+                "bounding_box": { "left": 10.2, "bottom": 30.4, "right": 40.6, "top": 60.8 }
+              }
+            ]
+          }
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "render-rotated-page",
+      "input": {
+        "operation": "render_page",
+        "sources": [{ "fixture": "v3014-visual-v1.pdf", "pages": [3] }],
+        "scale": 1,
+        "max_pages": 1
+      }
+    },
+    {
+      "id": "crop-rotated-v3014-formula",
+      "input": {
+        "operation": "extract_regions",
+        "sources": [
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "rotated",
+                "page": 3,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 60, "top": 80 }
+              }
+            ]
+          }
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "render-mixed-source-partial",
+      "input": {
+        "operation": "render_page",
+        "sources": [
+          { "fixture": "missing-visual.pdf", "pages": [1] },
+          { "fixture": "v3014-visual-v1.pdf", "pages": [2] }
+        ],
+        "scale": 1,
+        "max_pages": 1
+      }
+    },
+    {
+      "id": "crop-degenerate-all-fail",
+      "input": {
+        "operation": "extract_regions",
+        "sources": [
+          {
+            "fixture": "v3014-visual-v1.pdf",
+            "regions": [
+              {
+                "id": "bad",
+                "page": 1,
+                "bounding_box": { "left": 10, "bottom": 10, "right": 10, "top": 20 }
+              }
+            ]
+          }
+        ],
+        "scale": 1
+      }
+    }
+  ]
+}
