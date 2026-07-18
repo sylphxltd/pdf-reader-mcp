@@ -24,17 +24,34 @@ if (mode === 'escaped-descendant') {
 }
 const png = PNG.sync.read(readFileSync(input));
 
+const words =
+  page === '3'
+    ? [
+        ['Metric', 80, 1400, 176, 1420],
+        ['Value', 320, 1400, 404, 1420],
+        ['Revenue', 80, 1360, 200, 1380],
+        ['24%', 320, 1360, 368, 1380],
+      ].map(([text, left, bottom, right, top]) => ({
+        text,
+        confidence: 93,
+        bounding_box: { left, bottom, right, top },
+      }))
+    : [
+        {
+          text: 'Reference',
+          confidence: 91,
+          bounding_box: { left: 20, bottom: 10, right: 100, top: 30 },
+        },
+      ];
+
 process.stdout.write(
   JSON.stringify({
-    text: `Reference OCR page ${page} at ${String(png.width)}x${String(png.height)}`,
+    text:
+      page === '3'
+        ? 'Metric Value\nRevenue 24%'
+        : `Reference OCR page ${page} at ${String(png.width)}x${String(png.height)}`,
     confidence: 87,
-    words: [
-      {
-        text: 'Reference',
-        confidence: 91,
-        bounding_box: { left: 20, bottom: 10, right: 100, top: 30 },
-      },
-    ],
+    words,
     ...(languages ? { language: languages.split(',')[0] } : {}),
   })
 );

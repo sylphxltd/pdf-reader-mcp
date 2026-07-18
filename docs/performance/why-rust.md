@@ -121,11 +121,13 @@ placeholder arrays prove only response shape; they do not prove capability.
 Visual `pdf_evidence` operations now have bounded Hayro render/crop plus opt-in
 command-provider OCR and region-analysis subsets. `read_pdf` can now select OCR
 pages, invoke that bounded command provider, return the normalized parallel OCR
-layer, link applied pages into `document_map`, and emit OCR MCP text parts. The
-immutable detached TS 3.0.14 differential covers this bounded fusion case.
-It remains partial: OCR-derived tables/AST, OCR TSV, region-analysis
-HTTP/presets, broader renderer fixtures, and full Document Twin fusion are
-open. Unavailable paths fail closed; this is not TS 3.0.14 parity.
+layer, link applied pages into `document_map`, emit OCR MCP text parts, and
+project one bounded boxed-word table subset through tables, elements, chunks,
+Markdown, HTML, AST, and map. The immutable detached TS 3.0.14 differential
+covers these bounded fusion cases. It remains partial: mixed selectable/OCR
+table continuation, full AST hierarchy, OCR TSV, region-analysis HTTP/presets,
+broader renderer fixtures, and full Document Twin fusion are open. Unavailable
+paths fail closed; this is not TS 3.0.14 parity.
 
 ## Install
 

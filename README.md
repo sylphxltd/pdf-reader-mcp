@@ -199,7 +199,7 @@ Pure-Rust is a **work in progress**, not the published product.
 | Full Document Twin (geometry, outline, COS structure) | **Not yet** |
 | Evidence `render_page` / `extract_regions` | Partial: bounded Hayro PNG render/crop in the source experiment |
 | Evidence OCR / analyze | Partial: bounded opt-in command adapters; OCR TSV and analyze HTTP/presets are not yet available |
-| `read_pdf` OCR fusion | Partial: command-provider OCR layer, map linkage, and MCP text parts; OCR-derived tables/AST and TSV remain open |
+| `read_pdf` OCR fusion | Partial: command-provider OCR layer plus boxed-word table projection into elements/chunks/Markdown/HTML/AST/map; TSV, mixed-table continuation, and broad Twin parity remain open |
 | Cross-platform npm binary | **Not yet** |
 | Drop-in for 3.0.14 | **No** |
 

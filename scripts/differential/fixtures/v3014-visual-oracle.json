@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "profile": "pdf_reader_v3014_visual_oracle",
-  "providerSha256": "86ab98b7ad9729da32b18326c728eaa3c87d33b2786c813b7e82e619db32c4b6",
+  "providerSha256": "256e0430fe3039637f67a12f4845dbaf66c94730f4a792dbc1d22131862dadf7",
   "regionProviderSha256": "7f766456549bb2e40547bf12340d62b86af507d479e84bfc911c2ebbaa47b5ba",
   "baseline": {
     "tag": "v3.0.14",
@@ -16,6 +16,9 @@
       "src/handlers/analyzeRegions.ts": "b84d5e9741ff8a6ea0ac37ee3b764ec94f08229662b51d0552f6ebddf3723dc8",
       "src/handlers/readPdf.ts": "1e7488cba29dc66ef8b6a86322d871ac3a3e5bf01981e9ab98a47ec4b0b1d5c4",
       "src/pdf/readCoordinator.ts": "827cb1018a8621287de154132c0a00a00188497b84622a168a343d0df3ce5eca",
+      "src/pdf/tableExtractor.ts": "ae21a6327349337efe6245ad391f3b94692c59bafb565f82c2bc8ed85cccecd4",
+      "src/pdf/documentModel.ts": "acb67cf9cb3c6373bd5a797fb8032cf8158943486853a2f59ac6486992264ef5",
+      "src/pdf/documentAst.ts": "f49272418eef6e412f0fc6a52daf82a6ad15d8a479a7fa6e387659624c6bbbd3",
       "src/pdf/ocr.ts": "9c2f89afb8426fea801501f7a2264a90e536609c7f5d64e7257945d4038041ee",
       "src/pdf/regionAnalysis.ts": "26ffb87a2af378665fdb59b9b9c8f6b9060b1015083da8c898479157bd1d80ef",
       "src/pdf/renderer.ts": "29cf9917feaa470d3e3dafea5b432439fe0450eaee90b350458fb1e41bfe75a8",
@@ -777,6 +780,173 @@
             ],
             "ocr_page_count": 1,
             "ocr_text_chars": 31
+          },
+          "table_projection": null
+        }
+      ]
+    },
+    "read-ocr-boxed-table-projection": {
+      "outcome": "success",
+      "content_ocr": [
+        "[Page 3 OCR]\nMetric Value\nRevenue 24%"
+      ],
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "ocr_text_layer": {
+            "profile": "ocr_text_layer",
+            "pages": [
+              {
+                "page": 3,
+                "text": "Metric Value\nRevenue 24%",
+                "confidence": 0.87,
+                "words": [
+                  {
+                    "text": "Metric",
+                    "confidence": 0.93,
+                    "bounding_box": {
+                      "left": 40,
+                      "bottom": 700,
+                      "right": 88,
+                      "top": 710
+                    }
+                  },
+                  {
+                    "text": "Value",
+                    "confidence": 0.93,
+                    "bounding_box": {
+                      "left": 160,
+                      "bottom": 700,
+                      "right": 202,
+                      "top": 710
+                    }
+                  },
+                  {
+                    "text": "Revenue",
+                    "confidence": 0.93,
+                    "bounding_box": {
+                      "left": 40,
+                      "bottom": 680,
+                      "right": 100,
+                      "top": 690
+                    }
+                  },
+                  {
+                    "text": "24%",
+                    "confidence": 0.93,
+                    "bounding_box": {
+                      "left": 160,
+                      "bottom": 680,
+                      "right": 184,
+                      "top": 690
+                    }
+                  }
+                ],
+                "provider": "command",
+                "source_render_evidence_id": "page-3-render-scale-2",
+                "source_render_scale": 2,
+                "source_render_width": 160,
+                "source_render_height": 240,
+                "provenance": {
+                  "engine": "external-command",
+                  "source": "ocr-provider"
+                }
+              }
+            ],
+            "summary": {
+              "page_count": 1,
+              "text_chars": 24,
+              "word_count": 4,
+              "words_with_bounding_boxes": 4,
+              "source_render_count": 1,
+              "average_confidence": 0.87
+            },
+            "warnings": []
+          },
+          "document_map": {
+            "has_ocr_layer": true,
+            "needs_ocr_pages": [
+              3
+            ],
+            "ocr_applied_pages": [
+              3
+            ],
+            "ocr_page_count": 1,
+            "ocr_text_chars": 24
+          },
+          "table_projection": {
+            "tables": [
+              {
+                "page": 3,
+                "tableIndex": 0,
+                "rowCount": 2,
+                "colCount": 2,
+                "cellCount": 4,
+                "provenance": {
+                  "source": "ocr_text_layer",
+                  "engine": "external-command",
+                  "ocr_source_render_evidence_id": "page-3-render-scale-2"
+                },
+                "quality": {
+                  "completeness": 1,
+                  "nonEmptyCellRatio": 1,
+                  "cellBoundingBoxCoverage": 1,
+                  "inferredCellRatio": 0,
+                  "rowAlignment": 1,
+                  "rowSpacingConsistency": 1,
+                  "cellBoundingBoxCount": 4,
+                  "inferredCellCount": 0,
+                  "missingCellCount": 0,
+                  "mergedCellCandidateCount": 0,
+                  "signals": [
+                    "complete_grid"
+                  ]
+                }
+              }
+            ],
+            "elements": [
+              {
+                "id": "p3-table-1",
+                "page": 3,
+                "provenance": {
+                  "engine": "external-command",
+                  "source": "ocr-table-detector",
+                  "ocr_source_render_evidence_id": "page-3-render-scale-2"
+                },
+                "rows": [
+                  [
+                    "Metric",
+                    "Value"
+                  ],
+                  [
+                    "Revenue",
+                    "24%"
+                  ]
+                ]
+              }
+            ],
+            "chunks": [
+              {
+                "text": "Metric | Value\nRevenue | 24%",
+                "element_ids": [
+                  "p3-table-1"
+                ],
+                "strategy": "table"
+              }
+            ],
+            "markdown_has_table": true,
+            "html_has_table": true,
+            "ast_table_count": 1,
+            "ast_has_ocr_table_provenance": true,
+            "map": {
+              "has_table_structure": true,
+              "has_citation_chunks": true,
+              "page_table_count": 1,
+              "table_element_sources": [
+                "ocr-table-detector"
+              ]
+            }
           }
         }
       ]

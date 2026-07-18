@@ -7,10 +7,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::read_pdf::ReadPdfResponse;
+use crate::read_pdf::{rebuild_structured_outputs, ReadPdfResponse};
 
 pub const OCR_STUB_WARNING: &str = "include_ocr_text_layer: provider execution is owned by pdf-reader-mcp-server; pdf-reader-core omits ocr_text_layer until a normalized provider outcome is fused.";
-pub const OCR_STRUCTURED_FUSION_GAP_WARNING: &str = "OCR text is available as a parallel text layer, but OCR word boxes are not yet fused into tables or document_ast on the pure-Rust path.";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OcrWord {
@@ -158,6 +157,10 @@ pub fn fuse_ocr_outcomes(response: &mut ReadPdfResponse, outcomes: Vec<SourceOcr
         data.ocr_text_layer = None;
 
         if let Some(error) = outcome.error {
+            if let Some(context) = data.structured_fusion_context.clone() {
+                let selectable_tables = context.selectable_tables.clone();
+                rebuild_structured_outputs(data, &context, &selectable_tables);
+            }
             if let Some(map) = data.document_map.as_mut() {
                 fuse_document_map(map, &data.ocr_candidate_pages, &[]);
             }
@@ -168,6 +171,10 @@ pub fn fuse_ocr_outcomes(response: &mut ReadPdfResponse, outcomes: Vec<SourceOcr
             continue;
         }
         if outcome.pages.is_empty() {
+            if let Some(context) = data.structured_fusion_context.clone() {
+                let selectable_tables = context.selectable_tables.clone();
+                rebuild_structured_outputs(data, &context, &selectable_tables);
+            }
             if let Some(map) = data.document_map.as_mut() {
                 fuse_document_map(map, &data.ocr_candidate_pages, &[]);
             }
@@ -217,14 +224,13 @@ pub fn fuse_ocr_outcomes(response: &mut ReadPdfResponse, outcomes: Vec<SourceOcr
             append_unique_warning(&mut data.warnings, warning);
         }
 
+        if let Some(context) = data.structured_fusion_context.clone() {
+            let merged_tables =
+                crate::ocr_tables::merge_ocr_tables(&outcome.pages, &context.selectable_tables);
+            rebuild_structured_outputs(data, &context, &merged_tables);
+        }
         if let Some(map) = data.document_map.as_mut() {
             fuse_document_map(map, &data.ocr_candidate_pages, &outcome.pages);
-        }
-        if data.tables.is_some() || data.document_ast.is_some() {
-            append_unique_warning(
-                &mut data.warnings,
-                OCR_STRUCTURED_FUSION_GAP_WARNING.to_string(),
-            );
         }
     }
 }
@@ -232,7 +238,8 @@ pub fn fuse_ocr_outcomes(response: &mut ReadPdfResponse, outcomes: Vec<SourceOcr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_pdf::{EngineInfo, ReadPdfData, ReadPdfSourceResult};
+    use crate::document_twin::PageText;
+    use crate::read_pdf::{EngineInfo, ReadPdfData, ReadPdfSourceResult, StructuredFusionContext};
 
     fn response() -> ReadPdfResponse {
         ReadPdfResponse {
@@ -278,6 +285,7 @@ mod tests {
                         version: "test",
                     },
                     ocr_candidate_pages: vec![2],
+                    structured_fusion_context: None,
                 }),
             }],
         }
@@ -409,26 +417,53 @@ mod tests {
     }
 
     #[test]
-    fn structured_outputs_remain_unchanged_and_gap_is_explicit() {
+    fn boxed_ocr_table_rebuilds_every_table_derived_surface() {
         let mut response = response();
         let data = response.results[0].data.as_mut().unwrap();
-        data.tables = Some(json!([{"id":"selectable-table"}]));
-        data.document_ast = Some(json!({"root":{"id":"selectable-root"}}));
-        let tables_before = data.tables.clone();
-        let ast_before = data.document_ast.clone();
+        data.structured_fusion_context = Some(StructuredFusionContext {
+            pages: vec![PageText {
+                page: 2,
+                text: String::new(),
+            }],
+            selectable_tables: json!([]),
+            semantic_hints: true,
+            emit_markdown: true,
+            emit_html: true,
+            emit_chunks: true,
+            emit_elements: true,
+            emit_tables: true,
+            emit_document_ast: true,
+            emit_document_map: true,
+            safety: json!([]),
+            layout: json!([]),
+            trust: None,
+            accessibility: None,
+        });
         fuse_ocr_outcomes(
             &mut response,
             vec![SourceOcrOutcome {
                 source_index: 0,
                 pages: vec![OcrPage {
                     page: 2,
-                    text: "OCR".into(),
+                    text: "Metric Value\nRevenue 24%".into(),
                     confidence: None,
-                    words: Some(vec![OcrWord {
-                        text: "cell".into(),
-                        confidence: None,
-                        bounding_box: Some(json!({"left":1,"bottom":1,"right":2,"top":2})),
-                    }]),
+                    words: Some(
+                        vec![
+                            ("Metric", 40, 700, 88, 710),
+                            ("Value", 160, 700, 202, 710),
+                            ("Revenue", 40, 680, 100, 690),
+                            ("24%", 160, 680, 184, 690),
+                        ]
+                        .into_iter()
+                        .map(|(text, left, bottom, right, top)| OcrWord {
+                            text: text.into(),
+                            confidence: None,
+                            bounding_box: Some(
+                                json!({"left":left,"bottom":bottom,"right":right,"top":top}),
+                            ),
+                        })
+                        .collect(),
+                    ),
                     language: None,
                     provider: "command".into(),
                     source_render_evidence_id: "render-2".into(),
@@ -443,12 +478,52 @@ mod tests {
             }],
         );
         let data = response.results[0].data.as_ref().unwrap();
-        assert_eq!(data.tables, tables_before);
-        assert_eq!(data.document_ast, ast_before);
+        assert_eq!(
+            data.tables.as_ref().unwrap()[0]["rows"][1],
+            json!(["Revenue", "24%"])
+        );
+        assert_eq!(
+            data.elements.as_ref().unwrap()[0]["provenance"]["source"],
+            "ocr-table-detector"
+        );
+        assert_eq!(data.chunks.as_ref().unwrap()[0]["strategy"], "table");
         assert!(data
-            .warnings
-            .as_ref()
+            .markdown
+            .as_deref()
             .unwrap()
-            .contains(&OCR_STRUCTURED_FUSION_GAP_WARNING.to_string()));
+            .contains("| Metric | Value |"));
+        assert!(data.html.as_deref().unwrap().contains("<table"));
+        assert_eq!(
+            data.document_ast.as_ref().unwrap()["summary"]["table_count"],
+            1
+        );
+        assert_eq!(
+            data.document_map.as_ref().unwrap()["indexes"]["table_count"],
+            1
+        );
+        assert_eq!(
+            data.document_map.as_ref().unwrap()["routing"]["ocr_applied_pages"],
+            json!([2])
+        );
+
+        fuse_ocr_outcomes(
+            &mut response,
+            vec![SourceOcrOutcome {
+                source_index: 0,
+                pages: Vec::new(),
+                warnings: Vec::new(),
+                error: Some("later provider failure".into()),
+            }],
+        );
+        let reset = response.results[0].data.as_ref().unwrap();
+        assert_eq!(reset.tables.as_ref().unwrap(), &json!([]));
+        assert_eq!(
+            reset.document_ast.as_ref().unwrap()["summary"]["table_count"],
+            0
+        );
+        assert_eq!(
+            reset.document_map.as_ref().unwrap()["routing"]["ocr_applied_pages"],
+            json!([])
+        );
     }
 }

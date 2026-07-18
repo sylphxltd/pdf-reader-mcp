@@ -150,6 +150,22 @@
       }
     },
     {
+      "id": "read-ocr-boxed-table-projection",
+      "tool": "read_pdf",
+      "input": {
+        "sources": [{ "fixture": "v3014-visual-v1.pdf", "pages": [3] }],
+        "auto": false,
+        "include_tables": true,
+        "include_elements": true,
+        "include_chunks": true,
+        "include_markdown": true,
+        "include_html": true,
+        "include_document_map": true,
+        "include_document_ast": true,
+        "include_ocr_text_layer": true
+      }
+    },
+    {
       "id": "analyze-command-rich-normalization",
       "input": {
         "operation": "analyze_regions",

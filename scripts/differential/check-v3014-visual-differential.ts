@@ -70,8 +70,8 @@ function verifyAuthority(): Record<string, string> {
     }
   }
   const ids = corpus.cases.map((entry) => entry.id);
-  if (ids.length !== 15 || new Set(ids).size !== ids.length) {
-    throw new Error(`visual/OCR/analysis corpus must contain 15 unique cases (got ${ids.length})`);
+  if (ids.length !== 16 || new Set(ids).size !== ids.length) {
+    throw new Error(`visual/OCR/analysis corpus must contain 16 unique cases (got ${ids.length})`);
   }
   if (sha256(readFileSync(providerPath)) !== oracle.providerSha256) {
     throw new Error('reference OCR provider digest mismatch');
@@ -154,6 +154,71 @@ function imageFacts(content: Content): Record<string, Json> {
   } as Record<string, Json>;
 }
 
+function tableProjectionFacts(
+  data: Record<string, unknown>,
+  map: Record<string, unknown> | undefined
+): Json {
+  const tables = (data.table_info ?? data.tables) as Array<Record<string, unknown>> | undefined;
+  const elements = (data.elements ?? []) as Array<Record<string, unknown>>;
+  const chunks = (data.chunks ?? []) as Array<Record<string, unknown>>;
+  const ast = data.document_ast as Record<string, unknown> | undefined;
+  if (!tables && !elements.some((element) => element.type === 'table') && !ast) return null;
+  return {
+    tables: (tables ?? []).map((table) => ({
+      page: table.page ?? null,
+      tableIndex: table.tableIndex ?? null,
+      rowCount: table.rowCount ?? null,
+      colCount: table.colCount ?? null,
+      cellCount:
+        table.cellCount ?? (Array.isArray(table.cells) ? table.cells.length : null),
+      provenance: (table.provenance ?? null) as Json,
+      quality: (table.quality ?? null) as Json,
+    })) as Json,
+    elements: elements
+      .filter((element) => element.type === 'table')
+      .map((element) => ({
+        id: element.id ?? null,
+        page: element.page ?? null,
+        provenance: (element.provenance ?? null) as Json,
+        rows: ((element.table as Record<string, unknown> | undefined)?.rows ?? null) as Json,
+      })) as Json,
+    chunks: chunks
+      .filter((chunk) => chunk.strategy === 'table')
+      .map((chunk) => ({
+        text: chunk.text ?? null,
+        element_ids: (chunk.element_ids ?? null) as Json,
+        strategy: chunk.strategy ?? null,
+      })) as Json,
+    markdown_has_table:
+      typeof data.markdown === 'string' && data.markdown.includes('| Metric | Value |'),
+    html_has_table: typeof data.html === 'string' && data.html.includes('<table'),
+    ast_table_count:
+      ((ast?.summary as Record<string, unknown> | undefined)?.table_count as Json) ?? null,
+    ast_has_ocr_table_provenance: JSON.stringify(ast ?? {}).includes(
+      '"source":"ocr_text_layer"'
+    ),
+    map: map
+      ? ({
+          has_table_structure:
+            Array.isArray(map.layers) && map.layers.includes('table_structure'),
+          has_citation_chunks:
+            Array.isArray(map.layers) && map.layers.includes('citation_chunks'),
+          page_table_count:
+            ((((map.pages as Array<Record<string, unknown>> | undefined) ?? [])[0]
+              ?.table_count as Json) ?? null),
+          table_element_sources: ((
+            (map.elements as Array<Record<string, unknown>> | undefined) ?? []
+          )
+            .filter((element) => element.type === 'table')
+            .map(
+              (element) =>
+                (element.provenance as Record<string, unknown> | undefined)?.source ?? null
+            ) as Json),
+        } as Json)
+      : null,
+  };
+}
+
 function canonicalize(result: ToolResult, tool?: 'read_pdf'): Json {
   if (result.isError) {
     return {
@@ -195,6 +260,7 @@ function canonicalize(result: ToolResult, tool?: 'read_pdf'): Json {
               ocr_text_chars: (map.summary as Record<string, unknown>)?.ocr_text_chars,
             }
           : null,
+        table_projection: tableProjectionFacts(data, map),
       };
     });
     return {

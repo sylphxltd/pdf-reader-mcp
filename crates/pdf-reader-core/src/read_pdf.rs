@@ -65,6 +65,26 @@ pub struct EngineInfo {
     pub version: &'static str,
 }
 
+/// Non-serialized source material needed to deterministically rebuild
+/// table-derived surfaces after an optional OCR provider returns.
+#[derive(Debug, Clone)]
+pub struct StructuredFusionContext {
+    pub pages: Vec<crate::document_twin::PageText>,
+    pub selectable_tables: Value,
+    pub semantic_hints: bool,
+    pub emit_markdown: bool,
+    pub emit_html: bool,
+    pub emit_chunks: bool,
+    pub emit_elements: bool,
+    pub emit_tables: bool,
+    pub emit_document_ast: bool,
+    pub emit_document_map: bool,
+    pub safety: Value,
+    pub layout: Value,
+    pub trust: Option<Value>,
+    pub accessibility: Option<Value>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ReadPdfData {
@@ -133,6 +153,9 @@ pub struct ReadPdfData {
     /// Selected OCR candidates used by the server-side provider boundary.
     #[serde(skip)]
     pub ocr_candidate_pages: Vec<u32>,
+    /// Provider-neutral inputs for the post-OCR structured reconstruction pass.
+    #[serde(skip)]
+    pub structured_fusion_context: Option<StructuredFusionContext>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -367,6 +390,178 @@ fn select_pages(
     (selected, invalid)
 }
 
+fn build_structured_chunks(pages: &[crate::document_twin::PageText], elements: &Value) -> Value {
+    let mut chunks = pages
+        .iter()
+        .filter(|page| !page.text.trim().is_empty())
+        .map(|page| {
+            json!({
+                "id": format!("chunk-p{}", page.page),
+                "page": page.page,
+                "text": page.text,
+                "element_ids": elements.as_array().into_iter().flatten()
+                    .filter(|element| element.get("page").and_then(Value::as_u64) == Some(u64::from(page.page)))
+                    .filter(|element| element.get("type").and_then(Value::as_str) != Some("table"))
+                    .filter_map(|element| element.get("id").cloned())
+                    .collect::<Vec<_>>(),
+            })
+        })
+        .collect::<Vec<_>>();
+    for element in elements
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|element| element.get("type").and_then(Value::as_str) == Some("table"))
+    {
+        let id = element.get("id").and_then(Value::as_str).unwrap_or("table");
+        let text = element
+            .pointer("/table/rows")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|row| {
+                row.as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut chunk = json!({
+            "id": format!("chunk-{id}"),
+            "page": element.get("page"),
+            "text": text,
+            "element_ids": [id],
+            "strategy": "table",
+        });
+        if let Some(box_) = element.get("bounding_box").cloned() {
+            chunk["bounding_box"] = box_;
+        }
+        chunks.push(chunk);
+    }
+    json!(chunks)
+}
+
+fn render_structured_markdown(pages: &[crate::document_twin::PageText], tables: &Value) -> String {
+    let mut parts = pages
+        .iter()
+        .filter(|page| !page.text.trim().is_empty())
+        .map(|page| format!("## Page {}\n\n{}", page.page, page.text.trim()))
+        .collect::<Vec<_>>();
+    for table in tables.as_array().into_iter().flatten() {
+        let mut lines = Vec::new();
+        for (row_index, row) in table
+            .get("rows")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
+            let cells = row
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|cell| cell.as_str().unwrap_or("").to_string())
+                .collect::<Vec<_>>();
+            lines.push(format!("| {} |", cells.join(" | ")));
+            if row_index == 0 {
+                lines.push(format!(
+                    "| {} |",
+                    cells.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")
+                ));
+            }
+        }
+        if !lines.is_empty() {
+            parts.push(format!(
+                "### Table (page {})\n\n{}",
+                table.get("page").and_then(Value::as_u64).unwrap_or(0),
+                lines.join("\n")
+            ));
+        }
+    }
+    parts.join("\n\n")
+}
+
+fn render_structured_html(pages: &[crate::document_twin::PageText], tables: &Value) -> String {
+    let mut parts = pages
+        .iter()
+        .map(|page| {
+            format!(
+                "<section data-page=\"{}\"><pre>{}</pre></section>",
+                page.page,
+                html_escape(&page.text)
+            )
+        })
+        .collect::<Vec<_>>();
+    for table in tables.as_array().into_iter().flatten() {
+        let rows = table
+            .get("rows")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|row| {
+                let cells = row
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|cell| format!("<td>{}</td>", html_escape(cell.as_str().unwrap_or(""))))
+                    .collect::<String>();
+                format!("<tr>{cells}</tr>")
+            })
+            .collect::<String>();
+        parts.push(format!(
+            "<table data-page=\"{}\">{rows}</table>",
+            table.get("page").and_then(Value::as_u64).unwrap_or(0)
+        ));
+    }
+    parts.join("\n")
+}
+
+pub(crate) fn rebuild_structured_outputs(
+    data: &mut ReadPdfData,
+    context: &StructuredFusionContext,
+    tables: &Value,
+) {
+    use crate::document_twin::{
+        build_document_ast, build_document_map, build_elements_with_tables,
+    };
+
+    let elements = build_elements_with_tables(&context.pages, tables, context.semantic_hints);
+    let chunks = build_structured_chunks(&context.pages, &elements);
+    if context.emit_markdown {
+        data.markdown = Some(render_structured_markdown(&context.pages, tables));
+    }
+    if context.emit_html {
+        data.html = Some(render_structured_html(&context.pages, tables));
+    }
+    if context.emit_chunks {
+        data.chunks = Some(chunks.clone());
+    }
+    if context.emit_elements {
+        data.elements = Some(elements.clone());
+    }
+    if context.emit_tables {
+        data.tables = Some(tables.clone());
+    }
+    if context.emit_document_ast {
+        data.document_ast = Some(build_document_ast(&context.pages, &elements, tables));
+    }
+    if context.emit_document_map {
+        data.document_map = Some(build_document_map(
+            &context.pages,
+            &elements,
+            &chunks,
+            tables,
+            &context.safety,
+            &context.layout,
+            context.trust.as_ref(),
+            context.accessibility.as_ref(),
+        ));
+    }
+}
+
 fn build_data(
     pages: &[crate::document_twin::PageText],
     total_pages: u32,
@@ -478,7 +673,7 @@ fn build_data(
     } else {
         None
     };
-    let tables = if want_tables || want_ast || want_map {
+    let tables = if want_tables || want_ast || want_map || want_visual || want_trust {
         Some(build_tables(pages))
     } else {
         None
@@ -613,6 +808,24 @@ fn build_data(
         } else {
             Vec::new()
         },
+        structured_fusion_context: (want_ocr
+            && (want_tables || want_ast || want_map || want_visual || want_trust))
+            .then(|| StructuredFusionContext {
+                pages: pages.to_vec(),
+                selectable_tables: tables.clone().unwrap_or_else(|| json!([])),
+                semantic_hints: want_semantic || want_elements,
+                emit_markdown: want_md,
+                emit_html: want_html,
+                emit_chunks: want_chunks,
+                emit_elements: want_elements || want_semantic,
+                emit_tables: want_tables,
+                emit_document_ast: want_ast,
+                emit_document_map: want_map,
+                safety: safety.clone().unwrap_or_else(|| json!([])),
+                layout: layout.clone().unwrap_or_else(|| json!([])),
+                trust: trust.clone(),
+                accessibility: a11y.clone(),
+            }),
     };
 
     if want_meta {
@@ -797,6 +1010,10 @@ fn build_data(
     if want_visual {
         data.visual_enrichments = Some(json!([]));
         data.visual_enrichment_candidates = Some(json!([]));
+    }
+
+    if let Some(context) = data.structured_fusion_context.clone() {
+        rebuild_structured_outputs(&mut data, &context, &context.selectable_tables);
     }
 
     if !warnings.is_empty() {

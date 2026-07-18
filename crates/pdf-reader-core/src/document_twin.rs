@@ -128,6 +128,83 @@ pub fn build_elements(pages: &[PageText], semantic_hints: bool) -> Value {
     json!(elements)
 }
 
+/// Build selectable-text elements and append table elements after the ordinary
+/// elements for each page, matching the v3.0.14 structured projection order.
+pub fn build_elements_with_tables(
+    pages: &[PageText],
+    tables: &Value,
+    semantic_hints: bool,
+) -> Value {
+    let base = build_elements(pages, semantic_hints);
+    let mut base_by_page = std::collections::BTreeMap::<u32, Vec<Value>>::new();
+    for element in base.as_array().into_iter().flatten() {
+        let page = element.get("page").and_then(Value::as_u64).unwrap_or(0) as u32;
+        base_by_page.entry(page).or_default().push(element.clone());
+    }
+
+    let mut tables_by_page = std::collections::BTreeMap::<u32, Vec<Value>>::new();
+    for table in tables.as_array().into_iter().flatten() {
+        let page = table.get("page").and_then(Value::as_u64).unwrap_or(0) as u32;
+        tables_by_page.entry(page).or_default().push(table.clone());
+    }
+    for page_tables in tables_by_page.values_mut() {
+        page_tables
+            .sort_by_key(|table| table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0));
+    }
+
+    let mut elements = Vec::new();
+    for page in pages {
+        elements.extend(base_by_page.remove(&page.page).unwrap_or_default());
+        for table in tables_by_page.remove(&page.page).unwrap_or_default() {
+            let table_index = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0);
+            let ocr = table.pointer("/provenance/source").and_then(Value::as_str)
+                == Some("ocr_text_layer");
+            let mut provenance = if ocr {
+                json!({"engine":"external-command","source":"ocr-table-detector"})
+            } else {
+                json!({"engine":"pdf-reader-core","source":"table-detector"})
+            };
+            if ocr {
+                if let Some(evidence_id) = table
+                    .pointer("/provenance/ocr_source_render_evidence_id")
+                    .cloned()
+                {
+                    provenance["ocr_source_render_evidence_id"] = evidence_id;
+                }
+            }
+            let confidence = table.get("confidence").cloned().unwrap_or(Value::Null);
+            let bounding_box = table.get("bounding_box").cloned();
+            let mut element = json!({
+                "id": format!("p{}-table-{}", page.page, table_index + 1),
+                "type": "table",
+                "page": page.page,
+                "table": table,
+                "confidence": confidence,
+                "provenance": provenance,
+            });
+            if let Some(box_) = bounding_box {
+                element["bounding_box"] = box_;
+            }
+            elements.push(element);
+        }
+    }
+    for (_, remaining) in base_by_page {
+        elements.extend(remaining);
+    }
+    for (page, remaining) in tables_by_page {
+        for table in remaining {
+            let table_index = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0);
+            elements.push(json!({
+                "id": format!("p{page}-table-{}", table_index + 1),
+                "type":"table",
+                "page":page,
+                "table":table,
+            }));
+        }
+    }
+    json!(elements)
+}
+
 pub fn build_tables(pages: &[PageText]) -> Value {
     let mut tables = Vec::new();
     for page in pages {
@@ -587,6 +664,39 @@ pub fn build_document_ast(pages: &[PageText], elements: &Value, tables: &Value) 
             }
             page_children.push(node);
         }
+        for table in
+            tables.as_array().into_iter().flatten().filter(|table| {
+                table.get("page").and_then(Value::as_u64) == Some(u64::from(page_no))
+            })
+        {
+            let table_index = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0);
+            let mut table_payload = json!({
+                "rows": table.get("rows"),
+                "rowCount": table.get("rowCount"),
+                "colCount": table.get("colCount"),
+                "confidence": table.get("confidence"),
+            });
+            for key in ["quality", "continuation", "provenance"] {
+                if let Some(value) = table.get(key).cloned() {
+                    table_payload[key] = value;
+                }
+            }
+            let mut node = json!({
+                "id": format!("p{}-table-{}", page_no, table_index + 1),
+                "type": "table",
+                "page_start": page_no,
+                "page_end": page_no,
+                "element_ids": [format!("p{}-table-{}", page_no, table_index + 1)],
+                "text": table.get("rows").and_then(Value::as_array).into_iter().flatten().map(|row| {
+                    row.as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(" | ")
+                }).collect::<Vec<_>>().join("\n"),
+                "table": table_payload,
+            });
+            if let Some(box_) = table.get("bounding_box").cloned() {
+                node["bounding_boxes"] = json!([box_]);
+            }
+            page_children.push(node);
+        }
         children.push(json!({
             "id": format!("page-{}", page_no),
             "type": "page",
@@ -594,23 +704,6 @@ pub fn build_document_ast(pages: &[PageText], elements: &Value, tables: &Value) 
             "page_end": page_no,
             "element_ids": [],
             "children": page_children,
-        }));
-    }
-
-    for table in tables.as_array().into_iter().flatten() {
-        let page = table.get("page").cloned().unwrap_or(json!(1));
-        children.push(json!({
-            "id": format!("ast-table-{}", table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0)),
-            "type": "table",
-            "page_start": page,
-            "page_end": page,
-            "element_ids": [],
-            "table": {
-                "rows": table.get("rows"),
-                "rowCount": table.get("rowCount"),
-                "colCount": table.get("colCount"),
-                "confidence": table.get("confidence"),
-            }
         }));
     }
 
@@ -626,6 +719,9 @@ pub fn build_document_ast(pages: &[PageText], elements: &Value, tables: &Value) 
             "children": children,
         },
         "element_count": elements.as_array().map(|a| a.len()).unwrap_or(0),
+        "summary": {
+            "table_count": tables.as_array().map(|a| a.len()).unwrap_or(0),
+        },
         "warnings": if pages.iter().all(|p| p.text.lines().filter(|l| looks_like_heading(l)).count() == 0) {
             vec!["No heading hierarchy detected; document_ast uses page-level leaf nodes."]
         } else {
@@ -657,6 +753,10 @@ pub fn build_document_map(
     ];
     if tables.as_array().is_some_and(|a| !a.is_empty()) {
         layers.push("tables");
+        layers.push("table_structure");
+    }
+    if chunks.as_array().is_some_and(|a| !a.is_empty()) {
+        layers.push("citation_chunks");
     }
     if safety.as_array().is_some_and(|a| !a.is_empty()) {
         layers.push("safety_findings");
@@ -696,6 +796,7 @@ pub fn build_document_map(
             "safety_finding_count": safety.as_array().map(|a| a.len()).unwrap_or(0),
             "layout_page_count": layout.as_array().map(|a| a.len()).unwrap_or(0),
         },
+        "elements": elements,
         "routing": {
             "trust_report": trust.is_some(),
             "accessibility_report": a11y.is_some(),
