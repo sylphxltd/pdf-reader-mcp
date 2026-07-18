@@ -81,7 +81,7 @@
     "text/search geometry, geometry-perfect pdf.js boxes outside the frozen page-geometry subset, direct-annotation PDF.js presentation normalization, non-Link annotation/action parity, and general bounding-box parity",
     "render/crop/OCR/analyze/read-fusion/table-projection semantic parity outside the immutable 16-case subset, including exact pdf.js pixels and antialiasing",
     "OCR success paths outside the opt-in command JSON/plain-text subset, including tesseract-tsv; mixed selectable/OCR table continuation and full AST hierarchy parity; analyze_regions HTTP and preset providers",
-    "full COS outline/PageLabels/permissions parity outside the frozen common catalog subset; AcroForm radio/pushbutton/signature and malformed-field breadth, integer-like/duplicate attachment-key ordering, filtered embedded-stream decoded sizes, Associated Files, and structure trees",
+    "full COS outline/PageLabels/permissions parity outside the frozen common catalog subset; AcroForm radio/pushbutton/signature and malformed-field breadth, integer-like/duplicate attachment-key ordering, odd-length Names arrays (PDF.js may materialize a final unnamed entry), filtered embedded-stream decoded sizes, Associated Files, and structure trees",
     "cross-platform npm native binary",
     "npm library exports for pure-Rust",
     "2.0x/3.3x industry benchmark headline"

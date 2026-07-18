@@ -242,8 +242,10 @@ fn walk_field(
     if !visited.insert(id) {
         return;
     }
-    let Some(dict) = walker.dict(value) else {
-        walker.failed = false;
+    let Some(resolved) = walker.resolve(value) else {
+        return;
+    };
+    let Ok(dict) = resolved.as_dict().cloned() else {
         return;
     };
     if dict.get(b"Subtype").ok().and_then(|v| v.as_name().ok()) == Some(b"Link") {
@@ -360,23 +362,34 @@ fn normalize_leaf(
         _ => None,
     }
     .map(str::to_string);
-    let mut value = inherited.value.as_ref().and_then(|v| form_value(walker, v));
+    let raw_value = inherited.value.as_ref().map(|v| form_value(walker, v));
     let mut default_value = inherited
         .default_value
         .as_ref()
         .and_then(|v| form_value(walker, v));
-    if value.is_none() && matches!(field_type.as_deref(), Some("text" | "listbox" | "combobox")) {
-        value = default_value.clone();
-    }
+    let fallback = default_value.clone().filter(|value| !value.is_null());
+    let mut value = raw_value.unwrap_or(fallback);
     match field_type.as_deref() {
         Some("text") => {
-            default_value.get_or_insert_with(|| Value::String(String::new()));
+            value = Some(match value {
+                Some(Value::String(value)) => Value::String(value),
+                _ => Value::String(String::new()),
+            });
+            if default_value.as_ref().is_none_or(Value::is_null) {
+                default_value = Some(Value::String(String::new()));
+            }
         }
         Some("checkbox" | "radiobutton" | "button") => {
-            value.get_or_insert_with(|| Value::String("Off".into()));
+            value = Some(match value {
+                Some(Value::String(value)) if !value.is_empty() => Value::String(value),
+                _ => Value::String("Off".into()),
+            });
             default_value.get_or_insert(Value::Null);
         }
-        Some("listbox" | "combobox") => value = Some(first_choice_value(value)),
+        Some("listbox" | "combobox") => {
+            value = Some(first_choice_value(value));
+            default_value.get_or_insert(Value::Null);
+        }
         Some("signature") => {
             value = Some(Value::Null);
             default_value = None;
@@ -418,17 +431,20 @@ fn first_choice_value(value: Option<Value>) -> Value {
 fn form_value(walker: &mut Walker<'_>, value: &Object) -> Option<Value> {
     let value = walker.resolve(value)?;
     match &value {
-        Object::Null => Some(Value::Null),
-        Object::Boolean(v) => Some(Value::Bool(*v)),
-        Object::Integer(v) => Some((*v).into()),
-        Object::Real(v) => serde_json::Number::from_f64(f64::from(*v)).map(Value::Number),
         Object::String(_, _) | Object::Name(_) => walker.text(&value).map(Value::String),
-        Object::Array(values) if values.len() <= 256 => values
-            .iter()
-            .map(|v| form_value(walker, v))
-            .collect::<Option<Vec<_>>>()
-            .map(Value::Array),
-        _ => None,
+        Object::Array(values) if values.len() <= 256 => {
+            let values = values
+                .iter()
+                .filter_map(|value| form_value(walker, value))
+                .filter(|value| !value.is_null())
+                .collect::<Vec<_>>();
+            Some(if values.is_empty() {
+                Value::Null
+            } else {
+                Value::Array(values)
+            })
+        }
+        _ => Some(Value::Null),
     }
 }
 
@@ -555,7 +571,8 @@ fn filename(walker: &mut Walker<'_>, spec: &Dictionary) -> Option<String> {
     Some(
         normalized
             .rsplit('/')
-            .find(|part| !part.is_empty())
+            .next()
+            .filter(|part| !part.is_empty())
             .unwrap_or("unnamed")
             .to_string(),
     )
@@ -736,5 +753,67 @@ mod tests {
         assert!(extract_form_attachment_signals(&document, &[], false, true)
             .attachments
             .is_none());
+    }
+
+    #[test]
+    fn broken_top_level_reference_fails_the_whole_form_surface() {
+        let (mut document, pages) = base_document();
+        let valid = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("valid")
+        });
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"AcroForm"=>dictionary!{"Fields"=>vec![valid.into(),Object::Reference((999,0))]}},
+        );
+        assert!(extract_form_attachment_signals(&document, &[], true, false)
+            .form_fields
+            .is_none());
+    }
+
+    #[test]
+    fn form_values_follow_pdfjs_decode_and_widget_coercion() {
+        let (mut document, pages) = base_document();
+        let text_numeric = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("numeric"),"V"=>7,"DV"=>Object::string_literal("default")
+        });
+        let text_missing = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("missing")
+        });
+        let button_bool = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("button"),"V"=>true,"DV"=>Object::Name(b"Default".to_vec())
+        });
+        let choice_filtered = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Ch","T"=>Object::string_literal("choice"),
+            "V"=>vec![7.into(),Object::string_literal("first"),Object::Null,Object::string_literal("second")]
+        });
+        let choice_fallback = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Ch","T"=>Object::string_literal("fallback"),
+            "DV"=>vec![false.into(),Object::string_literal("from-default")]
+        });
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"AcroForm"=>dictionary!{"Fields"=>vec![text_numeric.into(),text_missing.into(),button_bool.into(),choice_filtered.into(),choice_fallback.into()]}},
+        );
+        let output = extract_form_attachment_signals(&document, &[], true, false);
+        assert_eq!(
+            serde_json::to_value(output.form_fields).unwrap(),
+            serde_json::json!([
+                {"name":"numeric","type":"text","value":"","default_value":"default","id":format_id(text_numeric),"editable":true},
+                {"name":"missing","type":"text","value":"","default_value":"","id":format_id(text_missing),"editable":true},
+                {"name":"button","type":"checkbox","value":"Off","default_value":"Default","id":format_id(button_bool),"editable":true},
+                {"name":"choice","type":"listbox","value":"first","default_value":null,"id":format_id(choice_filtered),"editable":true},
+                {"name":"fallback","type":"listbox","value":"from-default","default_value":["from-default"],"id":format_id(choice_fallback),"editable":true}
+            ])
+        );
+    }
+
+    #[test]
+    fn trailing_slash_filename_becomes_unnamed() {
+        let document = Document::with_version("1.7");
+        let mut walker = Walker::new(&document);
+        let spec = dictionary! {"UF"=>Object::string_literal(r"folder/")};
+        assert_eq!(filename(&mut walker, &spec), Some("unnamed".into()));
     }
 }
