@@ -14,6 +14,17 @@ const corpus = JSON.parse(readFileSync(corpusPath, 'utf8')) as {
 };
 const normalizeText = (value: string): string =>
   value.replaceAll('\r\n', '\n').normalize('NFC');
+const normalizeBox = (value: unknown): unknown => {
+  if (!value || typeof value !== 'object') return null;
+  const box = value as Record<string, unknown>;
+  const coordinate = (key: string): number => Math.round(Number(box[key]) * 1e9) / 1e9;
+  return {
+    left: coordinate('left'),
+    bottom: coordinate('bottom'),
+    right: coordinate('right'),
+    top: coordinate('top'),
+  };
+};
 
 function materialize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(materialize);
@@ -131,6 +142,8 @@ async function searchCase(input: Record<string, unknown>) {
       match_start: match.match_start,
       match_end: match.match_end,
       text_item_index: match.text_item_index,
+      bounding_box: normalizeBox(match.bounding_box),
+      bounding_box_level: match.bounding_box_level ?? null,
     })),
   };
 }

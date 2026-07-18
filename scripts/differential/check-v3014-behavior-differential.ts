@@ -12,6 +12,7 @@ const fixtureDir = join(repoRoot, 'test/fixtures/differential');
 const corpusPath = join(scriptDir, 'fixtures/v3014-behavior-corpus.json');
 const oraclePath = join(scriptDir, 'fixtures/v3014-behavior-oracle.json');
 const fixtureManifestPath = join(scriptDir, 'fixtures/v3014-behavior-fixtures.json');
+const baselineRunnerPath = join(scriptDir, 'v3014-baseline-runner.ts');
 const rustCliPath = join(repoRoot, 'target/release/pdf-reader-cli');
 const outputFlag = process.argv.indexOf('--output');
 const outputPath = outputFlag >= 0 ? process.argv[outputFlag + 1] : undefined;
@@ -24,6 +25,7 @@ type Oracle = {
     commit: string;
     tree: string;
     bunLockSha256: string;
+    runnerSha256: string;
     entrypointSha256: Record<string, string>;
   };
   expectations: Record<string, Json>;
@@ -43,6 +45,17 @@ const git = (...args: string[]): Buffer => {
 };
 const normalizeText = (value: string): string =>
   value.replaceAll('\r\n', '\n').normalize('NFC');
+const normalizeBox = (value: unknown): Json => {
+  if (!value || typeof value !== 'object') return null;
+  const box = value as Record<string, unknown>;
+  const coordinate = (key: string): number => Math.round(Number(box[key]) * 1e9) / 1e9;
+  return {
+    left: coordinate('left'),
+    bottom: coordinate('bottom'),
+    right: coordinate('right'),
+    top: coordinate('top'),
+  };
+};
 const canonicalJson = (value: Json): Json => {
   if (Array.isArray(value)) return value.map(canonicalJson);
   if (value && typeof value === 'object') {
@@ -64,6 +77,9 @@ function verifyAuthority(): Record<string, string> {
   if (tree !== oracle.baseline.tree) throw new Error(`baseline tree mismatch: ${tree}`);
   const lockDigest = sha256(git('show', `${commit}:bun.lock`));
   if (lockDigest !== oracle.baseline.bunLockSha256) throw new Error('baseline bun.lock mismatch');
+  if (sha256(readFileSync(baselineRunnerPath)) !== oracle.baseline.runnerSha256) {
+    throw new Error('baseline runner digest mismatch');
+  }
   for (const [path, expected] of Object.entries(oracle.baseline.entrypointSha256)) {
     const actual = sha256(git('show', `${commit}:${path}`));
     if (actual !== expected) throw new Error(`baseline entrypoint mismatch: ${path}`);
@@ -259,11 +275,29 @@ function canonicalSearch(envelope: Record<string, unknown>): Json {
       match_start: Number(match.match_start),
       match_end: Number(match.match_end),
       text_item_index: Number(match.text_item_index),
+      bounding_box: normalizeBox(match.bounding_box),
+      bounding_box_level: (match.bounding_box_level ?? null) as Json,
     })),
   };
 }
 
 const authority = verifyAuthority();
+const expectedGeometry = Object.values(oracle.expectations)
+  .flatMap((entry) =>
+    entry && typeof entry === 'object' && !Array.isArray(entry)
+      ? (((entry as Record<string, Json>).matches ?? []) as Json[])
+      : []
+  )
+  .find((match) => match && typeof match === 'object' && !Array.isArray(match) && (match as Record<string, Json>).bounding_box !== null);
+if (!expectedGeometry || typeof expectedGeometry !== 'object' || Array.isArray(expectedGeometry)) {
+  throw new Error('behavior oracle must bind at least one search bounding box');
+}
+const mutatedGeometry = structuredClone(expectedGeometry) as Record<string, Json>;
+const mutatedBox = mutatedGeometry.bounding_box as Record<string, Json>;
+mutatedBox.right = Number(mutatedBox.right) + 1;
+if (JSON.stringify(canonicalJson(mutatedGeometry)) === JSON.stringify(canonicalJson(expectedGeometry))) {
+  throw new Error('behavior normalizer failed bounding-box mutation sensitivity');
+}
 const failures: Array<{ id: string; expected: Json; actual: Json }> = [];
 const observations: Record<string, Json> = {};
 for (const entry of corpus.cases) {
@@ -286,6 +320,7 @@ const report = {
   caseCount: corpus.cases.length,
   passed: corpus.cases.length - failures.length,
   skipped: 0,
+  geometryMutationSensitive: true,
   pass: failures.length === 0,
   observations,
   failures,
