@@ -33,8 +33,8 @@ export const packageJson = JSON.parse(
   files?: string[];
 };
 
-export const ensureProductionArtifacts = () => {
-  const mode = process.env.PDF_READER_ENGINE_MODE;
+export const ensureProductionArtifacts = (requestedMode?: 'pure-rust' | 'rust') => {
+  const mode = requestedMode ?? process.env.PDF_READER_ENGINE_MODE;
   if (mode === 'pure-rust' || mode === 'rust') {
     execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
     if (!fs.existsSync(path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'))) {

@@ -365,7 +365,7 @@ describe('MCP Server Integration', () => {
     );
   });
 
-  mcpIt('should fail closed for unavailable pdf_evidence ocr_pages', async () => {
+  mcpIt('should fail closed when pdf_evidence ocr_pages has no provider', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(8, 'tools/call', {
@@ -390,7 +390,7 @@ describe('MCP Server Integration', () => {
 
     expect(response.error || response.result?.isError).toBeTruthy();
     expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
-      "pdf_evidence operation 'ocr_pages' is not available in the pure-Rust engine yet"
+      'OCR provider is not configured. Set MCP_PDF_OCR_COMMAND or MCP_PDF_OCR_PRESET=tesseract'
     );
   });
 

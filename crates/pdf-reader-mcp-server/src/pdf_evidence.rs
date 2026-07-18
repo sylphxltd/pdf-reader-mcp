@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 use crate::evidence::attach_evidence;
+use crate::ocr_evidence;
 use crate::schema::PdfSource;
 use crate::visual_evidence;
 
@@ -22,7 +23,8 @@ pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         "inspect" => inspect(args),
         "render_page" => visual_evidence::render_pages(args),
         "extract_regions" => visual_evidence::extract_regions(args),
-        "ocr_pages" | "analyze_regions" => {
+        "ocr_pages" => ocr_evidence::ocr_pages(args),
+        "analyze_regions" => {
             // Pure-Rust v1: return structured, non-crashing guidance rather than silent no-op.
             // inspect covers the default agent routing path; visual ops need providers/native render.
             Err(rmcp::ErrorData::invalid_request(
