@@ -16,12 +16,16 @@ describe('MCP transport boundary (pure-Rust)', () => {
     execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
   }, 300_000);
 
-  it('defaults the published launcher to Rust rmcp process only', () => {
+  it('optional pure-Rust launcher is opt-in and can resolve rust binary', () => {
     const script = readFileSync(binWrapper, 'utf8');
+    const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
+      bin?: Record<string, string>;
+    };
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
     expect(script).toContain('pdf-reader-mcp-server');
     expect(script).toContain('resolve_rust_bin');
+    expect(script).toContain('dist/index.js');
     expect(script).not.toContain('PDF_READER_ENGINE_MODE=full');
-    expect(script).not.toContain('legacy-engine-runtime');
   });
 
   it('builds the rmcp stdio server binary for the production process path', () => {

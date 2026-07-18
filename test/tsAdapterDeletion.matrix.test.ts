@@ -5,17 +5,21 @@ import path from 'node:path';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
 /**
- * Pure-Rust cutover complete:
- * - Production process: Rust rmcp
- * - Production tool engine: pdf-reader-core only
- * - Parity bridge removed
+ * Product truth after recovery:
+ * - Published path: TypeScript dist/index.js (3.0.14)
+ * - Pure-Rust: experimental opt-in only
+ * - Parity bridge remains deleted (no dual production default)
  */
-describe('pure-Rust production default', () => {
-  it('npm package bin points at Rust launcher', () => {
+describe('published TypeScript production default', () => {
+  it('npm package bin points at TypeScript dist/index.js', () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
+      exports?: Record<string, string>;
+      version?: string;
     };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./bin/pdf-reader-mcp');
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
+    expect(pkg.exports?.['.']).toBe('./dist/index.js');
+    expect(pkg.version).toBe('3.0.14');
   });
 
   it('parity bridge is deleted', () => {
@@ -24,21 +28,21 @@ describe('pure-Rust production default', () => {
     ).toBe(false);
   });
 
-  it('launcher is pure-Rust only', () => {
+  it('optional pure-Rust launcher is opt-in only', () => {
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
-    expect(bin).toContain('resolve_rust_bin');
-    expect(bin).toContain('pdf-reader-mcp-server');
+    expect(bin).toContain('PDF_READER_ENGINE_MODE');
+    expect(bin).toContain('dist/index.js');
     expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
-    expect(bin).not.toContain('legacy-engine-runtime');
   });
 
-  it('parity matrix documents pure-Rust as production default', () => {
+  it('honest capability matrix documents experimental pure-Rust', () => {
     const matrix = JSON.parse(
-      readFileSync(path.join(repoRoot, 'docs/specs/rust-dropin-parity-matrix.json'), 'utf8')
+      readFileSync(path.join(repoRoot, 'docs/specs/pure-rust-capability-matrix.json'), 'utf8')
     ) as {
-      productionDefault: { engineMode: string; engineImplementation: string };
+      productTruth: { dropInFor3014: boolean; pureRustStatus: string; publishedStable: string };
     };
-    expect(matrix.productionDefault.engineMode).toBe('pure-rust');
-    expect(matrix.productionDefault.engineImplementation.toLowerCase()).toContain('rust');
+    expect(matrix.productTruth.dropInFor3014).toBe(false);
+    expect(matrix.productTruth.pureRustStatus).toBe('experimental-opt-in');
+    expect(matrix.productTruth.publishedStable).toContain('3.0.14');
   });
 });

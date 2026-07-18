@@ -5,13 +5,19 @@ import path from 'node:path';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
 describe('MCP stdio transport routing', () => {
-  it('bin wrapper defaults to pure-Rust process only', () => {
+  it('published bin is TypeScript dist/index.js', () => {
+    const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
+      bin?: Record<string, string>;
+    };
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
+  });
+
+  it('optional bin wrapper defaults to TypeScript; pure-Rust is opt-in', () => {
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
+    expect(bin).toContain('dist/index.js');
+    expect(bin).toContain('PDF_READER_ENGINE_MODE');
     expect(bin).toContain('resolve_rust_bin');
-    expect(bin).toContain('pdf-reader-mcp-server');
     expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
-    expect(bin).not.toContain('dist/index.js');
-    expect(bin).not.toContain('legacy-engine-runtime');
   });
 
   it('Rust MCP server still exposes rmcp stdio transport', () => {

@@ -134,10 +134,10 @@ Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 
 ## Quick Start
 
-Install from **npm** (MCP clients) **or crates.io** (Rust / native binary). Same
-pure-Rust engine either way.
+### Published stable (npm — TypeScript 3.0.14)
 
-### npm (MCP clients)
+Pin **3.0.14** explicitly. This is the only supported cross-platform drop-in.
+Requires **Node.js `>=22.13`**. The package runs `dist/index.js` (TypeScript MCP).
 
 ```bash
 # Claude Code
@@ -160,42 +160,18 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-The npm package ships a prebuilt native binary (`pdf-reader-mcp-server`). No
-Node runtime is required for the MCP path after install.
+> **Do not install 3.0.15–3.1.1** — withdrawn incomplete pure-Rust cutover
+> (deprecated on npm). Registry `latest` is **3.0.14**.
 
-### crates.io (Rust / cargo)
+### Experimental pure-Rust (source only)
+
+Pure-Rust is **not** published as npm latest and is **not** a full drop-in.
+Do not `cargo install` experimental crates for production. To experiment from a
+git checkout:
 
 ```bash
-# Library: hash, SSRF-safe fetch, read_pdf, search_pdf, document twin builders
-cargo add pdf-reader-core
-
-# MCP server binary (stdio / HTTP)
-cargo install pdf-reader-mcp-server --locked
-
-# JSON CLI helper
-cargo install pdf-reader-cli --locked
-
-# Run MCP over stdio
-pdf-reader-mcp-server
-```
-
-Programmatic Rust:
-
-```rust
-use pdf_reader_core::{read_pdf, ReadPdfInput, ReadPdfSource};
-
-let response = read_pdf(&ReadPdfInput {
-    sources: vec![ReadPdfSource {
-        path: Some("/absolute/path/to/report.pdf".into()),
-        url: None,
-        pages: None,
-    }],
-    include_full_text: true,
-    include_markdown: true,
-    include_document_map: true,
-    include_trust_report: true,
-    ..Default::default()
-})?;
+bun run build:rust
+PDF_READER_ENGINE_MODE=pure-rust ./bin/pdf-reader-mcp
 ```
 
 ### Docker

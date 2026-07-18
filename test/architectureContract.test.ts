@@ -11,8 +11,19 @@ const productionSource = (file: string): string => {
   return source.split('#[cfg(test)]')[0] ?? source;
 };
 
-describe('architecture contract (pure-Rust MCP)', () => {
-  it('ships pure-Rust tool modules without parity bridge', () => {
+describe('architecture contract (published TS + experimental pure-Rust)', () => {
+  it('published package points at TypeScript dist/index.js', () => {
+    const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
+      bin?: Record<string, string>;
+      exports?: Record<string, string>;
+      version?: string;
+    };
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
+    expect(pkg.exports?.['.']).toBe('./dist/index.js');
+    expect(pkg.version).toBe('3.0.14');
+  });
+
+  it('pure-Rust tool modules exist without parity bridge', () => {
     expect(existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/read_pdf.rs'))).toBe(
       true
     );
@@ -27,20 +38,15 @@ describe('architecture contract (pure-Rust MCP)', () => {
     ).toBe(false);
   });
 
-  it('launcher is pure-Rust only', () => {
+  it('optional launcher defaults to TypeScript and pure-Rust is opt-in', () => {
     const script = readFileSync(binWrapper, 'utf8');
-    const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
-      bin?: Record<string, string>;
-    };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./bin/pdf-reader-mcp');
+    expect(script).toContain('dist/index.js');
+    expect(script).toContain('PDF_READER_ENGINE_MODE');
     expect(script).toContain('resolve_rust_bin');
-    expect(script).toContain('pdf-reader-mcp-server');
     expect(script).not.toContain('PDF_READER_ENGINE_MODE=full');
-    expect(script).not.toContain('dist/index.js');
-    expect(script).not.toContain('legacy-engine-runtime');
   });
 
-  it('tool modules call pdf-reader-core directly', () => {
+  it('pure-Rust tool modules call pdf-reader-core directly', () => {
     const read = productionSource('read_pdf.rs');
     const search = productionSource('search.rs');
     const evidence = productionSource('pdf_evidence.rs');
@@ -52,7 +58,7 @@ describe('architecture contract (pure-Rust MCP)', () => {
     expect(evidence).not.toContain('parity_bridge');
   });
 
-  it('keeps legacy TypeScript engine runtime out of production Rust modules', () => {
+  it('keeps legacy invoke paths out of pure-Rust modules', () => {
     for (const file of [
       'cli_bridge.rs',
       'main.rs',
@@ -61,7 +67,6 @@ describe('architecture contract (pure-Rust MCP)', () => {
       'pdf_evidence.rs',
     ]) {
       const production = productionSource(file);
-      expect(production).not.toContain('legacy-engine-runtime');
       expect(production).not.toContain('invoke_ts_engine');
       expect(production).not.toContain('invoke_full_ts_tool');
     }

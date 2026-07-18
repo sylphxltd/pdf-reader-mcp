@@ -388,8 +388,7 @@ export const validateExtractedPackage = async (
   const checks: PackageSmokeCheck[] = [];
   const packageJsonPath = path.join(packageDir, 'package.json');
   const packageJson = await readJson(packageJsonPath);
-  const nativeServerPath = path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server');
-  const launcherPath = path.join(packageDir, 'bin', 'pdf-reader-mcp');
+  const tsEntryPath = path.join(packageDir, 'dist', 'index.js');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
   const publicProviderManifestPath = path.join(
     packageDir,
@@ -401,9 +400,7 @@ export const validateExtractedPackage = async (
   const publicCorpusSummary = summarizePublicCorpusManifest(publicCorpusManifest);
   const publicProviderSummary = summarizePublicProviderManifest(publicProviderManifest);
   const bin = isRecord(packageJson?.bin) ? packageJson.bin : undefined;
-  const launcherText = (await fileExists(launcherPath))
-    ? await fs.promises.readFile(launcherPath, 'utf8')
-    : '';
+  const exportsField = isRecord(packageJson?.exports) ? packageJson.exports : undefined;
 
   addCheck(checks, 'package-json:present', packageJson !== undefined, 'package.json exists and is valid JSON', {
     path: 'package/package.json',
@@ -412,27 +409,17 @@ export const validateExtractedPackage = async (
   });
   addCheck(
     checks,
-    'runtime:launcher',
-    await fileExists(launcherPath),
-    'published package contains bin/pdf-reader-mcp launcher',
-    { path: 'package/bin/pdf-reader-mcp' }
+    'runtime:ts-entry',
+    await fileExists(tsEntryPath),
+    'published package contains TypeScript MCP entry dist/index.js',
+    { path: 'package/dist/index.js' }
   );
   addCheck(
     checks,
-    'runtime:rust-mcp-server',
-    await fileExists(nativeServerPath),
-    'published package contains staged Rust MCP server binary',
-    { path: 'package/bin/native/pdf-reader-mcp-server' }
-  );
-  addCheck(
-    checks,
-    'runtime:pure-rust-launcher',
-    launcherText.includes('resolve_rust_bin') &&
-      launcherText.includes('pdf-reader-mcp-server') &&
-      !launcherText.includes('legacy-engine-runtime') &&
-      !launcherText.includes('PDF_READER_ENGINE_MODE=full'),
-    'launcher is pure-Rust only (no TS parity bridge default)',
-    { path: 'package/bin/pdf-reader-mcp' }
+    'runtime:ts-bin-contract',
+    bin?.['pdf-reader-mcp'] === './dist/index.js' && exportsField?.['.'] === './dist/index.js',
+    'package bin/exports point at TypeScript dist/index.js (published 3.0.14 path)',
+    { bin: bin?.['pdf-reader-mcp'], exports: exportsField?.['.'] }
   );
   addCheck(
     checks,
@@ -480,21 +467,13 @@ export const validateExtractedPackage = async (
     'public provider manifest contains URL cases, source metadata, SHA256 values, scored regions, expected kinds, expected assertions, and required capability tags',
     publicProviderSummary
   );
-  addCheck(
-    checks,
-    'package-json:bin',
-    bin?.['pdf-reader-mcp'] === './bin/pdf-reader-mcp',
-    'package bin points to the pure-Rust rmcp launcher',
-    { actual: bin?.['pdf-reader-mcp'] }
-  );
-
   const files = Array.isArray(packageJson?.files) ? packageJson.files : [];
   addCheck(
     checks,
     'package-json:files',
-    (files.includes('bin/') || files.includes('bin')) &&
+    (files.includes('dist/') || files.includes('dist')) &&
       (files.includes('corpus/') || files.includes('corpus')),
-    'package files allowlist includes bin and corpus',
+    'package files allowlist includes dist and corpus',
     { files }
   );
 
@@ -540,16 +519,10 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
     const tarballEntries = await listTarballEntries(tarballPath);
     addCheck(
       checks,
-      'tarball:launcher',
-      tarballEntries.includes('package/bin/pdf-reader-mcp'),
-      'tarball includes package/bin/pdf-reader-mcp',
-      { entries: tarballEntries }
-    );
-    addCheck(
-      checks,
-      'tarball:rust-mcp-server',
-      tarballEntries.includes('package/bin/native/pdf-reader-mcp-server'),
-      'tarball includes the staged Rust rmcp MCP server binary'
+      'tarball:ts-entry',
+      tarballEntries.includes('package/dist/index.js'),
+      'tarball includes package/dist/index.js',
+      { entries: tarballEntries.filter((e) => e.includes('dist/')).slice(0, 20) }
     );
     addCheck(
       checks,

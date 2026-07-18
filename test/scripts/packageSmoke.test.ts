@@ -21,26 +21,20 @@ const writeJson = (filePath: string, value: JsonValue) => {
 
 const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   fs.mkdirSync(path.join(packageDir, 'corpus'), { recursive: true });
-  fs.mkdirSync(path.join(packageDir, 'bin', 'native'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'dist'), { recursive: true });
   if (includeRuntime) {
-    fs.writeFileSync(
-      path.join(packageDir, 'bin', 'pdf-reader-mcp'),
-      '#!/usr/bin/env bash\nresolve_rust_bin() { :; }\npdf-reader-mcp-server\n',
-      'utf8'
-    );
-    fs.writeFileSync(
-      path.join(packageDir, 'bin', 'native', 'pdf-reader-mcp-server'),
-      'rust-smoke-binary',
-      'utf8'
-    );
+    fs.writeFileSync(path.join(packageDir, 'dist', 'index.js'), 'export {};\n', 'utf8');
   }
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
-    version: '0.0.0-smoke',
+    version: '3.0.14',
     bin: {
-      'pdf-reader-mcp': './bin/pdf-reader-mcp',
+      'pdf-reader-mcp': './dist/index.js',
     },
-    files: ['bin/', 'corpus/', 'README.md', 'LICENSE'],
+    exports: {
+      '.': './dist/index.js',
+    },
+    files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],
   });
   writeJson(path.join(packageDir, 'corpus', 'public-url-corpus.json'), {
     cases: [
@@ -176,7 +170,7 @@ describe('package smoke', () => {
 
       const checks = await validateExtractedPackage(tempDir);
 
-      expect(checks.find((check) => check.id === 'runtime:rust-mcp-server')?.status).toBe('failed');
+      expect(checks.find((check) => check.id === 'runtime:ts-entry')?.status).toBe('failed');
     });
   });
 

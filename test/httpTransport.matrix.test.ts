@@ -5,10 +5,11 @@ import path from 'node:path';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
 describe('web MCP HTTP transport routing', () => {
-  it('launcher routes MCP_TRANSPORT=http to Rust rmcp process', () => {
+  it('optional pure-Rust launcher routes MCP_TRANSPORT=http when engine mode is pure-rust', () => {
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
     expect(bin).toContain('MCP_TRANSPORT=http');
     expect(bin).toContain('resolve_rust_bin');
+    expect(bin).toContain('PDF_READER_ENGINE_MODE');
     expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
   });
 
