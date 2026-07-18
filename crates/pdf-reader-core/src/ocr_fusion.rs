@@ -425,6 +425,7 @@ mod tests {
             pages: vec![PageText {
                 page: 2,
                 text: String::new(),
+                positioned_items: Vec::new(),
             }],
             selectable_tables: json!([]),
             semantic_hints: true,
