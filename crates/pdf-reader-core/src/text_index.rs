@@ -327,10 +327,18 @@ impl OutputDev for TextItemOutput {
                 .unwrap_or(u32::MAX);
             let end = start.saturating_add(char_units);
             self.current_item_utf16_len = end;
-            let mut bounding_box = self
-                .current_item_geometry_valid
-                .then(|| TextBoundingBox::from_character(trm, width, font_size))
-                .flatten();
+            let mut bounding_box = if self.current_item_geometry_valid {
+                TextBoundingBox::from_character(trm, width, font_size)
+            } else {
+                None
+            };
+            if self.current_item_geometry_valid && bounding_box.is_none() {
+                self.current_item_geometry_valid = false;
+                item.bounding_box = None;
+                for existing in &mut item.chars {
+                    existing.bounding_box = None;
+                }
+            }
             if let Some(box_) = bounding_box {
                 if let Some(current) = item.bounding_box {
                     if let Some(union) = current.union(box_) {
@@ -992,6 +1000,37 @@ mod tests {
             .chars
             .iter()
             .all(|character| character.bounding_box.is_none()));
+    }
+
+    #[test]
+    fn individual_invalid_character_geometry_is_sticky_in_both_orders() {
+        let valid = Transform::row_major(1.0, 0.0, 0.0, 1.0, 72.0, 700.0);
+        let invalid = Transform::row_major(1.0, 0.0, 0.0, 1.0, f64::NAN, 700.0);
+        for transforms in [[&invalid, &valid], [&valid, &invalid]] {
+            let mut output = TextItemOutput {
+                pages: vec![Vec::new()],
+                ..TextItemOutput::default()
+            };
+            output.begin_word().expect("begin word");
+            for (index, transform) in transforms.into_iter().enumerate() {
+                output
+                    .output_character(
+                        transform,
+                        1.0,
+                        0.0,
+                        12.0,
+                        if index == 0 { "a" } else { "b" },
+                    )
+                    .expect("character callback remains recoverable");
+            }
+            output.end_line().expect("end line");
+            let item = &output.pages[0][0];
+            assert_eq!(item.bounding_box, None);
+            assert!(item
+                .chars
+                .iter()
+                .all(|character| character.bounding_box.is_none()));
+        }
     }
 
     #[test]
