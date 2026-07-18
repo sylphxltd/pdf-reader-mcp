@@ -13,15 +13,28 @@ jobs:
     name: Publish MCP Registry metadata
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout admission policy
+        uses: actions/checkout@v7.0.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.12'
+
+      - name: Enforce publish freeze
+        run: |
+          echo "PUBLISH FREEZE: verified exact-candidate admission is not implemented"
+          exit 1
+
       - name: Create release bot token
         id: release-token
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
 
-      - name: Checkout repository
+      - name: Checkout repository with release token
         uses: actions/checkout@v7.0.0
         with:
           token: ${{ steps.release-token.outputs.token }}

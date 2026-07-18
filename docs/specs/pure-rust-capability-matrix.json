@@ -20,9 +20,9 @@
   "tools": {
     "read_pdf": {
       "source_locator": "FULL",
-      "url_ssrf": "FULL",
-      "include_page_count": "FULL",
-      "include_full_text": "FULL",
+      "url_ssrf": "PARTIAL",
+      "include_page_count": "PARTIAL",
+      "include_full_text": "PARTIAL",
       "include_markdown": "PARTIAL",
       "include_html": "PARTIAL",
       "include_chunks": "PARTIAL",
@@ -48,16 +48,16 @@
       "include_images": "STUB",
       "include_ocr_text_layer": "STUB",
       "include_visual_enrichments": "STUB",
-      "auto_policy": "FULL",
+      "auto_policy": "PARTIAL",
       "bounding_boxes": "MISSING"
     },
     "search_pdf": {
-      "literal_search": "FULL",
-      "case_sensitive": "FULL",
-      "whole_word": "FULL",
-      "context_chars": "FULL",
-      "sources_pages_filter": "FULL",
-      "match_start_end_snake_case": "FULL",
+      "literal_search": "PARTIAL",
+      "case_sensitive": "PARTIAL",
+      "whole_word": "PARTIAL",
+      "context_chars": "PARTIAL",
+      "sources_pages_filter": "PARTIAL",
+      "match_start_end_snake_case": "PARTIAL",
       "bounding_box": "MISSING",
       "include_ocr_text_layer": "FAIL_CLOSED",
       "prefer_speed": "PARTIAL"
@@ -73,7 +73,7 @@
   "claimedForDifferential": [
     "read_pdf full_text (normalized whitespace) on sample.pdf",
     "search_pdf match page+text for fixed query on sample.pdf",
-    "SSRF fail-closed for private/transition hosts",
+    "loopback URL rejected with the explicit non-public-address SSRF policy error",
     "auto off when include_* keys present"
   ],
   "explicitlyNotClaimed": [

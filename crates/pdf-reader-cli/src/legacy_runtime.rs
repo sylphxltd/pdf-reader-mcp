@@ -102,12 +102,14 @@ pub fn handle_legacy_v3_tool(
         })?;
 
     if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(payload.as_bytes()).map_err(|error| ErrorEnvelope {
-            status: "error",
-            code: "LEGACY_RUNTIME_WRITE_FAILED".into(),
-            message: format!("Failed to write legacy engine request: {error}"),
-            next_action: "Retry the request.".into(),
-        })?;
+        stdin
+            .write_all(payload.as_bytes())
+            .map_err(|error| ErrorEnvelope {
+                status: "error",
+                code: "LEGACY_RUNTIME_WRITE_FAILED".into(),
+                message: format!("Failed to write legacy engine request: {error}"),
+                next_action: "Retry the request.".into(),
+            })?;
     }
 
     let output = child.wait_with_output().map_err(|error| ErrorEnvelope {

@@ -51,19 +51,27 @@ pub fn fetch_url_to_temp_file(url: &str) -> Result<PathBuf, String> {
 
         let mut reader = response.into_reader().take(MAX_BYTES + 1);
         let mut bytes = Vec::new();
-        std::io::copy(&mut reader, &mut bytes).map_err(|e| format!("Failed to read URL body: {e}"))?;
+        std::io::copy(&mut reader, &mut bytes)
+            .map_err(|e| format!("Failed to read URL body: {e}"))?;
         if bytes.len() as u64 > MAX_BYTES {
-            return Err(format!("URL body exceeds maximum size of {MAX_BYTES} bytes."));
+            return Err(format!(
+                "URL body exceeds maximum size of {MAX_BYTES} bytes."
+            ));
         }
         if bytes.is_empty() {
             return Err("URL body is empty.".into());
         }
 
-        let dir = std::env::temp_dir().join("pdf-reader-mcp-url");
-        fs::create_dir_all(&dir).map_err(|e| format!("temp dir: {e}"))?;
-        let path = dir.join(format!("fetch-{}.pdf", uuid_v4_simple()));
-        let mut file = fs::File::create(&path).map_err(|e| format!("temp file: {e}"))?;
-        file.write_all(&bytes).map_err(|e| format!("temp write: {e}"))?;
+        let mut file = tempfile::Builder::new()
+            .prefix("pdf-reader-mcp-")
+            .suffix(".pdf")
+            .tempfile()
+            .map_err(|e| format!("secure temp file: {e}"))?;
+        file.write_all(&bytes)
+            .map_err(|e| format!("temp write: {e}"))?;
+        let (_file, path) = file
+            .keep()
+            .map_err(|e| format!("persist secure temp file: {}", e.error))?;
         return Ok(path);
     }
     Err(format!("Too many redirects (>{MAX_REDIRECTS})."))
@@ -71,13 +79,4 @@ pub fn fetch_url_to_temp_file(url: &str) -> Result<PathBuf, String> {
 
 pub fn cleanup_temp_file(path: &Path) {
     let _ = fs::remove_file(path);
-}
-
-fn uuid_v4_simple() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    format!("{nanos:x}")
 }

@@ -1,6 +1,5 @@
 //! rmcp `read_pdf` handler parity against pdf-reader-core golden payloads.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use pdf_reader_core::{read_pdf_from_value, READ_PDF_ROUTE};
@@ -36,9 +35,7 @@ fn normalize_structured(mut value: Value) -> Value {
                     {
                         result_object.insert("source".into(), Value::String(source));
                     }
-                    if let Some(data) = result_object
-                        .get_mut("data")
-                        .and_then(Value::as_object_mut)
+                    if let Some(data) = result_object.get_mut("data").and_then(Value::as_object_mut)
                     {
                         data.remove("full_text");
                         if let Some(info) = data.get_mut("info").and_then(Value::as_object_mut) {
@@ -97,10 +94,7 @@ fn rmcp_read_pdf_structured_content_matches_core_payload() {
         normalize_structured(serde_json::to_value(core).expect("core payload"))
     );
 
-    let evidence = structured
-        .get("evidence")
-        .cloned()
-        .expect("rmcp evidence");
+    let evidence = structured.get("evidence").cloned().expect("rmcp evidence");
     assert_eq!(
         evidence
             .pointer("/route/extraction")
@@ -118,7 +112,9 @@ fn rmcp_read_pdf_structured_content_matches_core_payload() {
 
     let normalized_evidence = normalize_evidence(evidence);
     assert_eq!(
-        normalized_evidence.pointer("/route/tool").and_then(Value::as_str),
+        normalized_evidence
+            .pointer("/route/tool")
+            .and_then(Value::as_str),
         Some("read_pdf")
     );
     assert_eq!(

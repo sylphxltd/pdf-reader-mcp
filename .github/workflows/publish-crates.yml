@@ -36,6 +36,11 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Enforce publish freeze
+        run: |
+          echo "PUBLISH FREEZE: verified exact-candidate admission is not implemented"
+          exit 1
+
       - name: Cargo test crates (unit + golden; differential when bun present)
         run: |
           set -euo pipefail

@@ -184,16 +184,15 @@ function rustSsrfBlocked(): boolean {
       },
     }),
   });
-  const out = `${proc.stdout}\n${proc.stderr}`.toLowerCase();
-  return (
-    out.includes('non-public') ||
-    out.includes('private') ||
-    out.includes('ssrf') ||
-    out.includes('failed') ||
-    out.includes('blocked') ||
-    out.includes('invalid_request') ||
-    out.includes('"status":"error"')
-  );
+  try {
+    const envelope = JSON.parse(proc.stdout) as { status?: string; message?: string };
+    return (
+      envelope.status === 'error' &&
+      envelope.message?.includes('resolves to a non-public address (SSRF protection)') === true
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function main() {
@@ -275,7 +274,7 @@ async function main() {
       'full_text token recall >= 0.70',
       'search hits contain query + snake_case offsets',
       'metadata-only no auto twin',
-      'SSRF fail-closed loopback',
+      'loopback URL rejected with the explicit non-public-address SSRF policy error',
     ],
     nonClaims: ['bounding boxes', 'render/OCR', 'exact full_text equality'],
     stats: {

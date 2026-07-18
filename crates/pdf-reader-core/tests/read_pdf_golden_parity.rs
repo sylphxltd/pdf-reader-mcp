@@ -42,11 +42,9 @@ fn normalize_payload(mut value: Value) -> Value {
                     {
                         result_object.insert("source".into(), Value::String(source));
                     }
-                    if let Some(data) = result_object
-                        .get_mut("data")
-                        .and_then(Value::as_object_mut)
+                    if let Some(data) = result_object.get_mut("data").and_then(Value::as_object_mut)
                     {
-                    data.remove("full_text");
+                        data.remove("full_text");
                         if let Some(info) = data.get_mut("info").and_then(Value::as_object_mut) {
                             info.remove("text_chars");
                         }
@@ -134,7 +132,11 @@ fn assert_success_case(id: &str, fixture: &str, input: &Value, expected: &Value)
         .and_then(Value::as_array)
         .expect("{id}: expected results");
 
-    assert_eq!(actual_results.len(), expected_results.len(), "{id}: result count");
+    assert_eq!(
+        actual_results.len(),
+        expected_results.len(),
+        "{id}: result count"
+    );
     assert!(
         actual_results[0]
             .get("success")
@@ -152,9 +154,22 @@ fn assert_success_case(id: &str, fixture: &str, input: &Value, expected: &Value)
     let num_pages = actual_results[0]
         .pointer("/data/numPages")
         .or_else(|| actual_results[0].pointer("/data/num_pages"))
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    assert!(num_pages >= 1, "{id}: num_pages should be positive");
+        .and_then(Value::as_u64);
+    if input
+        .get("include_page_count")
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
+    {
+        assert!(
+            num_pages.is_some_and(|count| count >= 1),
+            "{id}: num_pages should be positive when requested or defaulted"
+        );
+    } else {
+        assert_eq!(
+            num_pages, None,
+            "{id}: num_pages should be omitted when include_page_count is false"
+        );
+    }
 
     for pointer in [
         "/results/0/data/route",
@@ -165,6 +180,11 @@ fn assert_success_case(id: &str, fixture: &str, input: &Value, expected: &Value)
         "/results/0/data/info/PDFFormatVersion",
         "/results/0/data/info/route",
     ] {
+        if pointer.contains("/info/")
+            && input.get("include_metadata").and_then(Value::as_bool) == Some(false)
+        {
+            continue;
+        }
         if expected_payload.pointer(pointer).is_some() {
             subset_matches(&actual, expected_payload, id, pointer);
         }
@@ -230,7 +250,10 @@ fn read_pdf_matches_golden_contract_on_sample_fixture() {
 
     for case in cases {
         let id = case.get("id").and_then(Value::as_str).expect("case id");
-        let fixture = case.get("fixture").and_then(Value::as_str).expect("fixture");
+        let fixture = case
+            .get("fixture")
+            .and_then(Value::as_str)
+            .expect("fixture");
         let input = case.get("input").expect("input");
         let expects = case.get("expects").expect("expects");
 
@@ -278,7 +301,10 @@ fn pdf_reader_cli_read_pdf_matches_core_golden_payload() {
         })
         .expect("sample-metadata-on golden case");
 
-    let fixture = case.get("fixture").and_then(Value::as_str).expect("fixture");
+    let fixture = case
+        .get("fixture")
+        .and_then(Value::as_str)
+        .expect("fixture");
     let input = case.get("input").expect("input");
     let fixture_path = fixtures_root().join(fixture);
     if !fixture_path.is_file() {
@@ -299,9 +325,8 @@ fn pdf_reader_cli_read_pdf_matches_core_golden_payload() {
         .pointer("/result/content/0/text")
         .and_then(Value::as_str)
         .expect("cli payload text");
-    let actual = normalize_payload(
-        serde_json::from_str(payload_text).expect("parse cli payload json"),
-    );
+    let actual =
+        normalize_payload(serde_json::from_str(payload_text).expect("parse cli payload json"));
     let expected = case
         .get("expects")
         .and_then(|value| value.get("payload"))

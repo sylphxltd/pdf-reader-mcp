@@ -1,10 +1,9 @@
+#!/usr/bin/env bun
 /**
  * WARNING: This script currently shells to the Rust CLI for expected output.
  * It is NOT a TypeScript behavioral oracle. Do not treat differential green as TS parity.
  * TODO: freeze fixtures from 3.0.14 TypeScript handlers as the true baseline.
  */
-
-#!/usr/bin/env bun
 /**
  * TS contract oracle for pdf-reader-mcp read_pdf + stdio differential parity (rej-010).
  *

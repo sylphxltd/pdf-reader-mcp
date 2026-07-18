@@ -17,16 +17,20 @@ times. The right end state is not “half TypeScript, half Rust, please wait whi
 we migrate” — it is **one native engine** with the same public tools and the same
 Agent Document Twin fields.
 
-v3.1+ is that end state:
+The withdrawn v3.1.x releases did **not** reach that end state. The intended
+replacement, once it passes the executable parity and release gates, is:
 
 - **npm**: `@sylphx/pdf-reader-mcp` → ships the native `pdf-reader-mcp-server`
 - **crates.io**: `pdf-reader-core`, `pdf-reader-mcp-server`, `pdf-reader-cli`
-- **Tools**: `read_pdf`, `search_pdf`, `pdf_evidence` (inspect + fail-closed visual ops)
+- **Tools**: `read_pdf`, `search_pdf`, and every `pdf_evidence` success and failure path
 
 ## What must not regress
 
 Updating the implementation language must **not** remove public capabilities.
-The pure-Rust path populates the Document Twin response surface, including:
+The replacement must reproduce the Document Twin semantics, not merely return
+fields with these names. Today many pure-Rust fields are heuristic or empty;
+their current status is recorded in the
+[capability matrix](../specs/pure-rust-capability-matrix.json).
 
 | Capability group | Fields / operations |
 | --- | --- |
@@ -37,7 +41,8 @@ The pure-Rust path populates the Document Twin response surface, including:
 | Provider opt-in | `ocr_text_layer`, `visual_enrichments` (empty + warning without providers — same model as optional TS providers) |
 | Evidence | `pdf_evidence` `inspect` (routing); visual ops fail closed with guidance when no render/OCR backend is configured |
 
-Regression fence:
+The following commands exercise only the currently claimed subset. They are
+not a drop-in or release-admission proof:
 
 ```bash
 bun run build:rust
@@ -65,8 +70,9 @@ Scenarios (fixed fixture `test/fixtures/sample.pdf`):
 Each scenario warms up, then records avg / min / max / p50 / p95 over N iterations
 against the **production pure-Rust binary**.
 
-Historical TypeScript baselines (previous release gate, same fixture, documented
-in `docs/benchmark.md`):
+Historical TypeScript timings are retained below only as provenance for an old
+measurement. They were not collected in the same run, on a digest-bound
+semantically equivalent candidate, and therefore cannot establish a speedup:
 
 | Scenario | Historical TS avg |
 | --- | --- |
@@ -74,11 +80,11 @@ in `docs/benchmark.md`):
 | Full text | 16.1 ms |
 | Agent Document Twin | 27.2 ms |
 
-The pure-Rust harness writes a `comparison` block with speedup ratios against
-those baselines so industry readers can see the delta without re-running the old
-stack.
+The pure-Rust harness currently writes a `comparison` block, but those ratios
+are diagnostic historical comparisons and must not be used as release or
+marketing claims.
 
-## Latest measured results (this host)
+## Historical diagnostic run (not an A/B benchmark)
 
 Fixture: `test/fixtures/sample.pdf` · iterations=15 · warmup=3 · measuredAt=2026-07-17T23:15:41.531Z
 
@@ -91,27 +97,30 @@ Fixture: `test/fixtures/sample.pdf` · iterations=15 · warmup=3 · measuredAt=2
 | search_pdf literal | 0.862 ms | 0.735 ms | 1.573 ms | — | — |
 | pdf_evidence inspect | 9.325 ms | 9.158 ms | 13.206 ms | — | — |
 
-**Headline:** full-text extraction is **2.0×** the historical TS baseline; balanced Agent Document Twin is **3.3×**. Metadata-only on pure-Rust still pays for text extraction today (no separate metadata-only parser), so that scenario is not the primary win — twin and search are.
+No speedup claim is admissible from this table. A release benchmark must run
+TS 3.0.14 and the exact Rust candidate on the same host and corpus, verify
+semantically equivalent outputs before timing, randomize/interleave samples,
+separate cold and warm paths, and retain raw samples plus source, fixture,
+binary, toolchain, and environment digests.
 
 Artifact: `benchmark-artifacts/pdf_pure_rust_benchmark.json`.
 
 
-## Why these numbers matter
+## Why performance work still matters
 
-- **Agent loops are serial.** A 2–10× cut on extract/search multiplies across every tool call.
-- **Cold start matters for MCP.** One native binary avoids Node spawn + module graph load on the hot path.
-- **Ops cost.** One artifact to pin in Docker / GHCR / cargo install.
+- **Agent loops are serial.** Verified latency reductions compound across tool calls.
+- **Cold start matters for MCP.** It must be measured separately from warm calls.
+- **Ops cost.** A native distribution can simplify deployment only after cross-platform packaging is proven.
 
 ## Capability honesty
 
-Pure-Rust text extraction uses the selectable text layer. Geometry-perfect
-pdf.js layout boxes and provider-backed OCR/visual pipelines still follow the
-same **opt-in provider** contract: without a provider, those arrays are empty
-and warnings explain the gap — they do not silently invent pixels.
+Pure-Rust text extraction currently uses the selectable text layer. Geometry,
+OCR, visual evidence, and full Document Twin parity remain open work. Empty
+placeholder arrays prove only response shape; they do not prove capability.
 
 Visual `pdf_evidence` operations (`render_page`, `extract_regions`, `ocr_pages`,
-`analyze_regions`) fail closed with explicit guidance when no render/OCR backend
-is configured, matching the previous optional-canvas / optional-provider model.
+`analyze_regions`) currently fail closed. That is safer than silent success but
+is not TS 3.0.14 parity.
 
 ## Install
 

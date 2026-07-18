@@ -1,0 +1,247 @@
+{
+  "profile": "pdf_reader_v3_0_14_input_schema_oracle",
+  "tag": "v3.0.14",
+  "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
+  "files": {
+    "src/schema.ts": "fb15a2de8484403b1318ad5530cc345bb728e84516557766728a005f59f0b769",
+    "src/schemas/readPdf.ts": "5d7fc161e547feab37b291b0cf96aab880c48743b15e3e1c51d8bd9a94291e3b",
+    "src/schemas/searchPdf.ts": "0d0e312d930ffb310191284cc9d22564e2389ed41df26056bad99bdcff561c8b",
+    "src/schemas/pdfEvidence.ts": "b8377ecdc5127bd6be83cfb33f1fb2895cf4f5fd2727618d8189b97134f8d9c5",
+    "src/schemas/extractRegions.ts": "18274ced1e7c3d4e1d9fec37e4ed42d1f1774608e002fa9feb6196808bfef6a8"
+  },
+  "schemaFacts": [
+    { "tool": "read_pdf", "pointer": "/properties/sample_pages/minimum", "expected": 1 },
+    { "tool": "read_pdf", "pointer": "/properties/sample_pages/maximum", "expected": 20 },
+    { "tool": "read_pdf", "pointer": "/properties/max_visual_enrichments/minimum", "expected": 1 },
+    { "tool": "search_pdf", "pointer": "/properties/query/minLength", "expected": 1 },
+    { "tool": "search_pdf", "pointer": "/properties/max_pages/minimum", "expected": 1 },
+    { "tool": "search_pdf", "pointer": "/properties/max_pages/maximum", "expected": 1000 },
+    {
+      "tool": "search_pdf",
+      "pointer": "/properties/max_matches_per_source/maximum",
+      "expected": 500
+    },
+    { "tool": "search_pdf", "pointer": "/properties/context_chars/minimum", "expected": 0 },
+    { "tool": "search_pdf", "pointer": "/properties/context_chars/maximum", "expected": 1000 },
+    { "tool": "pdf_evidence", "pointer": "/properties/sample_pages/maximum", "expected": 20 },
+    { "tool": "pdf_evidence", "pointer": "/properties/scale/minimum", "expected": 0.25 },
+    { "tool": "pdf_evidence", "pointer": "/properties/scale/maximum", "expected": 4 },
+    { "tool": "pdf_evidence", "pointer": "/properties/max_regions/maximum", "expected": 100 },
+    {
+      "tool": "pdf_evidence",
+      "pointer": "/properties/max_pixels_per_page/minimum",
+      "expected": 10000
+    },
+    {
+      "tool": "pdf_evidence",
+      "pointer": "/properties/max_pixels_per_page/maximum",
+      "expected": 64000000
+    },
+    { "tool": "pdf_evidence", "pointer": "/properties/timeout_ms/minimum", "expected": 1000 },
+    { "tool": "pdf_evidence", "pointer": "/properties/timeout_ms/maximum", "expected": 300000 },
+    {
+      "tool": "pdf_evidence",
+      "pointer": "/properties/max_output_chars/maximum",
+      "expected": 1000000
+    }
+  ],
+  "enumFacts": [
+    { "tool": "read_pdf", "values": ["fast", "balanced", "full", "standard", "strict", "off"] },
+    {
+      "tool": "pdf_evidence",
+      "values": ["inspect", "render_page", "extract_regions", "ocr_pages", "analyze_regions"]
+    }
+  ],
+  "absentProperties": [{ "tool": "search_pdf", "property": "prefer_speed" }],
+  "cases": [
+    {
+      "id": "read-minimal-path",
+      "tool": "read_pdf",
+      "accept": true,
+      "args": { "sources": [{ "path": "sample.pdf" }] }
+    },
+    {
+      "id": "read-pages-array",
+      "tool": "read_pdf",
+      "accept": true,
+      "args": {
+        "sources": [{ "path": "sample.pdf", "pages": [1, 2] }],
+        "auto_detail": "full",
+        "sample_pages": 20,
+        "trust_report_redaction": "strict",
+        "max_visual_enrichments": 1
+      }
+    },
+    {
+      "id": "read-empty-path",
+      "tool": "read_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "" }] }
+    },
+    {
+      "id": "read-both-locators",
+      "tool": "read_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf", "url": "https://example.com/a.pdf" }] }
+    },
+    {
+      "id": "read-page-zero",
+      "tool": "read_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf", "pages": [0] }] }
+    },
+    {
+      "id": "read-empty-page-range",
+      "tool": "read_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf", "pages": "" }] }
+    },
+    {
+      "id": "read-invalid-auto-detail",
+      "tool": "read_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf" }], "auto_detail": "maximum" }
+    },
+    {
+      "id": "read-sample-over-max",
+      "tool": "read_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf" }], "sample_pages": 21 }
+    },
+    {
+      "id": "read-invalid-redaction",
+      "tool": "read_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf" }], "trust_report_redaction": "none" }
+    },
+    {
+      "id": "search-range-pages",
+      "tool": "search_pdf",
+      "accept": true,
+      "args": {
+        "sources": [{ "url": "https://example.com/a.pdf", "pages": "1-3" }],
+        "query": "needle",
+        "max_pages": 1000,
+        "max_matches_per_source": 500,
+        "context_chars": 0
+      }
+    },
+    {
+      "id": "search-empty-query",
+      "tool": "search_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf" }], "query": "" }
+    },
+    {
+      "id": "search-zero-max-pages",
+      "tool": "search_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf" }], "query": "x", "max_pages": 0 }
+    },
+    {
+      "id": "search-context-over-max",
+      "tool": "search_pdf",
+      "accept": false,
+      "args": { "sources": [{ "path": "a.pdf" }], "query": "x", "context_chars": 1001 }
+    },
+    {
+      "id": "search-unknown-key-stripped",
+      "tool": "search_pdf",
+      "accept": true,
+      "args": { "sources": [{ "path": "a.pdf" }], "query": "x", "prefer_speed": true }
+    },
+    {
+      "id": "evidence-region-valid",
+      "tool": "pdf_evidence",
+      "accept": true,
+      "args": {
+        "operation": "extract_regions",
+        "sources": [
+          {
+            "path": "sample.pdf",
+            "regions": [
+              {
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 20, "top": 30 },
+                "padding": 200
+              }
+            ]
+          }
+        ],
+        "scale": 0.25,
+        "max_regions": 100,
+        "max_pixels_per_page": 64000000
+      }
+    },
+    {
+      "id": "evidence-invalid-operation",
+      "tool": "pdf_evidence",
+      "accept": false,
+      "args": { "operation": "unknown", "sources": [{ "path": "a.pdf" }] }
+    },
+    {
+      "id": "evidence-scale-under-min",
+      "tool": "pdf_evidence",
+      "accept": false,
+      "args": { "operation": "inspect", "sources": [{ "path": "a.pdf" }], "scale": 0.24 }
+    },
+    {
+      "id": "evidence-timeout-under-min",
+      "tool": "pdf_evidence",
+      "accept": false,
+      "args": { "operation": "inspect", "sources": [{ "path": "a.pdf" }], "timeout_ms": 999 }
+    },
+    {
+      "id": "evidence-page-zero",
+      "tool": "pdf_evidence",
+      "accept": false,
+      "args": {
+        "operation": "extract_regions",
+        "sources": [
+          {
+            "path": "a.pdf",
+            "regions": [
+              { "page": 0, "bounding_box": { "left": 0, "bottom": 0, "right": 1, "top": 1 } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "evidence-negative-coordinate",
+      "tool": "pdf_evidence",
+      "accept": false,
+      "args": {
+        "operation": "extract_regions",
+        "sources": [
+          {
+            "path": "a.pdf",
+            "regions": [
+              { "page": 1, "bounding_box": { "left": -1, "bottom": 0, "right": 1, "top": 1 } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "evidence-padding-over-max",
+      "tool": "pdf_evidence",
+      "accept": false,
+      "args": {
+        "operation": "extract_regions",
+        "sources": [
+          {
+            "path": "a.pdf",
+            "regions": [
+              {
+                "page": 1,
+                "bounding_box": { "left": 0, "bottom": 0, "right": 1, "top": 1 },
+                "padding": 201
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

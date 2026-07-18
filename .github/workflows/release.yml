@@ -19,7 +19,7 @@ jobs:
         id: release-token
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
@@ -100,7 +100,7 @@ jobs:
         uses: changesets/action@v1
         with:
           version: bun changeset version && bun run sync:server-json
-          publish: echo "PUBLISH FREEZE: refusing bun run release — set explicit owner approval to re-enable"
+          publish: 'echo "PUBLISH FREEZE: verified-candidate artifact admission is not wired yet" && exit 1'
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
           createGithubReleases: true

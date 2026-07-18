@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pdf-reader-mcp bounded differential parity — frozen golden oracle vs Rust rmcp SSOT.
+# pdf-reader-mcp bounded claimed-subset checks.
 # Slices: tool.read_pdf | tool.search_pdf|tool.pdf_evidence | transport.stdio-rust-rmcp | all
 # Fail-closed: requires bun + built Rust artifacts (no SKIP-as-pass).
 # See PARITY-VERIFICATION-STANDARD.md, DECISION-001 / rej-010.
@@ -11,6 +11,7 @@ mkdir -p "$SCRATCH"
 LOG="$SCRATCH/differential.log"
 ARTIFACT="$SCRATCH/verification.json"
 ORACLE_JSON="$SCRATCH/oracle.json"
+TEXT_DIFFERENTIAL_JSON="$SCRATCH/ts-vs-rust-text.json"
 SLICE_FILTER="all"
 : >"$LOG"
 
@@ -47,10 +48,27 @@ echo "=== pdf-reader-mcp bounded differential parity $(date -Iseconds) slice=$SL
 echo "--- build Rust artifacts ---" | tee -a "$LOG"
 bun run build:rust 2>&1 | tee -a "$LOG"
 
-echo "--- check-no-ts-stdio-backend gate ---" | tee -a "$LOG"
-bash "$REPO_ROOT/scripts/check-no-ts-stdio-backend.sh" 2>&1 | tee -a "$LOG"
+DROP_IN="$(jq -r '.productTruth.dropInFor3014' "$REPO_ROOT/docs/specs/pure-rust-capability-matrix.json")"
+if [[ "$DROP_IN" == "true" ]]; then
+  echo "--- final TS retirement gate ---" | tee -a "$LOG"
+  bash "$REPO_ROOT/scripts/check-no-ts-stdio-backend.sh" 2>&1 | tee -a "$LOG"
+else
+  echo "--- recovery phase: TS production runtime must remain present ---" | tee -a "$LOG"
+  test -f "$REPO_ROOT/src/index.ts" || {
+    echo "::error::src/index.ts missing before dropInFor3014 is proven" | tee -a "$LOG"
+    exit 1
+  }
+fi
 
-echo "--- TS contract oracle (read_pdf golden + stdio transport contract) ---" | tee -a "$LOG"
+echo "--- immutable TypeScript v3.0.14 input contract oracle ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/check-v3014-input-schema-oracle.ts" 2>&1 | tee -a "$LOG"
+
+echo "--- live TypeScript handler -> Rust text claimed-subset check ---" | tee -a "$LOG"
+env -u PDF_READER_USE_RUST_TEXT_SEARCH -u PDF_READER_ENGINE_MODE \
+  bun "$REPO_ROOT/scripts/differential/ts-vs-rust-text-oracle.ts" \
+  >"$TEXT_DIFFERENTIAL_JSON" 2>>"$LOG"
+
+echo "--- Rust structural golden + stdio consistency check (not a TS behavioral oracle) ---" | tee -a "$LOG"
 bun run "$REPO_ROOT/scripts/differential/pdf-reader-mcp-oracle.ts" >"$ORACLE_JSON" 2>>"$LOG"
 
 echo "--- Rust native differential test (slice=$SLICE_FILTER) ---" | tee -a "$LOG"
@@ -59,7 +77,7 @@ PDF_READER_MCP_SLICE_FILTER="$SLICE_FILTER" \
   cargo test -p pdf-reader-mcp-server --test pdf_reader_mcp_differential pdf_reader_mcp_differential_matches_ts_oracle -- --nocapture 2>&1 | tee -a "$LOG"
 
 CANDIDATE_SHA="${CANDIDATE_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)}"
-BASELINE_TS_SHA="$(git -C "$REPO_ROOT" log -1 --format=%H -- scripts/differential test/fixtures/read-pdf-golden.json src/handlers/readPdf.ts 2>/dev/null || echo unknown)"
+BASELINE_TS_SHA="$(git -C "$REPO_ROOT" rev-list -n 1 v3.0.14 2>/dev/null || echo unknown)"
 RUST_SHA="$CANDIDATE_SHA"
 BEHAVIOR_SPEC_HASH="$(sha256sum "$REPO_ROOT/scripts/differential/fixtures/pdf-reader-mcp-corpus.json" "$REPO_ROOT/test/fixtures/read-pdf-golden.json" 2>/dev/null | awk '{print $1}' | sha256sum | awk '{print $1}' || echo missing)"
 FIXTURE_CORPUS_HASH="$(jq -r '.fixtureCorpusHash' "$ORACLE_JSON")"
@@ -94,7 +112,7 @@ jq -n \
     schemaVersion: 2,
     slice: $slice,
     sliceFilter: $sliceFilter,
-    status: "differential_green",
+    status: "claimed_subset_green",
     verifiedAt: $verifiedAt,
     lastComparedMainSha: $candidateSha,
     mergeGroupSha: $candidateSha,
@@ -109,8 +127,11 @@ jq -n \
     toolRouteCaseCount: $toolRouteCaseCount,
     harness: "scripts/run-pdf-reader-differential.sh",
     differentialTest: "crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs#pdf_reader_mcp_differential_matches_ts_oracle",
-    oracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
-    gate: "scripts/check-no-ts-stdio-backend.sh"
+    immutableInputOracle: "scripts/check-v3014-input-schema-oracle.ts",
+    liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
+    structuralConsistencyOracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
+    nonClaims: ["full TS 3.0.14 behavioral parity", "visual parity", "Document Twin semantic parity"],
+    retirementGate: "scripts/check-no-ts-stdio-backend.sh (runs only when dropInFor3014=true)"
   }' >"$ARTIFACT"
 
 echo "pdf-reader-mcp-differential: OK (cases=$CASE_COUNT read_pdf=$READ_PDF_CASE_COUNT stdio=$STDIO_PROBE_CASE_COUNT corpus=$FIXTURE_CORPUS_HASH)" | tee -a "$LOG"

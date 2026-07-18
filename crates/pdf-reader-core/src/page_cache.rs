@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::hash_file;
 use crate::text_index::{extract_page_texts, TextIndexError};
 
-pub const PAGE_CACHE_SCHEMA_VERSION: &str = "1.0.0";
+pub const PAGE_CACHE_SCHEMA_VERSION: &str = "2.0.0-per-page-extraction";
 pub const PAGE_CACHE_DIR: &str = ".pdf-reader-mcp/page-cache";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,7 +124,6 @@ mod tests {
         let new_hash = hash_file(&pdf_path, 1024 * 1024).expect("hash");
         assert!(load_cached_pages(&pdf_path, &new_hash.source_hash).is_none());
     }
-
 
     #[test]
     fn bulk_page_cache_path_uses_parent_and_hash() {
