@@ -25,6 +25,12 @@ const behaviorCorpus = JSON.parse(
 const structureCorpus = JSON.parse(
   readFileSync(join(root, 'scripts/differential/fixtures/v3014-structure-corpus.json'), 'utf8')
 ) as { cases: Array<{ id: string }> };
+const citationChunkCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-citation-chunk-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -81,6 +87,23 @@ if (!differentialWorkflow.includes('bun run test:v3014-structure-differential'))
 if (structureCaseCount !== 11) {
   failures.push(
     `frozen structure/inspect differential must contain exactly 11 cases (got ${structureCaseCount})`
+  );
+}
+const citationChunkCaseCount = citationChunkCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-citation-chunk-differential')) {
+  failures.push('rust parity workflow must execute the frozen citation-chunk differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${citationChunkCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${citationChunkCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${citationChunkCaseCount}/${citationChunkCaseCount} citation-chunk corpus`
+  );
+}
+if (citationChunkCaseCount !== 6) {
+  failures.push(
+    `frozen citation-chunk differential must contain exactly 6 cases (got ${citationChunkCaseCount})`
   );
 }
 if (failures.length) {
