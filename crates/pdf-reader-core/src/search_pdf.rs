@@ -324,7 +324,7 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                     .iter()
                     .enumerate()
                     .map(|(index, item)| {
-                        json!({
+                        let mut value = json!({
                             "id": format!("p{}-match-{}", item.page, index + 1),
                             "page": item.page,
                             "text": item.text,
@@ -336,7 +336,14 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                                 "engine": item.route,
                                 "route": item.route,
                             }
-                        })
+                        });
+                        if let Some(bounding_box) = item.bounding_box {
+                            value["bounding_box"] = json!(bounding_box);
+                        }
+                        if let Some(level) = item.bounding_box_level.as_ref() {
+                            value["bounding_box_level"] = json!(level);
+                        }
+                        value
                     })
                     .collect();
 

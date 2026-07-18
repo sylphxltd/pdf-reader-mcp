@@ -6,6 +6,7 @@
     "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
     "tree": "f6fc4e58f692736c8bd6aaf9d4c9cfa806d113ab",
     "bunLockSha256": "07f469c8200fb82c9092cef178c1bdd67f8cf61fe6c027303665395eede9dd45",
+    "runnerSha256": "05a06c9b20cf82ef2b4892124545d8c045517cd608c24781f79ffc8044176271",
     "entrypointSha256": {
       "src/pdf/readCoordinator.ts": "827cb1018a8621287de154132c0a00a00188497b84622a168a343d0df3ce5eca",
       "src/pdf/search.ts": "ef0a1916d1399e1e807294a8170577bd59a285c73180389f82f05ec5e38d1521",
@@ -17,7 +18,7 @@
   },
   "normalization": {
     "version": 1,
-    "text": "Unicode NFC and CRLF-to-LF only",
+    "text": "Unicode NFC and CRLF-to-LF only; geometry coordinates rounded to 1e-9",
     "errors": "stable category plus bounded source-independent meaning",
     "excluded": [
       "absolute source path",
@@ -272,28 +273,56 @@
           "text": "Needle",
           "match_start": 0,
           "match_end": 6,
-          "text_item_index": 1
+          "text_item_index": 1,
+          "bounding_box": {
+            "left": 72,
+            "bottom": 702,
+            "right": 103.529454545,
+            "top": 714
+          },
+          "bounding_box_level": "char_estimated"
         },
         {
           "page": 2,
           "text": "Needle",
           "match_start": 7,
           "match_end": 13,
-          "text_item_index": 1
+          "text_item_index": 1,
+          "bounding_box": {
+            "left": 107.7126,
+            "bottom": 702,
+            "right": 138.3234,
+            "top": 714
+          },
+          "bounding_box_level": "char_estimated"
         },
         {
           "page": 3,
           "text": "needle",
           "match_start": 0,
           "match_end": 6,
-          "text_item_index": 1
+          "text_item_index": 1,
+          "bounding_box": {
+            "left": 72,
+            "bottom": 702,
+            "right": 107.348,
+            "top": 714
+          },
+          "bounding_box_level": "char_estimated"
         },
         {
           "page": 3,
           "text": "NEEDLE",
           "match_start": 12,
           "match_end": 18,
-          "text_item_index": 1
+          "text_item_index": 1,
+          "bounding_box": {
+            "left": 142.696,
+            "bottom": 702,
+            "right": 178.044,
+            "top": 714
+          },
+          "bounding_box_level": "char_estimated"
         }
       ]
     },
@@ -311,7 +340,14 @@
           "text": "NEEDLE",
           "match_start": 12,
           "match_end": 18,
-          "text_item_index": 1
+          "text_item_index": 1,
+          "bounding_box": {
+            "left": 142.696,
+            "bottom": 702,
+            "right": 178.044,
+            "top": 714
+          },
+          "bounding_box_level": "char_estimated"
         }
       ]
     },
@@ -329,14 +365,28 @@
           "text": "cat",
           "match_start": 17,
           "match_end": 20,
-          "text_item_index": 1
+          "text_item_index": 1,
+          "bounding_box": {
+            "left": 161.333454545,
+            "bottom": 702,
+            "right": 177.098181818,
+            "top": 714
+          },
+          "bounding_box_level": "char_estimated"
         },
         {
           "page": 1,
           "text": "CAT",
           "match_start": 29,
           "match_end": 32,
-          "text_item_index": 1
+          "text_item_index": 1,
+          "bounding_box": {
+            "left": 224.392363636,
+            "bottom": 702,
+            "right": 240.157090909,
+            "top": 714
+          },
+          "bounding_box_level": "char_estimated"
         }
       ]
     },
@@ -352,7 +402,14 @@
           "text": "Café",
           "match_start": 0,
           "match_end": 4,
-          "text_item_index": 2
+          "text_item_index": 2,
+          "bounding_box": {
+            "left": 72,
+            "bottom": 684,
+            "right": 96.977454545,
+            "top": 696
+          },
+          "bounding_box_level": "char_estimated"
         }
       ]
     },
