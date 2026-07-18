@@ -199,6 +199,9 @@ fn extract_forms(
     let mut output = Vec::new();
     let mut visited = HashSet::new();
     for field in fields {
+        if field.as_reference().is_err() {
+            continue;
+        }
         walk_field(
             walker,
             &field,
@@ -233,11 +236,11 @@ fn walk_field(
         walker.limited = true;
         return;
     }
-    let id = value.as_reference().ok();
-    if let Some(id) = id {
-        if !visited.insert(id) {
-            return;
-        }
+    let Ok(id) = value.as_reference() else {
+        return;
+    };
+    if !visited.insert(id) {
+        return;
     }
     let Some(dict) = walker.dict(value) else {
         walker.failed = false;
@@ -251,11 +254,11 @@ fn walk_field(
         .ok()
         .and_then(|v| walker.text(v))
         .unwrap_or_default();
-    let name = match (parent_name.is_empty(), partial.trim().is_empty()) {
+    let name = match (parent_name.is_empty(), partial.is_empty()) {
         (true, true) => String::new(),
-        (true, false) => partial.trim().to_string(),
+        (true, false) => partial,
         (false, true) => parent_name.to_string(),
-        (false, false) => format!("{parent_name}.{}", partial.trim()),
+        (false, false) => format!("{parent_name}.{partial}"),
     };
     let next = Inherited {
         field_type: dict
@@ -284,23 +287,24 @@ fn walk_field(
         .ok()
         .and_then(|value| walker.resolve(value))
         .and_then(|value| value.as_array().ok().cloned());
-    if !name.is_empty() {
+    let public_name = name.trim().to_string();
+    if !public_name.is_empty() {
         if kids.is_some() {
             output.push(FormField {
-                name: name.clone(),
+                name: public_name.clone(),
                 r#type: None,
                 value: None,
                 default_value: None,
                 page: None,
-                id: id.map(format_id),
+                id: Some(format_id(id)),
                 editable: None,
                 bounding_box: None,
             });
         } else if let Some(field) = normalize_leaf(
             walker,
             &dict,
-            id,
-            name.clone(),
+            Some(id),
+            public_name,
             &next,
             page_by_id,
             annotation_pages,
@@ -361,6 +365,9 @@ fn normalize_leaf(
         .default_value
         .as_ref()
         .and_then(|v| form_value(walker, v));
+    if value.is_none() && matches!(field_type.as_deref(), Some("text" | "listbox" | "combobox")) {
+        value = default_value.clone();
+    }
     match field_type.as_deref() {
         Some("text") => {
             default_value.get_or_insert_with(|| Value::String(String::new()));
@@ -477,15 +484,13 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
             }
         }
         let dict = walker.dict(&node)?;
-        let kids = dict
-            .get(b"Kids")
-            .ok()
-            .and_then(|value| walker.resolve(value))
-            .and_then(|value| value.as_array().ok().cloned());
-        if let Some(kids) = kids {
-            for kid in kids {
-                queue.push_back((kid, depth + 1));
+        if let Ok(kids_value) = dict.get(b"Kids") {
+            if let Some(Object::Array(kids)) = walker.resolve(kids_value) {
+                for kid in kids {
+                    queue.push_back((kid, depth + 1));
+                }
             }
+            continue;
         }
         let names = dict
             .get(b"Names")
@@ -539,9 +544,13 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
 }
 
 fn filename(walker: &mut Walker<'_>, spec: &Dictionary) -> Option<String> {
-    let raw = [b"UF".as_slice(), b"F", b"Unix", b"Mac", b"DOS"]
-        .into_iter()
-        .find_map(|key| spec.get(key).ok().and_then(|v| walker.text(v)));
+    let mut raw = None;
+    for key in [b"UF".as_slice(), b"F", b"Unix", b"Mac", b"DOS"] {
+        if let Ok(value) = spec.get(key) {
+            raw = walker.text(value);
+            break;
+        }
+    }
     let normalized = raw.unwrap_or_default().replace('\\', "/");
     Some(
         normalized
@@ -570,6 +579,20 @@ fn embedded_size(walker: &mut Walker<'_>, spec: &Dictionary) -> Option<usize> {
 mod tests {
     use super::*;
     use lopdf::{dictionary, Stream};
+
+    fn base_document() -> (Document, ObjectId) {
+        let mut document = Document::with_version("1.7");
+        let pages = document
+            .add_object(dictionary! {"Type"=>"Pages","Kids"=>Vec::<Object>::new(),"Count"=>0});
+        (document, pages)
+    }
+
+    fn finish_catalog(document: &mut Document, pages: ObjectId, extra: Dictionary) {
+        let mut catalog = dictionary! {"Type"=>"Catalog","Pages"=>pages};
+        catalog.extend(&extra);
+        let root = document.add_object(catalog);
+        document.trailer.set("Root", root);
+    }
     #[test]
     fn path_filename_is_stripped_and_unfiltered_size_is_actual() {
         let mut doc = Document::with_version("1.7");
@@ -613,5 +636,105 @@ mod tests {
                 {"name":"evidence","filename":"report.txt","size_bytes":5}
             ])
         );
+    }
+
+    #[test]
+    fn forms_skip_direct_top_level_and_direct_kids_and_use_dv_as_current_value() {
+        let (mut document, pages) = base_document();
+        let child = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("  child  "),
+            "DV"=>Object::string_literal("fallback")
+        });
+        let parent = document.add_object(dictionary! {
+            "T"=>Object::string_literal("  parent  "),
+            "Kids"=>vec![Object::Dictionary(dictionary!{"Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("direct")}),child.into()]
+        });
+        let direct = Object::Dictionary(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("top-direct")
+        });
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"AcroForm"=>dictionary!{"Fields"=>vec![direct,parent.into()]}},
+        );
+        let output = extract_form_attachment_signals(&document, &[], true, false);
+        assert_eq!(
+            serde_json::to_value(output.form_fields).unwrap(),
+            serde_json::json!([
+                {"name":"parent","id":format_id(parent)},
+                {"name":"parent  .  child","type":"text","value":"fallback","default_value":"fallback","id":format_id(child),"editable":true}
+            ])
+        );
+    }
+
+    #[test]
+    fn name_tree_kids_win_over_names_and_wrong_type_kids_skip_the_node() {
+        let (mut document, pages) = base_document();
+        let stream = document.add_object(Stream::new(dictionary! {}, b"x".to_vec()));
+        let spec = document.add_object(
+            dictionary! {"F"=>Object::string_literal("a.txt"),"EF"=>dictionary!{"F"=>stream}},
+        );
+        let child = document
+            .add_object(dictionary! {"Names"=>vec![Object::string_literal("child"),spec.into()]});
+        let tree = document.add_object(dictionary! {
+            "Kids"=>vec![child.into()],
+            "Names"=>vec![Object::string_literal("must-skip"),spec.into()]
+        });
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"Names"=>dictionary!{"EmbeddedFiles"=>tree}},
+        );
+        let output = extract_form_attachment_signals(&document, &[], false, true);
+        assert_eq!(
+            serde_json::to_value(output.attachments).unwrap(),
+            serde_json::json!([{"name":"child","filename":"a.txt","size_bytes":1}])
+        );
+
+        let (mut document, pages) = base_document();
+        let tree = document.add_object(
+            dictionary! {"Kids"=>7,"Names"=>vec![Object::string_literal("ignored"),Object::Null]},
+        );
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"Names"=>dictionary!{"EmbeddedFiles"=>tree}},
+        );
+        assert!(extract_form_attachment_signals(&document, &[], false, true)
+            .attachments
+            .is_none());
+    }
+
+    #[test]
+    fn indirect_name_tree_arrays_work_duplicate_kids_fail_and_invalid_uf_does_not_fallback() {
+        let (mut document, pages) = base_document();
+        let stream = document.add_object(Stream::new(dictionary! {}, b"xy".to_vec()));
+        let spec=document.add_object(dictionary!{"UF"=>7,"F"=>Object::string_literal("fallback.txt"),"EF"=>dictionary!{"F"=>stream}});
+        let names_array = document.add_object(vec![Object::string_literal("key"), spec.into()]);
+        let child = document.add_object(dictionary! {"Names"=>names_array});
+        let kids_array = document.add_object(vec![child.into()]);
+        let tree = document.add_object(dictionary! {"Kids"=>kids_array});
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"Names"=>dictionary!{"EmbeddedFiles"=>tree}},
+        );
+        let output = extract_form_attachment_signals(&document, &[], false, true);
+        assert_eq!(
+            serde_json::to_value(output.attachments).unwrap(),
+            serde_json::json!([{"name":"key","filename":"unnamed","size_bytes":2}])
+        );
+
+        let (mut document, pages) = base_document();
+        let child = document.add_object(dictionary! {});
+        let tree = document.add_object(dictionary! {"Kids"=>vec![child.into(),child.into()]});
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"Names"=>dictionary!{"EmbeddedFiles"=>tree}},
+        );
+        assert!(extract_form_attachment_signals(&document, &[], false, true)
+            .attachments
+            .is_none());
     }
 }

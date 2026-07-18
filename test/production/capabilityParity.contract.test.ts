@@ -36,8 +36,6 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   trust: ['trust_report'],
   a11y: ['accessibility_report'],
   'page-geometry': ['page_geometry'],
-  forms: ['form_fields'],
-  attachments: ['attachments'],
   structure: ['structure_trees'],
   images: ['images'],
   visual: ['visual_enrichments'],
@@ -197,6 +195,103 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       results?: Array<{ data?: { annotations?: unknown } }>;
     };
     expect(omitted.results?.[0]?.data?.annotations).toBeUndefined();
+  }, 180_000);
+
+  test('forms and attachments match separate immutable fixtures and omit placeholders', async () => {
+    const formsResponse = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      { sources: [{ path: signalPdf }], auto: false, include_form_fields: true },
+      90_000
+    );
+    const formsData = (
+      JSON.parse(parseToolPayload(formsResponse).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(formsData?.form_fields).toEqual([
+      {
+        name: 'customer_name',
+        type: 'text',
+        value: 'Ada Lovelace',
+        default_value: '',
+        page: 1,
+        id: '22R',
+        editable: true,
+        bounding_box: { left: 72, bottom: 635, right: 260, top: 660 },
+      },
+      { name: 'profile', id: '24R' },
+      {
+        name: 'profile',
+        type: 'text',
+        value: 'Grace Hopper',
+        default_value: 'Unknown',
+        page: 2,
+        id: '25R',
+        editable: false,
+        bounding_box: { left: 72, bottom: 500, right: 260, top: 525 },
+      },
+      {
+        name: 'consent',
+        type: 'checkbox',
+        value: 'Yes',
+        default_value: null,
+        page: 2,
+        id: '26R',
+        editable: true,
+        bounding_box: { left: 72, bottom: 450, right: 90, top: 468 },
+      },
+      {
+        name: 'tier',
+        type: 'listbox',
+        value: 'gold',
+        default_value: 'silver',
+        page: 3,
+        id: '27R',
+        editable: true,
+        bounding_box: { left: 72, bottom: 400, right: 200, top: 425 },
+      },
+    ]);
+    expect(formsData?.attachments).toBeUndefined();
+
+    const attachmentsResponse = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      { sources: [{ path: signalPdf }], auto: false, include_attachments: true },
+      90_000
+    );
+    const attachmentsData = (
+      JSON.parse(parseToolPayload(attachmentsResponse).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(attachmentsData?.attachments).toEqual([
+      { name: 'source.csv', filename: 'source.csv', description: 'Source data', size_bytes: 19 },
+      { name: 'evidence', filename: 'report.txt', size_bytes: 5 },
+    ]);
+    expect(attachmentsData?.form_fields).toBeUndefined();
+
+    const emptyResponse = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: samplePdf }],
+        auto: false,
+        include_form_fields: true,
+        include_attachments: true,
+      },
+      90_000
+    );
+    const emptyData = (
+      JSON.parse(parseToolPayload(emptyResponse).text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+    expect(emptyData?.form_fields).toBeUndefined();
+    expect(emptyData?.attachments).toBeUndefined();
   }, 180_000);
 
   test('catalog signals match the immutable v3.0.14 subset and omit unavailable values', async () => {
