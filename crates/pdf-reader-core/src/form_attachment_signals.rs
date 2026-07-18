@@ -130,7 +130,7 @@ impl<'a> Walker<'a> {
                 self.failed = true;
                 return None;
             }
-            let Ok(next) = self.document.get_object(id) else {
+            let Some(next) = self.document.objects.get(&id) else {
                 self.failed = true;
                 return None;
             };
@@ -142,6 +142,54 @@ impl<'a> Walker<'a> {
 
     fn dict(&mut self, value: &Object) -> Option<Dictionary> {
         self.resolve(value)?.as_dict().ok().cloned()
+    }
+
+    fn array_bounded(&mut self, value: &Object, max_len: usize) -> Option<Vec<Object>> {
+        let mut reference = value.as_reference().ok();
+        let direct = if reference.is_none() {
+            Some(value)
+        } else {
+            None
+        };
+        let mut seen = HashSet::new();
+        let final_value = if let Some(value) = direct {
+            value
+        } else {
+            let mut resolved = None;
+            for _ in 0..MAX_DEPTH {
+                self.work += 1;
+                if self.work > MAX_OBJECTS {
+                    self.limited = true;
+                    return None;
+                }
+                let id = reference?;
+                if !seen.insert(id) {
+                    self.failed = true;
+                    return None;
+                }
+                let Some(value) = self.document.objects.get(&id) else {
+                    self.failed = true;
+                    return None;
+                };
+                if let Ok(next) = value.as_reference() {
+                    reference = Some(next);
+                } else {
+                    resolved = Some(value);
+                    break;
+                }
+            }
+            let Some(value) = resolved else {
+                self.limited = true;
+                return None;
+            };
+            value
+        };
+        let values = final_value.as_array().ok()?;
+        if values.len() > max_len {
+            self.limited = true;
+            return None;
+        }
+        Some(values.clone())
     }
 
     fn text(&mut self, value: &Object) -> Option<String> {
@@ -173,8 +221,9 @@ fn extract_forms(
     pages: &[(u32, ObjectId)],
 ) -> Option<Vec<FormField>> {
     let acroform = walker.dict(catalog.get(b"AcroForm").ok()?)?;
-    let fields = walker.resolve(acroform.get(b"Fields").ok()?)?;
-    let fields = fields.as_array().ok()?.clone();
+    let mut raw_node_budget = MAX_ENTRIES;
+    let fields = walker.array_bounded(acroform.get(b"Fields").ok()?, raw_node_budget)?;
+    raw_node_budget -= fields.len();
     let page_by_id = pages
         .iter()
         .map(|(page, id)| (*id, *page))
@@ -212,6 +261,7 @@ fn extract_forms(
             &annotation_pages,
             &mut visited,
             &mut output,
+            &mut raw_node_budget,
         );
         if walker.failed || walker.limited {
             return None;
@@ -231,6 +281,7 @@ fn walk_field(
     annotation_pages: &HashMap<ObjectId, u32>,
     visited: &mut HashSet<ObjectId>,
     output: &mut Vec<FormField>,
+    raw_node_budget: &mut usize,
 ) {
     if depth >= MAX_DEPTH || output.len() >= MAX_ENTRIES {
         walker.limited = true;
@@ -287,8 +338,10 @@ fn walk_field(
     let kids = dict
         .get(b"Kids")
         .ok()
-        .and_then(|value| walker.resolve(value))
-        .and_then(|value| value.as_array().ok().cloned());
+        .and_then(|value| walker.array_bounded(value, *raw_node_budget));
+    if let Some(kids) = kids.as_ref() {
+        *raw_node_budget -= kids.len();
+    }
     let public_name = name.trim().to_string();
     if !public_name.is_empty() {
         if kids.is_some() {
@@ -326,6 +379,7 @@ fn walk_field(
                 annotation_pages,
                 visited,
                 output,
+                raw_node_budget,
             );
         }
     }
@@ -486,6 +540,8 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
     let names = walker.dict(catalog.get(b"Names").ok()?)?;
     let root = names.get(b"EmbeddedFiles").ok()?.clone();
     let mut queue = VecDeque::from([(root, 0usize)]);
+    let mut tree_node_budget = MAX_ENTRIES.saturating_sub(1);
+    let mut pair_budget = MAX_ENTRIES;
     let mut visited = HashSet::new();
     let mut pairs = Vec::new();
     while let Some((node, depth)) = queue.pop_front() {
@@ -501,7 +557,8 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
         }
         let dict = walker.dict(&node)?;
         if let Ok(kids_value) = dict.get(b"Kids") {
-            if let Some(Object::Array(kids)) = walker.resolve(kids_value) {
+            if let Some(kids) = walker.array_bounded(kids_value, tree_node_budget) {
+                tree_node_budget -= kids.len();
                 for kid in kids {
                     queue.push_back((kid, depth + 1));
                 }
@@ -511,13 +568,18 @@ fn extract_attachments(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<
         let names = dict
             .get(b"Names")
             .ok()
-            .and_then(|value| walker.resolve(value))
-            .and_then(|value| value.as_array().ok().cloned());
+            .and_then(|value| walker.array_bounded(value, pair_budget.saturating_mul(2)));
         if let Some(names) = names {
             if names.len() % 2 != 0 {
                 walker.failed = true;
                 return None;
             }
+            let pair_count = names.len() / 2;
+            if pair_count > pair_budget {
+                walker.limited = true;
+                return None;
+            }
+            pair_budget -= pair_count;
             for pair in names.chunks_exact(2) {
                 pairs.push((pair[0].clone(), pair[1].clone()));
             }
@@ -815,5 +877,98 @@ mod tests {
         let mut walker = Walker::new(&document);
         let spec = dictionary! {"UF"=>Object::string_literal(r"folder/")};
         assert_eq!(filename(&mut walker, &spec), Some("unnamed".into()));
+    }
+
+    fn valid_attachment_tree(document: &mut Document) -> ObjectId {
+        let stream = document.add_object(Stream::new(dictionary! {}, b"x".to_vec()));
+        let spec = document.add_object(
+            dictionary! {"F"=>Object::string_literal("ok.txt"),"EF"=>dictionary!{"F"=>stream}},
+        );
+        document.add_object(dictionary! {"Names"=>vec![Object::string_literal("ok"),spec.into()]})
+    }
+
+    fn valid_form(document: &mut Document) -> ObjectId {
+        document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("ok")
+        })
+    }
+
+    #[test]
+    fn root_fields_and_form_kids_have_global_raw_admission_budgets() {
+        for oversized_kids in [false, true] {
+            let (mut document, pages) = base_document();
+            let attachment_tree = valid_attachment_tree(&mut document);
+            let fields = if oversized_kids {
+                let parent = document.add_object(dictionary! {
+                    "T"=>Object::string_literal("parent"),
+                    "Kids"=>vec![Object::Null;MAX_ENTRIES+1]
+                });
+                vec![parent.into()]
+            } else {
+                vec![Object::Null; MAX_ENTRIES + 1]
+            };
+            finish_catalog(
+                &mut document,
+                pages,
+                dictionary! {
+                    "AcroForm"=>dictionary!{"Fields"=>fields},
+                    "Names"=>dictionary!{"EmbeddedFiles"=>attachment_tree}
+                },
+            );
+            let output = extract_form_attachment_signals(&document, &[], true, true);
+            assert!(output.form_fields.is_none());
+            assert!(output.attachments.is_some());
+            assert!(output
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("include_form_fields")));
+        }
+    }
+
+    #[test]
+    fn name_tree_kids_and_pairs_have_global_admission_budgets() {
+        for oversized_pairs in [false, true] {
+            let (mut document, pages) = base_document();
+            let form = valid_form(&mut document);
+            let tree = if oversized_pairs {
+                document.add_object(dictionary! {
+                    "Names"=>vec![Object::Null; (MAX_ENTRIES+1)*2]
+                })
+            } else {
+                document.add_object(dictionary! {
+                    "Kids"=>vec![Object::Null;MAX_ENTRIES+1]
+                })
+            };
+            finish_catalog(
+                &mut document,
+                pages,
+                dictionary! {
+                    "AcroForm"=>dictionary!{"Fields"=>vec![form.into()]},
+                    "Names"=>dictionary!{"EmbeddedFiles"=>tree}
+                },
+            );
+            let output = extract_form_attachment_signals(&document, &[], true, true);
+            assert!(output.form_fields.is_some());
+            assert!(output.attachments.is_none());
+            assert!(output
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("include_attachments")));
+        }
+    }
+
+    #[test]
+    fn bounded_array_resolution_rejects_reference_depth_overflow() {
+        let mut document = Document::with_version("1.7");
+        let mut id = document.add_object(Vec::<Object>::new());
+        for _ in 0..=MAX_DEPTH {
+            id = document.add_object(Object::Reference(id));
+        }
+        let mut walker = Walker::new(&document);
+        assert!(walker
+            .array_bounded(&Object::Reference(id), MAX_ENTRIES)
+            .is_none());
+        assert!(walker.limited);
+        assert!(!walker.failed);
     }
 }
