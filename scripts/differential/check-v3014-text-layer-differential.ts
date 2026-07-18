@@ -235,10 +235,16 @@ if (JSON.stringify(canonicalJson(mutationProbe as Json)) === JSON.stringify(cano
   throw new Error('geometry mutation probe was not rejected by canonical comparison');
 }
 
+const candidateSha = git('rev-parse', 'HEAD').toString().trim();
+if (process.env.CANDIDATE_SHA && process.env.CANDIDATE_SHA !== candidateSha) {
+  throw new Error(
+    `candidate SHA assertion mismatch: expected ${process.env.CANDIDATE_SHA}, executed ${candidateSha}`
+  );
+}
 const report = {
   schemaVersion: 1,
   profile: 'pdf_reader_v3014_text_layer_result',
-  candidateSha: process.env.CANDIDATE_SHA ?? git('rev-parse', 'HEAD').toString().trim(),
+  candidateSha,
   ...authority,
   caseCount: corpus.cases.length,
   passed: corpus.cases.length - failures.length,

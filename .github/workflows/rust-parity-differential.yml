@@ -140,6 +140,20 @@ jobs:
             echo "::error::v3.0.14 behavior result is incomplete, failing, or not SHA-bound"
             exit 1
           }
+          TEXT_LAYER_ARTIFACT="${SCRATCH_DIR}/v3014-text-layer-result.json"
+          if [ ! -f "$TEXT_LAYER_ARTIFACT" ]; then
+            echo "::error::v3.0.14 text-layer result missing at $TEXT_LAYER_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_text_layer_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 1 and .passed == 1 and .skipped == 0 and
+            .geometryMutationSensitive == true
+          ' "$TEXT_LAYER_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 text-layer result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
@@ -171,6 +185,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/oracle.json
             ${{ env.SCRATCH_DIR }}/ts-vs-rust-text.json
             ${{ env.SCRATCH_DIR }}/v3014-behavior-result.json
+            ${{ env.SCRATCH_DIR }}/v3014-text-layer-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-result.json
           if-no-files-found: error
 
