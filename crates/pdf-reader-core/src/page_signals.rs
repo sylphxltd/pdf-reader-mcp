@@ -13,11 +13,33 @@ const MAX_SIGNAL_TEXT_BYTES: usize = 2 * 1024 * 1024;
 struct SignalTextBudget {
     remaining: usize,
     truncated: bool,
+    #[cfg(test)]
+    decode_attempts: usize,
 }
 
 impl SignalTextBudget {
+    fn new() -> Self {
+        Self {
+            remaining: MAX_SIGNAL_TEXT_BYTES,
+            truncated: false,
+            #[cfg(test)]
+            decode_attempts: 0,
+        }
+    }
+
+    fn admit_raw(&mut self, bytes: usize) -> bool {
+        if self.remaining == 0 || bytes > self.remaining {
+            self.remaining = 0;
+            self.truncated = true;
+            false
+        } else {
+            true
+        }
+    }
+
     fn consume(&mut self, bytes: usize) -> bool {
         if bytes > self.remaining {
+            self.remaining = 0;
             self.truncated = true;
             false
         } else {
@@ -48,10 +70,7 @@ pub(crate) fn extract_page_signals(
     let mut signals = PageSignals::default();
     let selected: HashSet<u32> = selected_pages.iter().copied().collect();
     let mut annotation_work = 0usize;
-    let mut text_budget = SignalTextBudget {
-        remaining: MAX_SIGNAL_TEXT_BYTES,
-        truncated: false,
-    };
+    let mut text_budget = SignalTextBudget::new();
     for (page, page_id) in pages {
         if !selected.contains(page) {
             continue;
@@ -350,6 +369,9 @@ fn bounded_name(value: &Object, budget: &mut SignalTextBudget) -> Option<String>
         budget.reject_oversized();
         return None;
     }
+    if !budget.admit_raw(bytes.len()) {
+        return None;
+    }
     let decoded = String::from_utf8_lossy(bytes).into_owned();
     if !budget.consume(decoded.len()) {
         return None;
@@ -368,6 +390,13 @@ fn decoded_string(
             budget.reject_oversized();
             return None;
         }
+        if !budget.admit_raw(bytes.len()) {
+            return None;
+        }
+    }
+    #[cfg(test)]
+    {
+        budget.decode_attempts += 1;
     }
     let decoded = decode_text_string(value).ok()?;
     if decoded.len() > MAX_STRING_BYTES {
@@ -557,5 +586,21 @@ mod tests {
         assert_eq!(signals.warnings, vec![format!(
             "include_annotations: annotation strings exceeded the {MAX_STRING_BYTES}-byte field or {MAX_SIGNAL_TEXT_BYTES}-byte source text limit."
         )]);
+    }
+
+    #[test]
+    fn aggregate_text_exhaustion_stops_later_decode_attempts() {
+        let document = Document::with_version("1.7");
+        let chunk = Object::string_literal("x".repeat(MAX_STRING_BYTES));
+        let sentinel = Object::string_literal("must-not-decode");
+        let mut budget = SignalTextBudget::new();
+        for _ in 0..(MAX_SIGNAL_TEXT_BYTES / MAX_STRING_BYTES) {
+            assert!(decoded_string(&document, &chunk, &mut budget).is_some());
+        }
+        assert_eq!(budget.remaining, 0);
+        assert_eq!(budget.decode_attempts, 32);
+        assert!(decoded_string(&document, &sentinel, &mut budget).is_none());
+        assert_eq!(budget.decode_attempts, 32);
+        assert!(budget.truncated);
     }
 }
