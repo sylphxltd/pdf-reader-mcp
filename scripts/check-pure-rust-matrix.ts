@@ -78,9 +78,9 @@ const structureCaseCount = structureCorpus.cases.length + 1;
 if (!differentialWorkflow.includes('bun run test:v3014-structure-differential')) {
   failures.push('rust parity workflow must execute the frozen structure differential');
 }
-if (structureCaseCount !== 6) {
+if (structureCaseCount !== 11) {
   failures.push(
-    `frozen structure/inspect differential must contain exactly 6 cases (got ${structureCaseCount})`
+    `frozen structure/inspect differential must contain exactly 11 cases (got ${structureCaseCount})`
   );
 }
 if (failures.length) {

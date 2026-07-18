@@ -755,6 +755,7 @@ pub fn extract_regions(value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::page_selection::MAX_SELECTED_PAGES;
     use crate::schema::PageSpecifier;
 
     fn fixture_path() -> String {
@@ -775,6 +776,18 @@ mod tests {
         assert_eq!(
             selected_pages(&Some(PageSpecifier::Range("2-4".into()))).unwrap(),
             Some(vec![2, 3, 4])
+        );
+        for open in ["1--5", "1-   "] {
+            let pages = selected_pages(&Some(PageSpecifier::Range(open.into())))
+                .unwrap()
+                .unwrap();
+            assert_eq!(pages.len(), MAX_SELECTED_PAGES);
+            assert_eq!(pages.first(), Some(&1));
+            assert_eq!(pages.last(), Some(&10_001));
+        }
+        assert_eq!(
+            selected_pages(&Some(PageSpecifier::Range("1-2-999".into()))).unwrap(),
+            Some(vec![1, 2])
         );
     }
 

@@ -50,12 +50,15 @@ fn parse_range(value: &str) -> Result<Vec<u32>, String> {
 }
 
 fn parse_part(part: &str) -> Result<(u32, u32, usize), String> {
-    if let Some((start, end)) = part.split_once('-') {
-        let start = parse_ts_positive_page(start);
-        let end = if end.trim().is_empty() {
+    if part.contains('-') {
+        let mut segments = part.split('-');
+        let start_text = segments.next().unwrap_or_default();
+        let end_text = segments.next().unwrap_or_default();
+        let start = parse_ts_positive_page(start_text);
+        let end = if end_text.is_empty() {
             start.map(|page| page.saturating_add(MAX_RANGE_DELTA))
         } else {
-            parse_ts_positive_page(end)
+            parse_ts_positive_page(end_text)
         };
         let (Some(start), Some(end)) = (start, end) else {
             return Err(format!("Invalid page range values: {part}"));
@@ -127,9 +130,27 @@ mod tests {
 
     #[test]
     fn rejects_empty_invalid_descending_and_overflow() {
-        for value in ["", "0", "abc", "-5", "5-3", "4294967296"] {
+        for value in ["", "0", "abc", "-5", "5-3", "1-   x", "4294967296"] {
             assert!(selected_pages(&Some(PageSpecifier::Range(value.into()))).is_err());
         }
         assert!(selected_pages(&Some(PageSpecifier::Pages(Vec::new()))).is_err());
+    }
+
+    #[test]
+    fn uses_only_the_exact_second_hyphen_segment_like_ts_parse_range_part() {
+        let open = selected_pages(&Some(PageSpecifier::Range("1--5".into())))
+            .unwrap()
+            .unwrap();
+        assert_eq!(open.len(), MAX_SELECTED_PAGES);
+        assert_eq!(open.first(), Some(&1));
+        assert_eq!(open.last(), Some(&10_001));
+        assert_eq!(
+            selected_pages(&Some(PageSpecifier::Range("1-   ".into()))).unwrap(),
+            Some((1..=10_001).collect())
+        );
+        assert_eq!(
+            selected_pages(&Some(PageSpecifier::Range("1-2-999".into()))).unwrap(),
+            Some(vec![1, 2])
+        );
     }
 }

@@ -31,6 +31,19 @@ describe('parser', () => {
       consoleWarnSpy.mockRestore();
     });
 
+    it('uses only the trimmed second hyphen segment for v3.0.14 compatibility', () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      for (const open of ['1--5', '1-   ']) {
+        const result = parsePageRanges(open);
+        expect(result).toHaveLength(10_001);
+        expect(result[0]).toBe(1);
+        expect(result.at(-1)).toBe(10_001);
+      }
+      expect(parsePageRanges('1-2-999')).toEqual([1, 2]);
+      expect(() => parsePageRanges('1-   x')).toThrow('Invalid page range values');
+      consoleWarnSpy.mockRestore();
+    });
+
     it('should deduplicate and sort pages', () => {
       expect(parsePageRanges('3,1,2,1,3')).toEqual([1, 2, 3]);
     });

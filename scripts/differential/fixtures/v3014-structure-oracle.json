@@ -108,6 +108,158 @@
       },
       "accessibility_map": null
     },
+    "manual-scalar-combined-k": {
+      "num_pages": 2,
+      "structure_trees": [
+        {
+          "page": 1,
+          "tree": {
+            "role": "Root"
+          }
+        },
+        {
+          "page": 2,
+          "tree": {
+            "role": "Root"
+          }
+        }
+      ],
+      "accessibility_report": null,
+      "private_surface_absence": {
+        "annotations": true,
+        "form_fields": true,
+        "permissions": true,
+        "mark_info": true,
+        "outline": true
+      },
+      "accessibility_map": null
+    },
+    "manual-scalar-root-k": {
+      "num_pages": 2,
+      "structure_trees": [
+        {
+          "page": 1,
+          "tree": {
+            "role": "Root",
+            "children": [
+              {
+                "role": "H1",
+                "children": [
+                  {
+                    "type": "content",
+                    "id": "p3R_mc0"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "page": 2,
+          "tree": {
+            "role": "Root"
+          }
+        }
+      ],
+      "accessibility_report": null,
+      "private_surface_absence": {
+        "annotations": true,
+        "form_fields": true,
+        "permissions": true,
+        "mark_info": true,
+        "outline": true
+      },
+      "accessibility_map": null
+    },
+    "manual-scalar-direct-k": {
+      "num_pages": 2,
+      "structure_trees": [
+        {
+          "page": 1,
+          "tree": {
+            "role": "Root"
+          }
+        },
+        {
+          "page": 2,
+          "tree": {
+            "role": "Root"
+          }
+        }
+      ],
+      "accessibility_report": null,
+      "private_surface_absence": {
+        "annotations": true,
+        "form_fields": true,
+        "permissions": true,
+        "mark_info": true,
+        "outline": true
+      },
+      "accessibility_map": null
+    },
+    "manual-scalar-node-k": {
+      "num_pages": 2,
+      "structure_trees": [
+        {
+          "page": 1,
+          "tree": {
+            "role": "Root",
+            "children": [
+              {
+                "role": "H1",
+                "children": [
+                  {
+                    "type": "content",
+                    "id": "p3R_mc0"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "page": 2,
+          "tree": {
+            "role": "Root"
+          }
+        }
+      ],
+      "accessibility_report": null,
+      "private_surface_absence": {
+        "annotations": true,
+        "form_fields": true,
+        "permissions": true,
+        "mark_info": true,
+        "outline": true
+      },
+      "accessibility_map": null
+    },
+    "manual-scalar-parent-tree": {
+      "num_pages": 2,
+      "structure_trees": [
+        {
+          "page": 1,
+          "tree": {
+            "role": "Root"
+          }
+        },
+        {
+          "page": 2,
+          "tree": {
+            "role": "Root"
+          }
+        }
+      ],
+      "accessibility_report": null,
+      "private_surface_absence": {
+        "annotations": true,
+        "form_fields": true,
+        "permissions": true,
+        "mark_info": true,
+        "outline": true
+      },
+      "accessibility_map": null
+    },
     "accessibility-private": {
       "num_pages": 2,
       "structure_trees": null,

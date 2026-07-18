@@ -195,10 +195,7 @@ pub(crate) fn build_accessibility_report(input: AccessibilityInput<'_>) -> Value
                 .get("name")
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            let generated = name.to_ascii_lowercase().starts_with("unnamed")
-                || name
-                    .strip_prefix("field")
-                    .is_some_and(|rest| rest.chars().all(|character| character.is_ascii_digit()));
+            let generated = is_generated_field_name(name);
             if name.is_empty() || generated {
                 issues.push(issue(
                     "form_field_label",
@@ -301,6 +298,14 @@ pub(crate) fn build_accessibility_report(input: AccessibilityInput<'_>) -> Value
         },
         "page_reports":page_reports,"issues":issues,"guidance":guidance(&issues),
     })
+}
+
+fn is_generated_field_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("unnamed")
+        || lower.strip_prefix("field").is_some_and(|rest| {
+            !rest.is_empty() && rest.chars().all(|character| character.is_ascii_digit())
+        })
 }
 
 fn count_roles(node: &Value) -> RoleStats {
@@ -503,4 +508,19 @@ fn guidance(issues: &[Value]) -> Vec<&'static str> {
         g.push("Check document permissions before depending on copy-based accessibility workflows.")
     }
     g
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_generated_field_name;
+
+    #[test]
+    fn generated_field_names_match_the_case_insensitive_ts_regex() {
+        for generated in ["unnamed", "Unnamed widget", "field1", "Field123", "FIELD0"] {
+            assert!(is_generated_field_name(generated), "{generated}");
+        }
+        for useful in ["field", "Field12x", "xfield12", "name", ""] {
+            assert!(!is_generated_field_name(useful), "{useful}");
+        }
+    }
 }

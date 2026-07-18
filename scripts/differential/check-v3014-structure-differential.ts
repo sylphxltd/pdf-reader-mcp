@@ -63,8 +63,8 @@ if (
   manifest.generatorSha256
 )
   throw new Error("generator mismatch");
-if (corpus.cases.length !== 5)
-  throw new Error("structure corpus must contain 5 cases");
+if (corpus.cases.length !== 10)
+  throw new Error("structure corpus must contain 10 cases");
 const packageJson = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8")
 );

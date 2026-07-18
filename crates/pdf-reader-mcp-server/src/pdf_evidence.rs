@@ -309,18 +309,21 @@ mod tests {
 
     #[test]
     fn inspect_samples_a_compact_max_u32_range_without_expanding_it_unboundedly() {
-        let result = pdf_evidence(json!({
-            "operation":"inspect",
-            "sources":[{"path":structure_fixture(),"pages":"1-4294967295"}],
-            "sample_pages":20
-        }))
-        .unwrap();
-        let payload = result.structured_content.unwrap();
-        assert_eq!(payload["results"][0]["success"], true);
-        assert_eq!(
-            payload["results"][0]["data"]["sampled_pages"],
-            json!([1, 2])
-        );
+        for range in ["1-4294967295", "1--5", "1-   "] {
+            let result = pdf_evidence(json!({
+                "operation":"inspect",
+                "sources":[{"path":structure_fixture(),"pages":range}],
+                "sample_pages":20
+            }))
+            .unwrap();
+            let payload = result.structured_content.unwrap();
+            assert_eq!(payload["results"][0]["success"], true, "{range}");
+            assert_eq!(
+                payload["results"][0]["data"]["sampled_pages"],
+                json!([1, 2]),
+                "{range}"
+            );
+        }
     }
 
     #[test]

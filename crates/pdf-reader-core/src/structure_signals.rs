@@ -94,7 +94,7 @@ pub(crate) fn extract_structure_trees_checked(
     let Some(top_level) = struct_root
         .get(b"K")
         .ok()
-        .map(|value| object_list(&mut setup, value))
+        .map(|value| object_list_preserving_scalar_ref(&mut setup, value))
         .transpose()
         .ok()
         .flatten()
@@ -207,9 +207,14 @@ fn extract_page_tree<'a>(
         .enumerate()
         .map(|(index, id)| (id, index))
         .collect::<HashMap<_, _>>();
+    let direct_only_top_level = top_positions.is_empty()
+        && !top_level.is_empty()
+        && top_level.iter().all(|value| value.as_dict().is_ok());
     let mut included = HashSet::new();
-    for id in mapped {
-        admit_ancestry(walker, id, struct_root, &top_positions, &mut included)?;
+    if !direct_only_top_level {
+        for id in mapped {
+            admit_ancestry(walker, id, struct_root, &top_positions, &mut included)?;
+        }
     }
     let mut roots = included
         .iter()
@@ -294,7 +299,7 @@ fn parent_contains<'a>(
     parent
         .get(b"K")
         .ok()
-        .and_then(|value| object_list(walker, value).ok())
+        .and_then(|value| object_list_preserving_scalar_ref(walker, value).ok())
         .is_some_and(|kids| {
             kids.into_iter()
                 .any(|kid| kid.as_reference().ok() == Some(child))
@@ -340,7 +345,7 @@ fn serialize_node(
     let kids = dict
         .get(b"K")
         .ok()
-        .map(|value| object_list(walker, value))
+        .map(|value| object_list_preserving_scalar_ref(walker, value))
         .transpose()
         .ok()
         .flatten()
@@ -575,8 +580,23 @@ fn read_number_tree<'a>(
 }
 
 fn object_list<'a>(walker: &mut Walker<'a, '_>, value: &'a Object) -> Result<Vec<&'a Object>, ()> {
-    let value = walker.resolve(value).ok_or(())?;
-    if let Ok(values) = value.as_array() {
+    object_list_with_identity(walker, value, false)
+}
+
+fn object_list_preserving_scalar_ref<'a>(
+    walker: &mut Walker<'a, '_>,
+    value: &'a Object,
+) -> Result<Vec<&'a Object>, ()> {
+    object_list_with_identity(walker, value, true)
+}
+
+fn object_list_with_identity<'a>(
+    walker: &mut Walker<'a, '_>,
+    value: &'a Object,
+    preserve_scalar_ref: bool,
+) -> Result<Vec<&'a Object>, ()> {
+    let resolved = walker.resolve(value).ok_or(())?;
+    if let Ok(values) = resolved.as_array() {
         if values.len() > MAX_ARRAY_ITEMS || walker.admit_items(values.len()).is_none() {
             walker.limited = true;
             return Err(());
@@ -584,11 +604,21 @@ fn object_list<'a>(walker: &mut Walker<'a, '_>, value: &'a Object) -> Result<Vec
         let output = values.iter().collect::<Vec<_>>();
         walker.materialized(output.len());
         Ok(output)
-    } else if matches!(value, Object::Null) {
+    } else if matches!(resolved, Object::Null) {
         Ok(Vec::new())
     } else {
         walker.admit_items(1).ok_or(())?;
-        let output = vec![value];
+        // PDF.js structure /K traversal retains scalar Ref identity even though
+        // it fetches the target. Other array-like surfaces (notably a scalar
+        // ParentTree value) expose the fetched value instead. Keep that
+        // distinction explicit: a generic resolver silently changes semantics.
+        let output = vec![
+            if preserve_scalar_ref && matches!(value, Object::Reference(_)) {
+                value
+            } else {
+                resolved
+            },
+        ];
         walker.materialized(1);
         Ok(output)
     }
@@ -852,6 +882,136 @@ mod tests {
                     {"role":"H1","children":[{"type":"content","id":format!("p{}_mc0",format_id(pages[0].1))}]},
                     {"role":"Figure","children":[{"type":"annotation","id":format!("pdfjs_internal_id_{}",format_id(annotation))}]}
                 ]}},
+                {"page":2,"tree":{"role":"Root"}}
+            ])
+        );
+    }
+
+    #[test]
+    fn scalar_k_references_preserve_structural_identity_and_content_resolution() {
+        let (mut document, pages, _) = tagged_document();
+        let catalog_id = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let struct_root = document.objects[&catalog_id]
+            .as_dict()
+            .unwrap()
+            .get(b"StructTreeRoot")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let root_kids = document.objects[&struct_root]
+            .as_dict()
+            .unwrap()
+            .get(b"K")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        let heading = root_kids[0].as_reference().unwrap();
+        let generated_heading = (heading.0, 7);
+        let heading_object = document.objects.remove(&heading).unwrap();
+        document.objects.insert(generated_heading, heading_object);
+        let parent_tree = document.objects[&struct_root]
+            .as_dict()
+            .unwrap()
+            .get(b"ParentTree")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let mcid = document.add_object(Object::Integer(0));
+        document
+            .objects
+            .get_mut(&generated_heading)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("K", mcid);
+        document
+            .objects
+            .get_mut(&struct_root)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("K", generated_heading);
+        document
+            .objects
+            .get_mut(&parent_tree)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set(
+                "Nums",
+                vec![
+                    Object::Integer(0),
+                    Object::Array(vec![Object::Reference(generated_heading)]),
+                ],
+            );
+
+        assert_eq!(
+            serde_json::to_value(extract_structure_trees(&document, &pages, &[1, 2])).unwrap(),
+            json!([
+                {"page":1,"tree":{"role":"Root","children":[
+                    {"role":"H1","children":[{"type":"content","id":format!("p{}_mc0",format_id(pages[0].1))}]}
+                ]}},
+                {"page":2,"tree":{"role":"Root"}}
+            ])
+        );
+
+        document
+            .objects
+            .get_mut(&parent_tree)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set(
+                "Nums",
+                vec![Object::Integer(0), Object::Reference(generated_heading)],
+            );
+        assert_eq!(
+            serde_json::to_value(extract_structure_trees(&document, &pages, &[1, 2])).unwrap(),
+            json!([
+                {"page":1,"tree":{"role":"Root"}},
+                {"page":2,"tree":{"role":"Root"}}
+            ])
+        );
+    }
+
+    #[test]
+    fn direct_top_level_k_keeps_empty_roots_without_admitting_indirect_parent_tree_nodes() {
+        let (mut document, pages, _) = tagged_document();
+        let catalog_id = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let struct_root = document.objects[&catalog_id]
+            .as_dict()
+            .unwrap()
+            .get(b"StructTreeRoot")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        document
+            .objects
+            .get_mut(&struct_root)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set(
+                "K",
+                Object::Dictionary(dictionary! {
+                    "Type"=>"StructElem","S"=>"H1","P"=>struct_root,"Pg"=>pages[0].1,"K"=>0
+                }),
+            );
+
+        assert_eq!(
+            serde_json::to_value(extract_structure_trees(&document, &pages, &[1, 2])).unwrap(),
+            json!([
+                {"page":1,"tree":{"role":"Root"}},
                 {"page":2,"tree":{"role":"Root"}}
             ])
         );

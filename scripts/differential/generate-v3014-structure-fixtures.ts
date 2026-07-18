@@ -11,12 +11,45 @@ const fixturePath = join(
   repoRoot,
   "test/fixtures/differential/v3014-structure-v1.pdf"
 );
+const scalarCombinedFixturePath = join(
+  repoRoot,
+  "test/fixtures/differential/v3014-structure-scalar-k-v1.pdf"
+);
+const scalarRootFixturePath = join(
+  repoRoot,
+  "test/fixtures/differential/v3014-structure-scalar-root-k-v1.pdf"
+);
+const scalarDirectFixturePath = join(
+  repoRoot,
+  "test/fixtures/differential/v3014-structure-scalar-direct-k-v1.pdf"
+);
+const scalarNodeFixturePath = join(
+  repoRoot,
+  "test/fixtures/differential/v3014-structure-scalar-node-k-v1.pdf"
+);
+const scalarParentTreeFixturePath = join(
+  repoRoot,
+  "test/fixtures/differential/v3014-structure-scalar-parent-tree-v1.pdf"
+);
 const manifestPath = join(scriptDir, "fixtures/v3014-structure-fixtures.json");
 const write = process.argv.includes("--write");
 const sha256 = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 
-function pdf(): Buffer {
+type Variant =
+  | "base"
+  | "scalar-combined"
+  | "scalar-root"
+  | "scalar-direct"
+  | "scalar-node"
+  | "scalar-parent-tree";
+
+function pdf(variant: Variant = "base"): Buffer {
+  const scalarCombined = variant === "scalar-combined";
+  const scalarRoot = variant === "scalar-root" || scalarCombined;
+  const scalarDirect = variant === "scalar-direct";
+  const scalarNode = variant === "scalar-node" || scalarCombined;
+  const scalarParentTree = variant === "scalar-parent-tree" || scalarCombined;
   const stream =
     "/P <</MCID 0>> BDC\nBT\n/F1 12 Tf\n72 720 Td\n(Tagged heading) Tj\nET\nEMC\n";
   const objects = new Map<number, string>([
@@ -49,19 +82,35 @@ function pdf(): Buffer {
     ],
     [
       10,
-      "<< /Type /StructTreeRoot /K [11 0 R 12 0 R] /ParentTree 13 0 R /RoleMap << /CustomHeading /H1 >> >>",
+      scalarDirect
+        ? "<< /Type /StructTreeRoot /K << /Type /StructElem /S /CustomHeading /P 10 0 R /Pg 3 0 R /K 0 >> /ParentTree 13 0 R /RoleMap << /CustomHeading /H1 >> >>"
+        : scalarRoot
+        ? "<< /Type /StructTreeRoot /K 11 0 R /ParentTree 13 0 R /RoleMap << /CustomHeading /H1 >> >>"
+        : `<< /Type /StructTreeRoot /K [11 0 R${
+            variant === "base" ? " 12 0 R" : ""
+          }] /ParentTree 13 0 R /RoleMap << /CustomHeading /H1 >> >>`,
     ],
     [
       11,
-      "<< /Type /StructElem /S /CustomHeading /P 10 0 R /Pg 3 0 R /K 0 /Alt (must not leak) /Lang (en-GB) >>",
+      `<< /Type /StructElem /S /CustomHeading /P 10 0 R /Pg 3 0 R /K ${
+        scalarNode ? "15 0 R" : "0"
+      } /Alt (must not leak) /Lang (en-GB) >>`,
     ],
     [
       12,
       "<< /Type /StructElem /S /Figure /P 10 0 R /Pg 3 0 R /K 14 0 R /Alt (figure secret) >>",
     ],
-    [13, "<< /Nums [0 [11 0 R 12 0 R] 1 12 0 R] >>"],
+    [
+      13,
+      scalarParentTree
+        ? "<< /Nums [0 11 0 R] >>"
+        : `<< /Nums [0 [11 0 R${variant === "base" ? " 12 0 R" : ""}]${
+            variant === "base" ? " 1 12 0 R" : ""
+          }] >>`,
+    ],
     [14, "<< /Type /OBJR /Pg 3 0 R /Obj 7 0 R >>"],
   ]);
+  if (scalarNode) objects.set(15, "0");
   const chunks: Buffer[] = [
     Buffer.from("%PDF-1.7\n%\xe2\xe3\xcf\xd3\n", "latin1"),
   ];
@@ -96,6 +145,11 @@ function pdf(): Buffer {
 }
 
 const bytes = pdf();
+const scalarCombinedBytes = pdf("scalar-combined");
+const scalarRootBytes = pdf("scalar-root");
+const scalarDirectBytes = pdf("scalar-direct");
+const scalarNodeBytes = pdf("scalar-node");
+const scalarParentTreeBytes = pdf("scalar-parent-tree");
 const manifest = {
   schemaVersion: 1,
   generator: relative(repoRoot, fileURLToPath(import.meta.url)),
@@ -106,6 +160,31 @@ const manifest = {
       bytes: bytes.length,
       sha256: sha256(bytes),
     },
+    {
+      path: relative(repoRoot, scalarCombinedFixturePath),
+      bytes: scalarCombinedBytes.length,
+      sha256: sha256(scalarCombinedBytes),
+    },
+    {
+      path: relative(repoRoot, scalarRootFixturePath),
+      bytes: scalarRootBytes.length,
+      sha256: sha256(scalarRootBytes),
+    },
+    {
+      path: relative(repoRoot, scalarDirectFixturePath),
+      bytes: scalarDirectBytes.length,
+      sha256: sha256(scalarDirectBytes),
+    },
+    {
+      path: relative(repoRoot, scalarNodeFixturePath),
+      bytes: scalarNodeBytes.length,
+      sha256: sha256(scalarNodeBytes),
+    },
+    {
+      path: relative(repoRoot, scalarParentTreeFixturePath),
+      bytes: scalarParentTreeBytes.length,
+      sha256: sha256(scalarParentTreeBytes),
+    },
   ],
 };
 const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
@@ -113,6 +192,11 @@ if (write) {
   mkdirSync(dirname(fixturePath), { recursive: true });
   mkdirSync(dirname(manifestPath), { recursive: true });
   writeFileSync(fixturePath, bytes);
+  writeFileSync(scalarCombinedFixturePath, scalarCombinedBytes);
+  writeFileSync(scalarRootFixturePath, scalarRootBytes);
+  writeFileSync(scalarDirectFixturePath, scalarDirectBytes);
+  writeFileSync(scalarNodeFixturePath, scalarNodeBytes);
+  writeFileSync(scalarParentTreeFixturePath, scalarParentTreeBytes);
   writeFileSync(manifestPath, manifestBytes);
   process.exit(0);
 }
@@ -124,4 +208,4 @@ if (
 ) {
   throw new Error("structure fixtures are stale; run with --write");
 }
-console.log("v3.0.14 structure fixtures: OK (1)");
+console.log("v3.0.14 structure fixtures: OK (6)");
