@@ -8,6 +8,7 @@ const MAX_PARENT_DEPTH: usize = 64;
 const MAX_ANNOTATIONS_PER_PAGE: usize = 1_000;
 const MAX_ANNOTATIONS_PER_SOURCE: usize = 10_000;
 const MAX_STRING_BYTES: usize = 64 * 1024;
+const MAX_SIGNAL_TEXT_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Default)]
 pub(crate) struct PageSignals {
@@ -25,7 +26,8 @@ pub(crate) fn extract_page_signals(
 ) -> PageSignals {
     let mut signals = PageSignals::default();
     let selected: HashSet<u32> = selected_pages.iter().copied().collect();
-    let mut annotation_count = 0usize;
+    let mut annotation_work = 0usize;
+    let mut text_budget = MAX_SIGNAL_TEXT_BYTES;
     for (page, page_id) in pages {
         if !selected.contains(page) {
             continue;
@@ -35,14 +37,15 @@ pub(crate) fn extract_page_signals(
                 signals.geometry.push(value);
             }
         }
-        if want_annotations && annotation_count < MAX_ANNOTATIONS_PER_SOURCE {
-            let (annotations, truncated) = page_annotations(
+        if want_annotations && annotation_work < MAX_ANNOTATIONS_PER_SOURCE {
+            let (annotations, truncated, inspected) = page_annotations(
                 document,
                 *page,
                 *page_id,
-                (MAX_ANNOTATIONS_PER_SOURCE - annotation_count).min(MAX_ANNOTATIONS_PER_PAGE),
+                (MAX_ANNOTATIONS_PER_SOURCE - annotation_work).min(MAX_ANNOTATIONS_PER_PAGE),
+                &mut text_budget,
             );
-            annotation_count += annotations.len();
+            annotation_work += inspected;
             if !annotations.is_empty() {
                 signals.annotations.push(json!({
                     "page": page,
@@ -56,30 +59,37 @@ pub(crate) fn extract_page_signals(
             }
         }
     }
-    if want_annotations && annotation_count >= MAX_ANNOTATIONS_PER_SOURCE {
+    if want_annotations && annotation_work >= MAX_ANNOTATIONS_PER_SOURCE {
         signals.warnings.push(format!(
-            "include_annotations: source exceeded the {MAX_ANNOTATIONS_PER_SOURCE} annotation limit."
+            "include_annotations: source reached the {MAX_ANNOTATIONS_PER_SOURCE} annotation work limit."
         ));
     }
     signals
 }
 
 fn page_geometry(document: &Document, page: u32, page_id: ObjectId) -> Option<Value> {
-    let media = inherited_array(document, page_id, b"MediaBox")?;
-    let media = box_values(document, media)?;
+    let media = inherited_array(document, page_id, b"MediaBox")
+        .and_then(|value| box_values(document, value))
+        .map(normalize_box)
+        .unwrap_or([0.0, 0.0, 612.0, 792.0]);
     let crop = inherited_array(document, page_id, b"CropBox")
         .and_then(|value| box_values(document, value))
         .and_then(|crop| intersect_boxes(media, crop))
         .unwrap_or(media);
-    let rotation = inherited_number(document, page_id, b"Rotate")
-        .unwrap_or(0.0)
-        .rem_euclid(360.0);
+    let raw_rotation = inherited_number(document, page_id, b"Rotate").unwrap_or(0.0);
+    let rotation = if raw_rotation.is_finite() && raw_rotation.rem_euclid(90.0) == 0.0 {
+        raw_rotation.rem_euclid(360.0)
+    } else {
+        0.0
+    };
     // PDF.js exposes page.userUnit from the page dictionary itself; unlike
     // MediaBox/CropBox/Rotate, a Pages-node UserUnit is not inherited there.
-    let user_unit = page_number(document, page_id, b"UserUnit").unwrap_or(1.0);
-    if !user_unit.is_finite() || user_unit <= 0.0 {
-        return None;
-    }
+    let raw_user_unit = page_number(document, page_id, b"UserUnit").unwrap_or(1.0);
+    let user_unit = if raw_user_unit.is_finite() && raw_user_unit > 0.0 {
+        raw_user_unit
+    } else {
+        1.0
+    };
     let base_width = (crop[2] - crop[0]).abs() * user_unit;
     let base_height = (crop[3] - crop[1]).abs() * user_unit;
     let quarter_turn =
@@ -109,23 +119,30 @@ fn page_annotations(
     page: u32,
     page_id: ObjectId,
     limit: usize,
-) -> (Vec<Value>, bool) {
+    text_budget: &mut usize,
+) -> (Vec<Value>, bool, usize) {
     let Some(annots) = inherited_array(document, page_id, b"Annots") else {
-        return (Vec::new(), false);
+        return (Vec::new(), false, 0);
     };
     let Ok(values) = resolve(document, annots).and_then(Object::as_array) else {
-        return (Vec::new(), false);
+        return (Vec::new(), false, 0);
     };
     let truncated = values.len() > limit;
+    let inspected = values.len().min(limit);
     let annotations = values
         .iter()
         .take(limit)
-        .filter_map(|value| normalize_annotation(document, page, value))
+        .filter_map(|value| normalize_annotation(document, page, value, text_budget))
         .collect();
-    (annotations, truncated)
+    (annotations, truncated, inspected)
 }
 
-fn normalize_annotation(document: &Document, page: u32, value: &Object) -> Option<Value> {
+fn normalize_annotation(
+    document: &Document,
+    page: u32,
+    value: &Object,
+    text_budget: &mut usize,
+) -> Option<Value> {
     let id = match value {
         Object::Reference((object, generation)) => Some(if *generation == 0 {
             format!("{object}R")
@@ -135,15 +152,15 @@ fn normalize_annotation(document: &Document, page: u32, value: &Object) -> Optio
         _ => None,
     };
     let dict = resolve(document, value).ok()?.as_dict().ok()?;
-    let subtype = name_value(dict.get(b"Subtype").ok()?);
+    let subtype = bounded_name(dict.get(b"Subtype").ok()?, text_budget);
     let contents = dict
         .get(b"Contents")
         .ok()
-        .and_then(|value| decoded_string(document, value));
+        .and_then(|value| decoded_string(document, value, text_budget));
     let title = dict
         .get(b"T")
         .ok()
-        .and_then(|value| decoded_string(document, value));
+        .and_then(|value| decoded_string(document, value, text_budget));
     let rect = dict
         .get(b"Rect")
         .ok()
@@ -151,15 +168,17 @@ fn normalize_annotation(document: &Document, page: u32, value: &Object) -> Optio
     let dest = dict
         .get(b"Dest")
         .ok()
-        .and_then(|value| destination(document, value));
+        .and_then(|value| destination(document, value, text_budget));
     let url = dict
         .get(b"A")
         .ok()
         .and_then(|value| resolve(document, value).ok())
         .and_then(|value| value.as_dict().ok())
-        .filter(|action| action.get(b"S").ok().and_then(name_value).as_deref() == Some("URI"))
+        .filter(|action| {
+            action.get(b"S").ok().and_then(|value| value.as_name().ok()) == Some(b"URI")
+        })
         .and_then(|action| action.get(b"URI").ok())
-        .and_then(|value| decoded_string(document, value));
+        .and_then(|value| decoded_string(document, value, text_budget));
 
     if id.is_none()
         && subtype.is_none()
@@ -268,18 +287,8 @@ fn number(value: &Object) -> Option<f64> {
 }
 
 fn intersect_boxes(a: [f64; 4], b: [f64; 4]) -> Option<[f64; 4]> {
-    let a = [
-        a[0].min(a[2]),
-        a[1].min(a[3]),
-        a[0].max(a[2]),
-        a[1].max(a[3]),
-    ];
-    let b = [
-        b[0].min(b[2]),
-        b[1].min(b[3]),
-        b[0].max(b[2]),
-        b[1].max(b[3]),
-    ];
+    let a = normalize_box(a);
+    let b = normalize_box(b);
     let value = [
         a[0].max(b[0]),
         a[1].max(b[1]),
@@ -289,31 +298,57 @@ fn intersect_boxes(a: [f64; 4], b: [f64; 4]) -> Option<[f64; 4]> {
     (value[0] < value[2] && value[1] < value[3]).then_some(value)
 }
 
-fn name_value(value: &Object) -> Option<String> {
-    value
-        .as_name()
-        .ok()
-        .map(|value| String::from_utf8_lossy(value).into_owned())
+fn normalize_box(value: [f64; 4]) -> [f64; 4] {
+    [
+        value[0].min(value[2]),
+        value[1].min(value[3]),
+        value[0].max(value[2]),
+        value[1].max(value[3]),
+    ]
 }
 
-fn decoded_string(document: &Document, value: &Object) -> Option<String> {
+fn bounded_name(value: &Object, budget: &mut usize) -> Option<String> {
+    let bytes = value.as_name().ok()?;
+    if bytes.len() > MAX_STRING_BYTES || bytes.len() > *budget {
+        return None;
+    }
+    let decoded = String::from_utf8_lossy(bytes).into_owned();
+    if decoded.len() > *budget {
+        return None;
+    }
+    *budget -= decoded.len();
+    Some(decoded)
+}
+
+fn decoded_string(document: &Document, value: &Object, budget: &mut usize) -> Option<String> {
     let value = resolve(document, value).ok()?;
+    if let Object::String(bytes, _) = value {
+        if bytes.len() > MAX_STRING_BYTES || bytes.len() > *budget {
+            return None;
+        }
+    }
     let decoded = decode_text_string(value).ok()?;
-    (decoded.len() <= MAX_STRING_BYTES).then_some(decoded)
+    if decoded.len() > MAX_STRING_BYTES || decoded.len() > *budget {
+        return None;
+    }
+    *budget -= decoded.len();
+    Some(decoded)
 }
 
-fn destination(document: &Document, value: &Object) -> Option<Value> {
+fn destination(document: &Document, value: &Object, budget: &mut usize) -> Option<Value> {
     let value = resolve(document, value).ok()?;
     match value {
-        Object::String(_, _) => decoded_string(document, value).map(Value::String),
-        Object::Name(value) => Some(Value::String(String::from_utf8_lossy(value).into_owned())),
+        Object::String(_, _) => decoded_string(document, value, budget).map(Value::String),
+        Object::Name(_) => bounded_name(value, budget).map(Value::String),
         Object::Array(values) if values.len() <= 8 => Some(Value::Array(
             values
                 .iter()
                 .filter_map(|value| match resolve(document, value).ok()? {
                     Object::Integer(value) => Some(json!(value)),
                     Object::Real(value) => Some(json!(value)),
-                    Object::Name(value) => Some(json!(String::from_utf8_lossy(value))),
+                    Object::Name(_) => {
+                        bounded_name(resolve(document, value).ok()?, budget).map(Value::String)
+                    }
                     Object::Null => Some(Value::Null),
                     Object::Reference((object, generation)) => Some(json!([object, generation])),
                     _ => None,
@@ -327,11 +362,39 @@ fn destination(document: &Document, value: &Object) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lopdf::{dictionary, Dictionary};
 
     fn fixture_document() -> Document {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../test/fixtures/differential/v3014-behavior-v1.pdf");
         Document::load(path).expect("load immutable signal fixture")
+    }
+
+    fn document_with_pages(page_dicts: Vec<Dictionary>) -> Document {
+        let mut document = Document::with_version("1.7");
+        let pages_id = document.new_object_id();
+        let page_ids = page_dicts
+            .into_iter()
+            .map(|mut page| {
+                page.set("Type", "Page");
+                page.set("Parent", pages_id);
+                document.add_object(page)
+            })
+            .collect::<Vec<_>>();
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => page_ids.iter().copied().map(Object::Reference).collect::<Vec<_>>(),
+                "Count" => page_ids.len() as i64,
+            }),
+        );
+        let catalog_id = document.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        document.trailer.set("Root", catalog_id);
+        document
     }
 
     #[test]
@@ -369,5 +432,51 @@ mod tests {
         assert!(signals.annotations.is_empty());
         assert!(signals.geometry.is_empty());
         assert!(signals.warnings.is_empty());
+    }
+
+    #[test]
+    fn malformed_geometry_uses_pdfjs_fallback_and_normalization_rules() {
+        let document = document_with_pages(vec![
+            dictionary! {},
+            dictionary! { "MediaBox" => vec![612.into(), 792.into(), 0.into(), 0.into()] },
+            dictionary! {
+                "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into()],
+                "Rotate" => 45,
+                "UserUnit" => 0,
+            },
+            dictionary! {
+                "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into()],
+                "Rotate" => -90,
+            },
+        ]);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1, 2, 3, 4], true, false);
+        assert_eq!(
+            signals.geometry,
+            vec![
+                json!({"page":1,"width":612.0,"height":792.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":612.0,"top":792.0}}),
+                json!({"page":2,"width":612.0,"height":792.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":612.0,"top":792.0}}),
+                json!({"page":3,"width":200.0,"height":300.0,"rotation":0.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":200.0,"top":300.0}}),
+                json!({"page":4,"width":300.0,"height":200.0,"rotation":270.0,"user_unit":1.0,"view_box":{"left":0.0,"bottom":0.0,"right":200.0,"top":300.0}}),
+            ]
+        );
+    }
+
+    #[test]
+    fn malformed_annotations_consume_the_request_wide_work_budget() {
+        let page = || {
+            dictionary! {
+                "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+                "Annots" => vec![Object::Null; MAX_ANNOTATIONS_PER_PAGE],
+            }
+        };
+        let document = document_with_pages((0..11).map(|_| page()).collect());
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let selected = (1..=11).collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &selected, false, true);
+        assert!(signals.annotations.is_empty());
+        assert_eq!(signals.warnings, vec![format!(
+            "include_annotations: source reached the {MAX_ANNOTATIONS_PER_SOURCE} annotation work limit."
+        )]);
     }
 }

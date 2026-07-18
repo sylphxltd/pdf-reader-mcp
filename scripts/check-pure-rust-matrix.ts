@@ -19,6 +19,13 @@ const matrix = JSON.parse(
     search_pdf: Record<string, string>;
   };
 };
+const behaviorCorpus = JSON.parse(
+  readFileSync(join(root, 'scripts/differential/fixtures/v3014-behavior-corpus.json'), 'utf8')
+) as { cases: Array<{ id: string }> };
+const differentialWorkflow = readFileSync(
+  join(root, '.github/workflows/rust-parity-differential.yml'),
+  'utf8'
+);
 
 const failures: string[] = [];
 if (!matrix.productTruth.dropInFor3014 && !String(matrix.productTruth.publishedStable).includes('3.0.14')) {
@@ -46,6 +53,15 @@ if (matrix.productTruth.dropInFor3014) {
 }
 if (!matrix.productTruth.dropInFor3014 && matrix.productTruth.publishFreeze !== true) {
   failures.push('publishFreeze must remain true while dropInFor3014 is false');
+}
+const behaviorCaseCount = behaviorCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(`.caseCount == ${behaviorCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${behaviorCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${behaviorCaseCount}/${behaviorCaseCount} behavior corpus`
+  );
 }
 if (failures.length) {
   console.error(failures.join('\n'));
