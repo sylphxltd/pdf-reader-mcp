@@ -213,7 +213,7 @@ impl OutputDev for TextItemOutput {
     }
 }
 
-fn read_pdf_info(doc: &Document) -> PdfInfo {
+pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
     let mut fields = BTreeMap::new();
     let info_object = doc
         .trailer

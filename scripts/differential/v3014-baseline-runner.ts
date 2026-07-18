@@ -90,6 +90,12 @@ async function readCase(id: string, input: Record<string, unknown>) {
     output.page_geometry = first.data?.page_geometry ?? null;
     output.annotations = first.data?.annotations ?? null;
   }
+  if (id === 'read-catalog-signals') {
+    output.outline = first.data?.outline ?? null;
+    output.page_labels = first.data?.page_labels ?? null;
+    output.permissions = first.data?.permissions ?? null;
+    output.mark_info = first.data?.mark_info ?? null;
+  }
   output.warnings = canonicalWarnings(first.data?.warnings);
   return output;
 }

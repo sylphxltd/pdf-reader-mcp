@@ -4,8 +4,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/differential/v3014-behavior-v1.pdf",
-      "bytes": 1902,
-      "sha256": "83a35c0c6df341de05df0a261f845a2ac925f010502dd0bfc8af730aa2c2c6c4"
+      "bytes": 2539,
+      "sha256": "f5156a648e0cacb690bc5cf762f2be11dc62adfaa7e8d56fa6f4e45bdbef7267"
     },
     {
       "path": "test/fixtures/differential/v3014-malformed-v1.pdf",

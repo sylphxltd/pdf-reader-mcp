@@ -43,6 +43,17 @@ const git = (...args: string[]): Buffer => {
 };
 const normalizeText = (value: string): string =>
   value.replaceAll('\r\n', '\n').normalize('NFC');
+const canonicalJson = (value: Json): Json => {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalJson(entry)])
+    );
+  }
+  return value;
+};
 
 function verifyAuthority(): Record<string, string> {
   const commit = git('rev-list', '-n', '1', oracle.baseline.tag).toString().trim();
@@ -66,8 +77,8 @@ function verifyAuthority(): Record<string, string> {
     }
   }
   const ids = corpus.cases.map((entry) => entry.id);
-  if (ids.length !== 11 || new Set(ids).size !== ids.length) {
-    throw new Error(`behavior corpus must contain 11 unique cases (got ${ids.length})`);
+  if (ids.length !== 12 || new Set(ids).size !== ids.length) {
+    throw new Error(`behavior corpus must contain 12 unique cases (got ${ids.length})`);
   }
   if (JSON.stringify(ids.sort()) !== JSON.stringify(Object.keys(oracle.expectations).sort())) {
     throw new Error('corpus and oracle case IDs differ');
@@ -214,6 +225,12 @@ function canonicalRead(id: string, envelope: Record<string, unknown>): Json {
         })
       : null;
   }
+  if (id === 'read-catalog-signals') {
+    canonical.outline = (data.outline ?? null) as Json;
+    canonical.page_labels = (data.page_labels ?? null) as Json;
+    canonical.permissions = (data.permissions ?? null) as Json;
+    canonical.mark_info = (data.mark_info ?? null) as Json;
+  }
   canonical.warnings = warnings(data.warnings);
   return canonical;
 }
@@ -246,7 +263,11 @@ for (const entry of corpus.cases) {
   const actual = entry.tool === 'read_pdf' ? canonicalRead(entry.id, envelope) : canonicalSearch(envelope);
   const expected = oracle.expectations[entry.id]!;
   observations[entry.id] = actual;
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) failures.push({ id: entry.id, expected, actual });
+  // JSON object member ordering is not semantic; array ordering and exact
+  // field presence/value shapes remain strict.
+  if (JSON.stringify(canonicalJson(actual)) !== JSON.stringify(canonicalJson(expected))) {
+    failures.push({ id: entry.id, expected, actual });
+  }
 }
 const report = {
   schemaVersion: 1,

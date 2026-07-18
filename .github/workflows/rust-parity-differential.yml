@@ -134,7 +134,7 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_behavior_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 11 and .passed == 11 and .skipped == 0
+            .caseCount == 12 and .passed == 12 and .skipped == 0
           ' "$BEHAVIOR_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 behavior result is incomplete, failing, or not SHA-bound"
             exit 1

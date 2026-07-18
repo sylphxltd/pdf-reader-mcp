@@ -143,6 +143,8 @@ pub struct ReadPdfData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permissions: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub mark_info: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ocr_text_layer: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visual_enrichments: Option<Value>,
@@ -568,6 +570,10 @@ pub(crate) fn rebuild_structured_outputs(
 struct BuildSignals {
     page_geometry: Option<Value>,
     annotations: Option<Value>,
+    page_labels: Option<Value>,
+    permissions: Option<Value>,
+    mark_info: Option<Value>,
+    outline: Option<Value>,
     warnings: Vec<String>,
 }
 
@@ -609,6 +615,27 @@ fn auto_enabled(input: &ReadPdfInput) -> bool {
     }
 }
 
+fn requires_text_extraction(input: &ReadPdfInput) -> bool {
+    auto_enabled(input)
+        || input.include_full_text
+        || input.include_markdown
+        || input.include_chunks
+        || input.include_elements
+        || input.include_text_layer
+        || input.include_document_map
+        || input.include_images
+        || input.include_tables
+        || input.include_html
+        || input.include_semantic_hints
+        || input.include_safety_findings
+        || input.include_layout_diagnostics
+        || input.include_document_ast
+        || input.include_ocr_text_layer
+        || input.include_visual_enrichments
+        || input.include_trust_report
+        || input.include_accessibility_report
+}
+
 fn build_data(
     pages: &[crate::document_twin::PageText],
     total_pages: u32,
@@ -619,13 +646,17 @@ fn build_data(
 ) -> ReadPdfData {
     use crate::document_twin::{
         build_accessibility_report, build_document_ast, build_document_map, build_elements,
-        build_layout_diagnostics, build_page_labels, build_safety_findings, build_tables,
-        build_trust_report, empty_structure_arrays,
+        build_layout_diagnostics, build_safety_findings, build_tables, build_trust_report,
+        empty_structure_arrays,
     };
 
     let BuildSignals {
         page_geometry,
         annotations,
+        page_labels,
+        permissions,
+        mark_info,
+        outline,
         mut warnings,
     } = signals;
     let full_text = join_page_text(pages);
@@ -773,7 +804,7 @@ fn build_data(
         None
     };
 
-    let (outline, _, form_fields, attachments, structure_trees) = empty_structure_arrays();
+    let (_, _, form_fields, attachments, structure_trees) = empty_structure_arrays();
 
     let mut data = ReadPdfData {
         num_pages: want_page_count.then_some(total_pages),
@@ -802,6 +833,7 @@ fn build_data(
         page_labels: None,
         page_geometry: None,
         permissions: None,
+        mark_info: None,
         ocr_text_layer: None,
         visual_enrichments: None,
         visual_enrichment_candidates: None,
@@ -988,11 +1020,7 @@ fn build_data(
         data.accessibility_report = a11y;
     }
     if want_outline {
-        data.outline = Some(outline);
-        warnings.push(
-            "include_outline: outline entries are empty until COS outline parsing is enabled."
-                .into(),
-        );
+        data.outline = outline;
     }
     if want_annotations {
         data.annotations = annotations;
@@ -1011,13 +1039,14 @@ fn build_data(
         );
     }
     if want_labels {
-        data.page_labels = Some(build_page_labels(total_pages));
+        data.page_labels = page_labels;
     }
     if want_geometry {
         data.page_geometry = page_geometry;
     }
     if want_permissions {
-        data.permissions = Some(json!([]));
+        data.permissions = permissions;
+        data.mark_info = mark_info;
     }
     if want_visual {
         data.visual_enrichments = Some(json!([]));
@@ -1110,13 +1139,24 @@ fn read_local_pdf_filtered(
     source_label: &str,
 ) -> Result<ReadPdfSourceResult, ReadPdfError> {
     let parsed = crate::cos_document::ParsedPdf::load(path, DEFAULT_MAX_FILE_BYTES)?;
-    let extracted = extract_pdf_text_from_document(&parsed.document)?;
-    let total_pages = extracted.pages.len().max(1) as u32;
-    let pages = extracted
-        .pages
-        .iter()
-        .map(|page| page.text.clone())
-        .collect::<Vec<_>>();
+    let requires_text = requires_text_extraction(input);
+    let (pages, pdf_info) = if requires_text {
+        let extracted = extract_pdf_text_from_document(&parsed.document)?;
+        (
+            extracted
+                .pages
+                .into_iter()
+                .map(|page| page.text)
+                .collect::<Vec<_>>(),
+            extracted.info,
+        )
+    } else {
+        (
+            vec![String::new(); parsed.pages.len().max(1)],
+            crate::text_index::read_pdf_info(&parsed.document),
+        )
+    };
+    let total_pages = parsed.pages.len().max(1) as u32;
     let explicit_pages = parse_page_spec(pages_spec)?;
     let auto_pages = if explicit_pages.is_none()
         && auto_enabled(input)
@@ -1145,15 +1185,30 @@ fn read_local_pdf_filtered(
     );
     let geometry = (!signals.geometry.is_empty()).then(|| json!(signals.geometry));
     let annotations = (!signals.annotations.is_empty()).then(|| json!(signals.annotations));
+    let auto_full = auto && input.auto_detail.as_deref() == Some("full");
+    let catalog_signals = crate::catalog_signals::extract_catalog_signals(
+        &parsed.document,
+        parsed.encryption_facts,
+        total_pages,
+        crate::catalog_signals::CatalogSignalRequest {
+            page_labels: input.include_page_labels || auto_full,
+            permissions: input.include_permissions || auto_full,
+            outline: input.include_outline || auto_full,
+        },
+    );
     let mut data = build_data(
         &selected,
         total_pages,
         input,
-        Some(&extracted.info),
+        Some(&pdf_info),
         explicit_pages.is_some(),
         BuildSignals {
             page_geometry: geometry,
             annotations,
+            page_labels: catalog_signals.page_labels.map(|value| json!(value)),
+            permissions: catalog_signals.permissions.map(|value| json!(value)),
+            mark_info: catalog_signals.mark_info.map(|value| json!(value)),
+            outline: catalog_signals.outline.map(|value| json!(value)),
             warnings: signals.warnings,
         },
     );
@@ -1462,13 +1517,14 @@ mod tests {
         assert!(data.document_ast.is_some());
         assert!(data.trust_report.is_some());
         assert!(data.accessibility_report.is_some());
-        assert!(data.outline.is_some());
+        assert!(data.outline.is_none());
         // TS 3.0.14 omits optional page-signal fields when the document has no
         // qualifying records; an empty placeholder is not capability parity.
         assert!(data.annotations.is_none());
-        assert!(data.page_labels.is_some());
+        assert!(data.page_labels.is_none());
         assert!(data.page_geometry.is_some());
-        assert!(data.permissions.is_some());
+        assert!(data.permissions.is_none());
+        assert!(data.mark_info.is_none());
         assert!(data.form_fields.is_some());
         assert!(data.attachments.is_some());
         assert!(data.structure_trees.is_some());
@@ -1640,6 +1696,18 @@ mod tests {
         assert_eq!(evenly_sample_pages(10, 5), vec![1, 3, 6, 8, 10]);
         assert_eq!(evenly_sample_pages(3, 5), vec![1, 2, 3]);
         assert_eq!(evenly_sample_pages(10, 1), vec![1]);
+    }
+
+    #[test]
+    fn catalog_only_flags_do_not_require_text_extraction() {
+        let input = ReadPdfInput {
+            auto: Some(false),
+            include_outline: true,
+            include_page_labels: true,
+            include_permissions: true,
+            ..Default::default()
+        };
+        assert!(!requires_text_extraction(&input));
     }
 
     #[test]

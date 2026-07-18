@@ -275,6 +275,7 @@ mod tests {
                     page_labels: None,
                     page_geometry: None,
                     permissions: None,
+                    mark_info: None,
                     ocr_text_layer: None,
                     visual_enrichments: None,
                     visual_enrichment_candidates: None,
