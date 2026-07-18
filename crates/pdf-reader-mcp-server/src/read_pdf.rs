@@ -278,9 +278,9 @@ mod tests {
         assert_eq!(data["document_map"]["summary"]["ocr_page_count"], 0);
         assert_eq!(data["document_map"]["summary"]["ocr_text_chars"], 0);
         let warnings = data["warnings"].as_array().expect("warnings");
-        assert!(warnings.iter().any(|warning| warning
-            .as_str()
-            .is_some_and(|warning| warning.contains("exceed document page count"))));
+        assert!(warnings
+            .iter()
+            .any(|warning| { warning == "Requested page numbers 999 exceed total pages (1)." }));
         assert!(!warnings.iter().any(|warning| warning
             .as_str()
             .is_some_and(|warning| warning.contains("provider"))));
