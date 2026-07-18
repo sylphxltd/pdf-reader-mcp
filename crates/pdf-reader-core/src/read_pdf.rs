@@ -1239,13 +1239,11 @@ fn read_local_pdf_filtered(
             &selected_page_numbers,
         )
     });
-    let accessibility_structure_valid = checked_structure.as_ref().is_none_or(|result| {
-        result
-            .as_ref()
-            .ok()
-            .and_then(Option::as_ref)
-            .is_none_or(|value| value.complete)
-    });
+    let accessibility_structure_valid = match checked_structure.as_ref() {
+        None | Some(Ok(None)) => true,
+        Some(Ok(Some(value))) => value.complete,
+        Some(Err(())) => false,
+    };
     let structure_extraction = checked_structure.and_then(Result::ok).flatten();
     let structure_trees = structure_extraction
         .as_ref()
@@ -2037,6 +2035,68 @@ mod tests {
             .unwrap()
             .iter()
             .any(|issue| issue["type"] == "structure_tree_missing"));
+    }
+
+    #[test]
+    fn invalid_structure_root_with_mark_info_cannot_mark_accessibility_as_tagged() {
+        let mut document = lopdf::Document::load(tagged_structure_fixture()).unwrap();
+        let catalog_id = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let tree_root = document.objects[&catalog_id]
+            .as_dict()
+            .unwrap()
+            .get(b"StructTreeRoot")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        document
+            .objects
+            .get_mut(&tree_root)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("Type", "InvalidStructTreeRoot");
+        document
+            .objects
+            .get_mut(&catalog_id)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("MarkInfo", lopdf::dictionary! {"Marked"=>true});
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("invalid-structure-root.pdf");
+        document.save(&path).unwrap();
+
+        let response = read_pdf(&ReadPdfInput {
+            sources: vec![ReadPdfSource {
+                path: Some(path.to_string_lossy().into_owned()),
+                url: None,
+                pages: None,
+            }],
+            auto: Some(false),
+            include_accessibility_report: true,
+            include_structure_tree: true,
+            ..Default::default()
+        })
+        .unwrap();
+        let data = response.results[0].data.as_ref().unwrap();
+        assert!(data.structure_trees.is_none());
+        let report = data.accessibility_report.as_ref().unwrap();
+        assert_eq!(report["tagged"], false);
+        assert!(report["issues"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["type"] == "structure_tree_missing"));
+        assert!(!report["issues"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["type"] == "mark_info_missing"));
     }
 
     #[test]

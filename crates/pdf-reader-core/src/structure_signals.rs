@@ -201,38 +201,20 @@ fn extract_page_tree<'a>(
         return None;
     }
 
-    let mut included = HashSet::new();
-    for id in mapped {
-        admit_ancestry(walker, id, struct_root, &mut included)?;
-    }
     let top_positions = top_level
         .iter()
         .filter_map(|value| value.as_reference().ok())
         .enumerate()
         .map(|(index, id)| (id, index))
         .collect::<HashMap<_, _>>();
+    let mut included = HashSet::new();
+    for id in mapped {
+        admit_ancestry(walker, id, struct_root, &top_positions, &mut included)?;
+    }
     let mut roots = included
         .iter()
         .copied()
-        .filter(|id| {
-            walker
-                .document
-                .objects
-                .get(id)
-                .and_then(|value| value.as_dict().ok())
-                .and_then(|dict| dict.get(b"P").ok())
-                .is_some_and(|parent| {
-                    walker
-                        .resolve_readonly(parent)
-                        .and_then(|value| value.as_dict().ok())
-                        .is_some_and(|dict| {
-                            dict.get(b"Type")
-                                .ok()
-                                .and_then(|value| value.as_name().ok())
-                                == Some(b"StructTreeRoot")
-                        })
-                })
-        })
+        .filter(|id| top_positions.contains_key(id))
         .collect::<Vec<_>>();
     roots.sort_by_key(|id| top_positions.get(id).copied().unwrap_or(usize::MAX));
     let mut children = Vec::new();
@@ -252,6 +234,7 @@ fn extract_page_tree<'a>(
             return None;
         }
     }
+    walker.admit_text("Root".len())?;
     Some(PageStructureTree {
         page,
         tree: StructureNode {
@@ -265,6 +248,7 @@ fn admit_ancestry(
     walker: &mut Walker<'_, '_>,
     mut id: ObjectId,
     struct_root: &Dictionary,
+    top_positions: &HashMap<ObjectId, usize>,
     included: &mut HashSet<ObjectId>,
 ) -> Option<()> {
     let mut path = Vec::new();
@@ -284,6 +268,10 @@ fn admit_ancestry(
         let parent = walker.resolve(raw_parent)?;
         let parent_dict = parent.as_dict().ok()?;
         if std::ptr::eq(parent_dict, struct_root) {
+            if !top_positions.contains_key(&id) {
+                walker.failed = true;
+                return None;
+            }
             included.extend(path);
             return Some(());
         }
@@ -339,8 +327,10 @@ fn serialize_node(
         .map(Vec::as_slice)
         .unwrap_or(raw_role);
     let role = if role.is_empty() {
+        walker.admit_text("Unknown".len())?;
         "Unknown".into()
     } else {
+        walker.admit_text(lossy_utf8_len(role))?;
         String::from_utf8_lossy(role).trim().to_string()
     };
     let inherited_page = dict
@@ -377,10 +367,13 @@ fn serialize_node(
         let resolved = walker.resolve(kid)?;
         if let Ok(mcid) = resolved.as_i64() {
             if inherited_page == Some(page_id) {
+                let id_len = 1 + format_id_len(page_id) + 3 + i64_decimal_len(mcid);
+                walker.admit_text(id_len)?;
                 children.push(content(
+                    walker,
                     "content",
-                    Some(format!("p{}_mc{mcid}", format_id(page_id))),
-                ));
+                    Some(format_mcid_id(page_id, mcid)),
+                )?);
             }
             continue;
         }
@@ -401,12 +394,18 @@ fn serialize_node(
             .and_then(|value| walker.resolve(value))
             .and_then(|value| value.as_name().ok());
         if kind == Some(b"MCR") {
-            let id = content_dict
+            let mcid = content_dict
                 .get(b"MCID")
                 .ok()
-                .and_then(|value| walker.integer(value))
-                .map(|mcid| format!("p{}_mc{mcid}", format_id(page_id)));
-            children.push(content("content", id));
+                .and_then(|value| walker.integer(value));
+            let id = if let Some(mcid) = mcid {
+                let len = 1 + format_id_len(page_id) + 3 + i64_decimal_len(mcid);
+                walker.admit_text(len)?;
+                Some(format_mcid_id(page_id, mcid))
+            } else {
+                None
+            };
+            children.push(content(walker, "content", id)?);
         } else if kind == Some(b"OBJR") {
             let object_id = content_dict
                 .get(b"Obj")
@@ -414,27 +413,88 @@ fn serialize_node(
                 .and_then(|value| value.as_reference().ok());
             let annotation = annotation_elements.contains(&id)
                 || object_id.is_some_and(|id| walker.annotation_ids.contains(&id));
-            let id = object_id.map(|id| {
-                if annotation {
-                    format!("pdfjs_internal_id_{}", format_id(id))
+            let id = if let Some(id) = object_id {
+                let prefix = if annotation { "pdfjs_internal_id_" } else { "" };
+                walker.admit_text(prefix.len() + format_id_len(id))?;
+                Some(if annotation {
+                    format_annotation_id(id)
                 } else {
                     format_id(id)
-                }
-            });
+                })
+            } else {
+                None
+            };
             children.push(content(
+                walker,
                 if annotation { "annotation" } else { "object" },
                 id,
-            ));
+            )?);
         }
     }
     Some(StructureNode { role, children })
 }
 
-fn content(kind: &str, id: Option<String>) -> StructureChild {
-    StructureChild::Content(StructureContent {
+fn content(walker: &mut Walker<'_, '_>, kind: &str, id: Option<String>) -> Option<StructureChild> {
+    walker.admit_text(kind.len())?;
+    Some(StructureChild::Content(StructureContent {
         r#type: kind.into(),
         id,
-    })
+    }))
+}
+
+fn lossy_utf8_len(mut bytes: &[u8]) -> usize {
+    let mut length = 0usize;
+    while !bytes.is_empty() {
+        match std::str::from_utf8(bytes) {
+            Ok(value) => return length.saturating_add(value.len()),
+            Err(error) => {
+                length = length
+                    .saturating_add(error.valid_up_to())
+                    .saturating_add('\u{FFFD}'.len_utf8());
+                let skip = error.valid_up_to() + error.error_len().unwrap_or(1);
+                bytes = &bytes[skip.min(bytes.len())..];
+            }
+        }
+    }
+    length
+}
+
+fn format_id_len((num, generation): ObjectId) -> usize {
+    u32_decimal_len(num)
+        + 1
+        + if generation == 0 {
+            0
+        } else {
+            u16_decimal_len(generation)
+        }
+}
+
+fn u32_decimal_len(value: u32) -> usize {
+    value.checked_ilog10().unwrap_or(0) as usize + 1
+}
+
+fn u16_decimal_len(value: u16) -> usize {
+    value.checked_ilog10().unwrap_or(0) as usize + 1
+}
+
+fn i64_decimal_len(value: i64) -> usize {
+    value.unsigned_abs().checked_ilog10().unwrap_or(0) as usize + 1 + usize::from(value < 0)
+}
+
+fn format_mcid_id((num, generation): ObjectId, mcid: i64) -> String {
+    if generation == 0 {
+        format!("p{num}R_mc{mcid}")
+    } else {
+        format!("p{num}R{generation}_mc{mcid}")
+    }
+}
+
+fn format_annotation_id((num, generation): ObjectId) -> String {
+    if generation == 0 {
+        format!("pdfjs_internal_id_{num}R")
+    } else {
+        format!("pdfjs_internal_id_{num}R{generation}")
+    }
 }
 
 fn read_role_map<'a>(
@@ -611,20 +671,6 @@ impl<'a, 'budget> Walker<'a, 'budget> {
             value = self.document.objects.get(id)?;
         }
         self.limited = true;
-        None
-    }
-
-    fn resolve_readonly(&self, mut value: &'a Object) -> Option<&'a Object> {
-        let mut seen = HashSet::new();
-        for _ in 0..=PDFJS_MAX_DEPTH {
-            let Object::Reference(id) = value else {
-                return Some(value);
-            };
-            if !seen.insert(*id) {
-                return None;
-            }
-            value = self.document.objects.get(id)?;
-        }
         None
     }
 
@@ -837,6 +883,53 @@ mod tests {
     }
 
     #[test]
+    fn parent_tree_orphan_absent_from_root_k_is_rejected_but_empty_pages_remain_valid() {
+        let (mut document, pages, _) = tagged_document();
+        let catalog_id = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let struct_root = document.objects[&catalog_id]
+            .as_dict()
+            .unwrap()
+            .get(b"StructTreeRoot")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let parent_tree = document.objects[&struct_root]
+            .as_dict()
+            .unwrap()
+            .get(b"ParentTree")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let orphan = document.add_object(
+            dictionary! {"Type"=>"StructElem","S"=>"H1","P"=>struct_root,"Pg"=>pages[0].1,"K"=>0},
+        );
+        document
+            .objects
+            .get_mut(&parent_tree)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set(
+                "Nums",
+                vec![Object::Integer(0), Object::Array(vec![orphan.into()])],
+            );
+
+        let extraction = extract_structure_trees_checked(&document, &pages, &[1, 2])
+            .unwrap()
+            .unwrap();
+        assert!(!extraction.complete);
+        assert_eq!(
+            serde_json::to_value(extraction.trees).unwrap(),
+            json!([{"page":2,"tree":{"role":"Root"}}])
+        );
+    }
+
+    #[test]
     fn public_normalizer_matches_frozen_ts_mock_boundary_oracle() {
         let oracle: Value = serde_json::from_str(include_str!(
             "../../../scripts/differential/fixtures/v3014-structure-normalizer-oracle.json"
@@ -943,6 +1036,59 @@ mod tests {
         assert!(budget.admit_items(1).is_none());
         assert_eq!(budget.admitted, MAX_REQUEST_WORK);
         assert_eq!(budget.materialized, 0);
+
+        let mut budget = RequestBudget::default();
+        assert!(budget.admit_text(MAX_ROLE_MAP_TEXT_BYTES).is_some());
+        assert!(budget.admit_text(1).is_none());
+        assert_eq!(budget.text_bytes, MAX_ROLE_MAP_TEXT_BYTES);
+    }
+
+    #[test]
+    fn repeated_shared_huge_roles_are_cumulatively_bounded_before_output_cloning() {
+        let (mut document, pages, _) = tagged_document();
+        let catalog_id = document
+            .trailer
+            .get(b"Root")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let struct_root = document.objects[&catalog_id]
+            .as_dict()
+            .unwrap()
+            .get(b"StructTreeRoot")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let top_level = document.objects[&struct_root]
+            .as_dict()
+            .unwrap()
+            .get(b"K")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_reference().unwrap())
+            .collect::<Vec<_>>();
+        let huge_role = document.add_object(Object::Name(vec![b'R'; 600_000]));
+        for id in top_level {
+            document
+                .objects
+                .get_mut(&id)
+                .unwrap()
+                .as_dict_mut()
+                .unwrap()
+                .set("S", huge_role);
+        }
+
+        let extraction = extract_structure_trees_checked(&document, &pages, &[1, 2])
+            .unwrap()
+            .unwrap();
+        assert!(!extraction.complete);
+        assert_eq!(
+            serde_json::to_value(extraction.trees).unwrap(),
+            json!([{"page":2,"tree":{"role":"Root"}}])
+        );
+        assert_eq!(lossy_utf8_len(&[0xff, b'a', 0xfe]), 7);
     }
 
     #[test]

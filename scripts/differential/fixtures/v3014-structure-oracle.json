@@ -632,6 +632,7 @@
   "harness": {
     "baselineRunnerSha256": "0a4b3ad1ba94fa314c6843a95f7a7128b72152f904d8772c647fbf5f3436d189",
     "normalizerRunnerSha256": "6fb67ff8bf7baf42b2c86a95063eaab9f1f63e8cbb1c978fed070c9fe9a3c0b6",
-    "projectionSha256": "f312646b702ac3a86f88685ed846676f9aab6b48f393b7358304a8e8d8b34568"
+    "projectionSha256": "f312646b702ac3a86f88685ed846676f9aab6b48f393b7358304a8e8d8b34568",
+    "normalizerOracleSha256": "611a3545c3cf79ca43e7673ff1d948946502335184a06bc3209ec2032eb6ca62"
   }
 }

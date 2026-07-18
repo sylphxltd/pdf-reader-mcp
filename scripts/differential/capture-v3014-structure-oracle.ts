@@ -32,6 +32,11 @@ const harness = {
   projectionSha256: sha256(
     readFileSync(join(scriptDir, "v3014-structure-projection.ts"))
   ),
+  normalizerOracleSha256: sha256(
+    readFileSync(
+      join(scriptDir, "fixtures/v3014-structure-normalizer-oracle.json")
+    )
+  ),
 };
 const run = (cmd: string, args: string[], cwd: string, capture = false) => {
   const result = spawnSync(cmd, args, {

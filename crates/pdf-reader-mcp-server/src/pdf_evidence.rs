@@ -7,8 +7,9 @@ use std::path::PathBuf;
 
 use crate::evidence::attach_evidence;
 use crate::ocr_evidence;
+use crate::page_selection::selected_pages;
 use crate::region_analysis_evidence;
-use crate::schema::{PageSpecifier, PdfSource};
+use crate::schema::PdfSource;
 use crate::visual_evidence;
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
@@ -61,6 +62,17 @@ fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     let mut results = Vec::new();
     let mut temps = Vec::new();
     for source in &parsed_sources {
+        let targets = match selected_pages(&source.pages) {
+            Ok(value) => value,
+            Err(error) => {
+                results.push(json!({
+                    "source": source.label(),
+                    "success": false,
+                    "error": error,
+                }));
+                continue;
+            }
+        };
         let path_owned: PathBuf = if let Some(path) = source.path.as_ref() {
             PathBuf::from(path)
         } else if let Some(url) = source.url.as_ref() {
@@ -90,7 +102,6 @@ fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         match extract_page_texts(path_owned.as_path(), DEFAULT_MAX_FILE_BYTES) {
             Ok(pages) => {
                 let num_pages = pages.len().max(1) as u32;
-                let targets = source.pages.as_ref().map(page_targets);
                 let sample_count = args
                     .get("sample_pages")
                     .and_then(Value::as_u64)
@@ -213,26 +224,10 @@ fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     Ok(CallToolResult::structured(structured))
 }
 
-fn page_targets(specifier: &PageSpecifier) -> Vec<u32> {
-    match specifier {
-        PageSpecifier::Pages(pages) => pages.iter().map(|page| page.0).collect(),
-        PageSpecifier::Range(range) => range
-            .split(',')
-            .flat_map(|part| {
-                let mut bounds = part.trim().split('-');
-                let start = bounds.next().and_then(|value| value.parse::<u32>().ok());
-                let end = bounds.next().and_then(|value| value.parse::<u32>().ok());
-                match (start, end) {
-                    (Some(start), Some(end)) if start <= end => (start..=end).collect(),
-                    (Some(page), None) => vec![page],
-                    _ => Vec::new(),
-                }
-            })
-            .collect(),
-    }
-}
-
 fn sample_pages(total: u32, targets: Option<&[u32]>, max: usize) -> Vec<u32> {
+    if total == 0 || max == 0 {
+        return Vec::new();
+    }
     let mut values = targets
         .map(|pages| {
             pages
@@ -241,7 +236,22 @@ fn sample_pages(total: u32, targets: Option<&[u32]>, max: usize) -> Vec<u32> {
                 .filter(|page| (1..=total).contains(page))
                 .collect::<Vec<_>>()
         })
-        .unwrap_or_else(|| (1..=total).collect());
+        .unwrap_or_default();
+    if targets.is_none() {
+        if u64::from(total) <= max as u64 {
+            return (1..=total).collect();
+        }
+        if max == 1 {
+            return vec![1];
+        }
+        return (0..max)
+            .map(|index| {
+                let numerator = index as u64 * u64::from(total - 1);
+                let denominator = (max - 1) as u64;
+                1 + ((numerator + denominator / 2) / denominator) as u32
+            })
+            .collect();
+    }
     values.sort_unstable();
     values.dedup();
     if values.len() <= max {
@@ -252,8 +262,9 @@ fn sample_pages(total: u32, targets: Option<&[u32]>, max: usize) -> Vec<u32> {
     }
     let mut selected = (0..max)
         .filter_map(|index| {
-            let position =
-                ((index as f64 * (values.len() - 1) as f64) / (max - 1) as f64).round() as usize;
+            let numerator = index * (values.len() - 1);
+            let denominator = max - 1;
+            let position = (numerator + denominator / 2) / denominator;
             values.get(position).copied()
         })
         .collect::<Vec<_>>();
@@ -266,6 +277,15 @@ fn sample_pages(total: u32, targets: Option<&[u32]>, max: usize) -> Vec<u32> {
 mod tests {
     use super::*;
 
+    fn structure_fixture() -> String {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-structure-v1.pdf")
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
+    }
+
     #[test]
     fn sampling_matches_frozen_even_spacing_and_target_normalization() {
         assert_eq!(sample_pages(100, None, 5), vec![1, 26, 51, 75, 100]);
@@ -274,5 +294,43 @@ mod tests {
             vec![2, 8, 12]
         );
         assert_eq!(sample_pages(12, Some(&[9, 1, 9]), 5), vec![1, 9]);
+        assert_eq!(
+            sample_pages(u32::MAX, None, 5),
+            vec![1, 1_073_741_825, 2_147_483_648, 3_221_225_472, u32::MAX]
+        );
+        assert_eq!(sample_pages(u32::MAX, None, 1), vec![1]);
+        assert!(sample_pages(u32::MAX, None, 0).is_empty());
+    }
+
+    #[test]
+    fn inspect_samples_a_compact_max_u32_range_without_expanding_it_unboundedly() {
+        let result = pdf_evidence(json!({
+            "operation":"inspect",
+            "sources":[{"path":structure_fixture(),"pages":"1-4294967295"}],
+            "sample_pages":20
+        }))
+        .unwrap();
+        let payload = result.structured_content.unwrap();
+        assert_eq!(payload["results"][0]["success"], true);
+        assert_eq!(
+            payload["results"][0]["data"]["sampled_pages"],
+            json!([1, 2])
+        );
+    }
+
+    #[test]
+    fn inspect_rejects_max_plus_one_raw_targets_before_file_io() {
+        let result = pdf_evidence(json!({
+            "operation":"inspect",
+            "sources":[{"path":"definitely-missing.pdf","pages":"1-10001,20000"}],
+            "sample_pages":5
+        }))
+        .unwrap();
+        let payload = result.structured_content.unwrap();
+        assert_eq!(payload["results"][0]["success"], false);
+        assert!(payload["results"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("10001 selected pages"));
     }
 }

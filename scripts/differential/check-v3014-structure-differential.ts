@@ -92,9 +92,22 @@ const harness = {
   projectionSha256: sha(
     readFileSync(join(scriptDir, "v3014-structure-projection.ts"))
   ),
+  normalizerOracleSha256: sha(
+    readFileSync(
+      join(scriptDir, "fixtures/v3014-structure-normalizer-oracle.json")
+    )
+  ),
 };
 if (!canonicalEqual(harness, oracle.harness))
   throw new Error("harness digest mismatch");
+const normalizerOracleBytes = readFileSync(
+  join(scriptDir, "fixtures/v3014-structure-normalizer-oracle.json")
+);
+if (
+  sha(Buffer.concat([normalizerOracleBytes, Buffer.from("\n")])) ===
+  oracle.harness.normalizerOracleSha256
+)
+  throw new Error("normalizer oracle digest is not mutation-sensitive");
 const materialize = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(materialize);
   if (value && typeof value === "object")
