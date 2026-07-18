@@ -200,7 +200,7 @@ describe('MCP Server Integration', () => {
     }
   });
 
-  mcpIt('should call pdf_evidence render_page operation with a test PDF', async () => {
+  mcpIt('should fail closed for unavailable pdf_evidence render_page', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(5, 'tools/call', {
@@ -225,29 +225,13 @@ describe('MCP Server Integration', () => {
 
     expect(response.id).toBe(5);
 
-    if (response.error || response.result?.isError) {
-      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
-    } else {
-      const textContent = response.result?.content?.[0]?.text ?? '';
-      const parsed = JSON.parse(textContent) as {
-        profile: string;
-        results: Array<{
-          success: boolean;
-          rendered_pages?: Array<{ data?: string; image_content_index?: number }>;
-        }>;
-      };
-
-      expect(response.result?.content?.[0]?.type).toBe('text');
-      expect(response.result?.content?.[1]?.type).toBe('image');
-      expect(response.result?.content?.[1]?.mimeType).toBe('image/png');
-      expect(parsed.profile).toBe('page_render_evidence');
-      expect(parsed.results[0]?.success).toBe(true);
-      expect(parsed.results[0]?.rendered_pages?.[0]?.data).toBeUndefined();
-      expect(parsed.results[0]?.rendered_pages?.[0]?.image_content_index).toBe(1);
-    }
+    expect(response.error || response.result?.isError).toBeTruthy();
+    expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
+      "pdf_evidence operation 'render_page' is not available in the pure-Rust engine yet"
+    );
   });
 
-  mcpIt('should call pdf_evidence extract_regions operation with a test PDF', async () => {
+  mcpIt('should fail closed for unavailable pdf_evidence extract_regions', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(6, 'tools/call', {
@@ -283,90 +267,53 @@ describe('MCP Server Integration', () => {
 
     expect(response.id).toBe(6);
 
-    if (response.error || response.result?.isError) {
-      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
-    } else {
-      const textContent = response.result?.content?.[0]?.text ?? '';
-      const parsed = JSON.parse(textContent) as {
-        profile: string;
-        results: Array<{
-          success: boolean;
-          regions?: Array<{ data?: string; image_content_index?: number; region_id?: string }>;
-        }>;
-      };
-
-      expect(response.result?.content?.[0]?.type).toBe('text');
-      expect(response.result?.content?.[1]?.type).toBe('image');
-      expect(response.result?.content?.[1]?.mimeType).toBe('image/png');
-      expect(parsed.profile).toBe('region_crop_evidence');
-      expect(parsed.results[0]?.success).toBe(true);
-      expect(parsed.results[0]?.regions?.[0]?.region_id).toBe('bottom-left');
-      expect(parsed.results[0]?.regions?.[0]?.data).toBeUndefined();
-      expect(parsed.results[0]?.regions?.[0]?.image_content_index).toBe(1);
-    }
+    expect(response.error || response.result?.isError).toBeTruthy();
+    expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
+      "pdf_evidence operation 'extract_regions' is not available in the pure-Rust engine yet"
+    );
   });
 
-  mcpIt(
-    'should call pdf_evidence analyze_regions operation with a configured provider',
-    async () => {
-      const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
+  mcpIt('should fail closed for unavailable pdf_evidence analyze_regions', async () => {
+    const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
-      const callRequest = createRequest(7, 'tools/call', {
-        name: 'pdf_evidence',
-        arguments: {
-          operation: 'analyze_regions',
-          sources: [
-            {
-              path: testPdfPath,
-              regions: [
-                {
-                  id: 'table-1',
-                  page: 1,
-                  bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
-                },
-              ],
-            },
-          ],
-          scale: 1,
-          max_regions: 1,
-          languages: ['eng'],
-        },
-      });
+    const callRequest = createRequest(7, 'tools/call', {
+      name: 'pdf_evidence',
+      arguments: {
+        operation: 'analyze_regions',
+        sources: [
+          {
+            path: testPdfPath,
+            regions: [
+              {
+                id: 'table-1',
+                page: 1,
+                bounding_box: { left: 0, bottom: 0, right: 100, top: 100 },
+              },
+            ],
+          },
+        ],
+        scale: 1,
+        max_regions: 1,
+        languages: ['eng'],
+      },
+    });
 
-      sendMessage(serverProc, callRequest);
-      const response = (await readResponse(serverProc, 10000)) as {
-        id: number;
-        result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
-        error?: { message: string };
-      };
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc, 10000)) as {
+      id: number;
+      result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+      error?: { message: string };
+    };
 
-      expect(response.id).toBe(7);
+    expect(response.id).toBe(7);
 
-      if (response.error || response.result?.isError) {
-        expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
-      } else {
-        const textContent = response.result?.content?.[0]?.text ?? '';
-        const parsed = JSON.parse(textContent) as {
-          profile: string;
-          results: Array<{
-            success: boolean;
-            region_analyses?: Array<{ description?: string; kind?: string; provider?: string }>;
-          }>;
-        };
+    expect(response.error || response.result?.isError).toBeTruthy();
+    expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
+      "pdf_evidence operation 'analyze_regions' is not available in the pure-Rust engine yet"
+    );
+  });
 
-        expect(response.result?.content?.[0]?.type).toBe('text');
-        expect(parsed.profile).toBe('region_analysis');
-        expect(parsed.results[0]?.success).toBe(true);
-        expect(parsed.results[0]?.region_analyses?.[0]?.description).toContain(
-          'Mock region analysis'
-        );
-        expect(parsed.results[0]?.region_analyses?.[0]?.kind).toBe('table');
-        expect(parsed.results[0]?.region_analyses?.[0]?.provider).toBe('command');
-      }
-    }
-  );
-
-  mcpIt('should call pdf_evidence ocr_pages operation with a configured OCR provider', async () => {
+  mcpIt('should fail closed for unavailable pdf_evidence ocr_pages', async () => {
     const testPdfPath = path.resolve(__dirname, '../fixtures/sample.pdf');
 
     const callRequest = createRequest(8, 'tools/call', {
@@ -389,25 +336,10 @@ describe('MCP Server Integration', () => {
 
     expect(response.id).toBe(8);
 
-    if (response.error || response.result?.isError) {
-      expect(response.error?.message || response.result?.content?.[0]?.text).toContain('PDF');
-    } else {
-      const textContent = response.result?.content?.[0]?.text ?? '';
-      const parsed = JSON.parse(textContent) as {
-        profile: string;
-        results: Array<{
-          success: boolean;
-          ocr_pages?: Array<{ text?: string; provider?: string; data?: string }>;
-        }>;
-      };
-
-      expect(response.result?.content?.[0]?.type).toBe('text');
-      expect(parsed.profile).toBe('ocr_text_layer');
-      expect(parsed.results[0]?.success).toBe(true);
-      expect(parsed.results[0]?.ocr_pages?.[0]?.text).toBe('Mock OCR text for page 1');
-      expect(parsed.results[0]?.ocr_pages?.[0]?.provider).toBe('command');
-      expect(parsed.results[0]?.ocr_pages?.[0]?.data).toBeUndefined();
-    }
+    expect(response.error || response.result?.isError).toBeTruthy();
+    expect(response.error?.message || response.result?.content?.[0]?.text).toContain(
+      "pdf_evidence operation 'ocr_pages' is not available in the pure-Rust engine yet"
+    );
   });
 
   mcpIt('should call search_pdf tool with a test PDF', async () => {

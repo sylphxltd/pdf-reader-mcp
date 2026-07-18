@@ -331,6 +331,7 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                             "snippet": item.snippet,
                             "match_start": item.match_start,
                             "match_end": item.match_end,
+                            "text_item_index": item.text_item_index,
                             "provenance": {
                                 "engine": item.route,
                                 "route": item.route,

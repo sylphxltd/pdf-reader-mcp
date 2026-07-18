@@ -118,6 +118,19 @@ jobs:
             echo "::error::proof SHA binding failed: lastComparedMainSha=$LAST_COMPARED candidate=$CANDIDATE_SHA"
             exit 1
           fi
+          BEHAVIOR_ARTIFACT="${SCRATCH_DIR}/v3014-behavior-result.json"
+          if [ ! -f "$BEHAVIOR_ARTIFACT" ]; then
+            echo "::error::v3.0.14 behavior result missing at $BEHAVIOR_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_behavior_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 10 and .passed == 10 and .skipped == 0
+          ' "$BEHAVIOR_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 behavior result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
           echo "proof SHA binding OK: lastComparedMainSha=$LAST_COMPARED"
 
       - name: Warn on stale capabilities without re-proof
@@ -135,6 +148,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/differential.log
             ${{ env.SCRATCH_DIR }}/oracle.json
             ${{ env.SCRATCH_DIR }}/ts-vs-rust-text.json
+            ${{ env.SCRATCH_DIR }}/v3014-behavior-result.json
           if-no-files-found: error
 
   rust-parity-drift-pass:

@@ -292,13 +292,14 @@ export const buildSotaReleaseGateReport = async (
   );
   addCheck(
     checks,
-    'mcp:pure_rust_default',
+    'mcp:rust_opt_in_boundary',
     binWrapper.includes('resolve_rust_bin') &&
       binWrapper.includes('pdf-reader-mcp-server') &&
-      !binWrapper.includes('PDF_READER_ENGINE_MODE=full') &&
+      binWrapper.includes('PDF_READER_ENGINE_MODE') &&
+      binWrapper.includes('exec node "$ROOT/dist/index.js"') &&
       !binWrapper.includes('legacy-engine-runtime') &&
       !fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs')),
-    'Default production path is pure-Rust rmcp (no TS parity bridge)'
+    'Published npm default remains TypeScript while the incomplete pure-Rust rmcp path is explicit opt-in'
   );
   addCheck(
     checks,
@@ -322,7 +323,7 @@ export const buildSotaReleaseGateReport = async (
     httpTransportSource.includes('StreamableHttpService') &&
       httpTransportSource.includes('/mcp/health') &&
       binWrapper.includes('resolve_rust_bin') &&
-      binWrapper.includes('PDF_READER_MCP_ENGINE'),
+      binWrapper.includes('PDF_READER_MCP_TRANSPORT'),
     'Rust rmcp streamable HTTP remains available as opt-in engine (not production default)'
   );
 

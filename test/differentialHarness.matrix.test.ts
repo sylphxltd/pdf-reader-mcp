@@ -14,6 +14,12 @@ describe('pdf-reader-mcp differential harness (rej-010)', () => {
       existsSync(path.join(repoRoot, 'scripts/differential/fixtures/pdf-reader-mcp-corpus.json'))
     ).toBe(true);
     expect(
+      existsSync(path.join(repoRoot, 'scripts/differential/fixtures/v3014-behavior-oracle.json'))
+    ).toBe(true);
+    expect(
+      existsSync(path.join(repoRoot, 'scripts/differential/check-v3014-behavior-differential.ts'))
+    ).toBe(true);
+    expect(
       existsSync(
         path.join(repoRoot, 'crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs')
       )
@@ -26,7 +32,8 @@ describe('pdf-reader-mcp differential harness (rej-010)', () => {
     expect(harness).toContain('pdf-reader-mcp-differential');
     expect(harness).toContain('pdf-reader-mcp-oracle.ts');
     expect(harness).toContain('pdf_reader_mcp_differential_matches_ts_oracle');
-    expect(harness).toContain('differential_green');
+    expect(harness).toContain('claimed_subset_green');
+    expect(harness).toContain('v3014-behavior-result.json');
     expect(harness).toContain('check-no-ts-stdio-backend.sh');
     expect(harness).toContain('--slice');
     expect(harness).toContain('tool.search_pdf|tool.pdf_evidence');

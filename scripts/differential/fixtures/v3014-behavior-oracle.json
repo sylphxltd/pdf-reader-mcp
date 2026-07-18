@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "profile": "pdf_reader_v3014_behavior_oracle",
+  "baseline": {
+    "tag": "v3.0.14",
+    "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
+    "tree": "f6fc4e58f692736c8bd6aaf9d4c9cfa806d113ab",
+    "bunLockSha256": "07f469c8200fb82c9092cef178c1bdd67f8cf61fe6c027303665395eede9dd45",
+    "entrypointSha256": {
+      "src/pdf/readCoordinator.ts": "827cb1018a8621287de154132c0a00a00188497b84622a168a343d0df3ce5eca",
+      "src/pdf/search.ts": "ef0a1916d1399e1e807294a8170577bd59a285c73180389f82f05ec5e38d1521",
+      "src/pdf/autoReadPolicy.ts": "168b5b00ae00229a7cf2c0e84b68e1bb41e288eefe957bd46e3f84db2af9537a",
+      "src/pdf/pdfSession.ts": "15c147e45deac7b1b219aeb904e0a653f22d055d3446822fb88cca3fbc7c3459"
+    }
+  },
+  "normalization": {
+    "version": 1,
+    "text": "Unicode NFC and CRLF-to-LF only",
+    "errors": "stable category plus bounded source-independent meaning",
+    "excluded": ["absolute source path", "timestamps", "bbox", "provenance", "snippet"]
+  },
+  "expectations": {
+    "read-all-metadata": {
+      "outcome": "success",
+      "num_pages": 3,
+      "info": {
+        "PDFFormatVersion": "1.4",
+        "Title": "Parity Corpus V1",
+        "Author": "Sylphx Oracle",
+        "Subject": "TS 3.0.14 behavioral contract",
+        "Keywords": "parity multipage search",
+        "Creator": "fixture-generator-v1",
+        "Producer": "fixture-generator-v1"
+      },
+      "full_text": "PAGE_ONE_ALPHANeedle at start. cat catalog CAT.\n\nPAGE_TWO_BETAprefix Needle suffixCafé résumé\n\nPAGE_THREE_GAMMAneedle tail NEEDLE",
+      "warnings": []
+    },
+    "read-pages-array-dedupe-sort": {
+      "outcome": "success",
+      "num_pages": 3,
+      "page_texts": [
+        { "page": 1, "text": "PAGE_ONE_ALPHANeedle at start. cat catalog CAT." },
+        { "page": 3, "text": "PAGE_THREE_GAMMAneedle tail NEEDLE" }
+      ],
+      "warnings": []
+    },
+    "read-pages-range-out-of-range": {
+      "outcome": "success",
+      "num_pages": 3,
+      "page_texts": [
+        { "page": 2, "text": "PAGE_TWO_BETAprefix Needle suffixCafé résumé" }
+      ],
+      "warnings": [{ "category": "page_out_of_range", "requested": [9], "total": 3 }]
+    },
+    "search-ci-all": {
+      "outcome": "success",
+      "num_pages": 3,
+      "searched_pages": [1, 2, 3],
+      "matches": [
+        { "page": 1, "text": "Needle", "match_start": 0, "match_end": 6, "text_item_index": 1 },
+        { "page": 2, "text": "Needle", "match_start": 7, "match_end": 13, "text_item_index": 1 },
+        { "page": 3, "text": "needle", "match_start": 0, "match_end": 6, "text_item_index": 1 },
+        { "page": 3, "text": "NEEDLE", "match_start": 12, "match_end": 18, "text_item_index": 1 }
+      ]
+    },
+    "search-cs-upper": {
+      "outcome": "success",
+      "num_pages": 3,
+      "searched_pages": [1, 2, 3],
+      "matches": [
+        { "page": 3, "text": "NEEDLE", "match_start": 12, "match_end": 18, "text_item_index": 1 }
+      ]
+    },
+    "search-whole-word": {
+      "outcome": "success",
+      "num_pages": 3,
+      "searched_pages": [1, 2, 3],
+      "matches": [
+        { "page": 1, "text": "cat", "match_start": 17, "match_end": 20, "text_item_index": 1 },
+        { "page": 1, "text": "CAT", "match_start": 29, "match_end": 32, "text_item_index": 1 }
+      ]
+    },
+    "search-selected-unicode": {
+      "outcome": "success",
+      "num_pages": 3,
+      "searched_pages": [2],
+      "matches": [
+        { "page": 2, "text": "Café", "match_start": 0, "match_end": 4, "text_item_index": 2 }
+      ]
+    },
+    "read-missing-file": { "outcome": "error", "category": "file_not_found" },
+    "read-malformed": { "outcome": "error", "category": "invalid_pdf" },
+    "read-mixed-source-partial": {
+      "outcome": "success",
+      "results": [
+        { "success": true, "num_pages": 3 },
+        { "success": false, "category": "file_not_found" }
+      ]
+    }
+  }
+}
