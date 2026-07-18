@@ -234,9 +234,9 @@ fn extract_page_labels(
     }
     let root = catalog.get(b"PageLabels").ok()?.clone();
     let mut ranges = Vec::new();
-    let mut path = HashSet::new();
+    let mut processed = HashSet::new();
     let mut invalid = false;
-    collect_label_ranges(walker, &root, 0, &mut path, &mut ranges, &mut invalid);
+    collect_label_ranges(walker, &root, 0, &mut processed, &mut ranges, &mut invalid);
     if invalid || walker.truncated || walker.failed {
         return None;
     }
@@ -276,7 +276,7 @@ fn collect_label_ranges(
     walker: &mut Walker<'_>,
     value: &Object,
     depth: usize,
-    path: &mut HashSet<ObjectId>,
+    processed: &mut HashSet<ObjectId>,
     output: &mut Vec<LabelRange>,
     invalid: &mut bool,
 ) {
@@ -287,16 +287,13 @@ fn collect_label_ranges(
     walker.entries += 1;
     let id = value.as_reference().ok();
     if let Some(id) = id {
-        if !path.insert(id) {
+        if !processed.insert(id) {
             walker.truncated = true;
             return;
         }
     }
     let Some(dict) = walker.dict(value) else {
         *invalid = true;
-        if let Some(id) = id {
-            path.remove(&id);
-        }
         return;
     };
     if let Ok(value) = dict.get(b"Kids") {
@@ -312,11 +309,14 @@ fn collect_label_ranges(
             return;
         }
         for kid in &kids {
-            collect_label_ranges(walker, kid, depth + 1, path, output, invalid);
+            collect_label_ranges(walker, kid, depth + 1, processed, output, invalid);
             if walker.truncated {
                 return;
             }
         }
+        // PDF.js treats a node with Kids as an internal node and ignores a
+        // same-node Nums entry.
+        return;
     }
     if let Ok(value) = dict.get(b"Nums") {
         let Some(nums) = walker
@@ -403,9 +403,6 @@ fn collect_label_ranges(
             });
         }
     }
-    if let Some(id) = id {
-        path.remove(&id);
-    }
 }
 
 fn format_label(style: Option<&[u8]>, number: u32) -> Option<String> {
@@ -467,7 +464,9 @@ fn extract_outline(walker: &mut Walker<'_>, catalog: &Dictionary) -> Option<Vec<
         return None;
     }
     let mut path = HashSet::new();
-    let items = outline_siblings(walker, first, 0, &mut path);
+    let mut processed = HashSet::new();
+    processed.insert(first.as_reference().ok()?);
+    let items = outline_siblings(walker, first, 0, &mut path, &mut processed);
     (!walker.truncated && !walker.failed).then_some(items)
 }
 
@@ -476,6 +475,7 @@ fn outline_siblings(
     mut current: Object,
     depth: usize,
     path: &mut HashSet<ObjectId>,
+    processed: &mut HashSet<ObjectId>,
 ) -> Vec<OutlineItem> {
     let mut output = Vec::new();
     let mut siblings = HashSet::new();
@@ -494,27 +494,63 @@ fn outline_siblings(
         let Some(dict) = walker.dict(&current) else {
             break;
         };
-        let next = dict.get(b"Next").ok().cloned();
-        if let Some(mut item) = normalize_outline_item(walker, &dict) {
-            if walker.entries >= MAX_ENTRIES {
-                walker.truncated = true;
-                break;
-            }
-            walker.entries += 1;
-            if let Ok(first) = dict.get(b"First") {
-                if first.as_reference().is_ok() {
-                    let children = outline_siblings(walker, first.clone(), depth + 1, path);
-                    if !children.is_empty() {
-                        item.items = Some(children);
-                    }
+        if walker.entries >= MAX_ENTRIES {
+            walker.truncated = true;
+            break;
+        }
+        walker.entries += 1;
+        let child = dict
+            .get(b"First")
+            .ok()
+            .cloned()
+            .filter(|value| value.as_reference().is_ok())
+            .and_then(|value| {
+                let child_id = value.as_reference().ok()?;
+                if path.contains(&child_id) {
+                    walker.truncated = true;
+                    None
+                } else if processed.insert(child_id) {
+                    Some(value)
+                } else {
+                    None
                 }
+            });
+        // PDF.js admits both First and Next refs to its global processed set
+        // while processing the current item, before either queued item runs.
+        let next = dict
+            .get(b"Next")
+            .ok()
+            .cloned()
+            .filter(|value| value.as_reference().is_ok())
+            .and_then(|value| {
+                let next_id = value.as_reference().ok()?;
+                if siblings.contains(&next_id) || path.contains(&next_id) {
+                    walker.truncated = true;
+                    None
+                } else if processed.insert(next_id) {
+                    Some(value)
+                } else {
+                    None
+                }
+            });
+        let mut item = normalize_outline_item(walker, &dict);
+        let mut children = Vec::new();
+        if let Some(first) = child {
+            children = outline_siblings(walker, first, depth + 1, path, processed);
+        }
+        if let Some(mut item) = item.take() {
+            if !children.is_empty() {
+                item.items = Some(children);
             }
             output.push(item);
         }
         if let Some(id) = current_id {
             path.remove(&id);
         }
-        let Some(value) = next.filter(|value| value.as_reference().is_ok()) else {
+        if walker.truncated {
+            break;
+        }
+        let Some(value) = next else {
             break;
         };
         current = value;
@@ -953,5 +989,111 @@ mod tests {
             },
         );
         assert!(out.outline.is_none());
+    }
+
+    #[test]
+    fn duplicate_number_tree_reference_omits_the_whole_surface() {
+        let mut doc = document(dictionary! {});
+        let leaf = doc.add_object(dictionary! {
+            "Nums"=>vec![0.into(),Object::Dictionary(dictionary!{"S"=>"D"})],
+        });
+        let labels = doc.add_object(dictionary! {"Kids"=>vec![leaf.into(),leaf.into()]});
+        doc.catalog_mut().unwrap().set("PageLabels", labels);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            1,
+            CatalogSignalRequest {
+                page_labels: true,
+                permissions: false,
+                outline: false,
+            },
+        );
+        assert!(out.page_labels.is_none());
+    }
+
+    #[test]
+    fn number_tree_kids_take_precedence_over_same_node_nums() {
+        let mut doc = document(dictionary! {});
+        let leaf = doc.add_object(dictionary! {
+            "Nums"=>vec![0.into(),Object::Dictionary(dictionary!{"S"=>"D"})],
+        });
+        let labels = doc.add_object(dictionary! {
+            "Kids"=>vec![leaf.into()],
+            "Nums"=>vec![0.into(),Object::Dictionary(dictionary!{"P"=>Object::string_literal("wrong")})],
+        });
+        doc.catalog_mut().unwrap().set("PageLabels", labels);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            2,
+            CatalogSignalRequest {
+                page_labels: true,
+                permissions: false,
+                outline: false,
+            },
+        );
+        assert_eq!(out.page_labels, Some(vec!["1".into(), "2".into()]));
+    }
+
+    #[test]
+    fn shared_outline_reference_is_emitted_only_on_first_pdfjs_branch() {
+        let mut doc = document(dictionary! {});
+        let shared = doc.add_object(dictionary! {"Title"=>Object::string_literal("Shared")});
+        let second = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("Second"),
+            "First"=>shared,
+        });
+        let first = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("First"),
+            "First"=>shared,
+            "Next"=>second,
+        });
+        let outlines = doc.add_object(dictionary! {"First"=>first});
+        doc.catalog_mut().unwrap().set("Outlines", outlines);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value[0]["items"][0]["title"], "Shared");
+        assert!(value[1].get("items").is_none());
+    }
+
+    #[test]
+    fn outline_first_and_next_are_globally_admitted_before_child_runs() {
+        let mut doc = document(dictionary! {});
+        let shared = doc.add_object(dictionary! {"Title"=>Object::string_literal("Shared")});
+        let child = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("Child"),
+            "First"=>shared,
+        });
+        let first = doc.add_object(dictionary! {
+            "Title"=>Object::string_literal("First"),
+            "First"=>child,
+            "Next"=>shared,
+        });
+        let outlines = doc.add_object(dictionary! {"First"=>first});
+        doc.catalog_mut().unwrap().set("Outlines", outlines);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            0,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value[0]["items"][0]["title"], "Child");
+        assert!(value[0]["items"][0].get("items").is_none());
+        assert_eq!(value[1]["title"], "Shared");
     }
 }
