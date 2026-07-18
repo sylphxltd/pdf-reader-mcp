@@ -1,4 +1,4 @@
-# Project Control Gate
+# Project Control Ingestion
 
 PDF Reader MCP keeps project-control facts in two source files:
 
@@ -7,35 +7,23 @@ PDF Reader MCP keeps project-control facts in two source files:
 - `.doctrine/project.json` is the Sylphx Doctrine adapter and local governance
   catalog.
 
-Generated `.groundatlas*` outputs plus GroundAtlas JSON and Markdown reports are
-evidence/read models only. They must not be edited or treated as source of
-truth.
+Generated inventory and reports are evidence/read models only. They must not be
+edited or treated as source of truth.
 
-## Required CI Behavior
+## Current Control
 
-The CI workflow must run a single GroundAtlas dogfood job on pull requests,
-merge-group candidates, and `main` pushes. That job must use:
+Control Plane ADR-0014 retired the repository-local GroundAtlas package dogfood
+job and assigned repository-intelligence ownership to Control Plane Repository
+Ingestion. Do not re-add a required GroundAtlas package/action job to this
+repository. The ownership decision is not a live central ingestion receipt.
 
-- `SylphxAI/groundatlas@v0.1.3`;
-- `groundatlas@0.1.3`;
-- `require-atlas: "true"`;
-- `strict: "true"`.
+The local contract is:
 
-The assertion step must prove:
-
-- selected manifest path is `project.manifest.json`;
-- selected manifest `adapter=false`;
-- `.doctrine/project.json` remains an adapter with `adapter=true`;
-- fleet summary is `1 adopted, 0 warning, 0 blocked, 1 total`;
-- Markdown scorecard includes `# GroundAtlas fleet adoption report`;
-- Markdown scorecard includes
-  `Summary: 1 adopted, 0 warning, 0 blocked, 1 total.`
-
-The `groundatlas-package-dogfood` artifact must include:
-
-- `groundatlas-manifest.json`;
-- `groundatlas-fleet.json`;
-- `groundatlas-fleet.md`.
+- keep both manifest files valid JSON and semantically aligned through focused
+  local readback;
+- keep `project.manifest.json` vendor-neutral;
+- keep `.doctrine/project.json` as the Sylphx Doctrine adapter;
+- fail tests if the retired package gate is reintroduced.
 
 ## Validation
 
@@ -43,9 +31,5 @@ Control-plane-only changes should run:
 
 ```bash
 bun test test/project-control.test.ts
-npm exec --yes --package groundatlas@0.1.3 -- ga audit --out .groundatlas-pilot
-npm exec --yes --package groundatlas@0.1.3 -- ga manifest --out .groundatlas-pilot --json
-npm exec --yes --package groundatlas@0.1.3 -- ga fleet . --out .groundatlas-pilot --require-atlas --strict --json
-npm exec --yes --package groundatlas@0.1.3 -- ga fleet . --out .groundatlas-pilot --require-atlas --strict
 git diff --check
 ```

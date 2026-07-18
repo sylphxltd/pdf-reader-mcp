@@ -60,10 +60,12 @@ self-hosted runners. Package release is Changesets-driven through the repo
 release workflow, which mints a GitHub App token before creating version PRs or
 publishing to npm.
 
-The GroundAtlas package dogfood gate proves the project-control boundary from
-generated JSON and Markdown evidence, but those generated files are not source
-of truth. `project.manifest.json` remains the vendor-neutral control file and
-`.doctrine/project.json` remains the Sylphx Doctrine adapter.
+Control Plane ADR-0014 retired the in-repository GroundAtlas package dogfood
+gate and assigned repository-intelligence ownership to Control Plane Repository
+Ingestion. `project.manifest.json` remains the vendor-neutral control file and
+`.doctrine/project.json` remains the Sylphx Doctrine adapter. This repository
+does not treat the ownership decision as proof of a live central ingestion
+receipt; generated inventory and reports remain read models only.
 
 Docs-only boundary changes do not alter runtime behavior, provider dispatch,
 credentials, package output, npm release, or customer data handling. MCP schema,
@@ -77,8 +79,3 @@ through clean packaging, benchmarks, trust, compatibility, and separately owned
 hosted/enterprise products. Pricing, hosted document intelligence, enterprise
 packaging, or roadmap changes require decision records backed by market and
 customer analysis.
-
-
-## GroundAtlas
-
-GroundAtlas package dogfood is **retired** (Control Plane ADR-0014). Do not re-add required groundatlas CI jobs.

@@ -61,7 +61,7 @@
       "type": "workflow",
       "name": "CI",
       "path": ".github/workflows/ci.yml",
-      "description": "Code quality, package smoke, tests, docs, release evidence, secret scan, and GroundAtlas package dogfood."
+      "description": "Code quality, package smoke, tests, docs, release evidence, and secret scan."
     },
     {
       "type": "website",
@@ -104,6 +104,6 @@
   ],
   "adoption": {
     "status": "adopted",
-    "notes": "Vendor-neutral GroundAtlas manifest for package/action dogfooding. .doctrine/project.json remains the Sylphx Doctrine adapter and local governance catalog. Generated .groundatlas* outputs plus GroundAtlas JSON and Markdown reports are evidence/read models only."
+    "notes": "Vendor-neutral project metadata. GroundAtlas package/action dogfood was retired by Control Plane ADR-0014. .doctrine/project.json remains the Sylphx Doctrine adapter and local governance catalog; generated inventory and reports are read models only."
   }
 }
