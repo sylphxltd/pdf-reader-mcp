@@ -196,10 +196,17 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_document_ast_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 5 and .passed == 5 and .skipped == 0 and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
             .subprocessNonzeroRejected == true and
             .mutationSensitive.allClaimedFields == true and
-            .mutationSensitive.probedPathCount > 0
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "d07970ccd8f59d5d8a4835626b34d3322209dd06335ae31b31b711b6a9aa947d" and
+            .mutationSensitive.leafMutationCount == 2384 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 8 and
+            .mutationSensitive.unexpectedFieldProbeCount == 3 and
+            .mutationSensitive.requiredOmissionProbeCount == 4 and
+            .mutationSensitive.privateLeakProbeCount == 5 and
+            .mutationSensitive.dependencyPresenceProbeCount == 10
           ' "$DOCUMENT_AST_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 document-AST result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1

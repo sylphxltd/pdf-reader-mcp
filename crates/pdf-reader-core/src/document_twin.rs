@@ -1709,7 +1709,12 @@ fn ast_aggregate(node: &mut DocumentAstNode, depth: usize) -> DocumentAstStats {
 /// Build the v3.0.14 text-first Document AST from the same semantic element
 /// and chunk projections used by the public response. Provider-backed visual
 /// enrichment and caption linking remain outside this bounded Rust slice.
-pub fn build_document_ast(pages: &[PageText], elements: &Value, chunks: &Value) -> Value {
+pub fn build_document_ast(
+    pages: &[PageText],
+    elements: &Value,
+    chunks: &Value,
+    warnings: &[String],
+) -> Value {
     let mut selected_pages = pages.iter().map(|page| page.page).collect::<Vec<_>>();
     selected_pages.sort_unstable();
     selected_pages.dedup();
@@ -1893,9 +1898,13 @@ pub fn build_document_ast(pages: &[PageText], elements: &Value, chunks: &Value) 
             "max_depth": stats.max_depth,
         },
     });
+    let mut ast_warnings = warnings.to_vec();
     if !has_heading {
-        output["warnings"] =
-            json!(["No heading hierarchy detected; document_ast uses page-level leaf nodes."]);
+        ast_warnings
+            .push("No heading hierarchy detected; document_ast uses page-level leaf nodes.".into());
+    }
+    if !ast_warnings.is_empty() {
+        output["warnings"] = json!(ast_warnings);
     }
     output
 }
@@ -2501,7 +2510,7 @@ mod tests {
             {"id":"p2-chunk-3","element_ids":["p2-text-1"]}
         ]);
 
-        let ast = build_document_ast(&selected, &elements, &chunks);
+        let ast = build_document_ast(&selected, &elements, &chunks, &[]);
         assert_eq!(ast["summary"]["selected_pages"], json!([1, 2]));
         assert_eq!(ast["summary"]["page_count"], 2);
         assert_eq!(ast["summary"]["node_count"], 9);
@@ -2562,7 +2571,7 @@ mod tests {
             "content":"Ordinary paragraph.",
             "semantic_hint":{"role":"paragraph","confidence":0.5,"signals":["default-text"]}
         }]);
-        let ast = build_document_ast(&selected, &elements, &json!([]));
+        let ast = build_document_ast(&selected, &elements, &json!([]), &[]);
         assert_eq!(ast["root"]["children"][0]["id"], "p1");
         assert!(ast["root"].get("chunk_ids").is_none());
         assert!(ast["root"].get("bounding_boxes").is_none());

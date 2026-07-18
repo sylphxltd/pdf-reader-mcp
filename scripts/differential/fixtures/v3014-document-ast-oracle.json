@@ -6,9 +6,10 @@
     "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
     "tree": "f6fc4e58f692736c8bd6aaf9d4c9cfa806d113ab",
     "bunLockSha256": "07f469c8200fb82c9092cef178c1bdd67f8cf61fe6c027303665395eede9dd45",
-    "runnerSha256": "d18257071e98e7d485f0ace4810a327d7b0825c15a73280a8d418eea0f4ecdf8",
+    "runnerSha256": "c4b570bf8adc112cdf2cf2f712ac3a0a50bfecc3cb2e066e7f85f54a74e6f07c",
+    "projectionSha256": "e084793b9778cea696e5551ff6f4a4631adc401ddd21824fbf0de149d972e317",
     "generatorSha256": "238e81fd674e9e8aa6a3a617f12a63ebdcc901cd1e4096c5af4b52ab177d0326",
-    "corpusSha256": "56035d3f6a04338a07218f5b0ec4e8ff8d394e05df3b5edcc4015264ee72dc3f",
+    "corpusSha256": "509ab407c34ffd0700795dafaf1da6ce333ed0fde564907e85cfee6fd4ae16de",
     "fixtureManifestSha256": "71bb5453c16b5de14c180370c3ba07f6bea217a3e99e1dff3752ae8b99576586",
     "fixtureSha256": "d2e9ab11051bd3a84d2a7905cdd7640fe697d47ec58466260debd57041e5a100",
     "entrypointSha256": {
@@ -24,9 +25,19 @@
   },
   "expectations": {
     "ast-only-hidden-semantic-chunk-dependencies": {
-      "has_document_ast": true,
-      "has_elements": false,
-      "has_chunks": false,
+      "top_level_warnings": null,
+      "dependency_surfaces": {
+        "elements": false,
+        "chunks": false,
+        "page_geometry": false,
+        "text_layer": false,
+        "document_map": false,
+        "tables": false,
+        "visual_enrichments": false,
+        "ocr_text_layer": false,
+        "_internal": false,
+        "internal": false
+      },
       "elements": [],
       "chunks": [],
       "document_ast": {
@@ -233,8 +244,8 @@
                   ],
                   "title": "Chapter 1: Foundations",
                   "text": "Chapter 1: Foundations",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -309,8 +320,8 @@
                       ],
                       "title": "1.1 Details",
                       "text": "1.1 Details",
-                      "level": 2,
                       "semantic_role": "heading",
+                      "level": 2,
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -467,6 +478,7 @@
                   ],
                   "text": "Continuation on page two.",
                   "semantic_role": "paragraph",
+                  "continued_from_section_id": "p1-text-3-section",
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -480,8 +492,7 @@
                       "level": 2,
                       "page_start": 1
                     }
-                  ],
-                  "continued_from_section_id": "p1-text-3-section"
+                  ]
                 },
                 {
                   "id": "p2-text-2-section",
@@ -518,8 +529,9 @@
                   ],
                   "title": "1.1.1 Deep Dive",
                   "text": "1.1.1 Deep Dive",
-                  "level": 3,
                   "semantic_role": "heading",
+                  "continued_from_section_id": "p1-text-3-section",
+                  "level": 3,
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -540,7 +552,6 @@
                       "page_start": 2
                     }
                   ],
-                  "continued_from_section_id": "p1-text-3-section",
                   "children": [
                     {
                       "id": "p2-text-3",
@@ -563,6 +574,7 @@
                       ],
                       "text": "Deep paragraph.",
                       "semantic_role": "paragraph",
+                      "continued_from_section_id": "p1-text-3-section",
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -582,8 +594,7 @@
                           "level": 3,
                           "page_start": 2
                         }
-                      ],
-                      "continued_from_section_id": "p1-text-3-section"
+                      ]
                     },
                     {
                       "id": "p2-text-4",
@@ -606,6 +617,7 @@
                       ],
                       "text": "- Second detail",
                       "semantic_role": "list_item",
+                      "continued_from_section_id": "p1-text-3-section",
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -625,8 +637,7 @@
                           "level": 3,
                           "page_start": 2
                         }
-                      ],
-                      "continued_from_section_id": "p1-text-3-section"
+                      ]
                     }
                   ]
                 }
@@ -688,6 +699,7 @@
                   ],
                   "text": "Continuation on page three.",
                   "semantic_role": "paragraph",
+                  "continued_from_section_id": "p2-text-2-section",
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -707,8 +719,7 @@
                       "level": 3,
                       "page_start": 2
                     }
-                  ],
-                  "continued_from_section_id": "p2-text-2-section"
+                  ]
                 },
                 {
                   "id": "p3-text-2-section",
@@ -738,8 +749,8 @@
                   ],
                   "title": "Chapter 2: Conclusions",
                   "text": "Chapter 2: Conclusions",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p3-text-2-section",
@@ -809,15 +820,25 @@
           "formula_count": 0,
           "diagram_count": 0,
           "visual_enrichment_count": 0,
-          "visual_enrichment_kind_counts": {},
-          "max_depth": 5
+          "max_depth": 5,
+          "visual_enrichment_kind_counts": {}
         }
       }
     },
     "ast-reuses-exposed-plain-chunks": {
-      "has_document_ast": true,
-      "has_elements": false,
-      "has_chunks": true,
+      "top_level_warnings": null,
+      "dependency_surfaces": {
+        "elements": false,
+        "chunks": true,
+        "page_geometry": false,
+        "text_layer": false,
+        "document_map": false,
+        "tables": false,
+        "visual_enrichments": false,
+        "ocr_text_layer": false,
+        "_internal": false,
+        "internal": false
+      },
       "elements": [],
       "chunks": [
         {
@@ -1137,8 +1158,8 @@
                   ],
                   "title": "Chapter 1: Foundations",
                   "text": "Chapter 1: Foundations",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -1213,8 +1234,8 @@
                       ],
                       "title": "1.1 Details",
                       "text": "1.1 Details",
-                      "level": 2,
                       "semantic_role": "heading",
+                      "level": 2,
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -1370,6 +1391,7 @@
                   ],
                   "text": "Continuation on page two.",
                   "semantic_role": "paragraph",
+                  "continued_from_section_id": "p1-text-3-section",
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -1383,8 +1405,7 @@
                       "level": 2,
                       "page_start": 1
                     }
-                  ],
-                  "continued_from_section_id": "p1-text-3-section"
+                  ]
                 },
                 {
                   "id": "p2-text-2-section",
@@ -1421,8 +1442,9 @@
                   ],
                   "title": "1.1.1 Deep Dive",
                   "text": "1.1.1 Deep Dive",
-                  "level": 3,
                   "semantic_role": "heading",
+                  "continued_from_section_id": "p1-text-3-section",
+                  "level": 3,
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -1443,7 +1465,6 @@
                       "page_start": 2
                     }
                   ],
-                  "continued_from_section_id": "p1-text-3-section",
                   "children": [
                     {
                       "id": "p2-text-3",
@@ -1466,6 +1487,7 @@
                       ],
                       "text": "Deep paragraph.",
                       "semantic_role": "paragraph",
+                      "continued_from_section_id": "p1-text-3-section",
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -1485,8 +1507,7 @@
                           "level": 3,
                           "page_start": 2
                         }
-                      ],
-                      "continued_from_section_id": "p1-text-3-section"
+                      ]
                     },
                     {
                       "id": "p2-text-4",
@@ -1509,6 +1530,7 @@
                       ],
                       "text": "- Second detail",
                       "semantic_role": "list_item",
+                      "continued_from_section_id": "p1-text-3-section",
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -1528,8 +1550,7 @@
                           "level": 3,
                           "page_start": 2
                         }
-                      ],
-                      "continued_from_section_id": "p1-text-3-section"
+                      ]
                     }
                   ]
                 }
@@ -1590,6 +1611,7 @@
                   ],
                   "text": "Continuation on page three.",
                   "semantic_role": "paragraph",
+                  "continued_from_section_id": "p2-text-2-section",
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -1609,8 +1631,7 @@
                       "level": 3,
                       "page_start": 2
                     }
-                  ],
-                  "continued_from_section_id": "p2-text-2-section"
+                  ]
                 },
                 {
                   "id": "p3-text-2-section",
@@ -1640,8 +1661,8 @@
                   ],
                   "title": "Chapter 2: Conclusions",
                   "text": "Chapter 2: Conclusions",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p3-text-2-section",
@@ -1711,15 +1732,25 @@
           "formula_count": 0,
           "diagram_count": 0,
           "visual_enrichment_count": 0,
-          "visual_enrichment_kind_counts": {},
-          "max_depth": 5
+          "max_depth": 5,
+          "visual_enrichment_kind_counts": {}
         }
       }
     },
     "ast-reuses-exposed-semantic-elements-and-chunks": {
-      "has_document_ast": true,
-      "has_elements": true,
-      "has_chunks": true,
+      "top_level_warnings": null,
+      "dependency_surfaces": {
+        "elements": true,
+        "chunks": true,
+        "page_geometry": false,
+        "text_layer": false,
+        "document_map": false,
+        "tables": false,
+        "visual_enrichments": false,
+        "ocr_text_layer": false,
+        "_internal": false,
+        "internal": false
+      },
       "elements": [
         {
           "id": "p1-text-1",
@@ -2322,8 +2353,8 @@
                   ],
                   "title": "Chapter 1: Foundations",
                   "text": "Chapter 1: Foundations",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -2398,8 +2429,8 @@
                       ],
                       "title": "1.1 Details",
                       "text": "1.1 Details",
-                      "level": 2,
                       "semantic_role": "heading",
+                      "level": 2,
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -2556,6 +2587,7 @@
                   ],
                   "text": "Continuation on page two.",
                   "semantic_role": "paragraph",
+                  "continued_from_section_id": "p1-text-3-section",
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -2569,8 +2601,7 @@
                       "level": 2,
                       "page_start": 1
                     }
-                  ],
-                  "continued_from_section_id": "p1-text-3-section"
+                  ]
                 },
                 {
                   "id": "p2-text-2-section",
@@ -2607,8 +2638,9 @@
                   ],
                   "title": "1.1.1 Deep Dive",
                   "text": "1.1.1 Deep Dive",
-                  "level": 3,
                   "semantic_role": "heading",
+                  "continued_from_section_id": "p1-text-3-section",
+                  "level": 3,
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -2629,7 +2661,6 @@
                       "page_start": 2
                     }
                   ],
-                  "continued_from_section_id": "p1-text-3-section",
                   "children": [
                     {
                       "id": "p2-text-3",
@@ -2652,6 +2683,7 @@
                       ],
                       "text": "Deep paragraph.",
                       "semantic_role": "paragraph",
+                      "continued_from_section_id": "p1-text-3-section",
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -2671,8 +2703,7 @@
                           "level": 3,
                           "page_start": 2
                         }
-                      ],
-                      "continued_from_section_id": "p1-text-3-section"
+                      ]
                     },
                     {
                       "id": "p2-text-4",
@@ -2695,6 +2726,7 @@
                       ],
                       "text": "- Second detail",
                       "semantic_role": "list_item",
+                      "continued_from_section_id": "p1-text-3-section",
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -2714,8 +2746,7 @@
                           "level": 3,
                           "page_start": 2
                         }
-                      ],
-                      "continued_from_section_id": "p1-text-3-section"
+                      ]
                     }
                   ]
                 }
@@ -2777,6 +2808,7 @@
                   ],
                   "text": "Continuation on page three.",
                   "semantic_role": "paragraph",
+                  "continued_from_section_id": "p2-text-2-section",
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -2796,8 +2828,7 @@
                       "level": 3,
                       "page_start": 2
                     }
-                  ],
-                  "continued_from_section_id": "p2-text-2-section"
+                  ]
                 },
                 {
                   "id": "p3-text-2-section",
@@ -2827,8 +2858,8 @@
                   ],
                   "title": "Chapter 2: Conclusions",
                   "text": "Chapter 2: Conclusions",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p3-text-2-section",
@@ -2898,15 +2929,25 @@
           "formula_count": 0,
           "diagram_count": 0,
           "visual_enrichment_count": 0,
-          "visual_enrichment_kind_counts": {},
-          "max_depth": 5
+          "max_depth": 5,
+          "visual_enrichment_kind_counts": {}
         }
       }
     },
     "ast-selected-pages-dedupe-sort-and-gap-context": {
-      "has_document_ast": true,
-      "has_elements": false,
-      "has_chunks": false,
+      "top_level_warnings": null,
+      "dependency_surfaces": {
+        "elements": false,
+        "chunks": false,
+        "page_geometry": false,
+        "text_layer": false,
+        "document_map": false,
+        "tables": false,
+        "visual_enrichments": false,
+        "ocr_text_layer": false,
+        "_internal": false,
+        "internal": false
+      },
       "elements": [],
       "chunks": [],
       "document_ast": {
@@ -3083,8 +3124,8 @@
                   ],
                   "title": "Chapter 1: Foundations",
                   "text": "Chapter 1: Foundations",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -3159,8 +3200,8 @@
                       ],
                       "title": "1.1 Details",
                       "text": "1.1 Details",
-                      "level": 2,
                       "semantic_role": "heading",
+                      "level": 2,
                       "section_path": [
                         {
                           "id": "p1-text-1-section",
@@ -3310,6 +3351,7 @@
                   ],
                   "text": "Continuation on page three.",
                   "semantic_role": "paragraph",
+                  "continued_from_section_id": "p1-text-3-section",
                   "section_path": [
                     {
                       "id": "p1-text-1-section",
@@ -3323,8 +3365,7 @@
                       "level": 2,
                       "page_start": 1
                     }
-                  ],
-                  "continued_from_section_id": "p1-text-3-section"
+                  ]
                 },
                 {
                   "id": "p3-text-2-section",
@@ -3354,8 +3395,8 @@
                   ],
                   "title": "Chapter 2: Conclusions",
                   "text": "Chapter 2: Conclusions",
-                  "level": 1,
                   "semantic_role": "heading",
+                  "level": 1,
                   "section_path": [
                     {
                       "id": "p3-text-2-section",
@@ -3424,15 +3465,397 @@
           "formula_count": 0,
           "diagram_count": 0,
           "visual_enrichment_count": 0,
-          "visual_enrichment_kind_counts": {},
-          "max_depth": 5
+          "max_depth": 5,
+          "visual_enrichment_kind_counts": {}
         }
       }
     },
+    "ast-heading-with-invalid-page-warning": {
+      "top_level_warnings": [
+        "Requested page numbers 99 exceed total pages (4)."
+      ],
+      "dependency_surfaces": {
+        "elements": false,
+        "chunks": false,
+        "page_geometry": false,
+        "text_layer": false,
+        "document_map": false,
+        "tables": false,
+        "visual_enrichments": false,
+        "ocr_text_layer": false,
+        "_internal": false,
+        "internal": false
+      },
+      "elements": [],
+      "chunks": [],
+      "document_ast": {
+        "version": "2026-06-15",
+        "profile": "document_ast",
+        "root": {
+          "id": "document",
+          "type": "document",
+          "page_start": 1,
+          "page_end": 1,
+          "element_ids": [
+            "p1-text-1",
+            "p1-text-2",
+            "p1-text-3",
+            "p1-text-4",
+            "p1-text-5"
+          ],
+          "chunk_ids": [
+            "p1-chunk-1",
+            "p1-chunk-2"
+          ],
+          "bounding_boxes": [
+            {
+              "left": 72,
+              "bottom": 720,
+              "right": 260.1,
+              "top": 738
+            },
+            {
+              "left": 72,
+              "bottom": 684,
+              "right": 178.728,
+              "top": 696
+            },
+            {
+              "left": 72,
+              "bottom": 640,
+              "right": 142.86,
+              "top": 655
+            },
+            {
+              "left": 72,
+              "bottom": 604,
+              "right": 177.384,
+              "top": 616
+            },
+            {
+              "left": 72,
+              "bottom": 572,
+              "right": 134.676,
+              "top": 584
+            }
+          ],
+          "children": [
+            {
+              "id": "p1",
+              "type": "page",
+              "page_start": 1,
+              "page_end": 1,
+              "element_ids": [
+                "p1-text-1",
+                "p1-text-2",
+                "p1-text-3",
+                "p1-text-4",
+                "p1-text-5"
+              ],
+              "chunk_ids": [
+                "p1-chunk-1",
+                "p1-chunk-2"
+              ],
+              "bounding_boxes": [
+                {
+                  "left": 72,
+                  "bottom": 720,
+                  "right": 260.1,
+                  "top": 738
+                },
+                {
+                  "left": 72,
+                  "bottom": 684,
+                  "right": 178.728,
+                  "top": 696
+                },
+                {
+                  "left": 72,
+                  "bottom": 640,
+                  "right": 142.86,
+                  "top": 655
+                },
+                {
+                  "left": 72,
+                  "bottom": 604,
+                  "right": 177.384,
+                  "top": 616
+                },
+                {
+                  "left": 72,
+                  "bottom": 572,
+                  "right": 134.676,
+                  "top": 584
+                }
+              ],
+              "children": [
+                {
+                  "id": "p1-text-1-section",
+                  "type": "section",
+                  "page_start": 1,
+                  "page_end": 1,
+                  "element_ids": [
+                    "p1-text-1",
+                    "p1-text-2",
+                    "p1-text-3",
+                    "p1-text-4",
+                    "p1-text-5"
+                  ],
+                  "chunk_ids": [
+                    "p1-chunk-1",
+                    "p1-chunk-2"
+                  ],
+                  "bounding_boxes": [
+                    {
+                      "left": 72,
+                      "bottom": 720,
+                      "right": 260.1,
+                      "top": 738
+                    },
+                    {
+                      "left": 72,
+                      "bottom": 684,
+                      "right": 178.728,
+                      "top": 696
+                    },
+                    {
+                      "left": 72,
+                      "bottom": 640,
+                      "right": 142.86,
+                      "top": 655
+                    },
+                    {
+                      "left": 72,
+                      "bottom": 604,
+                      "right": 177.384,
+                      "top": 616
+                    },
+                    {
+                      "left": 72,
+                      "bottom": 572,
+                      "right": 134.676,
+                      "top": 584
+                    }
+                  ],
+                  "title": "Chapter 1: Foundations",
+                  "text": "Chapter 1: Foundations",
+                  "semantic_role": "heading",
+                  "level": 1,
+                  "section_path": [
+                    {
+                      "id": "p1-text-1-section",
+                      "title": "Chapter 1: Foundations",
+                      "level": 1,
+                      "page_start": 1
+                    }
+                  ],
+                  "children": [
+                    {
+                      "id": "p1-text-2",
+                      "type": "paragraph",
+                      "page_start": 1,
+                      "page_end": 1,
+                      "element_ids": [
+                        "p1-text-2"
+                      ],
+                      "chunk_ids": [
+                        "p1-chunk-1"
+                      ],
+                      "bounding_boxes": [
+                        {
+                          "left": 72,
+                          "bottom": 684,
+                          "right": 178.728,
+                          "top": 696
+                        }
+                      ],
+                      "text": "Opening paragraph.",
+                      "semantic_role": "paragraph",
+                      "section_path": [
+                        {
+                          "id": "p1-text-1-section",
+                          "title": "Chapter 1: Foundations",
+                          "level": 1,
+                          "page_start": 1
+                        }
+                      ]
+                    },
+                    {
+                      "id": "p1-text-3-section",
+                      "type": "section",
+                      "page_start": 1,
+                      "page_end": 1,
+                      "element_ids": [
+                        "p1-text-3",
+                        "p1-text-4",
+                        "p1-text-5"
+                      ],
+                      "chunk_ids": [
+                        "p1-chunk-2"
+                      ],
+                      "bounding_boxes": [
+                        {
+                          "left": 72,
+                          "bottom": 640,
+                          "right": 142.86,
+                          "top": 655
+                        },
+                        {
+                          "left": 72,
+                          "bottom": 604,
+                          "right": 177.384,
+                          "top": 616
+                        },
+                        {
+                          "left": 72,
+                          "bottom": 572,
+                          "right": 134.676,
+                          "top": 584
+                        }
+                      ],
+                      "title": "1.1 Details",
+                      "text": "1.1 Details",
+                      "semantic_role": "heading",
+                      "level": 2,
+                      "section_path": [
+                        {
+                          "id": "p1-text-1-section",
+                          "title": "Chapter 1: Foundations",
+                          "level": 1,
+                          "page_start": 1
+                        },
+                        {
+                          "id": "p1-text-3-section",
+                          "title": "1.1 Details",
+                          "level": 2,
+                          "page_start": 1
+                        }
+                      ],
+                      "children": [
+                        {
+                          "id": "p1-text-4",
+                          "type": "paragraph",
+                          "page_start": 1,
+                          "page_end": 1,
+                          "element_ids": [
+                            "p1-text-4"
+                          ],
+                          "chunk_ids": [
+                            "p1-chunk-2"
+                          ],
+                          "bounding_boxes": [
+                            {
+                              "left": 72,
+                              "bottom": 604,
+                              "right": 177.384,
+                              "top": 616
+                            }
+                          ],
+                          "text": "Detailed paragraph.",
+                          "semantic_role": "paragraph",
+                          "section_path": [
+                            {
+                              "id": "p1-text-1-section",
+                              "title": "Chapter 1: Foundations",
+                              "level": 1,
+                              "page_start": 1
+                            },
+                            {
+                              "id": "p1-text-3-section",
+                              "title": "1.1 Details",
+                              "level": 2,
+                              "page_start": 1
+                            }
+                          ]
+                        },
+                        {
+                          "id": "p1-text-5",
+                          "type": "list_item",
+                          "page_start": 1,
+                          "page_end": 1,
+                          "element_ids": [
+                            "p1-text-5"
+                          ],
+                          "chunk_ids": [
+                            "p1-chunk-2"
+                          ],
+                          "bounding_boxes": [
+                            {
+                              "left": 72,
+                              "bottom": 572,
+                              "right": 134.676,
+                              "top": 584
+                            }
+                          ],
+                          "text": "- First detail",
+                          "semantic_role": "list_item",
+                          "section_path": [
+                            {
+                              "id": "p1-text-1-section",
+                              "title": "Chapter 1: Foundations",
+                              "level": 1,
+                              "page_start": 1
+                            },
+                            {
+                              "id": "p1-text-3-section",
+                              "title": "1.1 Details",
+                              "level": 2,
+                              "page_start": 1
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "summary": {
+          "selected_pages": [
+            1
+          ],
+          "page_count": 1,
+          "node_count": 7,
+          "section_count": 2,
+          "paragraph_count": 2,
+          "list_item_count": 1,
+          "caption_count": 0,
+          "header_count": 0,
+          "footer_count": 0,
+          "section_context_node_count": 5,
+          "cross_page_section_context_count": 0,
+          "caption_link_count": 0,
+          "table_count": 0,
+          "image_count": 0,
+          "figure_count": 0,
+          "chart_count": 0,
+          "formula_count": 0,
+          "diagram_count": 0,
+          "visual_enrichment_count": 0,
+          "max_depth": 5,
+          "visual_enrichment_kind_counts": {}
+        },
+        "warnings": [
+          "Requested page numbers 99 exceed total pages (4)."
+        ]
+      }
+    },
     "ast-no-heading-warning": {
-      "has_document_ast": true,
-      "has_elements": false,
-      "has_chunks": false,
+      "top_level_warnings": null,
+      "dependency_surfaces": {
+        "elements": false,
+        "chunks": false,
+        "page_geometry": false,
+        "text_layer": false,
+        "document_map": false,
+        "tables": false,
+        "visual_enrichments": false,
+        "ocr_text_layer": false,
+        "_internal": false,
+        "internal": false
+      },
       "elements": [],
       "chunks": [],
       "document_ast": {
@@ -3562,8 +3985,8 @@
           "formula_count": 0,
           "diagram_count": 0,
           "visual_enrichment_count": 0,
-          "visual_enrichment_kind_counts": {},
-          "max_depth": 3
+          "max_depth": 3,
+          "visual_enrichment_kind_counts": {}
         },
         "warnings": [
           "No heading hierarchy detected; document_ast uses page-level leaf nodes."

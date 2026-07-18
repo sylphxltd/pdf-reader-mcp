@@ -12,6 +12,7 @@ const corpusPath = join(scriptDir, 'fixtures/v3014-document-ast-corpus.json');
 const oraclePath = join(scriptDir, 'fixtures/v3014-document-ast-oracle.json');
 const fixtureDir = join(repoRoot, 'test/fixtures/differential');
 const runnerSource = join(scriptDir, 'v3014-document-ast-baseline-runner.ts');
+const projectionSource = join(scriptDir, 'v3014-document-ast-projection.ts');
 const refresh = process.argv.includes('--refresh');
 const oracle = JSON.parse(readFileSync(oraclePath, 'utf8')) as {
   baseline: { commit: string };
@@ -33,7 +34,9 @@ try {
   run('git', ['worktree', 'add', '--detach', worktree, oracle.baseline.commit], repoRoot);
   run('bun', ['install', '--frozen-lockfile'], worktree);
   const runner = join(worktree, 'v3014-document-ast-baseline-runner.ts');
+  const projection = join(worktree, 'v3014-document-ast-projection.ts');
   writeFileSync(runner, readFileSync(runnerSource));
+  writeFileSync(projection, readFileSync(projectionSource));
   const expectations = JSON.parse(
     run('bun', [runner, corpusPath, fixtureDir], worktree, true)
   ) as Record<string, unknown>;

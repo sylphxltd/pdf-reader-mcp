@@ -39,6 +39,14 @@
       }
     },
     {
+      "id": "ast-heading-with-invalid-page-warning",
+      "input": {
+        "sources": [{ "fixture": "v3014-document-ast-v1.pdf", "pages": [1, 99] }],
+        "auto": false,
+        "include_document_ast": true
+      }
+    },
+    {
       "id": "ast-no-heading-warning",
       "input": {
         "sources": [{ "fixture": "v3014-document-ast-v1.pdf", "pages": [4] }],

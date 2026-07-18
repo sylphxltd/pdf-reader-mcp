@@ -159,10 +159,18 @@ if (
     `rust parity workflow must require the exact ${documentAstCaseCount}/${documentAstCaseCount} document-AST corpus`
   );
 }
-if (documentAstCaseCount !== 5) {
+if (documentAstCaseCount !== 6) {
   failures.push(
-    `frozen document-AST differential must contain exactly 5 cases (got ${documentAstCaseCount})`
+    `frozen document-AST differential must contain exactly 6 cases (got ${documentAstCaseCount})`
   );
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "d07970ccd8f59d5d8a4835626b34d3322209dd06335ae31b31b711b6a9aa947d"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 2384')
+) {
+  failures.push('document-AST workflow must bind the exact mutation manifest and leaf count');
 }
 if (failures.length) {
   console.error(failures.join('\n'));

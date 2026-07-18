@@ -5,6 +5,11 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  canonicalDocumentAstResult,
+  DOCUMENT_AST_MUTATION_MANIFEST,
+  type Json,
+} from './v3014-document-ast-projection.ts';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, '../..');
@@ -13,12 +18,12 @@ const corpusPath = join(scriptDir, 'fixtures/v3014-document-ast-corpus.json');
 const oraclePath = join(scriptDir, 'fixtures/v3014-document-ast-oracle.json');
 const fixtureManifestPath = join(scriptDir, 'fixtures/v3014-document-ast-fixture.json');
 const runnerPath = join(scriptDir, 'v3014-document-ast-baseline-runner.ts');
+const projectionPath = join(scriptDir, 'v3014-document-ast-projection.ts');
 const generatorPath = join(scriptDir, 'generate-v3014-document-ast-fixture.ts');
 const rustCliPath = join(repoRoot, 'target/release/pdf-reader-cli');
 const outputFlag = process.argv.indexOf('--output');
 const outputPath = outputFlag >= 0 ? process.argv[outputFlag + 1] : undefined;
 
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Case = { id: string; input: Record<string, unknown> };
 type Oracle = {
   baseline: {
@@ -27,6 +32,7 @@ type Oracle = {
     tree: string;
     bunLockSha256: string;
     runnerSha256: string;
+    projectionSha256: string;
     generatorSha256: string;
     corpusSha256: string;
     fixtureManifestSha256: string;
@@ -47,95 +53,6 @@ const git = (...args: string[]): Buffer => {
   const result = spawnSync('git', args, { cwd: repoRoot });
   if (result.status !== 0) throw new Error(result.stderr.toString());
   return result.stdout;
-};
-const coordinate = (value: unknown): number => Math.round(Number(value) * 1e9) / 1e9;
-const box = (value: unknown): Json => {
-  const record = value as Record<string, unknown>;
-  return {
-    left: coordinate(record.left),
-    bottom: coordinate(record.bottom),
-    right: coordinate(record.right),
-    top: coordinate(record.top),
-  };
-};
-const hint = (value: unknown): Json => {
-  if (!value || typeof value !== 'object') return null;
-  const record = value as Record<string, unknown>;
-  return {
-    role: String(record.role),
-    confidence: Number(record.confidence),
-    signals: (record.signals ?? []) as Json,
-    ...(record.level === undefined ? {} : { level: Number(record.level) }),
-  };
-};
-const node = (value: Record<string, unknown>): Json => ({
-  id: String(value.id),
-  type: String(value.type),
-  page_start: Number(value.page_start),
-  page_end: Number(value.page_end),
-  element_ids: (value.element_ids ?? []) as Json,
-  ...(value.chunk_ids === undefined ? {} : { chunk_ids: value.chunk_ids as Json }),
-  ...(value.bounding_boxes === undefined
-    ? {}
-    : { bounding_boxes: (value.bounding_boxes as unknown[]).map(box) }),
-  ...(value.title === undefined ? {} : { title: String(value.title) }),
-  ...(value.text === undefined ? {} : { text: String(value.text) }),
-  ...(value.level === undefined ? {} : { level: Number(value.level) }),
-  ...(value.semantic_role === undefined ? {} : { semantic_role: String(value.semantic_role) }),
-  ...(value.section_path === undefined
-    ? {}
-    : {
-        section_path: (value.section_path as Array<Record<string, unknown>>).map((entry) => ({
-          id: String(entry.id),
-          title: String(entry.title),
-          level: Number(entry.level),
-          page_start: Number(entry.page_start),
-        })),
-      }),
-  ...(value.continued_from_section_id === undefined
-    ? {}
-    : { continued_from_section_id: String(value.continued_from_section_id) }),
-  ...(value.children === undefined
-    ? {}
-    : { children: (value.children as Array<Record<string, unknown>>).map(node) }),
-});
-const canonical = (data: Record<string, unknown>): Json => {
-  const ast = data.document_ast as Record<string, unknown> | undefined;
-  return {
-    has_document_ast: Object.hasOwn(data, 'document_ast'),
-    has_elements: Object.hasOwn(data, 'elements'),
-    has_chunks: Object.hasOwn(data, 'chunks'),
-    elements: ((data.elements ?? []) as Array<Record<string, unknown>>).map((element) => ({
-      id: String(element.id),
-      type: String(element.type),
-      page: Number(element.page),
-      content: String(element.content),
-      ...(element.bounding_box === undefined ? {} : { bounding_box: box(element.bounding_box) }),
-      semantic_hint: hint(element.semantic_hint),
-    })),
-    chunks: ((data.chunks ?? []) as Array<Record<string, unknown>>).map((chunk) => ({
-      id: String(chunk.id),
-      page_start: Number(chunk.page_start),
-      page_end: Number(chunk.page_end),
-      text: String(chunk.text),
-      element_ids: (chunk.element_ids ?? []) as Json,
-      ...(chunk.strategy === undefined ? {} : { strategy: String(chunk.strategy) }),
-      ...(chunk.heading === undefined ? {} : { heading: String(chunk.heading) }),
-      ...(chunk.bounding_boxes === undefined
-        ? {}
-        : { bounding_boxes: (chunk.bounding_boxes as unknown[]).map(box) }),
-    })),
-    document_ast:
-      ast === undefined
-        ? null
-        : {
-            version: String(ast.version),
-            profile: String(ast.profile),
-            root: node(ast.root as Record<string, unknown>),
-            summary: ast.summary as Json,
-            ...(ast.warnings === undefined ? {} : { warnings: ast.warnings as Json }),
-          },
-  };
 };
 const canonicalJson = (value: Json): Json => {
   if (Array.isArray(value)) return value.map(canonicalJson);
@@ -161,6 +78,7 @@ function verifyAuthority(): Record<string, string> {
   }
   const localBindings: Array<[string, string, string]> = [
     [runnerPath, oracle.baseline.runnerSha256, 'runner'],
+    [projectionPath, oracle.baseline.projectionSha256, 'projection'],
     [generatorPath, oracle.baseline.generatorSha256, 'generator'],
     [corpusPath, oracle.baseline.corpusSha256, 'corpus'],
     [fixtureManifestPath, oracle.baseline.fixtureManifestSha256, 'fixture manifest'],
@@ -188,13 +106,14 @@ function verifyAuthority(): Record<string, string> {
     'ast-reuses-exposed-plain-chunks',
     'ast-reuses-exposed-semantic-elements-and-chunks',
     'ast-selected-pages-dedupe-sort-and-gap-context',
+    'ast-heading-with-invalid-page-warning',
     'ast-no-heading-warning',
   ];
   if (
     JSON.stringify(corpus.cases.map((entry) => entry.id)) !== JSON.stringify(expectedIds) ||
     JSON.stringify(Object.keys(oracle.expectations).sort()) !== JSON.stringify([...expectedIds].sort())
   ) {
-    throw new Error('document-AST corpus and oracle must contain the exact five case IDs');
+    throw new Error('document-AST corpus and oracle must contain the exact six case IDs');
   }
   const oracleText = JSON.stringify(oracle.expectations);
   for (const required of [
@@ -215,6 +134,7 @@ function verifyAuthority(): Record<string, string> {
     corpusSha256: sha256(readFileSync(corpusPath)),
     oracleSha256: sha256(readFileSync(oraclePath)),
     runnerSha256: sha256(readFileSync(runnerPath)),
+    projectionSha256: sha256(readFileSync(projectionPath)),
     generatorSha256: sha256(readFileSync(generatorPath)),
     fixtureManifestSha256: sha256(readFileSync(fixtureManifestPath)),
     fixtureSha256: fixtureManifest.fixture.sha256,
@@ -282,6 +202,7 @@ try {
 if (!subprocessNonzeroRejected) throw new Error('nonzero subprocess was not rejected');
 const failures: Array<{ id: string; expected: Json; actual: Json }> = [];
 const observations: Record<string, Json> = {};
+const rawResults: Record<string, Record<string, unknown>> = {};
 for (const entry of corpus.cases) {
   const result = spawnSync(rustCliPath, [], {
     cwd: repoRoot,
@@ -298,24 +219,104 @@ for (const entry of corpus.cases) {
     results: Array<{ success: boolean; data: Record<string, unknown> }>;
   };
   if (!payload.results[0]?.success) throw new Error(`Rust document-AST case failed: ${entry.id}`);
-  const actual = canonical(payload.results[0].data);
+  rawResults[entry.id] = payload.results[0].data;
+  const actual = canonicalDocumentAstResult(payload.results[0].data);
   const expected = oracle.expectations[entry.id]!;
   observations[entry.id] = actual;
   if (!same(actual, expected)) failures.push({ id: entry.id, expected, actual });
 }
 
-let probedPathCount = 0;
+let leafMutationCount = 0;
 for (const [caseId, expectation] of Object.entries(oracle.expectations)) {
-  const documentAst = (expectation as { document_ast?: Json }).document_ast;
-  if (!documentAst) throw new Error(`oracle lacks document-AST mutation source: ${caseId}`);
-  const paths = leafPaths(documentAst);
-  const missedPaths = paths.filter((path) => same(mutateAt(documentAst, path), documentAst));
+  const paths = leafPaths(expectation);
+  const missedPaths = paths.filter((path) => same(mutateAt(expectation, path), expectation));
   if (missedPaths.length > 0) {
-    throw new Error(`AST canonical comparison missed ${missedPaths.length} leaf mutations in ${caseId}`);
+    throw new Error(`canonical comparison missed ${missedPaths.length} leaf mutations in ${caseId}`);
   }
-  probedPathCount += paths.length;
+  leafMutationCount += paths.length;
 }
-const mutationSensitive = { allClaimedFields: true, probedPathCount };
+
+const baseRaw = rawResults['ast-only-hidden-semantic-chunk-dependencies'];
+const warningRaw = rawResults['ast-heading-with-invalid-page-warning'];
+if (!baseRaw || !warningRaw) throw new Error('raw mutation probe cases are missing');
+const assertProjectionRejects = (mutate: (value: Record<string, unknown>) => void, label: string) => {
+  const mutated = structuredClone(baseRaw);
+  mutate(mutated);
+  try {
+    canonicalDocumentAstResult(mutated);
+  } catch {
+    return;
+  }
+  throw new Error(`strict projection accepted invalid mutation: ${label}`);
+};
+const astRecord = (value: Record<string, unknown>) => value.document_ast as Record<string, unknown>;
+const rootRecord = (value: Record<string, unknown>) => astRecord(value).root as Record<string, unknown>;
+const summaryRecord = (value: Record<string, unknown>) => astRecord(value).summary as Record<string, unknown>;
+
+assertProjectionRejects((value) => { astRecord(value).version = 1; }, 'document_ast.version type');
+assertProjectionRejects((value) => { rootRecord(value).id = 1; }, 'root.id type');
+assertProjectionRejects((value) => { rootRecord(value).page_start = '1'; }, 'root.page_start type');
+assertProjectionRejects((value) => {
+  (rootRecord(value).element_ids as unknown[])[0] = 1;
+}, 'root.element_ids item type');
+assertProjectionRejects((value) => { summaryRecord(value).page_count = '3'; }, 'summary.page_count type');
+assertProjectionRejects((value) => {
+  (summaryRecord(value).selected_pages as unknown[])[0] = '1';
+}, 'summary.selected_pages item type');
+{
+  const mutated = structuredClone(warningRaw);
+  const warnings = mutated.warnings as unknown[];
+  warnings[0] = 1;
+  try {
+    canonicalDocumentAstResult(mutated);
+    throw new Error('strict projection accepted invalid mutation: top-level warnings item type');
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('strict projection accepted')) throw error;
+  }
+}
+{
+  const mutated = structuredClone(warningRaw);
+  const warnings = astRecord(mutated).warnings as unknown[];
+  warnings[0] = 1;
+  try {
+    canonicalDocumentAstResult(mutated);
+    throw new Error('strict projection accepted invalid mutation: document_ast.warnings item type');
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('strict projection accepted')) throw error;
+  }
+}
+
+assertProjectionRejects((value) => { astRecord(value).unexpected = true; }, 'unexpected AST field');
+assertProjectionRejects((value) => { rootRecord(value).unexpected = true; }, 'unexpected node field');
+assertProjectionRejects((value) => { summaryRecord(value).unexpected = true; }, 'unexpected summary field');
+
+assertProjectionRejects((value) => { delete astRecord(value).version; }, 'required AST omission');
+assertProjectionRejects((value) => { delete rootRecord(value).id; }, 'required node id omission');
+assertProjectionRejects((value) => { delete rootRecord(value).element_ids; }, 'required element_ids omission');
+assertProjectionRejects((value) => { delete summaryRecord(value).page_count; }, 'required summary omission');
+
+const baseExpected = oracle.expectations['ast-only-hidden-semantic-chunk-dependencies']!;
+let privateLeakProbeCount = 0;
+for (const key of DOCUMENT_AST_MUTATION_MANIFEST.privateLeakage) {
+  const mutated = structuredClone(baseRaw);
+  mutated[key] = { leaked: true };
+  if (same(canonicalDocumentAstResult(mutated), baseExpected)) {
+    throw new Error(`private output leakage was not detected: ${key}`);
+  }
+  privateLeakProbeCount += 1;
+}
+const mutationManifestSha256 = sha256(JSON.stringify(DOCUMENT_AST_MUTATION_MANIFEST));
+const mutationSensitive = {
+  allClaimedFields: true,
+  manifestVersion: DOCUMENT_AST_MUTATION_MANIFEST.version,
+  mutationManifestSha256,
+  leafMutationCount,
+  wrongPrimitiveTypeProbeCount: DOCUMENT_AST_MUTATION_MANIFEST.wrongPrimitiveTypes.length,
+  unexpectedFieldProbeCount: DOCUMENT_AST_MUTATION_MANIFEST.unexpectedFields.length,
+  requiredOmissionProbeCount: DOCUMENT_AST_MUTATION_MANIFEST.requiredOmissions.length,
+  privateLeakProbeCount,
+  dependencyPresenceProbeCount: DOCUMENT_AST_MUTATION_MANIFEST.dependencyPresence.length,
+};
 
 const candidateSha = git('rev-parse', 'HEAD').toString().trim();
 if (process.env.CANDIDATE_SHA && process.env.CANDIDATE_SHA !== candidateSha) {

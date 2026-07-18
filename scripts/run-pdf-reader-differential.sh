@@ -94,7 +94,7 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-semantic-hint-oracle.ts" 2>&1
 bun "$REPO_ROOT/scripts/differential/check-v3014-semantic-hint-differential.ts" \
   --output "$V3014_SEMANTIC_HINT_JSON" >>"$LOG"
 
-echo "--- immutable v3.0.14 text-only document-AST hierarchy/cache differential (5 exact cases) ---" | tee -a "$LOG"
+echo "--- immutable v3.0.14 text-only document-AST hierarchy/cache/warning differential (6 exact cases) ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-document-ast-fixture.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-document-ast-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-document-ast-differential.ts" \
@@ -297,7 +297,7 @@ jq -n \
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
     structuralConsistencyOracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
-    nonClaims: ["full TS 3.0.14 behavioral parity", "text-layer/element/chunk geometry outside the immutable 1-case selectable-text corpus", "citation-chunk semantics outside the immutable 6-case schema/boundary/dependency corpus", "semantic-hint classification outside the immutable 3-case classifier/chunk-propagation corpus, including layout variants not represented by the deterministic fixtures", "document-AST semantics outside the immutable 5-case text-only hierarchy/cache corpus, including captions/caption links, tables, images, visual enrichments, OCR fusion, broader layout/semantic variants, and full Document Map", "selectable-table detection parity", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
+    nonClaims: ["full TS 3.0.14 behavioral parity", "text-layer/element/chunk geometry outside the immutable 1-case selectable-text corpus", "citation-chunk semantics outside the immutable 6-case schema/boundary/dependency corpus", "semantic-hint classification outside the immutable 3-case classifier/chunk-propagation corpus, including layout variants not represented by the deterministic fixtures", "raw page_contents payload/presence parity", "document-AST semantics outside the immutable 6-case text-only hierarchy/cache/warning corpus, including captions/caption links, tables, images, visual enrichments, OCR fusion, broader layout/semantic variants, and full Document Map", "selectable-table detection parity", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
     retirementGate: "scripts/check-no-ts-stdio-backend.sh (runs only when dropInFor3014=true)"
   }' >"$ARTIFACT"
 
