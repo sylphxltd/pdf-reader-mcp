@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use crate::evidence::attach_evidence;
 use crate::ocr_evidence;
+use crate::region_analysis_evidence;
 use crate::schema::PdfSource;
 use crate::visual_evidence;
 
@@ -24,17 +25,7 @@ pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         "render_page" => visual_evidence::render_pages(args),
         "extract_regions" => visual_evidence::extract_regions(args),
         "ocr_pages" => ocr_evidence::ocr_pages(args),
-        "analyze_regions" => {
-            // Pure-Rust v1: return structured, non-crashing guidance rather than silent no-op.
-            // inspect covers the default agent routing path; visual ops need providers/native render.
-            Err(rmcp::ErrorData::invalid_request(
-                format!(
-                    "pdf_evidence operation '{operation}' is not available in the pure-Rust engine yet. \
-                     Use operation=inspect, render_page, or extract_regions, or use read_pdf for text extraction."
-                ),
-                None,
-            ))
-        }
+        "analyze_regions" => region_analysis_evidence::analyze_regions(args),
         other => Err(rmcp::ErrorData::invalid_params(
             format!("Unsupported pdf_evidence operation: {other}"),
             None,

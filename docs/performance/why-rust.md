@@ -118,9 +118,10 @@ Pure-Rust text extraction currently uses the selectable text layer. Geometry,
 OCR, visual evidence, and full Document Twin parity remain open work. Empty
 placeholder arrays prove only response shape; they do not prove capability.
 
-Visual `pdf_evidence` operations (`render_page`, `extract_regions`, `ocr_pages`,
-`analyze_regions`) currently fail closed. That is safer than silent success but
-is not TS 3.0.14 parity.
+Visual `pdf_evidence` operations now have bounded Hayro render/crop plus opt-in
+command-provider OCR and region-analysis subsets. They remain partial: OCR TSV,
+region-analysis HTTP/presets, broader renderer fixtures, and full Document Twin
+fusion are open. Unavailable paths fail closed; this is not TS 3.0.14 parity.
 
 ## Install
 

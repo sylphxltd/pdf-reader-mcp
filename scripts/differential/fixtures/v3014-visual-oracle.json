@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "profile": "pdf_reader_v3014_visual_oracle",
   "providerSha256": "86ab98b7ad9729da32b18326c728eaa3c87d33b2786c813b7e82e619db32c4b6",
+  "regionProviderSha256": "7f766456549bb2e40547bf12340d62b86af507d479e84bfc911c2ebbaa47b5ba",
   "baseline": {
     "tag": "v3.0.14",
     "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
@@ -12,7 +13,9 @@
       "src/handlers/renderPage.ts": "7c0b57658eca56ec995c376a4a20455cc967f13a807a1194a1d746d23db89e7a",
       "src/handlers/extractRegions.ts": "a125e4fa3b9c3aee1087f7e60a5092ce2354d918d2b1d01bc70f222d42219c33",
       "src/handlers/ocrPages.ts": "3ecca45d73471c422b225bba1a2bfee704d316826bf9f509ccf8d860f2ea6ac4",
+      "src/handlers/analyzeRegions.ts": "b84d5e9741ff8a6ea0ac37ee3b764ec94f08229662b51d0552f6ebddf3723dc8",
       "src/pdf/ocr.ts": "9c2f89afb8426fea801501f7a2264a90e536609c7f5d64e7257945d4038041ee",
+      "src/pdf/regionAnalysis.ts": "26ffb87a2af378665fdb59b9b9c8f6b9060b1015083da8c898479157bd1d80ef",
       "src/pdf/renderer.ts": "29cf9917feaa470d3e3dafea5b432439fe0450eaee90b350458fb1e41bfe75a8",
       "src/pdf/regions.ts": "f7bc3c939e57fd33260d1bf5d8210c0bde0f7cb3ea756c4912b371c1997e4f91"
     }
@@ -710,6 +713,360 @@
               }
             }
           ]
+        }
+      ]
+    },
+    "analyze-command-rich-normalization": {
+      "outcome": "success",
+      "profile": "region_analysis",
+      "options": {
+        "scale": 2,
+        "max_regions": 1,
+        "max_pixels_per_page": 16000000,
+        "timeout_ms": 60000,
+        "max_output_chars": 200000,
+        "languages": [
+          "fra",
+          "eng"
+        ]
+      },
+      "content_count": 1,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "region_analyses": [
+            {
+              "region_id": "rich",
+              "page": 1,
+              "kind": "unknown",
+              "description": "region rich languages fra,eng",
+              "text": "extracted table",
+              "markdown": "|A|B|",
+              "confidence": 0.87,
+              "table": {
+                "rows": [
+                  [
+                    "A",
+                    "2",
+                    "true",
+                    ""
+                  ],
+                  [
+                    "C",
+                    ""
+                  ]
+                ],
+                "markdown": "|A|2|",
+                "csv": "A,2",
+                "row_count": 2,
+                "column_count": 4,
+                "cells": [
+                  {
+                    "text": "value",
+                    "row_index": 1,
+                    "column_index": 2,
+                    "row_span": 2,
+                    "column_span": 3,
+                    "confidence": 0.5,
+                    "bounding_box": {
+                      "left": 1,
+                      "bottom": 2,
+                      "right": 3,
+                      "top": 4
+                    }
+                  }
+                ],
+                "confidence": 0.92
+              },
+              "formula": {
+                "asciimath": "x^2",
+                "confidence": 1
+              },
+              "chart": {
+                "title": "Sales",
+                "summary": "Trend",
+                "data_points": [
+                  {
+                    "x": 1,
+                    "y": 2
+                  }
+                ],
+                "x_axis": {
+                  "label": "Quarter",
+                  "unit": "q",
+                  "min": 0,
+                  "max": 4
+                },
+                "y_axis": {
+                  "label": "Revenue",
+                  "unit": "GBP"
+                },
+                "series": [
+                  {
+                    "name": "Main",
+                    "data_points": [
+                      {
+                        "x": 1,
+                        "y": 2
+                      }
+                    ],
+                    "confidence": 0.9
+                  }
+                ],
+                "confidence": 0.88
+              },
+              "warnings": [
+                "provider note",
+                "Unsupported region analysis kind \"spreadsheet\"; normalized to \"unknown\"."
+              ],
+              "provider": "command",
+              "source_crop_evidence_id": "page-1-rich-crop-scale-2",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 30,
+                "top": 20
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 120,
+                "width": 60,
+                "height": 40
+              },
+              "scale": 2,
+              "provenance": {
+                "engine": "external-command",
+                "source": "region-analysis-provider"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analyze-order-and-plain-truncation": {
+      "outcome": "success",
+      "profile": "region_analysis",
+      "options": {
+        "scale": 1,
+        "max_regions": 2,
+        "max_pixels_per_page": 16000000,
+        "timeout_ms": 60000,
+        "max_output_chars": 1000
+      },
+      "content_count": 1,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "region_analyses": [
+            {
+              "region_id": "formula",
+              "page": 2,
+              "kind": "formula",
+              "description": "page 2 page-2-formula-crop-scale-1",
+              "text": null,
+              "markdown": null,
+              "confidence": null,
+              "table": null,
+              "formula": {
+                "latex": "x^2 + y^2",
+                "asciimath": "x^2+y^2",
+                "confidence": 0.95
+              },
+              "chart": null,
+              "warnings": [
+                "check notation"
+              ],
+              "provider": "command",
+              "source_crop_evidence_id": "page-2-formula-crop-scale-1",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 20,
+                "top": 30
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 90,
+                "width": 20,
+                "height": 30
+              },
+              "scale": 1,
+              "provenance": {
+                "engine": "external-command",
+                "source": "region-analysis-provider"
+              }
+            },
+            {
+              "region_id": "plain",
+              "page": 1,
+              "kind": "unknown",
+              "description": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "text": null,
+              "markdown": null,
+              "confidence": null,
+              "table": null,
+              "formula": null,
+              "chart": null,
+              "warnings": [
+                "Region analysis output truncated to 1000 characters."
+              ],
+              "provider": "command",
+              "source_crop_evidence_id": "page-1-plain-crop-scale-1",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 30,
+                "top": 20
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 60,
+                "width": 30,
+                "height": 20
+              },
+              "scale": 1,
+              "provenance": {
+                "engine": "external-command",
+                "source": "region-analysis-provider"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analyze-mixed-source-partial": {
+      "outcome": "success",
+      "profile": "region_analysis",
+      "options": {
+        "scale": 1,
+        "max_regions": 1,
+        "max_pixels_per_page": 16000000,
+        "timeout_ms": 60000,
+        "max_output_chars": 200000
+      },
+      "content_count": 1,
+      "results": [
+        {
+          "source": "missing-visual.pdf",
+          "success": false,
+          "category": "file_not_found"
+        },
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "region_analyses": [
+            {
+              "region_id": "formula",
+              "page": 2,
+              "kind": "formula",
+              "description": "page 2 page-2-formula-crop-scale-1",
+              "text": null,
+              "markdown": null,
+              "confidence": null,
+              "table": null,
+              "formula": {
+                "latex": "x^2 + y^2",
+                "asciimath": "x^2+y^2",
+                "confidence": 0.95
+              },
+              "chart": null,
+              "warnings": [
+                "check notation"
+              ],
+              "provider": "command",
+              "source_crop_evidence_id": "page-2-formula-crop-scale-1",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 20,
+                "top": 30
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 90,
+                "width": 20,
+                "height": 30
+              },
+              "scale": 1,
+              "provenance": {
+                "engine": "external-command",
+                "source": "region-analysis-provider"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analyze-late-provider-failure-partial": {
+      "outcome": "success",
+      "profile": "region_analysis",
+      "options": {
+        "scale": 1,
+        "max_regions": 1,
+        "max_pixels_per_page": 16000000,
+        "timeout_ms": 60000,
+        "max_output_chars": 200000
+      },
+      "content_count": 1,
+      "results": [
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": true,
+          "num_pages": 3,
+          "warnings": [],
+          "region_analyses": [
+            {
+              "region_id": "formula",
+              "page": 2,
+              "kind": "formula",
+              "description": "page 2 page-2-formula-crop-scale-1",
+              "text": null,
+              "markdown": null,
+              "confidence": null,
+              "table": null,
+              "formula": {
+                "latex": "x^2 + y^2",
+                "asciimath": "x^2+y^2",
+                "confidence": 0.95
+              },
+              "chart": null,
+              "warnings": [
+                "check notation"
+              ],
+              "provider": "command",
+              "source_crop_evidence_id": "page-2-formula-crop-scale-1",
+              "source_bounding_box": {
+                "left": 0,
+                "bottom": 0,
+                "right": 20,
+                "top": 30
+              },
+              "crop_pixels": {
+                "left": 0,
+                "top": 90,
+                "width": 20,
+                "height": 30
+              },
+              "scale": 1,
+              "provenance": {
+                "engine": "external-command",
+                "source": "region-analysis-provider"
+              }
+            }
+          ]
+        },
+        {
+          "source": "v3014-visual-v1.pdf",
+          "success": false,
+          "category": "unknown_error"
         }
       ]
     }

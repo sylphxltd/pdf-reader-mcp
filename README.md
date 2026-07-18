@@ -198,7 +198,7 @@ Pure-Rust is a **work in progress**, not the published product.
 | Selectable-text extract / search | Partial |
 | Full Document Twin (geometry, outline, COS structure) | **Not yet** |
 | Evidence `render_page` / `extract_regions` | Partial: bounded Hayro PNG render/crop in the source experiment |
-| Evidence OCR / analyze | **Not yet** (fail-closed) |
+| Evidence OCR / analyze | Partial: bounded opt-in command adapters; OCR TSV and analyze HTTP/presets are not yet available |
 | Cross-platform npm binary | **Not yet** |
 | Drop-in for 3.0.14 | **No** |
 

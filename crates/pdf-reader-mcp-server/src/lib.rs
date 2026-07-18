@@ -1,9 +1,11 @@
 pub mod cli_bridge;
+mod command_provider;
 pub mod evidence;
 pub mod http_transport;
 mod ocr_evidence;
 pub mod pdf_evidence;
 pub mod read_pdf;
+mod region_analysis_evidence;
 pub mod schema;
 pub mod search;
 pub mod tool_routes;
@@ -25,7 +27,7 @@ pub const SERVER_VERSION: &str = "0.0.0-pure-rust-experimental";
 pub const SERVER_INSTRUCTIONS: &str =
     "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
 Supported depth: selectable-text read_pdf, search_pdf, and focused pdf_evidence operations. \
-Bounded Hayro render/crop and opt-in command-provider OCR are available; analyze_regions fails closed. \
+Bounded Hayro render/crop and opt-in command-provider OCR/region analysis are available. \
 For production drop-in use @sylphx/pdf-reader-mcp@3.0.14 (TypeScript).";
 
 fn omit_absent_optional_fields(value: Value) -> Value {
@@ -107,7 +109,7 @@ impl PdfReaderMcp {
     }
 
     #[tool(
-        description = "Focused PDF evidence operations. Pure-Rust supports inspect, bounded page rendering/crops, and opt-in command-provider OCR; analyze_regions fails closed with guidance."
+        description = "Focused PDF evidence operations. Pure-Rust supports inspect, bounded page rendering/crops, and opt-in bounded command-provider OCR and region analysis. HTTP/preset region providers are not yet available."
     )]
     pub async fn pdf_evidence(
         &self,
@@ -115,7 +117,10 @@ impl PdfReaderMcp {
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
             .map_err(|message| ErrorData::invalid_params(message, None))?;
-        let provider_operation = matches!(args.operation, PdfEvidenceOperation::OcrPages);
+        let provider_operation = matches!(
+            args.operation,
+            PdfEvidenceOperation::OcrPages | PdfEvidenceOperation::AnalyzeRegions
+        );
         let value = serde_json::to_value(args)
             .map(omit_absent_optional_fields)
             .map_err(|error| {
@@ -128,7 +133,7 @@ impl PdfReaderMcp {
             tokio::task::spawn_blocking(move || pdf_evidence::pdf_evidence(value))
                 .await
                 .map_err(|error| {
-                    ErrorData::internal_error(format!("OCR worker failed: {error}"), None)
+                    ErrorData::internal_error(format!("Provider worker failed: {error}"), None)
                 })?
         } else {
             pdf_evidence::pdf_evidence(value)
