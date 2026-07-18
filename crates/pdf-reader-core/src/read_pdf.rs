@@ -503,6 +503,7 @@ pub(crate) fn rebuild_structured_outputs(
     } else {
         build_citation_chunks(&semantic_elements, true)
     };
+    let ast_warnings = data.warnings.clone().unwrap_or_default();
     if context.emit_markdown {
         data.markdown = Some(render_structured_markdown(&context.pages, tables));
     }
@@ -522,7 +523,8 @@ pub(crate) fn rebuild_structured_outputs(
         data.document_ast = Some(build_document_ast(
             &context.pages,
             &semantic_elements,
-            tables,
+            &internal_chunks,
+            &ast_warnings,
         ));
     }
     if context.emit_document_map {
@@ -791,7 +793,8 @@ fn build_data(
         Some(build_document_ast(
             pages,
             semantic_elements.as_ref().unwrap_or(&empty_array),
-            table_values,
+            internal_chunks.as_ref().unwrap_or(&empty_array),
+            &warnings,
         ))
     } else {
         None
@@ -1235,7 +1238,17 @@ fn read_local_pdf_filtered(
         .and_then(|value| (!value.trees.is_empty()).then(|| json!(value.trees)));
     let mut signal_warnings = signals.warnings;
     signal_warnings.extend(form_attachment_signals.warnings);
-    let mut data = build_data(
+    if !invalid_pages.is_empty() {
+        signal_warnings.push(format!(
+            "Requested page numbers {} exceed total pages ({total_pages}).",
+            invalid_pages
+                .iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    let data = build_data(
         &selected,
         total_pages,
         input,
@@ -1260,16 +1273,6 @@ fn read_local_pdf_filtered(
             warnings: signal_warnings,
         },
     );
-    if !invalid_pages.is_empty() {
-        data.warnings.get_or_insert_with(Vec::new).push(format!(
-            "Requested pages {} exceed document page count {total_pages} and were skipped.",
-            invalid_pages
-                .iter()
-                .map(u32::to_string)
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    }
     Ok(ReadPdfSourceResult {
         source: source_label.to_string(),
         success: true,
@@ -1856,6 +1859,94 @@ mod tests {
                 "strategy":"page",
                 "bounding_boxes":[{"left":1.0,"bottom":2.0,"right":3.0,"top":4.0}]
             }]))
+        );
+    }
+
+    #[test]
+    fn document_ast_hides_dependencies_and_reuses_the_emitted_chunk_cache() {
+        let item = |text: &str| crate::text_index::PositionedTextItem {
+            text: text.into(),
+            bounding_box: None,
+            chars: Vec::new(),
+        };
+        let pages = vec![crate::document_twin::PageText {
+            page: 1,
+            text: "PrefaceChapter 1: IntroBody".into(),
+            positioned_items: vec![item("Preface"), item("Chapter 1: Intro"), item("Body")],
+        }];
+
+        let ast_only = build_data(
+            &pages,
+            1,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_document_ast: true,
+                ..Default::default()
+            },
+            None,
+            false,
+            BuildSignals::default(),
+        );
+        assert!(ast_only.elements.is_none());
+        assert!(ast_only.chunks.is_none());
+        let ast = ast_only.document_ast.as_ref().unwrap();
+        assert_eq!(
+            ast["root"]["chunk_ids"],
+            json!(["p1-chunk-1", "p1-chunk-2"])
+        );
+        assert_eq!(
+            ast["root"]["children"][0]["children"][1]["id"],
+            "p1-text-2-section"
+        );
+
+        let exposed_plain_chunks = build_data(
+            &pages,
+            1,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_chunks: true,
+                include_document_ast: true,
+                ..Default::default()
+            },
+            None,
+            false,
+            BuildSignals::default(),
+        );
+        assert_eq!(
+            exposed_plain_chunks
+                .chunks
+                .as_ref()
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            exposed_plain_chunks.document_ast.as_ref().unwrap()["root"]["chunk_ids"],
+            json!(["p1-chunk-1"])
+        );
+    }
+
+    #[test]
+    fn document_ast_inherits_exact_invalid_page_warnings() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-document-ast-v1.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+        let response = read_pdf_from_value(&json!({
+            "sources": [{"path": fixture.to_string_lossy(), "pages": [1, 99]}],
+            "auto": false,
+            "include_document_ast": true
+        }))
+        .expect("read");
+        let data = response.results[0].data.as_ref().unwrap();
+        let expected = vec!["Requested page numbers 99 exceed total pages (4).".to_string()];
+        assert_eq!(data.warnings, Some(expected.clone()));
+        assert_eq!(
+            data.document_ast.as_ref().unwrap()["warnings"],
+            json!(expected)
         );
     }
 

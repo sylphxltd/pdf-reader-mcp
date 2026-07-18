@@ -1,0 +1,112 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R 9 0 R] /Count 4 /MediaBox [0 0 612 792] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 11 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 260 >>
+stream
+BT
+/F1 18 Tf
+1 0 0 1 72 720 Tm
+(Chapter 1: Foundations) Tj
+/F1 12 Tf
+1 0 0 1 72 684 Tm
+(Opening paragraph.) Tj
+/F1 15 Tf
+1 0 0 1 72 640 Tm
+(1.1 Details) Tj
+/F1 12 Tf
+1 0 0 1 72 604 Tm
+(Detailed paragraph.) Tj
+/F1 12 Tf
+1 0 0 1 72 572 Tm
+(- First detail) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 11 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 212 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 72 720 Tm
+(Continuation on page two.) Tj
+/F1 14 Tf
+1 0 0 1 72 676 Tm
+(1.1.1 Deep Dive) Tj
+/F1 12 Tf
+1 0 0 1 72 640 Tm
+(Deep paragraph.) Tj
+/F1 12 Tf
+1 0 0 1 72 608 Tm
+(- Second detail) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 11 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 175 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 72 720 Tm
+(Continuation on page three.) Tj
+/F1 18 Tf
+1 0 0 1 72 676 Tm
+(Chapter 2: Conclusions) Tj
+/F1 12 Tf
+1 0 0 1 72 640 Tm
+(Closing paragraph.) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 11 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 118 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 72 720 Tm
+(Standalone paragraph.) Tj
+/F1 12 Tf
+1 0 0 1 72 684 Tm
+(Another plain sentence.) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000163 00000 n 
+0000000266 00000 n 
+0000000576 00000 n 
+0000000679 00000 n 
+0000000941 00000 n 
+0000001044 00000 n 
+0000001269 00000 n 
+0000001373 00000 n 
+0000001542 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+1640
+%%EOF

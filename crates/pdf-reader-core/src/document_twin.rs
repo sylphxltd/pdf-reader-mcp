@@ -6,7 +6,7 @@
 //! engine; provider-backed OCR/visual enrichments remain opt-in empty arrays
 //! with explicit warnings (same fail-closed model as optional TS providers).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -49,6 +49,7 @@ fn snippet(value: &str) -> String {
     }
 }
 
+#[cfg(test)]
 fn looks_like_heading(line: &str) -> bool {
     let trimmed = line.trim();
     if trimmed.is_empty() || trimmed.len() > 120 {
@@ -388,16 +389,6 @@ fn semantic_hint(
         signals: vec!["default-text"],
         level: None,
     }
-}
-
-fn looks_like_list_item(line: &str) -> bool {
-    let trimmed = line.trim_start();
-    trimmed.starts_with("- ")
-        || trimmed.starts_with("* ")
-        || trimmed.starts_with("• ")
-        || (trimmed.len() > 2
-            && trimmed.chars().next().is_some_and(|c| c.is_ascii_digit())
-            && (trimmed.contains(". ") || trimmed.contains(") ")))
 }
 
 /// Split a line into columns when it has multi-space separators (table heuristic).
@@ -1433,104 +1424,489 @@ fn build_text_only_accessibility_fixture(pages: &[PageText]) -> Value {
     })
 }
 
-pub fn build_document_ast(pages: &[PageText], elements: &Value, tables: &Value) -> Value {
-    let mut children = Vec::new();
-    for page in pages {
-        let page_no = page.page;
-        let mut page_children = Vec::new();
-        let mut element_index = 0usize;
-        for line in page.text.lines() {
-            let content = line.trim();
-            if content.is_empty() {
-                continue;
-            }
-            element_index += 1;
-            let node_type = if looks_like_heading(content) {
-                "section"
-            } else if looks_like_list_item(content) {
-                "list_item"
+#[derive(Debug, Clone, Serialize)]
+struct DocumentAstSectionRef {
+    id: String,
+    title: String,
+    level: u64,
+    page_start: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct DocumentAstNode {
+    id: String,
+    #[serde(rename = "type")]
+    node_type: String,
+    page_start: u32,
+    page_end: u32,
+    element_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    chunk_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    bounding_boxes: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    level: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    confidence: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    semantic_role: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    section_path: Vec<DocumentAstSectionRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    continued_from_section_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    table: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    children: Option<Vec<DocumentAstNode>>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct DocumentAstStats {
+    node_count: usize,
+    section_count: usize,
+    paragraph_count: usize,
+    list_item_count: usize,
+    caption_count: usize,
+    header_count: usize,
+    footer_count: usize,
+    section_context_node_count: usize,
+    cross_page_section_context_count: usize,
+    caption_link_count: usize,
+    table_count: usize,
+    image_count: usize,
+    figure_count: usize,
+    chart_count: usize,
+    formula_count: usize,
+    diagram_count: usize,
+    visual_enrichment_count: usize,
+    max_depth: usize,
+}
+
+fn ast_unique_extend(target: &mut Vec<String>, values: impl IntoIterator<Item = String>) {
+    let mut seen = target.iter().cloned().collect::<HashSet<_>>();
+    for value in values {
+        if seen.insert(value.clone()) {
+            target.push(value);
+        }
+    }
+}
+
+fn ast_unique_boxes(target: &mut Vec<Value>, values: impl IntoIterator<Item = Value>) {
+    let key = |value: &Value| {
+        ["left", "bottom", "right", "top"]
+            .map(|field| value.get(field).unwrap_or(&Value::Null).to_string())
+            .join(":")
+    };
+    let mut seen = target.iter().map(key).collect::<HashSet<_>>();
+    for value in values {
+        if seen.insert(key(&value)) {
+            target.push(value);
+        }
+    }
+}
+
+fn ast_children_at_path<'a>(
+    children: &'a mut Vec<DocumentAstNode>,
+    path: &[usize],
+) -> &'a mut Vec<DocumentAstNode> {
+    let Some((&index, tail)) = path.split_first() else {
+        return children;
+    };
+    ast_children_at_path(children[index].children.get_or_insert_with(Vec::new), tail)
+}
+
+fn ast_section_ref(node: &DocumentAstNode) -> DocumentAstSectionRef {
+    DocumentAstSectionRef {
+        id: node.id.clone(),
+        title: node
+            .title
+            .clone()
+            .or_else(|| node.text.clone())
+            .unwrap_or_else(|| node.id.clone()),
+        level: node.level.unwrap_or(1),
+        page_start: node.page_start,
+    }
+}
+
+fn ast_node_for_element(
+    element: &Value,
+    chunk_index: &BTreeMap<String, Vec<String>>,
+) -> Option<DocumentAstNode> {
+    let id = element.get("id")?.as_str()?.to_string();
+    let page = u32::try_from(element.get("page")?.as_u64()?).ok()?;
+    let element_type = element.get("type")?.as_str()?;
+    let bounding_boxes = element
+        .get("bounding_box")
+        .cloned()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let confidence = element
+        .get("confidence")
+        .filter(|value| !value.is_null())
+        .cloned();
+
+    if element_type == "text" {
+        let text = element.get("content")?.as_str()?.to_string();
+        let role = element
+            .pointer("/semantic_hint/role")
+            .and_then(Value::as_str)
+            .unwrap_or("paragraph");
+        let node_type = match role {
+            "heading" => "section",
+            "list_item" => "list_item",
+            "caption" | "header" | "footer" => role,
+            _ => "paragraph",
+        };
+        let is_section = node_type == "section";
+        return Some(DocumentAstNode {
+            id: if is_section {
+                format!("{id}-section")
             } else {
-                "paragraph"
-            };
-            let mut node = json!({
-                "id": format!("ast-{page_no}-{element_index}"),
-                "type": node_type,
-                "page_start": page_no,
-                "page_end": page_no,
-                "element_ids": [format!("p{page_no}-text-{element_index}")],
-                "text": content,
-            });
-            if node_type == "section" {
-                node.as_object_mut()
-                    .expect("object")
-                    .insert("level".into(), json!(1));
-            }
-            page_children.push(node);
-        }
-        for table in
-            tables.as_array().into_iter().flatten().filter(|table| {
-                table.get("page").and_then(Value::as_u64) == Some(u64::from(page_no))
-            })
-        {
-            let table_index = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0);
-            let mut table_payload = json!({
-                "rows": table.get("rows"),
-                "rowCount": table.get("rowCount"),
-                "colCount": table.get("colCount"),
-                "confidence": table.get("confidence"),
-            });
-            for key in ["quality", "continuation", "provenance"] {
-                if let Some(value) = table.get(key).cloned() {
-                    table_payload[key] = value;
-                }
-            }
-            let mut node = json!({
-                "id": format!("p{}-table-{}", page_no, table_index + 1),
-                "type": "table",
-                "page_start": page_no,
-                "page_end": page_no,
-                "element_ids": [format!("p{}-table-{}", page_no, table_index + 1)],
-                "text": table.get("rows").and_then(Value::as_array).into_iter().flatten().map(|row| {
-                    row.as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(" | ")
-                }).collect::<Vec<_>>().join("\n"),
-                "table": table_payload,
-            });
-            if let Some(box_) = table.get("bounding_box").cloned() {
-                node["bounding_boxes"] = json!([box_]);
-            }
-            page_children.push(node);
-        }
-        children.push(json!({
-            "id": format!("page-{}", page_no),
-            "type": "page",
-            "page_start": page_no,
-            "page_end": page_no,
-            "element_ids": [],
-            "children": page_children,
-        }));
+                id.clone()
+            },
+            node_type: node_type.to_string(),
+            page_start: page,
+            page_end: page,
+            element_ids: vec![id.clone()],
+            chunk_ids: chunk_index.get(&id).cloned().unwrap_or_default(),
+            bounding_boxes,
+            title: is_section.then(|| text.clone()),
+            text: Some(text),
+            level: is_section.then(|| {
+                element
+                    .pointer("/semantic_hint/level")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1)
+            }),
+            confidence,
+            semantic_role: Some(role.to_string()),
+            section_path: Vec::new(),
+            continued_from_section_id: None,
+            table: None,
+            children: is_section.then(Vec::new),
+        });
     }
 
-    json!({
+    if element_type == "table" {
+        let source = element.get("table")?;
+        let mut table = json!({
+            "rows": source.get("rows"),
+            "rowCount": source.get("rowCount"),
+            "colCount": source.get("colCount"),
+            "confidence": source.get("confidence"),
+        });
+        for key in ["quality", "continuation", "provenance"] {
+            if let Some(value) = source.get(key).cloned() {
+                table[key] = value;
+            }
+        }
+        let text = source
+            .get("rows")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|row| {
+                row.as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Some(DocumentAstNode {
+            id: id.clone(),
+            node_type: "table".into(),
+            page_start: page,
+            page_end: page,
+            element_ids: vec![id.clone()],
+            chunk_ids: chunk_index.get(&id).cloned().unwrap_or_default(),
+            bounding_boxes,
+            title: None,
+            text: Some(text),
+            level: None,
+            confidence,
+            semantic_role: None,
+            section_path: Vec::new(),
+            continued_from_section_id: None,
+            table: Some(table),
+            children: None,
+        });
+    }
+
+    None
+}
+
+fn ast_aggregate(node: &mut DocumentAstNode, depth: usize) -> DocumentAstStats {
+    let mut stats = DocumentAstStats {
+        node_count: 1,
+        section_count: usize::from(node.node_type == "section"),
+        paragraph_count: usize::from(node.node_type == "paragraph"),
+        list_item_count: usize::from(node.node_type == "list_item"),
+        caption_count: usize::from(node.node_type == "caption"),
+        header_count: usize::from(node.node_type == "header"),
+        footer_count: usize::from(node.node_type == "footer"),
+        section_context_node_count: usize::from(!node.section_path.is_empty()),
+        cross_page_section_context_count: usize::from(node.continued_from_section_id.is_some()),
+        table_count: usize::from(node.node_type == "table"),
+        image_count: 0,
+        figure_count: usize::from(node.node_type == "figure"),
+        chart_count: usize::from(node.node_type == "chart"),
+        formula_count: usize::from(node.node_type == "formula"),
+        diagram_count: usize::from(node.node_type == "diagram"),
+        max_depth: depth,
+        ..DocumentAstStats::default()
+    };
+
+    let mut child_element_ids = Vec::new();
+    let mut child_chunk_ids = Vec::new();
+    let mut child_boxes = Vec::new();
+    if let Some(children) = node.children.as_mut() {
+        for child in children.iter_mut() {
+            let child_stats = ast_aggregate(child, depth + 1);
+            child_element_ids.extend(child.element_ids.clone());
+            child_chunk_ids.extend(child.chunk_ids.clone());
+            child_boxes.extend(child.bounding_boxes.clone());
+            stats.node_count += child_stats.node_count;
+            stats.section_count += child_stats.section_count;
+            stats.paragraph_count += child_stats.paragraph_count;
+            stats.list_item_count += child_stats.list_item_count;
+            stats.caption_count += child_stats.caption_count;
+            stats.header_count += child_stats.header_count;
+            stats.footer_count += child_stats.footer_count;
+            stats.section_context_node_count += child_stats.section_context_node_count;
+            stats.cross_page_section_context_count += child_stats.cross_page_section_context_count;
+            stats.caption_link_count += child_stats.caption_link_count;
+            stats.table_count += child_stats.table_count;
+            stats.image_count += child_stats.image_count;
+            stats.figure_count += child_stats.figure_count;
+            stats.chart_count += child_stats.chart_count;
+            stats.formula_count += child_stats.formula_count;
+            stats.diagram_count += child_stats.diagram_count;
+            stats.visual_enrichment_count += child_stats.visual_enrichment_count;
+            stats.max_depth = stats.max_depth.max(child_stats.max_depth);
+        }
+        if let Some(first) = children.first() {
+            node.page_start = node.page_start.min(first.page_start);
+            node.page_end = node.page_end.max(first.page_end);
+        }
+        for child in children.iter().skip(1) {
+            node.page_start = node.page_start.min(child.page_start);
+            node.page_end = node.page_end.max(child.page_end);
+        }
+    }
+    ast_unique_extend(&mut node.element_ids, child_element_ids);
+    ast_unique_extend(&mut node.chunk_ids, child_chunk_ids);
+    ast_unique_boxes(&mut node.bounding_boxes, child_boxes);
+    stats
+}
+
+/// Build the v3.0.14 text-first Document AST from the same semantic element
+/// and chunk projections used by the public response. Provider-backed visual
+/// enrichment and caption linking remain outside this bounded Rust slice.
+pub fn build_document_ast(
+    pages: &[PageText],
+    elements: &Value,
+    chunks: &Value,
+    warnings: &[String],
+) -> Value {
+    let mut selected_pages = pages.iter().map(|page| page.page).collect::<Vec<_>>();
+    selected_pages.sort_unstable();
+    selected_pages.dedup();
+
+    let mut chunk_index = BTreeMap::<String, Vec<String>>::new();
+    for chunk in chunks.as_array().into_iter().flatten() {
+        let Some(chunk_id) = chunk.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        for element_id in chunk
+            .get("element_ids")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            chunk_index
+                .entry(element_id.to_string())
+                .or_default()
+                .push(chunk_id.to_string());
+        }
+    }
+
+    let mut elements_by_page = BTreeMap::<u32, Vec<&Value>>::new();
+    let mut range_start = u32::MAX;
+    let mut range_end = 0;
+    let mut has_heading = false;
+    for element in elements.as_array().into_iter().flatten() {
+        let Some(page) = element
+            .get("page")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+        else {
+            continue;
+        };
+        range_start = range_start.min(page);
+        range_end = range_end.max(page);
+        has_heading |= element.get("type").and_then(Value::as_str) == Some("text")
+            && element
+                .pointer("/semantic_hint/role")
+                .and_then(Value::as_str)
+                == Some("heading");
+        elements_by_page.entry(page).or_default().push(element);
+    }
+    if range_start == u32::MAX {
+        range_start = 0;
+    }
+
+    let mut document_sections = Vec::<DocumentAstSectionRef>::new();
+    let mut page_nodes = Vec::new();
+    for page in &selected_pages {
+        let mut page_children = Vec::<DocumentAstNode>::new();
+        let mut page_section_stack = Vec::<(u64, Vec<usize>)>::new();
+        for element in elements_by_page.remove(page).unwrap_or_default() {
+            let Some(mut node) = ast_node_for_element(element, &chunk_index) else {
+                continue;
+            };
+
+            if node.node_type != "header" && node.node_type != "footer" {
+                if node.node_type == "section" {
+                    let level = node.level.unwrap_or(1);
+                    while document_sections
+                        .last()
+                        .is_some_and(|section| section.level >= level)
+                    {
+                        document_sections.pop();
+                    }
+                    node.section_path = document_sections.clone();
+                    node.section_path.push(ast_section_ref(&node));
+                    node.continued_from_section_id = node
+                        .section_path
+                        .iter()
+                        .rev()
+                        .find(|section| section.page_start < node.page_start)
+                        .map(|section| section.id.clone());
+                    document_sections.push(ast_section_ref(&node));
+                } else if !document_sections.is_empty() {
+                    node.section_path = document_sections.clone();
+                    node.continued_from_section_id = node
+                        .section_path
+                        .iter()
+                        .rev()
+                        .find(|section| section.page_start < node.page_start)
+                        .map(|section| section.id.clone());
+                }
+            }
+
+            if node.node_type == "header" || node.node_type == "footer" {
+                page_children.push(node);
+            } else if node.node_type == "section" {
+                let level = node.level.unwrap_or(1);
+                while page_section_stack
+                    .last()
+                    .is_some_and(|(parent_level, _)| *parent_level >= level)
+                {
+                    page_section_stack.pop();
+                }
+                let parent_path = page_section_stack
+                    .last()
+                    .map(|(_, path)| path.clone())
+                    .unwrap_or_default();
+                let parent_children = ast_children_at_path(&mut page_children, &parent_path);
+                let index = parent_children.len();
+                parent_children.push(node);
+                let mut path = parent_path;
+                path.push(index);
+                page_section_stack.push((level, path));
+            } else {
+                let parent_path = page_section_stack
+                    .last()
+                    .map(|(_, path)| path.as_slice())
+                    .unwrap_or(&[]);
+                ast_children_at_path(&mut page_children, parent_path).push(node);
+            }
+        }
+
+        page_nodes.push(DocumentAstNode {
+            id: format!("p{page}"),
+            node_type: "page".into(),
+            page_start: *page,
+            page_end: *page,
+            element_ids: Vec::new(),
+            chunk_ids: Vec::new(),
+            bounding_boxes: Vec::new(),
+            title: None,
+            text: None,
+            level: None,
+            confidence: None,
+            semantic_role: None,
+            section_path: Vec::new(),
+            continued_from_section_id: None,
+            table: None,
+            children: Some(page_children),
+        });
+    }
+
+    let mut root = DocumentAstNode {
+        id: "document".into(),
+        node_type: "document".into(),
+        page_start: range_start,
+        page_end: range_end,
+        element_ids: Vec::new(),
+        chunk_ids: Vec::new(),
+        bounding_boxes: Vec::new(),
+        title: None,
+        text: None,
+        level: None,
+        confidence: None,
+        semantic_role: None,
+        section_path: Vec::new(),
+        continued_from_section_id: None,
+        table: None,
+        children: Some(page_nodes),
+    };
+    let stats = ast_aggregate(&mut root, 1);
+    let mut output = json!({
         "version": TRUST_REPORT_VERSION,
         "profile": "document_ast",
-        "root": {
-            "id": "document",
-            "type": "document",
-            "page_start": pages.first().map(|page| page.page).unwrap_or(1),
-            "page_end": pages.last().map(|page| page.page).unwrap_or(1),
-            "element_ids": [],
-            "children": children,
-        },
-        "element_count": elements.as_array().map(|a| a.len()).unwrap_or(0),
+        "root": root,
         "summary": {
-            "table_count": tables.as_array().map(|a| a.len()).unwrap_or(0),
+            "selected_pages": selected_pages,
+            "page_count": selected_pages.len(),
+            "node_count": stats.node_count,
+            "section_count": stats.section_count,
+            "paragraph_count": stats.paragraph_count,
+            "list_item_count": stats.list_item_count,
+            "caption_count": stats.caption_count,
+            "header_count": stats.header_count,
+            "footer_count": stats.footer_count,
+            "section_context_node_count": stats.section_context_node_count,
+            "cross_page_section_context_count": stats.cross_page_section_context_count,
+            "caption_link_count": stats.caption_link_count,
+            "table_count": stats.table_count,
+            "image_count": stats.image_count,
+            "figure_count": stats.figure_count,
+            "chart_count": stats.chart_count,
+            "formula_count": stats.formula_count,
+            "diagram_count": stats.diagram_count,
+            "visual_enrichment_count": stats.visual_enrichment_count,
+            "visual_enrichment_kind_counts": {},
+            "max_depth": stats.max_depth,
         },
-        "warnings": if pages.iter().all(|p| p.text.lines().filter(|l| looks_like_heading(l)).count() == 0) {
-            vec!["No heading hierarchy detected; document_ast uses page-level leaf nodes."]
-        } else {
-            Vec::<&str>::new()
-        },
-    })
+    });
+    let mut ast_warnings = warnings.to_vec();
+    if !has_heading {
+        ast_warnings
+            .push("No heading hierarchy detected; document_ast uses page-level leaf nodes.".into());
+    }
+    if !ast_warnings.is_empty() {
+        output["warnings"] = json!(ast_warnings);
+    }
+    output
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2098,5 +2474,112 @@ mod tests {
         assert_eq!(elements[0]["content"], "left");
         assert_eq!(elements[1]["content"], "right");
         assert_eq!(elements[2]["content"], "bottom");
+    }
+
+    #[test]
+    fn document_ast_matches_text_hierarchy_context_aggregation_and_chunk_cache() {
+        let selected = vec![
+            PageText {
+                page: 2,
+                text: "continued".into(),
+                positioned_items: Vec::new(),
+            },
+            PageText {
+                page: 1,
+                text: "chapter".into(),
+                positioned_items: Vec::new(),
+            },
+            PageText {
+                page: 2,
+                text: "continued".into(),
+                positioned_items: Vec::new(),
+            },
+        ];
+        let box_ = json!({"left":10,"bottom":700,"right":200,"top":712});
+        let elements = json!([
+            {"id":"p1-text-1","type":"text","page":1,"content":"Report","semantic_hint":{"role":"header","confidence":0.82,"signals":["page-top-band"]}},
+            {"id":"p1-text-2","type":"text","page":1,"content":"Chapter 1: Intro","bounding_box":box_,"semantic_hint":{"role":"heading","confidence":0.84,"signals":["section-heading-pattern"],"level":1}},
+            {"id":"p1-text-3","type":"text","page":1,"content":"Opening paragraph.","semantic_hint":{"role":"paragraph","confidence":0.5,"signals":["default-text"]}},
+            {"id":"p1-text-4","type":"text","page":1,"content":"1.1 Scope","semantic_hint":{"role":"heading","confidence":0.84,"signals":["section-heading-pattern"],"level":2}},
+            {"id":"p1-text-5","type":"text","page":1,"content":"- bounded item","semantic_hint":{"role":"list_item","confidence":0.92,"signals":["list-prefix"]}},
+            {"id":"p2-text-1","type":"text","page":2,"content":"Continued scope.","semantic_hint":{"role":"paragraph","confidence":0.5,"signals":["default-text"]}}
+        ]);
+        let chunks = json!([
+            {"id":"p1-chunk-1","element_ids":["p1-text-2","p1-text-3"]},
+            {"id":"p1-chunk-2","element_ids":["p1-text-4","p1-text-5"]},
+            {"id":"p2-chunk-3","element_ids":["p2-text-1"]}
+        ]);
+
+        let ast = build_document_ast(&selected, &elements, &chunks, &[]);
+        assert_eq!(ast["summary"]["selected_pages"], json!([1, 2]));
+        assert_eq!(ast["summary"]["page_count"], 2);
+        assert_eq!(ast["summary"]["node_count"], 9);
+        assert_eq!(ast["summary"]["section_count"], 2);
+        assert_eq!(ast["summary"]["paragraph_count"], 2);
+        assert_eq!(ast["summary"]["list_item_count"], 1);
+        assert_eq!(ast["summary"]["header_count"], 1);
+        assert_eq!(ast["summary"]["section_context_node_count"], 5);
+        assert_eq!(ast["summary"]["cross_page_section_context_count"], 1);
+        assert_eq!(ast["summary"]["max_depth"], 5);
+        assert!(ast.get("warnings").is_none());
+
+        let root = &ast["root"];
+        assert_eq!(root["page_start"], 1);
+        assert_eq!(root["page_end"], 2);
+        assert_eq!(
+            root["element_ids"],
+            json!([
+                "p1-text-1",
+                "p1-text-2",
+                "p1-text-3",
+                "p1-text-4",
+                "p1-text-5",
+                "p2-text-1"
+            ])
+        );
+        assert_eq!(
+            root["chunk_ids"],
+            json!(["p1-chunk-1", "p1-chunk-2", "p2-chunk-3"])
+        );
+        assert_eq!(root["bounding_boxes"], json!([box_]));
+        assert_eq!(root["children"][0]["id"], "p1");
+        assert_eq!(root["children"][1]["id"], "p2");
+
+        let heading = &root["children"][0]["children"][1];
+        assert_eq!(heading["id"], "p1-text-2-section");
+        assert_eq!(heading["section_path"][0]["id"], "p1-text-2-section");
+        assert_eq!(heading["children"][1]["id"], "p1-text-4-section");
+        assert_eq!(
+            heading["children"][1]["section_path"],
+            json!([
+                {"id":"p1-text-2-section","title":"Chapter 1: Intro","level":1,"page_start":1},
+                {"id":"p1-text-4-section","title":"1.1 Scope","level":2,"page_start":1}
+            ])
+        );
+        let continued = &root["children"][1]["children"][0];
+        assert_eq!(continued["continued_from_section_id"], "p1-text-4-section");
+        assert_eq!(continued["section_path"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn document_ast_omits_empty_aggregates_and_warns_without_headings() {
+        let selected = pages(&["Ordinary paragraph."]);
+        let elements = json!([{
+            "id":"p1-text-1",
+            "type":"text",
+            "page":1,
+            "content":"Ordinary paragraph.",
+            "semantic_hint":{"role":"paragraph","confidence":0.5,"signals":["default-text"]}
+        }]);
+        let ast = build_document_ast(&selected, &elements, &json!([]), &[]);
+        assert_eq!(ast["root"]["children"][0]["id"], "p1");
+        assert!(ast["root"].get("chunk_ids").is_none());
+        assert!(ast["root"].get("bounding_boxes").is_none());
+        assert_eq!(
+            ast["warnings"],
+            json!(["No heading hierarchy detected; document_ast uses page-level leaf nodes."])
+        );
+        assert_eq!(ast["summary"]["node_count"], 3);
+        assert_eq!(ast["summary"]["max_depth"], 3);
     }
 }

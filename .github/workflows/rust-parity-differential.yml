@@ -109,6 +109,7 @@ jobs:
           bun run test:v3014-structure-differential
           bun run test:v3014-citation-chunk-differential
           bun run test:v3014-semantic-hint-differential
+          bun run test:v3014-document-ast-differential
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -187,6 +188,29 @@ jobs:
             echo "::error::v3.0.14 semantic-hint result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           }
+          DOCUMENT_AST_ARTIFACT="${SCRATCH_DIR}/v3014-document-ast-result.json"
+          if [ ! -f "$DOCUMENT_AST_ARTIFACT" ]; then
+            echo "::error::v3.0.14 document-AST result missing at $DOCUMENT_AST_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_document_ast_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
+            .subprocessNonzeroRejected == true and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "6a24391c42d4d6b7fd2e6007f0f807058a1aa78872dbb7f83ab6525752c40dfb" and
+            .mutationSensitive.leafMutationCount == 2384 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 8 and
+            .mutationSensitive.unexpectedFieldProbeCount == 5 and
+            .mutationSensitive.requiredOmissionProbeCount == 4 and
+            .mutationSensitive.privateLeakProbeCount == 5 and
+            .mutationSensitive.dependencyPresenceProbeCount == 10
+          ' "$DOCUMENT_AST_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 document-AST result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
@@ -221,6 +245,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/v3014-text-layer-result.json
             ${{ env.SCRATCH_DIR }}/v3014-citation-chunk-result.json
             ${{ env.SCRATCH_DIR }}/v3014-semantic-hint-result.json
+            ${{ env.SCRATCH_DIR }}/v3014-document-ast-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-result.json
           if-no-files-found: error
 

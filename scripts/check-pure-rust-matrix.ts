@@ -37,6 +37,12 @@ const semanticHintCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }> };
+const documentAstCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-document-ast-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -78,13 +84,16 @@ if (!matrix.productTruth.dropInFor3014 && matrix.productTruth.publishFreeze !== 
   failures.push('publishFreeze must remain true while dropInFor3014 is false');
 }
 if (matrix.productTruth.dropInFor3014 !== false) {
-  failures.push('semantic-hint bounded slice must keep dropInFor3014=false');
+  failures.push('bounded Rust parity slices must keep dropInFor3014=false');
 }
 if (matrix.productTruth.publishFreeze !== true) {
-  failures.push('semantic-hint bounded slice must keep publishFreeze=true');
+  failures.push('bounded Rust parity slices must keep publishFreeze=true');
 }
 if (matrix.tools.read_pdf.include_semantic_hints !== 'PARTIAL') {
   failures.push('bounded semantic-hint claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_document_ast !== 'PARTIAL') {
+  failures.push('bounded document-AST claim must remain PARTIAL');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -137,6 +146,32 @@ if (semanticHintCaseCount !== 3) {
   failures.push(
     `frozen semantic-hint differential must contain exactly 3 cases (got ${semanticHintCaseCount})`
   );
+}
+const documentAstCaseCount = documentAstCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-document-ast-differential')) {
+  failures.push('rust parity workflow must execute the frozen document-AST differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${documentAstCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${documentAstCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${documentAstCaseCount}/${documentAstCaseCount} document-AST corpus`
+  );
+}
+if (documentAstCaseCount !== 6) {
+  failures.push(
+    `frozen document-AST differential must contain exactly 6 cases (got ${documentAstCaseCount})`
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "6a24391c42d4d6b7fd2e6007f0f807058a1aa78872dbb7f83ab6525752c40dfb"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 2384') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 5')
+) {
+  failures.push('document-AST workflow must bind the exact mutation manifest, leaf count, and unexpected-field probes');
 }
 if (failures.length) {
   console.error(failures.join('\n'));
