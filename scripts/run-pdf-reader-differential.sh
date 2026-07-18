@@ -69,7 +69,7 @@ echo "--- deterministic v3.0.14 behavior fixtures + baseline replay ---" | tee -
 bun "$REPO_ROOT/scripts/differential/generate-v3014-behavior-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-behavior-oracle.ts" 2>&1 | tee -a "$LOG"
 
-echo "--- immutable v3.0.14 behavior differential (12 exact cases) ---" | tee -a "$LOG"
+echo "--- immutable v3.0.14 behavior differential (14 exact cases) ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-behavior-differential.ts" \
   --output "$V3014_BEHAVIOR_JSON" >>"$LOG"
 

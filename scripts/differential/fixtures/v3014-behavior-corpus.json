@@ -59,6 +59,26 @@
       }
     },
     {
+      "id": "read-forms",
+      "tool": "read_pdf",
+      "input": {
+        "sources": [{ "fixture": "v3014-behavior-v1.pdf" }],
+        "auto": false,
+        "include_form_fields": true,
+        "include_page_count": true
+      }
+    },
+    {
+      "id": "read-attachments",
+      "tool": "read_pdf",
+      "input": {
+        "sources": [{ "fixture": "v3014-behavior-v1.pdf" }],
+        "auto": false,
+        "include_attachments": true,
+        "include_page_count": true
+      }
+    },
+    {
       "id": "search-ci-all",
       "tool": "search_pdf",
       "input": {

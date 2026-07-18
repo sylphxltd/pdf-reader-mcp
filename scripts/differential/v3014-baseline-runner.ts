@@ -96,6 +96,14 @@ async function readCase(id: string, input: Record<string, unknown>) {
     output.permissions = first.data?.permissions ?? null;
     output.mark_info = first.data?.mark_info ?? null;
   }
+  if (id === 'read-forms') {
+    output.form_fields = first.data?.form_fields ?? null;
+    output.attachments = first.data?.attachments ?? null;
+  }
+  if (id === 'read-attachments') {
+    output.attachments = first.data?.attachments ?? null;
+    output.form_fields = first.data?.form_fields ?? null;
+  }
   output.warnings = canonicalWarnings(first.data?.warnings);
   return output;
 }
