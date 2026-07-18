@@ -130,6 +130,9 @@ pub struct ReadPdfData {
     pub warnings: Option<Vec<String>>,
     pub route: String,
     pub engine: EngineInfo,
+    /// Selected OCR candidates used by the server-side provider boundary.
+    #[serde(skip)]
+    pub ocr_candidate_pages: Vec<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -461,10 +464,7 @@ fn build_data(
         );
     }
     if want_ocr {
-        warnings.push(
-            "include_ocr_text_layer: no OCR provider configured on pure-Rust path; ocr_text_layer is empty. Configure an external OCR provider for scanned pages."
-                .into(),
-        );
+        warnings.push(crate::ocr_fusion::OCR_STUB_WARNING.into());
     }
     if want_visual {
         warnings.push(
@@ -598,6 +598,20 @@ fn build_data(
         engine: EngineInfo {
             name: ENGINE_NAME,
             version: ENGINE_VERSION,
+        },
+        ocr_candidate_pages: if want_ocr {
+            let empty = pages
+                .iter()
+                .filter(|page| page.text.trim().is_empty())
+                .map(|page| page.page)
+                .collect::<Vec<_>>();
+            if empty.is_empty() {
+                pages.iter().map(|page| page.page).collect()
+            } else {
+                empty
+            }
+        } else {
+            Vec::new()
         },
     };
 
@@ -779,14 +793,6 @@ fn build_data(
     }
     if want_permissions {
         data.permissions = Some(json!([]));
-    }
-    if want_ocr {
-        data.ocr_text_layer = Some(json!({
-            "profile": "pdf_ocr_text_layer",
-            "pages": [],
-            "provider": null,
-            "note": "No OCR provider configured.",
-        }));
     }
     if want_visual {
         data.visual_enrichments = Some(json!([]));
@@ -1216,7 +1222,11 @@ mod tests {
         assert!(data.form_fields.is_some());
         assert!(data.attachments.is_some());
         assert!(data.structure_trees.is_some());
-        assert!(data.ocr_text_layer.is_some());
+        // Provider-backed fields remain absent until the server fuses a
+        // normalized outcome; returning an empty placeholder would diverge
+        // from the TypeScript v3.0.14 failure semantics.
+        assert!(data.ocr_text_layer.is_none());
+        assert!(!data.ocr_candidate_pages.is_empty());
         assert!(data.visual_enrichments.is_some());
         assert_eq!(
             data.trust_report.as_ref().unwrap()["profile"],
@@ -1226,6 +1236,57 @@ mod tests {
             data.accessibility_report.as_ref().unwrap()["profile"],
             "pdf_accessibility_report"
         );
+    }
+
+    #[test]
+    fn ocr_candidates_prefer_empty_selected_pages_then_fall_back_to_all() {
+        let input = ReadPdfInput {
+            include_ocr_text_layer: true,
+            ..ReadPdfInput::default()
+        };
+        let mixed = build_data(
+            &[
+                crate::document_twin::PageText {
+                    page: 2,
+                    text: "selectable".into(),
+                },
+                crate::document_twin::PageText {
+                    page: 4,
+                    text: String::new(),
+                },
+                crate::document_twin::PageText {
+                    page: 7,
+                    text: "  \n".into(),
+                },
+            ],
+            7,
+            &input,
+            None,
+            true,
+        );
+        assert_eq!(mixed.ocr_candidate_pages, vec![4, 7]);
+
+        let selectable = build_data(
+            &[
+                crate::document_twin::PageText {
+                    page: 2,
+                    text: "first".into(),
+                },
+                crate::document_twin::PageText {
+                    page: 5,
+                    text: "second".into(),
+                },
+            ],
+            5,
+            &input,
+            None,
+            true,
+        );
+        assert_eq!(selectable.ocr_candidate_pages, vec![2, 5]);
+        assert!(serde_json::to_value(selectable)
+            .expect("serialize")
+            .get("ocr_candidate_pages")
+            .is_none());
     }
 
     #[test]

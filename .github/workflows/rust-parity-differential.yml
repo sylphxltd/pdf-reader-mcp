@@ -147,7 +147,7 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_visual_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 14 and .passed == 14 and .skipped == 0
+            .caseCount == 15 and .passed == 15 and .skipped == 0
           ' "$VISUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 visual result is incomplete, failing, or not SHA-bound"
             exit 1

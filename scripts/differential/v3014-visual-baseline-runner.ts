@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { PNG } from 'pngjs';
 import { pdfEvidence } from './src/handlers/pdfEvidence.ts';
+import { readPdf } from './src/handlers/readPdf.ts';
 
 type Content = { type: string; text?: string; data?: string; mimeType?: string };
 type ToolResult = { content: Content[]; isError?: boolean };
@@ -29,7 +30,7 @@ process.env['MCP_PDF_REGION_ANALYSIS_ARGS_JSON'] = JSON.stringify([
   '{languages}',
 ]);
 const corpus = JSON.parse(readFileSync(corpusPath, 'utf8')) as {
-  cases: Array<{ id: string; input: Record<string, unknown> }>;
+  cases: Array<{ id: string; tool?: 'read_pdf'; input: Record<string, unknown> }>;
 };
 
 function materialize(value: unknown): unknown {
@@ -83,12 +84,55 @@ function imageFacts(content: Content): Record<string, unknown> {
   };
 }
 
-function canonicalize(result: ToolResult): Record<string, unknown> {
+function canonicalize(result: ToolResult, tool?: 'read_pdf'): Record<string, unknown> {
   if (result.isError) {
     const message = result.content[0]?.text ?? '';
     return { outcome: 'error', category: errorCategory(message) };
   }
   const payload = JSON.parse(result.content[0]?.text ?? '{}') as Record<string, unknown>;
+  if (tool === 'read_pdf') {
+    const readResults = ((payload.results ?? []) as Array<Record<string, unknown>>).map((source) => {
+      if (!source.success) {
+        return {
+          source: basename(String(source.source ?? '')),
+          success: false,
+          category: errorCategory(String(source.error ?? '')),
+        };
+      }
+      const data = (source.data ?? {}) as Record<string, unknown>;
+      const layer = data.ocr_text_layer as Record<string, unknown> | undefined;
+      const map = data.document_map as Record<string, unknown> | undefined;
+      return {
+        source: basename(String(source.source ?? '')),
+        success: true,
+        ocr_text_layer: layer
+          ? {
+              profile: layer.profile,
+              pages: layer.pages,
+              summary: layer.summary,
+              warnings: layer.warnings ?? [],
+            }
+          : null,
+        document_map: map
+          ? {
+              has_ocr_layer:
+                Array.isArray(map.layers) && map.layers.includes('ocr_text_layer'),
+              needs_ocr_pages: (map.routing as Record<string, unknown>)?.needs_ocr_pages,
+              ocr_applied_pages: (map.routing as Record<string, unknown>)?.ocr_applied_pages,
+              ocr_page_count: (map.summary as Record<string, unknown>)?.ocr_page_count,
+              ocr_text_chars: (map.summary as Record<string, unknown>)?.ocr_text_chars,
+            }
+          : null,
+      };
+    });
+    return {
+      outcome: 'success',
+      content_ocr: result.content
+        .filter((content) => content.type === 'text' && content.text?.startsWith('[Page '))
+        .map((content) => content.text),
+      results: readResults,
+    };
+  }
   const imageBlocks = result.content.filter((content) => content.type === 'image');
   const images = imageBlocks.map(imageFacts);
   const results = ((payload.results ?? []) as Array<Record<string, unknown>>).map((source) => {
@@ -215,7 +259,10 @@ function canonicalize(result: ToolResult): Record<string, unknown> {
 const observations: Record<string, unknown> = {};
 for (const entry of corpus.cases) {
   const input = materialize(entry.input) as never;
-  const raw = await pdfEvidence.handler({ input, ctx: {} });
-  observations[entry.id] = canonicalize(normalizeResult(raw));
+  const raw =
+    entry.tool === 'read_pdf'
+      ? await readPdf.handler({ input, ctx: {} })
+      : await pdfEvidence.handler({ input, ctx: {} });
+  observations[entry.id] = canonicalize(normalizeResult(raw), entry.tool);
 }
 console.log(JSON.stringify(observations));

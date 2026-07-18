@@ -2,6 +2,7 @@
 
 pub mod document_twin;
 pub mod legacy;
+pub mod ocr_fusion;
 pub mod page_cache;
 pub mod read_pdf;
 pub mod render;
@@ -13,6 +14,10 @@ pub mod url_fetch;
 pub use ssrf::{assert_host_not_private, is_private_ip};
 
 pub use legacy::legacy_engine_allowed;
+pub use ocr_fusion::{
+    fuse_ocr_outcomes, OcrPage, OcrWord, SourceOcrOutcome, OCR_STRUCTURED_FUSION_GAP_WARNING,
+    OCR_STUB_WARNING,
+};
 pub use read_pdf::{
     read_pdf, read_pdf_from_value, ReadPdfError, ReadPdfErrorCode, ReadPdfInput, ReadPdfResponse,
     ReadPdfSource, ReadPdfSourceResult, READ_PDF_ROUTE,

@@ -24,7 +24,7 @@ const outputFlag = process.argv.indexOf('--output');
 const outputPath = outputFlag >= 0 ? process.argv[outputFlag + 1] : undefined;
 
 const corpus = JSON.parse(readFileSync(corpusPath, 'utf8')) as {
-  cases: Array<{ id: string; input: Record<string, unknown> }>;
+  cases: Array<{ id: string; tool?: 'read_pdf'; input: Record<string, unknown> }>;
 };
 const oracle = JSON.parse(readFileSync(oraclePath, 'utf8')) as {
   baseline: {
@@ -70,8 +70,8 @@ function verifyAuthority(): Record<string, string> {
     }
   }
   const ids = corpus.cases.map((entry) => entry.id);
-  if (ids.length !== 14 || new Set(ids).size !== ids.length) {
-    throw new Error(`visual/OCR/analysis corpus must contain 14 unique cases (got ${ids.length})`);
+  if (ids.length !== 15 || new Set(ids).size !== ids.length) {
+    throw new Error(`visual/OCR/analysis corpus must contain 15 unique cases (got ${ids.length})`);
   }
   if (sha256(readFileSync(providerPath)) !== oracle.providerSha256) {
     throw new Error('reference OCR provider digest mismatch');
@@ -154,7 +154,7 @@ function imageFacts(content: Content): Record<string, Json> {
   } as Record<string, Json>;
 }
 
-function canonicalize(result: ToolResult): Json {
+function canonicalize(result: ToolResult, tool?: 'read_pdf'): Json {
   if (result.isError) {
     return {
       outcome: 'error',
@@ -162,6 +162,49 @@ function canonicalize(result: ToolResult): Json {
     };
   }
   const payload = JSON.parse(result.content[0]?.text ?? '{}') as Record<string, unknown>;
+  if (tool === 'read_pdf') {
+    const readResults = ((payload.results ?? []) as Array<Record<string, unknown>>).map((source) => {
+      if (!source.success) {
+        return {
+          source: basename(String(source.source ?? '')),
+          success: false,
+          category: errorCategory(String(source.error ?? '')),
+        };
+      }
+      const data = (source.data ?? {}) as Record<string, unknown>;
+      const layer = data.ocr_text_layer as Record<string, unknown> | undefined;
+      const map = data.document_map as Record<string, unknown> | undefined;
+      return {
+        source: basename(String(source.source ?? '')),
+        success: true,
+        ocr_text_layer: layer
+          ? {
+              profile: layer.profile,
+              pages: layer.pages,
+              summary: layer.summary,
+              warnings: layer.warnings ?? [],
+            }
+          : null,
+        document_map: map
+          ? {
+              has_ocr_layer:
+                Array.isArray(map.layers) && map.layers.includes('ocr_text_layer'),
+              needs_ocr_pages: (map.routing as Record<string, unknown>)?.needs_ocr_pages,
+              ocr_applied_pages: (map.routing as Record<string, unknown>)?.ocr_applied_pages,
+              ocr_page_count: (map.summary as Record<string, unknown>)?.ocr_page_count,
+              ocr_text_chars: (map.summary as Record<string, unknown>)?.ocr_text_chars,
+            }
+          : null,
+      };
+    });
+    return {
+      outcome: 'success',
+      content_ocr: result.content
+        .filter((content) => content.type === 'text' && content.text?.startsWith('[Page '))
+        .map((content) => content.text ?? null) as Json,
+      results: readResults as Json,
+    };
+  }
   const images = result.content.filter((content) => content.type === 'image').map(imageFacts);
   const results = ((payload.results ?? []) as Array<Record<string, unknown>>).map((source) => {
     if (!source.success) {
@@ -379,11 +422,11 @@ async function main() {
     const failures: Array<{ id: string; expected: Json; actual: Json }> = [];
     for (const [index, entry] of corpus.cases.entries()) {
       const response = await request(index + 10, 'tools/call', {
-        name: 'pdf_evidence',
+        name: entry.tool ?? 'pdf_evidence',
         arguments: materialize(entry.input),
       });
       if (response.error) throw new Error(`Rust MCP error for ${entry.id}: ${JSON.stringify(response.error)}`);
-      const actual = stable(canonicalize(response.result as ToolResult));
+      const actual = stable(canonicalize(response.result as ToolResult, entry.tool));
       const expected = stable(oracle.expectations[entry.id]!);
       observations[entry.id] = actual;
       if (JSON.stringify(actual) !== JSON.stringify(expected)) {
