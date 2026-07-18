@@ -1,6 +1,6 @@
 pub mod cli_bridge;
-pub mod http_transport;
 pub mod evidence;
+pub mod http_transport;
 pub mod pdf_evidence;
 pub mod read_pdf;
 pub mod schema;
@@ -13,11 +13,15 @@ use rmcp::{
     model::{Implementation, ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router, ErrorData, ServerHandler,
 };
-use serde_json::Value;
+
+use crate::schema::{PdfEvidenceArgs, ReadPdfArgs, SearchPdfArgs};
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
-pub const SERVER_VERSION: &str = "3.1.1";
-pub const SERVER_INSTRUCTIONS: &str = "Pure-Rust PDF MCP server. Use read_pdf for text/markdown extraction (local path or SSRF-safe URL), search_pdf for literal evidence retrieval, and pdf_evidence operation=inspect for page/text routing. Visual ops (render/crop/OCR/analyze) return fail-closed errors in this engine.";
+/// Experimental pure-Rust engine version — not the published npm product line.
+pub const SERVER_VERSION: &str = "0.0.0-pure-rust-experimental";
+pub const SERVER_INSTRUCTIONS: &str = "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
+Supported depth: selectable-text read_pdf, search_pdf, pdf_evidence inspect. \
+render/crop/OCR/analyze fail closed. For production drop-in use @sylphx/pdf-reader-mcp@3.0.14 (TypeScript).";
 
 #[derive(Clone)]
 pub struct PdfReaderMcp {
@@ -35,23 +39,29 @@ impl PdfReaderMcp {
 #[tool_router]
 impl PdfReaderMcp {
     #[tool(
-        description = "Primary PDF reader. Returns text, markdown, chunks, and document map from local path or SSRF-safe URL sources."
+        description = "Primary PDF reader. Pure-Rust experimental: selectable text, markdown, chunks, and best-effort twin fields. Not full 3.0.14 geometry/evidence parity."
     )]
     pub fn read_pdf(
         &self,
-        Parameters(args): Parameters<Value>,
+        Parameters(args): Parameters<ReadPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        read_pdf::read_pdf(args)
+        let value = serde_json::to_value(args).map_err(|error| {
+            ErrorData::invalid_params(format!("Failed to encode read_pdf args: {error}"), None)
+        })?;
+        read_pdf::read_pdf(value)
     }
 
     #[tool(
-        description = "Searches extracted PDF text with page, snippet, and provenance evidence for agent retrieval."
+        description = "Searches extracted PDF text with page, snippet, and provenance. Pure-Rust: no bounding boxes; OCR flag fails closed."
     )]
     pub fn search_pdf(
         &self,
-        Parameters(args): Parameters<Value>,
+        Parameters(args): Parameters<SearchPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        search::search_pdf(args)
+        let value = serde_json::to_value(args).map_err(|error| {
+            ErrorData::invalid_params(format!("Failed to encode search_pdf args: {error}"), None)
+        })?;
+        search::search_pdf(value)
     }
 
     #[tool(
@@ -59,9 +69,12 @@ impl PdfReaderMcp {
     )]
     pub fn pdf_evidence(
         &self,
-        Parameters(args): Parameters<Value>,
+        Parameters(args): Parameters<PdfEvidenceArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
-        pdf_evidence::pdf_evidence(args)
+        let value = serde_json::to_value(args).map_err(|error| {
+            ErrorData::invalid_params(format!("Failed to encode pdf_evidence args: {error}"), None)
+        })?;
+        pdf_evidence::pdf_evidence(value)
     }
 }
 
@@ -75,7 +88,9 @@ impl ServerHandler for PdfReaderMcp {
                 name: SERVER_NAME.into(),
                 title: None,
                 version: SERVER_VERSION.into(),
-                description: Some("Pure-Rust MCP server for pdf-reader-mcp (rmcp)".into()),
+                description: Some(
+                    "Experimental pure-Rust MCP server (not published npm latest)".into(),
+                ),
                 icons: None,
                 website_url: Some("https://sylphxai.github.io/pdf-reader-mcp/".into()),
             },
@@ -114,6 +129,38 @@ mod tests {
     }
 
     #[test]
+    fn tools_list_exposes_typed_object_schemas_not_empty_value() {
+        let tools = PdfReaderMcp::new().tool_router.list_all();
+        for tool in tools {
+            let schema = tool.input_schema;
+            let schema_value = serde_json::to_value(&schema).expect("schema json");
+            // Must not be a bare free-form Value with no properties for our tools
+            let ty = schema_value.get("type").and_then(|v| v.as_str());
+            assert_eq!(
+                ty,
+                Some("object"),
+                "tool {} schema type must be object, got {schema_value}",
+                tool.name
+            );
+            let props = schema_value
+                .get("properties")
+                .and_then(|v| v.as_object())
+                .expect("properties object");
+            assert!(
+                props.contains_key("sources"),
+                "tool {} must document sources in inputSchema",
+                tool.name
+            );
+            if tool.name == "search_pdf" {
+                assert!(props.contains_key("query"));
+            }
+            if tool.name == "pdf_evidence" {
+                assert!(props.contains_key("operation"));
+            }
+        }
+    }
+
+    #[test]
     fn rust_http_transport_module_is_wired_for_web_mcp() {
         let src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
         let main_rs = fs::read_to_string(src_dir.join("main.rs")).expect("read main.rs");
@@ -122,5 +169,12 @@ mod tests {
         assert!(main_rs.contains("http_transport::serve_http"));
         assert!(http_rs.contains("StreamableHttpService"));
         assert!(http_rs.contains("/mcp/health"));
+    }
+
+    #[test]
+    fn server_version_is_marked_experimental_not_published_line() {
+        assert!(super::SERVER_VERSION.contains("experimental") || super::SERVER_VERSION.starts_with("0."));
+        assert_ne!(super::SERVER_VERSION, "3.1.1");
+        assert_ne!(super::SERVER_VERSION, "3.0.14");
     }
 }

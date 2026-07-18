@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "title": "Pure-Rust experimental capability matrix (honest SSOT)",
+  "updated": "2026-07-18",
+  "productTruth": {
+    "publishedStable": "@sylphx/pdf-reader-mcp@3.0.14",
+    "publishedImplementation": "TypeScript dist/index.js",
+    "pureRustStatus": "experimental-opt-in",
+    "optIn": "PDF_READER_ENGINE_MODE=pure-rust",
+    "dropInFor3014": false,
+    "publishFreeze": true
+  },
+  "legend": {
+    "FULL": "Production-usable semantic parity with TS 3.0.14 intent for this slice",
+    "PARTIAL": "Present with reduced depth / heuristic",
+    "STUB": "Key exists but empty/placeholder",
+    "FAIL_CLOSED": "Explicit error (not silent success)",
+    "MISSING": "Not implemented"
+  },
+  "tools": {
+    "read_pdf": {
+      "source_locator": "FULL",
+      "url_ssrf": "FULL",
+      "include_page_count": "FULL",
+      "include_full_text": "FULL",
+      "include_markdown": "PARTIAL",
+      "include_html": "PARTIAL",
+      "include_chunks": "PARTIAL",
+      "include_elements": "PARTIAL",
+      "include_semantic_hints": "PARTIAL",
+      "include_text_layer": "PARTIAL",
+      "include_tables": "PARTIAL",
+      "include_document_map": "PARTIAL",
+      "include_document_ast": "PARTIAL",
+      "include_safety_findings": "PARTIAL",
+      "include_layout_diagnostics": "PARTIAL",
+      "include_trust_report": "PARTIAL",
+      "include_accessibility_report": "PARTIAL",
+      "include_metadata": "PARTIAL",
+      "include_outline": "STUB",
+      "include_annotations": "STUB",
+      "include_form_fields": "STUB",
+      "include_attachments": "STUB",
+      "include_structure_tree": "STUB",
+      "include_page_labels": "STUB",
+      "include_page_geometry": "STUB",
+      "include_permissions": "STUB",
+      "include_images": "STUB",
+      "include_ocr_text_layer": "STUB",
+      "include_visual_enrichments": "STUB",
+      "auto_policy": "FULL",
+      "bounding_boxes": "MISSING"
+    },
+    "search_pdf": {
+      "literal_search": "FULL",
+      "case_sensitive": "FULL",
+      "whole_word": "FULL",
+      "context_chars": "FULL",
+      "sources_pages_filter": "FULL",
+      "match_start_end_snake_case": "FULL",
+      "bounding_box": "MISSING",
+      "include_ocr_text_layer": "FAIL_CLOSED",
+      "prefer_speed": "PARTIAL"
+    },
+    "pdf_evidence": {
+      "inspect": "PARTIAL",
+      "render_page": "FAIL_CLOSED",
+      "extract_regions": "FAIL_CLOSED",
+      "ocr_pages": "FAIL_CLOSED",
+      "analyze_regions": "FAIL_CLOSED"
+    }
+  },
+  "claimedForDifferential": [
+    "read_pdf full_text (normalized whitespace) on sample.pdf",
+    "search_pdf match page+text for fixed query on sample.pdf",
+    "SSRF fail-closed for private/transition hosts",
+    "auto off when include_* keys present"
+  ],
+  "explicitlyNotClaimed": [
+    "geometry/bboxes",
+    "render/crop/OCR/analyze success path",
+    "COS outline/annotations/forms",
+    "cross-platform npm native binary",
+    "npm library exports for pure-Rust",
+    "2.0x/3.3x industry benchmark headline"
+  ]
+}

@@ -1,34 +1,6 @@
 {
-  "schemaVersion": 2,
-  "title": "pdf-reader-mcp pure-Rust production matrix",
-  "productionDefault": {
-    "process": "bin/pdf-reader-mcp → bin/native/pdf-reader-mcp-server (rmcp)",
-    "engineMode": "pure-rust",
-    "engineImplementation": "pdf-reader-core + pdf-reader-mcp-server (Rust only)",
-    "notes": "3.1.0 cutover: TypeScript parity bridge removed. Production is pure Rust."
-  },
-  "tools": [
-    {
-      "name": "read_pdf",
-      "status": "shipped",
-      "rustSurface": "pdf-reader-core::read_pdf (path + SSRF-safe URL, text/markdown/chunks/map)",
-      "limitations": "No provider OCR/visual twin; optional flags are best-effort or ignored with warnings"
-    },
-    {
-      "name": "search_pdf",
-      "status": "shipped",
-      "rustSurface": "pdf-reader-core::search_pdf (embedded text layer, path + URL)",
-      "limitations": "include_ocr_text_layer fails closed"
-    },
-    {
-      "name": "pdf_evidence",
-      "status": "shipped-partial",
-      "rustSurface": "operation=inspect via text extraction",
-      "limitations": "render_page / extract_regions / ocr_pages / analyze_regions fail closed with guidance"
-    }
-  ],
-  "security": {
-    "ssrf": "IPv4 private + IPv6 transition (NAT64/6to4/Teredo/mapped) blocked before fetch",
-    "locator": "exactly one of path or url per source"
-  }
+  "schemaVersion": 3,
+  "title": "SUPERSEDED — see pure-rust-capability-matrix.json",
+  "supersededBy": "docs/specs/pure-rust-capability-matrix.json",
+  "note": "3.1.x pure-Rust was withdrawn as npm latest. Published product is TypeScript 3.0.14. Pure-Rust is experimental opt-in only."
 }

@@ -8,6 +8,9 @@
 - Fix pure-Rust `read_pdf` auto default when explicit `include_*` present
 - Fix pure-Rust `search_pdf` snake_case offsets + honor `sources[].pages`
 - Production contract tests target TypeScript path again
+- Typed MCP inputSchema for pure-Rust tools
+- Honest SSOT: docs/specs/pure-rust-capability-matrix.json
+- True TS→Rust text differential (TypeScript oracle)
 - **No npm/crates publish**
 
 ## Withdrawal (2026-07-17)
