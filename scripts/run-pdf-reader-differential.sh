@@ -77,7 +77,7 @@ echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
 
-echo "--- immutable v3.0.14 render/crop/OCR/analyze/read-fusion differential (15 semantic cases) ---" | tee -a "$LOG"
+echo "--- immutable v3.0.14 render/crop/OCR/analyze/read-fusion differential (16 semantic cases) ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-visual-differential.ts" \
   --output "$V3014_VISUAL_JSON" >>"$LOG"
 
@@ -191,7 +191,7 @@ jq -n \
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
     structuralConsistencyOracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
-    nonClaims: ["full TS 3.0.14 behavioral parity", "visual/provider parity outside the immutable 15-case render/crop/OCR/analyze/read-fusion corpus", "Tesseract TSV parity", "OCR-derived table/document_ast fusion", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
+    nonClaims: ["full TS 3.0.14 behavioral parity", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "mixed selectable/OCR table continuation and full AST hierarchy parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
     retirementGate: "scripts/check-no-ts-stdio-backend.sh (runs only when dropInFor3014=true)"
   }' >"$ARTIFACT"
 

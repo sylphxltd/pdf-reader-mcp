@@ -135,6 +135,10 @@ document without zero-text pages. The response includes:
   `document_map.pages[*]`.
 - `document_map.routing.ocr_applied_pages` for completed OCR pages.
 - Separate `[Page N OCR]` MCP text content parts for agent context.
+- When boxed OCR words form a table, table-derived elements, citation chunks,
+  Markdown, HTML, `document_ast`, and `document_map` are rebuilt from one
+  shared structured context; raw OCR prose is never promoted into those text
+  surfaces.
 
 Provider failures are reported as warnings on the source result instead of
 silently mixing incomplete OCR into selectable-text outputs.
@@ -166,6 +170,9 @@ silently mixing incomplete OCR into selectable-text outputs.
 - When `include_tables` is also enabled, OCR word boxes may produce
   OCR-derived table structure with provenance linking back to the source page
   render evidence.
+- The provider-neutral table detector is hard-bounded to 20 OCR pages, 50,000
+  words per page, and 512 tables; the public server's five-page default is
+  tighter.
 
 ## Follow-On Work
 

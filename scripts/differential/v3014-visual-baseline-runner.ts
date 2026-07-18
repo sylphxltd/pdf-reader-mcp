@@ -84,6 +84,65 @@ function imageFacts(content: Content): Record<string, unknown> {
   };
 }
 
+function tableProjectionFacts(
+  data: Record<string, unknown>,
+  map: Record<string, unknown> | undefined
+): Record<string, unknown> | null {
+  const tables = (data.table_info ?? data.tables) as Array<Record<string, unknown>> | undefined;
+  const elements = (data.elements ?? []) as Array<Record<string, unknown>>;
+  const chunks = (data.chunks ?? []) as Array<Record<string, unknown>>;
+  const ast = data.document_ast as Record<string, unknown> | undefined;
+  if (!tables && !elements.some((element) => element.type === 'table') && !ast) return null;
+  return {
+    tables: (tables ?? []).map((table) => ({
+      page: table.page,
+      tableIndex: table.tableIndex,
+      rowCount: table.rowCount,
+      colCount: table.colCount,
+      cellCount:
+        table.cellCount ??
+        (Array.isArray(table.cells) ? table.cells.length : undefined),
+      provenance: table.provenance,
+      quality: table.quality,
+    })),
+    elements: elements
+      .filter((element) => element.type === 'table')
+      .map((element) => ({
+        id: element.id,
+        page: element.page,
+        provenance: element.provenance,
+        rows: (element.table as Record<string, unknown>)?.rows,
+      })),
+    chunks: chunks
+      .filter((chunk) => chunk.strategy === 'table')
+      .map((chunk) => ({
+        text: chunk.text,
+        element_ids: chunk.element_ids,
+        strategy: chunk.strategy,
+      })),
+    markdown_has_table:
+      typeof data.markdown === 'string' && data.markdown.includes('| Metric | Value |'),
+    html_has_table: typeof data.html === 'string' && data.html.includes('<table'),
+    ast_table_count: (ast?.summary as Record<string, unknown> | undefined)?.table_count,
+    ast_has_ocr_table_provenance: JSON.stringify(ast ?? {}).includes(
+      '"source":"ocr_text_layer"'
+    ),
+    map: map
+      ? {
+          has_table_structure:
+            Array.isArray(map.layers) && map.layers.includes('table_structure'),
+          has_citation_chunks:
+            Array.isArray(map.layers) && map.layers.includes('citation_chunks'),
+          page_table_count: ((map.pages as Array<Record<string, unknown>> | undefined) ?? [])[0]
+            ?.table_count,
+          table_element_sources: ((map.elements as Array<Record<string, unknown>> | undefined) ?? [])
+            .filter((element) => element.type === 'table')
+            .map((element) => (element.provenance as Record<string, unknown> | undefined)?.source),
+        }
+      : null,
+  };
+}
+
 function canonicalize(result: ToolResult, tool?: 'read_pdf'): Record<string, unknown> {
   if (result.isError) {
     const message = result.content[0]?.text ?? '';
@@ -123,6 +182,7 @@ function canonicalize(result: ToolResult, tool?: 'read_pdf'): Record<string, unk
               ocr_text_chars: (map.summary as Record<string, unknown>)?.ocr_text_chars,
             }
           : null,
+        table_projection: tableProjectionFacts(data, map),
       };
     });
     return {
