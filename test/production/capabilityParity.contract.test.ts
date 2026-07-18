@@ -10,6 +10,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import type { ChildProcess } from 'node:child_process';
+import { join } from 'node:path';
 import {
   callTool,
   ensureProductionArtifacts,
@@ -35,7 +36,6 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   trust: ['trust_report'],
   a11y: ['accessibility_report'],
   outline: ['outline'],
-  annotations: ['annotations'],
   'page-labels': ['page_labels'],
   'page-geometry': ['page_geometry'],
   permissions: ['permissions'],
@@ -97,6 +97,7 @@ const pureRustEnabled =
   process.env.PDF_READER_ENGINE_MODE === 'pure-rust' ||
   process.env.PDF_READER_ENGINE_MODE === 'rust' ||
   process.env.RUN_PURE_RUST_CAPABILITY === '1';
+const signalPdf = join(import.meta.dir, '../fixtures/differential/v3014-behavior-v1.pdf');
 
 describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
   let proc: ChildProcess;
@@ -123,7 +124,7 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     proc?.kill('SIGTERM');
   });
 
-  test('every public read_pdf include_* capability returns its response field', async () => {
+  test('every claimed non-optional read_pdf include_* capability returns its response field', async () => {
     const failures: string[] = [];
     for (const entry of READ_PDF_CASES) {
       const response = await callTool(
@@ -156,6 +157,50 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     }
     expect(failures).toEqual([]);
   }, 600_000);
+
+  test('annotations match the immutable Link subset and omit empty placeholders', async () => {
+    const withAnnotation = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: signalPdf, pages: [1] }],
+        auto: false,
+        include_annotations: true,
+      },
+      90_000
+    );
+    const populated = JSON.parse(parseToolPayload(withAnnotation).text) as {
+      results?: Array<{ data?: { annotations?: unknown } }>;
+    };
+    expect(populated.results?.[0]?.data?.annotations).toEqual([
+      {
+        page: 1,
+        annotations: [
+          {
+            page: 1,
+            id: '11R',
+            subtype: 'Link',
+            contents: '  Linked note  ',
+            url: 'https://example.com/a',
+            bounding_box: { left: 50, bottom: 150, right: 100, top: 200 },
+          },
+        ],
+      },
+    ]);
+
+    const withoutAnnotation = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      { sources: [{ path: samplePdf }], auto: false, include_annotations: true },
+      90_000
+    );
+    const omitted = JSON.parse(parseToolPayload(withoutAnnotation).text) as {
+      results?: Array<{ data?: { annotations?: unknown } }>;
+    };
+    expect(omitted.results?.[0]?.data?.annotations).toBeUndefined();
+  }, 180_000);
 
   test('auto balanced twin matches v3.0.14 depth without full text', async () => {
     const response = await callTool(

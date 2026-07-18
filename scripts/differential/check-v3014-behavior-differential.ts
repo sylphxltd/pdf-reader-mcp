@@ -66,8 +66,8 @@ function verifyAuthority(): Record<string, string> {
     }
   }
   const ids = corpus.cases.map((entry) => entry.id);
-  if (ids.length !== 10 || new Set(ids).size !== ids.length) {
-    throw new Error(`behavior corpus must contain 10 unique cases (got ${ids.length})`);
+  if (ids.length !== 11 || new Set(ids).size !== ids.length) {
+    throw new Error(`behavior corpus must contain 11 unique cases (got ${ids.length})`);
   }
   if (JSON.stringify(ids.sort()) !== JSON.stringify(Object.keys(oracle.expectations).sort())) {
     throw new Error('corpus and oracle case IDs differ');
@@ -184,6 +184,35 @@ function canonicalRead(id: string, envelope: Record<string, unknown>): Json {
           text: normalizeText(String((page as Record<string, unknown>).text ?? '')),
         }))
       : [];
+  }
+  if (id === 'read-page-signals') {
+    canonical.page_geometry = Array.isArray(data.page_geometry)
+      ? data.page_geometry.map((entry) => {
+          const geometry = entry as Record<string, unknown>;
+          const box = geometry.view_box as Record<string, unknown>;
+          return {
+            page: Number(geometry.page), width: Number(geometry.width), height: Number(geometry.height),
+            rotation: Number(geometry.rotation), user_unit: Number(geometry.user_unit),
+            view_box: { left: Number(box.left), bottom: Number(box.bottom), right: Number(box.right), top: Number(box.top) },
+          };
+        })
+      : null;
+    canonical.annotations = Array.isArray(data.annotations)
+      ? data.annotations.map((group) => {
+          const value = group as Record<string, unknown>;
+          return {
+            page: Number(value.page),
+            annotations: ((value.annotations ?? []) as Array<Record<string, unknown>>).map((entry) => {
+              const box = entry.bounding_box as Record<string, unknown>;
+              return {
+                page: Number(entry.page), id: String(entry.id), subtype: String(entry.subtype),
+                contents: String(entry.contents), url: String(entry.url),
+                bounding_box: { left: Number(box.left), bottom: Number(box.bottom), right: Number(box.right), top: Number(box.top) },
+              };
+            }),
+          };
+        })
+      : null;
   }
   canonical.warnings = warnings(data.warnings);
   return canonical;

@@ -5,9 +5,11 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::text_index::{extract_pdf_text, PdfInfo, TextIndexError, TextIndexErrorCode};
+use crate::text_index::{
+    extract_pdf_text_from_document, PdfInfo, TextIndexError, TextIndexErrorCode,
+};
 use crate::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
-use crate::{hash_file, FileHash, HashError, ENGINE_NAME, ENGINE_VERSION};
+use crate::{HashError, ENGINE_NAME, ENGINE_VERSION};
 
 pub const READ_PDF_ROUTE: &str = "rust-read-pdf-v1";
 
@@ -562,27 +564,15 @@ pub(crate) fn rebuild_structured_outputs(
     }
 }
 
-fn build_data(
-    pages: &[crate::document_twin::PageText],
-    total_pages: u32,
-    input: &ReadPdfInput,
-    pdf_info: Option<&PdfInfo>,
-    explicit_page_selection: bool,
-) -> ReadPdfData {
-    use crate::document_twin::{
-        build_accessibility_report, build_document_ast, build_document_map, build_elements,
-        build_layout_diagnostics, build_page_geometry, build_page_labels, build_safety_findings,
-        build_tables, build_trust_report, empty_structure_arrays,
-    };
+#[derive(Default)]
+struct BuildSignals {
+    page_geometry: Option<Value>,
+    annotations: Option<Value>,
+    warnings: Vec<String>,
+}
 
-    let full_text = join_page_text(pages);
-    let text_chars = full_text.chars().count();
-    let mut warnings = Vec::new();
-
-    // auto is resolved in read_pdf_from_value for JSON callers; programmatic callers
-    // should set auto explicitly. Default remains true only when auto is None and no
-    // include flags are set (bool defaults are false, so all-false means sources-only).
-    let any_include = input.include_metadata
+fn has_any_include(input: &ReadPdfInput) -> bool {
+    input.include_metadata
         || input.include_page_count
         || input.include_full_text
         || input.include_markdown
@@ -608,17 +598,45 @@ fn build_data(
         || input.include_ocr_text_layer
         || input.include_visual_enrichments
         || input.include_trust_report
-        || input.include_accessibility_report;
-    let auto = if input.auto_policy_resolved {
+        || input.include_accessibility_report
+}
+
+fn auto_enabled(input: &ReadPdfInput) -> bool {
+    if input.auto_policy_resolved {
         false
     } else {
-        match input.auto {
-            Some(v) => v,
-            // Presence of true include flags implies manual mode when auto omitted.
-            // (JSON path sets auto explicitly via read_pdf_from_value for key presence.)
-            None => !any_include,
-        }
+        input.auto.unwrap_or_else(|| !has_any_include(input))
+    }
+}
+
+fn build_data(
+    pages: &[crate::document_twin::PageText],
+    total_pages: u32,
+    input: &ReadPdfInput,
+    pdf_info: Option<&PdfInfo>,
+    explicit_page_selection: bool,
+    signals: BuildSignals,
+) -> ReadPdfData {
+    use crate::document_twin::{
+        build_accessibility_report, build_document_ast, build_document_map, build_elements,
+        build_layout_diagnostics, build_page_labels, build_safety_findings, build_tables,
+        build_trust_report, empty_structure_arrays,
     };
+
+    let BuildSignals {
+        page_geometry,
+        annotations,
+        mut warnings,
+    } = signals;
+    let full_text = join_page_text(pages);
+    let text_chars = full_text.chars().count();
+
+    // auto is resolved in read_pdf_from_value for JSON callers; programmatic callers
+    // should set auto explicitly. Default remains true only when auto is None and no
+    // include flags are set (bool defaults are false, so all-false means sources-only).
+    // Presence of true include flags implies manual mode when auto is omitted.
+    // (JSON path resolves preset flags before reaching this function.)
+    let auto = auto_enabled(input);
     let detail = input.auto_detail.as_deref().unwrap_or("balanced");
     let auto_full = auto && detail == "full";
     let auto_balanced = auto && matches!(detail, "balanced" | "full");
@@ -755,8 +773,7 @@ fn build_data(
         None
     };
 
-    let (outline, annotations, form_fields, attachments, structure_trees) =
-        empty_structure_arrays();
+    let (outline, _, form_fields, attachments, structure_trees) = empty_structure_arrays();
 
     let mut data = ReadPdfData {
         num_pages: want_page_count.then_some(total_pages),
@@ -978,10 +995,7 @@ fn build_data(
         );
     }
     if want_annotations {
-        data.annotations = Some(annotations);
-        warnings.push(
-            "include_annotations: annotation records are empty on the pure-Rust text path.".into(),
-        );
+        data.annotations = annotations;
     }
     if want_forms {
         data.form_fields = Some(form_fields);
@@ -1000,9 +1014,7 @@ fn build_data(
         data.page_labels = Some(build_page_labels(total_pages));
     }
     if want_geometry {
-        data.page_geometry = Some(build_page_geometry(
-            &pages.iter().map(|page| page.page).collect::<Vec<_>>(),
-        ));
+        data.page_geometry = page_geometry;
     }
     if want_permissions {
         data.permissions = Some(json!([]));
@@ -1097,8 +1109,8 @@ fn read_local_pdf_filtered(
     pages_spec: &Option<Value>,
     source_label: &str,
 ) -> Result<ReadPdfSourceResult, ReadPdfError> {
-    let _hash: FileHash = hash_file(path, DEFAULT_MAX_FILE_BYTES)?;
-    let extracted = extract_pdf_text(path, DEFAULT_MAX_FILE_BYTES)?;
+    let parsed = crate::cos_document::ParsedPdf::load(path, DEFAULT_MAX_FILE_BYTES)?;
+    let extracted = extract_pdf_text_from_document(&parsed.document)?;
     let total_pages = extracted.pages.len().max(1) as u32;
     let pages = extracted
         .pages
@@ -1107,7 +1119,7 @@ fn read_local_pdf_filtered(
         .collect::<Vec<_>>();
     let explicit_pages = parse_page_spec(pages_spec)?;
     let auto_pages = if explicit_pages.is_none()
-        && input.auto.unwrap_or(false)
+        && auto_enabled(input)
         && input.auto_detail.as_deref().unwrap_or("balanced") != "full"
     {
         Some(evenly_sample_pages(
@@ -1119,12 +1131,31 @@ fn read_local_pdf_filtered(
     };
     let requested_pages = explicit_pages.as_deref().or(auto_pages.as_deref());
     let (selected, invalid_pages) = select_pages(&pages, requested_pages);
+    let selected_page_numbers = selected.iter().map(|page| page.page).collect::<Vec<_>>();
+    let auto = auto_enabled(input);
+    let want_geometry = input.include_page_geometry || auto;
+    let want_annotations =
+        input.include_annotations || (auto && input.auto_detail.as_deref() == Some("full"));
+    let signals = crate::page_signals::extract_page_signals(
+        &parsed.document,
+        &parsed.pages,
+        &selected_page_numbers,
+        want_geometry,
+        want_annotations,
+    );
+    let geometry = (!signals.geometry.is_empty()).then(|| json!(signals.geometry));
+    let annotations = (!signals.annotations.is_empty()).then(|| json!(signals.annotations));
     let mut data = build_data(
         &selected,
         total_pages,
         input,
         Some(&extracted.info),
         explicit_pages.is_some(),
+        BuildSignals {
+            page_geometry: geometry,
+            annotations,
+            warnings: signals.warnings,
+        },
     );
     if !invalid_pages.is_empty() {
         data.warnings.get_or_insert_with(Vec::new).push(format!(
@@ -1432,7 +1463,9 @@ mod tests {
         assert!(data.trust_report.is_some());
         assert!(data.accessibility_report.is_some());
         assert!(data.outline.is_some());
-        assert!(data.annotations.is_some());
+        // TS 3.0.14 omits optional page-signal fields when the document has no
+        // qualifying records; an empty placeholder is not capability parity.
+        assert!(data.annotations.is_none());
         assert!(data.page_labels.is_some());
         assert!(data.page_geometry.is_some());
         assert!(data.permissions.is_some());
@@ -1480,6 +1513,7 @@ mod tests {
             &input,
             None,
             true,
+            BuildSignals::default(),
         );
         assert_eq!(mixed.ocr_candidate_pages, vec![4, 7]);
 
@@ -1498,6 +1532,7 @@ mod tests {
             &input,
             None,
             true,
+            BuildSignals::default(),
         );
         assert_eq!(selectable.ocr_candidate_pages, vec![2, 5]);
         assert!(serde_json::to_value(selectable)
@@ -1594,6 +1629,7 @@ mod tests {
             },
             None,
             true,
+            BuildSignals::default(),
         );
         assert!(data.full_text.is_none());
         assert_eq!(data.page_texts, Some(pages));
@@ -1623,6 +1659,7 @@ mod tests {
             },
             None,
             false,
+            BuildSignals::default(),
         );
         let serialized = serde_json::to_value(data).expect("serialize data");
         assert!(serialized.get("num_pages").is_none());
@@ -1645,6 +1682,10 @@ mod tests {
             },
             None,
             false,
+            BuildSignals {
+                page_geometry: Some(json!([])),
+                ..BuildSignals::default()
+            },
         );
         assert!(data.markdown.is_some());
         assert!(data.tables.is_some());

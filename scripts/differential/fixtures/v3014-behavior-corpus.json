@@ -36,6 +36,17 @@
       }
     },
     {
+      "id": "read-page-signals",
+      "tool": "read_pdf",
+      "input": {
+        "sources": [{ "fixture": "v3014-behavior-v1.pdf", "pages": [1] }],
+        "auto": false,
+        "include_annotations": true,
+        "include_page_geometry": true,
+        "include_page_count": true
+      }
+    },
+    {
       "id": "search-ci-all",
       "tool": "search_pdf",
       "input": {

@@ -30,10 +30,10 @@ function buildPdf(): Buffer {
 
   const objects = new Map<number, string>([
     [1, '<< /Type /Catalog /Pages 2 0 R >>'],
-    [2, '<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>'],
+    [2, '<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 /MediaBox [0 0 612 792] /CropBox [20 30 580 760] /Rotate 90 /UserUnit 2 >>'],
     [
       3,
-      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>',
+      '<< /Type /Page /Parent 2 0 R /UserUnit 2 /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R /Annots [11 0 R] >>',
     ],
     [4, `<< /Length ${Buffer.byteLength(pageStreams[0]!, 'latin1')} >>\nstream\n${pageStreams[0]}endstream`],
     [
@@ -51,6 +51,11 @@ function buildPdf(): Buffer {
       10,
       '<< /Title (Parity Corpus V1) /Author (Sylphx Oracle) /Subject (TS 3.0.14 behavioral contract) /Keywords (parity multipage search) /Creator (fixture-generator-v1) /Producer (fixture-generator-v1) >>',
     ],
+    [
+      11,
+      '<< /Type /Annot /Subtype /Link /Contents (  Linked note  ) /Rect [100 200 50 150] /A << /S /URI /URI (https://example.com/a) >> >>',
+    ],
+    [12, '<< /Type /Annot /Subtype /Text /Contents () /Rect [1 2 1 2] >>'],
   ]);
 
   const chunks: Buffer[] = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'latin1')];
