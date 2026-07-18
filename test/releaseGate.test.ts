@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { buildSotaReleaseGateReport } from '../scripts/sota-release-gate.js';
 
@@ -19,5 +20,19 @@ describe('pdf reader SOTA release gate golden probes', () => {
     expect(report.checks.some((check) => check.id === 'mcp:http_gate_script_present')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:stdio_transport_parity')).toBe(true);
     expect(report.checks.some((check) => check.id === 'mcp:stdio_gate_script_present')).toBe(true);
+  });
+
+  it('hard-fails the release workflow before changesets can publish', () => {
+    const workflow = readFileSync(
+      path.join(import.meta.dirname, '..', '.github/workflows/release.yml'),
+      'utf8'
+    );
+    const freeze = workflow.indexOf('- name: Enforce Rust replacement publish freeze');
+    const changesets = workflow.indexOf('uses: changesets/action@v1');
+
+    expect(freeze).toBeGreaterThan(-1);
+    expect(workflow.slice(freeze, changesets)).toContain('exit 1');
+    expect(freeze).toBeLessThan(changesets);
+    expect(workflow).not.toContain('publish:');
   });
 });

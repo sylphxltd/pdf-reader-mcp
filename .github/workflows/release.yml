@@ -95,12 +95,19 @@ jobs:
           path: benchmark-artifacts/
           if-no-files-found: ignore
 
-      - name: Create release PR or publish
+      # Keep this as a standalone shell boundary. changesets/action executes
+      # `publish` directly, so shell operators embedded in that input do not
+      # enforce a failing freeze.
+      - name: Enforce Rust replacement publish freeze
+        run: |
+          echo "PUBLISH FREEZE: verified-candidate artifact admission is not wired yet" >&2
+          exit 1
+
+      - name: Create release PR
         id: changesets
         uses: changesets/action@v1
         with:
           version: bun changeset version && bun run sync:server-json
-          publish: 'echo "PUBLISH FREEZE: verified-candidate artifact admission is not wired yet" && exit 1'
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
           createGithubReleases: true
