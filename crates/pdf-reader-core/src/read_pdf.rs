@@ -395,69 +395,6 @@ fn select_pages(
     (selected, invalid)
 }
 
-fn build_structured_chunks(pages: &[crate::document_twin::PageText], elements: &Value) -> Value {
-    let mut chunks = pages
-        .iter()
-        .filter(|page| !page.text.trim().is_empty())
-        .map(|page| {
-            let bounding_boxes = elements.as_array().into_iter().flatten()
-                .filter(|element| element.get("page").and_then(Value::as_u64) == Some(u64::from(page.page)))
-                .filter(|element| element.get("type").and_then(Value::as_str) != Some("table"))
-                .filter_map(|element| element.get("bounding_box").cloned())
-                .collect::<Vec<_>>();
-            let mut chunk = json!({
-                "id": format!("chunk-p{}", page.page),
-                "page": page.page,
-                "text": page.text,
-                "element_ids": elements.as_array().into_iter().flatten()
-                    .filter(|element| element.get("page").and_then(Value::as_u64) == Some(u64::from(page.page)))
-                    .filter(|element| element.get("type").and_then(Value::as_str) != Some("table"))
-                    .filter_map(|element| element.get("id").cloned())
-                    .collect::<Vec<_>>(),
-            });
-            if !bounding_boxes.is_empty() {
-                chunk["bounding_boxes"] = json!(bounding_boxes);
-            }
-            chunk
-        })
-        .collect::<Vec<_>>();
-    for element in elements
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|element| element.get("type").and_then(Value::as_str) == Some("table"))
-    {
-        let id = element.get("id").and_then(Value::as_str).unwrap_or("table");
-        let text = element
-            .pointer("/table/rows")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .map(|row| {
-                row.as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(Value::as_str)
-                    .collect::<Vec<_>>()
-                    .join(" | ")
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        let mut chunk = json!({
-            "id": format!("chunk-{id}"),
-            "page": element.get("page"),
-            "text": text,
-            "element_ids": [id],
-            "strategy": "table",
-        });
-        if let Some(box_) = element.get("bounding_box").cloned() {
-            chunk["bounding_box"] = box_;
-        }
-        chunks.push(chunk);
-    }
-    json!(chunks)
-}
-
 fn render_structured_markdown(pages: &[crate::document_twin::PageText], tables: &Value) -> String {
     let mut parts = pages
         .iter()
@@ -539,11 +476,22 @@ pub(crate) fn rebuild_structured_outputs(
     tables: &Value,
 ) {
     use crate::document_twin::{
-        build_document_ast, build_document_map, build_elements_with_tables,
+        build_citation_chunks, build_document_ast, build_document_map, build_elements_with_tables,
     };
 
-    let elements = build_elements_with_tables(&context.pages, tables, context.semantic_hints);
-    let chunks = build_structured_chunks(&context.pages, &elements);
+    let output_elements =
+        build_elements_with_tables(&context.pages, tables, context.semantic_hints);
+    let semantic_elements = if context.semantic_hints {
+        output_elements.clone()
+    } else {
+        build_elements_with_tables(&context.pages, tables, true)
+    };
+    let output_chunks = build_citation_chunks(&output_elements, context.semantic_hints);
+    let internal_chunks = if context.emit_chunks {
+        output_chunks.clone()
+    } else {
+        build_citation_chunks(&semantic_elements, true)
+    };
     if context.emit_markdown {
         data.markdown = Some(render_structured_markdown(&context.pages, tables));
     }
@@ -551,22 +499,26 @@ pub(crate) fn rebuild_structured_outputs(
         data.html = Some(render_structured_html(&context.pages, tables));
     }
     if context.emit_chunks {
-        data.chunks = Some(chunks.clone());
+        data.chunks = Some(output_chunks.clone());
     }
     if context.emit_elements {
-        data.elements = Some(elements.clone());
+        data.elements = Some(output_elements.clone());
     }
     if context.emit_tables {
         data.tables = Some(tables.clone());
     }
     if context.emit_document_ast {
-        data.document_ast = Some(build_document_ast(&context.pages, &elements, tables));
+        data.document_ast = Some(build_document_ast(
+            &context.pages,
+            &semantic_elements,
+            tables,
+        ));
     }
     if context.emit_document_map {
         data.document_map = Some(build_document_map(
             &context.pages,
-            &elements,
-            &chunks,
+            &semantic_elements,
+            &internal_chunks,
             tables,
             &context.safety,
             &context.layout,
@@ -660,8 +612,9 @@ fn build_data(
     signals: BuildSignals,
 ) -> ReadPdfData {
     use crate::document_twin::{
-        build_document_ast, build_document_map, build_elements, build_layout_diagnostics,
-        build_safety_findings, build_tables, build_text_layer, build_trust_report,
+        build_citation_chunks, build_document_ast, build_document_map, build_elements_with_tables,
+        build_layout_diagnostics, build_safety_findings, build_tables, build_text_layer,
+        build_trust_report,
     };
 
     let BuildSignals {
@@ -736,14 +689,46 @@ fn build_data(
         );
     }
 
-    let elements =
-        if want_elements || want_semantic || want_ast || want_map || want_trust || want_a11y {
-            Some(build_elements(pages, want_semantic || want_elements))
-        } else {
-            None
-        };
     let tables = if want_tables || want_ast || want_map || want_visual || want_trust {
         Some(build_tables(pages))
+    } else {
+        None
+    };
+    let empty_array = json!([]);
+    let table_values = tables.as_ref().unwrap_or(&empty_array);
+    let plain_elements = ((want_elements || want_chunks) && !want_semantic)
+        .then(|| build_elements_with_tables(pages, table_values, false));
+    let semantic_elements = (want_semantic || want_ast || want_map || want_a11y)
+        .then(|| build_elements_with_tables(pages, table_values, true));
+    let elements = if want_elements || want_semantic {
+        if want_semantic {
+            semantic_elements.clone()
+        } else {
+            plain_elements.clone()
+        }
+    } else {
+        None
+    };
+    let chunks = if want_chunks {
+        let chunk_elements = if want_semantic {
+            semantic_elements.as_ref()
+        } else {
+            plain_elements.as_ref()
+        };
+        Some(build_citation_chunks(
+            chunk_elements.unwrap_or(&empty_array),
+            want_semantic,
+        ))
+    } else {
+        None
+    };
+    let internal_chunks = if want_ast || want_map {
+        chunks.clone().or_else(|| {
+            Some(build_citation_chunks(
+                semantic_elements.as_ref().unwrap_or(&empty_array),
+                true,
+            ))
+        })
     } else {
         None
     };
@@ -775,7 +760,7 @@ fn build_data(
         Some(crate::accessibility::build_accessibility_report(
             crate::accessibility::AccessibilityInput {
                 pages,
-                elements: elements.as_ref().unwrap_or(&json!([])),
+                elements: semantic_elements.as_ref().unwrap_or(&empty_array),
                 structure_trees: accessibility_structure_trees.as_ref(),
                 annotations: annotations.as_ref(),
                 form_fields: form_fields.as_ref(),
@@ -789,20 +774,11 @@ fn build_data(
         None
     };
 
-    let chunks = if want_chunks || want_map {
-        Some(build_structured_chunks(
-            pages,
-            elements.as_ref().unwrap_or(&json!([])),
-        ))
-    } else {
-        None
-    };
-
     let document_ast = if want_ast {
         Some(build_document_ast(
             pages,
-            elements.as_ref().unwrap_or(&json!([])),
-            tables.as_ref().unwrap_or(&json!([])),
+            semantic_elements.as_ref().unwrap_or(&empty_array),
+            table_values,
         ))
     } else {
         None
@@ -811,9 +787,9 @@ fn build_data(
     let document_map = if want_map {
         Some(build_document_map(
             pages,
-            elements.as_ref().unwrap_or(&json!([])),
-            chunks.as_ref().unwrap_or(&json!([])),
-            tables.as_ref().unwrap_or(&json!([])),
+            semantic_elements.as_ref().unwrap_or(&empty_array),
+            internal_chunks.as_ref().unwrap_or(&empty_array),
+            table_values,
             safety.as_ref().unwrap_or(&json!([])),
             layout.as_ref().unwrap_or(&json!([])),
             trust.as_ref(),
@@ -879,7 +855,7 @@ fn build_data(
             .then(|| StructuredFusionContext {
                 pages: pages.to_vec(),
                 selectable_tables: tables.clone().unwrap_or_else(|| json!([])),
-                semantic_hints: want_semantic || want_elements,
+                semantic_hints: want_semantic,
                 emit_markdown: want_md,
                 emit_html: want_html,
                 emit_chunks: want_chunks,
@@ -1810,6 +1786,57 @@ mod tests {
         );
         assert!(data.full_text.is_none());
         assert_eq!(data.page_texts, Some(pages));
+    }
+
+    #[test]
+    fn chunks_only_builds_hidden_elements_and_exact_chunk_projection() {
+        let pages = vec![crate::document_twin::PageText {
+            page: 2,
+            text: "FirstSecond".into(),
+            positioned_items: vec![
+                crate::text_index::PositionedTextItem {
+                    text: "First".into(),
+                    bounding_box: Some(crate::text_index::TextBoundingBox {
+                        left: 1.0,
+                        bottom: 2.0,
+                        right: 3.0,
+                        top: 4.0,
+                    }),
+                    chars: Vec::new(),
+                },
+                crate::text_index::PositionedTextItem {
+                    text: "Second".into(),
+                    bounding_box: None,
+                    chars: Vec::new(),
+                },
+            ],
+        }];
+        let data = build_data(
+            &pages,
+            2,
+            &ReadPdfInput {
+                auto: Some(false),
+                include_chunks: true,
+                ..Default::default()
+            },
+            None,
+            true,
+            BuildSignals::default(),
+        );
+
+        assert!(data.elements.is_none());
+        assert_eq!(
+            data.chunks,
+            Some(json!([{
+                "id":"p2-chunk-1",
+                "page_start":2,
+                "page_end":2,
+                "text":"First\nSecond",
+                "element_ids":["p2-text-1","p2-text-2"],
+                "strategy":"page",
+                "bounding_boxes":[{"left":1.0,"bottom":2.0,"right":3.0,"top":4.0}]
+            }]))
+        );
     }
 
     #[test]

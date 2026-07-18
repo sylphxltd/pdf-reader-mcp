@@ -107,6 +107,7 @@ jobs:
         run: |
           bun run check:pure-rust-matrix
           bun run test:v3014-structure-differential
+          bun run test:v3014-citation-chunk-differential
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -154,6 +155,20 @@ jobs:
             echo "::error::v3.0.14 text-layer result is incomplete, failing, or not SHA-bound"
             exit 1
           }
+          CITATION_CHUNK_ARTIFACT="${SCRATCH_DIR}/v3014-citation-chunk-result.json"
+          if [ ! -f "$CITATION_CHUNK_ARTIFACT" ]; then
+            echo "::error::v3.0.14 citation-chunk result missing at $CITATION_CHUNK_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_citation_chunk_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
+            .chunkMutationSensitive == true
+          ' "$CITATION_CHUNK_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 citation-chunk result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
@@ -186,6 +201,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/ts-vs-rust-text.json
             ${{ env.SCRATCH_DIR }}/v3014-behavior-result.json
             ${{ env.SCRATCH_DIR }}/v3014-text-layer-result.json
+            ${{ env.SCRATCH_DIR }}/v3014-citation-chunk-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-result.json
           if-no-files-found: error
 
