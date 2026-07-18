@@ -96,7 +96,8 @@ export const canonicalEqual = (left: unknown, right: unknown): boolean =>
   JSON.stringify(sort(left)) === JSON.stringify(sort(right));
 
 export const assertStructureMutationSensitivity = (
-  expected: JsonRecord
+  expected: JsonRecord,
+  productionActual: JsonRecord
 ): void => {
   const mutations: Array<[string, (copy: JsonRecord) => void]> = [
     [
@@ -126,12 +127,20 @@ export const assertStructureMutationSensitivity = (
       "inspect-signal",
       (copy) => (copy["inspect-tagged"].document_signals.has_mark_info = false),
     ],
+    [
+      "inspect-pages",
+      (copy) => copy["inspect-tagged"].sampled_pages.reverse(),
+    ],
+    [
+      "root-membership",
+      (copy) => copy["manual-tagged-all"].structure_trees[0].tree.children.shift(),
+    ],
   ];
   for (const [name, mutate] of mutations) {
-    const copy = structuredClone(expected);
+    const copy = structuredClone(productionActual);
     mutate(copy);
     if (canonicalEqual(copy, expected)) {
-      throw new Error(`canonical projection ignored ${name} mutation`);
+      throw new Error(`TS↔Rust comparator ignored production ${name} mutation`);
     }
   }
 };

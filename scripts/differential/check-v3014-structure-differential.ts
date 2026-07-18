@@ -166,7 +166,7 @@ try {
 } finally {
   proc.kill("SIGTERM");
 }
-assertStructureMutationSensitivity(oracle.expectations);
+assertStructureMutationSensitivity(oracle.expectations, actual);
 const pass = canonicalEqual(oracle.expectations, actual);
 const result = {
   schemaVersion: 1,
