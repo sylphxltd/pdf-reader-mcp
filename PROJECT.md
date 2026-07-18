@@ -77,3 +77,8 @@ through clean packaging, benchmarks, trust, compatibility, and separately owned
 hosted/enterprise products. Pricing, hosted document intelligence, enterprise
 packaging, or roadmap changes require decision records backed by market and
 customer analysis.
+
+
+## GroundAtlas
+
+GroundAtlas package dogfood is **retired** (Control Plane ADR-0014). Do not re-add required groundatlas CI jobs.
