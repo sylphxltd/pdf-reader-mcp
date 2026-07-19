@@ -26,6 +26,7 @@ V3014_CAPTION_LINK_JSON="$SCRATCH/v3014-caption-link-result.json"
 V3014_VISUAL_CANDIDATE_JSON="$SCRATCH/v3014-visual-candidate-result.json"
 V3014_VISUAL_FUSION_JSON="$SCRATCH/v3014-visual-fusion-result.json"
 V3014_DOCUMENT_AST_VISUAL_FUSION_JSON="$SCRATCH/v3014-document-ast-visual-fusion-result.json"
+V3014_READ_OCR_JSON="$SCRATCH/v3014-read-ocr-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -160,6 +161,11 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-document-ast-visual-fusion-or
 bun "$REPO_ROOT/scripts/differential/check-v3014-document-ast-visual-fusion-differential.ts" \
   --output "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 read_pdf include_ocr_text_layer differential (6 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-read-ocr-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-read-ocr-differential.ts" \
+  --output "$V3014_READ_OCR_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -237,6 +243,10 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/v3014-document-ast-visual-fusion-projection.ts" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-document-ast-visual-fusion-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-document-ast-visual-fusion-oracle.json" \
+  "$REPO_ROOT/scripts/differential/v3014-read-ocr-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-read-ocr-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-read-ocr-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-read-ocr-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -337,6 +347,11 @@ V3014_DOCUMENT_AST_VISUAL_FUSION_PASSED="$(jq '.passed' "$V3014_DOCUMENT_AST_VIS
 V3014_DOCUMENT_AST_VISUAL_FUSION_SKIPPED="$(jq '.skipped' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
 V3014_DOCUMENT_AST_VISUAL_FUSION_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
 V3014_DOCUMENT_AST_VISUAL_FUSION_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
+V3014_READ_OCR_CASE_COUNT="$(jq '.caseCount' "$V3014_READ_OCR_JSON")"
+V3014_READ_OCR_PASSED="$(jq '.passed' "$V3014_READ_OCR_JSON")"
+V3014_READ_OCR_SKIPPED="$(jq '.skipped' "$V3014_READ_OCR_JSON")"
+V3014_READ_OCR_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_READ_OCR_JSON")"
+V3014_READ_OCR_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_READ_OCR_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -393,6 +408,8 @@ jq -n \
   --arg v3014VisualFusionOracleHash "$V3014_VISUAL_FUSION_ORACLE_HASH" \
   --arg v3014DocumentAstVisualFusionCorpusHash "$V3014_DOCUMENT_AST_VISUAL_FUSION_CORPUS_HASH" \
   --arg v3014DocumentAstVisualFusionOracleHash "$V3014_DOCUMENT_AST_VISUAL_FUSION_ORACLE_HASH" \
+  --arg v3014ReadOcrCorpusHash "$V3014_READ_OCR_CORPUS_HASH" \
+  --arg v3014ReadOcrOracleHash "$V3014_READ_OCR_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -454,6 +471,9 @@ jq -n \
   --argjson v3014DocumentAstVisualFusionCaseCount "$V3014_DOCUMENT_AST_VISUAL_FUSION_CASE_COUNT" \
   --argjson v3014DocumentAstVisualFusionPassed "$V3014_DOCUMENT_AST_VISUAL_FUSION_PASSED" \
   --argjson v3014DocumentAstVisualFusionSkipped "$V3014_DOCUMENT_AST_VISUAL_FUSION_SKIPPED" \
+  --argjson v3014ReadOcrCaseCount "$V3014_READ_OCR_CASE_COUNT" \
+  --argjson v3014ReadOcrPassed "$V3014_READ_OCR_PASSED" \
+  --argjson v3014ReadOcrSkipped "$V3014_READ_OCR_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -562,6 +582,11 @@ jq -n \
     v3014DocumentAstVisualFusionCaseCount: $v3014DocumentAstVisualFusionCaseCount,
     v3014DocumentAstVisualFusionPassed: $v3014DocumentAstVisualFusionPassed,
     v3014DocumentAstVisualFusionSkipped: $v3014DocumentAstVisualFusionSkipped,
+    v3014ReadOcrCorpusHash: $v3014ReadOcrCorpusHash,
+    v3014ReadOcrOracleHash: $v3014ReadOcrOracleHash,
+    v3014ReadOcrCaseCount: $v3014ReadOcrCaseCount,
+    v3014ReadOcrPassed: $v3014ReadOcrPassed,
+    v3014ReadOcrSkipped: $v3014ReadOcrSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -608,11 +633,14 @@ jq -n \
     immutableVisualFusionDifferential: "scripts/differential/check-v3014-visual-fusion-differential.ts",
     immutableDocumentAstVisualFusionOracle: "scripts/differential/fixtures/v3014-document-ast-visual-fusion-oracle.json",
     immutableDocumentAstVisualFusionDifferential: "scripts/differential/check-v3014-document-ast-visual-fusion-differential.ts",
+    immutableReadOcrOracle: "scripts/differential/fixtures/v3014-read-ocr-oracle.json",
+    immutableReadOcrDifferential: "scripts/differential/check-v3014-read-ocr-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
     structuralConsistencyOracle: "scripts/differential/pdf-reader-mcp-oracle.ts",
-    nonClaims: ["full TS 3.0.14 behavioral parity", "text-layer/element/chunk geometry outside the immutable 1-case selectable-text corpus", "citation-chunk semantics outside the immutable 6-case schema/boundary/dependency corpus", "semantic-hint classification outside the immutable 3-case classifier/chunk-propagation corpus, including layout variants not represented by the deterministic fixtures", "raw page_contents payload/presence parity", "document-AST semantics outside the immutable text-only, selectable-table, and exact selectable-table caption-linkage corpora, including image captions, visual enrichment payloads, OCR fusion, general text geometry, and broader layout/semantic variants", "document-map semantics outside the immutable text-first/trust/table/visual-candidate linkage corpora, including OCR, accessibility, arbitrary images, visual enrichment payloads, provider fusion, and arbitrary hostile internal chunk spans", "trust-report semantics outside the immutable redaction/link/table-quality linkage corpora, including broader safety/layout/annotation variants", "within the immutable document-map subset, exact cross-runtime provenance label values, PDF.js-only empty text runs, and run/font/direction/transform/EOL-dependent counter values are schema-validated but not semantic-value claims", "selectable-table detection outside the exact six-case corpus; OCR/visual/ML/general-table parity", "provider-independent visual-candidate selection outside the immutable 11-case corpus", "configured-command visual enrichment payload/Document Map fusion outside the immutable 5-case corpus", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
+    nonClaims: ["full TS 3.0.14 behavioral parity", "text-layer/element/chunk geometry outside the immutable 1-case selectable-text corpus", "citation-chunk semantics outside the immutable 6-case schema/boundary/dependency corpus", "semantic-hint classification outside the immutable 3-case classifier/chunk-propagation corpus, including layout variants not represented by the deterministic fixtures", "raw page_contents payload/presence parity", "document-AST semantics outside the immutable text-only, selectable-table, and exact selectable-table caption-linkage corpora, including image captions, visual enrichment payloads, OCR fusion, general text geometry, and broader layout/semantic variants", "document-map semantics outside the immutable text-first/trust/table/visual-candidate linkage corpora, including OCR, accessibility, arbitrary images, visual enrichment payloads, provider fusion, and arbitrary hostile internal chunk spans", "trust-report semantics outside the immutable redaction/link/table-quality linkage corpora, including broader safety/layout/annotation variants", "within the immutable document-map subset, exact cross-runtime provenance label values, PDF.js-only empty text runs, and run/font/direction/transform/EOL-dependent counter values are schema-validated but not semantic-value claims", "selectable-table detection outside the exact six-case corpus; OCR/visual/ML/general-table parity", "provider-independent visual-candidate selection outside the immutable 11-case corpus", "configured-command visual enrichment payload/Document Map fusion outside the immutable 5-case corpus",
+      "read_pdf include_ocr_text_layer outside the immutable 6-case corpus", "visual/provider parity outside the immutable 16-case render/crop/OCR/analyze/read-fusion/table-projection corpus", "Tesseract TSV parity", "analyze_regions HTTP/preset provider parity", "Document Twin semantic parity"],
     retirementGate: "scripts/check-no-ts-stdio-backend.sh (runs only when dropInFor3014=true)"
   }' >"$ARTIFACT"
 
