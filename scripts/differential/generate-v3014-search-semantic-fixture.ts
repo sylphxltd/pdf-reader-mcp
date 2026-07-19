@@ -40,7 +40,7 @@ function buildPdf(): Buffer {
     `BT\n/F1 12 Tf\n72 720 Td\n${lines.map((line, index) => `${index === 0 ? '' : '0 -18 Td\n'}<${encoded(line)}> Tj`).join('\n')}\nET\n`
   );
   const mappings = [...glyphs.entries()]
-    .map(([character, value]) => `<${value.toString(16).padStart(4, '0')}> <${unicodeHex(character)}>`) 
+    .map(([character, value]) => `<${value.toString(16).padStart(4, '0')}> <${unicodeHex(character)}>`)
     .join('\n');
   const cmap = `/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /SearchSemantic def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n${glyphs.size} beginbfchar\n${mappings}\nendbfchar\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend`;
   const objects = new Map<number, string>([
