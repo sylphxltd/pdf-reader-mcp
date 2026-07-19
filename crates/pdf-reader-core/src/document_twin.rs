@@ -1122,6 +1122,25 @@ struct TableTextRow<'a> {
     items: Vec<TableTextItem<'a>>,
 }
 
+fn table_text_item(text: &str, bounding_box: Option<TextBoundingBox>) -> Option<TableTextItem<'_>> {
+    let text = text.trim();
+    let bounding_box = bounding_box?;
+    let finite = [
+        bounding_box.left,
+        bounding_box.bottom,
+        bounding_box.right,
+        bounding_box.top,
+    ]
+    .into_iter()
+    .all(f64::is_finite);
+    (!text.is_empty() && finite).then_some(TableTextItem {
+        text,
+        x: bounding_box.left,
+        y: bounding_box.bottom,
+        bounding_box,
+    })
+}
+
 fn table_round(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }
@@ -1386,29 +1405,30 @@ pub(crate) fn build_tables_with_admission(
     let mut tables = Vec::new();
     let mut warnings = Vec::new();
     for page in pages {
-        let mut items = page
-            .positioned_items
-            .iter()
-            .filter_map(|item| {
-                let text = item.text.trim();
-                let bounding_box = item.bounding_box?;
-                let finite = [
-                    bounding_box.left,
-                    bounding_box.bottom,
-                    bounding_box.right,
-                    bounding_box.top,
-                ]
-                .into_iter()
-                .all(f64::is_finite);
-                (!text.is_empty() && finite).then_some(TableTextItem {
-                    text,
-                    x: bounding_box.left,
-                    y: bounding_box.bottom,
-                    bounding_box,
-                })
-            })
-            .take(MAX_TABLE_ITEMS_PER_PAGE + 1)
-            .collect::<Vec<_>>();
+        // Text segmentation preserves every source PDF text part as a typed run.
+        // Tables consume those source parts, matching the pre-segmentation TS
+        // extractor boundary and keeping their independent 4,096-item admission
+        // reachable even when nearby selectable text joins into one public item.
+        let mut items = Vec::new();
+        'admission: for item in &page.positioned_items {
+            if item.runs.is_empty() {
+                if let Some(item) = table_text_item(&item.text, item.bounding_box) {
+                    items.push(item);
+                }
+            } else {
+                for run in &item.runs {
+                    if let Some(item) = table_text_item(&run.text, run.bounding_box) {
+                        items.push(item);
+                    }
+                    if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
+                        break 'admission;
+                    }
+                }
+            }
+            if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
+                break;
+            }
+        }
         if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
             warnings.push(format!(
                 "Selectable table extraction skipped page {}: spatial grid exceeds the Rust admission limit.",
@@ -4124,6 +4144,46 @@ mod tests {
         assert!(!arr.is_empty());
         assert_eq!(arr[0]["rowCount"], 3);
         assert_eq!(arr[0]["colCount"], 3);
+    }
+
+    #[test]
+    fn selectable_tables_consume_preserved_source_runs_after_text_segmentation() {
+        let run = |text: &str, start: u32, left: f64, bottom: f64| PositionedTextRun {
+            text: text.into(),
+            item_char_start: start,
+            item_char_end: start + utf16_len(text),
+            bounding_box: Some(TextBoundingBox {
+                left,
+                bottom,
+                right: left + 30.0,
+                top: bottom + 10.0,
+            }),
+        };
+        let pages = [PageText {
+            page: 1,
+            text: "NameQtyApple2".into(),
+            positioned_items: vec![PositionedTextItem {
+                text: "NameQtyApple2".into(),
+                bounding_box: Some(TextBoundingBox {
+                    left: 20.0,
+                    bottom: 80.0,
+                    right: 150.0,
+                    top: 110.0,
+                }),
+                chars: Vec::new(),
+                runs: vec![
+                    run("Name", 0, 20.0, 100.0),
+                    run("Qty", 4, 120.0, 100.0),
+                    run("Apple", 7, 20.0, 80.0),
+                    run("2", 12, 120.0, 80.0),
+                ],
+            }],
+        }];
+
+        let tables = build_tables(&pages);
+        assert_eq!(tables[0]["rows"], json!([["Name", "Qty"], ["Apple", "2"]]));
+        assert_eq!(tables[0]["rowCount"], 2);
+        assert_eq!(tables[0]["colCount"], 2);
     }
 
     #[test]

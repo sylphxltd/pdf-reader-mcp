@@ -13,9 +13,9 @@ use serde::{Deserialize, Serialize};
 const MAX_EXTRACTED_TEXT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_GEOMETRY_CHARS: usize = 250_000;
 const MAX_RAW_TEXT_PARTS: usize = 65_536;
-const MAX_RAW_TEXT_PARTS_PER_PAGE: usize = 4_096;
+const MAX_RAW_TEXT_PARTS_PER_PAGE: usize = 8_192;
 const MAX_NORMALIZED_TEXT_SEGMENTS: usize = 65_536;
-const MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE: usize = 4_096;
+const MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE: usize = 8_192;
 const TEXT_SEGMENT_GAP_THRESHOLD: f64 = 48.0;
 
 pub const TEXT_INDEX_ROUTE: &str = "rust-text-index";
