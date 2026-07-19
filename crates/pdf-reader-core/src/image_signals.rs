@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 const MAX_IMAGES_PER_SOURCE: usize = 128;
 const MAX_IMAGE_OPERATIONS_PER_SOURCE: usize = 4_096;
 const MAX_XOBJECT_RESOURCES_PER_SOURCE: usize = 16_384;
+const MAX_RESOURCE_ANCESTRY_NODES_PER_SOURCE: usize = 4_096;
 const MAX_RESOURCE_NAME_BYTES: usize = 1_024;
 const MAX_CONTENT_BYTES_PER_PAGE: usize = 4 * 1024 * 1024;
 const MAX_PIXELS_PER_IMAGE: usize = 16 * 1024 * 1024;
@@ -45,6 +46,7 @@ struct Budget {
     decoded_bytes: usize,
     encoded_bytes: usize,
     resource_entries: usize,
+    resource_ancestry_nodes: usize,
     limited: bool,
     unsupported: bool,
 }
@@ -149,23 +151,49 @@ fn page_xobjects(
     budget: &mut Budget,
 ) -> BTreeMap<Vec<u8>, ObjectId> {
     let mut output = BTreeMap::new();
-    let Ok((direct, inherited)) = document.get_page_resources(page_id) else {
-        return output;
-    };
-    if let Some(resources) = direct {
-        collect_xobjects(document, resources, &mut output, budget);
-        return output;
-    }
-    // PDF.js resolves inheritable Resources nearest-first and Dict.merge does
-    // not merge sub-dictionaries by default. The closest Resources dictionary
-    // therefore owns the entire XObject key, even when an ancestor has names
-    // that are absent from the closest dictionary.
-    if let Some(resource_id) = inherited.first() {
-        if let Ok(resources) = document.get_dictionary(*resource_id) {
-            collect_xobjects(document, resources, &mut output, budget);
+    let mut current = page_id;
+    let mut seen = HashSet::new();
+    loop {
+        budget.resource_ancestry_nodes = budget.resource_ancestry_nodes.saturating_add(1);
+        if budget.resource_ancestry_nodes > MAX_RESOURCE_ANCESTRY_NODES_PER_SOURCE {
+            budget.limited = true;
+            return output;
         }
+        if !seen.insert(current) {
+            budget.unsupported = true;
+            return output;
+        }
+        let Ok(node) = document.get_dictionary(current) else {
+            budget.unsupported = true;
+            return output;
+        };
+        if let Ok(resources) = node.get(b"Resources") {
+            if let Some(resources) = resolve_dictionary(document, resources) {
+                // PDF.js merges inheritable Resources at the top level, without
+                // merging sub-dictionaries. Continue until the nearest dictionary
+                // that owns XObject; that key then shadows all ancestor XObjects.
+                if resources.get(b"XObject").is_ok() {
+                    collect_xobjects(document, resources, &mut output, budget);
+                    return output;
+                }
+            } else {
+                budget.unsupported = true;
+                return output;
+            }
+        }
+        let Some(parent) = node
+            .get(b"Parent")
+            .ok()
+            .and_then(|value| value.as_reference().ok())
+        else {
+            return output;
+        };
+        current = parent;
     }
-    output
+}
+
+fn resolve_dictionary<'a>(document: &'a Document, value: &'a Object) -> Option<&'a Dictionary> {
+    resolve(document, value).ok()?.as_dict().ok()
 }
 
 fn collect_xobjects(
@@ -324,6 +352,8 @@ fn decode_image(
             return None;
         }
     };
+    let decode = decode_coefficients(document, &stream.dict, input_channels, budget)?;
+    let input = apply_decode(input, input_channels, &decode);
     let pixels_data = if input_channels == 1 {
         let mut rgb = Vec::with_capacity(materialized_bytes);
         for gray in input {
@@ -350,6 +380,74 @@ fn decode_image(
         data,
         encoded_bytes,
     })
+}
+
+fn decode_coefficients(
+    document: &Document,
+    dictionary: &Dictionary,
+    channels: usize,
+    budget: &mut Budget,
+) -> Option<Vec<(f64, f64)>> {
+    let Ok(value) = dictionary.get(b"Decode").or_else(|_| dictionary.get(b"D")) else {
+        return Some(vec![(1.0, 0.0); channels]);
+    };
+    let Some(values) = resolve(document, value)
+        .ok()
+        .and_then(|value| value.as_array().ok())
+    else {
+        budget.unsupported = true;
+        return None;
+    };
+    if values.len() != channels.saturating_mul(2) {
+        budget.unsupported = true;
+        return None;
+    }
+    let mut coefficients = Vec::with_capacity(channels);
+    for pair in values.chunks_exact(2) {
+        let Some(minimum) = pdf_number(document, &pair[0]) else {
+            budget.unsupported = true;
+            return None;
+        };
+        let Some(maximum) = pdf_number(document, &pair[1]) else {
+            budget.unsupported = true;
+            return None;
+        };
+        coefficients.push((maximum - minimum, 255.0 * minimum));
+    }
+    Some(coefficients)
+}
+
+fn pdf_number(document: &Document, value: &Object) -> Option<f64> {
+    match resolve(document, value).ok()? {
+        Object::Integer(value) => Some(*value as f64),
+        Object::Real(value) => Some(f64::from(*value)),
+        _ => None,
+    }
+    .filter(|value| value.is_finite())
+}
+
+fn apply_decode(mut input: Vec<u8>, channels: usize, coefficients: &[(f64, f64)]) -> Vec<u8> {
+    for (index, sample) in input.iter_mut().enumerate() {
+        let (coefficient, addend) = coefficients[index % channels];
+        *sample = to_uint8_clamp(addend + f64::from(*sample) * coefficient);
+    }
+    input
+}
+
+fn to_uint8_clamp(value: f64) -> u8 {
+    if value <= 0.0 {
+        return 0;
+    }
+    if value >= 255.0 {
+        return 255;
+    }
+    let floor = value.floor();
+    let fraction = value - floor;
+    if fraction < 0.5 || (fraction == 0.5 && (floor as u8).is_multiple_of(2)) {
+        floor as u8
+    } else {
+        floor as u8 + 1
+    }
 }
 
 fn reserve_decoded_image(budget: &mut Budget, pixels: usize, decoded_bytes: usize) -> bool {
@@ -633,11 +731,9 @@ mod tests {
             },
             vec![255],
         ));
-        let ancestor_resources = document.add_object(dictionary! {
-            "XObject" => dictionary! {"Ancestor" => ancestor_image},
-        });
         let pages = document.add_object(dictionary! {
-            "Type" => "Pages", "Resources" => ancestor_resources,
+            "Type" => "Pages",
+            "Resources" => dictionary! {"XObject" => dictionary! {"Ancestor" => ancestor_image}},
         });
         let direct_page = document.add_object(dictionary! {
             "Type" => "Page", "Parent" => pages,
@@ -645,6 +741,10 @@ mod tests {
         });
         let inherited_page = document.add_object(dictionary! {
             "Type" => "Page", "Parent" => pages,
+        });
+        let partially_inherited_page = document.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages,
+            "Resources" => dictionary! {"ProcSet" => vec![Object::Name(b"PDF".to_vec())]},
         });
 
         let mut direct_budget = Budget::default();
@@ -657,6 +757,47 @@ mod tests {
         let inherited = page_xobjects(&document, inherited_page, &mut inherited_budget);
         assert_eq!(inherited.len(), 1);
         assert_eq!(inherited.get(b"Ancestor".as_slice()), Some(&ancestor_image));
+
+        let mut partial_budget = Budget::default();
+        let partial = page_xobjects(&document, partially_inherited_page, &mut partial_budget);
+        assert_eq!(partial.len(), 1);
+        assert_eq!(partial.get(b"Ancestor".as_slice()), Some(&ancestor_image));
+    }
+
+    #[test]
+    fn applies_device_gray_decode_array_with_javascript_uint8_clamping() {
+        let mut document = Document::with_version("1.7");
+        let image = document.add_object(Stream::new(
+            dictionary! {
+                "Type" => "XObject", "Subtype" => "Image", "Width" => 1,
+                "Height" => 1, "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8,
+                "Decode" => vec![1.into(), 0.into()],
+            },
+            vec![0],
+        ));
+        let content = Content {
+            operations: vec![Operation::new("Do", vec![Object::Name(b"Im0".to_vec())])],
+        }
+        .encode()
+        .expect("encode content");
+        let content = document.add_object(Stream::new(dictionary! {}, content));
+        let page = document.add_object(dictionary! {
+            "Type" => "Page",
+            "Resources" => dictionary! {"XObject" => dictionary! {"Im0" => image}},
+            "Contents" => content,
+        });
+
+        let signals = extract_image_signals(&document, &[(1, page)], &[1]);
+        assert!(signals.warnings.is_empty());
+        let encoded = BASE64
+            .decode(signals.images[0]["data"].as_str().expect("base64"))
+            .expect("decode base64");
+        let rgba = image::load_from_memory(&encoded)
+            .expect("decode PNG")
+            .to_rgba8();
+        assert_eq!(rgba.as_raw(), &[255, 255, 255, 255]);
+        assert_eq!(to_uint8_clamp(2.5), 2);
+        assert_eq!(to_uint8_clamp(3.5), 4);
     }
 
     #[test]

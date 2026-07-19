@@ -435,7 +435,7 @@ if (
   );
 }
 if (
-  rasterImageCaseCount !== 8 ||
+  rasterImageCaseCount !== 11 ||
   rasterImageCorpus.envelope.fixtureCount !== 3 ||
   rasterImageCorpus.envelope.maxPagesPerCase !== 4 ||
   rasterImageCorpus.envelope.maxImagesPerCase !== 2 ||
@@ -446,9 +446,9 @@ if (
 }
 if (
   !differentialWorkflow.includes(
-    '.mutationSensitive.mutationManifestSha256 == "c79435dd07d77d3aa28499522b70869ca9a68db232e696943746ddfaf17d0f56"'
+    '.mutationSensitive.mutationManifestSha256 == "9605f11caaa366bec242beb53939d5608522bd95d93a278affa04e48654014df"'
   ) ||
-  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 304') ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 373') ||
   !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
   !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 3') ||
   !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||

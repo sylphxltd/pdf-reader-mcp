@@ -76,13 +76,22 @@ const common = pdf(new Map<number, PdfObject>([
 ]));
 
 const shadowPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/AncestorOnly Do\nQ\n', 'ascii');
+const inheritedPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/AncestorOnly Do\nQ\n', 'ascii');
+const decodedPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/Decoded Do\nQ\n', 'ascii');
 const shadowed = pdf(new Map<number, PdfObject>([
   [1, '<< /Type /Catalog /Pages 2 0 R >>'],
-  [2, '<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] /Resources << /XObject << /AncestorOnly 5 0 R >> >> >>'],
+  [2, '<< /Type /Pages /Kids [3 0 R 7 0 R 9 0 R 12 0 R] /Count 4 /MediaBox [0 0 612 792] /Resources << /XObject << /AncestorOnly 5 0 R >> >> >>'],
   [3, '<< /Type /Page /Parent 2 0 R /Resources << /XObject << /DirectOnly 6 0 R >> >> /Contents 4 0 R >>'],
   [4, stream('', shadowPaint)],
   [5, stream('/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8', rgbPixels)],
   [6, stream('/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8', grayPixels)],
+  [7, '<< /Type /Page /Parent 2 0 R /Contents 8 0 R >>'],
+  [8, stream('', inheritedPaint)],
+  [9, '<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Decoded 11 0 R >> >> /Contents 10 0 R >>'],
+  [10, stream('', decodedPaint)],
+  [11, stream('/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]', Buffer.from([0]))],
+  [12, '<< /Type /Page /Parent 2 0 R /Resources << /ProcSet [/PDF] >> /Contents 13 0 R >>'],
+  [13, stream('', inheritedPaint)],
 ]));
 
 const unsupportedPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/BAD Do\nQ\n', 'ascii');
@@ -97,7 +106,7 @@ const unsupported = pdf(new Map<number, PdfObject>([
 const generated = [
   { path: join(fixtureDir, 'v3014-raster-images-v1.pdf'), bytes: common, pageCount: 4 },
   { path: join(fixtureDir, 'v3014-raster-images-unsupported-v1.pdf'), bytes: unsupported, pageCount: 1 },
-  { path: join(fixtureDir, 'v3014-raster-images-shadowed-v1.pdf'), bytes: shadowed, pageCount: 1 },
+  { path: join(fixtureDir, 'v3014-raster-images-shadowed-v1.pdf'), bytes: shadowed, pageCount: 4 },
 ].map((fixture) => ({
   path: relative(repoRoot, fixture.path),
   bytes: fixture.bytes.length,
@@ -129,4 +138,4 @@ for (const fixture of generated) {
 if (!existsSync(manifestPath) || !readFileSync(manifestPath).equals(manifestBytes)) {
   throw new Error('raster-image fixture manifest is stale or missing; run with --write');
 }
-console.log('v3.0.14 raster-image fixtures: OK (3 PDFs, 6 pages)');
+console.log('v3.0.14 raster-image fixtures: OK (3 PDFs, 9 pages)');
