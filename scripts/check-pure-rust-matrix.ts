@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /** Fail-closed phase invariants for the pure-Rust capability ledger. */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = join(import.meta.dirname, '..');
@@ -1011,6 +1011,13 @@ for (const dir of packageDirs) {
 if (!matrix.claimedForDifferential.some((entry: string) => entry.includes('five-platform npm native package scaffold'))) {
   failures.push('capability matrix must claim the five-platform native package scaffold honestly');
 }
+if (!existsSync(join(root, 'scripts/smoke-native-launcher.ts'))) {
+  failures.push('native launcher smoke script must exist');
+}
+if (!readFileSync(join(root, 'package.json'), 'utf8').includes('smoke:native-launcher')) {
+  failures.push('package.json must wire smoke:native-launcher');
+}
+
 
 if (failures.length) {
   console.error(failures.join('\n'));
