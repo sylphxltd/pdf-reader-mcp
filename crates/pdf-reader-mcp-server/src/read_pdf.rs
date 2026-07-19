@@ -1,12 +1,14 @@
 use pdf_reader_core::{
-    fuse_ocr_outcomes, hash_file, read_pdf_from_value, ReadPdfErrorCode, ReadPdfResponse,
-    ReadPdfSourceResult, READ_PDF_ROUTE,
+    fuse_ocr_outcomes, fuse_visual_outcomes, hash_file, read_pdf_from_value, ReadPdfErrorCode,
+    ReadPdfResponse, ReadPdfSourceResult, SourceVisualOutcome, READ_PDF_ROUTE,
+    VISUAL_NO_CANDIDATE_WARNING,
 };
 use rmcp::model::{CallToolResult, Content};
 use serde_json::{json, Value};
 
 use crate::evidence::attach_evidence;
 use crate::ocr_evidence::{run_read_ocr, ReadOcrOptions};
+use crate::region_analysis_evidence;
 use crate::schema::PdfSource;
 use crate::visual_evidence::{materialize_read_source, MaterializedSource};
 
@@ -143,6 +145,79 @@ pub fn read_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     }
     fuse_ocr_outcomes(&mut payload, outcomes);
 
+    let visual_requested = args
+        .get("include_visual_enrichments")
+        .and_then(Value::as_bool)
+        == Some(true);
+    let mut visual_outcomes: Vec<SourceVisualOutcome> = Vec::new();
+    let mut has_provider_visual = false;
+    if visual_requested {
+        let provider_ready = region_analysis_evidence::command_provider_ready();
+        if provider_ready {
+            let max_visual = args
+                .get("max_visual_enrichments")
+                .and_then(Value::as_u64)
+                .map(|value| value as u32)
+                .unwrap_or(8)
+                .clamp(1, 100);
+            let mut analyze_sources = Vec::new();
+            for (source_index, result) in payload.results.iter().enumerate() {
+                let Some(data) = result.data.as_ref().filter(|_| result.success) else {
+                    continue;
+                };
+                let candidates = data
+                    .visual_enrichment_candidates
+                    .as_ref()
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                if candidates.is_empty() {
+                    visual_outcomes.push(SourceVisualOutcome {
+                        source_index,
+                        provider_ready: true,
+                        enrichments: Vec::new(),
+                        warnings: vec![VISUAL_NO_CANDIDATE_WARNING.into()],
+                        error: None,
+                    });
+                    continue;
+                }
+                let Some(owner) = materialized[source_index].as_ref() else {
+                    visual_outcomes.push(SourceVisualOutcome {
+                        source_index,
+                        provider_ready: true,
+                        enrichments: Vec::new(),
+                        warnings: Vec::new(),
+                        error: Some("Visual enrichment source materialization is missing.".into()),
+                    });
+                    continue;
+                };
+                analyze_sources.push((
+                    source_index,
+                    result.source.clone(),
+                    owner.path().to_path_buf(),
+                    candidates,
+                ));
+            }
+            if !analyze_sources.is_empty() {
+                visual_outcomes.extend(
+                    region_analysis_evidence::analyze_visual_candidates_for_sources(
+                        &analyze_sources,
+                        max_visual,
+                    ),
+                );
+            }
+        }
+        fuse_visual_outcomes(&mut payload, visual_outcomes);
+        has_provider_visual = payload.results.iter().any(|result| {
+            result
+                .data
+                .as_ref()
+                .and_then(|data| data.visual_enrichments.as_ref())
+                .and_then(Value::as_array)
+                .is_some_and(|values| !values.is_empty())
+        });
+    }
+
     let source_hash = materialized
         .first()
         .and_then(Option::as_ref)
@@ -166,7 +241,7 @@ pub fn read_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         Vec::new(),
         public_payload,
     );
-    if has_provider_ocr {
+    if has_provider_ocr || has_provider_visual {
         structured["evidence"]["confidence"] = json!("provider-dependent");
     }
 

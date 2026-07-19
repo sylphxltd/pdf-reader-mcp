@@ -144,6 +144,22 @@ const visualCandidateCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const visualFusionCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-visual-fusion-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxCandidatesPerCase: number;
+    maxProviderCallsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -182,12 +198,23 @@ const visualCandidateWorkflowStart = differentialWorkflow.indexOf(
   'VISUAL_CANDIDATE_ARTIFACT="${SCRATCH_DIR}/v3014-visual-candidate-result.json"'
 );
 const visualCandidateWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'VISUAL_FUSION_ARTIFACT="${SCRATCH_DIR}/v3014-visual-fusion-result.json"',
   visualCandidateWorkflowStart
 );
 const visualCandidateWorkflow =
   visualCandidateWorkflowStart >= 0 && visualCandidateWorkflowEnd > visualCandidateWorkflowStart
     ? differentialWorkflow.slice(visualCandidateWorkflowStart, visualCandidateWorkflowEnd)
+    : '';
+const visualFusionWorkflowStart = differentialWorkflow.indexOf(
+  'VISUAL_FUSION_ARTIFACT="${SCRATCH_DIR}/v3014-visual-fusion-result.json"'
+);
+const visualFusionWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  visualFusionWorkflowStart
+);
+const visualFusionWorkflow =
+  visualFusionWorkflowStart >= 0 && visualFusionWorkflowEnd > visualFusionWorkflowStart
+    ? differentialWorkflow.slice(visualFusionWorkflowStart, visualFusionWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -764,6 +791,56 @@ if (
 ) {
   failures.push('visual-candidate workflow must bind provider-independent and product-truth proof');
 }
+
+const visualFusionCaseCount = visualFusionCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-visual-fusion-differential')) {
+  failures.push('rust parity workflow must execute the frozen visual-fusion differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-visual-fusion-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-visual-fusion-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014VisualFusionCaseCount') ||
+  !repositoryDifferential.includes('v3014VisualFusionCorpusHash') ||
+  !repositoryDifferential.includes('v3014VisualFusionOracleHash')
+) {
+  failures.push('repository differential artifact must bind the visual-fusion family');
+}
+if (
+  !visualFusionWorkflow.includes(`.caseCount == ${visualFusionCaseCount}`) ||
+  !visualFusionWorkflow.includes(`.passed == ${visualFusionCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${visualFusionCaseCount}/${visualFusionCaseCount} visual-fusion corpus`
+  );
+}
+if (
+  visualFusionCaseCount !== 5 ||
+  visualFusionCorpus.envelope.fixtureCount !== 1 ||
+  visualFusionCorpus.envelope.maxPagesPerCase !== 3 ||
+  visualFusionCorpus.envelope.maxCandidatesPerCase !== 2 ||
+  visualFusionCorpus.envelope.maxProviderCallsPerCase !== 2 ||
+  visualFusionCorpus.nonclaims.dropInFor3014 !== false ||
+  visualFusionCorpus.nonclaims.publishFreeze !== true
+) {
+  failures.push('visual-fusion corpus envelope and explicit product-truth nonclaims must remain frozen');
+}
+if (
+  !visualFusionWorkflow.includes('.mutationSensitive.leafMutationCount == 565') ||
+  !visualFusionWorkflow.includes('.portabilityProof.relocatedFixtureRootReplay == true') ||
+  !visualFusionWorkflow.includes('.providerProof.configuredCommandOnly == true') ||
+  !visualFusionWorkflow.includes('.providerProof.zeroCallNoCandidate == true') ||
+  !visualFusionWorkflow.includes('.providerProof.failClosedDiscardsPartial == true') ||
+  !visualFusionWorkflow.includes('.capabilityStatus.includeVisualEnrichments == "PARTIAL"') ||
+  !visualFusionWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !visualFusionWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('visual-fusion workflow must bind mutation, provider, capability, and product-truth proof');
+}
+
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
 if (
   ocrSearchCaseCount !== 15 ||

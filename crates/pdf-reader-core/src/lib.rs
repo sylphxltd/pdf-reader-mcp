@@ -19,6 +19,7 @@ mod structure_signals;
 pub mod text_index;
 pub mod url_fetch;
 pub mod visual_candidates;
+pub mod visual_fusion;
 
 pub use ssrf::{assert_host_not_private, is_private_ip};
 
@@ -116,6 +117,9 @@ pub use render::{
 pub use search_pdf::{
     fuse_search_ocr_outcomes, search_pdf, search_pdf_from_value, SearchPdfError,
     SearchPdfErrorCode, SearchPdfInput, SearchPdfResponse, SearchPdfSource, SEARCH_PDF_ROUTE,
+};
+pub use visual_fusion::{
+    fuse_visual_outcomes, SourceVisualOutcome, VISUAL_NO_CANDIDATE_WARNING, VISUAL_STUB_WARNING,
 };
 
 pub use page_cache::{
