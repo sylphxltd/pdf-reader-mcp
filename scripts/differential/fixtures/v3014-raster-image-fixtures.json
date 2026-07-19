@@ -16,9 +16,9 @@
     },
     {
       "path": "test/fixtures/differential/v3014-raster-images-shadowed-v1.pdf",
-      "bytes": 1774,
-      "sha256": "6c575227df5c21f294d929d1ef4bfe83441c9d19f5d00ba269491d97c724312c",
-      "pageCount": 4
+      "bytes": 2987,
+      "sha256": "0d216acf4783bf2676f23fb90d6e1cd5e629b3e562ce74b0d7474edcfcd47624",
+      "pageCount": 7
     }
   ]
 }

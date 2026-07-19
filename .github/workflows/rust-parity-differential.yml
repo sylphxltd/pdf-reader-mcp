@@ -226,7 +226,7 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_document_map_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 11 and .passed == 11 and .skipped == 0 and
+            .caseCount == 8 and .passed == 8 and .skipped == 0 and
             .subprocessNonzeroRejected == true and
             .mutationSensitive.allClaimedFields == true and
             .mutationSensitive.manifestVersion == 1 and
@@ -380,11 +380,11 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_raster_image_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 8 and .passed == 8 and .skipped == 0 and
+            .caseCount == 14 and .passed == 14 and .skipped == 0 and
             .mutationSensitive.allClaimedFields == true and
             .mutationSensitive.manifestVersion == 1 and
-            .mutationSensitive.mutationManifestSha256 == "9605f11caaa366bec242beb53939d5608522bd95d93a278affa04e48654014df" and
-            .mutationSensitive.leafMutationCount == 373 and
+            .mutationSensitive.mutationManifestSha256 == "d331d3de0dd6405fc424a9dbc6264b23e9e48b03bc19bf43406007f645f9d494" and
+            .mutationSensitive.leafMutationCount == 430 and
             .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
             .mutationSensitive.unexpectedFieldProbeCount == 3 and
             .mutationSensitive.requiredOmissionProbeCount == 2 and

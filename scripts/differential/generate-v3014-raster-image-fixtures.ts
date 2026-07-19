@@ -78,9 +78,12 @@ const common = pdf(new Map<number, PdfObject>([
 const shadowPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/AncestorOnly Do\nQ\n', 'ascii');
 const inheritedPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/AncestorOnly Do\nQ\n', 'ascii');
 const decodedPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/Decoded Do\nQ\n', 'ascii');
+const indirectPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/Indirect Do\nQ\n', 'ascii');
+const rgbDecodePaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/RgbDecode Do\nQ\n', 'ascii');
+const shortDecodePaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/ShortDecode Do\nQ\n', 'ascii');
 const shadowed = pdf(new Map<number, PdfObject>([
   [1, '<< /Type /Catalog /Pages 2 0 R >>'],
-  [2, '<< /Type /Pages /Kids [3 0 R 7 0 R 9 0 R 12 0 R] /Count 4 /MediaBox [0 0 612 792] /Resources << /XObject << /AncestorOnly 5 0 R >> >> >>'],
+  [2, '<< /Type /Pages /Kids [3 0 R 7 0 R 9 0 R 12 0 R 14 0 R 18 0 R 21 0 R] /Count 7 /MediaBox [0 0 612 792] /Resources << /XObject << /AncestorOnly 5 0 R >> >> >>'],
   [3, '<< /Type /Page /Parent 2 0 R /Resources << /XObject << /DirectOnly 6 0 R >> >> /Contents 4 0 R >>'],
   [4, stream('', shadowPaint)],
   [5, stream('/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8', rgbPixels)],
@@ -92,6 +95,16 @@ const shadowed = pdf(new Map<number, PdfObject>([
   [11, stream('/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]', Buffer.from([0]))],
   [12, '<< /Type /Page /Parent 2 0 R /Resources << /ProcSet [/PDF] >> /Contents 13 0 R >>'],
   [13, stream('', inheritedPaint)],
+  [14, '<< /Type /Page /Parent 2 0 R /Resources 16 0 R /Contents 15 0 R >>'],
+  [15, stream('', indirectPaint)],
+  [16, '<< /XObject 17 0 R >>'],
+  [17, '<< /Indirect 5 0 R >>'],
+  [18, '<< /Type /Page /Parent 2 0 R /Resources << /XObject << /RgbDecode 20 0 R >> >> /Contents 19 0 R >>'],
+  [19, stream('', rgbDecodePaint)],
+  [20, stream('/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Decode [1 0 0 1 1 0]', Buffer.from([0, 128, 255]))],
+  [21, '<< /Type /Page /Parent 2 0 R /Resources << /XObject << /ShortDecode 23 0 R >> >> /Contents 22 0 R >>'],
+  [22, stream('', shortDecodePaint)],
+  [23, stream('/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Decode [0 1 0]', Buffer.from([0, 128, 255]))],
 ]));
 
 const unsupportedPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/BAD Do\nQ\n', 'ascii');
@@ -106,7 +119,7 @@ const unsupported = pdf(new Map<number, PdfObject>([
 const generated = [
   { path: join(fixtureDir, 'v3014-raster-images-v1.pdf'), bytes: common, pageCount: 4 },
   { path: join(fixtureDir, 'v3014-raster-images-unsupported-v1.pdf'), bytes: unsupported, pageCount: 1 },
-  { path: join(fixtureDir, 'v3014-raster-images-shadowed-v1.pdf'), bytes: shadowed, pageCount: 4 },
+  { path: join(fixtureDir, 'v3014-raster-images-shadowed-v1.pdf'), bytes: shadowed, pageCount: 7 },
 ].map((fixture) => ({
   path: relative(repoRoot, fixture.path),
   bytes: fixture.bytes.length,
@@ -138,4 +151,4 @@ for (const fixture of generated) {
 if (!existsSync(manifestPath) || !readFileSync(manifestPath).equals(manifestBytes)) {
   throw new Error('raster-image fixture manifest is stale or missing; run with --write');
 }
-console.log('v3.0.14 raster-image fixtures: OK (3 PDFs, 9 pages)');
+console.log('v3.0.14 raster-image fixtures: OK (3 PDFs, 12 pages)');

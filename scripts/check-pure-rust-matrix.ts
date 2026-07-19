@@ -103,6 +103,17 @@ const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
 );
+const rasterImageWorkflowStart = differentialWorkflow.indexOf(
+  'RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"'
+);
+const rasterImageWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  rasterImageWorkflowStart
+);
+const rasterImageWorkflow =
+  rasterImageWorkflowStart >= 0 && rasterImageWorkflowEnd > rasterImageWorkflowStart
+    ? differentialWorkflow.slice(rasterImageWorkflowStart, rasterImageWorkflowEnd)
+    : '';
 
 const failures: string[] = [];
 if (
@@ -427,15 +438,15 @@ if (!differentialWorkflow.includes('bun run test:v3014-raster-image-differential
   failures.push('rust parity workflow must execute the frozen raster-image differential');
 }
 if (
-  !differentialWorkflow.includes(`.caseCount == ${rasterImageCaseCount}`) ||
-  !differentialWorkflow.includes(`.passed == ${rasterImageCaseCount}`)
+  !rasterImageWorkflow.includes(`.caseCount == ${rasterImageCaseCount}`) ||
+  !rasterImageWorkflow.includes(`.passed == ${rasterImageCaseCount}`)
 ) {
   failures.push(
     `rust parity workflow must require the exact ${rasterImageCaseCount}/${rasterImageCaseCount} raster-image corpus`
   );
 }
 if (
-  rasterImageCaseCount !== 11 ||
+  rasterImageCaseCount !== 14 ||
   rasterImageCorpus.envelope.fixtureCount !== 3 ||
   rasterImageCorpus.envelope.maxPagesPerCase !== 4 ||
   rasterImageCorpus.envelope.maxImagesPerCase !== 2 ||
@@ -445,18 +456,18 @@ if (
   failures.push('raster-image corpus envelope and explicit nonclaims must remain frozen');
 }
 if (
-  !differentialWorkflow.includes(
-    '.mutationSensitive.mutationManifestSha256 == "9605f11caaa366bec242beb53939d5608522bd95d93a278affa04e48654014df"'
+  !rasterImageWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "d331d3de0dd6405fc424a9dbc6264b23e9e48b03bc19bf43406007f645f9d494"'
   ) ||
-  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 373') ||
-  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
-  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 3') ||
-  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||
-  !differentialWorkflow.includes('.decodedPixelProof.comparedCompressionBytes == false') ||
-  !differentialWorkflow.includes('.capabilityStatus.includeImages == "PARTIAL"') ||
-  !differentialWorkflow.includes('.capabilityStatus.visualEnrichments == "STUB"') ||
-  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+  !rasterImageWorkflow.includes('.mutationSensitive.leafMutationCount == 430') ||
+  !rasterImageWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
+  !rasterImageWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 3') ||
+  !rasterImageWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||
+  !rasterImageWorkflow.includes('.decodedPixelProof.comparedCompressionBytes == false') ||
+  !rasterImageWorkflow.includes('.capabilityStatus.includeImages == "PARTIAL"') ||
+  !rasterImageWorkflow.includes('.capabilityStatus.visualEnrichments == "STUB"') ||
+  !rasterImageWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !rasterImageWorkflow.includes('.productTruth.publishFreeze == true')
 ) {
   failures.push('raster-image workflow must bind mutation, decoded-pixel, capability, and product-truth proof');
 }

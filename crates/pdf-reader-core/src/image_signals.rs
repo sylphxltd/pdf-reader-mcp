@@ -398,12 +398,11 @@ fn decode_coefficients(
         budget.unsupported = true;
         return None;
     };
-    if values.len() != channels.saturating_mul(2) {
-        budget.unsupported = true;
-        return None;
+    if values.len() < channels.saturating_mul(2) {
+        return Some(vec![(1.0, 0.0); channels]);
     }
     let mut coefficients = Vec::with_capacity(channels);
-    for pair in values.chunks_exact(2) {
+    for pair in values.chunks_exact(2).take(channels) {
         let Some(minimum) = pdf_number(document, &pair[0]) else {
             budget.unsupported = true;
             return None;
@@ -798,6 +797,94 @@ mod tests {
         assert_eq!(rgba.as_raw(), &[255, 255, 255, 255]);
         assert_eq!(to_uint8_clamp(2.5), 2);
         assert_eq!(to_uint8_clamp(3.5), 4);
+    }
+
+    #[test]
+    fn rgb_decode_is_per_channel_short_arrays_are_identity_and_bad_values_fail_closed() {
+        let document = Document::with_version("1.7");
+        let dictionary = dictionary! {
+            "Decode" => vec![
+                1.into(), 0.into(), 0.into(), 1.into(), 1.into(), 0.into(),
+            ],
+        };
+        let mut budget = Budget::default();
+        let coefficients =
+            decode_coefficients(&document, &dictionary, 3, &mut budget).expect("RGB decode");
+        assert_eq!(
+            apply_decode(vec![0, 128, 255], 3, &coefficients),
+            [255, 128, 0]
+        );
+        assert!(!budget.unsupported);
+
+        let short = dictionary! {"Decode" => vec![0.into(), 1.into(), 0.into()]};
+        let mut short_budget = Budget::default();
+        assert_eq!(
+            decode_coefficients(&document, &short, 3, &mut short_budget),
+            Some(vec![(1.0, 0.0); 3])
+        );
+        assert!(!short_budget.unsupported);
+
+        let malformed = dictionary! {
+            "Decode" => vec![
+                Object::Name(b"bad".to_vec()), 1.into(), 0.into(), 1.into(), 0.into(), 1.into(),
+            ],
+        };
+        let mut malformed_budget = Budget::default();
+        assert!(decode_coefficients(&document, &malformed, 3, &mut malformed_budget).is_none());
+        assert!(malformed_budget.unsupported);
+    }
+
+    #[test]
+    fn resource_ancestry_admission_is_exact_and_cycles_fail_closed() {
+        let build = |nodes: usize, cycle: bool| {
+            let mut document = Document::with_version("1.7");
+            let target_id = (nodes as u32 + 1, 0);
+            document.objects.insert(
+                target_id,
+                Object::Stream(Stream::new(
+                    dictionary! {
+                        "Type" => "XObject", "Subtype" => "Image", "Width" => 1,
+                        "Height" => 1, "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8,
+                    },
+                    vec![0],
+                )),
+            );
+            for index in 1..=nodes {
+                let mut node = dictionary! {"Type" => if index == 1 {"Page"} else {"Pages"}};
+                if index == nodes {
+                    if cycle {
+                        node.set("Parent", Object::Reference((1, 0)));
+                    } else {
+                        node.set(
+                            "Resources",
+                            dictionary! {"XObject" => dictionary! {"Im" => target_id}},
+                        );
+                    }
+                } else {
+                    node.set("Parent", Object::Reference((index as u32 + 1, 0)));
+                }
+                document
+                    .objects
+                    .insert((index as u32, 0), Object::Dictionary(node));
+            }
+            document
+        };
+
+        let exact = build(MAX_RESOURCE_ANCESTRY_NODES_PER_SOURCE, false);
+        let mut exact_budget = Budget::default();
+        let exact_resources = page_xobjects(&exact, (1, 0), &mut exact_budget);
+        assert_eq!(exact_resources.len(), 1);
+        assert!(!exact_budget.limited);
+
+        let overflow = build(MAX_RESOURCE_ANCESTRY_NODES_PER_SOURCE + 1, false);
+        let mut overflow_budget = Budget::default();
+        assert!(page_xobjects(&overflow, (1, 0), &mut overflow_budget).is_empty());
+        assert!(overflow_budget.limited);
+
+        let cyclic = build(2, true);
+        let mut cycle_budget = Budget::default();
+        assert!(page_xobjects(&cyclic, (1, 0), &mut cycle_budget).is_empty());
+        assert!(cycle_budget.unsupported);
     }
 
     #[test]
