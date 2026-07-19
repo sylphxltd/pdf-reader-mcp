@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { execSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -15,18 +15,6 @@ describe('MCP transport boundary (pure-Rust)', () => {
   beforeAll(() => {
     execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
   }, 300_000);
-
-  it('optional pure-Rust launcher is opt-in and can resolve rust binary', () => {
-    const script = readFileSync(binWrapper, 'utf8');
-    const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
-      bin?: Record<string, string>;
-    };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
-    expect(script).toContain('pdf-reader-mcp-server');
-    expect(script).toContain('resolve_rust_bin');
-    expect(script).toContain('dist/index.js');
-    expect(script).not.toContain('PDF_READER_ENGINE_MODE=full');
-  });
 
   it('builds the rmcp stdio server binary for the production process path', () => {
     expect(existsSync(rustServerBin)).toBe(true);

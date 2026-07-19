@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { execSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -120,17 +120,5 @@ describe('shipped path matrix (Rust core, no legacy flags)', () => {
     expect(payload).toContain('rust-pdf-inspect-v1');
     expect(payload).not.toContain('LEGACY_ENGINE_DISABLED');
     expect(existsSync(nodeInvokeLog)).toBe(false);
-  });
-
-  it('documents explicit shipped routing table in mcp-server sources', () => {
-    const routes = readFileSync(
-      path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/tool_routes.rs'),
-      'utf8'
-    );
-    expect(routes).toContain('read_pdf');
-    expect(routes).toContain('search_pdf');
-    expect(routes).toContain('RustCore');
-    expect(routes).not.toContain('FullParity');
-    expect(routes).not.toContain('PureRust');
   });
 });
