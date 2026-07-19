@@ -637,15 +637,24 @@ pub fn search_pdf_text_pages(
 struct TextGeometryIndex<'a> {
     item: &'a PositionedTextItem,
     eligible: Vec<usize>,
+    #[cfg(test)]
+    candidate_visits: std::cell::Cell<usize>,
 }
 
 impl<'a> TextGeometryIndex<'a> {
     fn new(item: &'a PositionedTextItem) -> Self {
+        // Extraction emits monotonic half-open UTF-16 ranges. Exclude reversed
+        // internal geometry fail-closed instead of making every match pay for
+        // an unbounded two-dimensional malformed-range scan.
         let mut eligible = item
             .chars
             .iter()
             .enumerate()
-            .filter(|(_, character)| !character.is_whitespace && character.bounding_box.is_some())
+            .filter(|(_, character)| {
+                !character.is_whitespace
+                    && character.item_char_end >= character.item_char_start
+                    && character.bounding_box.is_some()
+            })
             .map(|(index, _)| index)
             .collect::<Vec<_>>();
         if eligible
@@ -657,7 +666,12 @@ impl<'a> TextGeometryIndex<'a> {
                 (character.item_char_start, character.item_char_end, *index)
             });
         }
-        Self { item, eligible }
+        Self {
+            item,
+            eligible,
+            #[cfg(test)]
+            candidate_visits: std::cell::Cell::new(0),
+        }
     }
 
     fn range_candidates(&self, start_utf16: u32, end_utf16: u32) -> &[usize] {
@@ -677,7 +691,12 @@ impl<'a> TextGeometryIndex<'a> {
         let char_box = self
             .range_candidates(start_utf16, end_utf16)
             .iter()
-            .map(|index| &self.item.chars[*index])
+            .map(|index| {
+                #[cfg(test)]
+                self.candidate_visits
+                    .set(self.candidate_visits.get().saturating_add(1));
+                &self.item.chars[*index]
+            })
             .filter(|character| character.item_char_end <= end_utf16)
             .filter_map(|character| character.bounding_box)
             .try_fold(None::<TextBoundingBox>, |current, box_| match current {
@@ -692,6 +711,11 @@ impl<'a> TextGeometryIndex<'a> {
         } else {
             (None, None)
         }
+    }
+
+    #[cfg(test)]
+    fn candidate_visits(&self) -> usize {
+        self.candidate_visits.get()
     }
 }
 
@@ -1181,18 +1205,132 @@ mod tests {
             chars,
         };
         let index = TextGeometryIndex::new(&item);
-        let mut candidate_visits = 0usize;
         for offset in 0..500u32 {
-            candidate_visits += index.range_candidates(offset, offset + 1).len();
             assert_eq!(
                 index.match_bounding_box(offset, offset + 1),
                 (Some(box_), Some("char_estimated".to_string()))
             );
         }
-        assert!(
-            candidate_visits <= 1_000,
-            "500 matches must range-query the index, not rescan all {MAX_GEOMETRY_CHARS} chars: {candidate_visits} candidate visits"
+        assert_eq!(
+            index.candidate_visits(),
+            1_000,
+            "500 production matcher calls must range-query the index instead of rescanning all {MAX_GEOMETRY_CHARS} chars"
         );
+    }
+
+    fn reference_match_bounding_box(
+        item: &PositionedTextItem,
+        start_utf16: u32,
+        end_utf16: u32,
+    ) -> (Option<TextBoundingBox>, Option<String>) {
+        let char_box = item
+            .chars
+            .iter()
+            .filter(|character| {
+                !character.is_whitespace
+                    && character.item_char_end >= character.item_char_start
+                    && character.item_char_start >= start_utf16
+                    && character.item_char_end <= end_utf16
+            })
+            .filter_map(|character| character.bounding_box)
+            .try_fold(None::<TextBoundingBox>, |current, box_| match current {
+                None => Some(Some(box_)),
+                Some(current) => current.union(box_).map(Some),
+            })
+            .flatten();
+        if let Some(box_) = char_box {
+            (Some(box_), Some("char_estimated".to_string()))
+        } else if let Some(box_) = item.bounding_box {
+            (Some(box_), Some("text_item".to_string()))
+        } else {
+            (None, None)
+        }
+    }
+
+    #[test]
+    fn geometry_index_matches_reference_for_irregular_internal_ranges() {
+        let item_box = TextBoundingBox {
+            left: -10.0,
+            bottom: -10.0,
+            right: 10.0,
+            top: 10.0,
+        };
+        let boxes = [
+            TextBoundingBox {
+                left: 2.0,
+                bottom: 0.0,
+                right: 3.0,
+                top: 1.0,
+            },
+            TextBoundingBox {
+                left: 0.0,
+                bottom: 0.0,
+                right: 1.0,
+                top: 1.0,
+            },
+            TextBoundingBox {
+                left: 1.0,
+                bottom: 0.0,
+                right: 2.0,
+                top: 1.0,
+            },
+        ];
+        let item = PositionedTextItem {
+            text: "abc".to_string(),
+            bounding_box: Some(item_box),
+            chars: vec![
+                TextCharacterGeometry {
+                    text: "c".to_string(),
+                    item_char_start: 2,
+                    item_char_end: 3,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[0]),
+                },
+                TextCharacterGeometry {
+                    text: "".to_string(),
+                    item_char_start: 1,
+                    item_char_end: 1,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[1]),
+                },
+                TextCharacterGeometry {
+                    text: "malformed".to_string(),
+                    item_char_start: 2,
+                    item_char_end: 1,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[2]),
+                },
+                TextCharacterGeometry {
+                    text: "b".to_string(),
+                    item_char_start: 1,
+                    item_char_end: 2,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[1]),
+                },
+                TextCharacterGeometry {
+                    text: "ignored".to_string(),
+                    item_char_start: 0,
+                    item_char_end: 3,
+                    is_whitespace: true,
+                    bounding_box: Some(boxes[0]),
+                },
+                TextCharacterGeometry {
+                    text: "unboxed".to_string(),
+                    item_char_start: 0,
+                    item_char_end: 1,
+                    is_whitespace: false,
+                    bounding_box: None,
+                },
+            ],
+        };
+        let index = TextGeometryIndex::new(&item);
+        for (start, end) in [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 3), (3, 3)] {
+            assert_eq!(
+                index.match_bounding_box(start, end),
+                reference_match_bounding_box(&item, start, end),
+                "range {start}..{end}"
+            );
+        }
     }
 
     #[test]
