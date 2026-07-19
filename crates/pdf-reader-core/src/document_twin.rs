@@ -387,26 +387,6 @@ fn semantic_hint(
     }
 }
 
-/// Split a line into columns when it has multi-space separators (table heuristic).
-fn split_table_row(line: &str) -> Option<Vec<String>> {
-    let parts: Vec<String> = line
-        .split(['\t', '|'])
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .map(ToString::to_string)
-        .collect();
-    if parts.len() >= 2 {
-        return Some(parts);
-    }
-
-    let multi: Vec<String> = line.split_whitespace().map(ToString::to_string).collect();
-    // Require 2+ tokens and at least one multi-space gap to avoid prose lines.
-    if multi.len() >= 2 && line.contains("  ") {
-        return Some(multi);
-    }
-    None
-}
-
 pub fn build_elements(pages: &[PageText], semantic_hints: bool) -> Value {
     build_elements_with_geometry(pages, semantic_hints, None)
 }
@@ -948,11 +928,16 @@ pub fn build_elements_with_tables_and_geometry(
             }
             let confidence = table.get("confidence").cloned().unwrap_or(Value::Null);
             let bounding_box = table.get("bounding_box").cloned();
+            let mut nested_table = table.clone();
+            if let Some(object) = nested_table.as_object_mut() {
+                object.remove("page");
+                object.remove("tableIndex");
+            }
             let mut element = json!({
                 "id": format!("p{}-table-{}", page.page, table_index + 1),
                 "type": "table",
                 "page": page.page,
-                "table": table,
+                "table": nested_table,
                 "confidence": confidence,
                 "provenance": provenance,
             });
@@ -968,119 +953,571 @@ pub fn build_elements_with_tables_and_geometry(
     for (page, remaining) in tables_by_page {
         for table in remaining {
             let table_index = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0);
+            let mut nested_table = table;
+            if let Some(object) = nested_table.as_object_mut() {
+                object.remove("page");
+                object.remove("tableIndex");
+            }
             elements.push(json!({
                 "id": format!("p{page}-table-{}", table_index + 1),
                 "type":"table",
                 "page":page,
-                "table":table,
+                "table":nested_table,
             }));
         }
     }
     json!(elements)
 }
 
-pub fn build_tables(pages: &[PageText]) -> Value {
-    let mut tables = Vec::new();
-    for page in pages {
-        let page_no = page.page;
-        let mut current_rows: Vec<Vec<String>> = Vec::new();
-        let mut expected_cols: Option<usize> = None;
+const TABLE_Y_TOLERANCE: f64 = 5.0;
+const TABLE_COLUMN_GAP: f64 = 15.0;
+const TABLE_PAGE_EDGE_BOTTOM: f64 = 120.0;
+const TABLE_PAGE_EDGE_TOP: f64 = 500.0;
+const TABLE_COLUMN_GEOMETRY_TOLERANCE: f64 = 24.0;
+const MAX_TABLE_ITEMS_PER_PAGE: usize = 4_096;
+const MAX_TABLE_BOUNDARIES_PER_PAGE: usize = 256;
+const MAX_TABLE_CELLS_PER_PAGE: usize = 16_384;
 
-        let flush = |rows: &mut Vec<Vec<String>>,
-                     tables: &mut Vec<Value>,
-                     page_no: u32,
-                     expected_cols: &mut Option<usize>| {
-            if rows.len() < 2 {
-                rows.clear();
-                *expected_cols = None;
-                return;
+#[derive(Clone, Copy)]
+struct TableTextItem<'a> {
+    text: &'a str,
+    x: f64,
+    y: f64,
+    bounding_box: TextBoundingBox,
+}
+
+#[derive(Clone)]
+struct TableTextRow<'a> {
+    y: f64,
+    items: Vec<TableTextItem<'a>>,
+}
+
+fn table_round(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+fn table_column_index(x: f64, boundaries: &[f64]) -> usize {
+    boundaries
+        .iter()
+        .rposition(|boundary| x >= *boundary - TABLE_COLUMN_GAP / 2.0)
+        .unwrap_or(0)
+}
+
+fn table_spacing_consistency(rows: &[TableTextRow<'_>]) -> f64 {
+    if rows.len() < 3 {
+        return if rows.len() >= 2 { 1.0 } else { 0.0 };
+    }
+    let spacings = rows
+        .windows(2)
+        .map(|pair| (pair[0].y - pair[1].y).abs())
+        .collect::<Vec<_>>();
+    let average = spacings.iter().sum::<f64>() / spacings.len() as f64;
+    if average <= 0.0 {
+        return 0.0;
+    }
+    let variance = spacings
+        .iter()
+        .map(|spacing| (*spacing - average).powi(2))
+        .sum::<f64>()
+        / spacings.len() as f64;
+    table_round((1.0 - variance.sqrt() / average).max(0.0))
+}
+
+fn table_row_alignment(rows: &[TableTextRow<'_>], boundaries: &[f64]) -> f64 {
+    if rows.is_empty() || boundaries.is_empty() {
+        return 0.0;
+    }
+    let coverage = rows
+        .iter()
+        .map(|row| {
+            let columns = row
+                .items
+                .iter()
+                .map(|item| table_column_index(item.x, boundaries))
+                .collect::<HashSet<_>>();
+            (columns.len() as f64 / boundaries.len() as f64).min(1.0)
+        })
+        .sum::<f64>()
+        / rows.len() as f64;
+    table_round(coverage)
+}
+
+fn table_confidence(rows: &[TableTextRow<'_>], boundaries: &[f64]) -> f64 {
+    if rows.len() < 2 || boundaries.len() < 2 {
+        return 0.0;
+    }
+    let mut score = 0.0;
+    let mut checks = 0usize;
+    for row in rows {
+        let columns = row
+            .items
+            .iter()
+            .map(|item| table_column_index(item.x, boundaries))
+            .collect::<HashSet<_>>();
+        score += columns.len() as f64 / boundaries.len() as f64;
+        checks += 1;
+    }
+    let spacings = rows
+        .windows(2)
+        .map(|pair| (pair[0].y - pair[1].y).abs())
+        .collect::<Vec<_>>();
+    if !spacings.is_empty() {
+        let average = spacings.iter().sum::<f64>() / spacings.len() as f64;
+        let variance = spacings
+            .iter()
+            .map(|spacing| (*spacing - average).powi(2))
+            .sum::<f64>()
+            / spacings.len() as f64;
+        score += if average > 0.0 {
+            (1.0 - variance.sqrt() / average).max(0.0)
+        } else {
+            0.0
+        };
+        checks += 1;
+    }
+    (score / checks as f64).min(1.0)
+}
+
+fn table_box_value(box_: TextBoundingBox) -> Value {
+    json!({
+        "left": box_.left,
+        "bottom": box_.bottom,
+        "right": box_.right,
+        "top": box_.top,
+    })
+}
+
+fn table_id(table: &Value) -> String {
+    format!(
+        "p{}-table-{}",
+        table.get("page").and_then(Value::as_u64).unwrap_or(0),
+        table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0) + 1
+    )
+}
+
+fn table_header_similarity(left: &Value, right: &Value) -> f64 {
+    let header = |table: &Value| {
+        table
+            .pointer("/rows/0")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(|cell| cell.trim().to_lowercase())
+            .filter(|cell| !cell.is_empty())
+            .collect::<HashSet<_>>()
+    };
+    let left_header = header(left);
+    let right_header = header(right);
+    if left_header.is_empty() || right_header.is_empty() {
+        return 0.0;
+    }
+    left_header.intersection(&right_header).count() as f64
+        / left_header.len().max(right_header.len()) as f64
+}
+
+fn table_geometry_anchors(table: &Value, col_count: usize) -> Option<Vec<f64>> {
+    let cells = table.get("cells")?.as_array()?;
+    (0..col_count)
+        .map(|col_index| {
+            cells
+                .iter()
+                .filter(|cell| {
+                    cell.get("colIndex").and_then(Value::as_u64) == Some(col_index as u64)
+                        && cell.get("inferred").and_then(Value::as_bool) != Some(true)
+                })
+                .filter_map(|cell| cell.pointer("/bounding_box/left").and_then(Value::as_f64))
+                .reduce(f64::min)
+        })
+        .collect()
+}
+
+fn add_table_quality_signal(table: &mut Value, signal: &str) {
+    let Some(signals) = table
+        .pointer_mut("/quality/signals")
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    if !signals.iter().any(|value| value.as_str() == Some(signal)) {
+        signals.push(json!(signal));
+    }
+}
+
+fn link_table_continuations(tables: &mut [Value]) {
+    for index in 0..tables.len().saturating_sub(1) {
+        let current_page = tables[index]
+            .get("page")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let next_page = tables[index + 1]
+            .get("page")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let col_count = tables[index]
+            .get("colCount")
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as usize;
+        if next_page != current_page + 1
+            || tables[index + 1].get("colCount").and_then(Value::as_u64) != Some(col_count as u64)
+        {
+            continue;
+        }
+
+        let header_similarity = table_header_similarity(&tables[index], &tables[index + 1]);
+        let evidence = if header_similarity >= 0.6 {
+            Some((
+                table_round(0.55 + header_similarity * 0.4),
+                vec!["same_column_count", "repeated_header_candidate"],
+            ))
+        } else {
+            let geometry = table_geometry_anchors(&tables[index], col_count).and_then(|left| {
+                table_geometry_anchors(&tables[index + 1], col_count).map(|right| {
+                    table_round(
+                        left.iter()
+                            .zip(right)
+                            .map(|(left, right)| {
+                                (1.0 - (left - right).abs() / TABLE_COLUMN_GEOMETRY_TOLERANCE)
+                                    .max(0.0)
+                            })
+                            .sum::<f64>()
+                            / col_count.max(1) as f64,
+                    )
+                })
+            });
+            let current_bottom = tables[index]
+                .pointer("/bounding_box/bottom")
+                .and_then(Value::as_f64);
+            let next_top = tables[index + 1]
+                .pointer("/bounding_box/top")
+                .and_then(Value::as_f64);
+            geometry
+                .filter(|similarity| {
+                    *similarity >= 0.8
+                        && current_bottom.is_some_and(|bottom| bottom <= TABLE_PAGE_EDGE_BOTTOM)
+                        && next_top.is_some_and(|top| top >= TABLE_PAGE_EDGE_TOP)
+                })
+                .map(|similarity| {
+                    (
+                        table_round((0.58 + similarity * 0.25 + 0.12).min(0.95)),
+                        vec![
+                            "same_column_count",
+                            "column_geometry_match",
+                            "page_edge_continuation_candidate",
+                            "non_repeated_header_candidate",
+                        ],
+                    )
+                })
+        };
+        let Some((confidence, signals)) = evidence else {
+            continue;
+        };
+
+        let current_id = table_id(&tables[index]);
+        let next_id = table_id(&tables[index + 1]);
+        let group_id = format!("table-continuation-{current_id}-{next_id}");
+        let current_previous = tables[index]
+            .pointer("/continuation/previousTableId")
+            .cloned();
+        let next_following = tables[index + 1]
+            .pointer("/continuation/nextTableId")
+            .cloned();
+        let mut current_continuation = json!({
+            "groupId": group_id,
+            "role": if current_previous.is_some() { "continues" } else { "starts" },
+            "nextTableId": next_id,
+            "confidence": confidence,
+            "signals": signals,
+        });
+        if let Some(previous) = current_previous {
+            current_continuation["previousTableId"] = previous;
+        }
+        let mut next_continuation = json!({
+            "groupId": group_id,
+            "role": if next_following.is_some() { "continues" } else { "ends" },
+            "previousTableId": current_id,
+            "confidence": confidence,
+            "signals": signals,
+        });
+        if let Some(following) = next_following {
+            next_continuation["nextTableId"] = following;
+        }
+        tables[index]["continuation"] = current_continuation;
+        tables[index + 1]["continuation"] = next_continuation;
+        add_table_quality_signal(&mut tables[index], "multi_page_continuation_candidate");
+        add_table_quality_signal(&mut tables[index + 1], "multi_page_continuation_candidate");
+    }
+}
+
+pub(crate) fn build_tables_with_admission(pages: &[PageText]) -> (Value, Vec<String>) {
+    let mut tables = Vec::new();
+    let mut warnings = Vec::new();
+    for page in pages {
+        let mut items = page
+            .positioned_items
+            .iter()
+            .filter_map(|item| {
+                let text = item.text.trim();
+                let bounding_box = item.bounding_box?;
+                let finite = [
+                    bounding_box.left,
+                    bounding_box.bottom,
+                    bounding_box.right,
+                    bounding_box.top,
+                ]
+                .into_iter()
+                .all(f64::is_finite);
+                (!text.is_empty() && finite).then_some(TableTextItem {
+                    text,
+                    x: bounding_box.left,
+                    y: bounding_box.bottom,
+                    bounding_box,
+                })
+            })
+            .collect::<Vec<_>>();
+        if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
+            warnings.push(format!(
+                "Selectable table extraction skipped page {}: spatial grid exceeds the Rust admission limit.",
+                page.page
+            ));
+            continue;
+        }
+        items.sort_by(|left, right| right.y.total_cmp(&left.y));
+        let mut rows = Vec::<TableTextRow<'_>>::new();
+        for item in items {
+            if let Some(row) = rows.last_mut() {
+                if (row.y - item.y).abs() <= TABLE_Y_TOLERANCE {
+                    row.items.push(item);
+                    continue;
+                }
             }
-            let col_count = expected_cols.unwrap_or(0);
-            if col_count < 2 {
-                rows.clear();
-                *expected_cols = None;
-                return;
+            rows.push(TableTextRow {
+                y: item.y,
+                items: vec![item],
+            });
+        }
+        for row in &mut rows {
+            row.items.sort_by(|left, right| left.x.total_cmp(&right.x));
+        }
+        let candidate_rows = rows
+            .into_iter()
+            .filter(|row| row.items.len() >= 2)
+            .collect::<Vec<_>>();
+        if candidate_rows.len() < 2 {
+            continue;
+        }
+        let mut x_positions = candidate_rows
+            .iter()
+            .flat_map(|row| row.items.iter().map(|item| item.x))
+            .collect::<Vec<_>>();
+        x_positions.sort_by(f64::total_cmp);
+        let mut boundaries = x_positions.first().copied().into_iter().collect::<Vec<_>>();
+        for pair in x_positions.windows(2) {
+            if pair[1] - pair[0] >= TABLE_COLUMN_GAP {
+                boundaries.push(pair[1]);
             }
-            let table_index = tables.len() as u32;
+        }
+        if boundaries.len() < 2 {
+            continue;
+        }
+        if boundaries.len() > MAX_TABLE_BOUNDARIES_PER_PAGE {
+            warnings.push(format!(
+                "Selectable table extraction skipped page {}: spatial grid exceeds the Rust admission limit.",
+                page.page
+            ));
+            continue;
+        }
+
+        let mut regions = Vec::<Vec<TableTextRow<'_>>>::new();
+        let mut current = Vec::new();
+        for row in candidate_rows {
+            let aligned = row
+                .items
+                .iter()
+                .filter(|item| {
+                    boundaries
+                        .iter()
+                        .any(|boundary| (item.x - boundary).abs() < TABLE_COLUMN_GAP)
+                })
+                .count();
+            if aligned >= boundaries.len() - 1 {
+                current.push(row);
+            } else if current.len() >= 2 {
+                regions.push(std::mem::take(&mut current));
+            } else {
+                current.clear();
+            }
+        }
+        if current.len() >= 2 {
+            regions.push(current);
+        }
+
+        let page_cell_count = regions.iter().try_fold(0usize, |count, region| {
+            region
+                .len()
+                .checked_mul(boundaries.len())
+                .and_then(|cells| count.checked_add(cells))
+        });
+        if page_cell_count.is_none_or(|count| count > MAX_TABLE_CELLS_PER_PAGE) {
+            warnings.push(format!(
+                "Selectable table extraction skipped page {}: spatial grid exceeds the Rust admission limit.",
+                page.page
+            ));
+            continue;
+        }
+
+        for (table_index, region) in regions.into_iter().enumerate() {
+            let confidence = table_confidence(&region, &boundaries);
+            if confidence < 0.3 {
+                continue;
+            }
+            let confidence = table_round(confidence);
+            let mut output_rows = Vec::new();
             let mut cells = Vec::new();
-            for (row_index, row) in rows.iter().enumerate() {
-                for (col_index, text) in row.iter().enumerate() {
-                    cells.push(json!({
+            let mut table_box = None;
+            for (row_index, row) in region.iter().enumerate() {
+                let mut text_parts = vec![Vec::<&str>::new(); boundaries.len()];
+                let mut cell_boxes = vec![None::<TextBoundingBox>; boundaries.len()];
+                for item in &row.items {
+                    let col_index = table_column_index(item.x, &boundaries);
+                    text_parts[col_index].push(item.text);
+                    cell_boxes[col_index] =
+                        merge_text_boxes(cell_boxes[col_index], item.bounding_box);
+                }
+                let mut output_row = Vec::new();
+                for col_index in 0..boundaries.len() {
+                    let text = text_parts[col_index].join(" ");
+                    let box_ = cell_boxes[col_index];
+                    let mut col_span = 1usize;
+                    if let Some(box_) = box_ {
+                        for next_boundary in boundaries.iter().skip(col_index + 1) {
+                            if box_.right >= *next_boundary - TABLE_COLUMN_GAP / 2.0 {
+                                col_span += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                        col_span = col_span.min(boundaries.len() - col_index);
+                        table_box = merge_text_boxes(table_box, box_);
+                    }
+                    let mut cell = json!({
                         "text": text,
                         "rowIndex": row_index,
                         "colIndex": col_index,
+                        "rowSpan": 1,
+                        "colSpan": col_span,
                         "isHeader": row_index == 0,
-                    }));
+                        "inferred": text_parts[col_index].is_empty(),
+                    });
+                    if let Some(box_) = box_ {
+                        cell["bounding_box"] = table_box_value(box_);
+                    }
+                    output_row.push(json!(text));
+                    cells.push(cell);
                 }
+                output_rows.push(Value::Array(output_row));
             }
+
             let non_empty = cells
                 .iter()
-                .filter(|c| {
-                    c.get("text")
+                .filter(|cell| {
+                    cell.get("text")
                         .and_then(Value::as_str)
-                        .is_some_and(|t| !t.is_empty())
+                        .is_some_and(|text| !text.trim().is_empty())
                 })
                 .count();
-            let ratio = non_empty as f64 / cells.len().max(1) as f64;
-            tables.push(json!({
-                "page": page_no,
-                "tableIndex": table_index,
-                "rows": rows,
-                "cells": cells,
-                "rowCount": rows.len(),
-                "colCount": col_count,
-                "confidence": if ratio > 0.8 { 0.75 } else { 0.55 },
-                "quality": {
-                    "completeness": ratio,
-                    "nonEmptyCellRatio": ratio,
-                    "cellBoundingBoxCoverage": 0.0,
-                    "inferredCellRatio": 0.0,
-                    "rowAlignment": 0.7,
-                    "rowSpacingConsistency": 0.7,
-                    "cellBoundingBoxCount": 0,
-                    "inferredCellCount": 0,
-                    "missingCellCount": 0,
-                    "mergedCellCandidateCount": 0,
-                    "signals": ["complete_grid"],
-                },
-                "provenance": {
-                    "source": "selectable_text",
-                    "engine": "pdf-reader-core",
-                }
-            }));
-            rows.clear();
-            *expected_cols = None;
-        };
-
-        let lines = if page.positioned_items.is_empty() {
-            page.text.lines().collect::<Vec<_>>()
-        } else {
-            page.positioned_items
+            let boxed = cells
                 .iter()
-                .map(|item| item.text.as_str())
-                .collect::<Vec<_>>()
-        };
-        for line in lines {
-            if let Some(cols) = split_table_row(line) {
-                match expected_cols {
-                    None => {
-                        expected_cols = Some(cols.len());
-                        current_rows.push(cols);
-                    }
-                    Some(n) if cols.len() == n => current_rows.push(cols),
-                    Some(_) => {
-                        flush(&mut current_rows, &mut tables, page_no, &mut expected_cols);
-                        expected_cols = Some(cols.len());
-                        current_rows.push(cols);
-                    }
-                }
+                .filter(|cell| cell.get("bounding_box").is_some())
+                .count();
+            let inferred = cells
+                .iter()
+                .filter(|cell| cell.get("inferred").and_then(Value::as_bool) == Some(true))
+                .count();
+            let merged = cells
+                .iter()
+                .filter(|cell| cell.get("colSpan").and_then(Value::as_u64).unwrap_or(1) > 1)
+                .count();
+            let missing = cells.len().saturating_sub(non_empty);
+            let non_empty_ratio = table_round(non_empty as f64 / cells.len().max(1) as f64);
+            let box_coverage = table_round(boxed as f64 / cells.len().max(1) as f64);
+            let inferred_ratio = table_round(inferred as f64 / cells.len().max(1) as f64);
+            let alignment = table_row_alignment(&region, &boundaries);
+            let spacing = table_spacing_consistency(&region);
+            let mut signals = Vec::new();
+            let mut quality_warnings = Vec::new();
+            if missing == 0 {
+                signals.push("complete_grid");
             } else {
-                flush(&mut current_rows, &mut tables, page_no, &mut expected_cols);
+                signals.push("missing_cells");
+                quality_warnings.push(
+                    "Detected empty inferred cells; table may contain sparse or merged structure.",
+                );
             }
+            if merged > 0 {
+                signals.push("merged_cell_candidates");
+                quality_warnings.push(
+                    "Detected cells whose text boxes cross column boundaries; spans are inferred.",
+                );
+            }
+            if box_coverage < 1.0 {
+                signals.push("incomplete_cell_geometry");
+                quality_warnings.push("Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters.");
+            }
+            if spacing < 0.75 {
+                signals.push("irregular_row_spacing");
+                quality_warnings.push("Row spacing is irregular; verify the table with visual evidence when precision matters.");
+            }
+            if confidence < 0.65 {
+                signals.push("low_confidence");
+                quality_warnings.push("Table detector confidence is low; use region crops or page rendering for verification.");
+            }
+            let quality = json!({
+                "completeness": table_round(non_empty_ratio * alignment),
+                "nonEmptyCellRatio": non_empty_ratio,
+                "cellBoundingBoxCoverage": box_coverage,
+                "inferredCellRatio": inferred_ratio,
+                "rowAlignment": alignment,
+                "rowSpacingConsistency": spacing,
+                "cellBoundingBoxCount": boxed,
+                "inferredCellCount": inferred,
+                "missingCellCount": missing,
+                "mergedCellCandidateCount": merged,
+                "signals": signals,
+            });
+            let mut quality = quality;
+            if !quality_warnings.is_empty() {
+                quality["warnings"] = json!(quality_warnings);
+            }
+            let mut table = json!({
+                "page": page.page,
+                "tableIndex": table_index,
+                "rows": output_rows,
+                "cells": cells,
+                "rowCount": region.len(),
+                "colCount": boundaries.len(),
+                "confidence": confidence,
+                "provenance": {"source": "selectable_text", "engine": "pdf-reader-core"},
+                "quality": quality,
+            });
+            if let Some(box_) = table_box {
+                table["bounding_box"] = table_box_value(box_);
+            }
+            tables.push(table);
         }
-        flush(&mut current_rows, &mut tables, page_no, &mut expected_cols);
     }
-    json!(tables)
+    tables.sort_by_key(|table| {
+        (
+            table.get("page").and_then(Value::as_u64).unwrap_or(0),
+            table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0),
+        )
+    });
+    link_table_continuations(&mut tables);
+    (json!(tables), warnings)
+}
+
+pub fn build_tables(pages: &[PageText]) -> Value {
+    build_tables_with_admission(pages).0
 }
 
 pub fn build_safety_findings(pages: &[PageText]) -> Value {
@@ -2564,11 +3001,25 @@ pub fn build_document_map(
                     })
                     .collect::<Vec<_>>()
             };
-            let mut page_warnings = page_layout
+            let mut page_warnings = page_elements
+                .iter()
+                .filter(|element| element.get("type").and_then(Value::as_str) == Some("table"))
+                .flat_map(|element| {
+                    let id = element.get("id").and_then(Value::as_str).unwrap_or("table");
+                    element
+                        .pointer("/table/quality/warnings")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(Value::as_str)
+                        .map(move |warning| json!(format!("{id}: {warning}")))
+                })
+                .collect::<Vec<_>>();
+            page_warnings.extend(page_layout
                 .and_then(|entry| entry.get("warnings"))
                 .and_then(Value::as_array)
                 .cloned()
-                .unwrap_or_default();
+                .unwrap_or_default());
             if !page_safety_indexes.is_empty() {
                 page_warnings.push(json!(
                     "Page has content safety findings; inspect findings before using as instructions."
@@ -3071,12 +3522,111 @@ mod tests {
 
     #[test]
     fn detects_simple_table() {
-        let pages = pages(&["Name  Qty  Price\nApple  2  1.50\nPear  3  2.00"]);
+        let item = |text: &str, left: f64, bottom: f64| PositionedTextItem {
+            text: text.into(),
+            bounding_box: Some(TextBoundingBox {
+                left,
+                bottom,
+                right: left + 30.0,
+                top: bottom + 10.0,
+            }),
+            chars: Vec::new(),
+        };
+        let pages = vec![PageText {
+            page: 1,
+            text: String::new(),
+            positioned_items: vec![
+                item("Name", 10.0, 100.0),
+                item("Qty", 100.0, 100.0),
+                item("Price", 200.0, 100.0),
+                item("Apple", 10.0, 80.0),
+                item("2", 100.0, 80.0),
+                item("1.50", 200.0, 80.0),
+                item("Pear", 10.0, 60.0),
+                item("3", 100.0, 60.0),
+                item("2.00", 200.0, 60.0),
+            ],
+        }];
         let tables = build_tables(&pages);
         let arr = tables.as_array().unwrap();
         assert!(!arr.is_empty());
         assert_eq!(arr[0]["rowCount"], 3);
         assert_eq!(arr[0]["colCount"], 3);
+    }
+
+    #[test]
+    fn selectable_tables_reset_page_indexes_and_link_repeated_headers() {
+        let item = |text: &str, left: f64, bottom: f64| PositionedTextItem {
+            text: text.into(),
+            bounding_box: Some(TextBoundingBox {
+                left,
+                bottom,
+                right: left + 30.0,
+                top: bottom + 10.0,
+            }),
+            chars: Vec::new(),
+        };
+        let pages = vec![
+            PageText {
+                page: 1,
+                text: String::new(),
+                positioned_items: vec![
+                    item("Name", 20.0, 100.0),
+                    item("Qty", 120.0, 100.0),
+                    item("Apple", 20.0, 80.0),
+                    item("2", 120.0, 80.0),
+                ],
+            },
+            PageText {
+                page: 2,
+                text: String::new(),
+                positioned_items: vec![
+                    item("name", 20.0, 700.0),
+                    item("QTY", 120.0, 700.0),
+                    item("Pear", 20.0, 680.0),
+                    item("3", 120.0, 680.0),
+                ],
+            },
+        ];
+        let tables = build_tables(&pages);
+        assert_eq!(tables.as_array().unwrap().len(), 2);
+        assert_eq!(tables[0]["tableIndex"], 0);
+        assert_eq!(tables[1]["tableIndex"], 0);
+        assert_eq!(tables[0]["continuation"]["role"], "starts");
+        assert_eq!(tables[0]["continuation"]["nextTableId"], "p2-table-1");
+        assert_eq!(tables[0]["continuation"]["confidence"], 0.95);
+        assert_eq!(tables[1]["continuation"]["role"], "ends");
+        assert!(tables[0]["quality"]["signals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|signal| signal == "multi_page_continuation_candidate"));
+    }
+
+    #[test]
+    fn selectable_table_admission_fails_closed_before_grid_amplification() {
+        let positioned_items = (0..=MAX_TABLE_ITEMS_PER_PAGE)
+            .map(|index| PositionedTextItem {
+                text: format!("cell-{index}"),
+                bounding_box: Some(TextBoundingBox {
+                    left: if index % 2 == 0 { 10.0 } else { 100.0 },
+                    bottom: 700.0 - (index / 2) as f64,
+                    right: if index % 2 == 0 { 30.0 } else { 120.0 },
+                    top: 710.0 - (index / 2) as f64,
+                }),
+                chars: Vec::new(),
+            })
+            .collect();
+        let (tables, warnings) = build_tables_with_admission(&[PageText {
+            page: 7,
+            text: String::new(),
+            positioned_items,
+        }]);
+        assert_eq!(tables, json!([]));
+        assert_eq!(
+            warnings,
+            vec!["Selectable table extraction skipped page 7: spatial grid exceeds the Rust admission limit."]
+        );
     }
 
     #[test]

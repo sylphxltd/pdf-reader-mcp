@@ -400,52 +400,108 @@ fn select_pages(
 fn render_structured_markdown(pages: &[crate::document_twin::PageText], tables: &Value) -> String {
     let mut parts = pages
         .iter()
-        .filter(|page| !page.text.trim().is_empty())
-        .map(|page| format!("## Page {}\n\n{}", page.page, page.text.trim()))
+        .map(|page| {
+            let items = if page.positioned_items.is_empty() {
+                page.text
+                    .lines()
+                    .map(str::trim)
+                    .filter(|text| !text.is_empty())
+                    .collect::<Vec<_>>()
+            } else {
+                page.positioned_items
+                    .iter()
+                    .map(|item| item.text.trim())
+                    .filter(|text| !text.is_empty())
+                    .collect::<Vec<_>>()
+            };
+            let mut lines = vec![format!("## Page {}", page.page), String::new()];
+            for item in items {
+                lines.push(item.to_string());
+                lines.push(String::new());
+            }
+            lines.join("\n").trim_end().to_string()
+        })
         .collect::<Vec<_>>();
-    for table in tables.as_array().into_iter().flatten() {
-        let mut lines = Vec::new();
-        for (row_index, row) in table
-            .get("rows")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .enumerate()
-        {
-            let cells = row
-                .as_array()
+    let table_values = tables.as_array().into_iter().flatten().collect::<Vec<_>>();
+    if !table_values.is_empty() {
+        let mut table_parts = vec!["## Extracted Tables".to_string(), String::new()];
+        for table in table_values {
+            let page = table.get("page").and_then(Value::as_u64).unwrap_or(0);
+            let index = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0) + 1;
+            let confidence = table
+                .get("confidence")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
+            table_parts.push(format!("### Page {page}, Table {index}"));
+            table_parts.push(format!("*Confidence: {:.0}%*", confidence * 100.0));
+            table_parts.push(String::new());
+            let mut lines = Vec::new();
+            for (row_index, row) in table
+                .get("rows")
+                .and_then(Value::as_array)
                 .into_iter()
                 .flatten()
-                .map(|cell| cell.as_str().unwrap_or("").to_string())
-                .collect::<Vec<_>>();
-            lines.push(format!("| {} |", cells.join(" | ")));
-            if row_index == 0 {
-                lines.push(format!(
-                    "| {} |",
-                    cells.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")
-                ));
+                .enumerate()
+            {
+                let cells = row
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|cell| {
+                        let trimmed = cell.as_str().unwrap_or("").trim();
+                        if trimmed.is_empty() {
+                            " ".to_string()
+                        } else {
+                            trimmed.to_string()
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                lines.push(format!("| {} |", cells.join(" | ")));
+                if row_index == 0 {
+                    lines.push(format!(
+                        "| {} |",
+                        cells.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")
+                    ));
+                }
+            }
+            if !lines.is_empty() {
+                table_parts.push(lines.join("\n"));
+                table_parts.push(String::new());
             }
         }
-        if !lines.is_empty() {
-            parts.push(format!(
-                "### Table (page {})\n\n{}",
-                table.get("page").and_then(Value::as_u64).unwrap_or(0),
-                lines.join("\n")
-            ));
-        }
+        parts.push(table_parts.join("\n"));
     }
-    parts.join("\n\n")
+    parts.join("\n\n").trim().to_string()
 }
 
 fn render_structured_html(pages: &[crate::document_twin::PageText], tables: &Value) -> String {
     let mut parts = pages
         .iter()
         .map(|page| {
-            format!(
-                "<section data-page=\"{}\"><pre>{}</pre></section>",
-                page.page,
-                html_escape(&page.text)
-            )
+            let items = if page.positioned_items.is_empty() {
+                page.text
+                    .lines()
+                    .map(str::trim)
+                    .filter(|text| !text.is_empty())
+                    .collect::<Vec<_>>()
+            } else {
+                page.positioned_items
+                    .iter()
+                    .map(|item| item.text.trim())
+                    .filter(|text| !text.is_empty())
+                    .collect::<Vec<_>>()
+            };
+            let mut body = vec![
+                format!("<section data-page=\"{}\">", page.page),
+                format!("<h2>Page {}</h2>", page.page),
+            ];
+            body.extend(
+                items
+                    .into_iter()
+                    .map(|item| format!("<p>{}</p>", html_escape(item))),
+            );
+            body.push("</section>".into());
+            body.join("\n")
         })
         .collect::<Vec<_>>();
     for table in tables.as_array().into_iter().flatten() {
@@ -463,13 +519,15 @@ fn render_structured_html(pages: &[crate::document_twin::PageText], tables: &Val
                     .collect::<String>();
                 format!("<tr>{cells}</tr>")
             })
-            .collect::<String>();
+            .collect::<Vec<_>>()
+            .join("\n");
         parts.push(format!(
-            "<table data-page=\"{}\">{rows}</table>",
-            table.get("page").and_then(Value::as_u64).unwrap_or(0)
+            "<table data-page=\"{}\" data-table-index=\"{}\">\n<tbody>\n{rows}\n</tbody>\n</table>",
+            table.get("page").and_then(Value::as_u64).unwrap_or(0),
+            table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0)
         ));
     }
-    parts.join("\n")
+    parts.join("\n\n").trim().to_string()
 }
 
 pub(crate) fn rebuild_structured_outputs(
@@ -632,7 +690,7 @@ fn build_data(
     use crate::document_twin::{
         build_citation_chunks, build_document_ast, build_document_map,
         build_elements_with_tables_and_geometry, build_layout_diagnostics, build_safety_findings,
-        build_tables, build_text_layer, build_trust_report,
+        build_tables_with_admission, build_text_layer, build_trust_report,
     };
 
     let BuildSignals {
@@ -708,7 +766,9 @@ fn build_data(
     }
 
     let tables = if want_tables || want_ast || want_map || want_visual || want_trust {
-        Some(build_tables(pages))
+        let (tables, table_warnings) = build_tables_with_admission(pages);
+        warnings.extend(table_warnings);
+        Some(tables)
     } else {
         None
     };
@@ -946,62 +1006,16 @@ fn build_data(
         data.full_text = Some(full_text.clone());
     }
     if want_md {
-        let mut md_parts = pages
-            .iter()
-            .filter(|page| !page.text.trim().is_empty())
-            .map(|page| format!("## Page {}\n\n{}", page.page, page.text.trim()))
-            .collect::<Vec<_>>();
-        if let Some(tables_val) = tables.as_ref() {
-            if let Some(arr) = tables_val.as_array() {
-                for table in arr {
-                    if let Some(rows) = table.get("rows").and_then(Value::as_array) {
-                        let mut lines = Vec::new();
-                        for (ri, row) in rows.iter().enumerate() {
-                            if let Some(cells) = row.as_array() {
-                                let cells_s: Vec<String> = cells
-                                    .iter()
-                                    .map(|c| c.as_str().unwrap_or("").to_string())
-                                    .collect();
-                                lines.push(format!("| {} |", cells_s.join(" | ")));
-                                if ri == 0 {
-                                    lines.push(format!(
-                                        "| {} |",
-                                        cells_s
-                                            .iter()
-                                            .map(|_| "---")
-                                            .collect::<Vec<_>>()
-                                            .join(" | ")
-                                    ));
-                                }
-                            }
-                        }
-                        if !lines.is_empty() {
-                            md_parts.push(format!(
-                                "### Table (page {})\n\n{}",
-                                table.get("page").and_then(Value::as_u64).unwrap_or(0),
-                                lines.join("\n")
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-        data.markdown = Some(md_parts.join("\n\n"));
+        data.markdown = Some(render_structured_markdown(
+            pages,
+            tables.as_ref().unwrap_or(&empty_array),
+        ));
     }
     if want_html {
-        data.html = Some(
-            pages
-                .iter()
-                .map(|page| {
-                    format!(
-                        "<section data-page=\"{}\"><pre>{}</pre></section>",
-                        page.page,
-                        html_escape(&page.text)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
+        data.html = Some(render_structured_html(
+            pages,
+            tables.as_ref().unwrap_or(&empty_array),
+        ));
     }
     if want_chunks {
         data.chunks = chunks.clone();
