@@ -61,6 +61,12 @@ const selectableTableCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }> };
+const captionLinkCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-caption-link-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -292,6 +298,34 @@ if (
   !differentialWorkflow.includes('.resourceBoundProof.exactCapAccepted == true')
 ) {
   failures.push('selectable-table workflow must bind semantic/linkage proofs and exact-cap/cap+1 admission');
+}
+const captionLinkCaseCount = captionLinkCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-caption-link-differential')) {
+  failures.push('rust parity workflow must execute the frozen caption-link differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${captionLinkCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${captionLinkCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${captionLinkCaseCount}/${captionLinkCaseCount} caption-link corpus`
+  );
+}
+if (captionLinkCaseCount !== 6) {
+  failures.push(`frozen caption-link differential must contain exactly 6 cases (got ${captionLinkCaseCount})`);
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "4e7807a895abaaba895ccdcd7096d768d57c72a92674a530afb8c58e31cf8e54"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 493') ||
+  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 4') ||
+  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.privateLeakProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.dependencyPresenceProbeCount == 12')
+) {
+  failures.push('caption-link workflow must bind the executed mutation manifest, leaf coverage, and exact probe counts');
 }
 if (failures.length) {
   console.error(failures.join('\n'));
