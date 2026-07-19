@@ -59,6 +59,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -85,3 +88,13 @@ jobs:
           name: pdf-reader-mcp-server-${{ matrix.platformId }}
           path: bin/native/${{ matrix.platformId }}/**
           if-no-files-found: error
+      - name: Host pure-rust launcher smoke (linux-x64-gnu only)
+        if: matrix.platformId == 'linux-x64-gnu'
+        run: |
+          test -x "bin/native/linux-x64-gnu/pdf-reader-mcp-server"
+          # also stage package/legacy paths used by resolver
+          mkdir -p packages/pdf-reader-mcp-linux-x64-gnu/bin
+          cp bin/native/linux-x64-gnu/pdf-reader-mcp-server packages/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server
+          cp bin/native/linux-x64-gnu/pdf-reader-mcp-server bin/native/pdf-reader-mcp-server
+          chmod +x packages/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server bin/native/pdf-reader-mcp-server
+          bun run smoke:native-launcher
