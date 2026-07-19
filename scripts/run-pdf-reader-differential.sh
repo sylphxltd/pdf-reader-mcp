@@ -14,6 +14,7 @@ ORACLE_JSON="$SCRATCH/oracle.json"
 TEXT_DIFFERENTIAL_JSON="$SCRATCH/ts-vs-rust-text.json"
 V3014_BEHAVIOR_JSON="$SCRATCH/v3014-behavior-result.json"
 V3014_TEXT_LAYER_JSON="$SCRATCH/v3014-text-layer-result.json"
+V3014_SELECTABLE_TEXT_SEGMENTATION_JSON="$SCRATCH/v3014-selectable-text-segmentation-result.json"
 V3014_CITATION_CHUNK_JSON="$SCRATCH/v3014-citation-chunk-result.json"
 V3014_SEMANTIC_HINT_JSON="$SCRATCH/v3014-semantic-hint-result.json"
 V3014_DOCUMENT_AST_JSON="$SCRATCH/v3014-document-ast-result.json"
@@ -86,6 +87,12 @@ echo "--- immutable v3.0.14 selectable-text layer/element/chunk geometry differe
 bun "$REPO_ROOT/scripts/differential/capture-v3014-text-layer-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-text-layer-differential.ts" \
   --output "$V3014_TEXT_LAYER_JSON" >>"$LOG"
+
+echo "--- immutable v3.0.14 selectable-text segmentation/geometry differential (4 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/generate-v3014-selectable-text-segmentation-fixture.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-selectable-text-segmentation-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-selectable-text-segmentation-differential.ts" \
+  --output "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON" >>"$LOG"
 
 echo "--- immutable v3.0.14 citation-chunk schema/boundary/dependency differential (6 exact cases) ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-citation-chunk-fixture.ts" 2>&1 | tee -a "$LOG"
@@ -167,6 +174,13 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-behavior-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-text-layer-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-text-layer-oracle.json" \
+  "$REPO_ROOT/scripts/differential/v3014-selectable-text-segmentation-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-selectable-text-segmentation-projection.ts" \
+  "$REPO_ROOT/scripts/differential/generate-v3014-selectable-text-segmentation-fixture.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-selectable-text-segmentation-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-selectable-text-segmentation-oracle.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-selectable-text-segmentation-fixture.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-fixture.json" \
@@ -211,6 +225,23 @@ V3014_TEXT_LAYER_PASSED="$(jq '.passed' "$V3014_TEXT_LAYER_JSON")"
 V3014_TEXT_LAYER_SKIPPED="$(jq '.skipped' "$V3014_TEXT_LAYER_JSON")"
 V3014_TEXT_LAYER_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_TEXT_LAYER_JSON")"
 V3014_TEXT_LAYER_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_TEXT_LAYER_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_CASE_COUNT="$(jq '.caseCount' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_PASSED="$(jq '.passed' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_SKIPPED="$(jq '.skipped' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_RUNNER_HASH="$(jq -r '.runnerSha256' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_PROJECTION_HASH="$(jq -r '.projectionSha256' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_GENERATOR_HASH="$(jq -r '.generatorSha256' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_FIXTURE_MANIFEST_HASH="$(jq -r '.fixtureManifestSha256' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_FIXTURE_HASH="$(jq -r '.fixtureSha256' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_PROFILE="$(jq -r '.profile' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_PASS="$(jq '.pass' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_MUTATION_SENSITIVE="$(jq -c '.mutationSensitive' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_SEMANTIC_PROOF="$(jq -c '.semanticProof' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_PDFJS_OBSERVATION="$(jq -c '.pdfjsObservation' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_NONCLAIMS="$(jq -c '.nonclaims' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_SELECTABLE_TEXT_SEGMENTATION_PRODUCT_TRUTH="$(jq -c '.productTruth' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
 V3014_CITATION_CHUNK_CASE_COUNT="$(jq '.caseCount' "$V3014_CITATION_CHUNK_JSON")"
 V3014_CITATION_CHUNK_PASSED="$(jq '.passed' "$V3014_CITATION_CHUNK_JSON")"
 V3014_CITATION_CHUNK_SKIPPED="$(jq '.skipped' "$V3014_CITATION_CHUNK_JSON")"
@@ -276,6 +307,14 @@ jq -n \
   --arg v3014BehaviorOracleHash "$V3014_BEHAVIOR_ORACLE_HASH" \
   --arg v3014TextLayerCorpusHash "$V3014_TEXT_LAYER_CORPUS_HASH" \
   --arg v3014TextLayerOracleHash "$V3014_TEXT_LAYER_ORACLE_HASH" \
+  --arg v3014SelectableTextSegmentationCorpusHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_CORPUS_HASH" \
+  --arg v3014SelectableTextSegmentationOracleHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_ORACLE_HASH" \
+  --arg v3014SelectableTextSegmentationRunnerHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_RUNNER_HASH" \
+  --arg v3014SelectableTextSegmentationProjectionHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_PROJECTION_HASH" \
+  --arg v3014SelectableTextSegmentationGeneratorHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_GENERATOR_HASH" \
+  --arg v3014SelectableTextSegmentationFixtureManifestHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_FIXTURE_MANIFEST_HASH" \
+  --arg v3014SelectableTextSegmentationFixtureHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_FIXTURE_HASH" \
+  --arg v3014SelectableTextSegmentationProfile "$V3014_SELECTABLE_TEXT_SEGMENTATION_PROFILE" \
   --arg v3014CitationChunkCorpusHash "$V3014_CITATION_CHUNK_CORPUS_HASH" \
   --arg v3014CitationChunkOracleHash "$V3014_CITATION_CHUNK_ORACLE_HASH" \
   --arg v3014SemanticHintCorpusHash "$V3014_SEMANTIC_HINT_CORPUS_HASH" \
@@ -306,6 +345,15 @@ jq -n \
   --argjson v3014TextLayerCaseCount "$V3014_TEXT_LAYER_CASE_COUNT" \
   --argjson v3014TextLayerPassed "$V3014_TEXT_LAYER_PASSED" \
   --argjson v3014TextLayerSkipped "$V3014_TEXT_LAYER_SKIPPED" \
+  --argjson v3014SelectableTextSegmentationCaseCount "$V3014_SELECTABLE_TEXT_SEGMENTATION_CASE_COUNT" \
+  --argjson v3014SelectableTextSegmentationPassed "$V3014_SELECTABLE_TEXT_SEGMENTATION_PASSED" \
+  --argjson v3014SelectableTextSegmentationSkipped "$V3014_SELECTABLE_TEXT_SEGMENTATION_SKIPPED" \
+  --argjson v3014SelectableTextSegmentationPass "$V3014_SELECTABLE_TEXT_SEGMENTATION_PASS" \
+  --argjson v3014SelectableTextSegmentationMutationSensitive "$V3014_SELECTABLE_TEXT_SEGMENTATION_MUTATION_SENSITIVE" \
+  --argjson v3014SelectableTextSegmentationSemanticProof "$V3014_SELECTABLE_TEXT_SEGMENTATION_SEMANTIC_PROOF" \
+  --argjson v3014SelectableTextSegmentationPdfjsObservation "$V3014_SELECTABLE_TEXT_SEGMENTATION_PDFJS_OBSERVATION" \
+  --argjson v3014SelectableTextSegmentationNonclaims "$V3014_SELECTABLE_TEXT_SEGMENTATION_NONCLAIMS" \
+  --argjson v3014SelectableTextSegmentationProductTruth "$V3014_SELECTABLE_TEXT_SEGMENTATION_PRODUCT_TRUTH" \
   --argjson v3014CitationChunkCaseCount "$V3014_CITATION_CHUNK_CASE_COUNT" \
   --argjson v3014CitationChunkPassed "$V3014_CITATION_CHUNK_PASSED" \
   --argjson v3014CitationChunkSkipped "$V3014_CITATION_CHUNK_SKIPPED" \
@@ -360,6 +408,23 @@ jq -n \
     v3014TextLayerCaseCount: $v3014TextLayerCaseCount,
     v3014TextLayerPassed: $v3014TextLayerPassed,
     v3014TextLayerSkipped: $v3014TextLayerSkipped,
+    v3014SelectableTextSegmentationCorpusHash: $v3014SelectableTextSegmentationCorpusHash,
+    v3014SelectableTextSegmentationOracleHash: $v3014SelectableTextSegmentationOracleHash,
+    v3014SelectableTextSegmentationRunnerHash: $v3014SelectableTextSegmentationRunnerHash,
+    v3014SelectableTextSegmentationProjectionHash: $v3014SelectableTextSegmentationProjectionHash,
+    v3014SelectableTextSegmentationGeneratorHash: $v3014SelectableTextSegmentationGeneratorHash,
+    v3014SelectableTextSegmentationFixtureManifestHash: $v3014SelectableTextSegmentationFixtureManifestHash,
+    v3014SelectableTextSegmentationFixtureHash: $v3014SelectableTextSegmentationFixtureHash,
+    v3014SelectableTextSegmentationProfile: $v3014SelectableTextSegmentationProfile,
+    v3014SelectableTextSegmentationCaseCount: $v3014SelectableTextSegmentationCaseCount,
+    v3014SelectableTextSegmentationPassed: $v3014SelectableTextSegmentationPassed,
+    v3014SelectableTextSegmentationSkipped: $v3014SelectableTextSegmentationSkipped,
+    v3014SelectableTextSegmentationPass: $v3014SelectableTextSegmentationPass,
+    v3014SelectableTextSegmentationMutationSensitive: $v3014SelectableTextSegmentationMutationSensitive,
+    v3014SelectableTextSegmentationSemanticProof: $v3014SelectableTextSegmentationSemanticProof,
+    v3014SelectableTextSegmentationPdfjsObservation: $v3014SelectableTextSegmentationPdfjsObservation,
+    v3014SelectableTextSegmentationNonclaims: $v3014SelectableTextSegmentationNonclaims,
+    v3014SelectableTextSegmentationProductTruth: $v3014SelectableTextSegmentationProductTruth,
     v3014CitationChunkCorpusHash: $v3014CitationChunkCorpusHash,
     v3014CitationChunkOracleHash: $v3014CitationChunkOracleHash,
     v3014CitationChunkCaseCount: $v3014CitationChunkCaseCount,
@@ -412,6 +477,14 @@ jq -n \
     immutableBehaviorDifferential: "scripts/differential/check-v3014-behavior-differential.ts",
     immutableTextLayerOracle: "scripts/differential/fixtures/v3014-text-layer-oracle.json",
     immutableTextLayerDifferential: "scripts/differential/check-v3014-text-layer-differential.ts",
+    immutableSelectableTextSegmentationCorpus: "scripts/differential/fixtures/v3014-selectable-text-segmentation-corpus.json",
+    immutableSelectableTextSegmentationFixtureManifest: "scripts/differential/fixtures/v3014-selectable-text-segmentation-fixture.json",
+    immutableSelectableTextSegmentationFixture: "test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf",
+    immutableSelectableTextSegmentationGenerator: "scripts/differential/generate-v3014-selectable-text-segmentation-fixture.ts",
+    immutableSelectableTextSegmentationRunner: "scripts/differential/v3014-selectable-text-segmentation-baseline-runner.ts",
+    immutableSelectableTextSegmentationProjection: "scripts/differential/v3014-selectable-text-segmentation-projection.ts",
+    immutableSelectableTextSegmentationOracle: "scripts/differential/fixtures/v3014-selectable-text-segmentation-oracle.json",
+    immutableSelectableTextSegmentationDifferential: "scripts/differential/check-v3014-selectable-text-segmentation-differential.ts",
     immutableCitationChunkOracle: "scripts/differential/fixtures/v3014-citation-chunk-oracle.json",
     immutableCitationChunkDifferential: "scripts/differential/check-v3014-citation-chunk-differential.ts",
     immutableSemanticHintOracle: "scripts/differential/fixtures/v3014-semantic-hint-oracle.json",

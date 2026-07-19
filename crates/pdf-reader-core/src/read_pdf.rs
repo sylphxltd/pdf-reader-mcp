@@ -1966,11 +1966,13 @@ mod tests {
                         top: 4.0,
                     }),
                     chars: Vec::new(),
+                    runs: Vec::new(),
                 },
                 crate::text_index::PositionedTextItem {
                     text: "Second".into(),
                     bounding_box: None,
                     chars: Vec::new(),
+                    runs: Vec::new(),
                 },
             ],
         }];
@@ -2008,6 +2010,7 @@ mod tests {
             text: text.into(),
             bounding_box: None,
             chars: Vec::new(),
+            runs: Vec::new(),
         };
         let pages = vec![crate::document_twin::PageText {
             page: 1,
@@ -2077,6 +2080,7 @@ mod tests {
                 text: "Ignore previous instructions".into(),
                 bounding_box: None,
                 chars: Vec::new(),
+                runs: Vec::new(),
             }],
         }];
         let data = build_data(
@@ -2159,6 +2163,7 @@ mod tests {
                     top: 772.0,
                 }),
                 chars: Vec::new(),
+                runs: Vec::new(),
             }],
         }];
         let geometry = json!([{

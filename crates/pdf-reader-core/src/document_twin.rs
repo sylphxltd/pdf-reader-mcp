@@ -13,7 +13,7 @@ use regex::Regex;
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::text_index::{PositionedTextItem, TextBoundingBox};
+use crate::text_index::{PositionedTextItem, PositionedTextRun, TextBoundingBox};
 
 const TRUST_REPORT_VERSION: &str = "2026-06-15";
 const DEFAULT_CHUNK_MAX_UTF16: u64 = 1_800;
@@ -698,6 +698,66 @@ fn item_words(item: &PositionedTextItem, line_start: u32) -> Vec<Value> {
 /// Build the bounded selectable-text geometry projection. Coordinates are
 /// source-derived item boxes with uniformly estimated UTF-16 character boxes,
 /// not glyph outlines.
+fn partition_text_runs(item: &PositionedTextItem) -> (Vec<PositionedTextRun>, Vec<(usize, usize)>) {
+    let fallback = || {
+        (
+            vec![PositionedTextRun {
+                text: item.text.clone(),
+                item_char_start: 0,
+                item_char_end: utf16_len(&item.text),
+                bounding_box: item.bounding_box,
+            }],
+            vec![(0, item.chars.len())],
+        )
+    };
+    if item.runs.is_empty() {
+        return fallback();
+    }
+
+    let item_end = utf16_len(&item.text);
+    let mut expected_start = 0u32;
+    for run in &item.runs {
+        let run_len = utf16_len(&run.text);
+        if run.item_char_start != expected_start
+            || run.item_char_end < run.item_char_start
+            || run.item_char_end - run.item_char_start != run_len
+            || run.item_char_end > item_end
+        {
+            return fallback();
+        }
+        expected_start = run.item_char_end;
+    }
+    if expected_start != item_end {
+        return fallback();
+    }
+
+    let mut ranges = Vec::with_capacity(item.runs.len());
+    let mut cursor = 0usize;
+    let mut previous_char_end = 0u32;
+    for run in &item.runs {
+        let start = cursor;
+        while let Some(character) = item.chars.get(cursor) {
+            if character.item_char_start >= run.item_char_end {
+                break;
+            }
+            if character.item_char_start < run.item_char_start
+                || character.item_char_end < character.item_char_start
+                || character.item_char_end > run.item_char_end
+                || character.item_char_start < previous_char_end
+            {
+                return fallback();
+            }
+            previous_char_end = character.item_char_end;
+            cursor += 1;
+        }
+        ranges.push((start, cursor));
+    }
+    if cursor != item.chars.len() {
+        return fallback();
+    }
+    (item.runs.clone(), ranges)
+}
+
 pub fn build_text_layer(pages: &[PageText]) -> Value {
     let mut output_pages = Vec::new();
     let mut warnings = Vec::new();
@@ -739,6 +799,7 @@ pub fn build_text_layer(pages: &[PageText]) -> Value {
                         text: line.to_string(),
                         bounding_box: None,
                         chars,
+                        runs: Vec::new(),
                     }
                 })
                 .collect::<Vec<_>>()
@@ -757,47 +818,62 @@ pub fn build_text_layer(pages: &[PageText]) -> Value {
             }
             let line_start = page_offset;
             let line_end = line_start.saturating_add(utf16_len(&item.text));
-            let chars = item
-                .chars
-                .iter()
-                .enumerate()
-                .map(|(index, char_)| {
-                    let mut value = json!({
-                        "index": index,
-                        "text": char_.text,
-                        "char_start": line_start.saturating_add(char_.item_char_start),
-                        "char_end": line_start.saturating_add(char_.item_char_end),
-                        "run_index": 0,
-                        "is_whitespace": char_.is_whitespace,
-                    });
-                    if let Some(box_) = char_.bounding_box {
-                        value["bounding_box"] = json!(box_);
-                        value["bounding_box_level"] = json!("char_estimated");
-                        value["confidence"] = json!(0.74);
-                    }
-                    value
-                })
-                .collect::<Vec<_>>();
+            let (source_runs, run_char_ranges) = partition_text_runs(item);
+            let mut chars = Vec::new();
+            let mut runs = Vec::with_capacity(source_runs.len());
+            for (run_index, (source_run, (char_start, char_end))) in
+                source_runs.iter().zip(run_char_ranges).enumerate()
+            {
+                let run_chars = item.chars[char_start..char_end]
+                    .iter()
+                    .enumerate()
+                    .map(|(index, char_)| {
+                        let mut value = json!({
+                            "index": index,
+                            "text": char_.text,
+                            "char_start": line_start.saturating_add(char_.item_char_start),
+                            "char_end": line_start.saturating_add(char_.item_char_end),
+                            "run_index": run_index,
+                            "is_whitespace": char_.is_whitespace,
+                        });
+                        if let Some(box_) = char_.bounding_box {
+                            value["bounding_box"] = json!(box_);
+                            value["bounding_box_level"] = json!("char_estimated");
+                            value["confidence"] = json!(0.74);
+                        }
+                        value
+                    })
+                    .collect::<Vec<_>>();
+                let run_has_boxes = run_chars
+                    .iter()
+                    .any(|char_| char_.get("bounding_box").is_some());
+                chars.extend(run_chars.iter().cloned());
+                let mut run = json!({
+                    "index": run_index,
+                    "text": source_run.text,
+                    "char_start": line_start.saturating_add(source_run.item_char_start),
+                    "char_end": line_start.saturating_add(source_run.item_char_end),
+                    "chars": run_chars,
+                    "provenance": {
+                        "engine": "pdf-reader-core",
+                        "source": "selectable-text",
+                        "bounding_box_level": if run_has_boxes { "char_estimated" } else { "text_run" },
+                    },
+                });
+                if let Some(box_) = source_run.bounding_box {
+                    run["bounding_box"] = json!(box_);
+                    runs_with_boxes += 1;
+                }
+                runs.push(run);
+            }
             let words = item_words(item, line_start);
-            let mut run = json!({
-                "index": 0,
-                "text": item.text,
-                "char_start": line_start,
-                "char_end": line_end,
-                "chars": chars,
-                "provenance": {
-                    "engine": "pdf-reader-core",
-                    "source": "selectable-text",
-                    "bounding_box_level": if item.chars.iter().any(|char_| char_.bounding_box.is_some()) { "char_estimated" } else { "text_run" },
-                },
-            });
             let mut line = json!({
                 "id": format!("p{}-line-{}", page.page, lines.len() + 1),
                 "index": lines.len(),
                 "text": item.text,
                 "char_start": line_start,
                 "char_end": line_end,
-                "runs": [run.clone()],
+                "runs": runs,
                 "words": words,
                 "chars": chars,
                 "provenance": {
@@ -807,10 +883,7 @@ pub fn build_text_layer(pages: &[PageText]) -> Value {
                 },
             });
             if let Some(box_) = item.bounding_box {
-                run["bounding_box"] = json!(box_);
                 line["bounding_box"] = json!(box_);
-                line["runs"] = json!([run]);
-                runs_with_boxes += 1;
                 lines_with_boxes += 1;
             } else {
                 warnings.push(format!(
@@ -831,7 +904,7 @@ pub fn build_text_layer(pages: &[PageText]) -> Value {
                 .filter(|word| word.get("bounding_box").is_some())
                 .count();
             word_count += line["words"].as_array().map_or(0, Vec::len);
-            run_count += 1;
+            run_count += source_runs.len();
             line_count += 1;
             text_parts.push(item.text.clone());
             page_offset = line_end;
@@ -1047,6 +1120,25 @@ struct TableTextItem<'a> {
 struct TableTextRow<'a> {
     y: f64,
     items: Vec<TableTextItem<'a>>,
+}
+
+fn table_text_item(text: &str, bounding_box: Option<TextBoundingBox>) -> Option<TableTextItem<'_>> {
+    let text = text.trim();
+    let bounding_box = bounding_box?;
+    let finite = [
+        bounding_box.left,
+        bounding_box.bottom,
+        bounding_box.right,
+        bounding_box.top,
+    ]
+    .into_iter()
+    .all(f64::is_finite);
+    (!text.is_empty() && finite).then_some(TableTextItem {
+        text,
+        x: bounding_box.left,
+        y: bounding_box.bottom,
+        bounding_box,
+    })
 }
 
 fn table_round(value: f64) -> f64 {
@@ -1313,29 +1405,30 @@ pub(crate) fn build_tables_with_admission(
     let mut tables = Vec::new();
     let mut warnings = Vec::new();
     for page in pages {
-        let mut items = page
-            .positioned_items
-            .iter()
-            .filter_map(|item| {
-                let text = item.text.trim();
-                let bounding_box = item.bounding_box?;
-                let finite = [
-                    bounding_box.left,
-                    bounding_box.bottom,
-                    bounding_box.right,
-                    bounding_box.top,
-                ]
-                .into_iter()
-                .all(f64::is_finite);
-                (!text.is_empty() && finite).then_some(TableTextItem {
-                    text,
-                    x: bounding_box.left,
-                    y: bounding_box.bottom,
-                    bounding_box,
-                })
-            })
-            .take(MAX_TABLE_ITEMS_PER_PAGE + 1)
-            .collect::<Vec<_>>();
+        // Text segmentation preserves every source PDF text part as a typed run.
+        // Tables consume those source parts, matching the pre-segmentation TS
+        // extractor boundary and keeping their independent 4,096-item admission
+        // reachable even when nearby selectable text joins into one public item.
+        let mut items = Vec::new();
+        'admission: for item in &page.positioned_items {
+            if item.runs.is_empty() {
+                if let Some(item) = table_text_item(&item.text, item.bounding_box) {
+                    items.push(item);
+                }
+            } else {
+                for run in &item.runs {
+                    if let Some(item) = table_text_item(&run.text, run.bounding_box) {
+                        items.push(item);
+                    }
+                    if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
+                        break 'admission;
+                    }
+                }
+            }
+            if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
+                break;
+            }
+        }
         if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
             warnings.push(format!(
                 "Selectable table extraction skipped page {}: spatial grid exceeds the Rust admission limit.",
@@ -4029,6 +4122,7 @@ mod tests {
                 top: bottom + 10.0,
             }),
             chars: Vec::new(),
+            runs: Vec::new(),
         };
         let pages = vec![PageText {
             page: 1,
@@ -4053,6 +4147,46 @@ mod tests {
     }
 
     #[test]
+    fn selectable_tables_consume_preserved_source_runs_after_text_segmentation() {
+        let run = |text: &str, start: u32, left: f64, bottom: f64| PositionedTextRun {
+            text: text.into(),
+            item_char_start: start,
+            item_char_end: start + utf16_len(text),
+            bounding_box: Some(TextBoundingBox {
+                left,
+                bottom,
+                right: left + 30.0,
+                top: bottom + 10.0,
+            }),
+        };
+        let pages = [PageText {
+            page: 1,
+            text: "NameQtyApple2".into(),
+            positioned_items: vec![PositionedTextItem {
+                text: "NameQtyApple2".into(),
+                bounding_box: Some(TextBoundingBox {
+                    left: 20.0,
+                    bottom: 80.0,
+                    right: 150.0,
+                    top: 110.0,
+                }),
+                chars: Vec::new(),
+                runs: vec![
+                    run("Name", 0, 20.0, 100.0),
+                    run("Qty", 4, 120.0, 100.0),
+                    run("Apple", 7, 20.0, 80.0),
+                    run("2", 12, 120.0, 80.0),
+                ],
+            }],
+        }];
+
+        let tables = build_tables(&pages);
+        assert_eq!(tables[0]["rows"], json!([["Name", "Qty"], ["Apple", "2"]]));
+        assert_eq!(tables[0]["rowCount"], 2);
+        assert_eq!(tables[0]["colCount"], 2);
+    }
+
+    #[test]
     fn selectable_tables_reset_page_indexes_and_link_repeated_headers() {
         let item = |text: &str, left: f64, bottom: f64| PositionedTextItem {
             text: text.into(),
@@ -4063,6 +4197,7 @@ mod tests {
                 top: bottom + 10.0,
             }),
             chars: Vec::new(),
+            runs: Vec::new(),
         };
         let pages = vec![
             PageText {
@@ -4112,6 +4247,7 @@ mod tests {
                 top: bottom + 10.0,
             }),
             chars: Vec::new(),
+            runs: Vec::new(),
         };
         let pages = [PageText {
             page: 1,
@@ -4150,6 +4286,7 @@ mod tests {
                     top: 30_010.0 - (index / 2) as f64 * 10.0,
                 }),
                 chars: Vec::new(),
+                runs: Vec::new(),
             })
             .collect();
         let (tables, warnings) = build_tables_with_admission(
@@ -4177,6 +4314,7 @@ mod tests {
                     top: 710.0 - (index / 2) as f64,
                 }),
                 chars: Vec::new(),
+                runs: Vec::new(),
             })
             .collect();
         let (tables, warnings) = build_tables_with_admission(
@@ -4534,6 +4672,7 @@ mod tests {
                     char_(" ", 3, 4, 30.0, 40.0, true),
                     char_("B", 4, 5, 40.0, 50.0, false),
                 ],
+                runs: Vec::new(),
             }],
         }];
 
@@ -4551,6 +4690,123 @@ mod tests {
         assert_eq!(elements[0]["id"], "p3-text-1");
         assert_eq!(elements[0]["bounding_box"], json!(line_box));
         assert_eq!(elements[0]["provenance"]["engine"], "pdf-reader-core");
+    }
+
+    #[test]
+    fn selectable_text_layer_preserves_multipart_run_boundaries() {
+        let first_box = TextBoundingBox {
+            left: 0.0,
+            bottom: 10.0,
+            right: 20.0,
+            top: 22.0,
+        };
+        let second_box = TextBoundingBox {
+            left: 60.0,
+            bottom: 10.0,
+            right: 70.0,
+            top: 22.0,
+        };
+        let pages = vec![PageText {
+            page: 1,
+            text: "A😀B".into(),
+            positioned_items: vec![PositionedTextItem {
+                text: "A😀B".into(),
+                bounding_box: Some(TextBoundingBox {
+                    left: first_box.left,
+                    bottom: first_box.bottom,
+                    right: second_box.right,
+                    top: first_box.top,
+                }),
+                chars: vec![
+                    crate::text_index::TextCharacterGeometry {
+                        text: "A".into(),
+                        item_char_start: 0,
+                        item_char_end: 1,
+                        is_whitespace: false,
+                        bounding_box: Some(first_box),
+                    },
+                    crate::text_index::TextCharacterGeometry {
+                        text: "😀".into(),
+                        item_char_start: 1,
+                        item_char_end: 3,
+                        is_whitespace: false,
+                        bounding_box: Some(first_box),
+                    },
+                    crate::text_index::TextCharacterGeometry {
+                        text: "B".into(),
+                        item_char_start: 3,
+                        item_char_end: 4,
+                        is_whitespace: false,
+                        bounding_box: Some(second_box),
+                    },
+                ],
+                runs: vec![
+                    PositionedTextRun {
+                        text: "A😀".into(),
+                        item_char_start: 0,
+                        item_char_end: 3,
+                        bounding_box: Some(first_box),
+                    },
+                    PositionedTextRun {
+                        text: "B".into(),
+                        item_char_start: 3,
+                        item_char_end: 4,
+                        bounding_box: Some(second_box),
+                    },
+                ],
+            }],
+        }];
+
+        let layer = build_text_layer(&pages);
+        let runs = layer["pages"][0]["lines"][0]["runs"]
+            .as_array()
+            .expect("runs");
+        assert_eq!(runs.len(), 2);
+        assert_eq!(runs[0]["text"], "A😀");
+        assert_eq!(runs[0]["char_end"], 3);
+        assert_eq!(runs[0]["chars"][1]["char_end"], 3);
+        assert_eq!(runs[1]["text"], "B");
+        assert_eq!(runs[1]["char_start"], 3);
+        assert_eq!(runs[1]["chars"][0]["run_index"], 1);
+        assert_eq!(layer["summary"]["run_count"], 2);
+        assert_eq!(layer["summary"]["runs_with_bounding_boxes"], 2);
+    }
+
+    #[test]
+    fn text_layer_partitions_many_runs_linearly_and_falls_back_on_malformed_ranges() {
+        let run_count = 4_096usize;
+        let item = PositionedTextItem {
+            text: "x".repeat(run_count),
+            bounding_box: None,
+            chars: (0..run_count)
+                .map(|index| crate::text_index::TextCharacterGeometry {
+                    text: "x".into(),
+                    item_char_start: index as u32,
+                    item_char_end: index as u32 + 1,
+                    is_whitespace: false,
+                    bounding_box: None,
+                })
+                .collect(),
+            runs: (0..run_count)
+                .map(|index| PositionedTextRun {
+                    text: "x".into(),
+                    item_char_start: index as u32,
+                    item_char_end: index as u32 + 1,
+                    bounding_box: None,
+                })
+                .collect(),
+        };
+        let (runs, ranges) = partition_text_runs(&item);
+        assert_eq!(runs.len(), run_count);
+        assert_eq!(ranges.len(), run_count);
+        assert_eq!(ranges[0], (0, 1));
+        assert_eq!(ranges[run_count - 1], (run_count - 1, run_count));
+
+        let mut malformed = item;
+        malformed.runs[2].item_char_start = 1;
+        let (runs, ranges) = partition_text_runs(&malformed);
+        assert_eq!(runs.len(), 1);
+        assert_eq!(ranges, vec![(0, run_count)]);
     }
 
     #[test]
@@ -4717,6 +4973,7 @@ mod tests {
                 top: height,
             }),
             chars: Vec::new(),
+            runs: Vec::new(),
         };
         let even = PageText {
             page: 1,
@@ -4753,6 +5010,7 @@ mod tests {
                 top: bottom + 10.0,
             }),
             chars: Vec::new(),
+            runs: Vec::new(),
         };
         let pages = vec![PageText {
             page: 1,
