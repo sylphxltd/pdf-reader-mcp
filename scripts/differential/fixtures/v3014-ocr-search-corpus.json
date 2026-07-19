@@ -14,6 +14,7 @@
     "urlSingleFetch": false,
     "arbitraryProvidersAndLanguages": false,
     "crossRuntimeHostileResourceParity": false,
+    "pageNumbersBeyondU32": false,
     "wholeProductParity": false,
     "dropInFor3014": false,
     "publishFreeze": true

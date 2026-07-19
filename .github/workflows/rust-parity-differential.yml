@@ -420,15 +420,18 @@ jobs:
             .profile == "pdf_reader_v3014_ocr_search_result" and
             .candidateSha == $sha and .pass == true and
             .caseCount == 14 and .passed == 14 and .skipped == 0 and
-            .corpusSha256 == "5cdd1f247b774eccab366ad671ae90cae6f5e8d38f3fb208931b0e8c21eb013e" and
-            .oracleSha256 == "96b0be121b135585624d59b7397125180b863ff379a2ca6c3c4c8fd7534461a4" and
+            .corpusSha256 == "e10efaf51c96eda3e489bd4cc3d27880135a05bb9b7844ae6b1ef8e6b3fbcacc" and
+            .oracleSha256 == "0672dad733a8283515be341ea39f4e764a819ef18b8519592e75193b53a3772b" and
             .runnerSha256 == "904eaaec0db95e08c4a85c72624e017e5a90f6a0d6875fc2038d75f558714da0" and
-            .projectionSha256 == "44331cf5a90d2a9d7844f3cfb12ea8b32595cf120cef5ab45996767d816b459f" and
+            .projectionSha256 == "be98baf011d0ebc430a9908dbc38c4993bf9fa49fe050f32c1aae7badc6a0aac" and
             .providerSha256 == "256e0430fe3039637f67a12f4845dbaf66c94730f4a792dbc1d22131862dadf7" and
             .fixtureSha256 == "3e2d9b9d96461359b489c76facafd00eea7bd18f03b6aae23c333340e892e89a" and
             .mutationSensitive.allClaimedFields == true and
             .mutationSensitive.leafMutationCount == 245 and
             .schemaProof.includeOcrTextLayer == true and
+            .portabilityProof.relocatedFixtureRootReplay == true and
+            .portabilityProof.windowsPathProjection == true and
+            .portabilityProof.normalizedFixtureToken == "<fixture>" and
             .resourceProof.sourceCap32PreIoAnd33Rejected == true and
             .resourceProof.invalidGlobalOptionsRejectedPreIo == true and
             .resourceProof.invalidPageSpecSourceLocalPreIo == true and
@@ -437,6 +440,7 @@ jobs:
             .resourceProof.stickyExhaustion == true and
             .resourceProof.crossRuntimeHostileResourceParity == false and
             .nonclaims.firstFiveOfSixPageBoundary == false and
+            .nonclaims.pageNumbersBeyondU32 == false and
             .nonclaims.selectableOcrInterleaving == false and
             .nonclaims.wholeProductParity == false and
             .productTruth.dropInFor3014 == false and

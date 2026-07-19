@@ -28,6 +28,17 @@ const boolean = (value: unknown, context: string): boolean => {
   if (typeof value !== 'boolean') throw new Error(`${context} must be boolean`);
   return value;
 };
+
+const canonicalError = (value: unknown, context: string): string => {
+  const error = string(value, context);
+  const prefix = 'Invalid page specification for source ';
+  const detailIndex = error.indexOf(': Invalid page ');
+  if (!error.startsWith(prefix) || detailIndex < 0) return error;
+  const source = error.slice(prefix.length, detailIndex).replaceAll('\\', '/');
+  const fixture = 'test/fixtures/differential/v3014-visual-v1.pdf';
+  if (source !== fixture && !source.endsWith(`/${fixture}`)) return error;
+  return `${prefix}<fixture>${error.slice(detailIndex)}`;
+};
 const array = (value: unknown, context: string): unknown[] => {
   if (!Array.isArray(value)) throw new Error(`${context} must be an array`);
   return value;
@@ -76,7 +87,7 @@ export const canonicalOcrSearchMcpResult = (value: unknown): Json => {
     const source = record(entry, `results[${String(index)}]`);
     exactKeys(source, RESULT_KEYS, `results[${String(index)}]`);
     const success = boolean(required(source, 'success', `results[${String(index)}]`), `results[${String(index)}].success`);
-    if (!success) return { success: false, error: string(required(source, 'error', `results[${String(index)}]`), `results[${String(index)}].error`) };
+    if (!success) return { success: false, error: canonicalError(required(source, 'error', `results[${String(index)}]`), `results[${String(index)}].error`) };
     const projected: Record<string, Json> = {
       success: true,
       num_pages: integer(required(source, 'num_pages', 'source result'), 'source result.num_pages'),

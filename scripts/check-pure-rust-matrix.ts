@@ -772,6 +772,7 @@ if (
   ocrSearchCorpus.envelope.maxPagesPerCase !== 10001 ||
   ocrSearchCorpus.nonclaims.dropInFor3014 !== false ||
   ocrSearchCorpus.nonclaims.publishFreeze !== true ||
+  ocrSearchCorpus.nonclaims.pageNumbersBeyondU32 !== false ||
   ocrSearchCorpus.nonclaims.wholeProductParity !== false
 ) {
   failures.push('OCR-search corpus envelope, nonclaims, and product truth must remain frozen');
@@ -781,10 +782,14 @@ if (
   !differentialWorkflow.includes('.profile == "pdf_reader_v3014_ocr_search_result"') ||
   !differentialWorkflow.includes('.caseCount == 14 and .passed == 14 and .skipped == 0') ||
   !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 245') ||
+  !differentialWorkflow.includes('.portabilityProof.relocatedFixtureRootReplay == true') ||
+  !differentialWorkflow.includes('.portabilityProof.windowsPathProjection == true') ||
+  !differentialWorkflow.includes('.portabilityProof.normalizedFixtureToken == "<fixture>"') ||
   !differentialWorkflow.includes('.resourceProof.sourceCap32PreIoAnd33Rejected == true') ||
   !differentialWorkflow.includes('.resourceProof.invalidGlobalOptionsRejectedPreIo == true') ||
   !differentialWorkflow.includes('.resourceProof.invalidPageSpecSourceLocalPreIo == true') ||
   !differentialWorkflow.includes('.resourceProof.crossRuntimeHostileResourceParity == false') ||
+  !differentialWorkflow.includes('.nonclaims.pageNumbersBeyondU32 == false') ||
   !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
   !differentialWorkflow.includes('.productTruth.publishFreeze == true')
 ) {

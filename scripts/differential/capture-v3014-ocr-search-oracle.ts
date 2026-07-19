@@ -2,7 +2,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +42,11 @@ try {
   writeFileSync(detachedRunner, readFileSync(runnerPath));
   writeFileSync(detachedProjection, readFileSync(projectionPath));
   const expectations = JSON.parse(run('bun', [detachedRunner, corpusPath, fixtureDir, providerPath], worktree, true));
+  const relocatedFixtureDir = join(worktree, 'relocated-checkout/test/fixtures/differential');
+  mkdirSync(relocatedFixtureDir, { recursive: true });
+  copyFileSync(fixturePath, join(relocatedFixtureDir, 'v3014-visual-v1.pdf'));
+  const relocatedExpectations = JSON.parse(run('bun', [detachedRunner, corpusPath, relocatedFixtureDir, providerPath], worktree, true));
+  if (JSON.stringify(relocatedExpectations) !== JSON.stringify(expectations)) throw new Error('OCR-search projection depends on checkout or fixture-root path');
   const corpus = JSON.parse(readFileSync(corpusPath, 'utf8')) as { envelope: unknown; nonclaims: unknown };
   const oracle = {
     schemaVersion: 1,
@@ -54,6 +59,7 @@ try {
       corpusSha256: sha256(readFileSync(corpusPath)),
       providerSha256: sha256(readFileSync(providerPath)),
       fixtureSha256: sha256(readFileSync(fixturePath)),
+      pathPortabilityProof: true,
       envelope: corpus.envelope,
       nonclaims: corpus.nonclaims,
       entrypointSha256: Object.fromEntries(sourcePaths.map((path) => [path, sha256(gitBytes('show', `${commit}:${path}`))])),
