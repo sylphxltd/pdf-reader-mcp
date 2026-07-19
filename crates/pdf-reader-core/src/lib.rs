@@ -18,6 +18,7 @@ pub mod ssrf;
 mod structure_signals;
 pub mod text_index;
 pub mod url_fetch;
+pub mod visual_candidates;
 
 pub use ssrf::{assert_host_not_private, is_private_ip};
 

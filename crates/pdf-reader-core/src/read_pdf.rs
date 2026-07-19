@@ -87,6 +87,7 @@ pub struct StructuredFusionContext {
     pub layout: Value,
     pub trust: Option<Value>,
     pub accessibility: Option<Value>,
+    pub visual_candidates: Value,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -631,6 +632,7 @@ pub(crate) fn rebuild_structured_outputs(
             &ast_warnings,
             context.trust.as_ref(),
             context.accessibility.as_ref(),
+            &context.visual_candidates,
         ));
     }
 }
@@ -784,10 +786,8 @@ fn build_data(
         warnings.push(crate::ocr_fusion::OCR_STUB_WARNING.into());
     }
     if want_visual {
-        warnings.push(
-            "include_visual_enrichments: no visual-region provider configured; visual_enrichments is empty."
-                .into(),
-        );
+        warnings
+            .push("Visual enrichment skipped: analyze_regions provider is not_configured.".into());
     }
 
     let page_content_table_geometry = want_text
@@ -826,16 +826,18 @@ fn build_data(
             page_geometry.as_ref(),
         )
     });
-    let semantic_elements = (want_semantic || want_ast || want_map || want_trust || want_a11y)
-        .then(|| {
-            crate::document_twin::build_elements_with_tables_images_and_geometry(
-                pages,
-                table_values,
-                image_values,
-                true,
-                page_geometry.as_ref(),
-            )
-        });
+    let semantic_elements =
+        (want_semantic || want_ast || want_map || want_visual || want_trust || want_a11y).then(
+            || {
+                crate::document_twin::build_elements_with_tables_images_and_geometry(
+                    pages,
+                    table_values,
+                    image_values,
+                    true,
+                    page_geometry.as_ref(),
+                )
+            },
+        );
     let elements = if want_elements || want_semantic {
         if want_semantic {
             semantic_elements.clone()
@@ -913,6 +915,28 @@ fn build_data(
         None
     };
 
+    let visual_candidates = if want_visual {
+        let geometry = page_geometry.as_ref().and_then(Value::as_array);
+        let outcome = crate::visual_candidates::select_visual_enrichment_candidates(
+            semantic_elements
+                .as_ref()
+                .and_then(Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
+            geometry.map(Vec::as_slice),
+            input.max_visual_enrichments.unwrap_or(8) as usize,
+        );
+        warnings.extend(
+            outcome
+                .warnings
+                .iter()
+                .map(|warning| warning.message.clone()),
+        );
+        json!(outcome.candidates)
+    } else {
+        json!([])
+    };
+
     let document_ast = if want_ast {
         Some(build_document_ast(
             pages,
@@ -937,6 +961,7 @@ fn build_data(
             &warnings,
             trust.as_ref(),
             a11y.as_ref(),
+            &visual_candidates,
         ))
     } else {
         None
@@ -1012,6 +1037,7 @@ fn build_data(
                 layout: layout.clone().unwrap_or_else(|| json!([])),
                 trust: trust.clone(),
                 accessibility: a11y.clone(),
+                visual_candidates: visual_candidates.clone(),
             }),
     };
 
@@ -1131,9 +1157,12 @@ fn build_data(
         data.permissions = permissions;
         data.mark_info = mark_info;
     }
-    if want_visual {
-        data.visual_enrichments = Some(json!([]));
-        data.visual_enrichment_candidates = Some(json!([]));
+    if want_visual
+        && visual_candidates
+            .as_array()
+            .is_some_and(|values| !values.is_empty())
+    {
+        data.visual_enrichment_candidates = Some(visual_candidates);
     }
 
     if let Some(context) = data.structured_fusion_context.clone() {
@@ -1750,7 +1779,7 @@ mod tests {
         // from the TypeScript v3.0.14 failure semantics.
         assert!(data.ocr_text_layer.is_none());
         assert!(!data.ocr_candidate_pages.is_empty());
-        assert!(data.visual_enrichments.is_some());
+        assert!(data.visual_enrichments.is_none());
         assert_eq!(
             data.trust_report.as_ref().unwrap()["profile"],
             "pdf_trust_report"

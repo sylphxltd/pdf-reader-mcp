@@ -3224,6 +3224,7 @@ pub fn build_document_map(
     warnings: &[String],
     trust: Option<&Value>,
     a11y: Option<&Value>,
+    visual_candidates: &Value,
 ) -> Value {
     let element_values = elements.as_array().cloned().unwrap_or_default();
     let chunk_values = chunks.as_array().cloned().unwrap_or_default();
@@ -3242,6 +3243,20 @@ pub fn build_document_map(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
+    let visual_candidate_values = visual_candidates.as_array().cloned().unwrap_or_default();
+    let mut visual_candidate_indexes_by_page = BTreeMap::<u32, Vec<usize>>::new();
+    for (index, candidate) in visual_candidate_values.iter().enumerate() {
+        if let Some(page) = candidate
+            .get("page")
+            .and_then(Value::as_u64)
+            .and_then(|page| u32::try_from(page).ok())
+        {
+            visual_candidate_indexes_by_page
+                .entry(page)
+                .or_default()
+                .push(index);
+        }
+    }
 
     let mut selected_pages = pages.iter().map(|page| page.page).collect::<Vec<_>>();
     selected_pages.sort_unstable();
@@ -3268,6 +3283,9 @@ pub fn build_document_map(
         .any(|element| element.get("type").and_then(Value::as_str) == Some("table"))
     {
         layers.push("table_structure");
+    }
+    if !visual_candidate_values.is_empty() {
+        layers.push("visual_region_candidates");
     }
     if element_values.iter().any(|element| {
         element.get("type").and_then(Value::as_str) == Some("text")
@@ -3391,6 +3409,11 @@ pub fn build_document_map(
                 })
                 .map(|(index, _)| index)
                 .collect::<Vec<_>>();
+            let visual_candidate_indexes = visual_candidate_indexes_by_page
+                .get(&page)
+                .cloned()
+                .unwrap_or_default();
+            let visual_candidate_count = visual_candidate_indexes.len();
             let trust_page_report = trust_report_by_page.get(&page).copied();
             let trust_signal_indexes = trust_signal_indexes_by_page
                 .get(&page)
@@ -3459,13 +3482,13 @@ pub fn build_document_map(
                 "element_ids": page_elements.iter().filter_map(|element| element.get("id").and_then(Value::as_str)).collect::<Vec<_>>(),
                 "chunk_ids": chunk_ids,
                 "safety_finding_indexes": page_safety_indexes,
-                "visual_candidate_indexes": [],
+                "visual_candidate_indexes": visual_candidate_indexes,
                 "visual_enrichment_indexes": [],
                 "text_chars": item_text.iter().map(|text| utf16_len(text)).sum::<u32>(),
                 "text_item_count": item_text.len(),
                 "image_count": page_elements.iter().filter(|element| element.get("type").and_then(Value::as_str) == Some("image")).count(),
                 "table_count": page_elements.iter().filter(|element| element.get("type").and_then(Value::as_str) == Some("table")).count(),
-                "visual_candidate_count": 0,
+                "visual_candidate_count": visual_candidate_count,
                 "visual_enrichment_count": 0,
             });
             if let Some(geometry) = page_geometry {
@@ -3693,6 +3716,21 @@ pub fn build_document_map(
         .iter()
         .filter(|element| element.get("type").and_then(Value::as_str) == Some("table"))
         .count();
+    let mut visual_candidate_kind_counts = serde_json::Map::new();
+    for candidate in &visual_candidate_values {
+        let Some(kind) = candidate.get("target_element_type").and_then(Value::as_str) else {
+            continue;
+        };
+        let count = visual_candidate_kind_counts
+            .get(kind)
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        visual_candidate_kind_counts.insert(kind.to_owned(), json!(count + 1));
+    }
+    let visual_candidate_pages = visual_candidate_indexes_by_page
+        .keys()
+        .copied()
+        .collect::<Vec<_>>();
 
     let mut summary = json!({
         "total_pages": total_pages,
@@ -3717,8 +3755,8 @@ pub fn build_document_map(
         "ocr_text_chars": 0,
         "image_element_count": image_element_count,
         "table_element_count": table_element_count,
-        "visual_enrichment_candidate_count": 0,
-        "visual_enrichment_candidate_kind_counts": {},
+        "visual_enrichment_candidate_count": visual_candidate_values.len(),
+        "visual_enrichment_candidate_kind_counts": visual_candidate_kind_counts,
         "visual_enrichment_count": 0,
         "visual_enrichment_kind_counts": {},
         "chunk_count": chunk_values.len(),
@@ -3741,7 +3779,7 @@ pub fn build_document_map(
         "pages": mapped_pages,
         "elements": element_values,
         "chunks": chunk_values,
-        "visual_enrichment_candidates": [],
+        "visual_enrichment_candidates": visual_candidate_values,
         "visual_enrichments": [],
         "layout_diagnostics": layout_values,
         "safety_findings": safety_values,
@@ -3750,7 +3788,7 @@ pub fn build_document_map(
             "image_or_sparse_pages": image_or_sparse_pages,
             "needs_ocr_pages": needs_ocr_pages,
             "ocr_applied_pages": [],
-            "visual_candidate_pages": [],
+            "visual_candidate_pages": visual_candidate_pages,
             "accessibility_review_pages": review_pages(None),
             "accessibility_high_issue_pages": review_pages(Some("high")),
             "accessibility_medium_issue_pages": review_pages(Some("medium")),
@@ -3902,10 +3940,62 @@ mod tests {
             &[],
             None,
             None,
+            &json!([]),
         );
         assert_eq!(map["summary"]["selected_pages"], json!([1, 3]));
         assert_eq!(map["pages"][0]["chunk_ids"], json!(["hostile-span"]));
         assert_eq!(map["pages"][1]["chunk_ids"], json!(["hostile-span"]));
+    }
+
+    #[test]
+    fn document_map_projects_visual_candidate_indexes_routing_and_summary() {
+        let selected = vec![
+            PageText {
+                page: 1,
+                text: "First".into(),
+                positioned_items: Vec::new(),
+            },
+            PageText {
+                page: 2,
+                text: "Second".into(),
+                positioned_items: Vec::new(),
+            },
+        ];
+        let candidates = json!([
+            {"id":"table-1","page":1,"target_element_type":"table"},
+            {"id":"figure-2","page":2,"target_element_type":"figure"},
+            {"id":"image-1","page":1,"target_element_type":"image"}
+        ]);
+        let map = build_document_map(
+            &selected,
+            2,
+            &json!([]),
+            &json!([]),
+            &json!([]),
+            &json!([]),
+            &json!({"pages":[],"summary":{}}),
+            None,
+            &[],
+            None,
+            None,
+            &candidates,
+        );
+
+        assert!(map["layers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|layer| layer == "visual_region_candidates"));
+        assert_eq!(map["pages"][0]["visual_candidate_indexes"], json!([0, 2]));
+        assert_eq!(map["pages"][0]["visual_candidate_count"], 2);
+        assert_eq!(map["pages"][1]["visual_candidate_indexes"], json!([1]));
+        assert_eq!(map["routing"]["visual_candidate_pages"], json!([1, 2]));
+        assert_eq!(map["summary"]["visual_enrichment_candidate_count"], 3);
+        assert_eq!(
+            map["summary"]["visual_enrichment_candidate_kind_counts"],
+            json!({"figure":1,"image":1,"table":1})
+        );
+        assert_eq!(map["visual_enrichment_candidates"], candidates);
     }
 
     #[test]
@@ -4319,6 +4409,7 @@ mod tests {
             &[],
             Some(&trust),
             None,
+            &json!([]),
         );
         assert!(map["layers"]
             .as_array()
@@ -4368,6 +4459,7 @@ mod tests {
             &[],
             Some(&trust),
             None,
+            &json!([]),
         );
         assert_eq!(map["pages"][0]["trust_medium_signal_indexes"], json!([0]));
         assert_eq!(map["pages"][0]["trust_medium_signal_count"], 1);

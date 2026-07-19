@@ -99,6 +99,21 @@ const rasterImageCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const visualCandidateCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-visual-candidate-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxCandidatesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -107,12 +122,23 @@ const rasterImageWorkflowStart = differentialWorkflow.indexOf(
   'RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"'
 );
 const rasterImageWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'VISUAL_CANDIDATE_ARTIFACT="${SCRATCH_DIR}/v3014-visual-candidate-result.json"',
   rasterImageWorkflowStart
 );
 const rasterImageWorkflow =
   rasterImageWorkflowStart >= 0 && rasterImageWorkflowEnd > rasterImageWorkflowStart
     ? differentialWorkflow.slice(rasterImageWorkflowStart, rasterImageWorkflowEnd)
+    : '';
+const visualCandidateWorkflowStart = differentialWorkflow.indexOf(
+  'VISUAL_CANDIDATE_ARTIFACT="${SCRATCH_DIR}/v3014-visual-candidate-result.json"'
+);
+const visualCandidateWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  visualCandidateWorkflowStart
+);
+const visualCandidateWorkflow =
+  visualCandidateWorkflowStart >= 0 && visualCandidateWorkflowEnd > visualCandidateWorkflowStart
+    ? differentialWorkflow.slice(visualCandidateWorkflowStart, visualCandidateWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -174,8 +200,8 @@ if (matrix.tools.read_pdf.include_tables !== 'PARTIAL') {
 if (matrix.tools.read_pdf.include_images !== 'PARTIAL') {
   failures.push('bounded common-raster image claim must remain PARTIAL');
 }
-if (matrix.tools.read_pdf.include_visual_enrichments !== 'STUB') {
-  failures.push('visual enrichments must remain STUB outside the image-metadata slice');
+if (matrix.tools.read_pdf.include_visual_enrichments !== 'PARTIAL') {
+  failures.push('bounded provider-independent visual-candidate claim must remain PARTIAL');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -465,11 +491,52 @@ if (
   !rasterImageWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||
   !rasterImageWorkflow.includes('.decodedPixelProof.comparedCompressionBytes == false') ||
   !rasterImageWorkflow.includes('.capabilityStatus.includeImages == "PARTIAL"') ||
-  !rasterImageWorkflow.includes('.capabilityStatus.visualEnrichments == "STUB"') ||
+  !rasterImageWorkflow.includes('.capabilityStatus.visualEnrichments == "PARTIAL"') ||
   !rasterImageWorkflow.includes('.productTruth.dropInFor3014 == false') ||
   !rasterImageWorkflow.includes('.productTruth.publishFreeze == true')
 ) {
   failures.push('raster-image workflow must bind mutation, decoded-pixel, capability, and product-truth proof');
+}
+const visualCandidateCaseCount = visualCandidateCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-visual-candidate-differential')) {
+  failures.push('rust parity workflow must execute the frozen visual-candidate differential');
+}
+if (
+  !visualCandidateWorkflow.includes(`.caseCount == ${visualCandidateCaseCount}`) ||
+  !visualCandidateWorkflow.includes(`.passed == ${visualCandidateCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${visualCandidateCaseCount}/${visualCandidateCaseCount} visual-candidate corpus`
+  );
+}
+if (
+  visualCandidateCaseCount !== 11 ||
+  visualCandidateCorpus.envelope.fixtureCount !== 1 ||
+  visualCandidateCorpus.envelope.maxPagesPerCase !== 2 ||
+  visualCandidateCorpus.envelope.maxCandidatesPerCase !== 2 ||
+  Object.values(visualCandidateCorpus.nonclaims).some((value) => value !== false)
+) {
+  failures.push('visual-candidate corpus envelope and explicit nonclaims must remain frozen');
+}
+if (
+  !visualCandidateWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "75763aa379f2db5558a9ce91b06bbc7f44df1839195e1b15ff86d1642ad2d70c"'
+  ) ||
+  !visualCandidateWorkflow.includes('.mutationSensitive.leafMutationCount == 362') ||
+  !visualCandidateWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 4') ||
+  !visualCandidateWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 2') ||
+  !visualCandidateWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 4') ||
+  !visualCandidateWorkflow.includes('.mutationSensitive.publicOmissionProbeCount == 3') ||
+  !visualCandidateWorkflow.includes('.mutationSensitive.privateLeakProbeCount == 2') ||
+  !visualCandidateWorkflow.includes('.mutationSensitive.dependencyPresenceProbeCount == 6') ||
+  !visualCandidateWorkflow.includes('.providerIndependentProof.providerNotConfigured == true') ||
+  !visualCandidateWorkflow.includes('.providerIndependentProof.candidatesRetained == true') ||
+  !visualCandidateWorkflow.includes('.providerIndependentProof.enrichmentsOmitted == true') ||
+  !visualCandidateWorkflow.includes('.providerIndependentProof.internalElementsHidden == true') ||
+  !visualCandidateWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !visualCandidateWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('visual-candidate workflow must bind provider-independent and product-truth proof');
 }
 if (failures.length) {
   console.error(failures.join('\n'));
