@@ -112,6 +112,7 @@ jobs:
           bun run test:v3014-document-ast-differential
           bun run test:v3014-document-map-differential
           bun run test:v3014-trust-report-differential
+          bun run test:v3014-selectable-table-differential
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -266,6 +267,37 @@ jobs:
             echo "::error::v3.0.14 trust-report result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           }
+          SELECTABLE_TABLE_ARTIFACT="${SCRATCH_DIR}/v3014-selectable-table-result.json"
+          if [ ! -f "$SELECTABLE_TABLE_ARTIFACT" ]; then
+            echo "::error::v3.0.14 selectable-table result missing at $SELECTABLE_TABLE_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_selectable_table_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
+            .subprocessNonzeroRejected == true and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "7ea2129614c89d9d50707d1f96a802bfe485f10ecc576989f9ac99be610df893" and
+            .mutationSensitive.leafMutationCount == 1625 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 7 and
+            .mutationSensitive.unexpectedFieldProbeCount == 11 and
+            .mutationSensitive.requiredOmissionProbeCount == 7 and
+            .mutationSensitive.privateLeakProbeCount == 5 and
+            .mutationSensitive.dependencyPresenceProbeCount == 13 and
+            (.semanticProof | to_entries | all(.value == true)) and
+            (.continuationProof | to_entries | all(.value == true)) and
+            .resourceBoundProof.exactCapItemCount == 4096 and
+            .resourceBoundProof.itemCount == 4097 and
+            .resourceBoundProof.cap == 4096 and
+            .resourceBoundProof.exactCapAccepted == true and
+            .resourceBoundProof.zeroTables == true and
+            .resourceBoundProof.exactWarning == true
+          ' "$SELECTABLE_TABLE_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 selectable-table result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
@@ -303,6 +335,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/v3014-document-ast-result.json
             ${{ env.SCRATCH_DIR }}/v3014-document-map-result.json
             ${{ env.SCRATCH_DIR }}/v3014-trust-report-result.json
+            ${{ env.SCRATCH_DIR }}/v3014-selectable-table-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-result.json
           if-no-files-found: error
 

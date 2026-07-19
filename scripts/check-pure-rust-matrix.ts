@@ -55,6 +55,12 @@ const trustReportCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }> };
+const selectableTableCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-selectable-table-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -112,6 +118,9 @@ if (matrix.tools.read_pdf.include_document_map !== 'PARTIAL') {
 }
 if (matrix.tools.read_pdf.include_trust_report !== 'PARTIAL') {
   failures.push('bounded trust-report claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_tables !== 'PARTIAL') {
+  failures.push('bounded selectable-table claim must remain PARTIAL');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -245,6 +254,44 @@ if (
   !differentialWorkflow.includes('(.mapLinkage | to_entries | all(.value == true))')
 ) {
   failures.push('trust-report workflow must bind exact mutation counts and complete map-linkage proof');
+}
+const selectableTableCaseCount = selectableTableCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-selectable-table-differential')) {
+  failures.push('rust parity workflow must execute the frozen selectable-table differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${selectableTableCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${selectableTableCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${selectableTableCaseCount}/${selectableTableCaseCount} selectable-table corpus`
+  );
+}
+if (selectableTableCaseCount !== 6) {
+  failures.push(`frozen selectable-table differential must contain exactly 6 cases (got ${selectableTableCaseCount})`);
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "7ea2129614c89d9d50707d1f96a802bfe485f10ecc576989f9ac99be610df893"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 1625') ||
+  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 7') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 11') ||
+  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 7') ||
+  !differentialWorkflow.includes('.mutationSensitive.privateLeakProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.dependencyPresenceProbeCount == 13')
+) {
+  failures.push('selectable-table workflow must bind the executed mutation manifest, leaf coverage, and exact probe counts');
+}
+if (
+  !differentialWorkflow.includes('(.semanticProof | to_entries | all(.value == true))') ||
+  !differentialWorkflow.includes('(.continuationProof | to_entries | all(.value == true))') ||
+  !differentialWorkflow.includes('.resourceBoundProof.exactCapItemCount == 4096') ||
+  !differentialWorkflow.includes('.resourceBoundProof.itemCount == 4097') ||
+  !differentialWorkflow.includes('.resourceBoundProof.cap == 4096') ||
+  !differentialWorkflow.includes('.resourceBoundProof.exactCapAccepted == true')
+) {
+  failures.push('selectable-table workflow must bind semantic/linkage proofs and exact-cap/cap+1 admission');
 }
 if (failures.length) {
   console.error(failures.join('\n'));

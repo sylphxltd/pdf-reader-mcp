@@ -156,6 +156,7 @@ pub fn read_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
             .and_then(|data| data.ocr_text_layer.as_ref())
             .is_some()
     });
+    let public_payload = public_read_payload(&payload)?;
     let mut structured = attach_evidence(
         "read_pdf",
         None,
@@ -163,9 +164,7 @@ pub fn read_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
         READ_PDF_ROUTE,
         source_hash,
         Vec::new(),
-        serde_json::to_value(&payload).map_err(|error| {
-            rmcp::ErrorData::internal_error(format!("Failed to serialize read_pdf: {error}"), None)
-        })?,
+        public_payload,
     );
     if has_provider_ocr {
         structured["evidence"]["confidence"] = json!("provider-dependent");
@@ -173,7 +172,111 @@ pub fn read_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
 
     let mut result = CallToolResult::structured(structured);
     append_ocr_content(&mut result, &payload);
+    append_table_content(&mut result, &payload);
     Ok(result)
+}
+
+fn public_read_payload(payload: &ReadPdfResponse) -> Result<Value, rmcp::ErrorData> {
+    let mut value = serde_json::to_value(payload).map_err(|error| {
+        rmcp::ErrorData::internal_error(format!("Failed to serialize read_pdf: {error}"), None)
+    })?;
+    let Some(results) = value.get_mut("results").and_then(Value::as_array_mut) else {
+        return Ok(value);
+    };
+    for result in results {
+        let Some(data) = result.get_mut("data").and_then(Value::as_object_mut) else {
+            continue;
+        };
+        let Some(tables) = data
+            .remove("tables")
+            .and_then(|tables| tables.as_array().cloned())
+        else {
+            continue;
+        };
+        if tables.is_empty() {
+            continue;
+        }
+        let table_info = tables
+            .into_iter()
+            .map(|table| {
+                let row_count = table.get("rowCount").and_then(Value::as_u64).unwrap_or(0);
+                let col_count = table.get("colCount").and_then(Value::as_u64).unwrap_or(0);
+                let cell_count = table
+                    .get("cells")
+                    .and_then(Value::as_array)
+                    .map_or(row_count.saturating_mul(col_count), |cells| {
+                        cells.len() as u64
+                    });
+                let mut metadata = json!({
+                    "page": table.get("page").cloned().unwrap_or(Value::Null),
+                    "tableIndex": table.get("tableIndex").cloned().unwrap_or(Value::Null),
+                    "rowCount": row_count,
+                    "colCount": col_count,
+                    "cellCount": cell_count,
+                    "confidence": table.get("confidence").cloned().unwrap_or(Value::Null),
+                });
+                for field in ["bounding_box", "quality", "continuation", "provenance"] {
+                    if let Some(field_value) = table.get(field) {
+                        metadata[field] = field_value.clone();
+                    }
+                }
+                metadata
+            })
+            .collect::<Vec<_>>();
+        data.insert("table_info".into(), json!(table_info));
+    }
+    Ok(value)
+}
+
+fn append_table_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
+    let tables = payload
+        .results
+        .iter()
+        .filter_map(|source| source.data.as_ref())
+        .filter_map(|data| data.tables.as_ref())
+        .flat_map(|tables| tables.as_array().into_iter().flatten())
+        .collect::<Vec<_>>();
+    if tables.is_empty() {
+        return;
+    }
+    let mut sections = vec!["## Extracted Tables".to_string(), String::new()];
+    for table in tables {
+        let page = table.get("page").and_then(Value::as_u64).unwrap_or(0);
+        let table_number = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0) + 1;
+        let confidence = table
+            .get("confidence")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
+        sections.push(format!("### Page {page}, Table {table_number}"));
+        sections.push(format!("*Confidence: {:.0}%*", confidence * 100.0));
+        sections.push(String::new());
+        if let Some(rows) = table.get("rows").and_then(Value::as_array) {
+            for (row_index, row) in rows.iter().enumerate() {
+                let cells = row
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|cell| {
+                        let trimmed = cell.as_str().unwrap_or("").trim();
+                        if trimmed.is_empty() {
+                            " "
+                        } else {
+                            trimmed
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                sections.push(format!("| {} |", cells.join(" | ")));
+                if row_index == 0 {
+                    sections.push(format!(
+                        "| {} |",
+                        cells.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")
+                    ));
+                }
+            }
+        }
+        sections.push(String::new());
+    }
+    result.content.push(Content::text(sections.join("\n")));
 }
 
 fn append_ocr_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
@@ -238,6 +341,44 @@ mod tests {
             .expect("content json");
         assert_eq!(encoded["text"], "[Page 2 OCR]\nscanned text");
         assert!(result.structured_content.is_some());
+    }
+
+    #[test]
+    fn public_table_projection_strips_rows_and_appends_separate_markdown() {
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/sample.pdf");
+        let mut payload = read_pdf_from_value(&json!({
+            "sources": [{"path": fixture}],
+            "auto": false,
+            "include_tables": true
+        }))
+        .expect("read fixture");
+        payload.results[0].data.as_mut().expect("read data").tables = Some(json!([{
+            "page": 1,
+            "tableIndex": 0,
+            "rows": [["Name", "Qty"], ["Apple", "2"]],
+            "cells": [{"text":"Name"},{"text":"Qty"},{"text":"Apple"},{"text":"2"}],
+            "rowCount": 2,
+            "colCount": 2,
+            "confidence": 0.95,
+            "quality": {"signals":["complete_grid"]},
+            "provenance": {"source":"selectable_text","engine":"pdf-reader-core"}
+        }]));
+
+        let public = public_read_payload(&payload).expect("public projection");
+        let data = &public["results"][0]["data"];
+        assert!(data.get("tables").is_none());
+        assert_eq!(data["table_info"][0]["cellCount"], 4);
+        assert!(data["table_info"][0].get("rows").is_none());
+        assert!(data["table_info"][0].get("cells").is_none());
+
+        let mut result = CallToolResult::structured(public);
+        append_table_content(&mut result, &payload);
+        let encoded = serde_json::to_value(result.content.last().expect("table content"))
+            .expect("content json");
+        let text = encoded["text"].as_str().expect("text content");
+        assert!(text.starts_with("## Extracted Tables\n\n### Page 1, Table 1"));
+        assert!(text.contains("| Name | Qty |\n| --- | --- |"));
     }
 
     #[test]

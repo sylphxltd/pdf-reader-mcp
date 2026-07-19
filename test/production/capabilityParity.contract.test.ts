@@ -28,7 +28,7 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   chunks: ['chunks'],
   elements: ['elements'],
   'text-layer': ['text_layer'],
-  tables: ['tables'],
+  tables: ['table_info'],
   'document-map': ['document_map'],
   'document-ast': ['document_ast'],
   safety: ['safety_findings'],
@@ -97,6 +97,10 @@ const pureRustEnabled =
   process.env.RUN_PURE_RUST_CAPABILITY === '1';
 const signalPdf = join(import.meta.dir, '../fixtures/differential/v3014-behavior-v1.pdf');
 const structurePdf = join(import.meta.dir, '../fixtures/differential/v3014-structure-v1.pdf');
+const selectableTablePdf = join(
+  import.meta.dir,
+  '../fixtures/differential/v3014-selectable-table-v1.pdf'
+);
 
 describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
   let proc: ChildProcess;
@@ -131,7 +135,16 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
         nextId(),
         'read_pdf',
         {
-          sources: [{ path: entry.id === 'structure' ? structurePdf : samplePdf }],
+          sources: [
+            {
+              path:
+                entry.id === 'structure'
+                  ? structurePdf
+                  : entry.id === 'tables'
+                    ? selectableTablePdf
+                    : samplePdf,
+            },
+          ],
           ...entry.args,
         },
         90_000
@@ -503,7 +516,6 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       'markdown',
       'chunks',
       'document_map',
-      'tables',
       'trust_report',
       'accessibility_report',
     ]) {
