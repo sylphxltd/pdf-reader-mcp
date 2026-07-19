@@ -96,6 +96,7 @@ try {
     ];
     const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as {
       fixture: { sha256: string };
+      admittedFixture: { sha256: string };
       hostileFixture: { sha256: string };
     };
     Object.assign(baseline, {
@@ -108,6 +109,7 @@ try {
       corpusSha256: sha(readFileSync(corpusPath)),
       fixtureManifestSha256: sha(readFileSync(fixtureManifestPath)),
       fixtureSha256: manifest.fixture.sha256,
+      admittedFixtureSha256: manifest.admittedFixture.sha256,
       hostileFixtureSha256: manifest.hostileFixture.sha256,
       entrypointSha256: Object.fromEntries(
         entrypoints.map((p) => [

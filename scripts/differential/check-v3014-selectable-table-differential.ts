@@ -47,6 +47,12 @@ const corpus = JSON.parse(readFileSync(corpusPath, "utf8")) as {
 const oracle = JSON.parse(readFileSync(oraclePath, "utf8")) as Oracle;
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
   fixture: { path: string; bytes: number; sha256: string };
+  admittedFixture: {
+    path: string;
+    bytes: number;
+    sha256: string;
+    itemCount: number;
+  };
   hostileFixture: {
     path: string;
     bytes: number;
@@ -105,12 +111,15 @@ function authority(): Record<string, string> {
       throw new Error(`baseline source mismatch: ${p}`);
   for (const [f, e] of [
     [manifest.fixture, b.fixtureSha256],
+    [manifest.admittedFixture, b.admittedFixtureSha256],
     [manifest.hostileFixture, b.hostileFixtureSha256],
   ] as const) {
     const bytes = readFileSync(join(repoRoot, f.path));
     if (bytes.length !== f.bytes || sha(bytes) !== f.sha256 || f.sha256 !== e)
       throw new Error(`fixture mismatch: ${f.path}`);
   }
+  if (manifest.admittedFixture.itemCount !== 4096)
+    throw new Error("admitted fixture must be exact cap");
   if (manifest.hostileFixture.itemCount !== 4097)
     throw new Error("hostile fixture must be exact cap+1");
   if (
@@ -187,7 +196,7 @@ const failures: Array<{ id: string; expected: Json; actual: Json }> = [];
 for (const entry of corpus.cases) {
   const data = runCase(entry.input, entry.id);
   raw[entry.id] = data;
-  const actual = canonicalSelectableTableResult(data, entry.id);
+  const actual = canonicalSelectableTableResult(data);
   observations[entry.id] = actual;
   const expected = oracle.expectations[entry.id]!;
   if (!same(actual, expected))
@@ -220,6 +229,8 @@ const getTableChunks = (v: Record<string, unknown>) =>
   );
 const table = getTables(only)[0]!;
 const quality = table.quality as Record<string, unknown>;
+const exposedTable = getTables(exposed)[0]!;
+const exposedQuality = exposedTable.quality as Record<string, unknown>;
 const semanticProof = {
   exactSparseGrid:
     getTables(only).length === 1 &&
@@ -230,6 +241,15 @@ const semanticProof = {
   qualityWarnings:
     Array.isArray(quality.warnings) &&
     (quality.warnings as unknown[]).length === 2,
+  exactPageContentMergedCells:
+    exposedQuality.mergedCellCandidateCount === 5 &&
+    ((exposedTable.cells as Array<Record<string, unknown>>) ?? []).filter(
+      (cell) => cell.colSpan === 2
+    ).length === 5 &&
+    ((exposedQuality.signals as unknown[]) ?? []).includes(
+      "merged_cell_candidates"
+    ) &&
+    ((exposedQuality.warnings as unknown[]) ?? []).length === 3,
   hiddenTopLevelDependencies:
     !Object.hasOwn(only, "elements") &&
     !Object.hasOwn(only, "chunks") &&
@@ -260,6 +280,9 @@ const semanticProof = {
     getTables(noGrid).length === 0 &&
     getTableEls(noGrid).length === 0 &&
     getTableChunks(noGrid).length === 0,
+  htmlEscaping:
+    typeof cross.html === "string" &&
+    cross.html.includes("Percent &amp; &quot;rate&#39;s&quot;"),
 };
 const crossTables = getTables(cross);
 const continuationProof = {
@@ -281,6 +304,16 @@ const continuationProof = {
 };
 const semanticProofPass = Object.values(semanticProof).every(Boolean);
 const continuationProofPass = Object.values(continuationProof).every(Boolean);
+const admitted = runCase(
+  {
+    sources: [
+      { path: join(repoRoot, manifest.admittedFixture.path), pages: [1] },
+    ],
+    auto: false,
+    include_tables: true,
+  },
+  "admitted exact cap"
+);
 const hostile = runCase(
   {
     sources: [
@@ -292,9 +325,14 @@ const hostile = runCase(
   "hostile cap+1"
 );
 const hostileWarnings = (hostile.warnings ?? []) as string[];
+const admittedWarnings = (admitted.warnings ?? []) as string[];
 const resourceBoundProof = {
+  exactCapItemCount: manifest.admittedFixture.itemCount,
   itemCount: manifest.hostileFixture.itemCount,
   cap: 4096,
+  exactCapAccepted:
+    getTables(admitted).length > 0 &&
+    !admittedWarnings.some((warning) => warning.includes("admission limit")),
   zeroTables: getTables(hostile).length === 0,
   exactWarning: hostileWarnings.includes(
     "Selectable table extraction skipped page 1: spatial grid exceeds the Rust admission limit."
@@ -371,11 +409,10 @@ const report = {
   continuationProof,
   resourceBoundProof,
   nonClaims: [
-    "page-content-path merged-cell false positives caused by widened TS line boxes",
     "exact provenance engine label values: Rust truthfully reports pdf-reader-core while TS reports pdfjs",
     "OCR-derived, visual/provider, ML, and general-table detection parity",
     "selectable-table behavior outside the exact six-case corpus",
-    "hostile 4,097-item cap is a Rust safety admission proof, not TS semantic equality",
+    "exact-cap/cap+1 admission is a Rust safety proof, not TS semantic equality",
     "full Document AST, Document Map, Trust Report, markdown, HTML, element, and chunk parity outside exact table linkage",
   ],
   pass: failures.length === 0 && semanticProofPass && continuationProofPass,

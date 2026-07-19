@@ -280,7 +280,7 @@ jobs:
             .mutationSensitive.allClaimedFields == true and
             .mutationSensitive.manifestVersion == 1 and
             .mutationSensitive.mutationManifestSha256 == "d986e911b2f46fe182d8486ac5acd2981ce7062ea2364074bb8da74b902aa28a" and
-            .mutationSensitive.leafMutationCount == 914 and
+            .mutationSensitive.leafMutationCount == 1532 and
             .mutationSensitive.wrongPrimitiveTypeProbeCount == 7 and
             .mutationSensitive.unexpectedFieldProbeCount == 7 and
             .mutationSensitive.requiredOmissionProbeCount == 7 and
@@ -288,8 +288,10 @@ jobs:
             .mutationSensitive.dependencyPresenceProbeCount == 13 and
             (.semanticProof | to_entries | all(.value == true)) and
             (.continuationProof | to_entries | all(.value == true)) and
+            .resourceBoundProof.exactCapItemCount == 4096 and
             .resourceBoundProof.itemCount == 4097 and
             .resourceBoundProof.cap == 4096 and
+            .resourceBoundProof.exactCapAccepted == true and
             .resourceBoundProof.zeroTables == true and
             .resourceBoundProof.exactWarning == true
           ' "$SELECTABLE_TABLE_ARTIFACT" >/dev/null || {

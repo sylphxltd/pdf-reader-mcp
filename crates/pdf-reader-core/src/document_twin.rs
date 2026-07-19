@@ -1249,7 +1249,10 @@ fn link_table_continuations(tables: &mut [Value]) {
     }
 }
 
-pub(crate) fn build_tables_with_admission(pages: &[PageText]) -> (Value, Vec<String>) {
+pub(crate) fn build_tables_with_admission(
+    pages: &[PageText],
+    page_content_geometry: bool,
+) -> (Value, Vec<String>) {
     let mut tables = Vec::new();
     let mut warnings = Vec::new();
     for page in pages {
@@ -1274,6 +1277,7 @@ pub(crate) fn build_tables_with_admission(pages: &[PageText]) -> (Value, Vec<Str
                     bounding_box,
                 })
             })
+            .take(MAX_TABLE_ITEMS_PER_PAGE + 1)
             .collect::<Vec<_>>();
         if items.len() > MAX_TABLE_ITEMS_PER_PAGE {
             warnings.push(format!(
@@ -1298,6 +1302,13 @@ pub(crate) fn build_tables_with_admission(pages: &[PageText]) -> (Value, Vec<Str
         }
         for row in &mut rows {
             row.items.sort_by(|left, right| left.x.total_cmp(&right.x));
+            if page_content_geometry {
+                for index in 0..row.items.len().saturating_sub(1) {
+                    let next_x = row.items[index + 1].x;
+                    row.items[index].bounding_box.right =
+                        row.items[index].bounding_box.right.max(next_x);
+                }
+            }
         }
         let candidate_rows = rows
             .into_iter()
@@ -1517,7 +1528,7 @@ pub(crate) fn build_tables_with_admission(pages: &[PageText]) -> (Value, Vec<Str
 }
 
 pub fn build_tables(pages: &[PageText]) -> Value {
-    build_tables_with_admission(pages).0
+    build_tables_with_admission(pages, false).0
 }
 
 pub fn build_safety_findings(pages: &[PageText]) -> Value {
@@ -3604,6 +3615,70 @@ mod tests {
     }
 
     #[test]
+    fn selectable_tables_match_direct_and_page_content_geometry_paths() {
+        let item = |text: &str, left: f64, bottom: f64| PositionedTextItem {
+            text: text.into(),
+            bounding_box: Some(TextBoundingBox {
+                left,
+                bottom,
+                right: left + 30.0,
+                top: bottom + 10.0,
+            }),
+            chars: Vec::new(),
+        };
+        let pages = [PageText {
+            page: 1,
+            text: String::new(),
+            positioned_items: vec![
+                item("Name", 20.0, 100.0),
+                item("Qty", 120.0, 100.0),
+                item("Apple", 20.0, 80.0),
+                item("2", 120.0, 80.0),
+            ],
+        }];
+        let direct = build_tables_with_admission(&pages, false).0;
+        let page_content = build_tables_with_admission(&pages, true).0;
+        assert_eq!(direct[0]["quality"]["mergedCellCandidateCount"], 0);
+        assert_eq!(direct[0]["cells"][0]["colSpan"], 1);
+        assert_eq!(page_content[0]["quality"]["mergedCellCandidateCount"], 2);
+        assert_eq!(page_content[0]["cells"][0]["colSpan"], 2);
+        assert_eq!(
+            page_content[0]["quality"]["warnings"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn selectable_table_admission_accepts_the_exact_item_cap() {
+        let positioned_items = (0..MAX_TABLE_ITEMS_PER_PAGE)
+            .map(|index| PositionedTextItem {
+                text: format!("cell-{index}"),
+                bounding_box: Some(TextBoundingBox {
+                    left: if index % 2 == 0 { 10.0 } else { 100.0 },
+                    bottom: 30_000.0 - (index / 2) as f64 * 10.0,
+                    right: if index % 2 == 0 { 30.0 } else { 120.0 },
+                    top: 30_010.0 - (index / 2) as f64 * 10.0,
+                }),
+                chars: Vec::new(),
+            })
+            .collect();
+        let (tables, warnings) = build_tables_with_admission(
+            &[PageText {
+                page: 6,
+                text: String::new(),
+                positioned_items,
+            }],
+            false,
+        );
+        assert!(warnings.is_empty());
+        assert_eq!(tables[0]["rowCount"], 2_048);
+        assert_eq!(tables[0]["colCount"], 2);
+    }
+
+    #[test]
     fn selectable_table_admission_fails_closed_before_grid_amplification() {
         let positioned_items = (0..=MAX_TABLE_ITEMS_PER_PAGE)
             .map(|index| PositionedTextItem {
@@ -3617,11 +3692,14 @@ mod tests {
                 chars: Vec::new(),
             })
             .collect();
-        let (tables, warnings) = build_tables_with_admission(&[PageText {
-            page: 7,
-            text: String::new(),
-            positioned_items,
-        }]);
+        let (tables, warnings) = build_tables_with_admission(
+            &[PageText {
+                page: 7,
+                text: String::new(),
+                positioned_items,
+            }],
+            false,
+        );
         assert_eq!(tables, json!([]));
         assert_eq!(
             warnings,

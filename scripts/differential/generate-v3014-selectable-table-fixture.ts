@@ -13,6 +13,10 @@ const hostilePdfPath = join(
   fixtureDir,
   "v3014-selectable-table-hostile-4097-v1.pdf"
 );
+const admittedPdfPath = join(
+  fixtureDir,
+  "v3014-selectable-table-admitted-4096-v1.pdf"
+);
 const manifestPath = join(
   scriptDir,
   "fixtures/v3014-selectable-table-fixture.json"
@@ -58,7 +62,7 @@ function buildPdf(): Buffer {
       { text: "North", x: 420, y: 688 },
       { text: "Margin", x: 72, y: 660 },
       { text: "33", x: 250, y: 659 },
-      { text: "Percent", x: 420, y: 658 },
+      { text: "Percent & \"rate's\"", x: 420, y: 658 },
     ],
     [{ text: "Narrative evidence without a grid.", x: 72, y: 720 }],
   ];
@@ -127,8 +131,8 @@ function buildPdf(): Buffer {
   return Buffer.concat(chunks);
 }
 
-function buildHostilePdf(): Buffer {
-  const cells = Array.from({ length: 4097 }, (_, index) => ({
+function buildGridPdf(itemCount: number): Buffer {
+  const cells = Array.from({ length: itemCount }, (_, index) => ({
     text: `g${index}`,
     x: index % 2 === 0 ? 72 : 320,
     y: 780 - index * 0.15,
@@ -177,7 +181,8 @@ function buildHostilePdf(): Buffer {
 }
 
 const bytes = buildPdf();
-const hostileBytes = buildHostilePdf();
+const admittedBytes = buildGridPdf(4096);
+const hostileBytes = buildGridPdf(4097);
 const manifest = {
   schemaVersion: 1,
   generator: relative(repoRoot, fileURLToPath(import.meta.url)),
@@ -185,6 +190,12 @@ const manifest = {
     path: relative(repoRoot, pdfPath),
     bytes: bytes.length,
     sha256: sha256(bytes),
+  },
+  admittedFixture: {
+    path: relative(repoRoot, admittedPdfPath),
+    bytes: admittedBytes.length,
+    sha256: sha256(admittedBytes),
+    itemCount: 4096,
   },
   hostileFixture: {
     path: relative(repoRoot, hostilePdfPath),
@@ -198,6 +209,7 @@ if (write) {
   mkdirSync(fixtureDir, { recursive: true });
   mkdirSync(dirname(manifestPath), { recursive: true });
   writeFileSync(pdfPath, bytes);
+  writeFileSync(admittedPdfPath, admittedBytes);
   writeFileSync(hostilePdfPath, hostileBytes);
   writeFileSync(manifestPath, manifestBytes);
   console.error(`wrote ${relative(repoRoot, pdfPath)}`);
@@ -206,6 +218,13 @@ if (write) {
 if (!existsSync(pdfPath) || !readFileSync(pdfPath).equals(bytes))
   throw new Error(
     "selectable-table fixture is stale or missing; run with --write"
+  );
+if (
+  !existsSync(admittedPdfPath) ||
+  !readFileSync(admittedPdfPath).equals(admittedBytes)
+)
+  throw new Error(
+    "selectable-table admitted fixture is stale or missing; run with --write"
   );
 if (
   !existsSync(hostilePdfPath) ||

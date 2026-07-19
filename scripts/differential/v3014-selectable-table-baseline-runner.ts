@@ -34,9 +34,6 @@ for (const entry of corpus.cases) {
   // include_tables was explicitly requested. Keep that visibility contract while
   // retaining full tables for the exact selectable-table semantic projection.
   if (input.include_tables !== true) delete result.data.tables;
-  expectations[entry.id] = canonicalSelectableTableResult(
-    result.data,
-    entry.id
-  );
+  expectations[entry.id] = canonicalSelectableTableResult(result.data);
 }
 console.log(JSON.stringify(expectations));

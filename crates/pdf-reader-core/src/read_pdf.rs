@@ -765,8 +765,25 @@ fn build_data(
         );
     }
 
+    let page_content_table_geometry = want_text
+        || want_elements
+        || want_semantic
+        || want_md
+        || want_html
+        || want_chunks
+        || want_text_layer
+        || want_ocr
+        || want_images
+        || want_safety
+        || want_layout
+        || want_map
+        || want_ast
+        || want_visual
+        || want_trust
+        || want_a11y;
     let tables = if want_tables || want_ast || want_map || want_visual || want_trust {
-        let (tables, table_warnings) = build_tables_with_admission(pages);
+        let (tables, table_warnings) =
+            build_tables_with_admission(pages, page_content_table_geometry);
         warnings.extend(table_warnings);
         Some(tables)
     } else {
@@ -1095,6 +1112,8 @@ fn html_escape(input: &str) -> String {
         .replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 fn read_source(source: &ReadPdfSource, input: &ReadPdfInput) -> ReadPdfSourceResult {
@@ -1487,6 +1506,10 @@ mod tests {
     use super::*;
     use lopdf::{EncryptionState, EncryptionVersion, Permissions};
 
+    #[test]
+    fn html_escape_matches_v3014_quotes_and_apostrophes() {
+        assert_eq!(html_escape("<&>\"'"), "&lt;&amp;&gt;&quot;&#39;");
+    }
     #[test]
     fn reads_fixture() {
         let fixture =

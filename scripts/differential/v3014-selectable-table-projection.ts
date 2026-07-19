@@ -172,24 +172,12 @@ const quality = (value: unknown, context: string): Json => {
   const out: Record<string, Json> = {};
   for (const k of QUALITY_KEYS) {
     if (!Object.hasOwn(v, k)) continue;
-    if (k === "mergedCellCandidateCount") {
-      out[k] = 0;
-      continue;
-    }
     if (k === "signals") {
-      out[k] = strings(v[k], `${context}.${k}`).filter(
-        (x) => x !== "merged_cell_candidates"
-      );
+      out[k] = strings(v[k], `${context}.${k}`);
       continue;
     }
     if (k === "warnings") {
-      const warnings = strings(v[k], `${context}.${k}`).filter(
-        (x) =>
-          !x.startsWith(
-            "Detected cells whose text boxes cross column boundaries;"
-          )
-      );
-      if (warnings.length > 0) out[k] = warnings;
+      out[k] = strings(v[k], `${context}.${k}`);
       continue;
     }
     out[k] = num(v[k], `${context}.${k}`);
@@ -274,11 +262,25 @@ const element = (value: unknown, context: string): Json => {
     rows: arr(nested.rows, `${context}.table.rows`).map((r, i) =>
       strings(r, `${context}.rows[${i}]`)
     ),
+    cells: arr(req(nested, "cells", `${context}.table`), `${context}.table.cells`).map(
+      (entry, index) => cell(entry, `${context}.table.cells[${index}]`)
+    ),
     rowCount: num(nested.rowCount, `${context}.rowCount`),
     colCount: num(nested.colCount, `${context}.colCount`),
     confidence: num(nested.confidence, `${context}.confidence`),
     quality: quality(nested.quality, `${context}.quality`),
     provenance: provenance(nested.provenance, `${context}.provenance`),
+    ...(Object.hasOwn(nested, "bounding_box")
+      ? { bounding_box: box(nested.bounding_box, `${context}.bounding_box`) }
+      : {}),
+    ...(Object.hasOwn(nested, "continuation")
+      ? {
+          continuation: continuation(
+            nested.continuation,
+            `${context}.continuation`
+          ),
+        }
+      : {}),
   };
 };
 const tableChunk = (value: unknown, context: string): Json => {
@@ -337,25 +339,12 @@ const findAstTables = (value: unknown): Json[] => {
   return found;
 };
 
-export const canonicalSelectableTableResult = (
-  value: unknown,
-  caseId = ""
-): Json => {
+export const canonicalSelectableTableResult = (value: unknown): Json => {
   const data = rec(value, "result.data");
   const fullTables = Object.hasOwn(data, "tables")
     ? arr(data.tables, "tables").map((x, i) => table(x, `tables[${i}]`))
     : [];
-  const tables =
-    caseId === "tables-exposed-downstream-linkage" ||
-    caseId === "tables-cross-page-continuation"
-      ? fullTables.map((entry) =>
-          Object.fromEntries(
-            Object.entries(entry as Record<string, Json>).filter(
-              ([key]) => key !== "cells"
-            )
-          )
-        )
-      : fullTables;
+  const tables = fullTables;
   const elements = Object.hasOwn(data, "elements")
     ? arr(data.elements, "elements")
         .filter((x) => rec(x, "element").type === "table")
@@ -418,9 +407,7 @@ export const canonicalSelectableTableResult = (
                 ),
                 warnings: Object.hasOwn(p, "warnings")
                   ? strings(p.warnings, "map warnings").filter(
-                      (x) =>
-                        /^p\d+-table-\d+: /u.test(x) &&
-                        !x.includes("text boxes cross column boundaries")
+                      (x) => /^p\d+-table-\d+: /u.test(x)
                     )
                   : [],
               };

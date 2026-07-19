@@ -6,12 +6,12 @@
     "commit": "92651c79c6ce8d10dfa3c76332176c26f222bd78",
     "tree": "f6fc4e58f692736c8bd6aaf9d4c9cfa806d113ab",
     "bunLockSha256": "07f469c8200fb82c9092cef178c1bdd67f8cf61fe6c027303665395eede9dd45",
-    "runnerSha256": "086774f021db8248f65af7b00fbb5c77fcc7a2eb6b76d4c8de1579469fe8deea",
-    "projectionSha256": "29c283a9fe05eb9b16b215e3835ec740626c57317e2faa575cffcbecd0bd637c",
-    "generatorSha256": "6356739efa4af19eb39cdc10c2590f666d13ea7603e9dfe6bfdf1914449abae1",
-    "corpusSha256": "14d552d7083a8d49550d046a4c9f672b876ab16240f2b6a3511e2fbb71a85519",
-    "fixtureManifestSha256": "d018cc001bd4e9c4f486d754dcf40c167803a9e7934013e31b425aa107472bd0",
-    "fixtureSha256": "c24807aa677a05709768dfe929c311f44ea7c4f59fd450da1a14a64951401f89",
+    "runnerSha256": "1b62f54411e63b6986cb79c780079e37caf0f97f5017b5639d710b296816e950",
+    "projectionSha256": "f15856ffcf5ef88443c73f8889d7fa5b3e792e0bc34b6008d4ea2ea8653ce2f5",
+    "generatorSha256": "be792141262f4c19337b52ca8d11980c51cf6d7ca9a2566fe9512bca28b6875e",
+    "corpusSha256": "9ba6267ae413f1c8b122982eb5562ab53f4ea50c1e918b10ae1338a0e42fa2a3",
+    "fixtureManifestSha256": "2443a4c799070f8d635f619b478467343adfbcc72e54d6cf1a7b773ede574b54",
+    "fixtureSha256": "99d313ebb2e7a251499c4988b47cfce38270be0584c4e55f05e20f8adeb72c30",
     "entrypointSha256": {
       "src/pdf/tableExtractor.ts": "ae21a6327349337efe6245ad391f3b94692c59bafb565f82c2bc8ed85cccecd4",
       "src/pdf/readCoordinator.ts": "827cb1018a8621287de154132c0a00a00188497b84622a168a343d0df3ce5eca",
@@ -23,7 +23,8 @@
       "src/handlers/readPdf.ts": "1e7488cba29dc66ef8b6a86322d871ac3a3e5bf01981e9ab98a47ec4b0b1d5c4",
       "src/types/pdf.ts": "95c9b5d0c352c10d6385c8a1ca21579a5554d6bcfbb026d60546960e38cc2beb"
     },
-    "hostileFixtureSha256": "facb40f4e0e5fb31c0a91ea51e317576d972c54290322bf959118d432fac5173"
+    "hostileFixtureSha256": "facb40f4e0e5fb31c0a91ea51e317576d972c54290322bf959118d432fac5173",
+    "admittedFixtureSha256": "69161b08349283eaaeca9630d6469f726a7c2898fe424bd960653f902913b889"
   },
   "expectations": {
     "tables-only-public-surface": {
@@ -315,6 +316,7 @@
             ],
             "warnings": [
               "p1-table-1: Detected empty inferred cells; table may contain sparse or merged structure.",
+              "p1-table-1: Detected cells whose text boxes cross column boundaries; spans are inferred.",
               "p1-table-1: Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters."
             ]
           }
@@ -375,6 +377,137 @@
               ""
             ]
           ],
+          "cells": [
+            {
+              "text": "Metric",
+              "rowIndex": 0,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 140,
+                "right": 250,
+                "top": 151
+              }
+            },
+            {
+              "text": "Value",
+              "rowIndex": 0,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 139,
+                "right": 420,
+                "top": 150
+              }
+            },
+            {
+              "text": "Region",
+              "rowIndex": 0,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 138,
+                "right": 454.848,
+                "top": 149
+              }
+            },
+            {
+              "text": "Revenue",
+              "rowIndex": 1,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 110,
+                "right": 250,
+                "top": 121
+              }
+            },
+            {
+              "text": "120",
+              "rowIndex": 1,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 109,
+                "right": 420,
+                "top": 120
+              }
+            },
+            {
+              "text": "North",
+              "rowIndex": 1,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 108,
+                "right": 446.895,
+                "top": 119
+              }
+            },
+            {
+              "text": "Cost",
+              "rowIndex": 2,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 80,
+                "right": 250,
+                "top": 91
+              }
+            },
+            {
+              "text": "80",
+              "rowIndex": 2,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 79,
+                "right": 262.232,
+                "top": 90
+              }
+            },
+            {
+              "text": "",
+              "rowIndex": 2,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": true
+            }
+          ],
           "rowCount": 3,
           "colCount": 3,
           "confidence": 0.92,
@@ -392,13 +525,15 @@
             "cellBoundingBoxCount": 8,
             "inferredCellCount": 1,
             "missingCellCount": 1,
-            "mergedCellCandidateCount": 0,
+            "mergedCellCandidateCount": 5,
             "signals": [
               "missing_cells",
+              "merged_cell_candidates",
               "incomplete_cell_geometry"
             ],
             "warnings": [
               "Detected empty inferred cells; table may contain sparse or merged structure.",
+              "Detected cells whose text boxes cross column boundaries; spans are inferred.",
               "Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters."
             ]
           },
@@ -432,6 +567,137 @@
               ""
             ]
           ],
+          "cells": [
+            {
+              "text": "Metric",
+              "rowIndex": 0,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 140,
+                "right": 250,
+                "top": 151
+              }
+            },
+            {
+              "text": "Value",
+              "rowIndex": 0,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 139,
+                "right": 420,
+                "top": 150
+              }
+            },
+            {
+              "text": "Region",
+              "rowIndex": 0,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 138,
+                "right": 454.848,
+                "top": 149
+              }
+            },
+            {
+              "text": "Revenue",
+              "rowIndex": 1,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 110,
+                "right": 250,
+                "top": 121
+              }
+            },
+            {
+              "text": "120",
+              "rowIndex": 1,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 109,
+                "right": 420,
+                "top": 120
+              }
+            },
+            {
+              "text": "North",
+              "rowIndex": 1,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 108,
+                "right": 446.895,
+                "top": 119
+              }
+            },
+            {
+              "text": "Cost",
+              "rowIndex": 2,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 80,
+                "right": 250,
+                "top": 91
+              }
+            },
+            {
+              "text": "80",
+              "rowIndex": 2,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 79,
+                "right": 262.232,
+                "top": 90
+              }
+            },
+            {
+              "text": "",
+              "rowIndex": 2,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": true
+            }
+          ],
           "rowCount": 3,
           "colCount": 3,
           "confidence": 0.92,
@@ -445,19 +711,27 @@
             "cellBoundingBoxCount": 8,
             "inferredCellCount": 1,
             "missingCellCount": 1,
-            "mergedCellCandidateCount": 0,
+            "mergedCellCandidateCount": 5,
             "signals": [
               "missing_cells",
+              "merged_cell_candidates",
               "incomplete_cell_geometry"
             ],
             "warnings": [
               "Detected empty inferred cells; table may contain sparse or merged structure.",
+              "Detected cells whose text boxes cross column boundaries; spans are inferred.",
               "Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters."
             ]
           },
           "provenance": {
             "source": "selectable_text",
             "engine": "<runtime-selectable-table-engine>"
+          },
+          "bounding_box": {
+            "left": 72,
+            "bottom": 79,
+            "right": 454.848,
+            "top": 151
           }
         }
       ],
@@ -539,6 +813,7 @@
             ],
             "warnings": [
               "p1-table-1: Detected empty inferred cells; table may contain sparse or merged structure.",
+              "p1-table-1: Detected cells whose text boxes cross column boundaries; spans are inferred.",
               "p1-table-1: Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters."
             ]
           }
@@ -568,7 +843,7 @@
         "elements": true,
         "chunks": true,
         "markdown": false,
-        "html": false,
+        "html": true,
         "document_ast": true,
         "document_map": true,
         "trust_report": true,
@@ -599,6 +874,137 @@
               ""
             ]
           ],
+          "cells": [
+            {
+              "text": "Metric",
+              "rowIndex": 0,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 140,
+                "right": 250,
+                "top": 151
+              }
+            },
+            {
+              "text": "Value",
+              "rowIndex": 0,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 139,
+                "right": 420,
+                "top": 150
+              }
+            },
+            {
+              "text": "Region",
+              "rowIndex": 0,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 138,
+                "right": 454.848,
+                "top": 149
+              }
+            },
+            {
+              "text": "Revenue",
+              "rowIndex": 1,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 110,
+                "right": 250,
+                "top": 121
+              }
+            },
+            {
+              "text": "120",
+              "rowIndex": 1,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 109,
+                "right": 420,
+                "top": 120
+              }
+            },
+            {
+              "text": "North",
+              "rowIndex": 1,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 108,
+                "right": 446.895,
+                "top": 119
+              }
+            },
+            {
+              "text": "Cost",
+              "rowIndex": 2,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 80,
+                "right": 250,
+                "top": 91
+              }
+            },
+            {
+              "text": "80",
+              "rowIndex": 2,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 79,
+                "right": 262.232,
+                "top": 90
+              }
+            },
+            {
+              "text": "",
+              "rowIndex": 2,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": true
+            }
+          ],
           "rowCount": 3,
           "colCount": 3,
           "confidence": 0.92,
@@ -616,14 +1022,16 @@
             "cellBoundingBoxCount": 8,
             "inferredCellCount": 1,
             "missingCellCount": 1,
-            "mergedCellCandidateCount": 0,
+            "mergedCellCandidateCount": 5,
             "signals": [
               "missing_cells",
+              "merged_cell_candidates",
               "incomplete_cell_geometry",
               "multi_page_continuation_candidate"
             ],
             "warnings": [
               "Detected empty inferred cells; table may contain sparse or merged structure.",
+              "Detected cells whose text boxes cross column boundaries; spans are inferred.",
               "Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters."
             ]
           },
@@ -661,8 +1069,145 @@
             [
               "Margin",
               "33",
-              "Percent"
+              "Percent & \"rate's\""
             ]
+          ],
+          "cells": [
+            {
+              "text": "Metric",
+              "rowIndex": 0,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 720,
+                "right": 250,
+                "top": 731
+              }
+            },
+            {
+              "text": "Value",
+              "rowIndex": 0,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 719,
+                "right": 420,
+                "top": 730
+              }
+            },
+            {
+              "text": "Region",
+              "rowIndex": 0,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 718,
+                "right": 454.848,
+                "top": 729
+              }
+            },
+            {
+              "text": "Profit",
+              "rowIndex": 1,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 690,
+                "right": 250,
+                "top": 701
+              }
+            },
+            {
+              "text": "40",
+              "rowIndex": 1,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 689,
+                "right": 420,
+                "top": 700
+              }
+            },
+            {
+              "text": "North",
+              "rowIndex": 1,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 688,
+                "right": 446.895,
+                "top": 699
+              }
+            },
+            {
+              "text": "Margin",
+              "rowIndex": 2,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 660,
+                "right": 250,
+                "top": 671
+              }
+            },
+            {
+              "text": "33",
+              "rowIndex": 2,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 659,
+                "right": 420,
+                "top": 670
+              }
+            },
+            {
+              "text": "Percent & \"rate's\"",
+              "rowIndex": 2,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 658,
+                "right": 505.723,
+                "top": 669
+              }
+            }
           ],
           "rowCount": 3,
           "colCount": 3,
@@ -681,16 +1226,20 @@
             "cellBoundingBoxCount": 9,
             "inferredCellCount": 0,
             "missingCellCount": 0,
-            "mergedCellCandidateCount": 0,
+            "mergedCellCandidateCount": 6,
             "signals": [
               "complete_grid",
+              "merged_cell_candidates",
               "multi_page_continuation_candidate"
+            ],
+            "warnings": [
+              "Detected cells whose text boxes cross column boundaries; spans are inferred."
             ]
           },
           "bounding_box": {
             "left": 72,
             "bottom": 658,
-            "right": 457.906,
+            "right": 505.723,
             "top": 731
           },
           "continuation": {
@@ -727,6 +1276,137 @@
               ""
             ]
           ],
+          "cells": [
+            {
+              "text": "Metric",
+              "rowIndex": 0,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 140,
+                "right": 250,
+                "top": 151
+              }
+            },
+            {
+              "text": "Value",
+              "rowIndex": 0,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 139,
+                "right": 420,
+                "top": 150
+              }
+            },
+            {
+              "text": "Region",
+              "rowIndex": 0,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 138,
+                "right": 454.848,
+                "top": 149
+              }
+            },
+            {
+              "text": "Revenue",
+              "rowIndex": 1,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 110,
+                "right": 250,
+                "top": 121
+              }
+            },
+            {
+              "text": "120",
+              "rowIndex": 1,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 109,
+                "right": 420,
+                "top": 120
+              }
+            },
+            {
+              "text": "North",
+              "rowIndex": 1,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 108,
+                "right": 446.895,
+                "top": 119
+              }
+            },
+            {
+              "text": "Cost",
+              "rowIndex": 2,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 80,
+                "right": 250,
+                "top": 91
+              }
+            },
+            {
+              "text": "80",
+              "rowIndex": 2,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 79,
+                "right": 262.232,
+                "top": 90
+              }
+            },
+            {
+              "text": "",
+              "rowIndex": 2,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": true
+            }
+          ],
           "rowCount": 3,
           "colCount": 3,
           "confidence": 0.92,
@@ -740,20 +1420,38 @@
             "cellBoundingBoxCount": 8,
             "inferredCellCount": 1,
             "missingCellCount": 1,
-            "mergedCellCandidateCount": 0,
+            "mergedCellCandidateCount": 5,
             "signals": [
               "missing_cells",
+              "merged_cell_candidates",
               "incomplete_cell_geometry",
               "multi_page_continuation_candidate"
             ],
             "warnings": [
               "Detected empty inferred cells; table may contain sparse or merged structure.",
+              "Detected cells whose text boxes cross column boundaries; spans are inferred.",
               "Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters."
             ]
           },
           "provenance": {
             "source": "selectable_text",
             "engine": "<runtime-selectable-table-engine>"
+          },
+          "bounding_box": {
+            "left": 72,
+            "bottom": 79,
+            "right": 454.848,
+            "top": 151
+          },
+          "continuation": {
+            "groupId": "table-continuation-p1-table-1-p2-table-1",
+            "role": "starts",
+            "nextTableId": "p2-table-1",
+            "confidence": 0.95,
+            "signals": [
+              "same_column_count",
+              "repeated_header_candidate"
+            ]
           }
         },
         {
@@ -774,8 +1472,145 @@
             [
               "Margin",
               "33",
-              "Percent"
+              "Percent & \"rate's\""
             ]
+          ],
+          "cells": [
+            {
+              "text": "Metric",
+              "rowIndex": 0,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 720,
+                "right": 250,
+                "top": 731
+              }
+            },
+            {
+              "text": "Value",
+              "rowIndex": 0,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 719,
+                "right": 420,
+                "top": 730
+              }
+            },
+            {
+              "text": "Region",
+              "rowIndex": 0,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": true,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 718,
+                "right": 454.848,
+                "top": 729
+              }
+            },
+            {
+              "text": "Profit",
+              "rowIndex": 1,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 690,
+                "right": 250,
+                "top": 701
+              }
+            },
+            {
+              "text": "40",
+              "rowIndex": 1,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 689,
+                "right": 420,
+                "top": 700
+              }
+            },
+            {
+              "text": "North",
+              "rowIndex": 1,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 688,
+                "right": 446.895,
+                "top": 699
+              }
+            },
+            {
+              "text": "Margin",
+              "rowIndex": 2,
+              "colIndex": 0,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 72,
+                "bottom": 660,
+                "right": 250,
+                "top": 671
+              }
+            },
+            {
+              "text": "33",
+              "rowIndex": 2,
+              "colIndex": 1,
+              "rowSpan": 1,
+              "colSpan": 2,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 250,
+                "bottom": 659,
+                "right": 420,
+                "top": 670
+              }
+            },
+            {
+              "text": "Percent & \"rate's\"",
+              "rowIndex": 2,
+              "colIndex": 2,
+              "rowSpan": 1,
+              "colSpan": 1,
+              "isHeader": false,
+              "inferred": false,
+              "bounding_box": {
+                "left": 420,
+                "bottom": 658,
+                "right": 505.723,
+                "top": 669
+              }
+            }
           ],
           "rowCount": 3,
           "colCount": 3,
@@ -790,15 +1625,35 @@
             "cellBoundingBoxCount": 9,
             "inferredCellCount": 0,
             "missingCellCount": 0,
-            "mergedCellCandidateCount": 0,
+            "mergedCellCandidateCount": 6,
             "signals": [
               "complete_grid",
+              "merged_cell_candidates",
               "multi_page_continuation_candidate"
+            ],
+            "warnings": [
+              "Detected cells whose text boxes cross column boundaries; spans are inferred."
             ]
           },
           "provenance": {
             "source": "selectable_text",
             "engine": "<runtime-selectable-table-engine>"
+          },
+          "bounding_box": {
+            "left": 72,
+            "bottom": 658,
+            "right": 505.723,
+            "top": 731
+          },
+          "continuation": {
+            "groupId": "table-continuation-p1-table-1-p2-table-1",
+            "role": "ends",
+            "previousTableId": "p1-table-1",
+            "confidence": 0.95,
+            "signals": [
+              "same_column_count",
+              "repeated_header_candidate"
+            ]
           }
         }
       ],
@@ -823,7 +1678,7 @@
         },
         {
           "id": "p2-chunk-4",
-          "text": "Metric | Value | Region\nProfit | 40 | North\nMargin | 33 | Percent",
+          "text": "Metric | Value | Region\nProfit | 40 | North\nMargin | 33 | Percent & \"rate's\"",
           "page_start": 2,
           "page_end": 2,
           "element_ids": [
@@ -834,14 +1689,14 @@
             {
               "left": 72,
               "bottom": 658,
-              "right": 457.906,
+              "right": 505.723,
               "top": 731
             }
           ]
         }
       ],
       "markdown": null,
-      "html": null,
+      "html": "<section data-page=\"1\">\n<h2>Page 1</h2>\n<p>Metric</p>\n<p>Value</p>\n<p>Region</p>\n<p>Revenue</p>\n<p>120</p>\n<p>North</p>\n<p>Cost</p>\n<p>80</p>\n</section>\n\n<section data-page=\"2\">\n<h2>Page 2</h2>\n<p>Metric</p>\n<p>Value</p>\n<p>Region</p>\n<p>Profit</p>\n<p>40</p>\n<p>North</p>\n<p>Margin</p>\n<p>33</p>\n<p>Percent &amp; &quot;rate&#39;s&quot;</p>\n</section>\n\n<table data-page=\"1\" data-table-index=\"0\">\n<tbody>\n<tr><td>Metric</td><td>Value</td><td>Region</td></tr>\n<tr><td>Revenue</td><td>120</td><td>North</td></tr>\n<tr><td>Cost</td><td>80</td><td></td></tr>\n</tbody>\n</table>\n\n<table data-page=\"2\" data-table-index=\"0\">\n<tbody>\n<tr><td>Metric</td><td>Value</td><td>Region</td></tr>\n<tr><td>Profit</td><td>40</td><td>North</td></tr>\n<tr><td>Margin</td><td>33</td><td>Percent &amp; &quot;rate&#39;s&quot;</td></tr>\n</tbody>\n</table>",
       "ast_tables": [
         {
           "id": "p1-table-1",
@@ -871,7 +1726,7 @@
         {
           "id": "p2-table-1",
           "page": 2,
-          "text": "Metric | Value | Region\nProfit | 40 | North\nMargin | 33 | Percent",
+          "text": "Metric | Value | Region\nProfit | 40 | North\nMargin | 33 | Percent & \"rate's\"",
           "rows": [
             [
               "Metric",
@@ -886,7 +1741,7 @@
             [
               "Margin",
               "33",
-              "Percent"
+              "Percent & \"rate's\""
             ]
           ],
           "rowCount": 3,
@@ -923,6 +1778,7 @@
             ],
             "warnings": [
               "p1-table-1: Detected empty inferred cells; table may contain sparse or merged structure.",
+              "p1-table-1: Detected cells whose text boxes cross column boundaries; spans are inferred.",
               "p1-table-1: Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters."
             ]
           },
@@ -941,7 +1797,9 @@
               "p2-text-9",
               "p2-table-1"
             ],
-            "warnings": []
+            "warnings": [
+              "p2-table-1: Detected cells whose text boxes cross column boundaries; spans are inferred."
+            ]
           }
         ],
         "table_element_count": 2
@@ -1193,7 +2051,7 @@
             [
               "Margin",
               "33",
-              "Percent"
+              "Percent & \"rate's\""
             ]
           ],
           "cells": [
@@ -1318,7 +2176,7 @@
               }
             },
             {
-              "text": "Percent",
+              "text": "Percent & \"rate's\"",
               "rowIndex": 2,
               "colIndex": 2,
               "rowSpan": 1,
@@ -1328,7 +2186,7 @@
               "bounding_box": {
                 "left": 420,
                 "bottom": 658,
-                "right": 457.906,
+                "right": 505.723,
                 "top": 669
               }
             }
@@ -1359,7 +2217,7 @@
           "bounding_box": {
             "left": 72,
             "bottom": 658,
-            "right": 457.906,
+            "right": 505.723,
             "top": 731
           },
           "continuation": {

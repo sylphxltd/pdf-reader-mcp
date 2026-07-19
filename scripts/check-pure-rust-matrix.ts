@@ -273,10 +273,12 @@ if (selectableTableCaseCount !== 6) {
 if (
   !differentialWorkflow.includes('(.semanticProof | to_entries | all(.value == true))') ||
   !differentialWorkflow.includes('(.continuationProof | to_entries | all(.value == true))') ||
+  !differentialWorkflow.includes('.resourceBoundProof.exactCapItemCount == 4096') ||
   !differentialWorkflow.includes('.resourceBoundProof.itemCount == 4097') ||
-  !differentialWorkflow.includes('.resourceBoundProof.cap == 4096')
+  !differentialWorkflow.includes('.resourceBoundProof.cap == 4096') ||
+  !differentialWorkflow.includes('.resourceBoundProof.exactCapAccepted == true')
 ) {
-  failures.push('selectable-table workflow must bind semantic/linkage proofs and exact hostile cap+1 admission');
+  failures.push('selectable-table workflow must bind semantic/linkage proofs and exact-cap/cap+1 admission');
 }
 if (failures.length) {
   console.error(failures.join('\n'));
