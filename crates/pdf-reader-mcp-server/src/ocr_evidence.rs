@@ -110,10 +110,17 @@ fn admit_read_ocr_source(
     Ok(())
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OcrOutputFormat {
+    Auto,
+    TesseractTsv,
+}
+
 #[derive(Clone)]
 struct ProviderConfig {
     command: String,
     args_template: Vec<String>,
+    output_format: OcrOutputFormat,
 }
 
 fn parse_args(value: &Value) -> Result<PdfEvidenceArgs, rmcp::ErrorData> {
@@ -140,9 +147,6 @@ fn provider_config_from(
         return Err(
             "Unsupported MCP_PDF_OCR_PRESET. Supported values: tesseract, tesseract-tsv.".into(),
         );
-    }
-    if preset.as_deref() == Some("tesseract-tsv") {
-        return Err("MCP_PDF_OCR_PRESET=tesseract-tsv is not available in the pure-Rust engine yet; use tesseract plain text or a command provider that returns normalized JSON.".into());
     }
     let command = command_value
         .map(|value| value.trim().to_string())
@@ -190,9 +194,14 @@ fn provider_config_from(
             args
         }
     };
+    let output_format = match preset.as_deref() {
+        Some("tesseract-tsv") => OcrOutputFormat::TesseractTsv,
+        _ => OcrOutputFormat::Auto,
+    };
     Ok(ProviderConfig {
         command,
         args_template,
+        output_format,
     })
 }
 
@@ -331,12 +340,186 @@ fn truncate_utf16(text: &str, maximum: usize) -> (String, bool) {
     )
 }
 
+fn parse_finite_number(value: Option<&str>) -> Option<f64> {
+    let value = value?.trim();
+    if value.is_empty() {
+        return None;
+    }
+    let parsed = value.parse::<f64>().ok()?;
+    parsed.is_finite().then_some(parsed)
+}
+
+fn required_tsv_column_indexes(headers: &[&str]) -> Option<[usize; 10]> {
+    let index = |name: &str| headers.iter().position(|header| *header == name);
+    let columns = [
+        index("level")?,
+        index("block_num")?,
+        index("par_num")?,
+        index("line_num")?,
+        index("left")?,
+        index("top")?,
+        index("width")?,
+        index("height")?,
+        index("conf")?,
+        index("text")?,
+    ];
+    Some(columns)
+}
+
+fn parse_tesseract_tsv_output(
+    stdout: &str,
+    max_output_chars: usize,
+    languages: &[String],
+    image_height: Option<f64>,
+    scale: f64,
+) -> Value {
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    let headers = lines
+        .first()
+        .map(|line| line.split('\t').collect::<Vec<_>>());
+    let columns = headers
+        .as_ref()
+        .and_then(|headers| required_tsv_column_indexes(headers));
+    let Some(columns) = columns else {
+        let (text, truncated) = truncate_utf16(stdout.trim(), max_output_chars);
+        let mut warnings = vec![
+            "Tesseract TSV output could not be normalized; returned raw OCR output.".to_string(),
+        ];
+        if truncated {
+            warnings.insert(
+                0,
+                format!("OCR output truncated to {max_output_chars} characters."),
+            );
+        }
+        let mut output = json!({"text": text, "warnings": warnings});
+        if let Some(language) = languages.first() {
+            output["language"] = json!(language);
+        }
+        return output;
+    };
+    let Some(image_height) = image_height.filter(|height| *height > 0.0) else {
+        let (text, truncated) = truncate_utf16(stdout.trim(), max_output_chars);
+        let mut warnings = vec![
+            "Tesseract TSV output could not be normalized; returned raw OCR output.".to_string(),
+        ];
+        if truncated {
+            warnings.insert(
+                0,
+                format!("OCR output truncated to {max_output_chars} characters."),
+            );
+        }
+        let mut output = json!({"text": text, "warnings": warnings});
+        if let Some(language) = languages.first() {
+            output["language"] = json!(language);
+        }
+        return output;
+    };
+
+    let [level_idx, block_idx, par_idx, line_idx, left_idx, top_idx, width_idx, height_idx, conf_idx, text_idx] =
+        columns;
+
+    let mut words = Vec::new();
+    let mut line_texts: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for raw_line in lines.iter().skip(1) {
+        if raw_line.trim().is_empty() {
+            continue;
+        }
+        let values: Vec<&str> = raw_line.split('\t').collect();
+        let level = parse_finite_number(values.get(level_idx).copied());
+        let text = values
+            .get(text_idx..)
+            .map(|parts| parts.join("	").trim().to_string())
+            .unwrap_or_default();
+        if level != Some(5.0) || text.is_empty() {
+            continue;
+        }
+        let left = parse_finite_number(values.get(left_idx).copied());
+        let top = parse_finite_number(values.get(top_idx).copied());
+        let width = parse_finite_number(values.get(width_idx).copied());
+        let height = parse_finite_number(values.get(height_idx).copied());
+        let confidence = parse_finite_number(values.get(conf_idx).copied())
+            .and_then(|value| normalize_confidence(&json!(value)));
+        let line_key = format!(
+            "{}:{}:{}",
+            values.get(block_idx).copied().unwrap_or("0"),
+            values.get(par_idx).copied().unwrap_or("0"),
+            values.get(line_idx).copied().unwrap_or("0")
+        );
+        line_texts.entry(line_key).or_default().push(text.clone());
+
+        let mut word = json!({"text": text});
+        if let Some(confidence) = confidence {
+            word["confidence"] = json!(confidence);
+        }
+        if let (Some(left), Some(top), Some(width), Some(height)) = (left, top, width, height) {
+            if width > 0.0 && height > 0.0 {
+                // image-space bottom-left box; convert to PDF coords via scale below
+                let image_box = json!({
+                    "left": left,
+                    "bottom": image_height - top - height,
+                    "right": left + width,
+                    "top": image_height - top,
+                });
+                word["bounding_box"] = image_box;
+            }
+        }
+        words.push(word);
+    }
+
+    let raw_text = line_texts
+        .values()
+        .map(|line| line.join(" "))
+        .collect::<Vec<_>>()
+        .join(
+            "
+",
+        );
+    let (text, truncated) = truncate_utf16(&raw_text, max_output_chars);
+    let mut output = json!({"text": text});
+    let confidences = words
+        .iter()
+        .filter_map(|word| word.get("confidence").and_then(Value::as_f64))
+        .collect::<Vec<_>>();
+    if !confidences.is_empty() {
+        let average = confidences.iter().sum::<f64>() / confidences.len() as f64;
+        output["confidence"] = json!((average * 100.0).round() / 100.0);
+    }
+    if !words.is_empty() {
+        // wrap through normalize_words to apply scale conversion
+        let words_value = Value::Array(words);
+        if let Some(normalized) = normalize_words(&words_value, scale) {
+            output["words"] = json!(normalized);
+        }
+    }
+    if let Some(language) = languages.first() {
+        output["language"] = json!(language);
+    }
+    if truncated {
+        output["warnings"] = json!([format!(
+            "OCR output truncated to {max_output_chars} characters."
+        )]);
+    }
+    output
+}
+
 fn normalize_output(
     stdout: &str,
     max_output_chars: usize,
     languages: &[String],
     scale: f64,
+    output_format: OcrOutputFormat,
+    image_height: Option<f64>,
 ) -> Value {
+    if output_format == OcrOutputFormat::TesseractTsv {
+        return parse_tesseract_tsv_output(
+            stdout,
+            max_output_chars,
+            languages,
+            image_height,
+            scale,
+        );
+    }
     let trimmed = stdout.trim();
     let parsed = serde_json::from_str::<Value>(trimmed)
         .ok()
@@ -539,6 +722,8 @@ pub(crate) fn run_read_ocr(
                     options.max_output_chars,
                     &languages,
                     options.scale,
+                    config.output_format,
+                    Some(f64::from(page.height)),
                 );
                 let output_chars = normalized["text"]
                     .as_str()
@@ -698,7 +883,14 @@ pub fn ocr_pages(value: Value) -> Result<CallToolResult, rmcp::ErrorData> {
                         return Err(error.message);
                     }
                 };
-                let mut normalized = normalize_output(&stdout, max_output_chars, &languages, scale);
+                let mut normalized = normalize_output(
+                    &stdout,
+                    max_output_chars,
+                    &languages,
+                    scale,
+                    config.output_format,
+                    page.get("height").and_then(Value::as_f64),
+                );
                 let output_chars = normalized["text"]
                     .as_str()
                     .map_or(0, |text| text.encode_utf16().count());
@@ -766,6 +958,8 @@ mod tests {
             3,
             &[],
             2.0,
+            OcrOutputFormat::Auto,
+            None,
         );
         assert_eq!(output["text"], "A😀");
         assert_eq!(output["confidence"], 0.87);
@@ -791,12 +985,52 @@ mod tests {
         .err()
         .expect("invalid args");
         assert!(error.contains("{input}"));
-        assert!(
-            provider_config_from(None, Some("tesseract-tsv".into()), None)
-                .err()
-                .expect("tsv fails closed")
-                .contains("not available")
+        let tsv = provider_config_from(None, Some("tesseract-tsv".into()), None)
+            .expect("tsv preset is available");
+        assert_eq!(tsv.command, "tesseract");
+        assert_eq!(tsv.output_format, OcrOutputFormat::TesseractTsv);
+        assert!(tsv.args_template.iter().any(|arg| arg == "tsv"));
+    }
+
+    #[test]
+    fn normalizes_tesseract_tsv_words_and_image_to_pdf_boxes() {
+        let tsv = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t20\t10\t40\t20\t91\tHello\n5\t1\t1\t1\t1\t2\t70\t10\t30\t20\t88\tWorld\n";
+        let output = normalize_output(
+            tsv,
+            200_000,
+            &["eng".into()],
+            2.0,
+            OcrOutputFormat::TesseractTsv,
+            Some(100.0),
         );
+        assert_eq!(output["text"], "Hello World");
+        assert_eq!(output["language"], "eng");
+        assert_eq!(output["words"][0]["text"], "Hello");
+        // image box left=20,top=10,width=40,height=20,imageHeight=100
+        // bottom = 100-10-20=70, top=90; then /scale=2 => left=10,bottom=35,right=30,top=45
+        assert_eq!(
+            output["words"][0]["bounding_box"],
+            json!({"left": 10.0, "bottom": 35.0, "right": 30.0, "top": 45.0})
+        );
+        assert_eq!(output["words"][0]["confidence"], 0.91);
+    }
+
+    #[test]
+    fn malformed_tesseract_tsv_returns_raw_with_warning() {
+        let output = normalize_output(
+            "not\ta\theader\nrow",
+            200_000,
+            &[],
+            2.0,
+            OcrOutputFormat::TesseractTsv,
+            Some(100.0),
+        );
+        assert_eq!(output["text"], "not\ta\theader\nrow");
+        assert_eq!(
+            output["warnings"][0],
+            "Tesseract TSV output could not be normalized; returned raw OCR output."
+        );
+        assert!(output.get("words").is_none());
     }
 
     #[test]
