@@ -121,6 +121,7 @@ jobs:
           bun run test:v3014-raster-image-differential -- --output "${SCRATCH_DIR}/v3014-raster-image-result.json"
           bun run test:v3014-visual-candidate-differential -- --output "${SCRATCH_DIR}/v3014-visual-candidate-result.json"
           bun run test:v3014-visual-fusion-differential -- --output "${SCRATCH_DIR}/v3014-visual-fusion-result.json"
+          bun run test:v3014-document-ast-visual-fusion-differential -- --output "${SCRATCH_DIR}/v3014-document-ast-visual-fusion-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -532,6 +533,33 @@ jobs:
               and .candidateSha == $sha
             ' "$VISUAL_FUSION_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 visual-fusion result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          DOCUMENT_AST_VISUAL_FUSION_ARTIFACT="${SCRATCH_DIR}/v3014-document-ast-visual-fusion-result.json"
+          if [[ ! -f "$DOCUMENT_AST_VISUAL_FUSION_ARTIFACT" ]]; then
+            echo "::error::v3.0.14 document-ast-visual-fusion result missing at $DOCUMENT_AST_VISUAL_FUSION_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .pass == true
+              and .skipped == 0
+              and .caseCount == 5
+              and .passed == 5
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 145
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.configuredCommandOnly == true
+              and .providerProof.zeroCallNoCandidate == true
+              and .providerProof.failClosedDiscardsPartial == true
+              and .capabilityStatus.includeVisualEnrichments == "PARTIAL"
+              and .capabilityStatus.includeDocumentAst == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$DOCUMENT_AST_VISUAL_FUSION_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 document-ast-visual-fusion result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 

@@ -2498,6 +2498,8 @@ struct DocumentAstNode {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     chunk_ids: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    visual_enrichment_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     bounding_boxes: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
@@ -2522,6 +2524,12 @@ struct DocumentAstNode {
     #[serde(skip_serializing_if = "Option::is_none")]
     image: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    formula: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chart: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    visual_enrichment: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     children: Option<Vec<DocumentAstNode>>,
 }
 
@@ -2544,6 +2552,7 @@ struct DocumentAstStats {
     formula_count: usize,
     diagram_count: usize,
     visual_enrichment_count: usize,
+    visual_enrichment_kind_counts: BTreeMap<String, usize>,
     max_depth: usize,
 }
 
@@ -2593,9 +2602,130 @@ fn ast_section_ref(node: &DocumentAstNode) -> DocumentAstSectionRef {
     }
 }
 
+fn visual_text_from_enrichment(enrichment: &Value) -> Option<String> {
+    for key in ["markdown", "text", "description"] {
+        if let Some(value) = enrichment.get(key).and_then(Value::as_str) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    if let Some(formula) = enrichment.get("formula") {
+        for key in ["latex", "text"] {
+            if let Some(value) = formula.get(key).and_then(Value::as_str) {
+                let trimmed = value.trim();
+                if !trimmed.is_empty() {
+                    return Some(trimmed.to_string());
+                }
+            }
+        }
+    }
+    if let Some(value) = enrichment.pointer("/chart/summary").and_then(Value::as_str) {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    None
+}
+
+fn visual_enrichment_node_type(kind: &str) -> String {
+    match kind {
+        "figure" | "chart" | "formula" | "diagram" => kind.to_string(),
+        _ => "visual_region".into(),
+    }
+}
+
+fn apply_visual_enrichment(node: &mut DocumentAstNode, enrichment: &Value) {
+    let enrichment_id = enrichment
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    if !enrichment_id.is_empty() {
+        node.visual_enrichment_ids = vec![enrichment_id];
+    }
+    if let Some(confidence) = enrichment
+        .get("confidence")
+        .filter(|value| !value.is_null())
+    {
+        node.confidence = Some(confidence.clone());
+    }
+    if let Some(text) = visual_text_from_enrichment(enrichment) {
+        // Keep selectable table/image element text; enrichment text is still
+        // available on the nested visual_enrichment payload.
+        let keep_element_text = matches!(node.node_type.as_str(), "table" | "image")
+            && node.text.as_ref().is_some_and(|value| !value.is_empty());
+        if !keep_element_text {
+            node.text = Some(text);
+        }
+    }
+    if let Some(formula) = enrichment.get("formula").cloned() {
+        node.formula = Some(formula);
+    }
+    if let Some(chart) = enrichment.get("chart").cloned() {
+        node.chart = Some(chart);
+    }
+    node.visual_enrichment = Some(enrichment.clone());
+}
+
+fn node_for_visual_enrichment(enrichment: &Value) -> Option<DocumentAstNode> {
+    let id = enrichment.get("id")?.as_str()?.to_string();
+    let page = u32::try_from(enrichment.get("page")?.as_u64()?).ok()?;
+    let kind = enrichment
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let target = enrichment
+        .get("target_element_id")
+        .and_then(Value::as_str)
+        .unwrap_or(id.as_str())
+        .to_string();
+    let bounding_boxes = enrichment
+        .get("source_bounding_box")
+        .cloned()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let confidence = enrichment
+        .get("confidence")
+        .filter(|value| !value.is_null())
+        .cloned();
+    Some(DocumentAstNode {
+        id,
+        node_type: visual_enrichment_node_type(kind),
+        page_start: page,
+        page_end: page,
+        element_ids: vec![target],
+        visual_enrichment_ids: enrichment
+            .get("id")
+            .and_then(Value::as_str)
+            .map(|value| vec![value.to_string()])
+            .unwrap_or_default(),
+        chunk_ids: Vec::new(),
+        bounding_boxes,
+        title: None,
+        text: visual_text_from_enrichment(enrichment),
+        level: None,
+        confidence,
+        semantic_role: None,
+        section_path: Vec::new(),
+        continued_from_section_id: None,
+        caption_links: Vec::new(),
+        caption_ids: Vec::new(),
+        table: None,
+        image: None,
+        formula: enrichment.get("formula").cloned(),
+        chart: enrichment.get("chart").cloned(),
+        visual_enrichment: Some(enrichment.clone()),
+        children: None,
+    })
+}
+
 fn ast_node_for_element(
     element: &Value,
     chunk_index: &BTreeMap<String, Vec<String>>,
+    visual_enrichment: Option<&Value>,
 ) -> Option<DocumentAstNode> {
     let id = element.get("id")?.as_str()?.to_string();
     let page = u32::try_from(element.get("page")?.as_u64()?).ok()?;
@@ -2623,7 +2753,7 @@ fn ast_node_for_element(
             _ => "paragraph",
         };
         let is_section = node_type == "section";
-        return Some(DocumentAstNode {
+        let mut node = DocumentAstNode {
             id: if is_section {
                 format!("{id}-section")
             } else {
@@ -2633,6 +2763,7 @@ fn ast_node_for_element(
             page_start: page,
             page_end: page,
             element_ids: vec![id.clone()],
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: chunk_index.get(&id).cloned().unwrap_or_default(),
             bounding_boxes,
             title: is_section.then(|| text.clone()),
@@ -2651,8 +2782,15 @@ fn ast_node_for_element(
             caption_ids: Vec::new(),
             table: None,
             image: None,
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: is_section.then(Vec::new),
-        });
+        };
+        if let Some(enrichment) = visual_enrichment {
+            apply_visual_enrichment(&mut node, enrichment);
+        }
+        return Some(node);
     }
 
     if element_type == "table" {
@@ -2683,12 +2821,13 @@ fn ast_node_for_element(
             })
             .collect::<Vec<_>>()
             .join("\n");
-        return Some(DocumentAstNode {
+        let mut node = DocumentAstNode {
             id: id.clone(),
             node_type: "table".into(),
             page_start: page,
             page_end: page,
             element_ids: vec![id.clone()],
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: chunk_index.get(&id).cloned().unwrap_or_default(),
             bounding_boxes,
             title: None,
@@ -2702,17 +2841,25 @@ fn ast_node_for_element(
             caption_ids: Vec::new(),
             table: Some(table),
             image: None,
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: None,
-        });
+        };
+        if let Some(enrichment) = visual_enrichment {
+            apply_visual_enrichment(&mut node, enrichment);
+        }
+        return Some(node);
     }
 
     if element_type == "image" {
-        return Some(DocumentAstNode {
+        let mut node = DocumentAstNode {
             id: id.clone(),
             node_type: "image".into(),
             page_start: page,
             page_end: page,
             element_ids: vec![id.clone()],
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: chunk_index.get(&id).cloned().unwrap_or_default(),
             bounding_boxes,
             title: None,
@@ -2726,8 +2873,15 @@ fn ast_node_for_element(
             caption_ids: Vec::new(),
             table: None,
             image: element.get("image").cloned(),
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: None,
-        });
+        };
+        if let Some(enrichment) = visual_enrichment {
+            apply_visual_enrichment(&mut node, enrichment);
+        }
+        return Some(node);
     }
 
     None
@@ -3036,23 +3190,32 @@ fn ast_aggregate(node: &mut DocumentAstNode, depth: usize) -> DocumentAstStats {
         cross_page_section_context_count: usize::from(node.continued_from_section_id.is_some()),
         caption_link_count: node.caption_links.len(),
         table_count: usize::from(node.node_type == "table"),
-        image_count: usize::from(node.node_type == "image"),
+        image_count: usize::from(node.image.is_some() || node.node_type == "image"),
         figure_count: usize::from(node.node_type == "figure"),
         chart_count: usize::from(node.node_type == "chart"),
         formula_count: usize::from(node.node_type == "formula"),
         diagram_count: usize::from(node.node_type == "diagram"),
+        visual_enrichment_count: usize::from(node.visual_enrichment.is_some()),
+        visual_enrichment_kind_counts: node
+            .visual_enrichment
+            .as_ref()
+            .and_then(|value| value.get("kind"))
+            .and_then(Value::as_str)
+            .map(|kind| BTreeMap::from([(kind.to_string(), 1usize)]))
+            .unwrap_or_default(),
         max_depth: depth,
-        ..DocumentAstStats::default()
     };
 
     let mut child_element_ids = Vec::new();
     let mut child_chunk_ids = Vec::new();
+    let mut child_visual_enrichment_ids = Vec::new();
     let mut child_boxes = Vec::new();
     if let Some(children) = node.children.as_mut() {
         for child in children.iter_mut() {
             let child_stats = ast_aggregate(child, depth + 1);
             child_element_ids.extend(child.element_ids.clone());
             child_chunk_ids.extend(child.chunk_ids.clone());
+            child_visual_enrichment_ids.extend(child.visual_enrichment_ids.clone());
             child_boxes.extend(child.bounding_boxes.clone());
             stats.node_count += child_stats.node_count;
             stats.section_count += child_stats.section_count;
@@ -3071,6 +3234,9 @@ fn ast_aggregate(node: &mut DocumentAstNode, depth: usize) -> DocumentAstStats {
             stats.formula_count += child_stats.formula_count;
             stats.diagram_count += child_stats.diagram_count;
             stats.visual_enrichment_count += child_stats.visual_enrichment_count;
+            for (kind, count) in child_stats.visual_enrichment_kind_counts {
+                *stats.visual_enrichment_kind_counts.entry(kind).or_default() += count;
+            }
             stats.max_depth = stats.max_depth.max(child_stats.max_depth);
         }
         if let Some(first) = children.first() {
@@ -3084,19 +3250,21 @@ fn ast_aggregate(node: &mut DocumentAstNode, depth: usize) -> DocumentAstStats {
     }
     ast_unique_extend(&mut node.element_ids, child_element_ids);
     ast_unique_extend(&mut node.chunk_ids, child_chunk_ids);
+    ast_unique_extend(&mut node.visual_enrichment_ids, child_visual_enrichment_ids);
     ast_unique_boxes(&mut node.bounding_boxes, child_boxes);
     stats
 }
 
-/// Build the v3.0.14 text-first Document AST from the same semantic element
-/// and chunk projections used by the public response. Selectable-table caption
-/// links are bounded and page-local; provider-backed visual enrichment remains
-/// outside this Rust slice.
+/// Build the v3.0.14 Document AST from the same semantic element and chunk
+/// projections used by the public response. Optional provider-backed visual
+/// enrichments attach to matching element targets or become page-local visual
+/// nodes when the target element is not present on the page.
 pub fn build_document_ast(
     pages: &[PageText],
     elements: &Value,
     chunks: &Value,
     warnings: &[String],
+    visual_enrichments: &Value,
 ) -> Value {
     let mut selected_pages = pages.iter().map(|page| page.page).collect::<Vec<_>>();
     selected_pages.sort_unstable();
@@ -3146,14 +3314,39 @@ pub fn build_document_ast(
         range_start = 0;
     }
 
+    let mut visual_by_target = BTreeMap::<String, &Value>::new();
+    let mut visual_by_page = BTreeMap::<u32, Vec<&Value>>::new();
+    for enrichment in visual_enrichments.as_array().into_iter().flatten() {
+        if let Some(target) = enrichment.get("target_element_id").and_then(Value::as_str) {
+            visual_by_target
+                .entry(target.to_string())
+                .or_insert(enrichment);
+        }
+        if let Some(page) = enrichment
+            .get("page")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+        {
+            visual_by_page.entry(page).or_default().push(enrichment);
+        }
+    }
+
     let mut document_sections = Vec::<DocumentAstSectionRef>::new();
     let mut page_nodes = Vec::new();
     let mut caption_link_budget = AstCaptionLinkBudget::new(MAX_AST_CAPTION_LINK_COMPARISONS);
     for page in &selected_pages {
         let mut page_children = Vec::<DocumentAstNode>::new();
         let mut page_section_stack = Vec::<(u64, Vec<usize>)>::new();
-        for element in elements_by_page.remove(page).unwrap_or_default() {
-            let Some(mut node) = ast_node_for_element(element, &chunk_index) else {
+        let page_elements = elements_by_page.remove(page).unwrap_or_default();
+        let page_element_ids = page_elements
+            .iter()
+            .filter_map(|element| element.get("id").and_then(Value::as_str))
+            .map(str::to_string)
+            .collect::<HashSet<_>>();
+        for element in page_elements {
+            let element_id = element.get("id").and_then(Value::as_str);
+            let enrichment = element_id.and_then(|id| visual_by_target.get(id).copied());
+            let Some(mut node) = ast_node_for_element(element, &chunk_index, enrichment) else {
                 continue;
             };
 
@@ -3215,12 +3408,40 @@ pub fn build_document_ast(
             }
         }
 
+        for enrichment in visual_by_page.get(page).into_iter().flatten() {
+            let target = enrichment
+                .get("target_element_id")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            if page_element_ids.contains(target) {
+                continue;
+            }
+            let Some(mut node) = node_for_visual_enrichment(enrichment) else {
+                continue;
+            };
+            if !document_sections.is_empty() {
+                node.section_path = document_sections.clone();
+                node.continued_from_section_id = node
+                    .section_path
+                    .iter()
+                    .rev()
+                    .find(|section| section.page_start < node.page_start)
+                    .map(|section| section.id.clone());
+            }
+            let parent_path = page_section_stack
+                .last()
+                .map(|(_, path)| path.as_slice())
+                .unwrap_or(&[]);
+            ast_children_at_path(&mut page_children, parent_path).push(node);
+        }
+
         let mut page_node = DocumentAstNode {
             id: format!("p{page}"),
             node_type: "page".into(),
             page_start: *page,
             page_end: *page,
             element_ids: Vec::new(),
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: Vec::new(),
             bounding_boxes: Vec::new(),
             title: None,
@@ -3234,6 +3455,9 @@ pub fn build_document_ast(
             caption_ids: Vec::new(),
             table: None,
             image: None,
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: Some(page_children),
         };
         ast_link_captions_on_page(&mut page_node, &mut caption_link_budget);
@@ -3246,6 +3470,7 @@ pub fn build_document_ast(
         page_start: range_start,
         page_end: range_end,
         element_ids: Vec::new(),
+        visual_enrichment_ids: Vec::new(),
         chunk_ids: Vec::new(),
         bounding_boxes: Vec::new(),
         title: None,
@@ -3259,9 +3484,19 @@ pub fn build_document_ast(
         caption_ids: Vec::new(),
         table: None,
         image: None,
+        formula: None,
+        chart: None,
+        visual_enrichment: None,
         children: Some(page_nodes),
     };
     let stats = ast_aggregate(&mut root, 1);
+    let visual_enrichment_kind_counts = Value::Object(
+        stats
+            .visual_enrichment_kind_counts
+            .iter()
+            .map(|(kind, count)| (kind.clone(), json!(count)))
+            .collect(),
+    );
     let mut output = json!({
         "version": TRUST_REPORT_VERSION,
         "profile": "document_ast",
@@ -3286,7 +3521,7 @@ pub fn build_document_ast(
             "formula_count": stats.formula_count,
             "diagram_count": stats.diagram_count,
             "visual_enrichment_count": stats.visual_enrichment_count,
-            "visual_enrichment_kind_counts": {},
+            "visual_enrichment_kind_counts": visual_enrichment_kind_counts,
             "max_depth": stats.max_depth,
         },
     });
@@ -5062,7 +5297,7 @@ mod tests {
             {"id":"p2-chunk-3","element_ids":["p2-text-1"]}
         ]);
 
-        let ast = build_document_ast(&selected, &elements, &chunks, &[]);
+        let ast = build_document_ast(&selected, &elements, &chunks, &[], &json!([]));
         assert_eq!(ast["summary"]["selected_pages"], json!([1, 2]));
         assert_eq!(ast["summary"]["page_count"], 2);
         assert_eq!(ast["summary"]["node_count"], 9);
@@ -5123,7 +5358,7 @@ mod tests {
             "content":"Ordinary paragraph.",
             "semantic_hint":{"role":"paragraph","confidence":0.5,"signals":["default-text"]}
         }]);
-        let ast = build_document_ast(&selected, &elements, &json!([]), &[]);
+        let ast = build_document_ast(&selected, &elements, &json!([]), &[], &json!([]));
         assert_eq!(ast["root"]["children"][0]["id"], "p1");
         assert!(ast["root"].get("chunk_ids").is_none());
         assert!(ast["root"].get("bounding_boxes").is_none());
@@ -5148,7 +5383,7 @@ mod tests {
             {"id":"p1-table-2","type":"table","page":1,"bounding_box":table_box,"table":{"rows":[["C","D"]],"rowCount":1,"colCount":2,"confidence":0.9}}
         ]);
 
-        let ast = build_document_ast(&selected, &elements, &json!([]), &[]);
+        let ast = build_document_ast(&selected, &elements, &json!([]), &[], &json!([]));
         let children = ast["root"]["children"][0]["children"].as_array().unwrap();
         assert_eq!(
             children[0]["caption_links"],
@@ -5269,7 +5504,7 @@ mod tests {
     #[test]
     fn caption_link_page_work_stops_before_max_plus_one_and_rejects_bad_boxes() {
         let empty_chunks = BTreeMap::new();
-        let node = |value: Value| ast_node_for_element(&value, &empty_chunks).unwrap();
+        let node = |value: Value| ast_node_for_element(&value, &empty_chunks, None).unwrap();
         let caption = |id: &str, box_: Value| {
             node(json!({
                 "id":id,"type":"text","page":1,"content":"Table 1: Bounded",
@@ -5287,6 +5522,7 @@ mod tests {
             page_start: 1,
             page_end: 1,
             element_ids: Vec::new(),
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: Vec::new(),
             bounding_boxes: Vec::new(),
             title: None,
@@ -5300,6 +5536,9 @@ mod tests {
             caption_ids: Vec::new(),
             table: None,
             image: None,
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: Some(children),
         };
 
@@ -5340,6 +5579,7 @@ mod tests {
             page_start: 1,
             page_end: 1,
             element_ids: vec![format!("caption-{index}")],
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: Vec::new(),
             bounding_boxes: vec![json!({"left":0,"bottom":0,"right":100,"top":10})],
             title: None,
@@ -5353,6 +5593,9 @@ mod tests {
             caption_ids: Vec::new(),
             table: None,
             image: None,
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: None,
         };
         let mut children = (0..MAX_AST_CAPTION_LINK_COMPARISONS)
@@ -5364,6 +5607,7 @@ mod tests {
             page_start: 1,
             page_end: 1,
             element_ids: vec!["table".into()],
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: Vec::new(),
             bounding_boxes: vec![json!({"left":0,"bottom":30,"right":100,"top":80})],
             title: None,
@@ -5377,6 +5621,9 @@ mod tests {
             caption_ids: Vec::new(),
             table: Some(json!({})),
             image: None,
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: None,
         });
         let mut page = DocumentAstNode {
@@ -5385,6 +5632,7 @@ mod tests {
             page_start: 1,
             page_end: 1,
             element_ids: Vec::new(),
+            visual_enrichment_ids: Vec::new(),
             chunk_ids: Vec::new(),
             bounding_boxes: Vec::new(),
             title: None,
@@ -5398,6 +5646,9 @@ mod tests {
             caption_ids: Vec::new(),
             table: None,
             image: None,
+            formula: None,
+            chart: None,
+            visual_enrichment: None,
             children: Some(children),
         };
         let mut budget = AstCaptionLinkBudget::new(MAX_AST_CAPTION_LINK_COMPARISONS);

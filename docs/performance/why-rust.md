@@ -137,3 +137,7 @@ See [installation guide](../guide/installation.md). Pure-Rust remains experiment
 ### Configured-command visual enrichment fusion (bounded)
 
 A frozen five-case configured-command `read_pdf` visual-enrichment payload and Document Map fusion subset is admitted through the exact-SHA differential harness. It covers direct table fusion, page sort/dedup/invalid + max-one admission, ordered two-caption analyses, fail-closed second-provider failure, and ready/no-candidate zero invocation. `include_visual_enrichments` remains `PARTIAL`; Document AST visual fusion and HTTP/preset providers are unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+### Document AST visual enrichment fusion (bounded)
+
+A frozen five-case configured-command `read_pdf` visual-enrichment Document AST fusion subset is admitted through the exact-SHA differential harness. Direct table attachment, caption-derived orphan figure/chart nodes, fail-closed provider failure, and ready/no-candidate zero invocation are proven. `include_document_ast` and `include_visual_enrichments` remain `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.

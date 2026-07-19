@@ -25,6 +25,7 @@ V3014_SELECTABLE_TABLE_JSON="$SCRATCH/v3014-selectable-table-result.json"
 V3014_CAPTION_LINK_JSON="$SCRATCH/v3014-caption-link-result.json"
 V3014_VISUAL_CANDIDATE_JSON="$SCRATCH/v3014-visual-candidate-result.json"
 V3014_VISUAL_FUSION_JSON="$SCRATCH/v3014-visual-fusion-result.json"
+V3014_DOCUMENT_AST_VISUAL_FUSION_JSON="$SCRATCH/v3014-document-ast-visual-fusion-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -154,6 +155,11 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-fusion-oracle.ts" 2>&1
 bun "$REPO_ROOT/scripts/differential/check-v3014-visual-fusion-differential.ts" \
   --output "$V3014_VISUAL_FUSION_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 configured-command document-ast visual-fusion differential (5 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-document-ast-visual-fusion-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-document-ast-visual-fusion-differential.ts" \
+  --output "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -227,6 +233,10 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/reference-visual-fusion-provider.ts" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-fusion-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-fusion-oracle.json" \
+  "$REPO_ROOT/scripts/differential/v3014-document-ast-visual-fusion-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-document-ast-visual-fusion-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-document-ast-visual-fusion-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-document-ast-visual-fusion-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -322,6 +332,11 @@ V3014_VISUAL_FUSION_PASSED="$(jq '.passed' "$V3014_VISUAL_FUSION_JSON")"
 V3014_VISUAL_FUSION_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_FUSION_JSON")"
 V3014_VISUAL_FUSION_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_VISUAL_FUSION_JSON")"
 V3014_VISUAL_FUSION_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_VISUAL_FUSION_JSON")"
+V3014_DOCUMENT_AST_VISUAL_FUSION_CASE_COUNT="$(jq '.caseCount' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
+V3014_DOCUMENT_AST_VISUAL_FUSION_PASSED="$(jq '.passed' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
+V3014_DOCUMENT_AST_VISUAL_FUSION_SKIPPED="$(jq '.skipped' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
+V3014_DOCUMENT_AST_VISUAL_FUSION_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
+V3014_DOCUMENT_AST_VISUAL_FUSION_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_DOCUMENT_AST_VISUAL_FUSION_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -376,6 +391,8 @@ jq -n \
   --arg v3014VisualCandidateOracleHash "$V3014_VISUAL_CANDIDATE_ORACLE_HASH" \
   --arg v3014VisualFusionCorpusHash "$V3014_VISUAL_FUSION_CORPUS_HASH" \
   --arg v3014VisualFusionOracleHash "$V3014_VISUAL_FUSION_ORACLE_HASH" \
+  --arg v3014DocumentAstVisualFusionCorpusHash "$V3014_DOCUMENT_AST_VISUAL_FUSION_CORPUS_HASH" \
+  --arg v3014DocumentAstVisualFusionOracleHash "$V3014_DOCUMENT_AST_VISUAL_FUSION_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -434,6 +451,9 @@ jq -n \
   --argjson v3014VisualFusionCaseCount "$V3014_VISUAL_FUSION_CASE_COUNT" \
   --argjson v3014VisualFusionPassed "$V3014_VISUAL_FUSION_PASSED" \
   --argjson v3014VisualFusionSkipped "$V3014_VISUAL_FUSION_SKIPPED" \
+  --argjson v3014DocumentAstVisualFusionCaseCount "$V3014_DOCUMENT_AST_VISUAL_FUSION_CASE_COUNT" \
+  --argjson v3014DocumentAstVisualFusionPassed "$V3014_DOCUMENT_AST_VISUAL_FUSION_PASSED" \
+  --argjson v3014DocumentAstVisualFusionSkipped "$V3014_DOCUMENT_AST_VISUAL_FUSION_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -537,6 +557,11 @@ jq -n \
     v3014VisualFusionCaseCount: $v3014VisualFusionCaseCount,
     v3014VisualFusionPassed: $v3014VisualFusionPassed,
     v3014VisualFusionSkipped: $v3014VisualFusionSkipped,
+    v3014DocumentAstVisualFusionCorpusHash: $v3014DocumentAstVisualFusionCorpusHash,
+    v3014DocumentAstVisualFusionOracleHash: $v3014DocumentAstVisualFusionOracleHash,
+    v3014DocumentAstVisualFusionCaseCount: $v3014DocumentAstVisualFusionCaseCount,
+    v3014DocumentAstVisualFusionPassed: $v3014DocumentAstVisualFusionPassed,
+    v3014DocumentAstVisualFusionSkipped: $v3014DocumentAstVisualFusionSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -581,6 +606,8 @@ jq -n \
     immutableVisualCandidateDifferential: "scripts/differential/check-v3014-visual-candidate-differential.ts",
     immutableVisualFusionOracle: "scripts/differential/fixtures/v3014-visual-fusion-oracle.json",
     immutableVisualFusionDifferential: "scripts/differential/check-v3014-visual-fusion-differential.ts",
+    immutableDocumentAstVisualFusionOracle: "scripts/differential/fixtures/v3014-document-ast-visual-fusion-oracle.json",
+    immutableDocumentAstVisualFusionDifferential: "scripts/differential/check-v3014-document-ast-visual-fusion-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",

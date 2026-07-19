@@ -149,6 +149,41 @@ fn fuse_document_map(map: &mut Value, enrichments: &[Value], warnings: &Option<V
     }
 }
 
+fn rebuild_document_ast_if_needed(data: &mut crate::read_pdf::ReadPdfData) {
+    let Some(context) = data.structured_fusion_context.clone() else {
+        return;
+    };
+    if !context.emit_document_ast {
+        return;
+    }
+    use crate::document_twin::{
+        build_citation_chunks, build_document_ast, build_elements_with_tables_and_geometry,
+    };
+    let tables = if context.emit_tables {
+        data.tables
+            .clone()
+            .unwrap_or_else(|| context.selectable_tables.clone())
+    } else {
+        context.selectable_tables.clone()
+    };
+    let semantic_elements = build_elements_with_tables_and_geometry(
+        &context.pages,
+        &tables,
+        true,
+        context.page_geometry.as_ref(),
+    );
+    let internal_chunks = build_citation_chunks(&semantic_elements, true);
+    let warnings = data.warnings.clone().unwrap_or_default();
+    let enrichments = data.visual_enrichments.clone().unwrap_or_else(|| json!([]));
+    data.document_ast = Some(build_document_ast(
+        &context.pages,
+        &semantic_elements,
+        &internal_chunks,
+        &warnings,
+        &enrichments,
+    ));
+}
+
 /// Fuse normalized provider outcomes into their matching read results.
 pub fn fuse_visual_outcomes(response: &mut ReadPdfResponse, outcomes: Vec<SourceVisualOutcome>) {
     for outcome in outcomes {
@@ -177,6 +212,7 @@ pub fn fuse_visual_outcomes(response: &mut ReadPdfResponse, outcomes: Vec<Source
             if let Some(map) = data.document_map.as_mut() {
                 fuse_document_map(map, &[], &data.warnings);
             }
+            rebuild_document_ast_if_needed(data);
             continue;
         }
 
@@ -192,6 +228,7 @@ pub fn fuse_visual_outcomes(response: &mut ReadPdfResponse, outcomes: Vec<Source
         if let Some(map) = data.document_map.as_mut() {
             fuse_document_map(map, &enrichments, &data.warnings);
         }
+        rebuild_document_ast_if_needed(data);
     }
 }
 

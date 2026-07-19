@@ -612,11 +612,13 @@ pub(crate) fn rebuild_structured_outputs(
         data.tables = Some(tables.clone());
     }
     if context.emit_document_ast {
+        let visual_enrichments = data.visual_enrichments.clone().unwrap_or_else(|| json!([]));
         data.document_ast = Some(build_document_ast(
             &context.pages,
             &semantic_elements,
             &internal_chunks,
             &ast_warnings,
+            &visual_enrichments,
         ));
     }
     if context.emit_document_map {
@@ -943,6 +945,7 @@ fn build_data(
             semantic_elements.as_ref().unwrap_or(&empty_array),
             internal_chunks.as_ref().unwrap_or(&empty_array),
             &warnings,
+            &empty_array,
         ))
     } else {
         None
@@ -1018,8 +1021,9 @@ fn build_data(
         } else {
             Vec::new()
         },
-        structured_fusion_context: (want_ocr
+        structured_fusion_context: ((want_ocr
             && (want_tables || want_ast || want_map || want_visual || want_trust))
+            || (want_visual && want_ast))
             .then(|| StructuredFusionContext {
                 pages: pages.to_vec(),
                 total_pages,
