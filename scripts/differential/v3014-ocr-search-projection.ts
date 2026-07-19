@@ -32,12 +32,15 @@ const boolean = (value: unknown, context: string): boolean => {
 const canonicalError = (value: unknown, context: string): string => {
   const error = string(value, context);
   const prefix = 'Invalid page specification for source ';
-  const detailIndex = error.indexOf(': Invalid page ');
-  if (!error.startsWith(prefix) || detailIndex < 0) return error;
-  const source = error.slice(prefix.length, detailIndex).replaceAll('\\', '/');
+  const prefixIndex = error.indexOf(prefix);
+  if (prefixIndex < 0) return error;
+  const sourceStart = prefixIndex + prefix.length;
+  const detailIndex = error.indexOf(': Invalid page ', sourceStart);
+  if (detailIndex < 0) return error;
+  const source = error.slice(sourceStart, detailIndex).replaceAll('\\', '/');
   const fixture = 'test/fixtures/differential/v3014-visual-v1.pdf';
   if (source !== fixture && !source.endsWith(`/${fixture}`)) return error;
-  return `${prefix}<fixture>${error.slice(detailIndex)}`;
+  return `${error.slice(0, sourceStart)}<fixture>${error.slice(detailIndex)}`;
 };
 const array = (value: unknown, context: string): unknown[] => {
   if (!Array.isArray(value)) throw new Error(`${context} must be an array`);
@@ -82,6 +85,13 @@ export const canonicalOcrSearchMcpResult = (value: unknown): Json => {
   const result = record(required(envelope, 'result', 'MCP response'), 'MCP tool result');
   const content = array(required(result, 'content', 'MCP tool result'), 'MCP tool result.content');
   const first = record(content[0], 'MCP tool result.content[0]');
+  if (result.isError === true) {
+    exactKeys(result, ['content', 'isError'], 'MCP tool error result');
+    if (content.length !== 1) throw new Error('MCP tool error result must contain exactly one content item');
+    exactKeys(first, ['type', 'text'], 'MCP tool error content');
+    if (first.type !== 'text') throw new Error('MCP tool error content.type must be text');
+    return { isError: true, error: canonicalError(required(first, 'text', 'MCP tool error content'), 'MCP tool error content.text') };
+  }
   const payload = record(JSON.parse(string(required(first, 'text', 'MCP tool result.content[0]'), 'MCP tool result.content[0].text')), 'search payload');
   const sources = array(required(payload, 'results', 'search payload'), 'search payload.results').map((entry, index) => {
     const source = record(entry, `results[${String(index)}]`);

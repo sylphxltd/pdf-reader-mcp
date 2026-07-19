@@ -419,16 +419,18 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_ocr_search_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 14 and .passed == 14 and .skipped == 0 and
-            .corpusSha256 == "e10efaf51c96eda3e489bd4cc3d27880135a05bb9b7844ae6b1ef8e6b3fbcacc" and
-            .oracleSha256 == "0672dad733a8283515be341ea39f4e764a819ef18b8519592e75193b53a3772b" and
+            .caseCount == 15 and .passed == 15 and .skipped == 0 and
+            .corpusSha256 == "e8024318166a68416d84e698a60f220e3bb4c33353d86a93f8db2ce2dcd60919" and
+            .oracleSha256 == "9c34d8d0cf7447429f39cb965758d88e67853c6fb08a277041bca0e70d055bec" and
             .runnerSha256 == "904eaaec0db95e08c4a85c72624e017e5a90f6a0d6875fc2038d75f558714da0" and
-            .projectionSha256 == "be98baf011d0ebc430a9908dbc38c4993bf9fa49fe050f32c1aae7badc6a0aac" and
+            .projectionSha256 == "4728d9a8c9220c7da2a663351a3271aa0523987a2dc67c65df7bcc4d9e9a45c4" and
             .providerSha256 == "256e0430fe3039637f67a12f4845dbaf66c94730f4a792dbc1d22131862dadf7" and
             .fixtureSha256 == "3e2d9b9d96461359b489c76facafd00eea7bd18f03b6aae23c333340e892e89a" and
             .mutationSensitive.allClaimedFields == true and
-            .mutationSensitive.leafMutationCount == 245 and
+            .mutationSensitive.leafMutationCount == 247 and
             .schemaProof.includeOcrTextLayer == true and
+            .envelopeProof.allInvalidIsToolError == true and
+            .envelopeProof.protocolErrorRejected == true and
             .portabilityProof.relocatedFixtureRootReplay == true and
             .portabilityProof.windowsPathProjection == true and
             .portabilityProof.normalizedFixtureToken == "<fixture>" and

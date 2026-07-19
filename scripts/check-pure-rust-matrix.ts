@@ -766,8 +766,8 @@ if (
 }
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
 if (
-  ocrSearchCaseCount !== 14 ||
-  ocrSearchCorpus.envelope.caseCount !== 14 ||
+  ocrSearchCaseCount !== 15 ||
+  ocrSearchCorpus.envelope.caseCount !== 15 ||
   ocrSearchCorpus.envelope.fixtureCount !== 1 ||
   ocrSearchCorpus.envelope.maxPagesPerCase !== 10001 ||
   ocrSearchCorpus.nonclaims.dropInFor3014 !== false ||
@@ -780,8 +780,10 @@ if (
 if (
   !differentialWorkflow.includes('bun run test:v3014-ocr-search-differential') ||
   !differentialWorkflow.includes('.profile == "pdf_reader_v3014_ocr_search_result"') ||
-  !differentialWorkflow.includes('.caseCount == 14 and .passed == 14 and .skipped == 0') ||
-  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 245') ||
+  !differentialWorkflow.includes('.caseCount == 15 and .passed == 15 and .skipped == 0') ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 247') ||
+  !differentialWorkflow.includes('.envelopeProof.allInvalidIsToolError == true') ||
+  !differentialWorkflow.includes('.envelopeProof.protocolErrorRejected == true') ||
   !differentialWorkflow.includes('.portabilityProof.relocatedFixtureRootReplay == true') ||
   !differentialWorkflow.includes('.portabilityProof.windowsPathProjection == true') ||
   !differentialWorkflow.includes('.portabilityProof.normalizedFixtureToken == "<fixture>"') ||
@@ -814,8 +816,8 @@ for (const required of [
   }
 }
 if (
-  !matrix.claimedForDifferential.some((claim) => claim.includes('exact 14-case') && claim.includes('OCR-search')) ||
-  !matrix.explicitlyNotClaimed.some((claim) => claim.includes('OCR search outside the frozen 14-case'))
+  !matrix.claimedForDifferential.some((claim) => claim.includes('exact 15-case') && claim.includes('OCR-search')) ||
+  !matrix.explicitlyNotClaimed.some((claim) => claim.includes('OCR search outside the frozen 15-case'))
 ) {
   failures.push('OCR-search bounded claim and explicit nonclaims must remain documented');
 }

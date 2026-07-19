@@ -2,7 +2,7 @@ use pdf_reader_core::{
     fuse_search_ocr_outcomes, hash_file, search_pdf_from_value, SearchPdfErrorCode,
     SearchPdfResponse, SEARCH_PDF_ROUTE,
 };
-use rmcp::model::CallToolResult;
+use rmcp::model::{CallToolResult, Content};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
@@ -14,6 +14,11 @@ use crate::visual_evidence::{materialize_read_source, MaterializedSource};
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_OCR_SOURCES_PER_REQUEST: usize = 32;
+
+enum OcrSearchOutcome {
+    Complete(SearchPdfResponse, Vec<MaterializedSource>, bool),
+    AllSourcesFailed(String),
+}
 
 fn admit_ocr_source_count(count: usize) -> Result<(), rmcp::ErrorData> {
     if count <= MAX_OCR_SOURCES_PER_REQUEST {
@@ -54,7 +59,14 @@ pub fn search_pdf(args_value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
     };
 
     let (response, materialized, has_provider_ocr) = if ocr_requested {
-        search_with_ocr(&args_value, &args).map_err(map_error)?
+        match search_with_ocr(&args_value, &args).map_err(map_error)? {
+            OcrSearchOutcome::Complete(response, materialized, has_provider_ocr) => {
+                (response, materialized, has_provider_ocr)
+            }
+            OcrSearchOutcome::AllSourcesFailed(message) => {
+                return Ok(CallToolResult::error(vec![Content::text(message)]));
+            }
+        }
     } else {
         (
             search_pdf_from_value(&args_value).map_err(map_error)?,
@@ -101,7 +113,7 @@ pub fn search_pdf(args_value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
 fn search_with_ocr(
     args_value: &Value,
     args: &SearchPdfArgs,
-) -> Result<(SearchPdfResponse, Vec<MaterializedSource>, bool), pdf_reader_core::SearchPdfError> {
+) -> Result<OcrSearchOutcome, pdf_reader_core::SearchPdfError> {
     let mut materialized: Vec<Option<MaterializedSource>> =
         (0..args.sources.len()).map(|_| None).collect();
     let mut results = Vec::with_capacity(args.sources.len());
@@ -160,10 +172,9 @@ fn search_with_ocr(
             .filter_map(|result| result.get("error").and_then(Value::as_str))
             .collect::<Vec<_>>()
             .join("; ");
-        return Err(pdf_reader_core::SearchPdfError {
-            code: SearchPdfErrorCode::InvalidRequest,
-            message: format!("All PDF sources failed search: {errors}"),
-        });
+        return Ok(OcrSearchOutcome::AllSourcesFailed(format!(
+            "All PDF sources failed search: {errors}"
+        )));
     }
 
     let mut options = search_options.expect("at least one successful search has options");
@@ -208,7 +219,11 @@ fn search_with_ocr(
     let has_provider_ocr = outcomes.iter().any(|outcome| !outcome.pages.is_empty());
     fuse_search_ocr_outcomes(&mut response, outcomes)?;
     let owners = materialized.into_iter().flatten().collect();
-    Ok((response, owners, has_provider_ocr))
+    Ok(OcrSearchOutcome::Complete(
+        response,
+        owners,
+        has_provider_ocr,
+    ))
 }
 
 #[cfg(test)]
@@ -269,5 +284,22 @@ mod tests {
         let error = results[1]["error"].as_str().expect("source-local error");
         assert!(error.contains("Invalid page number: abc"));
         assert!(error.contains("must-not-touch-invalid-page-spec.pdf"));
+    }
+
+    #[test]
+    fn all_invalid_ocr_sources_return_a_tool_error_not_protocol_error() {
+        let response = search_pdf(json!({
+            "sources": [{"path": "/must-not-touch-all-invalid.pdf", "pages": "abc"}],
+            "query": "x",
+            "include_ocr_text_layer": true,
+        }))
+        .expect("all-source failure remains a tools/call result");
+        assert_eq!(response.is_error, Some(true));
+        assert_eq!(response.content.len(), 1);
+        let encoded = serde_json::to_value(response).expect("serialize tool error");
+        assert_eq!(encoded["isError"], json!(true));
+        assert!(encoded["content"][0]["text"]
+            .as_str()
+            .is_some_and(|message| message.starts_with("All PDF sources failed search: ")));
     }
 }
