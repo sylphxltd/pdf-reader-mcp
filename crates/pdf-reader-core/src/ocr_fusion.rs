@@ -442,6 +442,7 @@ mod tests {
             layout: json!([]),
             trust: None,
             accessibility: None,
+            visual_candidates: json!([]),
         });
         fuse_ocr_outcomes(
             &mut response,

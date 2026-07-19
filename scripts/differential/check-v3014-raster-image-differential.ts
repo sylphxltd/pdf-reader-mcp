@@ -254,7 +254,7 @@ const report = {
   },
   decodedPixelProof: { comparedCompressionBytes: false, maxPixelsPerImage: 4, repeatedPaintPixelIdentity: true },
   omissionProof: { imageFreeOmitted, includeFalseOmitted, ancestorShadowed, malformedOmitted },
-  capabilityStatus: { includeImages: 'PARTIAL', visualEnrichments: 'STUB' },
+  capabilityStatus: { includeImages: 'PARTIAL', visualEnrichments: 'PARTIAL' },
   nonclaims: corpus.nonclaims,
   productTruth: { dropInFor3014: false, publishFreeze: true },
   pass: failures.length === 0,
