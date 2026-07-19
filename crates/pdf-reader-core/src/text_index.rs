@@ -582,7 +582,7 @@ pub fn search_pdf_text_pages(
                 }
 
                 let matched_text = text[start..end].to_string();
-                let snippet = build_snippet(text, start, end, context_chars as usize);
+                let snippet = build_snippet(text, start, end, context_chars as usize)?;
                 let start_utf16 = utf16_offset(text, start);
                 let end_utf16 = utf16_offset(text, end);
                 let (bounding_box, bounding_box_level) =
@@ -791,15 +791,55 @@ fn ceil_char_boundary(text: &str, index: usize) -> usize {
     index
 }
 
-fn build_snippet(text: &str, start: usize, end: usize, context_chars: usize) -> String {
+fn build_snippet(
+    text: &str,
+    start: usize,
+    end: usize,
+    context_chars: usize,
+) -> Result<String, TextIndexError> {
     let start = floor_char_boundary(text, start.min(text.len()));
     let end = ceil_char_boundary(text, end.min(text.len()));
-    // context_chars is a soft byte budget; clamp to char boundaries.
-    let snippet_start = floor_char_boundary(text, start.saturating_sub(context_chars));
-    let snippet_end = ceil_char_boundary(text, (end + context_chars).min(text.len()));
+    // TS v3.0.14 counts context in JavaScript UTF-16 code units, not UTF-8
+    // bytes. Walk only the bounded context window around the already-known
+    // byte offsets so each snippet remains O(context_chars), not O(text).
+    let mut remaining = context_chars;
+    let mut snippet_start = start;
+    if remaining > 0 {
+        for (index, character) in text[..start].char_indices().rev() {
+            if character.len_utf16() > remaining {
+                return Err(TextIndexError::invalid_request(
+                    "UTF-16 snippet context would split an astral character.",
+                ));
+            }
+            snippet_start = index;
+            remaining -= character.len_utf16();
+            if remaining == 0 {
+                break;
+            }
+        }
+    }
+    let mut remaining = context_chars;
+    let mut snippet_end = end;
+    if remaining > 0 {
+        for (offset, character) in text[end..].char_indices() {
+            if character.len_utf16() > remaining {
+                return Err(TextIndexError::invalid_request(
+                    "UTF-16 snippet context would split an astral character.",
+                ));
+            }
+            snippet_end = end + offset + character.len_utf8();
+            remaining -= character.len_utf16();
+            if remaining == 0 {
+                break;
+            }
+        }
+    }
     let prefix = if snippet_start > 0 { "..." } else { "" };
     let suffix = if snippet_end < text.len() { "..." } else { "" };
-    format!("{prefix}{}{suffix}", &text[snippet_start..snippet_end])
+    Ok(format!(
+        "{prefix}{}{suffix}",
+        &text[snippet_start..snippet_end]
+    ))
 }
 
 #[cfg(test)]
@@ -1062,7 +1102,7 @@ mod tests {
         let text = "Sample PDF file with sample terms inside.";
         let matches = find_matches_in_text(text, "sample", false, false);
         assert_eq!(matches.len(), 2);
-        let snippet = build_snippet(text, matches[0].0, matches[0].1, 6);
+        let snippet = build_snippet(text, matches[0].0, matches[0].1, 6).unwrap();
         assert!(snippet.contains("Sample PDF"));
     }
 
@@ -1080,7 +1120,7 @@ mod tests {
         let matches = find_matches_in_text(text, "a", false, false);
         assert!(!matches.is_empty());
         for (start, end) in matches {
-            let _ = build_snippet(text, start, end, 40);
+            let _ = build_snippet(text, start, end, 40).unwrap();
             assert!(text.is_char_boundary(start));
             assert!(text.is_char_boundary(end));
         }
@@ -1092,6 +1132,35 @@ mod tests {
         let (start, end) = find_matches_in_text(text, "Café", true, false)[0];
         assert_eq!(utf16_offset(text, start), 2);
         assert_eq!(utf16_offset(text, end), 6);
+    }
+
+    #[test]
+    fn snippet_context_counts_utf16_units_like_v3_0_14() {
+        let text = "Café résumé";
+        let (start, end) = find_matches_in_text(text, "résumé", true, false)[0];
+        assert_eq!(build_snippet(text, start, end, 5).unwrap(), "Café résumé");
+        assert_eq!(build_snippet(text, start, end, 0).unwrap(), "...résumé");
+
+        // Rust strings cannot contain lone UTF-16 surrogates. Fail closed when
+        // the exact TS context boundary would bisect an astral scalar.
+        let astral = "A😀résuméZ";
+        let (start, end) = find_matches_in_text(astral, "résumé", true, false)[0];
+        let error = build_snippet(astral, start, end, 1).unwrap_err();
+        assert_eq!(error.code, TextIndexErrorCode::InvalidRequest);
+        assert!(error.message.contains("split an astral character"));
+        assert_eq!(
+            build_snippet(astral, start, end, 2).unwrap(),
+            "...😀résuméZ"
+        );
+
+        let trailing_astral = "résumé😀A";
+        let (start, end) = find_matches_in_text(trailing_astral, "résumé", true, false)[0];
+        let error = build_snippet(trailing_astral, start, end, 1).unwrap_err();
+        assert_eq!(error.code, TextIndexErrorCode::InvalidRequest);
+        assert_eq!(
+            build_snippet(trailing_astral, start, end, 2).unwrap(),
+            "résumé😀..."
+        );
     }
 
     #[test]
@@ -1156,9 +1225,9 @@ mod tests {
         assert!(is_word_char(Some('_')));
         assert!(!is_word_char(Some(' ')));
         assert!(!is_word_char(None));
-        let snip = build_snippet("0123456789abcdefghij", 8, 12, 2);
+        let snip = build_snippet("0123456789abcdefghij", 8, 12, 2).unwrap();
         assert!(snip.contains("..."), "{snip}");
-        let snip2 = build_snippet("short", 0, 5, 10);
+        let snip2 = build_snippet("short", 0, 5, 10).unwrap();
         assert_eq!(snip2, "short");
     }
 }

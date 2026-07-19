@@ -114,6 +114,7 @@ jobs:
           bun run test:v3014-trust-report-differential
           bun run test:v3014-selectable-table-differential
           bun run test:v3014-caption-link-differential
+          bun run test:v3014-search-semantic-differential -- --output "${SCRATCH_DIR}/v3014-search-semantic-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -321,6 +322,29 @@ jobs:
             echo "::error::v3.0.14 caption-link result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           }
+          SEARCH_SEMANTIC_ARTIFACT="${SCRATCH_DIR}/v3014-search-semantic-result.json"
+          if [ ! -f "$SEARCH_SEMANTIC_ARTIFACT" ]; then
+            echo "::error::v3.0.14 search-semantic result missing at $SEARCH_SEMANTIC_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_search_semantic_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 12 and .passed == 12 and .skipped == 0 and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "b5f9aebf64bea4633376fdab137f57369d845173996ce21fb1b3bfe748c0481c" and
+            .mutationSensitive.leafMutationCount == 171 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 4 and
+            .mutationSensitive.unexpectedFieldProbeCount == 2 and
+            .mutationSensitive.requiredOmissionProbeCount == 2 and
+            .omissionProof.noWarnings == true and .omissionProof.noTruncated == true and
+            .nonclaim.utf16SplitSurrogateWireParity == false and .nonclaim.failClosedProof == true and
+            .productTruth.dropInFor3014 == false and .productTruth.publishFreeze == true
+          ' "$SEARCH_SEMANTIC_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 search-semantic result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
@@ -360,6 +384,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/v3014-trust-report-result.json
             ${{ env.SCRATCH_DIR }}/v3014-selectable-table-result.json
             ${{ env.SCRATCH_DIR }}/v3014-caption-link-result.json
+            ${{ env.SCRATCH_DIR }}/v3014-search-semantic-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-result.json
           if-no-files-found: error
 

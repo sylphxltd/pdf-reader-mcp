@@ -67,6 +67,12 @@ const captionLinkCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }> };
+const searchSemanticCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-search-semantic-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }>; nonclaim: { utf16SplitSurrogateWireParity: boolean } };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -326,6 +332,37 @@ if (
   !differentialWorkflow.includes('.mutationSensitive.dependencyPresenceProbeCount == 12')
 ) {
   failures.push('caption-link workflow must bind the executed mutation manifest, leaf coverage, and exact probe counts');
+}
+const searchSemanticCaseCount = searchSemanticCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-search-semantic-differential')) {
+  failures.push('rust parity workflow must execute the frozen search-semantic differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${searchSemanticCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${searchSemanticCaseCount}`)
+) {
+  failures.push(`rust parity workflow must require the exact ${searchSemanticCaseCount}/${searchSemanticCaseCount} search-semantic corpus`);
+}
+if (searchSemanticCaseCount !== 12) {
+  failures.push(`frozen search-semantic differential must contain exactly 12 cases (got ${searchSemanticCaseCount})`);
+}
+if (searchSemanticCorpus.nonclaim.utf16SplitSurrogateWireParity !== false) {
+  failures.push('search-semantic corpus must explicitly exclude split-surrogate wire parity');
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "b5f9aebf64bea4633376fdab137f57369d845173996ce21fb1b3bfe748c0481c"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 171') ||
+  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 4') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 2') ||
+  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||
+  !differentialWorkflow.includes('.nonclaim.utf16SplitSurrogateWireParity == false') ||
+  !differentialWorkflow.includes('.nonclaim.failClosedProof == true') ||
+  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('search-semantic workflow must bind mutation proof, nonclaim, and frozen product truth');
 }
 if (failures.length) {
   console.error(failures.join('\n'));
