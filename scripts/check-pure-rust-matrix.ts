@@ -271,6 +271,19 @@ if (selectableTableCaseCount !== 6) {
   failures.push(`frozen selectable-table differential must contain exactly 6 cases (got ${selectableTableCaseCount})`);
 }
 if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "c5634218c74198e01e4fe3f7e418580fb63899d654248c593bdf12aba2d0f69d"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 1625') ||
+  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 7') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 7') ||
+  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 7') ||
+  !differentialWorkflow.includes('.mutationSensitive.privateLeakProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.dependencyPresenceProbeCount == 13')
+) {
+  failures.push('selectable-table workflow must bind the executed mutation manifest, leaf coverage, and exact probe counts');
+}
+if (
   !differentialWorkflow.includes('(.semanticProof | to_entries | all(.value == true))') ||
   !differentialWorkflow.includes('(.continuationProof | to_entries | all(.value == true))') ||
   !differentialWorkflow.includes('.resourceBoundProof.exactCapItemCount == 4096') ||

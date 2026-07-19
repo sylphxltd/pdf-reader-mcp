@@ -427,15 +427,19 @@ export const canonicalSelectableTableResult = (value: unknown): Json => {
       ? arr(req(trust, "signals", "trust_report"), "trust.signals")
           .filter((x) => {
             const s = rec(x, "trust signal");
-            return (
-              s.type === "table_quality" &&
-              !String(s.message).startsWith(
-                "Detected cells whose text boxes cross column boundaries;"
-              )
-            );
+            return s.type === "table_quality";
           })
           .map((x) => {
             const s = rec(x, "trust signal");
+            const evidence = rec(
+              req(s, "evidence", "trust signal"),
+              "trust signal evidence"
+            );
+            exact(
+              evidence,
+              ["confidence", "row_count", "col_count", "signals", "completeness"],
+              "trust signal evidence"
+            );
             return {
               type: str(req(s, "type", "trust signal"), "trust type"),
               severity: str(
@@ -448,6 +452,28 @@ export const canonicalSelectableTableResult = (value: unknown): Json => {
                 "trust table id"
               ),
               message: str(req(s, "message", "trust signal"), "trust message"),
+              evidence: {
+                confidence: num(
+                  req(evidence, "confidence", "trust signal evidence"),
+                  "trust evidence confidence"
+                ),
+                row_count: num(
+                  req(evidence, "row_count", "trust signal evidence"),
+                  "trust evidence row count"
+                ),
+                col_count: num(
+                  req(evidence, "col_count", "trust signal evidence"),
+                  "trust evidence column count"
+                ),
+                signals: strings(
+                  req(evidence, "signals", "trust signal evidence"),
+                  "trust evidence signals"
+                ),
+                completeness: num(
+                  req(evidence, "completeness", "trust signal evidence"),
+                  "trust evidence completeness"
+                ),
+              },
             };
           })
       : [],
@@ -480,7 +506,7 @@ export const SELECTABLE_TABLE_MUTATION_MANIFEST = {
     "tables[0].quality",
     "tables[0].provenance",
     "elements[0].table",
-    "chunks[0].strategy",
+    "chunks[0].text",
     "map_table_linkage.pages[0].table_count",
   ],
   privateLeakage: [

@@ -7,7 +7,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   canonicalSelectableTableResult,
-  SELECTABLE_TABLE_DEPENDENCY_SURFACES,
   SELECTABLE_TABLE_MUTATION_MANIFEST,
   type Json,
 } from "./v3014-selectable-table-projection.ts";
@@ -202,16 +201,47 @@ for (const entry of corpus.cases) {
   if (!same(actual, expected))
     failures.push({ id: entry.id, expected, actual });
 }
-const leaves = (v: Json): number =>
-  Array.isArray(v)
-    ? v.reduce((n, x) => n + leaves(x), 0)
-    : v && typeof v === "object"
-    ? Object.values(v).reduce((n, x) => n + leaves(x), 0)
-    : 1;
-const leafMutationCount = Object.values(oracle.expectations).reduce(
-  (n, x) => n + leaves(x),
-  0
-);
+const leafPaths = (
+  value: Json,
+  prefix: Array<string | number> = []
+): Array<Array<string | number>> =>
+  Array.isArray(value)
+    ? value.flatMap((entry, index) => leafPaths(entry, [...prefix, index]))
+    : value && typeof value === "object"
+    ? Object.entries(value).flatMap(([key, entry]) =>
+        leafPaths(entry, [...prefix, key])
+      )
+    : [prefix];
+const mutateAt = (value: Json, path: Array<string | number>): Json => {
+  const mutated = structuredClone(value);
+  let cursor = mutated as Json;
+  for (const segment of path.slice(0, -1))
+    cursor = (cursor as never)[segment as never];
+  const key = path.at(-1)!;
+  const original = (cursor as never)[key as never] as Json;
+  const replacement: Json =
+    typeof original === "string"
+      ? `${original}-mutated`
+      : typeof original === "number"
+      ? original + 1
+      : typeof original === "boolean"
+      ? !original
+      : "mutated";
+  (cursor as never)[key as never] = replacement as never;
+  return mutated;
+};
+let leafMutationCount = 0;
+for (const [caseId, expectation] of Object.entries(oracle.expectations)) {
+  const paths = leafPaths(expectation);
+  const missed = paths.filter((path) =>
+    same(mutateAt(expectation, path), expectation)
+  );
+  if (missed.length > 0)
+    throw new Error(
+      `canonical comparison missed ${missed.length} leaf mutations in ${caseId}`
+    );
+  leafMutationCount += paths.length;
+}
 const only = raw["tables-only-public-surface"]!;
 const hidden = raw["tables-hidden-downstream-dependencies"]!;
 const exposed = raw["tables-exposed-downstream-linkage"]!;
@@ -231,6 +261,13 @@ const table = getTables(only)[0]!;
 const quality = table.quality as Record<string, unknown>;
 const exposedTable = getTables(exposed)[0]!;
 const exposedQuality = exposedTable.quality as Record<string, unknown>;
+const exposedTrustMessages = (
+  ((exposed.trust_report as Record<string, unknown>)?.signals ?? []) as Array<
+    Record<string, unknown>
+  >
+)
+  .filter((signal) => signal.type === "table_quality")
+  .map((signal) => signal.message);
 const semanticProof = {
   exactSparseGrid:
     getTables(only).length === 1 &&
@@ -250,6 +287,12 @@ const semanticProof = {
       "merged_cell_candidates"
     ) &&
     ((exposedQuality.warnings as unknown[]) ?? []).length === 3,
+  exactOrderedTrustSignals:
+    same(exposedTrustMessages, [
+      "Detected empty inferred cells; table may contain sparse or merged structure.",
+      "Detected cells whose text boxes cross column boundaries; spans are inferred.",
+      "Some table cells lack bounding boxes; verify the table with region crops when cell-level evidence matters.",
+    ]),
   hiddenTopLevelDependencies:
     !Object.hasOwn(only, "elements") &&
     !Object.hasOwn(only, "chunks") &&
@@ -356,39 +399,121 @@ const reject = (
   }
   throw new Error(`strict projection accepted ${label}`);
 };
-reject((v) => {
-  (v.tables as Record<string, unknown>[])[0]!.page = "1";
-}, "wrong table page");
-reject((v) => {
-  (
-    (v.tables as Record<string, unknown>[])[0]!.cells as Record<
-      string,
-      unknown
-    >[]
-  )[0]!.isHeader = "true";
-}, "wrong cell boolean");
-reject((v) => {
-  (v.tables as Record<string, unknown>[])[0]!.private = "leak";
-}, "unexpected table field");
-reject((v) => {
-  delete (v.tables as Record<string, unknown>[])[0]!.rows;
-}, "missing rows");
+const pathTokens = (path: string): Array<string | number> =>
+  [...path.matchAll(/([^.\[\]]+)|\[(\d+)\]/gu)].map((match) =>
+    match[2] === undefined ? match[1]! : Number(match[2])
+  );
+const rawTokens = (
+  source: Record<string, unknown>,
+  path: string
+): Array<string | number> => {
+  const tokens = pathTokens(path);
+  if (tokens[0] === "map_table_linkage") tokens[0] = "document_map";
+  if (tokens[0] === "elements" && tokens[1] === 0) {
+    const elements = source.elements as Array<Record<string, unknown>>;
+    tokens[1] = elements.findIndex((entry) => entry.type === "table");
+  }
+  if (tokens[0] === "chunks" && tokens[1] === 0) {
+    const chunks = source.chunks as Array<Record<string, unknown>>;
+    tokens[1] = chunks.findIndex((entry) => entry.strategy === "table");
+  }
+  if (tokens.includes(-1)) throw new Error(`mutation target missing: ${path}`);
+  return tokens;
+};
+const targetAt = (
+  source: Record<string, unknown>,
+  path: string
+): { parent: Record<string | number, unknown>; key: string | number } => {
+  const tokens = rawTokens(source, path);
+  const key = tokens.pop();
+  if (key === undefined) throw new Error(`empty mutation path: ${path}`);
+  let cursor: unknown = source;
+  for (const token of tokens) {
+    if (!cursor || typeof cursor !== "object")
+      throw new Error(`mutation target is not traversable: ${path}`);
+    cursor = (cursor as Record<string | number, unknown>)[token];
+  }
+  if (!cursor || typeof cursor !== "object")
+    throw new Error(`mutation parent missing: ${path}`);
+  return { parent: cursor as Record<string | number, unknown>, key };
+};
+let wrongPrimitiveTypeProbeCount = 0;
+for (const path of SELECTABLE_TABLE_MUTATION_MANIFEST.wrongPrimitiveTypes) {
+  reject((value) => {
+    const { parent, key } = targetAt(value, path);
+    const original = parent[key];
+    parent[key] = Array.isArray(original)
+      ? "not-an-array"
+      : typeof original === "number"
+      ? "not-a-number"
+      : typeof original === "boolean"
+      ? "not-a-boolean"
+      : 7;
+  }, `wrong primitive type at ${path}`);
+  wrongPrimitiveTypeProbeCount += 1;
+}
+let unexpectedFieldProbeCount = 0;
+for (const path of SELECTABLE_TABLE_MUTATION_MANIFEST.unexpectedFields) {
+  const source = path.includes("continuation") ? cross : exposed;
+  reject((value) => {
+    const { parent, key } = targetAt(value, path);
+    const target = parent[key];
+    if (!target || typeof target !== "object" || Array.isArray(target))
+      throw new Error(`unexpected-field target is not an object: ${path}`);
+    (target as Record<string, unknown>).__unexpected = true;
+  }, `unexpected field at ${path}`, source);
+  unexpectedFieldProbeCount += 1;
+}
+let requiredOmissionProbeCount = 0;
+for (const path of SELECTABLE_TABLE_MUTATION_MANIFEST.requiredOmissions) {
+  reject((value) => {
+    const { parent, key } = targetAt(value, path);
+    delete parent[key];
+  }, `required omission at ${path}`);
+  requiredOmissionProbeCount += 1;
+}
+let privateLeakProbeCount = 0;
+for (const key of SELECTABLE_TABLE_MUTATION_MANIFEST.privateLeakage) {
+  const value = structuredClone(exposed);
+  const baseline = canonicalSelectableTableResult(value);
+  value[key] = { leaked: true };
+  if (same(canonicalSelectableTableResult(value), baseline))
+    throw new Error(`private leakage probe was invisible: ${key}`);
+  privateLeakProbeCount += 1;
+}
+let dependencyPresenceProbeCount = 0;
+for (const key of SELECTABLE_TABLE_MUTATION_MANIFEST.dependencyPresence) {
+  const value = structuredClone(exposed);
+  const baseline = canonicalSelectableTableResult(value);
+  if (Object.hasOwn(value, key)) delete value[key];
+  else value[key] = { probe: true };
+  if (same(canonicalSelectableTableResult(value), baseline))
+    throw new Error(`dependency presence probe was invisible: ${key}`);
+  dependencyPresenceProbeCount += 1;
+}
 const mutationSensitive = {
-  allClaimedFields: true,
+  allClaimedFields:
+    leafMutationCount > 0 &&
+    wrongPrimitiveTypeProbeCount ===
+      SELECTABLE_TABLE_MUTATION_MANIFEST.wrongPrimitiveTypes.length &&
+    unexpectedFieldProbeCount ===
+      SELECTABLE_TABLE_MUTATION_MANIFEST.unexpectedFields.length &&
+    requiredOmissionProbeCount ===
+      SELECTABLE_TABLE_MUTATION_MANIFEST.requiredOmissions.length &&
+    privateLeakProbeCount ===
+      SELECTABLE_TABLE_MUTATION_MANIFEST.privateLeakage.length &&
+    dependencyPresenceProbeCount ===
+      SELECTABLE_TABLE_MUTATION_MANIFEST.dependencyPresence.length,
   manifestVersion: SELECTABLE_TABLE_MUTATION_MANIFEST.version,
   mutationManifestSha256: sha(
     JSON.stringify(SELECTABLE_TABLE_MUTATION_MANIFEST)
   ),
   leafMutationCount,
-  wrongPrimitiveTypeProbeCount:
-    SELECTABLE_TABLE_MUTATION_MANIFEST.wrongPrimitiveTypes.length,
-  unexpectedFieldProbeCount:
-    SELECTABLE_TABLE_MUTATION_MANIFEST.unexpectedFields.length,
-  requiredOmissionProbeCount:
-    SELECTABLE_TABLE_MUTATION_MANIFEST.requiredOmissions.length,
-  privateLeakProbeCount:
-    SELECTABLE_TABLE_MUTATION_MANIFEST.privateLeakage.length,
-  dependencyPresenceProbeCount: SELECTABLE_TABLE_DEPENDENCY_SURFACES.length,
+  wrongPrimitiveTypeProbeCount,
+  unexpectedFieldProbeCount,
+  requiredOmissionProbeCount,
+  privateLeakProbeCount,
+  dependencyPresenceProbeCount,
 };
 const candidateSha = git("rev-parse", "HEAD").toString().trim();
 if (process.env.CANDIDATE_SHA && process.env.CANDIDATE_SHA !== candidateSha)
