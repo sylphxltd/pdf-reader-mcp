@@ -176,6 +176,18 @@ const documentAstVisualFusionCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const readOcrCorpus = JSON.parse(
+  readFileSync(join(root, 'scripts/differential/fixtures/v3014-read-ocr-corpus.json'), 'utf8')
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxOcrPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -236,7 +248,7 @@ const documentAstVisualFusionWorkflowStart = differentialWorkflow.indexOf(
   'DOCUMENT_AST_VISUAL_FUSION_ARTIFACT="${SCRATCH_DIR}/v3014-document-ast-visual-fusion-result.json"'
 );
 const documentAstVisualFusionWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'READ_OCR_ARTIFACT="${SCRATCH_DIR}/v3014-read-ocr-result.json"',
   documentAstVisualFusionWorkflowStart
 );
 const documentAstVisualFusionWorkflow =
@@ -246,6 +258,17 @@ const documentAstVisualFusionWorkflow =
         documentAstVisualFusionWorkflowStart,
         documentAstVisualFusionWorkflowEnd
       )
+    : '';
+const readOcrWorkflowStart = differentialWorkflow.indexOf(
+  'READ_OCR_ARTIFACT="${SCRATCH_DIR}/v3014-read-ocr-result.json"'
+);
+const readOcrWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  readOcrWorkflowStart
+);
+const readOcrWorkflow =
+  readOcrWorkflowStart >= 0 && readOcrWorkflowEnd > readOcrWorkflowStart
+    ? differentialWorkflow.slice(readOcrWorkflowStart, readOcrWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -312,6 +335,9 @@ if (matrix.tools.read_pdf.include_visual_enrichments !== 'PARTIAL') {
 }
 if (matrix.tools.search_pdf.include_ocr_text_layer !== 'PARTIAL') {
   failures.push('bounded OCR-search claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_ocr_text_layer !== 'PARTIAL') {
+  failures.push('bounded read_pdf include_ocr_text_layer claim must remain PARTIAL');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -921,6 +947,83 @@ if (
   failures.push('document-ast-visual-fusion workflow must bind mutation, provider, capability, and product-truth proof');
 }
 
+const readOcrCaseCount = readOcrCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-read-ocr-differential')) {
+  failures.push('rust parity workflow must execute the frozen read-ocr differential');
+}
+if (
+  !repositoryDifferential.includes('scripts/differential/check-v3014-read-ocr-differential.ts') ||
+  !repositoryDifferential.includes('scripts/differential/capture-v3014-read-ocr-oracle.ts') ||
+  !repositoryDifferential.includes('v3014ReadOcrCaseCount') ||
+  !repositoryDifferential.includes('v3014ReadOcrCorpusHash') ||
+  !repositoryDifferential.includes('v3014ReadOcrOracleHash')
+) {
+  failures.push('repository differential artifact must bind the read-ocr family');
+}
+if (
+  !readOcrWorkflow.includes(`.caseCount == ${readOcrCaseCount}`) ||
+  !readOcrWorkflow.includes(`.passed == ${readOcrCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${readOcrCaseCount}/${readOcrCaseCount} read-ocr corpus`
+  );
+}
+if (
+  readOcrCaseCount !== 6 ||
+  readOcrCorpus.envelope.fixtureCount !== 1 ||
+  readOcrCorpus.envelope.caseCount !== 6 ||
+  readOcrCorpus.envelope.maxPagesPerCase !== 2 ||
+  readOcrCorpus.envelope.maxOcrPagesPerCase !== 2 ||
+  readOcrCorpus.nonclaims.tesseractTsv !== false ||
+  readOcrCorpus.nonclaims.textOnlyProviderFallback !== false ||
+  readOcrCorpus.nonclaims.selectableOcrTableContinuation !== false ||
+  readOcrCorpus.nonclaims.urlSingleFetch !== false ||
+  readOcrCorpus.nonclaims.firstFiveOfSixPageBoundary !== false ||
+  readOcrCorpus.nonclaims.wholeProductParity !== false ||
+  readOcrCorpus.nonclaims.dropInFor3014 !== false ||
+  readOcrCorpus.nonclaims.publishFreeze !== true
+) {
+  failures.push('read-ocr corpus envelope and product-truth nonclaims must remain frozen');
+}
+if (
+  !readOcrWorkflow.includes('.profile == "pdf_reader_v3014_read_ocr_result"') ||
+  !readOcrWorkflow.includes('.mutationSensitive.leafMutationCount == 143') ||
+  !readOcrWorkflow.includes('.portabilityProof.relocatedFixtureRootReplay == true') ||
+  !readOcrWorkflow.includes('.providerProof.configuredCommandOnly == true') ||
+  !readOcrWorkflow.includes('.providerProof.optOutOmitsLayer == true') ||
+  !readOcrWorkflow.includes('.providerProof.failSoftOmitsLayer == true') ||
+  !readOcrWorkflow.includes('.providerProof.notConfiguredSoftOmitsLayer == true') ||
+  !readOcrWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
+  !readOcrWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !readOcrWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('read-ocr workflow must bind mutation, provider, capability, and product-truth proof');
+}
+for (const required of [
+  'scripts/differential/check-v3014-read-ocr-differential.ts',
+  'scripts/differential/capture-v3014-read-ocr-oracle.ts',
+  'v3014-read-ocr-baseline-runner.ts',
+  'v3014-read-ocr-projection.ts',
+  'v3014-read-ocr-corpus.json',
+  'v3014-read-ocr-oracle.json',
+  'v3014ReadOcrCaseCount',
+  'v3014ReadOcrCorpusHash',
+  'v3014ReadOcrOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(`repository differential artifact must bind read-ocr family member: ${required}`);
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 6-case') && claim.includes('include_ocr_text_layer')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('read_pdf include_ocr_text_layer outside the frozen 6-case')
+  )
+) {
+  failures.push('read-ocr bounded claim and explicit nonclaims must remain documented');
+}
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
 if (
