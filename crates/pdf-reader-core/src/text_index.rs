@@ -572,6 +572,7 @@ pub fn search_pdf_text_pages(
         {
             let text = &item.text;
             let source_projection = SourceUtf16Projection::new(text);
+            let geometry_index = TextGeometryIndex::new(item);
             let remaining = max_matches.saturating_add(1) as usize - matches.len();
             let item_matches = find_matches_in_text_bounded(
                 text,
@@ -597,7 +598,7 @@ pub fn search_pdf_text_pages(
                     context_chars as usize,
                 )?;
                 let (bounding_box, bounding_box_level) =
-                    match_bounding_box(item, item_match.start_utf16, item_match.end_utf16);
+                    geometry_index.match_bounding_box(item_match.start_utf16, item_match.end_utf16);
                 matches.push(TextSearchMatch {
                     id: format!("p{page}-match-{}", matches.len() + 1),
                     page,
@@ -633,32 +634,74 @@ pub fn search_pdf_text_pages(
     })
 }
 
+struct TextGeometryIndex<'a> {
+    item: &'a PositionedTextItem,
+    eligible: Vec<usize>,
+}
+
+impl<'a> TextGeometryIndex<'a> {
+    fn new(item: &'a PositionedTextItem) -> Self {
+        let mut eligible = item
+            .chars
+            .iter()
+            .enumerate()
+            .filter(|(_, character)| !character.is_whitespace && character.bounding_box.is_some())
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        if eligible
+            .windows(2)
+            .any(|pair| item.chars[pair[0]].item_char_start > item.chars[pair[1]].item_char_start)
+        {
+            eligible.sort_unstable_by_key(|index| {
+                let character = &item.chars[*index];
+                (character.item_char_start, character.item_char_end, *index)
+            });
+        }
+        Self { item, eligible }
+    }
+
+    fn range_candidates(&self, start_utf16: u32, end_utf16: u32) -> &[usize] {
+        let first = self
+            .eligible
+            .partition_point(|index| self.item.chars[*index].item_char_start < start_utf16);
+        let count = self.eligible[first..]
+            .partition_point(|index| self.item.chars[*index].item_char_start <= end_utf16);
+        &self.eligible[first..first + count]
+    }
+
+    fn match_bounding_box(
+        &self,
+        start_utf16: u32,
+        end_utf16: u32,
+    ) -> (Option<TextBoundingBox>, Option<String>) {
+        let char_box = self
+            .range_candidates(start_utf16, end_utf16)
+            .iter()
+            .map(|index| &self.item.chars[*index])
+            .filter(|character| character.item_char_end <= end_utf16)
+            .filter_map(|character| character.bounding_box)
+            .try_fold(None::<TextBoundingBox>, |current, box_| match current {
+                None => Some(Some(box_)),
+                Some(current) => current.union(box_).map(Some),
+            })
+            .flatten();
+        if let Some(box_) = char_box {
+            (Some(box_), Some("char_estimated".to_string()))
+        } else if let Some(box_) = self.item.bounding_box {
+            (Some(box_), Some("text_item".to_string()))
+        } else {
+            (None, None)
+        }
+    }
+}
+
+#[cfg(test)]
 fn match_bounding_box(
     item: &PositionedTextItem,
     start_utf16: u32,
     end_utf16: u32,
 ) -> (Option<TextBoundingBox>, Option<String>) {
-    let char_box = item
-        .chars
-        .iter()
-        .filter(|character| {
-            !character.is_whitespace
-                && character.item_char_start >= start_utf16
-                && character.item_char_end <= end_utf16
-        })
-        .filter_map(|character| character.bounding_box)
-        .try_fold(None::<TextBoundingBox>, |current, box_| match current {
-            None => Some(Some(box_)),
-            Some(current) => current.union(box_).map(Some),
-        })
-        .flatten();
-    if let Some(box_) = char_box {
-        (Some(box_), Some("char_estimated".to_string()))
-    } else if let Some(box_) = item.bounding_box {
-        (Some(box_), Some("text_item".to_string()))
-    } else {
-        (None, None)
-    }
+    TextGeometryIndex::new(item).match_bounding_box(start_utf16, end_utf16)
 }
 
 fn is_word_char(value: Option<char>) -> bool {
@@ -1112,6 +1155,44 @@ mod tests {
         let (box_, level) = match_bounding_box(&item, 0, 1);
         assert_eq!(box_, Some(item_box));
         assert_eq!(level.as_deref(), Some("text_item"));
+    }
+
+    #[test]
+    fn geometry_index_bounds_exact_cap_match_queries() {
+        let box_ = TextBoundingBox {
+            left: 0.0,
+            bottom: 0.0,
+            right: 1.0,
+            top: 1.0,
+        };
+        let mut chars = Vec::with_capacity(MAX_GEOMETRY_CHARS);
+        for offset in 0..MAX_GEOMETRY_CHARS as u32 {
+            chars.push(TextCharacterGeometry {
+                text: String::new(),
+                item_char_start: offset,
+                item_char_end: offset + 1,
+                is_whitespace: false,
+                bounding_box: Some(box_),
+            });
+        }
+        let item = PositionedTextItem {
+            text: String::new(),
+            bounding_box: None,
+            chars,
+        };
+        let index = TextGeometryIndex::new(&item);
+        let mut candidate_visits = 0usize;
+        for offset in 0..500u32 {
+            candidate_visits += index.range_candidates(offset, offset + 1).len();
+            assert_eq!(
+                index.match_bounding_box(offset, offset + 1),
+                (Some(box_), Some("char_estimated".to_string()))
+            );
+        }
+        assert!(
+            candidate_visits <= 1_000,
+            "500 matches must range-query the index, not rescan all {MAX_GEOMETRY_CHARS} chars: {candidate_visits} candidate visits"
+        );
     }
 
     #[test]
