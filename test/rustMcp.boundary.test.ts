@@ -8,7 +8,6 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 const rustServerBin = path.join(repoRoot, 'target/release/pdf-reader-mcp-server');
 const rustCliBin = path.join(repoRoot, 'target/release/pdf-reader-cli');
 const stagedRustBin = path.join(repoRoot, 'bin/native/pdf-reader-mcp-server');
-const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
 const samplePdf = path.join(repoRoot, 'test/fixtures/sample.pdf');
 
 describe('MCP transport boundary (pure-Rust)', () => {

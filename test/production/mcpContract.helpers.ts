@@ -52,7 +52,7 @@ export const productionEnv = (overrides: NodeJS.ProcessEnv = {}): NodeJS.Process
   const env = { ...process.env, ...overrides };
   // Default published path: do not force pure-rust
   if (!overrides.PDF_READER_ENGINE_MODE) {
-    delete env.PDF_READER_ENGINE_MODE;
+    env.PDF_READER_ENGINE_MODE = undefined;
   }
   env.NODE_ENV = env.NODE_ENV ?? 'test';
   env.MCP_TRANSPORT = env.MCP_TRANSPORT ?? 'stdio';
