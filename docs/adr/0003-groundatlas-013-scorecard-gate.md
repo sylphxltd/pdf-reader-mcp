@@ -1,5 +1,7 @@
 # ADR 0003: Dogfood GroundAtlas 0.1.3 Scorecard Gate
 
+> **Status: Retired.** GroundAtlas package/action dogfood is no longer an active CI gate (Control Plane ADR-0014). Skills/static standards SSOT is SylphxAI/skills; this ADR is historical only.
+
 ## Status
 
 Superseded by Control Plane ADR-0014.
