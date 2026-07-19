@@ -16,6 +16,8 @@ categories = ["parsing", "text-processing"]
 path = "src/lib.rs"
 
 [dependencies]
+base64 = "0.22"
+flate2 = "1"
 hayro = "0.7.1"
 image = { version = "0.25", default-features = false, features = ["png"] }
 lopdf = { version = "0.36", default-features = false }

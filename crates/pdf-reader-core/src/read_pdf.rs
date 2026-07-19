@@ -397,7 +397,11 @@ fn select_pages(
     (selected, invalid)
 }
 
-fn render_structured_markdown(pages: &[crate::document_twin::PageText], tables: &Value) -> String {
+fn render_structured_markdown(
+    pages: &[crate::document_twin::PageText],
+    tables: &Value,
+    images: &Value,
+) -> String {
     let mut parts = pages
         .iter()
         .map(|page| {
@@ -417,6 +421,16 @@ fn render_structured_markdown(pages: &[crate::document_twin::PageText], tables: 
             let mut lines = vec![format!("## Page {}", page.page), String::new()];
             for item in items {
                 lines.push(item.to_string());
+                lines.push(String::new());
+            }
+            for image in images.as_array().into_iter().flatten().filter(|image| {
+                image.get("page").and_then(Value::as_u64) == Some(u64::from(page.page))
+            }) {
+                let index = image.get("index").and_then(Value::as_u64).unwrap_or(0) + 1;
+                let width = image.get("width").and_then(Value::as_u64).unwrap_or(0);
+                let height = image.get("height").and_then(Value::as_u64).unwrap_or(0);
+                let format = image.get("format").and_then(Value::as_str).unwrap_or("");
+                lines.push(format!("[Image {index}: {width}x{height} {format}]"));
                 lines.push(String::new());
             }
             lines.join("\n").trim_end().to_string()
@@ -474,7 +488,11 @@ fn render_structured_markdown(pages: &[crate::document_twin::PageText], tables: 
     parts.join("\n\n").trim().to_string()
 }
 
-fn render_structured_html(pages: &[crate::document_twin::PageText], tables: &Value) -> String {
+fn render_structured_html(
+    pages: &[crate::document_twin::PageText],
+    tables: &Value,
+    images: &Value,
+) -> String {
     let mut parts = pages
         .iter()
         .map(|page| {
@@ -500,6 +518,18 @@ fn render_structured_html(pages: &[crate::document_twin::PageText], tables: &Val
                     .into_iter()
                     .map(|item| format!("<p>{}</p>", html_escape(item))),
             );
+            for image in images.as_array().into_iter().flatten().filter(|image| {
+                image.get("page").and_then(Value::as_u64) == Some(u64::from(page.page))
+            }) {
+                let index = image.get("index").and_then(Value::as_u64).unwrap_or(0);
+                let width = image.get("width").and_then(Value::as_u64).unwrap_or(0);
+                let height = image.get("height").and_then(Value::as_u64).unwrap_or(0);
+                let format = html_escape(image.get("format").and_then(Value::as_str).unwrap_or(""));
+                body.push(format!(
+                    "<figure data-image-index=\"{index}\">\n<figcaption>Image {}: {width}x{height} {format}</figcaption>\n</figure>",
+                    index + 1
+                ));
+            }
             body.push("</section>".into());
             body.join("\n")
         })
@@ -564,11 +594,12 @@ pub(crate) fn rebuild_structured_outputs(
     };
     let ast_warnings = data.warnings.clone().unwrap_or_default();
     let text_layer = crate::document_twin::build_text_layer(&context.pages);
+    let images = data.images.clone().unwrap_or_else(|| json!([]));
     if context.emit_markdown {
-        data.markdown = Some(render_structured_markdown(&context.pages, tables));
+        data.markdown = Some(render_structured_markdown(&context.pages, tables, &images));
     }
     if context.emit_html {
-        data.html = Some(render_structured_html(&context.pages, tables));
+        data.html = Some(render_structured_html(&context.pages, tables, &images));
     }
     if context.emit_chunks {
         data.chunks = Some(output_chunks.clone());
@@ -617,6 +648,7 @@ struct BuildSignals {
     structure_trees: Option<Value>,
     accessibility_structure_trees: Option<Value>,
     accessibility_structure_valid: bool,
+    images: Option<Value>,
     warnings: Vec<String>,
 }
 
@@ -688,9 +720,8 @@ fn build_data(
     signals: BuildSignals,
 ) -> ReadPdfData {
     use crate::document_twin::{
-        build_citation_chunks, build_document_ast, build_document_map,
-        build_elements_with_tables_and_geometry, build_layout_diagnostics, build_safety_findings,
-        build_tables_with_admission, build_text_layer, build_trust_report,
+        build_citation_chunks, build_document_ast, build_document_map, build_layout_diagnostics,
+        build_safety_findings, build_tables_with_admission, build_text_layer, build_trust_report,
     };
 
     let BuildSignals {
@@ -705,6 +736,7 @@ fn build_data(
         structure_trees,
         accessibility_structure_trees,
         accessibility_structure_valid,
+        images,
         mut warnings,
     } = signals;
     let full_text = join_page_text(pages);
@@ -749,12 +781,6 @@ fn build_data(
     let want_ocr = input.include_ocr_text_layer;
     let want_visual = input.include_visual_enrichments;
 
-    if want_images {
-        warnings.push(
-            "include_images: pure-Rust engine returns image_info empty without a visual decoder; use pdf_evidence render when a render backend is configured."
-                .into(),
-        );
-    }
     if want_ocr {
         warnings.push(crate::ocr_fusion::OCR_STUB_WARNING.into());
     }
@@ -791,14 +817,22 @@ fn build_data(
     };
     let empty_array = json!([]);
     let table_values = tables.as_ref().unwrap_or(&empty_array);
+    let image_values = images.as_ref().unwrap_or(&empty_array);
     let plain_elements = ((want_elements || want_chunks) && !want_semantic).then(|| {
-        build_elements_with_tables_and_geometry(pages, table_values, false, page_geometry.as_ref())
+        crate::document_twin::build_elements_with_tables_images_and_geometry(
+            pages,
+            table_values,
+            image_values,
+            false,
+            page_geometry.as_ref(),
+        )
     });
     let semantic_elements = (want_semantic || want_ast || want_map || want_trust || want_a11y)
         .then(|| {
-            build_elements_with_tables_and_geometry(
+            crate::document_twin::build_elements_with_tables_images_and_geometry(
                 pages,
                 table_values,
+                image_values,
                 true,
                 page_geometry.as_ref(),
             )
@@ -1026,12 +1060,14 @@ fn build_data(
         data.markdown = Some(render_structured_markdown(
             pages,
             tables.as_ref().unwrap_or(&empty_array),
+            image_values,
         ));
     }
     if want_html {
         data.html = Some(render_structured_html(
             pages,
             tables.as_ref().unwrap_or(&empty_array),
+            image_values,
         ));
     }
     if want_chunks {
@@ -1046,8 +1082,12 @@ fn build_data(
     if want_tables {
         data.tables = tables.clone();
     }
-    if want_images {
-        data.images = Some(json!([]));
+    if want_images
+        && image_values
+            .as_array()
+            .is_some_and(|images| !images.is_empty())
+    {
+        data.images = Some(image_values.clone());
     }
     if want_safety {
         data.safety_findings = safety.clone();
@@ -1292,8 +1332,18 @@ fn read_local_pdf_filtered(
         .as_ref()
         .filter(|value| value.complete)
         .and_then(|value| (!value.trees.is_empty()).then(|| json!(value.trees)));
+    let image_signals = if input.include_images {
+        crate::image_signals::extract_image_signals(
+            &parsed.document,
+            &parsed.pages,
+            &selected_page_numbers,
+        )
+    } else {
+        crate::image_signals::ImageSignals::default()
+    };
     let mut signal_warnings = signals.warnings;
     signal_warnings.extend(form_attachment_signals.warnings);
+    signal_warnings.extend(image_signals.warnings);
     if !invalid_pages.is_empty() {
         signal_warnings.push(format!(
             "Requested page numbers {} exceed total pages ({total_pages}).",
@@ -1326,6 +1376,7 @@ fn read_local_pdf_filtered(
             structure_trees,
             accessibility_structure_trees,
             accessibility_structure_valid,
+            images: input.include_images.then(|| json!(image_signals.images)),
             warnings: signal_warnings,
         },
     );
@@ -1676,7 +1727,8 @@ mod tests {
         assert!(data.elements.is_some());
         assert!(data.text_layer.is_some());
         assert!(data.tables.is_some());
-        assert!(data.images.is_some());
+        // TS omits images when the selected pages contain no admitted XObjects.
+        assert!(data.images.is_none());
         assert!(data.safety_findings.is_some());
         assert!(data.layout_diagnostics.is_some());
         assert!(data.document_map.is_some());

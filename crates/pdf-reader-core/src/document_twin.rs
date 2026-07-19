@@ -892,6 +892,22 @@ pub fn build_elements_with_tables_and_geometry(
     semantic_hints: bool,
     page_geometry: Option<&Value>,
 ) -> Value {
+    build_elements_with_tables_images_and_geometry(
+        pages,
+        tables,
+        &json!([]),
+        semantic_hints,
+        page_geometry,
+    )
+}
+
+pub fn build_elements_with_tables_images_and_geometry(
+    pages: &[PageText],
+    tables: &Value,
+    images: &Value,
+    semantic_hints: bool,
+    page_geometry: Option<&Value>,
+) -> Value {
     let base = build_elements_with_geometry(pages, semantic_hints, page_geometry);
     let mut base_by_page = std::collections::BTreeMap::<u32, Vec<Value>>::new();
     for element in base.as_array().into_iter().flatten() {
@@ -909,9 +925,47 @@ pub fn build_elements_with_tables_and_geometry(
             .sort_by_key(|table| table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0));
     }
 
+    let mut images_by_page = std::collections::BTreeMap::<u32, Vec<Value>>::new();
+    for image in images.as_array().into_iter().flatten() {
+        let page = image.get("page").and_then(Value::as_u64).unwrap_or(0) as u32;
+        images_by_page.entry(page).or_default().push(image.clone());
+    }
+    for page_images in images_by_page.values_mut() {
+        page_images.sort_by_key(|image| image.get("index").and_then(Value::as_u64).unwrap_or(0));
+    }
+
     let mut elements = Vec::new();
     for page in pages {
-        elements.extend(base_by_page.remove(&page.page).unwrap_or_default());
+        let page_elements = base_by_page.remove(&page.page).unwrap_or_default();
+        let first_image_index = page_elements.len() + 1;
+        elements.extend(page_elements);
+        for (offset, mut image) in images_by_page
+            .remove(&page.page)
+            .unwrap_or_default()
+            .into_iter()
+            .enumerate()
+        {
+            let element_index = first_image_index + offset;
+            let bounding_box = image.get("bounding_box").cloned();
+            if let Some(object) = image.as_object_mut() {
+                object.remove("data");
+                object.remove("bounding_box");
+            }
+            let mut element = json!({
+                "id": format!("p{}-image-{element_index}", page.page),
+                "type": "image",
+                "page": page.page,
+                "image": image,
+                "provenance": {
+                    "engine": "pdf-reader-core",
+                    "source": "image-xobject",
+                },
+            });
+            if let Some(box_) = bounding_box {
+                element["bounding_box"] = box_;
+            }
+            elements.push(element);
+        }
         for table in tables_by_page.remove(&page.page).unwrap_or_default() {
             let table_index = table.get("tableIndex").and_then(Value::as_u64).unwrap_or(0);
             let ocr = table.pointer("/provenance/source").and_then(Value::as_str)
@@ -2373,6 +2427,8 @@ struct DocumentAstNode {
     #[serde(skip_serializing_if = "Option::is_none")]
     table: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    image: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     children: Option<Vec<DocumentAstNode>>,
 }
 
@@ -2501,6 +2557,7 @@ fn ast_node_for_element(
             caption_links: Vec::new(),
             caption_ids: Vec::new(),
             table: None,
+            image: None,
             children: is_section.then(Vec::new),
         });
     }
@@ -2551,6 +2608,31 @@ fn ast_node_for_element(
             caption_links: Vec::new(),
             caption_ids: Vec::new(),
             table: Some(table),
+            image: None,
+            children: None,
+        });
+    }
+
+    if element_type == "image" {
+        return Some(DocumentAstNode {
+            id: id.clone(),
+            node_type: "image".into(),
+            page_start: page,
+            page_end: page,
+            element_ids: vec![id.clone()],
+            chunk_ids: chunk_index.get(&id).cloned().unwrap_or_default(),
+            bounding_boxes,
+            title: None,
+            text: None,
+            level: None,
+            confidence,
+            semantic_role: None,
+            section_path: Vec::new(),
+            continued_from_section_id: None,
+            caption_links: Vec::new(),
+            caption_ids: Vec::new(),
+            table: None,
+            image: element.get("image").cloned(),
             children: None,
         });
     }
@@ -2861,7 +2943,7 @@ fn ast_aggregate(node: &mut DocumentAstNode, depth: usize) -> DocumentAstStats {
         cross_page_section_context_count: usize::from(node.continued_from_section_id.is_some()),
         caption_link_count: node.caption_links.len(),
         table_count: usize::from(node.node_type == "table"),
-        image_count: 0,
+        image_count: usize::from(node.node_type == "image"),
         figure_count: usize::from(node.node_type == "figure"),
         chart_count: usize::from(node.node_type == "chart"),
         formula_count: usize::from(node.node_type == "formula"),
@@ -3058,6 +3140,7 @@ pub fn build_document_ast(
             caption_links: Vec::new(),
             caption_ids: Vec::new(),
             table: None,
+            image: None,
             children: Some(page_children),
         };
         ast_link_captions_on_page(&mut page_node, &mut caption_link_budget);
@@ -3082,6 +3165,7 @@ pub fn build_document_ast(
         caption_links: Vec::new(),
         caption_ids: Vec::new(),
         table: None,
+        image: None,
         children: Some(page_nodes),
     };
     let stats = ast_aggregate(&mut root, 1);
@@ -4865,6 +4949,7 @@ mod tests {
             caption_links: Vec::new(),
             caption_ids: Vec::new(),
             table: None,
+            image: None,
             children: Some(children),
         };
 
@@ -4917,6 +5002,7 @@ mod tests {
             caption_links: Vec::new(),
             caption_ids: Vec::new(),
             table: None,
+            image: None,
             children: None,
         };
         let mut children = (0..MAX_AST_CAPTION_LINK_COMPARISONS)
@@ -4940,6 +5026,7 @@ mod tests {
             caption_links: Vec::new(),
             caption_ids: Vec::new(),
             table: Some(json!({})),
+            image: None,
             children: None,
         });
         let mut page = DocumentAstNode {
@@ -4960,6 +5047,7 @@ mod tests {
             caption_links: Vec::new(),
             caption_ids: Vec::new(),
             table: None,
+            image: None,
             children: Some(children),
         };
         let mut budget = AstCaptionLinkBudget::new(MAX_AST_CAPTION_LINK_COMPARISONS);

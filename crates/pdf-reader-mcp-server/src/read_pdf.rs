@@ -171,6 +171,7 @@ pub fn read_pdf(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     }
 
     let mut result = CallToolResult::structured(structured);
+    append_page_content(&mut result, &payload);
     append_ocr_content(&mut result, &payload);
     append_table_content(&mut result, &payload);
     Ok(result)
@@ -187,6 +188,24 @@ fn public_read_payload(payload: &ReadPdfResponse) -> Result<Value, rmcp::ErrorDa
         let Some(data) = result.get_mut("data").and_then(Value::as_object_mut) else {
             continue;
         };
+        if let Some(images) = data
+            .remove("images")
+            .and_then(|images| images.as_array().cloned())
+        {
+            let image_info = images
+                .into_iter()
+                .map(|image| {
+                    json!({
+                        "page": image.get("page").cloned().unwrap_or(Value::Null),
+                        "index": image.get("index").cloned().unwrap_or(Value::Null),
+                        "width": image.get("width").cloned().unwrap_or(Value::Null),
+                        "height": image.get("height").cloned().unwrap_or(Value::Null),
+                        "format": image.get("format").cloned().unwrap_or(Value::Null),
+                    })
+                })
+                .collect::<Vec<_>>();
+            data.insert("image_info".into(), json!(image_info));
+        }
         let Some(tables) = data
             .remove("tables")
             .and_then(|tables| tables.as_array().cloned())
@@ -226,6 +245,52 @@ fn public_read_payload(payload: &ReadPdfResponse) -> Result<Value, rmcp::ErrorDa
         data.insert("table_info".into(), json!(table_info));
     }
     Ok(value)
+}
+
+fn append_page_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
+    for source in &payload.results {
+        let Some(data) = source.data.as_ref() else {
+            continue;
+        };
+        let images = data
+            .images
+            .as_ref()
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let mut emitted = vec![false; images.len()];
+        let emit_text = data.markdown.is_none() && data.chunks.is_none();
+        for page in data.page_texts.as_deref().unwrap_or(&[]) {
+            if emit_text && !page.text.trim().is_empty() {
+                result.content.push(Content::text(format!(
+                    "[Page {}]\n{}",
+                    page.page, page.text
+                )));
+            }
+            for (index, image) in images.iter().enumerate().filter(|(_, image)| {
+                image.get("page").and_then(Value::as_u64) == Some(u64::from(page.page))
+            }) {
+                let Some(encoded) = image.get("data").and_then(Value::as_str) else {
+                    continue;
+                };
+                result
+                    .content
+                    .push(Content::image(encoded.to_string(), "image/png"));
+                emitted[index] = true;
+            }
+        }
+        for (index, image) in images.iter().enumerate() {
+            if emitted[index] {
+                continue;
+            }
+            let Some(encoded) = image.get("data").and_then(Value::as_str) else {
+                continue;
+            };
+            result
+                .content
+                .push(Content::image(encoded.to_string(), "image/png"));
+        }
+    }
 }
 
 fn append_table_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
@@ -379,6 +444,44 @@ mod tests {
         let text = encoded["text"].as_str().expect("text content");
         assert!(text.starts_with("## Extracted Tables\n\n### Page 1, Table 1"));
         assert!(text.contains("| Name | Qty |\n| --- | --- |"));
+    }
+
+    #[test]
+    fn public_image_projection_strips_binary_data_and_appends_png_parts_in_order() {
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/sample.pdf");
+        let mut payload = read_pdf_from_value(&json!({
+            "sources": [{"path": fixture}],
+            "auto": false,
+            "include_images": true
+        }))
+        .expect("read fixture");
+        payload.results[0].data.as_mut().expect("read data").images = Some(json!([
+            {"page":1,"index":0,"width":2,"height":2,"format":"grayscale","data":"cG5nLWE="},
+            {"page":1,"index":1,"width":1,"height":1,"format":"rgb","data":"cG5nLWI="}
+        ]));
+
+        let public = public_read_payload(&payload).expect("public projection");
+        let data = &public["results"][0]["data"];
+        assert!(data.get("images").is_none());
+        assert_eq!(
+            data["image_info"],
+            json!([
+                {"page":1,"index":0,"width":2,"height":2,"format":"grayscale"},
+                {"page":1,"index":1,"width":1,"height":1,"format":"rgb"}
+            ])
+        );
+        assert!(data["image_info"][0].get("data").is_none());
+
+        let mut result = CallToolResult::structured(public);
+        append_page_content(&mut result, &payload);
+        assert_eq!(result.content.len(), 3);
+        let first = serde_json::to_value(&result.content[1]).expect("first image");
+        let second = serde_json::to_value(&result.content[2]).expect("second image");
+        assert_eq!(first["data"], "cG5nLWE=");
+        assert_eq!(first["mimeType"], "image/png");
+        assert_eq!(second["data"], "cG5nLWI=");
+        assert_eq!(second["mimeType"], "image/png");
     }
 
     #[test]

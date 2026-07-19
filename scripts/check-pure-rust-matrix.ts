@@ -83,6 +83,22 @@ const lowercaseIndexCorpus = JSON.parse(
   localeContract: { defaultLocale: string; sentinel: string; lowercase: string };
   nonclaims: Record<string, boolean>;
 };
+const rasterImageCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-raster-image-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxImagesPerCase: number;
+    maxDecodedPixelsPerImage: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -143,6 +159,12 @@ if (matrix.tools.read_pdf.include_trust_report !== 'PARTIAL') {
 }
 if (matrix.tools.read_pdf.include_tables !== 'PARTIAL') {
   failures.push('bounded selectable-table claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_images !== 'PARTIAL') {
+  failures.push('bounded common-raster image claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_visual_enrichments !== 'STUB') {
+  failures.push('visual enrichments must remain STUB outside the image-metadata slice');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -400,6 +422,44 @@ if (
   !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
   !differentialWorkflow.includes('.productTruth.publishFreeze == true')
 ) failures.push('lowercase-index workflow must bind mutation proof and frozen product truth');
+const rasterImageCaseCount = rasterImageCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-raster-image-differential')) {
+  failures.push('rust parity workflow must execute the frozen raster-image differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${rasterImageCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${rasterImageCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${rasterImageCaseCount}/${rasterImageCaseCount} raster-image corpus`
+  );
+}
+if (
+  rasterImageCaseCount !== 7 ||
+  rasterImageCorpus.envelope.fixtureCount !== 2 ||
+  rasterImageCorpus.envelope.maxPagesPerCase !== 4 ||
+  rasterImageCorpus.envelope.maxImagesPerCase !== 2 ||
+  rasterImageCorpus.envelope.maxDecodedPixelsPerImage !== 4 ||
+  Object.values(rasterImageCorpus.nonclaims).some((value) => value !== false)
+) {
+  failures.push('raster-image corpus envelope and explicit nonclaims must remain frozen');
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "6f68a50145eb78a50736d365e9412f4809554e9e312588bc1ad2c0766b33724b"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 301') ||
+  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 3') ||
+  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||
+  !differentialWorkflow.includes('.decodedPixelProof.comparedCompressionBytes == false') ||
+  !differentialWorkflow.includes('.capabilityStatus.includeImages == "PARTIAL"') ||
+  !differentialWorkflow.includes('.capabilityStatus.visualEnrichments == "STUB"') ||
+  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('raster-image workflow must bind mutation, decoded-pixel, capability, and product-truth proof');
+}
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
