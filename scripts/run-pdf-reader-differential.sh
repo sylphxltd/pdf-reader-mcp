@@ -95,7 +95,7 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-selectable-text-segmentation-
 bun "$REPO_ROOT/scripts/differential/check-v3014-selectable-text-segmentation-differential.ts" \
   --output "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON" >>"$LOG"
 
-echo "--- immutable v3.0.14 command-provider OCR-search differential (12 exact cases) ---" | tee -a "$LOG"
+echo "--- immutable v3.0.14 command-provider OCR-search differential (14 exact cases) ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-ocr-search-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-ocr-search-differential.ts" \
   --output "$V3014_OCR_SEARCH_JSON" >>"$LOG"
