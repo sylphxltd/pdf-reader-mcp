@@ -10,7 +10,7 @@ evidence without becoming a hosted Sylphx Platform BaaS service.
 
 - Lifecycle: `production`
 - Layer: `tooling`
-- Doctrine source of truth: [SylphxAI/doctrine](https://github.com/SylphxAI/doctrine)
+- Static instruction SSOT: [SylphxAI/skills](https://github.com/SylphxAI/skills) (Doctrine residual is historical only)
 - Machine manifest: `.doctrine/project.json`
 - Vendor-neutral GroundAtlas manifest: `project.manifest.json`
 - Generated GroundAtlas reports: `.groundatlas*`, JSON reports, and Markdown
