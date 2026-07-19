@@ -43,6 +43,12 @@ const documentAstCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }> };
+const documentMapCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-document-map-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -94,6 +100,9 @@ if (matrix.tools.read_pdf.include_semantic_hints !== 'PARTIAL') {
 }
 if (matrix.tools.read_pdf.include_document_ast !== 'PARTIAL') {
   failures.push('bounded document-AST claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_document_map !== 'PARTIAL') {
+  failures.push('bounded document-map claim must remain PARTIAL');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -172,6 +181,32 @@ if (
   !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 5')
 ) {
   failures.push('document-AST workflow must bind the exact mutation manifest, leaf count, and unexpected-field probes');
+}
+const documentMapCaseCount = documentMapCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-document-map-differential')) {
+  failures.push('rust parity workflow must execute the frozen document-map differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${documentMapCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${documentMapCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${documentMapCaseCount}/${documentMapCaseCount} document-map corpus`
+  );
+}
+if (documentMapCaseCount !== 8) {
+  failures.push(
+    `frozen document-map differential must contain exactly 8 cases (got ${documentMapCaseCount})`
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "64c5d3ce6733c76d7c31f54577e6b3e73f060776b0898fbffbbef1075456390c"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 3189') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 8')
+) {
+  failures.push('document-map workflow must bind the exact mutation manifest, leaf count, and unexpected-field probes');
 }
 if (failures.length) {
   console.error(failures.join('\n'));

@@ -72,6 +72,7 @@ pub struct EngineInfo {
 #[derive(Debug, Clone)]
 pub struct StructuredFusionContext {
     pub pages: Vec<crate::document_twin::PageText>,
+    pub total_pages: u32,
     pub page_geometry: Option<Value>,
     pub selectable_tables: Value,
     pub semantic_hints: bool,
@@ -504,6 +505,7 @@ pub(crate) fn rebuild_structured_outputs(
         build_citation_chunks(&semantic_elements, true)
     };
     let ast_warnings = data.warnings.clone().unwrap_or_default();
+    let text_layer = crate::document_twin::build_text_layer(&context.pages);
     if context.emit_markdown {
         data.markdown = Some(render_structured_markdown(&context.pages, tables));
     }
@@ -530,11 +532,14 @@ pub(crate) fn rebuild_structured_outputs(
     if context.emit_document_map {
         data.document_map = Some(build_document_map(
             &context.pages,
+            context.total_pages,
             &semantic_elements,
             &internal_chunks,
-            tables,
             &context.safety,
             &context.layout,
+            &text_layer,
+            context.page_geometry.as_ref(),
+            &ast_warnings,
             context.trust.as_ref(),
             context.accessibility.as_ref(),
         ));
@@ -757,6 +762,7 @@ fn build_data(
     } else {
         None
     };
+    let text_layer = (want_text_layer || want_map).then(|| build_text_layer(pages));
     let redaction = input
         .trust_report_redaction
         .as_deref()
@@ -803,11 +809,14 @@ fn build_data(
     let document_map = if want_map {
         Some(build_document_map(
             pages,
+            total_pages,
             semantic_elements.as_ref().unwrap_or(&empty_array),
             internal_chunks.as_ref().unwrap_or(&empty_array),
-            table_values,
             safety.as_ref().unwrap_or(&json!([])),
             layout.as_ref().unwrap_or(&json!([])),
+            text_layer.as_ref().unwrap_or(&empty_array),
+            page_geometry.as_ref(),
+            &warnings,
             trust.as_ref(),
             a11y.as_ref(),
         ))
@@ -870,6 +879,7 @@ fn build_data(
             && (want_tables || want_ast || want_map || want_visual || want_trust))
             .then(|| StructuredFusionContext {
                 pages: pages.to_vec(),
+                total_pages,
                 page_geometry: page_geometry.clone(),
                 selectable_tables: tables.clone().unwrap_or_else(|| json!([])),
                 semantic_hints: want_semantic,
@@ -992,7 +1002,7 @@ fn build_data(
         data.elements = elements.clone();
     }
     if want_text_layer {
-        data.text_layer = Some(build_text_layer(pages));
+        data.text_layer = text_layer;
     }
     if want_tables {
         data.tables = tables.clone();
