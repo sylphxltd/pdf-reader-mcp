@@ -964,6 +964,14 @@ struct TextMatchRange {
     end_utf16: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LiteralTextMatch {
+    pub(crate) text: String,
+    pub(crate) snippet: String,
+    pub(crate) start_utf16: u32,
+    pub(crate) end_utf16: u32,
+}
+
 #[derive(Debug)]
 struct NormalizedUtf16Offsets {
     by_byte: Vec<(usize, usize)>,
@@ -1142,6 +1150,44 @@ fn build_snippet(
         "{prefix}{}{suffix}",
         &text[snippet_start..snippet_end]
     ))
+}
+
+/// Provider-neutral bounded literal matching with the UTF-16 offsets and
+/// snippet semantics used by TS v3.0.14. OCR fusion reuses this rather than
+/// maintaining a second search implementation.
+pub(crate) fn search_literal_text_bounded(
+    text: &str,
+    query: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    context_chars: usize,
+    max_results: usize,
+) -> Result<Vec<LiteralTextMatch>, TextIndexError> {
+    let source_projection = SourceUtf16Projection::new(text);
+    find_matches_in_text_bounded(
+        text,
+        query,
+        case_sensitive,
+        whole_word,
+        max_results,
+        &source_projection,
+    )?
+    .into_iter()
+    .map(|range| {
+        Ok(LiteralTextMatch {
+            text: text[range.source_start..range.source_end].to_string(),
+            snippet: build_snippet(
+                text,
+                &source_projection,
+                range.start_utf16,
+                range.end_utf16,
+                context_chars,
+            )?,
+            start_utf16: range.start_utf16,
+            end_utf16: range.end_utf16,
+        })
+    })
+    .collect()
 }
 
 #[cfg(test)]
