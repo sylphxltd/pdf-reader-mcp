@@ -37,7 +37,6 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   a11y: ['accessibility_report'],
   'page-geometry': ['page_geometry'],
   structure: ['structure_trees'],
-  visual: ['visual_enrichments'],
 };
 
 const READ_PDF_CASES: Array<{
@@ -70,7 +69,6 @@ const READ_PDF_CASES: Array<{
     structure: { include_structure_tree: true },
     images: { include_images: true },
     ocr: { include_ocr_text_layer: true },
-    visual: { include_visual_enrichments: true },
   };
   return {
     id,
@@ -101,6 +99,10 @@ const selectableTablePdf = join(
   '../fixtures/differential/v3014-selectable-table-v1.pdf'
 );
 const rasterImagePdf = join(import.meta.dir, '../fixtures/differential/v3014-raster-images-v1.pdf');
+const visualCandidatePdf = join(
+  import.meta.dir,
+  '../fixtures/differential/v3014-visual-candidate-v1.pdf'
+);
 
 describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
   let proc: ChildProcess;
@@ -119,6 +121,9 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
       MCP_PDF_OCR_COMMAND: '',
       MCP_PDF_OCR_ARGS_JSON: '',
       MCP_PDF_OCR_PRESET: '',
+      MCP_PDF_REGION_ANALYSIS_COMMAND: '',
+      MCP_PDF_REGION_ANALYSIS_HTTP_URL: '',
+      MCP_PDF_REGION_ANALYSIS_PRESET: '',
     });
     await initializeSession(proc, 'capability-parity-contract');
   }, 420_000);
@@ -203,6 +208,51 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     expect(imageParts).toHaveLength(1);
     expect(imageParts[0]?.mimeType).toBe('image/png');
     expect(imageParts[0]?.data).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+  }, 180_000);
+
+  test('visual candidate capability retains provider-independent regions and omits unavailable enrichments', async () => {
+    const response = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: visualCandidatePdf, pages: [1] }],
+        auto: false,
+        include_page_count: true,
+        include_visual_enrichments: true,
+      },
+      90_000
+    );
+    const payload = parseToolPayload(response);
+    expect(payload.isError).toBe(false);
+    const data = (
+      JSON.parse(payload.text) as {
+        results?: Array<{ data?: Record<string, unknown> }>;
+      }
+    ).results?.[0]?.data;
+
+    expect(data?.visual_enrichment_candidates).toEqual([
+      {
+        id: 'p1-table-1',
+        page: 1,
+        region: {
+          id: 'p1-table-1',
+          page: 1,
+          bounding_box: { left: 72, bottom: 665, right: 282.672, top: 702 },
+        },
+        target_element_id: 'p1-table-1',
+        target_element_type: 'table',
+        source_element_id: 'p1-table-1',
+        candidate_signals: ['table-element', 'element-bounding-box'],
+      },
+    ]);
+    expect(data?.visual_enrichments).toBeUndefined();
+    expect(data?.elements).toBeUndefined();
+    expect(data?.tables).toBeUndefined();
+    expect(data?.page_geometry).toBeUndefined();
+    expect(data?.warnings).toEqual([
+      'Visual enrichment skipped: analyze_regions provider is not_configured.',
+    ]);
   }, 180_000);
 
   test('structure trees match the immutable tagged subset and untagged PDFs omit the field', async () => {
