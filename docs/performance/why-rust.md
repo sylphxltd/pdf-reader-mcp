@@ -141,3 +141,7 @@ A frozen five-case configured-command `read_pdf` visual-enrichment payload and D
 ### Document AST visual enrichment fusion (bounded)
 
 A frozen five-case configured-command `read_pdf` visual-enrichment Document AST fusion subset is admitted through the exact-SHA differential harness. Direct table attachment, caption-derived orphan figure/chart nodes, fail-closed provider failure, and ready/no-candidate zero invocation are proven. `include_document_ast` and `include_visual_enrichments` remain `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
+
+### Cross-platform native package scaffold (bounded)
+
+Optional native packages and a platform-scoped `bin/native/<platform>/` layout are scaffolded for `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. CI builds and uploads host binaries, but packages remain private and prepublish-blocked while `publishFreeze=true`. Default npm `latest` remains TypeScript 3.0.14; clean registry install/runtime verification and TS retirement remain unclaimed.

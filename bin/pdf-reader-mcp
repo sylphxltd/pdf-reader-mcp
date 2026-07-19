@@ -16,27 +16,55 @@ if [[ "$MODE" != "pure-rust" && "$MODE" != "rust" ]]; then
   exit 1
 fi
 
+map_platform_id() {
+  local sys arch
+  sys="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+  case "${sys}-${arch}" in
+    darwin-arm64|darwin-aarch64) printf 'darwin-arm64\n' ;;
+    darwin-x86_64|darwin-amd64) printf 'darwin-x64\n' ;;
+    linux-aarch64|linux-arm64) printf 'linux-arm64-gnu\n' ;;
+    linux-x86_64|linux-amd64) printf 'linux-x64-gnu\n' ;;
+    mingw*|msys*|cygwin*)
+      case "${arch}" in
+        x86_64|amd64) printf 'win32-x64-msvc\n' ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 resolve_rust_bin() {
   if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
     printf '%s\n' "${PDF_READER_MCP_RUST_BIN}"
     return 0
   fi
-  local candidate
-  local platform
-  platform="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
-  # Future multi-platform layout: bin/native/<platform>/pdf-reader-mcp-server
+
+  local platform_id binary_name candidate
+  platform_id="$(map_platform_id || true)"
+  if [[ -n "${platform_id}" ]]; then
+    if [[ "${platform_id}" == "win32-x64-msvc" ]]; then
+      binary_name="pdf-reader-mcp-server.exe"
+    else
+      binary_name="pdf-reader-mcp-server"
+    fi
+    for candidate in \
+      "$ROOT/bin/native/${platform_id}/${binary_name}" \
+      "$ROOT/packages/pdf-reader-mcp-${platform_id}/bin/${binary_name}" \
+      "$ROOT/node_modules/@sylphx/pdf-reader-mcp-${platform_id}/bin/${binary_name}"; do
+      if [[ -x "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    done
+  fi
+
   for candidate in \
-    "$ROOT/bin/native/${platform}/pdf-reader-mcp-server" \
     "$ROOT/bin/native/pdf-reader-mcp-server" \
     "$ROOT/target/release/pdf-reader-mcp-server" \
     "$ROOT/target/debug/pdf-reader-mcp-server"; do
     if [[ -x "$candidate" ]]; then
-      # Reject wrong-arch ELF if file(1) available
-      if command -v file >/dev/null 2>&1; then
-        if file "$candidate" | grep -qi 'ELF' && [[ "$(uname -s)" != "Linux" ]]; then
-          continue
-        fi
-      fi
       printf '%s\n' "$candidate"
       return 0
     fi

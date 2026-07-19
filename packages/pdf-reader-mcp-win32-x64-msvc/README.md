@@ -1,0 +1,9 @@
+# @sylphx/pdf-reader-mcp-win32-x64-msvc
+
+Optional native binary package for `@sylphx/pdf-reader-mcp`.
+
+## Status
+
+- Scaffold only while `publishFreeze=true` and `dropInFor3014=false`.
+- Binary is expected at `bin/pdf-reader-mcp-server.exe` after platform CI packaging.
+- Not published and not required for the current TypeScript 3.0.14 default path.
