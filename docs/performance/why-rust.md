@@ -133,3 +133,7 @@ paths fail closed; this is not TS 3.0.14 parity.
 
 Production: pin `@sylphx/pdf-reader-mcp@3.0.14` (TypeScript).  
 See [installation guide](../guide/installation.md). Pure-Rust remains experimental source-only.
+
+### Configured-command visual enrichment fusion (bounded)
+
+A frozen five-case configured-command `read_pdf` visual-enrichment payload and Document Map fusion subset is admitted through the exact-SHA differential harness. It covers direct table fusion, page sort/dedup/invalid + max-one admission, ordered two-caption analyses, fail-closed second-provider failure, and ready/no-candidate zero invocation. `include_visual_enrichments` remains `PARTIAL`; Document AST visual fusion and HTTP/preset providers are unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
