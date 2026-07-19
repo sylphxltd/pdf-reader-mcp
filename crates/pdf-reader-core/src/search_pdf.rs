@@ -350,7 +350,7 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                 let mut warnings = Vec::new();
                 if !invalid_pages.is_empty() {
                     warnings.push(format!(
-                        "Requested pages {} exceed document page count {} and were skipped.",
+                        "Requested page numbers {} exceed total pages ({}).",
                         invalid_pages
                             .iter()
                             .map(u32::to_string)
@@ -375,22 +375,27 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                     ));
                 }
 
-                results.push(json!({
+                let mut result = json!({
                     "source": label,
                     "success": true,
                     "num_pages": search.num_pages,
                     "searched_pages": searched_pages,
                     "total_matches": matches.len(),
                     "matches": matches,
-                    "truncated": search.truncated,
-                    "warnings": warnings,
                     "route": search.route,
                     "page_cache": search.page_cache,
                     "engine": {
                         "name": ENGINE_NAME,
                         "version": ENGINE_VERSION,
                     }
-                }));
+                });
+                if search.truncated {
+                    result["truncated"] = json!(true);
+                }
+                if !warnings.is_empty() {
+                    result["warnings"] = json!(warnings);
+                }
+                results.push(result);
             }
             Err(error) => {
                 results.push(json!({
@@ -475,6 +480,8 @@ mod tests {
             response.results[0].get("route").and_then(Value::as_str),
             Some(SEARCH_PDF_ROUTE)
         );
+        assert!(response.results[0].get("warnings").is_none());
+        assert!(response.results[0].get("truncated").is_none());
     }
 
     #[test]
@@ -554,5 +561,29 @@ mod tests {
         })
         .expect_err("out-of-range selection must not search page one");
         assert!(error.message.contains("No valid pages to search"));
+    }
+
+    #[test]
+    fn invalid_page_warning_matches_v3_0_14_wording() {
+        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/sample.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+        let response = search_pdf(&SearchPdfInput {
+            sources: vec![SearchPdfSource {
+                path: Some(fixture.to_string_lossy().to_string()),
+                url: None,
+                pages: Some(json!([1, 99])),
+            }],
+            query: "Lorem".into(),
+            ..Default::default()
+        })
+        .expect("search fixture");
+
+        assert_eq!(
+            response.results[0]["warnings"],
+            json!(["Requested page numbers 99 exceed total pages (1)."])
+        );
     }
 }
