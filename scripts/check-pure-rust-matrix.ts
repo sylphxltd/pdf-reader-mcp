@@ -49,6 +49,12 @@ const documentMapCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }> };
+const trustReportCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-trust-report-corpus.json'),
+    'utf8'
+  )
+) as { cases: Array<{ id: string }> };
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -103,6 +109,9 @@ if (matrix.tools.read_pdf.include_document_ast !== 'PARTIAL') {
 }
 if (matrix.tools.read_pdf.include_document_map !== 'PARTIAL') {
   failures.push('bounded document-map claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_trust_report !== 'PARTIAL') {
+  failures.push('bounded trust-report claim must remain PARTIAL');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -207,6 +216,35 @@ if (
   !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 8')
 ) {
   failures.push('document-map workflow must bind the exact mutation manifest, leaf count, and unexpected-field probes');
+}
+const trustReportCaseCount = trustReportCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-trust-report-differential')) {
+  failures.push('rust parity workflow must execute the frozen trust-report differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${trustReportCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${trustReportCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${trustReportCaseCount}/${trustReportCaseCount} trust-report corpus`
+  );
+}
+if (trustReportCaseCount !== 9) {
+  failures.push(
+    `frozen trust-report differential must contain exactly 9 cases (got ${trustReportCaseCount})`
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "28c02c6a9fa184c311fc06ddcb0cc21864f462c05d53447fc69fa019d6ec08e1"'
+  ) ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 1117') ||
+  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 12') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 12') ||
+  !differentialWorkflow.includes('(.mapLinkage | to_entries | all(.value == true))')
+) {
+  failures.push('trust-report workflow must bind exact mutation counts and complete map-linkage proof');
 }
 if (failures.length) {
   console.error(failures.join('\n'));

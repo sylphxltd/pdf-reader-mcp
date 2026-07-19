@@ -105,8 +105,9 @@
     "test:v3014-semantic-hint-differential": "bun scripts/differential/check-v3014-semantic-hint-differential.ts",
     "test:v3014-document-ast-differential": "bun scripts/differential/check-v3014-document-ast-differential.ts",
     "test:v3014-document-map-differential": "bun scripts/differential/check-v3014-document-map-differential.ts",
+    "test:v3014-trust-report-differential": "bun scripts/differential/check-v3014-trust-report-differential.ts",
     "check:pure-rust-matrix": "bun scripts/check-pure-rust-matrix.ts",
-    "validate:pure-rust-claimed": "bun run check:pure-rust-matrix && bun run test:ts-vs-rust-text && bun run test:v3014-behavior-differential && bun run test:v3014-structure-differential && bun run test:v3014-text-layer-differential && bun run test:v3014-citation-chunk-differential && bun run test:v3014-semantic-hint-differential && bun run test:v3014-document-ast-differential && bun run test:v3014-document-map-differential && cargo test -p pdf-reader-core --lib && cargo test -p pdf-reader-mcp-server --lib"
+    "validate:pure-rust-claimed": "bun run check:pure-rust-matrix && bun run test:ts-vs-rust-text && bun run test:v3014-behavior-differential && bun run test:v3014-structure-differential && bun run test:v3014-text-layer-differential && bun run test:v3014-citation-chunk-differential && bun run test:v3014-semantic-hint-differential && bun run test:v3014-document-ast-differential && bun run test:v3014-document-map-differential && bun run test:v3014-trust-report-differential && cargo test -p pdf-reader-core --lib && cargo test -p pdf-reader-mcp-server --lib"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
