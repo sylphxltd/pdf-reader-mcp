@@ -167,6 +167,11 @@ A frozen three-case public-stdio mixed selectable/OCR table merge subset is admi
 
 A frozen four-case public-stdio residual for `search_pdf` `include_ocr_text_layer` is admitted: plain-text OCR fallback without match geometry, JSON text-only without words/geometry, words control with `ocr_word` geometry, and `max_pages` first-five-of-six truncation with exact warning. Leaf-mutation count is frozen at 133. `include_ocr_text_layer` remains `PARTIAL`; selectable/OCR interleaving and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### selectable/OCR search interleaving public-stdio subset (bounded)
+
+A frozen four-case public-stdio selectable/OCR search interleaving subset is admitted: selectable matches append before OCR matches, exact `max_matches` admits one OCR match, a full selectable cap skips OCR without a truncation flag, and unique OCR-only tokens append as sole matches. Leaf-mutation count is frozen at 149. `include_ocr_text_layer` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### Cross-platform native package scaffold (bounded)
 
 Optional native packages and a platform-scoped `bin/native/<platform>/` layout are scaffolded for `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. CI builds and uploads host binaries, but packages remain private and prepublish-blocked while `publishFreeze=true`. Default npm `latest` remains TypeScript 3.0.14; clean registry install/runtime verification and TS retirement remain unclaimed.

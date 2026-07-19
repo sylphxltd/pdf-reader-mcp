@@ -245,6 +245,21 @@ const ocrSearchResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const ocrSearchInterleaveCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-ocr-search-interleave-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxMatchesPerSource: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -366,13 +381,25 @@ const ocrSearchResidualWorkflowStart = differentialWorkflow.indexOf(
   'OCR_SEARCH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-residual-result.json"'
 );
 const ocrSearchResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'OCR_SEARCH_INTERLEAVE_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-interleave-result.json"',
   ocrSearchResidualWorkflowStart
 );
 const ocrSearchResidualWorkflow =
   ocrSearchResidualWorkflowStart >= 0 &&
   ocrSearchResidualWorkflowEnd > ocrSearchResidualWorkflowStart
     ? differentialWorkflow.slice(ocrSearchResidualWorkflowStart, ocrSearchResidualWorkflowEnd)
+    : '';
+const ocrSearchInterleaveWorkflowStart = differentialWorkflow.indexOf(
+  'OCR_SEARCH_INTERLEAVE_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-interleave-result.json"'
+);
+const ocrSearchInterleaveWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  ocrSearchInterleaveWorkflowStart
+);
+const ocrSearchInterleaveWorkflow =
+  ocrSearchInterleaveWorkflowStart >= 0 &&
+  ocrSearchInterleaveWorkflowEnd > ocrSearchInterleaveWorkflowStart
+    ? differentialWorkflow.slice(ocrSearchInterleaveWorkflowStart, ocrSearchInterleaveWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -1443,6 +1470,89 @@ if (
   )
 ) {
   failures.push('ocr-search residual bounded claim and explicit nonclaims must remain documented');
+}
+
+const ocrSearchInterleaveCaseCount = ocrSearchInterleaveCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-ocr-search-interleave-differential')) {
+  failures.push('rust parity workflow must execute the frozen ocr-search interleave differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-ocr-search-interleave-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-ocr-search-interleave-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OcrSearchInterleaveCaseCount') ||
+  !repositoryDifferential.includes('v3014OcrSearchInterleaveCorpusHash') ||
+  !repositoryDifferential.includes('v3014OcrSearchInterleaveOracleHash')
+) {
+  failures.push('repository differential artifact must bind the ocr-search interleave family');
+}
+if (
+  !ocrSearchInterleaveWorkflow.includes(`.caseCount == ${ocrSearchInterleaveCaseCount}`) ||
+  !ocrSearchInterleaveWorkflow.includes(`.passed == ${ocrSearchInterleaveCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${ocrSearchInterleaveCaseCount}/${ocrSearchInterleaveCaseCount} ocr-search interleave corpus`
+  );
+}
+if (
+  ocrSearchInterleaveCaseCount !== 4 ||
+  ocrSearchInterleaveCorpus.envelope.fixtureCount !== 1 ||
+  ocrSearchInterleaveCorpus.nonclaims.dropInFor3014 !== false ||
+  ocrSearchInterleaveCorpus.nonclaims.publishFreeze !== true
+) {
+  failures.push(
+    'ocr-search interleave corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !ocrSearchInterleaveWorkflow.includes(
+    '.profile == "pdf_reader_v3014_ocr_search_interleave_result"'
+  ) ||
+  !ocrSearchInterleaveWorkflow.includes('.mutationSensitive.leafMutationCount == 149') ||
+  !ocrSearchInterleaveWorkflow.includes('.providerProof.selectableThenOcrOrder == true') ||
+  !ocrSearchInterleaveWorkflow.includes('.providerProof.exactCapAdmitsOneOcr == true') ||
+  !ocrSearchInterleaveWorkflow.includes(
+    '.providerProof.capFullSkipsOcrWithoutTruncation == true'
+  ) ||
+  !ocrSearchInterleaveWorkflow.includes('.providerProof.uniqueOcrTokenAppended == true') ||
+  !ocrSearchInterleaveWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
+  !ocrSearchInterleaveWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !ocrSearchInterleaveWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'ocr-search interleave workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-ocr-search-interleave-differential.ts',
+  'scripts/differential/capture-v3014-ocr-search-interleave-oracle.ts',
+  'v3014-ocr-search-interleave-baseline-runner.ts',
+  'v3014-ocr-search-interleave-projection.ts',
+  'reference-ocr-search-interleave-provider.ts',
+  'v3014-ocr-search-interleave-corpus.json',
+  'v3014-ocr-search-interleave-oracle.json',
+  'v3014OcrSearchInterleaveCaseCount',
+  'v3014OcrSearchInterleaveCorpusHash',
+  'v3014OcrSearchInterleaveOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind ocr-search interleave family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 4-case') && claim.includes('selectable/OCR interleav')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('selectable/OCR search interleaving outside the frozen 4-case')
+  )
+) {
+  failures.push('ocr-search interleave bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
