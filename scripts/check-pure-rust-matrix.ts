@@ -160,6 +160,22 @@ const visualFusionCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const documentAstVisualFusionCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-document-ast-visual-fusion-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxCandidatesPerCase: number;
+    maxProviderCallsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -209,12 +225,27 @@ const visualFusionWorkflowStart = differentialWorkflow.indexOf(
   'VISUAL_FUSION_ARTIFACT="${SCRATCH_DIR}/v3014-visual-fusion-result.json"'
 );
 const visualFusionWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'DOCUMENT_AST_VISUAL_FUSION_ARTIFACT="${SCRATCH_DIR}/v3014-document-ast-visual-fusion-result.json"',
   visualFusionWorkflowStart
 );
 const visualFusionWorkflow =
   visualFusionWorkflowStart >= 0 && visualFusionWorkflowEnd > visualFusionWorkflowStart
     ? differentialWorkflow.slice(visualFusionWorkflowStart, visualFusionWorkflowEnd)
+    : '';
+const documentAstVisualFusionWorkflowStart = differentialWorkflow.indexOf(
+  'DOCUMENT_AST_VISUAL_FUSION_ARTIFACT="${SCRATCH_DIR}/v3014-document-ast-visual-fusion-result.json"'
+);
+const documentAstVisualFusionWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  documentAstVisualFusionWorkflowStart
+);
+const documentAstVisualFusionWorkflow =
+  documentAstVisualFusionWorkflowStart >= 0 &&
+  documentAstVisualFusionWorkflowEnd > documentAstVisualFusionWorkflowStart
+    ? differentialWorkflow.slice(
+        documentAstVisualFusionWorkflowStart,
+        documentAstVisualFusionWorkflowEnd
+      )
     : '';
 
 const failures: string[] = [];
@@ -840,6 +871,56 @@ if (
 ) {
   failures.push('visual-fusion workflow must bind mutation, provider, capability, and product-truth proof');
 }
+const documentAstVisualFusionCaseCount = documentAstVisualFusionCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-document-ast-visual-fusion-differential')) {
+  failures.push('rust parity workflow must execute the frozen document-ast-visual-fusion differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-document-ast-visual-fusion-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-document-ast-visual-fusion-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014DocumentAstVisualFusionCaseCount') ||
+  !repositoryDifferential.includes('v3014DocumentAstVisualFusionCorpusHash') ||
+  !repositoryDifferential.includes('v3014DocumentAstVisualFusionOracleHash')
+) {
+  failures.push('repository differential artifact must bind the document-ast-visual-fusion family');
+}
+if (
+  !documentAstVisualFusionWorkflow.includes(`.caseCount == ${documentAstVisualFusionCaseCount}`) ||
+  !documentAstVisualFusionWorkflow.includes(`.passed == ${documentAstVisualFusionCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${documentAstVisualFusionCaseCount}/${documentAstVisualFusionCaseCount} document-ast-visual-fusion corpus`
+  );
+}
+if (
+  documentAstVisualFusionCaseCount !== 5 ||
+  documentAstVisualFusionCorpus.envelope.fixtureCount !== 1 ||
+  documentAstVisualFusionCorpus.envelope.maxPagesPerCase !== 3 ||
+  documentAstVisualFusionCorpus.envelope.maxCandidatesPerCase !== 2 ||
+  documentAstVisualFusionCorpus.envelope.maxProviderCallsPerCase !== 2 ||
+  documentAstVisualFusionCorpus.nonclaims.dropInFor3014 !== false ||
+  documentAstVisualFusionCorpus.nonclaims.publishFreeze !== true
+) {
+  failures.push('document-ast-visual-fusion corpus envelope and product-truth nonclaims must remain frozen');
+}
+if (
+  !documentAstVisualFusionWorkflow.includes('.mutationSensitive.leafMutationCount == 145') ||
+  !documentAstVisualFusionWorkflow.includes('.portabilityProof.relocatedFixtureRootReplay == true') ||
+  !documentAstVisualFusionWorkflow.includes('.providerProof.configuredCommandOnly == true') ||
+  !documentAstVisualFusionWorkflow.includes('.providerProof.zeroCallNoCandidate == true') ||
+  !documentAstVisualFusionWorkflow.includes('.providerProof.failClosedDiscardsPartial == true') ||
+  !documentAstVisualFusionWorkflow.includes('.capabilityStatus.includeVisualEnrichments == "PARTIAL"') ||
+  !documentAstVisualFusionWorkflow.includes('.capabilityStatus.includeDocumentAst == "PARTIAL"') ||
+  !documentAstVisualFusionWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !documentAstVisualFusionWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('document-ast-visual-fusion workflow must bind mutation, provider, capability, and product-truth proof');
+}
+
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
 if (
