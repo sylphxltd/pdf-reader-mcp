@@ -279,10 +279,10 @@ jobs:
             .subprocessNonzeroRejected == true and
             .mutationSensitive.allClaimedFields == true and
             .mutationSensitive.manifestVersion == 1 and
-            .mutationSensitive.mutationManifestSha256 == "c5634218c74198e01e4fe3f7e418580fb63899d654248c593bdf12aba2d0f69d" and
+            .mutationSensitive.mutationManifestSha256 == "7ea2129614c89d9d50707d1f96a802bfe485f10ecc576989f9ac99be610df893" and
             .mutationSensitive.leafMutationCount == 1625 and
             .mutationSensitive.wrongPrimitiveTypeProbeCount == 7 and
-            .mutationSensitive.unexpectedFieldProbeCount == 7 and
+            .mutationSensitive.unexpectedFieldProbeCount == 11 and
             .mutationSensitive.requiredOmissionProbeCount == 7 and
             .mutationSensitive.privateLeakProbeCount == 5 and
             .mutationSensitive.dependencyPresenceProbeCount == 13 and

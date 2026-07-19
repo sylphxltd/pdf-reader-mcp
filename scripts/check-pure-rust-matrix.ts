@@ -272,11 +272,11 @@ if (selectableTableCaseCount !== 6) {
 }
 if (
   !differentialWorkflow.includes(
-    '.mutationSensitive.mutationManifestSha256 == "c5634218c74198e01e4fe3f7e418580fb63899d654248c593bdf12aba2d0f69d"'
+    '.mutationSensitive.mutationManifestSha256 == "7ea2129614c89d9d50707d1f96a802bfe485f10ecc576989f9ac99be610df893"'
   ) ||
   !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 1625') ||
   !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 7') ||
-  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 7') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 11') ||
   !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 7') ||
   !differentialWorkflow.includes('.mutationSensitive.privateLeakProbeCount == 5') ||
   !differentialWorkflow.includes('.mutationSensitive.dependencyPresenceProbeCount == 13')

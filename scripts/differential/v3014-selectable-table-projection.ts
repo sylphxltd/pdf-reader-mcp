@@ -65,6 +65,75 @@ const TABLE_ELEMENT_KEYS = [
   "confidence",
   "provenance",
 ] as const;
+const NESTED_TABLE_KEYS = [
+  "rows",
+  "cells",
+  "bounding_box",
+  "rowCount",
+  "colCount",
+  "confidence",
+  "provenance",
+  "quality",
+  "continuation",
+] as const;
+const AST_TABLE_NODE_KEYS = [
+  "id",
+  "type",
+  "page_start",
+  "page_end",
+  "element_ids",
+  "chunk_ids",
+  "bounding_boxes",
+  "title",
+  "text",
+  "level",
+  "confidence",
+  "semantic_role",
+  "section_path",
+  "continued_from_section_id",
+  "table",
+  "children",
+] as const;
+const AST_NESTED_TABLE_KEYS = [
+  "rows",
+  "rowCount",
+  "colCount",
+  "confidence",
+  "quality",
+  "continuation",
+  "provenance",
+] as const;
+const MAP_PAGE_KEYS = [
+  "page", "geometry", "layout", "element_ids", "chunk_ids", "safety_finding_indexes",
+  "visual_candidate_indexes", "visual_enrichment_indexes", "text_layer_page_index",
+  "text_layer_run_count", "text_layer_line_count", "text_layer_word_count",
+  "text_layer_char_count", "text_layer_runs_with_bounding_boxes",
+  "text_layer_lines_with_bounding_boxes", "text_layer_words_with_bounding_boxes",
+  "text_layer_chars_with_bounding_boxes", "text_layer_runs_with_font_metadata",
+  "text_layer_runs_with_direction_metadata", "text_layer_runs_with_transform_metadata",
+  "text_layer_runs_with_eol_metadata", "text_chars", "text_item_count", "ocr_text_chars",
+  "ocr_word_count", "ocr_confidence", "ocr_source_render_evidence_id", "image_count",
+  "table_count", "visual_candidate_count", "visual_enrichment_count",
+  "accessibility_report_page_index", "accessibility_issue_indexes",
+  "accessibility_high_issue_indexes", "accessibility_medium_issue_indexes",
+  "accessibility_low_issue_indexes", "accessibility_grade", "accessibility_score",
+  "accessibility_issue_count", "accessibility_high_issue_count",
+  "accessibility_medium_issue_count", "accessibility_low_issue_count",
+  "trust_report_page_index", "trust_signal_indexes", "trust_high_signal_indexes",
+  "trust_medium_signal_indexes", "trust_low_signal_indexes", "trust_risk", "trust_score",
+  "trust_signal_count", "trust_high_signal_count", "trust_medium_signal_count",
+  "trust_low_signal_count", "warnings",
+] as const;
+const TRUST_SIGNAL_KEYS = [
+  "type",
+  "severity",
+  "page",
+  "message",
+  "element_id",
+  "annotation_id",
+  "table_id",
+  "evidence",
+] as const;
 const TABLE_CHUNK_KEYS = [
   "id",
   "text",
@@ -246,6 +315,7 @@ const element = (value: unknown, context: string): Json => {
   if (req(v, "type", context) !== "table")
     throw new Error(`${context}.type must be table`);
   const nested = rec(req(v, "table", context), `${context}.table`);
+  exact(nested, NESTED_TABLE_KEYS, `${context}.table`);
   for (const key of [
     "rows",
     "rowCount",
@@ -316,7 +386,9 @@ const findAstTables = (value: unknown): Json[] => {
     if (!entry || typeof entry !== "object") return;
     const v = entry as Record<string, unknown>;
     if (v.type === "table") {
+      exact(v, AST_TABLE_NODE_KEYS, "ast table");
       const t = rec(req(v, "table", "ast table"), "ast table.table");
+      exact(t, AST_NESTED_TABLE_KEYS, "ast table.table");
       found.push({
         id: str(req(v, "id", "ast table"), "ast table.id"),
         page: num(req(v, "page_start", "ast table"), "ast table.page_start"),
@@ -395,6 +467,7 @@ export const canonicalSelectableTableResult = (value: unknown): Json => {
           pages: arr(req(map, "pages", "document_map"), "map.pages").map(
             (x, i) => {
               const p = rec(x, `map.pages[${i}]`);
+              exact(p, MAP_PAGE_KEYS, `map.pages[${i}]`);
               return {
                 page: num(req(p, "page", "map page"), "map page"),
                 table_count: num(
@@ -431,6 +504,7 @@ export const canonicalSelectableTableResult = (value: unknown): Json => {
           })
           .map((x) => {
             const s = rec(x, "trust signal");
+            exact(s, TRUST_SIGNAL_KEYS, "trust signal");
             const evidence = rec(
               req(s, "evidence", "trust signal"),
               "trust signal evidence"
@@ -498,7 +572,11 @@ export const SELECTABLE_TABLE_MUTATION_MANIFEST = {
     "tables[0].provenance",
     "tables[0].continuation",
     "elements[0]",
+    "elements[0].table",
     "chunks[0]",
+    "trust_table_signals[0]",
+    "ast_tables[0]",
+    "map_table_linkage.pages[0]",
   ],
   requiredOmissions: [
     "tables[0].rows",

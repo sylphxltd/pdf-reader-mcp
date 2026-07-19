@@ -408,6 +408,42 @@ const rawTokens = (
   path: string
 ): Array<string | number> => {
   const tokens = pathTokens(path);
+  if (tokens[0] === "trust_table_signals" && tokens[1] === 0) {
+    const signals = (source.trust_report as Record<string, unknown>)
+      .signals as Array<Record<string, unknown>>;
+    tokens.splice(
+      0,
+      2,
+      "trust_report",
+      "signals",
+      signals.findIndex((entry) => entry.type === "table_quality")
+    );
+  }
+  if (tokens[0] === "ast_tables" && tokens[1] === 0) {
+    const findTablePath = (
+      value: unknown,
+      prefix: Array<string | number> = []
+    ): Array<string | number> | undefined => {
+      if (Array.isArray(value)) {
+        for (let index = 0; index < value.length; index += 1) {
+          const found = findTablePath(value[index], [...prefix, index]);
+          if (found) return found;
+        }
+        return undefined;
+      }
+      if (!value || typeof value !== "object") return undefined;
+      const record = value as Record<string, unknown>;
+      if (record.type === "table") return prefix;
+      for (const [key, entry] of Object.entries(record)) {
+        const found = findTablePath(entry, [...prefix, key]);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const found = findTablePath(source.document_ast);
+    if (!found) throw new Error(`mutation target missing: ${path}`);
+    tokens.splice(0, 2, "document_ast", ...found);
+  }
   if (tokens[0] === "map_table_linkage") tokens[0] = "document_map";
   if (tokens[0] === "elements" && tokens[1] === 0) {
     const elements = source.elements as Array<Record<string, unknown>>;
