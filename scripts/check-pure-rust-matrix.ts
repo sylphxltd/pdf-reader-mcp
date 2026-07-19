@@ -215,6 +215,21 @@ const ocrTsvCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const ocrTableMergeCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-ocr-table-merge-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxOcrPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -313,12 +328,24 @@ const ocrTsvWorkflowStart = differentialWorkflow.indexOf(
   'OCR_TSV_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-tsv-result.json"'
 );
 const ocrTsvWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'OCR_TABLE_MERGE_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-table-merge-result.json"',
   ocrTsvWorkflowStart
 );
 const ocrTsvWorkflow =
   ocrTsvWorkflowStart >= 0 && ocrTsvWorkflowEnd > ocrTsvWorkflowStart
     ? differentialWorkflow.slice(ocrTsvWorkflowStart, ocrTsvWorkflowEnd)
+    : '';
+const ocrTableMergeWorkflowStart = differentialWorkflow.indexOf(
+  'OCR_TABLE_MERGE_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-table-merge-result.json"'
+);
+const ocrTableMergeWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  ocrTableMergeWorkflowStart
+);
+const ocrTableMergeWorkflow =
+  ocrTableMergeWorkflowStart >= 0 &&
+  ocrTableMergeWorkflowEnd > ocrTableMergeWorkflowStart
+    ? differentialWorkflow.slice(ocrTableMergeWorkflowStart, ocrTableMergeWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -1231,6 +1258,83 @@ if (
   )
 ) {
   failures.push('ocr-tsv bounded claim and explicit nonclaims must remain documented');
+}
+
+const ocrTableMergeCaseCount = ocrTableMergeCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-ocr-table-merge-differential')) {
+  failures.push('rust parity workflow must execute the frozen ocr-table-merge differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-ocr-table-merge-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-ocr-table-merge-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OcrTableMergeCaseCount') ||
+  !repositoryDifferential.includes('v3014OcrTableMergeCorpusHash') ||
+  !repositoryDifferential.includes('v3014OcrTableMergeOracleHash')
+) {
+  failures.push('repository differential artifact must bind the ocr-table-merge family');
+}
+if (
+  !ocrTableMergeWorkflow.includes(`.caseCount == ${ocrTableMergeCaseCount}`) ||
+  !ocrTableMergeWorkflow.includes(`.passed == ${ocrTableMergeCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${ocrTableMergeCaseCount}/${ocrTableMergeCaseCount} ocr-table-merge corpus`
+  );
+}
+if (
+  ocrTableMergeCaseCount !== 3 ||
+  ocrTableMergeCorpus.envelope.fixtureCount !== 2 ||
+  ocrTableMergeCorpus.nonclaims.dropInFor3014 !== false ||
+  ocrTableMergeCorpus.nonclaims.publishFreeze !== true
+) {
+  failures.push('ocr-table-merge corpus envelope and product-truth nonclaims must remain frozen');
+}
+if (
+  !ocrTableMergeWorkflow.includes('.profile == "pdf_reader_v3014_ocr_table_merge_result"') ||
+  !ocrTableMergeWorkflow.includes('.mutationSensitive.leafMutationCount == 76') ||
+  !ocrTableMergeWorkflow.includes('.providerProof.distinctMergeKeepsBoth == true') ||
+  !ocrTableMergeWorkflow.includes('.providerProof.overlapSuppressesOcrDuplicate == true') ||
+  !ocrTableMergeWorkflow.includes('.providerProof.ocrOnlyPageAdmitted == true') ||
+  !ocrTableMergeWorkflow.includes('.capabilityStatus.includeTables == "PARTIAL"') ||
+  !ocrTableMergeWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
+  !ocrTableMergeWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !ocrTableMergeWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'ocr-table-merge workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-ocr-table-merge-differential.ts',
+  'scripts/differential/capture-v3014-ocr-table-merge-oracle.ts',
+  'v3014-ocr-table-merge-baseline-runner.ts',
+  'v3014-ocr-table-merge-projection.ts',
+  'reference-ocr-table-merge-provider.ts',
+  'v3014-ocr-table-merge-corpus.json',
+  'v3014-ocr-table-merge-oracle.json',
+  'v3014OcrTableMergeCaseCount',
+  'v3014OcrTableMergeCorpusHash',
+  'v3014OcrTableMergeOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind ocr-table-merge family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('selectable/OCR table merge')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('selectable/OCR table merge outside the frozen 3-case')
+  )
+) {
+  failures.push('ocr-table-merge bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;

@@ -157,6 +157,11 @@ A frozen three-case public-stdio residual for `read_pdf` `include_ocr_text_layer
 
 A frozen two-case public-stdio `MCP_PDF_OCR_PRESET=tesseract-tsv` subset is admitted: valid TSV level-5 words with image-to-PDF box conversion, and malformed TSV soft raw fallback with exact warning. Leaf-mutation count is frozen at 66. Real tesseract binary health checks remain unclaimed. `include_ocr_text_layer` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### mixed selectable/OCR table merge public-stdio subset (bounded)
+
+A frozen three-case public-stdio mixed selectable/OCR table merge subset is admitted: distinct non-overlapping OCR tables are reindexed after selectable tables, overlapping OCR tables are suppressed at the 0.6 IoU duplicate threshold, and OCR-only pages without selectable tables still project table_info. Leaf-mutation count is frozen at 76. `include_tables` and `include_ocr_text_layer` remain `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### Cross-platform native package scaffold (bounded)
 
 Optional native packages and a platform-scoped `bin/native/<platform>/` layout are scaffolded for `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. CI builds and uploads host binaries, but packages remain private and prepublish-blocked while `publishFreeze=true`. Default npm `latest` remains TypeScript 3.0.14; clean registry install/runtime verification and TS retirement remain unclaimed.
