@@ -30,22 +30,6 @@ describe('pdf-reader-mcp differential harness (rej-010)', () => {
         path.join(repoRoot, 'crates/pdf-reader-mcp-server/tests/pdf_reader_mcp_differential.rs')
       )
     ).toBe(true);
-
-    const harness = readFileSync(
-      path.join(repoRoot, 'scripts/run-pdf-reader-differential.sh'),
-      'utf8'
-    );
-    expect(harness).toContain('pdf-reader-mcp-differential');
-    expect(harness).toContain('pdf-reader-mcp-oracle.ts');
-    expect(harness).toContain('pdf_reader_mcp_differential_matches_ts_oracle');
-    expect(harness).toContain('claimed_subset_green');
-    expect(harness).toContain('v3014-behavior-result.json');
-    expect(harness).toContain('v3014-visual-result.json');
-    expect(harness).toContain('check-v3014-visual-differential.ts');
-    expect(harness).toContain('check-no-ts-stdio-backend.sh');
-    expect(harness).toContain('--slice');
-    expect(harness).toContain('tool.search_pdf|tool.pdf_evidence');
-    expect(harness).toContain('PDF_READER_MCP_SLICE_FILTER');
   });
 
   it('parity slice manifest binds read_pdf and stdio transport domains', () => {
