@@ -427,6 +427,7 @@ mod tests {
                 text: String::new(),
                 positioned_items: Vec::new(),
             }],
+            total_pages: 2,
             page_geometry: None,
             selectable_tables: json!([]),
             semantic_hints: true,
@@ -501,7 +502,7 @@ mod tests {
             1
         );
         assert_eq!(
-            data.document_map.as_ref().unwrap()["indexes"]["table_count"],
+            data.document_map.as_ref().unwrap()["summary"]["table_element_count"],
             1
         );
         assert_eq!(
