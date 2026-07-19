@@ -18,6 +18,8 @@ const matrix = JSON.parse(
     read_pdf: Record<string, string>;
     search_pdf: Record<string, string>;
   };
+  claimedForDifferential: string[];
+  explicitlyNotClaimed: string[];
 };
 const behaviorCorpus = JSON.parse(
   readFileSync(join(root, 'scripts/differential/fixtures/v3014-behavior-corpus.json'), 'utf8')
@@ -83,6 +85,24 @@ const lowercaseIndexCorpus = JSON.parse(
   localeContract: { defaultLocale: string; sentinel: string; lowercase: string };
   nonclaims: Record<string, boolean>;
 };
+const selectableTextSegmentationCorpus = JSON.parse(
+  readFileSync(
+    join(
+      root,
+      'scripts/differential/fixtures/v3014-selectable-text-segmentation-corpus.json'
+    ),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    pageCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const rasterImageCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-raster-image-corpus.json'),
@@ -122,6 +142,21 @@ const repositoryDifferential = readFileSync(
   join(root, 'scripts/run-pdf-reader-differential.sh'),
   'utf8'
 );
+const selectableTextSegmentationWorkflowStart = differentialWorkflow.indexOf(
+  'SELECTABLE_TEXT_SEGMENTATION_ARTIFACT="${SCRATCH_DIR}/v3014-selectable-text-segmentation-result.json"'
+);
+const selectableTextSegmentationWorkflowEnd = differentialWorkflow.indexOf(
+  'RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"',
+  selectableTextSegmentationWorkflowStart
+);
+const selectableTextSegmentationWorkflow =
+  selectableTextSegmentationWorkflowStart >= 0 &&
+  selectableTextSegmentationWorkflowEnd > selectableTextSegmentationWorkflowStart
+    ? differentialWorkflow.slice(
+        selectableTextSegmentationWorkflowStart,
+        selectableTextSegmentationWorkflowEnd
+      )
+    : '';
 const rasterImageWorkflowStart = differentialWorkflow.indexOf(
   'RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"'
 );
@@ -463,6 +498,167 @@ if (
   !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
   !differentialWorkflow.includes('.productTruth.publishFreeze == true')
 ) failures.push('lowercase-index workflow must bind mutation proof and frozen product truth');
+const selectableTextSegmentationCaseCount = selectableTextSegmentationCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-selectable-text-segmentation-differential'
+  )
+) {
+  failures.push('rust parity workflow must execute the frozen selectable-text-segmentation differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-selectable-text-segmentation-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-selectable-text-segmentation-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationCaseCount') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationCorpusHash') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationOracleHash') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationRunnerHash') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationProjectionHash') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationGeneratorHash') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationFixtureManifestHash') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationFixtureHash') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationProfile') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationPass') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationMutationSensitive') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationSemanticProof') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationPdfjsObservation') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationNonclaims') ||
+  !repositoryDifferential.includes('v3014SelectableTextSegmentationProductTruth') ||
+  !repositoryDifferential.includes(
+    'v3014-selectable-text-segmentation-baseline-runner.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014-selectable-text-segmentation-projection.ts') ||
+  !repositoryDifferential.includes(
+    'generate-v3014-selectable-text-segmentation-fixture.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014-selectable-text-segmentation-corpus.json') ||
+  !repositoryDifferential.includes('v3014-selectable-text-segmentation-oracle.json') ||
+  !repositoryDifferential.includes('v3014-selectable-text-segmentation-fixture.json') ||
+  !repositoryDifferential.includes('v3014-selectable-text-segmentation-v1.pdf')
+) {
+  failures.push('repository differential artifact must bind the selectable-text-segmentation family');
+}
+if (
+  !selectableTextSegmentationWorkflow.includes(
+    `.caseCount == ${selectableTextSegmentationCaseCount}`
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    `.passed == ${selectableTextSegmentationCaseCount}`
+  ) ||
+  !selectableTextSegmentationWorkflow.includes('.skipped == 0')
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${selectableTextSegmentationCaseCount}/${selectableTextSegmentationCaseCount} selectable-text-segmentation corpus with zero skips`
+  );
+}
+if (
+  selectableTextSegmentationCaseCount !== 4 ||
+  selectableTextSegmentationCorpus.envelope.fixtureCount !== 1 ||
+  selectableTextSegmentationCorpus.envelope.pageCount !== 5 ||
+  selectableTextSegmentationCorpus.envelope.caseCount !== 4 ||
+  selectableTextSegmentationCorpus.envelope.maxPagesPerCase !== 5 ||
+  Object.values(selectableTextSegmentationCorpus.nonclaims).some((value) => value !== false)
+) {
+  failures.push('selectable-text-segmentation corpus envelope and explicit nonclaims must remain frozen');
+}
+if (
+  !selectableTextSegmentationWorkflow.includes(
+    '.corpusSha256 == "7ffb00b303ed6c69b892703b04ada8717d096eb4abe18c7df11d597595679fe7"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.oracleSha256 == "2cf463f36419ca7eb7f3f90f8eee25af9df1d5aae7cff5505934a9abffec206f"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.runnerSha256 == "3c98b1c2fd3b0e0cba0f4c6924f6b7f8566b6610eac0abeb5f826b2edcd559e1"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.projectionSha256 == "a8c48e183cb037d160c47797dd8eefba9b5f84702e087e20d5e16a215b1683dd"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.generatorSha256 == "35aec9a77916c437ba99e39d9352c66735736f6bc76e5d219e3a4f74057dd5f4"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.fixtureManifestSha256 == "c6144f7354b7c6c84b7a0b8c6e6b0d682ea8baea4925f229770c9d41ffb6eb7a"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.fixtureSha256 == "bb765fb7402107bf4d67805e8ec0e594f962bf51b386439316575358e341c9dd"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "6f8733264fec378ec45b094225ea5fe026a9a75c81563a9dcead3722681e1bbe"'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes('.mutationSensitive.leafMutationCount == 1043') ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.mutationSensitive.wrongPrimitiveTypeProbeCount == 5'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.mutationSensitive.unexpectedFieldProbeCount == 4'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.mutationSensitive.requiredOmissionProbeCount == 5'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.mutationSensitive.publicOmissionProbeCount == 4'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.mutationSensitive.dependencyPresenceProbeCount == 5'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '(.semanticProof | to_entries | length == 10 and all(.value == true))'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.pdfjsObservation.syntheticWhitespaceAt48 == false'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.pdfjsObservation.syntheticWhitespaceAbove48 == false'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '.pdfjsObservation.directGapThresholdIsolatedByPdfFixture == true'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes(
+    '(.nonclaims | to_entries | length == 7 and all(.value == false))'
+  ) ||
+  !selectableTextSegmentationWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !selectableTextSegmentationWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('selectable-text-segmentation workflow must bind exact hashes, mutation counts, semantic proof, PDF.js observation, nonclaims, and product truth');
+}
+if (
+  matrix.tools.read_pdf.include_full_text !== 'PARTIAL' ||
+  matrix.tools.read_pdf.include_elements !== 'PARTIAL' ||
+  matrix.tools.read_pdf.include_chunks !== 'PARTIAL' ||
+  matrix.tools.read_pdf.include_text_layer !== 'PARTIAL' ||
+  matrix.tools.read_pdf.include_document_map !== 'PARTIAL' ||
+  matrix.tools.read_pdf.bounding_boxes !== 'PARTIAL' ||
+  matrix.tools.search_pdf.literal_search !== 'PARTIAL' ||
+  matrix.tools.search_pdf.bounding_box !== 'PARTIAL'
+) {
+  failures.push('bounded selectable-text-segmentation claim must keep affected read/search capabilities PARTIAL');
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes(
+        'exact 4-case immutable TS v3.0.14 LTR selectable-text segmentation subset'
+      ) &&
+      claim.includes('request-wide raw-part and normalized-segment caps of 65,536') &&
+      claim.includes('per-page caps of 4,096') &&
+      claim.includes('exact-cap acceptance and cap-plus-one rejection') &&
+      claim.includes('raw-part rejection before allocation') &&
+      claim.includes('normalized rejection without partial output') &&
+      claim.includes('O(runs + chars) 4,096-run text-layer projection')
+  ) ||
+  !matrix.explicitlyNotClaimed.some(
+    (claim) =>
+      claim.includes('selectable-text segmentation outside the frozen 4-case LTR corpus') &&
+      claim.includes('cross-runtime hostile-input resource parity')
+  )
+) {
+  failures.push('selectable-text-segmentation claim and explicit nonclaims must remain documented');
+}
 const rasterImageCaseCount = rasterImageCorpus.cases.length;
 if (!differentialWorkflow.includes('bun run test:v3014-raster-image-differential')) {
   failures.push('rust parity workflow must execute the frozen raster-image differential');

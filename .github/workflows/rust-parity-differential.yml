@@ -116,6 +116,7 @@ jobs:
           bun run test:v3014-caption-link-differential
           bun run test:v3014-search-semantic-differential -- --output "${SCRATCH_DIR}/v3014-search-semantic-result.json"
           bun run test:v3014-lowercase-index-differential -- --output "${SCRATCH_DIR}/v3014-lowercase-index-result.json"
+          bun run test:v3014-selectable-text-segmentation-differential -- --output "${SCRATCH_DIR}/v3014-selectable-text-segmentation-result.json"
           bun run test:v3014-raster-image-differential -- --output "${SCRATCH_DIR}/v3014-raster-image-result.json"
           bun run test:v3014-visual-candidate-differential -- --output "${SCRATCH_DIR}/v3014-visual-candidate-result.json"
           bun run test:capability-parity
@@ -373,6 +374,42 @@ jobs:
             echo "::error::v3.0.14 lowercase-index result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           }
+          SELECTABLE_TEXT_SEGMENTATION_ARTIFACT="${SCRATCH_DIR}/v3014-selectable-text-segmentation-result.json"
+          if [ ! -f "$SELECTABLE_TEXT_SEGMENTATION_ARTIFACT" ]; then
+            echo "::error::v3.0.14 selectable-text-segmentation result missing at $SELECTABLE_TEXT_SEGMENTATION_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_selectable_text_segmentation_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 4 and .passed == 4 and .skipped == 0 and
+            .corpusSha256 == "7ffb00b303ed6c69b892703b04ada8717d096eb4abe18c7df11d597595679fe7" and
+            .oracleSha256 == "2cf463f36419ca7eb7f3f90f8eee25af9df1d5aae7cff5505934a9abffec206f" and
+            .runnerSha256 == "3c98b1c2fd3b0e0cba0f4c6924f6b7f8566b6610eac0abeb5f826b2edcd559e1" and
+            .projectionSha256 == "a8c48e183cb037d160c47797dd8eefba9b5f84702e087e20d5e16a215b1683dd" and
+            .generatorSha256 == "35aec9a77916c437ba99e39d9352c66735736f6bc76e5d219e3a4f74057dd5f4" and
+            .fixtureManifestSha256 == "c6144f7354b7c6c84b7a0b8c6e6b0d682ea8baea4925f229770c9d41ffb6eb7a" and
+            .fixtureSha256 == "bb765fb7402107bf4d67805e8ec0e594f962bf51b386439316575358e341c9dd" and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "6f8733264fec378ec45b094225ea5fe026a9a75c81563a9dcead3722681e1bbe" and
+            .mutationSensitive.leafMutationCount == 1043 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
+            .mutationSensitive.unexpectedFieldProbeCount == 4 and
+            .mutationSensitive.requiredOmissionProbeCount == 5 and
+            .mutationSensitive.publicOmissionProbeCount == 4 and
+            .mutationSensitive.dependencyPresenceProbeCount == 5 and
+            (.semanticProof | to_entries | length == 10 and all(.value == true)) and
+            .pdfjsObservation.syntheticWhitespaceAt48 == false and
+            .pdfjsObservation.syntheticWhitespaceAbove48 == false and
+            .pdfjsObservation.directGapThresholdIsolatedByPdfFixture == true and
+            (.nonclaims | to_entries | length == 7 and all(.value == false)) and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$SELECTABLE_TEXT_SEGMENTATION_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 selectable-text-segmentation result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          }
           RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"
           if [ ! -f "$RASTER_IMAGE_ARTIFACT" ]; then
             echo "::error::v3.0.14 raster-image result missing at $RASTER_IMAGE_ARTIFACT"
@@ -471,6 +508,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/v3014-caption-link-result.json
             ${{ env.SCRATCH_DIR }}/v3014-search-semantic-result.json
             ${{ env.SCRATCH_DIR }}/v3014-lowercase-index-result.json
+            ${{ env.SCRATCH_DIR }}/v3014-selectable-text-segmentation-result.json
             ${{ env.SCRATCH_DIR }}/v3014-raster-image-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-candidate-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-result.json

@@ -12,6 +12,11 @@ use serde::{Deserialize, Serialize};
 
 const MAX_EXTRACTED_TEXT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_GEOMETRY_CHARS: usize = 250_000;
+const MAX_RAW_TEXT_PARTS: usize = 65_536;
+const MAX_RAW_TEXT_PARTS_PER_PAGE: usize = 4_096;
+const MAX_NORMALIZED_TEXT_SEGMENTS: usize = 65_536;
+const MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE: usize = 4_096;
+const TEXT_SEGMENT_GAP_THRESHOLD: f64 = 48.0;
 
 pub const TEXT_INDEX_ROUTE: &str = "rust-text-index";
 
@@ -39,15 +44,12 @@ impl TextBoundingBox {
         let glyph_height = x_height.hypot(y_height);
         let right = trm.m31 + glyph_width.max(0.0);
         let top = trm.m32 + glyph_height.max(0.0);
-        [right, top]
-            .into_iter()
-            .all(f64::is_finite)
-            .then_some(Self {
-                left: canonical_zero(trm.m31),
-                bottom: canonical_zero(trm.m32),
-                right: canonical_zero(right),
-                top: canonical_zero(top),
-            })
+        Some(Self {
+            left: canonical_coordinate(trm.m31)?,
+            bottom: canonical_coordinate(trm.m32)?,
+            right: canonical_coordinate(right)?,
+            top: canonical_coordinate(top)?,
+        })
     }
 
     fn union(self, other: Self) -> Option<Self> {
@@ -105,6 +107,14 @@ fn canonical_zero(value: f64) -> f64 {
     }
 }
 
+fn canonical_coordinate(value: f64) -> Option<f64> {
+    const SCALE: f64 = 10_000.0;
+    let scaled = value * SCALE;
+    scaled
+        .is_finite()
+        .then(|| canonical_zero(scaled.round() / SCALE))
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TextCharacterGeometry {
     pub text: String,
@@ -116,11 +126,21 @@ pub struct TextCharacterGeometry {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PositionedTextRun {
+    pub text: String,
+    pub item_char_start: u32,
+    pub item_char_end: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bounding_box: Option<TextBoundingBox>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PositionedTextItem {
     pub text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bounding_box: Option<TextBoundingBox>,
     pub chars: Vec<TextCharacterGeometry>,
+    pub runs: Vec<PositionedTextRun>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -240,35 +260,62 @@ fn validate_pdf_path(path: &Path, max_file_bytes: u64) -> Result<(), TextIndexEr
     Ok(())
 }
 
+#[derive(Debug)]
+struct RawTextPart {
+    item: PositionedTextItem,
+    x: Option<f64>,
+    y: Option<f64>,
+    right: Option<f64>,
+}
+
+impl RawTextPart {
+    fn empty() -> Self {
+        Self {
+            item: PositionedTextItem {
+                text: String::new(),
+                bounding_box: None,
+                chars: Vec::new(),
+                runs: Vec::new(),
+            },
+            x: None,
+            y: None,
+            right: None,
+        }
+    }
+}
+
 #[derive(Default)]
 struct TextItemOutput {
-    pages: Vec<Vec<PositionedTextItem>>,
-    current_item: Option<PositionedTextItem>,
+    pages: Vec<Vec<RawTextPart>>,
+    current_part: Option<RawTextPart>,
     current_item_utf16_len: u32,
     current_item_geometry_valid: bool,
     text_bytes: usize,
     geometry_chars: usize,
+    raw_part_count: usize,
+    page_raw_part_count: usize,
 }
 
 impl TextItemOutput {
-    fn finish_item(&mut self) {
-        let Some(mut item) = self.current_item.take() else {
+    fn finish_part(&mut self) {
+        let Some(mut part) = self.current_part.take() else {
             return;
         };
         self.current_item_utf16_len = 0;
         if !self.current_item_geometry_valid {
-            item.bounding_box = None;
-            for character in &mut item.chars {
+            part.item.bounding_box = None;
+            for character in &mut part.item.chars {
                 character.bounding_box = None;
             }
-        } else if let Some(item_box) = item.bounding_box {
-            let text_len = item
+        } else if let Some(item_box) = part.item.bounding_box {
+            let text_len = part
+                .item
                 .text
                 .encode_utf16()
                 .count()
                 .try_into()
                 .unwrap_or(u32::MAX);
-            for character in &mut item.chars {
+            for character in &mut part.item.chars {
                 character.bounding_box = item_box.estimated_utf16_range(
                     text_len,
                     character.item_char_start,
@@ -277,11 +324,24 @@ impl TextItemOutput {
             }
         }
         self.current_item_geometry_valid = false;
-        if !item.text.is_empty() {
+        if !part.item.text.is_empty() {
             if let Some(page) = self.pages.last_mut() {
-                page.push(item);
+                page.push(part);
             }
         }
+    }
+
+    fn admit_part(&mut self) -> Result<(), OutputError> {
+        if self.raw_part_count >= MAX_RAW_TEXT_PARTS
+            || self.page_raw_part_count >= MAX_RAW_TEXT_PARTS_PER_PAGE
+        {
+            return Err(OutputError::IoError(std::io::Error::other(
+                "selectable text exceeds bounded raw-part budget",
+            )));
+        }
+        self.raw_part_count += 1;
+        self.page_raw_part_count += 1;
+        Ok(())
     }
 }
 
@@ -292,13 +352,14 @@ impl OutputDev for TextItemOutput {
         _media_box: &MediaBox,
         _art_box: Option<(f64, f64, f64, f64)>,
     ) -> Result<(), OutputError> {
-        self.finish_item();
+        self.finish_part();
         self.pages.push(Vec::new());
+        self.page_raw_part_count = 0;
         Ok(())
     }
 
     fn end_page(&mut self) -> Result<(), OutputError> {
-        self.finish_item();
+        self.finish_part();
         Ok(())
     }
 
@@ -306,7 +367,7 @@ impl OutputDev for TextItemOutput {
         &mut self,
         trm: &Transform,
         width: f64,
-        _spacing: f64,
+        spacing: f64,
         font_size: f64,
         character: &str,
     ) -> Result<(), OutputError> {
@@ -317,9 +378,20 @@ impl OutputDev for TextItemOutput {
                 "selectable text exceeds bounded extraction budget",
             )));
         }
-        if let Some(item) = self.current_item.as_mut() {
+        if let Some(part) = self.current_part.as_mut() {
+            if part.x.is_none() {
+                part.x = Some(trm.m31);
+                part.y = Some(trm.m32);
+            }
+            let advance_right = trm.m31 + trm.m11 * (width * font_size + spacing);
+            if advance_right.is_finite() {
+                part.right = Some(
+                    part.right
+                        .map_or(advance_right, |right| right.max(advance_right)),
+                );
+            }
             let start = self.current_item_utf16_len;
-            item.text.push_str(character);
+            part.item.text.push_str(character);
             let char_units = character
                 .encode_utf16()
                 .count()
@@ -334,28 +406,28 @@ impl OutputDev for TextItemOutput {
             };
             if self.current_item_geometry_valid && bounding_box.is_none() {
                 self.current_item_geometry_valid = false;
-                item.bounding_box = None;
-                for existing in &mut item.chars {
+                part.item.bounding_box = None;
+                for existing in &mut part.item.chars {
                     existing.bounding_box = None;
                 }
             }
             if let Some(box_) = bounding_box {
-                if let Some(current) = item.bounding_box {
+                if let Some(current) = part.item.bounding_box {
                     if let Some(union) = current.union(box_) {
-                        item.bounding_box = Some(union);
+                        part.item.bounding_box = Some(union);
                     } else {
                         self.current_item_geometry_valid = false;
-                        item.bounding_box = None;
-                        for existing in &mut item.chars {
+                        part.item.bounding_box = None;
+                        for existing in &mut part.item.chars {
                             existing.bounding_box = None;
                         }
                         bounding_box = None;
                     }
                 } else {
-                    item.bounding_box = Some(box_);
+                    part.item.bounding_box = Some(box_);
                 }
             }
-            item.chars.push(TextCharacterGeometry {
+            part.item.chars.push(TextCharacterGeometry {
                 text: character.to_string(),
                 item_char_start: start,
                 item_char_end: end,
@@ -367,25 +439,20 @@ impl OutputDev for TextItemOutput {
     }
 
     fn begin_word(&mut self) -> Result<(), OutputError> {
-        // A TJ operator can emit several strings for one logical PDF.js text item.
-        // Keep those fragments together until the text matrix advances to a new line.
-        if self.current_item.is_none() {
-            self.current_item = Some(PositionedTextItem {
-                text: String::new(),
-                bounding_box: None,
-                chars: Vec::new(),
-            });
-            self.current_item_geometry_valid = true;
-        }
+        self.finish_part();
+        self.admit_part()?;
+        self.current_part = Some(RawTextPart::empty());
+        self.current_item_geometry_valid = true;
         Ok(())
     }
 
     fn end_word(&mut self) -> Result<(), OutputError> {
+        self.finish_part();
         Ok(())
     }
 
     fn end_line(&mut self) -> Result<(), OutputError> {
-        self.finish_item();
+        self.finish_part();
         Ok(())
     }
 
@@ -408,6 +475,154 @@ impl OutputDev for TextItemOutput {
     ) -> Result<(), OutputError> {
         Ok(())
     }
+}
+
+fn normalized_row_key(y: f64) -> Result<i64, TextIndexError> {
+    if !y.is_finite() {
+        return Err(TextIndexError::extraction_failed(
+            "selectable text contains a non-finite row coordinate",
+        ));
+    }
+    // JavaScript Math.round(x) is floor(x + 0.5), including for negative halves.
+    let rounded = (y + 0.5).floor();
+    if rounded < i64::MIN as f64 || rounded > i64::MAX as f64 {
+        return Err(TextIndexError::extraction_failed(
+            "selectable text row coordinate exceeds the supported range",
+        ));
+    }
+    Ok(rounded as i64)
+}
+
+fn merge_raw_text_segment(parts: Vec<RawTextPart>) -> Result<PositionedTextItem, TextIndexError> {
+    let mut text = String::new();
+    let mut chars = Vec::new();
+    let mut runs = Vec::with_capacity(parts.len());
+    let mut bounding_box = None;
+    let mut offset = 0u32;
+
+    for part in parts {
+        let run_start = offset;
+        let run_len = part
+            .item
+            .text
+            .encode_utf16()
+            .count()
+            .try_into()
+            .map_err(|_| TextIndexError::extraction_failed("selectable text offset overflow"))?;
+        offset = offset
+            .checked_add(run_len)
+            .ok_or_else(|| TextIndexError::extraction_failed("selectable text offset overflow"))?;
+        text.push_str(&part.item.text);
+        for mut character in part.item.chars {
+            character.item_char_start = run_start
+                .checked_add(character.item_char_start)
+                .ok_or_else(|| {
+                    TextIndexError::extraction_failed("selectable text character offset overflow")
+                })?;
+            character.item_char_end =
+                run_start
+                    .checked_add(character.item_char_end)
+                    .ok_or_else(|| {
+                        TextIndexError::extraction_failed(
+                            "selectable text character offset overflow",
+                        )
+                    })?;
+            chars.push(character);
+        }
+        if let Some(box_) = part.item.bounding_box {
+            bounding_box = match bounding_box {
+                None => Some(box_),
+                Some(current) => Some(current.union(box_).ok_or_else(|| {
+                    TextIndexError::extraction_failed("selectable text bounding-box overflow")
+                })?),
+            };
+        }
+        runs.push(PositionedTextRun {
+            text: part.item.text,
+            item_char_start: run_start,
+            item_char_end: offset,
+            bounding_box: part.item.bounding_box,
+        });
+    }
+
+    Ok(PositionedTextItem {
+        text,
+        bounding_box,
+        chars,
+        runs,
+    })
+}
+
+fn normalize_page_text_parts(
+    parts: Vec<RawTextPart>,
+    request_segment_count: &mut usize,
+) -> Result<Vec<PositionedTextItem>, TextIndexError> {
+    let mut rows = BTreeMap::<i64, Vec<(usize, RawTextPart)>>::new();
+    for (source_index, part) in parts.into_iter().enumerate() {
+        let x = part.x.filter(|value| value.is_finite()).ok_or_else(|| {
+            TextIndexError::extraction_failed("selectable text contains an invalid X coordinate")
+        })?;
+        let y = part.y.ok_or_else(|| {
+            TextIndexError::extraction_failed("selectable text contains a missing Y coordinate")
+        })?;
+        let right = part
+            .right
+            .or_else(|| part.item.bounding_box.map(|box_| box_.right))
+            .filter(|value| value.is_finite() && *value >= x)
+            .ok_or_else(|| {
+                TextIndexError::extraction_failed(
+                    "selectable text contains an invalid horizontal advance",
+                )
+            })?;
+        let key = normalized_row_key(y)?;
+        let mut part = part;
+        part.x = Some(x);
+        part.right = Some(right);
+        rows.entry(key).or_default().push((source_index, part));
+    }
+
+    let mut output = Vec::new();
+    for (_, mut row) in rows.into_iter().rev() {
+        row.sort_by(|(left_index, left), (right_index, right)| {
+            left.x
+                .unwrap_or_default()
+                .total_cmp(&right.x.unwrap_or_default())
+                .then_with(|| left_index.cmp(right_index))
+        });
+        let mut current = Vec::new();
+        let mut previous_right: Option<f64> = None;
+        for (_, part) in row {
+            let x = part.x.expect("validated text-part X");
+            if previous_right.is_some_and(|right| x - right > TEXT_SEGMENT_GAP_THRESHOLD) {
+                if output.len() >= MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE
+                    || *request_segment_count >= MAX_NORMALIZED_TEXT_SEGMENTS
+                {
+                    return Err(TextIndexError::extraction_failed(
+                        "selectable text exceeds bounded normalized-segment budget",
+                    ));
+                }
+                output.push(merge_raw_text_segment(std::mem::take(&mut current))?);
+                *request_segment_count += 1;
+            }
+            previous_right = Some(previous_right.map_or(
+                part.right.expect("validated text-part right edge"),
+                |right| right.max(part.right.expect("validated text-part right edge")),
+            ));
+            current.push(part);
+        }
+        if !current.is_empty() {
+            if output.len() >= MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE
+                || *request_segment_count >= MAX_NORMALIZED_TEXT_SEGMENTS
+            {
+                return Err(TextIndexError::extraction_failed(
+                    "selectable text exceeds bounded normalized-segment budget",
+                ));
+            }
+            output.push(merge_raw_text_segment(current)?);
+            *request_segment_count += 1;
+        }
+    }
+    Ok(output)
 }
 
 pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
@@ -479,21 +694,24 @@ pub(crate) fn extract_pdf_text_from_document(
             positioned_items: Vec::new(),
         }]
     } else {
+        let mut request_segment_count = 0usize;
         output
             .pages
             .into_iter()
-            .map(|positioned_items| {
+            .map(|parts| {
+                let positioned_items =
+                    normalize_page_text_parts(parts, &mut request_segment_count)?;
                 let items = positioned_items
                     .iter()
                     .map(|item| item.text.clone())
                     .collect::<Vec<_>>();
-                ExtractedPageText {
+                Ok(ExtractedPageText {
                     text: items.concat(),
                     items,
                     positioned_items,
-                }
+                })
             })
-            .collect()
+            .collect::<Result<Vec<_>, TextIndexError>>()?
     };
 
     Ok(ExtractedPdfText { pages, info })
@@ -930,6 +1148,152 @@ fn build_snippet(
 mod tests {
     use super::*;
 
+    fn raw_part(text: &str, x: f64, y: f64, width: f64) -> RawTextPart {
+        let bounding_box = TextBoundingBox {
+            left: x,
+            bottom: y,
+            right: x + width,
+            top: y + 10.0,
+        };
+        let text_len = text.encode_utf16().count() as u32;
+        let mut offset = 0u32;
+        let chars = text
+            .chars()
+            .map(|character| {
+                let value = character.to_string();
+                let start = offset;
+                offset += value.encode_utf16().count() as u32;
+                TextCharacterGeometry {
+                    text: value,
+                    item_char_start: start,
+                    item_char_end: offset,
+                    is_whitespace: character.is_whitespace(),
+                    bounding_box: bounding_box.estimated_utf16_range(text_len, start, offset),
+                }
+            })
+            .collect();
+        RawTextPart {
+            item: PositionedTextItem {
+                text: text.to_string(),
+                bounding_box: Some(bounding_box),
+                chars,
+                runs: Vec::new(),
+            },
+            x: Some(x),
+            y: Some(y),
+            right: Some(x + width),
+        }
+    }
+
+    #[test]
+    fn ltr_normalizer_matches_js_round_gap_and_stable_x_semantics() {
+        let mut request_segments = 0;
+        let items = normalize_page_text_parts(
+            vec![
+                raw_part("B", 60.0, 500.10, 10.0),
+                raw_part("D", 0.0, 500.50, 10.0),
+                raw_part("C", 118.01, 500.49, 10.0),
+                raw_part("A", 2.0, 500.49, 10.0),
+            ],
+            &mut request_segments,
+        )
+        .expect("normalize LTR parts");
+
+        assert_eq!(
+            items
+                .iter()
+                .map(|item| item.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["D", "AB", "C"]
+        );
+        assert_eq!(items[1].runs.len(), 2);
+        assert_eq!(items[1].bounding_box.unwrap().left, 2.0);
+        assert_eq!(items[1].bounding_box.unwrap().right, 70.0);
+        assert_eq!(request_segments, 3);
+    }
+
+    #[test]
+    fn ltr_normalizer_uses_running_max_right_and_rebases_utf16_runs_and_chars() {
+        let mut request_segments = 0;
+        let items = normalize_page_text_parts(
+            vec![
+                raw_part("A😀", 0.0, 100.0, 100.0),
+                raw_part("B", 20.0, 100.0, 5.0),
+                raw_part("C", 148.0, 100.0, 5.0),
+            ],
+            &mut request_segments,
+        )
+        .expect("normalize overlapping parts");
+
+        assert_eq!(items.len(), 1, "48-point gap from running max-right joins");
+        assert_eq!(items[0].text, "A😀BC");
+        assert_eq!(items[0].runs[0].item_char_end, 3);
+        assert_eq!(items[0].runs[1].item_char_start, 3);
+        assert_eq!(items[0].runs[2].item_char_start, 4);
+        assert_eq!(items[0].chars[1].item_char_end, 3);
+        assert_eq!(items[0].chars[2].item_char_start, 3);
+        assert_eq!(items[0].chars[3].item_char_start, 4);
+    }
+
+    #[test]
+    fn raw_part_admission_accepts_exact_caps_and_rejects_cap_plus_one() {
+        let mut output = TextItemOutput::default();
+        for _ in 0..MAX_RAW_TEXT_PARTS_PER_PAGE {
+            output.admit_part().expect("exact page cap");
+        }
+        assert!(output.admit_part().is_err(), "page cap + 1 must fail");
+
+        let mut output = TextItemOutput::default();
+        for index in 0..MAX_RAW_TEXT_PARTS {
+            if index % MAX_RAW_TEXT_PARTS_PER_PAGE == 0 {
+                output.page_raw_part_count = 0;
+            }
+            output.admit_part().expect("exact request cap");
+        }
+        output.page_raw_part_count = 0;
+        assert!(output.admit_part().is_err(), "request cap + 1 must fail");
+
+        let mut output = TextItemOutput {
+            raw_part_count: MAX_RAW_TEXT_PARTS,
+            ..TextItemOutput::default()
+        };
+        assert!(output.begin_word().is_err());
+        assert!(
+            output.current_part.is_none(),
+            "cap rejection must precede raw-part allocation"
+        );
+    }
+
+    #[test]
+    fn normalized_segment_admission_is_exact_and_never_returns_partial_output() {
+        let exact = (0..MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE)
+            .map(|index| raw_part("x", index as f64 * 60.0, 100.0, 1.0))
+            .collect();
+        let mut request_segments = 0;
+        assert_eq!(
+            normalize_page_text_parts(exact, &mut request_segments)
+                .expect("exact normalized page cap")
+                .len(),
+            MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE
+        );
+
+        let over = (0..=MAX_NORMALIZED_TEXT_SEGMENTS_PER_PAGE)
+            .map(|index| raw_part("x", index as f64 * 60.0, 100.0, 1.0))
+            .collect();
+        let mut request_segments = 0;
+        assert!(normalize_page_text_parts(over, &mut request_segments).is_err());
+
+        let mut request_segments = MAX_NORMALIZED_TEXT_SEGMENTS - 1;
+        normalize_page_text_parts(vec![raw_part("x", 0.0, 0.0, 1.0)], &mut request_segments)
+            .expect("exact normalized request cap");
+        assert_eq!(request_segments, MAX_NORMALIZED_TEXT_SEGMENTS);
+        assert!(normalize_page_text_parts(
+            vec![raw_part("x", 0.0, 0.0, 1.0)],
+            &mut request_segments
+        )
+        .is_err());
+    }
+
     fn two_blank_page_pdf() -> Vec<u8> {
         let objects = [
             "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
@@ -1081,6 +1445,28 @@ mod tests {
     }
 
     #[test]
+    fn source_coordinates_canonicalize_f32_expansion_at_four_decimal_places() {
+        assert_eq!(canonical_coordinate(699.499_023_438), Some(699.499));
+        assert_eq!(canonical_coordinate(123.000_999_451), Some(123.001));
+        assert_eq!(canonical_coordinate(701.000_000_047), Some(701.0));
+        assert_eq!(canonical_coordinate(-0.000_001), Some(0.0));
+        assert!(!canonical_coordinate(-0.000_001)
+            .expect("canonical zero")
+            .is_sign_negative());
+        assert_eq!(canonical_coordinate(f64::NAN), None);
+        assert_eq!(canonical_coordinate(f64::INFINITY), None);
+        assert_eq!(canonical_coordinate(f64::MAX), None);
+
+        let transform = Transform::row_major(1.0, 0.0, 0.0, 1.0, 123.000_999_451, 699.499_023_438);
+        let box_ = TextBoundingBox::from_character(&transform, 1.0, 1.500_976_609)
+            .expect("canonical character box");
+        assert_eq!(box_.left, 123.001);
+        assert_eq!(box_.bottom, 699.499);
+        assert_eq!(box_.right, 124.502);
+        assert_eq!(box_.top, 701.0);
+    }
+
+    #[test]
     fn opposite_extreme_finite_coordinates_fail_item_geometry_closed() {
         let left = TextBoundingBox {
             left: -1.0e308,
@@ -1119,8 +1505,9 @@ mod tests {
             .expect("right character");
         output.end_line().expect("end line");
         let item = &output.pages[0][0];
-        assert_eq!(item.bounding_box, None);
+        assert_eq!(item.item.bounding_box, None);
         assert!(item
+            .item
             .chars
             .iter()
             .all(|character| character.bounding_box.is_none()));
@@ -1149,8 +1536,9 @@ mod tests {
             }
             output.end_line().expect("end line");
             let item = &output.pages[0][0];
-            assert_eq!(item.bounding_box, None);
+            assert_eq!(item.item.bounding_box, None);
             assert!(item
+                .item
                 .chars
                 .iter()
                 .all(|character| character.bounding_box.is_none()));
@@ -1175,6 +1563,7 @@ mod tests {
                 is_whitespace: true,
                 bounding_box: Some(item_box),
             }],
+            runs: Vec::new(),
         };
         let (box_, level) = match_bounding_box(&item, 0, 1);
         assert_eq!(box_, Some(item_box));
@@ -1203,6 +1592,7 @@ mod tests {
             text: String::new(),
             bounding_box: None,
             chars,
+            runs: Vec::new(),
         };
         let index = TextGeometryIndex::new(&item);
         for offset in 0..500u32 {
@@ -1322,6 +1712,7 @@ mod tests {
                     bounding_box: None,
                 },
             ],
+            runs: Vec::new(),
         };
         let index = TextGeometryIndex::new(&item);
         for (start, end) in [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 3), (3, 3)] {
