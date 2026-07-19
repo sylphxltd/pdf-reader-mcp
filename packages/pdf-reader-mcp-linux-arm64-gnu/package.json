@@ -1,0 +1,27 @@
+{
+  "name": "@sylphx/pdf-reader-mcp-linux-arm64-gnu",
+  "version": "0.0.0-packaging-scaffold",
+  "description": "Optional native pdf-reader-mcp binary for linux-arm64-gnu. Not published while publishFreeze=true.",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/",
+    "README.md",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": true,
+  "scripts": {
+    "prepublishOnly": "node -e \"console.error('PUBLISH FREEZE: native packages are scaffold-only until whole-product parity and unfreeze'); process.exit(1)\""
+  },
+  "libc": [
+    "glibc"
+  ]
+}

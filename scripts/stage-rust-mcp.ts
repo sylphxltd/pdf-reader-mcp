@@ -1,10 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  nativeBinaryRelativePath,
+  resolveNativePlatformId,
+} from './native/platform-package-map.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const source = path.join(repoRoot, 'target/release/pdf-reader-mcp-server');
-const targetDir = path.join(repoRoot, 'bin/native');
-const target = path.join(targetDir, 'pdf-reader-mcp-server');
+const legacyTargetDir = path.join(repoRoot, 'bin/native');
+const legacyTarget = path.join(legacyTargetDir, 'pdf-reader-mcp-server');
 
 if (!fs.existsSync(source)) {
   console.error(
@@ -13,22 +17,43 @@ if (!fs.existsSync(source)) {
   process.exit(1);
 }
 
-fs.mkdirSync(targetDir, { recursive: true });
-
-// Copy via a temp path + atomic rename so staging succeeds even when an older
-// binary is still executing (Linux ETXTBSY on in-place overwrite).
-const tmp = path.join(targetDir, `.pdf-reader-mcp-server.${process.pid}.tmp`);
-try {
-  fs.copyFileSync(source, tmp);
-  fs.chmodSync(tmp, 0o755);
-  fs.renameSync(tmp, target);
-} catch (err) {
+const stageCopy = (target: string): void => {
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const tmp = `${target}.${process.pid}.tmp`;
   try {
-    fs.unlinkSync(tmp);
-  } catch {
-    // best-effort cleanup
+    fs.copyFileSync(source, tmp);
+    fs.chmodSync(tmp, 0o755);
+    fs.renameSync(tmp, target);
+  } catch (error) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      // best-effort cleanup
+    }
+    throw error;
   }
-  throw err;
-}
+};
 
-console.log(`[stage-rust-mcp] Staged ${target}`);
+// Compatibility path retained for existing local tooling.
+stageCopy(legacyTarget);
+console.log(`[stage-rust-mcp] Staged ${legacyTarget}`);
+
+const platformId = resolveNativePlatformId();
+if (platformId) {
+  const platformTarget = path.join(repoRoot, nativeBinaryRelativePath(platformId));
+  stageCopy(platformTarget);
+  console.log(`[stage-rust-mcp] Staged platform path ${platformTarget}`);
+
+  // Also stage into the optional package bin/ for local packaging smoke.
+  const packageBinary = path.join(
+    repoRoot,
+    `packages/pdf-reader-mcp-${platformId}/bin`,
+    path.basename(platformTarget)
+  );
+  stageCopy(packageBinary);
+  console.log(`[stage-rust-mcp] Staged package path ${packageBinary}`);
+} else {
+  console.warn(
+    `[stage-rust-mcp] Host ${process.platform}/${process.arch} has no optional native package mapping yet`
+  );
+}

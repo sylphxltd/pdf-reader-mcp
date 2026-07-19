@@ -18,3 +18,10 @@ test-report.junit.xml
 # Local page-cache artifacts from Rust text-index tests
 **/.pdf-reader-mcp/
 dist/pdf.worker*.mjs
+
+# staged native packaging outputs (never commit host binaries)
+bin/native/**/pdf-reader-mcp-server
+bin/native/**/pdf-reader-mcp-server.exe
+bin/native/pdf-reader-mcp-server
+packages/**/bin/pdf-reader-mcp-server
+packages/**/bin/pdf-reader-mcp-server.exe

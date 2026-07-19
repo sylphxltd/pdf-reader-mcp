@@ -980,6 +980,38 @@ if (
   failures.push('OCR-search bounded claim and explicit nonclaims must remain documented');
 }
 
+
+const nativeWorkflow = readFileSync(join(root, '.github/workflows/native-package-scaffold.yml'), 'utf8');
+const platformMap = readFileSync(join(root, 'scripts/native/platform-package-map.ts'), 'utf8');
+const packageDirs = [
+  'packages/pdf-reader-mcp-darwin-arm64',
+  'packages/pdf-reader-mcp-darwin-x64',
+  'packages/pdf-reader-mcp-linux-arm64-gnu',
+  'packages/pdf-reader-mcp-linux-x64-gnu',
+  'packages/pdf-reader-mcp-win32-x64-msvc',
+];
+if (!nativeWorkflow.includes('pdf-reader-mcp-server-${{ matrix.platformId }}')) {
+  failures.push('native package scaffold workflow must upload platform-scoped binary artifacts');
+}
+for (const platform of ['darwin-arm64', 'darwin-x64', 'linux-arm64-gnu', 'linux-x64-gnu', 'win32-x64-msvc']) {
+  if (!platformMap.includes(`'${platform}'`) && !platformMap.includes(`"${platform}"`)) {
+    failures.push(`native platform map must include ${platform}`);
+  }
+}
+for (const dir of packageDirs) {
+  const manifest = JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')) as {
+    private?: boolean;
+    scripts?: { prepublishOnly?: string };
+  };
+  if (manifest.private !== true) failures.push(`${dir} must remain private while publish freeze is enabled`);
+  if (!manifest.scripts?.prepublishOnly?.includes('PUBLISH FREEZE')) {
+    failures.push(`${dir} must fail closed on prepublish while freeze is enabled`);
+  }
+}
+if (!matrix.claimedForDifferential.some((entry: string) => entry.includes('five-platform npm native package scaffold'))) {
+  failures.push('capability matrix must claim the five-platform native package scaffold honestly');
+}
+
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);

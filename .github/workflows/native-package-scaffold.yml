@@ -1,0 +1,93 @@
+name: Native package scaffold
+
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'packages/**'
+      - 'scripts/native/**'
+      - 'scripts/stage-rust-mcp.ts'
+      - 'bin/pdf-reader-mcp'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/native-package-scaffold.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/**'
+      - 'packages/**'
+      - 'scripts/native/**'
+      - 'scripts/stage-rust-mcp.ts'
+      - 'bin/pdf-reader-mcp'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/native-package-scaffold.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - id: set
+        run: |
+          matrix='[
+            {"platformId":"linux-x64-gnu","runner":"ubuntu-latest","target":"x86_64-unknown-linux-gnu"},
+            {"platformId":"linux-arm64-gnu","runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu"},
+            {"platformId":"darwin-arm64","runner":"macos-14","target":"aarch64-apple-darwin"},
+            {"platformId":"darwin-x64","runner":"macos-13","target":"x86_64-apple-darwin"},
+            {"platformId":"win32-x64-msvc","runner":"windows-latest","target":"x86_64-pc-windows-msvc"}
+          ]'
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+      - name: Verify package map and freeze posture
+        run: |
+          bun test test/native-platform-package-map.test.ts
+          test "$(jq -r '.productTruth.dropInFor3014' docs/specs/pure-rust-capability-matrix.json)" = "false"
+          test "$(jq -r '.productTruth.publishFreeze' docs/specs/pure-rust-capability-matrix.json)" = "true"
+          for pkg in packages/pdf-reader-mcp-*/package.json; do
+            jq -e '.private == true' "$pkg" >/dev/null
+            jq -e '.scripts.prepublishOnly | test("PUBLISH FREEZE")' "$pkg" >/dev/null
+          done
+
+  build:
+    needs: map
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.map.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build release server for ${{ matrix.platformId }}
+        shell: bash
+        run: |
+          cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+          if [[ "${{ matrix.platformId }}" == "win32-x64-msvc" ]]; then
+            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server.exe"
+            dest="bin/native/${{ matrix.platformId }}/pdf-reader-mcp-server.exe"
+          else
+            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server"
+            dest="bin/native/${{ matrix.platformId }}/pdf-reader-mcp-server"
+          fi
+          mkdir -p "$(dirname "$dest")"
+          cp "$src" "$dest"
+          if [[ "${{ matrix.platformId }}" != "win32-x64-msvc" ]]; then
+            chmod +x "$dest"
+          fi
+          ls -la "$dest"
+      - name: Upload staged native binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-reader-mcp-server-${{ matrix.platformId }}
+          path: bin/native/${{ matrix.platformId }}/**
+          if-no-files-found: error
