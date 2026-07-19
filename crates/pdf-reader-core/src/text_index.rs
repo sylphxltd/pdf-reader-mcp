@@ -571,29 +571,41 @@ pub fn search_pdf_text_pages(
             .enumerate()
         {
             let text = &item.text;
+            let source_projection = SourceUtf16Projection::new(text);
+            let geometry_index = TextGeometryIndex::new(item);
             let remaining = max_matches.saturating_add(1) as usize - matches.len();
-            let item_matches =
-                find_matches_in_text_bounded(text, query, case_sensitive, whole_word, remaining);
+            let item_matches = find_matches_in_text_bounded(
+                text,
+                query,
+                case_sensitive,
+                whole_word,
+                remaining,
+                &source_projection,
+            )?;
 
-            for (start, end) in item_matches {
+            for item_match in item_matches {
                 if matches.len() >= max_matches as usize {
                     truncated = true;
                     break;
                 }
 
-                let matched_text = text[start..end].to_string();
-                let snippet = build_snippet(text, start, end, context_chars as usize)?;
-                let start_utf16 = utf16_offset(text, start);
-                let end_utf16 = utf16_offset(text, end);
+                let matched_text = text[item_match.source_start..item_match.source_end].to_string();
+                let snippet = build_snippet(
+                    text,
+                    &source_projection,
+                    item_match.start_utf16,
+                    item_match.end_utf16,
+                    context_chars as usize,
+                )?;
                 let (bounding_box, bounding_box_level) =
-                    match_bounding_box(item, start_utf16, end_utf16);
+                    geometry_index.match_bounding_box(item_match.start_utf16, item_match.end_utf16);
                 matches.push(TextSearchMatch {
                     id: format!("p{page}-match-{}", matches.len() + 1),
                     page,
                     text: matched_text,
                     snippet,
-                    match_start: start_utf16,
-                    match_end: end_utf16,
+                    match_start: item_match.start_utf16,
+                    match_end: item_match.end_utf16,
                     text_item_index: text_item_index as u32,
                     bounding_box,
                     bounding_box_level,
@@ -622,40 +634,98 @@ pub fn search_pdf_text_pages(
     })
 }
 
+struct TextGeometryIndex<'a> {
+    item: &'a PositionedTextItem,
+    eligible: Vec<usize>,
+    #[cfg(test)]
+    candidate_visits: std::cell::Cell<usize>,
+}
+
+impl<'a> TextGeometryIndex<'a> {
+    fn new(item: &'a PositionedTextItem) -> Self {
+        // Extraction emits monotonic half-open UTF-16 ranges. Exclude reversed
+        // internal geometry fail-closed instead of making every match pay for
+        // an unbounded two-dimensional malformed-range scan.
+        let mut eligible = item
+            .chars
+            .iter()
+            .enumerate()
+            .filter(|(_, character)| {
+                !character.is_whitespace
+                    && character.item_char_end >= character.item_char_start
+                    && character.bounding_box.is_some()
+            })
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        if eligible
+            .windows(2)
+            .any(|pair| item.chars[pair[0]].item_char_start > item.chars[pair[1]].item_char_start)
+        {
+            eligible.sort_unstable_by_key(|index| {
+                let character = &item.chars[*index];
+                (character.item_char_start, character.item_char_end, *index)
+            });
+        }
+        Self {
+            item,
+            eligible,
+            #[cfg(test)]
+            candidate_visits: std::cell::Cell::new(0),
+        }
+    }
+
+    fn range_candidates(&self, start_utf16: u32, end_utf16: u32) -> &[usize] {
+        let first = self
+            .eligible
+            .partition_point(|index| self.item.chars[*index].item_char_start < start_utf16);
+        let count = self.eligible[first..]
+            .partition_point(|index| self.item.chars[*index].item_char_start <= end_utf16);
+        &self.eligible[first..first + count]
+    }
+
+    fn match_bounding_box(
+        &self,
+        start_utf16: u32,
+        end_utf16: u32,
+    ) -> (Option<TextBoundingBox>, Option<String>) {
+        let char_box = self
+            .range_candidates(start_utf16, end_utf16)
+            .iter()
+            .map(|index| {
+                #[cfg(test)]
+                self.candidate_visits
+                    .set(self.candidate_visits.get().saturating_add(1));
+                &self.item.chars[*index]
+            })
+            .filter(|character| character.item_char_end <= end_utf16)
+            .filter_map(|character| character.bounding_box)
+            .try_fold(None::<TextBoundingBox>, |current, box_| match current {
+                None => Some(Some(box_)),
+                Some(current) => current.union(box_).map(Some),
+            })
+            .flatten();
+        if let Some(box_) = char_box {
+            (Some(box_), Some("char_estimated".to_string()))
+        } else if let Some(box_) = self.item.bounding_box {
+            (Some(box_), Some("text_item".to_string()))
+        } else {
+            (None, None)
+        }
+    }
+
+    #[cfg(test)]
+    fn candidate_visits(&self) -> usize {
+        self.candidate_visits.get()
+    }
+}
+
+#[cfg(test)]
 fn match_bounding_box(
     item: &PositionedTextItem,
     start_utf16: u32,
     end_utf16: u32,
 ) -> (Option<TextBoundingBox>, Option<String>) {
-    let char_box = item
-        .chars
-        .iter()
-        .filter(|character| {
-            !character.is_whitespace
-                && character.item_char_start >= start_utf16
-                && character.item_char_end <= end_utf16
-        })
-        .filter_map(|character| character.bounding_box)
-        .try_fold(None::<TextBoundingBox>, |current, box_| match current {
-            None => Some(Some(box_)),
-            Some(current) => current.union(box_).map(Some),
-        })
-        .flatten();
-    if let Some(box_) = char_box {
-        (Some(box_), Some("char_estimated".to_string()))
-    } else if let Some(box_) = item.bounding_box {
-        (Some(box_), Some("text_item".to_string()))
-    } else {
-        (None, None)
-    }
-}
-
-fn utf16_offset(text: &str, byte_offset: usize) -> u32 {
-    text[..byte_offset.min(text.len())]
-        .encode_utf16()
-        .count()
-        .try_into()
-        .unwrap_or(u32::MAX)
+    TextGeometryIndex::new(item).match_bounding_box(start_utf16, end_utf16)
 }
 
 fn is_word_char(value: Option<char>) -> bool {
@@ -668,17 +738,102 @@ fn is_whole_word_match(text: &str, start: usize, end: usize) -> bool {
     !is_word_char(before) && !is_word_char(after)
 }
 
-/// Case-insensitive matching that keeps original-string byte indices.
-/// Avoids lowercasing the whole haystack (Unicode case folding can change length,
-/// e.g. ﬁ → fi), which previously produced mid-codepoint slice panics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TextMatchRange {
+    source_start: usize,
+    source_end: usize,
+    start_utf16: u32,
+    end_utf16: u32,
+}
+
+#[derive(Debug)]
+struct NormalizedUtf16Offsets {
+    by_byte: Vec<(usize, usize)>,
+}
+
+impl NormalizedUtf16Offsets {
+    fn new(text: &str) -> Self {
+        let mut by_byte = Vec::with_capacity(text.chars().count() + 1);
+        let mut utf16_offset = 0usize;
+        for (byte_offset, character) in text.char_indices() {
+            by_byte.push((byte_offset, utf16_offset));
+            utf16_offset += character.len_utf16();
+        }
+        by_byte.push((text.len(), utf16_offset));
+        Self { by_byte }
+    }
+
+    fn utf16_at_byte(&self, byte_offset: usize) -> Option<usize> {
+        self.by_byte
+            .binary_search_by_key(&byte_offset, |(byte, _)| *byte)
+            .ok()
+            .map(|index| self.by_byte[index].1)
+    }
+}
+
+#[derive(Debug)]
+struct SourceUtf16Projection {
+    by_utf16: Vec<(usize, usize)>,
+    utf16_len: usize,
+}
+
+impl SourceUtf16Projection {
+    fn new(text: &str) -> Self {
+        let mut by_utf16 = Vec::with_capacity(text.chars().count() + 1);
+        let mut utf16_offset = 0usize;
+        for (byte_offset, character) in text.char_indices() {
+            by_utf16.push((utf16_offset, byte_offset));
+            utf16_offset += character.len_utf16();
+        }
+        by_utf16.push((utf16_offset, text.len()));
+        Self {
+            by_utf16,
+            utf16_len: utf16_offset,
+        }
+    }
+
+    fn byte_at_utf16_clamped(
+        &self,
+        utf16_offset: usize,
+        split_message: &'static str,
+    ) -> Result<usize, TextIndexError> {
+        let utf16_offset = utf16_offset.min(self.utf16_len);
+        self.by_utf16
+            .binary_search_by_key(&utf16_offset, |(units, _)| *units)
+            .ok()
+            .map(|index| self.by_utf16[index].1)
+            .ok_or_else(|| TextIndexError::invalid_request(split_message))
+    }
+}
+
+fn normalize_for_search(value: &str, case_sensitive: bool) -> String {
+    if case_sensitive {
+        value.to_string()
+    } else {
+        value.chars().flat_map(char::to_lowercase).collect()
+    }
+}
+
+/// Match in the normalized UTF-16 index space used by TS v3.0.14, then apply
+/// those offsets directly to the original text for its `slice` semantics.
+/// Boundary tables keep projection bounded and fail closed where JavaScript
+/// could create a lone surrogate that Rust strings cannot represent.
 #[cfg(test)]
 fn find_matches_in_text(
     text: &str,
     query: &str,
     case_sensitive: bool,
     whole_word: bool,
-) -> Vec<(usize, usize)> {
-    find_matches_in_text_bounded(text, query, case_sensitive, whole_word, usize::MAX)
+) -> Result<Vec<TextMatchRange>, TextIndexError> {
+    let source_projection = SourceUtf16Projection::new(text);
+    find_matches_in_text_bounded(
+        text,
+        query,
+        case_sensitive,
+        whole_word,
+        usize::MAX,
+        &source_projection,
+    )
 }
 
 fn find_matches_in_text_bounded(
@@ -687,153 +842,82 @@ fn find_matches_in_text_bounded(
     case_sensitive: bool,
     whole_word: bool,
     max_results: usize,
-) -> Vec<(usize, usize)> {
+    source_projection: &SourceUtf16Projection,
+) -> Result<Vec<TextMatchRange>, TextIndexError> {
     if query.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     let mut matches = Vec::new();
-    if case_sensitive {
-        let mut search_from = 0;
-        while search_from + query.len() <= text.len() {
-            let Some(rel) = text.get(search_from..).and_then(|slice| slice.find(query)) else {
+    let searchable_text = normalize_for_search(text, case_sensitive);
+    let searchable_query = normalize_for_search(query, case_sensitive);
+    if searchable_query.is_empty() || searchable_text.len() < searchable_query.len() {
+        return Ok(matches);
+    }
+    let normalized_offsets = NormalizedUtf16Offsets::new(&searchable_text);
+    let mut search_from = 0usize;
+    while search_from + searchable_query.len() <= searchable_text.len() {
+        let Some(relative_start) = searchable_text[search_from..].find(&searchable_query) else {
+            break;
+        };
+        let start = search_from + relative_start;
+        let end = start + searchable_query.len();
+        if !whole_word || is_whole_word_match(&searchable_text, start, end) {
+            let start_utf16 = normalized_offsets
+                .utf16_at_byte(start)
+                .expect("substring search starts at a UTF-8 character boundary");
+            let end_utf16 = normalized_offsets
+                .utf16_at_byte(end)
+                .expect("substring search ends at a UTF-8 character boundary");
+            let source_start = source_projection.byte_at_utf16_clamped(
+                start_utf16,
+                "UTF-16 search projection would split an astral character.",
+            )?;
+            let source_end = source_projection.byte_at_utf16_clamped(
+                end_utf16,
+                "UTF-16 search projection would split an astral character.",
+            )?;
+            matches.push(TextMatchRange {
+                source_start,
+                source_end,
+                start_utf16: start_utf16.try_into().map_err(|_| {
+                    TextIndexError::invalid_request("UTF-16 search offset exceeds u32 range.")
+                })?,
+                end_utf16: end_utf16.try_into().map_err(|_| {
+                    TextIndexError::invalid_request("UTF-16 search offset exceeds u32 range.")
+                })?,
+            });
+            if matches.len() >= max_results {
                 break;
-            };
-            let start = search_from + rel;
-            let end = start + query.len();
-            if text.is_char_boundary(start)
-                && text.is_char_boundary(end)
-                && (!whole_word || is_whole_word_match(text, start, end))
-            {
-                matches.push((start, end));
-                if matches.len() >= max_results {
-                    break;
-                }
-            }
-            search_from = end.max(start + 1);
-            while search_from < text.len() && !text.is_char_boundary(search_from) {
-                search_from += 1;
             }
         }
-        return matches;
+        search_from = end.max(start + 1);
     }
 
-    // Expand query into its lowercase char sequence (may be multi-char per input char).
-    let query_chars: Vec<char> = query.chars().flat_map(|c| c.to_lowercase()).collect();
-    if query_chars.is_empty() {
-        return matches;
-    }
-    let query_len = query_chars.len();
-    let text_chars: Vec<(usize, char)> = text.char_indices().collect();
-
-    // Precompute expanded lowercase stream with original char index ownership.
-    // Each expanded lowercase char maps back to the source char index that produced it.
-    let mut expanded: Vec<(usize, char)> = Vec::new();
-    for (idx, ch) in &text_chars {
-        for lower in ch.to_lowercase() {
-            expanded.push((*idx, lower));
-        }
-    }
-    if expanded.len() < query_len {
-        return matches;
-    }
-
-    let mut i = 0;
-    while i + query_len <= expanded.len() {
-        if expanded[i..i + query_len]
-            .iter()
-            .zip(query_chars.iter())
-            .all(|((_, hay), q)| hay == q)
-        {
-            let start_char_byte = expanded[i].0;
-            // End is the first byte after the last source char that contributed to the match.
-            let last_source_byte = expanded[i + query_len - 1].0;
-            let end = text_chars
-                .iter()
-                .find(|(byte, _)| *byte == last_source_byte)
-                .map(|(byte, ch)| byte + ch.len_utf8())
-                .unwrap_or(text.len());
-            if !whole_word || is_whole_word_match(text, start_char_byte, end) {
-                matches.push((start_char_byte, end));
-                if matches.len() >= max_results {
-                    break;
-                }
-            }
-            // Advance past this match in expanded space (at least one expanded char).
-            i += query_len.max(1);
-        } else {
-            i += 1;
-        }
-    }
-
-    matches
-}
-
-fn floor_char_boundary(text: &str, index: usize) -> usize {
-    if index >= text.len() {
-        return text.len();
-    }
-    let mut index = index;
-    while index > 0 && !text.is_char_boundary(index) {
-        index -= 1;
-    }
-    index
-}
-
-fn ceil_char_boundary(text: &str, index: usize) -> usize {
-    if index >= text.len() {
-        return text.len();
-    }
-    let mut index = index;
-    while index < text.len() && !text.is_char_boundary(index) {
-        index += 1;
-    }
-    index
+    Ok(matches)
 }
 
 fn build_snippet(
     text: &str,
-    start: usize,
-    end: usize,
+    source_projection: &SourceUtf16Projection,
+    start_utf16: u32,
+    end_utf16: u32,
     context_chars: usize,
 ) -> Result<String, TextIndexError> {
-    let start = floor_char_boundary(text, start.min(text.len()));
-    let end = ceil_char_boundary(text, end.min(text.len()));
-    // TS v3.0.14 counts context in JavaScript UTF-16 code units, not UTF-8
-    // bytes. Walk only the bounded context window around the already-known
-    // byte offsets so each snippet remains O(context_chars), not O(text).
-    let mut remaining = context_chars;
-    let mut snippet_start = start;
-    if remaining > 0 {
-        for (index, character) in text[..start].char_indices().rev() {
-            if character.len_utf16() > remaining {
-                return Err(TextIndexError::invalid_request(
-                    "UTF-16 snippet context would split an astral character.",
-                ));
-            }
-            snippet_start = index;
-            remaining -= character.len_utf16();
-            if remaining == 0 {
-                break;
-            }
-        }
-    }
-    let mut remaining = context_chars;
-    let mut snippet_end = end;
-    if remaining > 0 {
-        for (offset, character) in text[end..].char_indices() {
-            if character.len_utf16() > remaining {
-                return Err(TextIndexError::invalid_request(
-                    "UTF-16 snippet context would split an astral character.",
-                ));
-            }
-            snippet_end = end + offset + character.len_utf8();
-            remaining -= character.len_utf16();
-            if remaining == 0 {
-                break;
-            }
-        }
-    }
+    let start_utf16 = start_utf16 as usize;
+    let end_utf16 = end_utf16 as usize;
+    let snippet_start_utf16 = start_utf16.saturating_sub(context_chars);
+    let snippet_end_utf16 = end_utf16
+        .saturating_add(context_chars)
+        .min(source_projection.utf16_len);
+    let snippet_start = source_projection.byte_at_utf16_clamped(
+        snippet_start_utf16,
+        "UTF-16 snippet context would split an astral character.",
+    )?;
+    let snippet_end = source_projection.byte_at_utf16_clamped(
+        snippet_end_utf16,
+        "UTF-16 snippet context would split an astral character.",
+    )?;
     let prefix = if snippet_start > 0 { "..." } else { "" };
     let suffix = if snippet_end < text.len() { "..." } else { "" };
     Ok(format!(
@@ -1098,18 +1182,178 @@ mod tests {
     }
 
     #[test]
+    fn geometry_index_bounds_exact_cap_match_queries() {
+        let box_ = TextBoundingBox {
+            left: 0.0,
+            bottom: 0.0,
+            right: 1.0,
+            top: 1.0,
+        };
+        let mut chars = Vec::with_capacity(MAX_GEOMETRY_CHARS);
+        for offset in 0..MAX_GEOMETRY_CHARS as u32 {
+            chars.push(TextCharacterGeometry {
+                text: String::new(),
+                item_char_start: offset,
+                item_char_end: offset + 1,
+                is_whitespace: false,
+                bounding_box: Some(box_),
+            });
+        }
+        let item = PositionedTextItem {
+            text: String::new(),
+            bounding_box: None,
+            chars,
+        };
+        let index = TextGeometryIndex::new(&item);
+        for offset in 0..500u32 {
+            assert_eq!(
+                index.match_bounding_box(offset, offset + 1),
+                (Some(box_), Some("char_estimated".to_string()))
+            );
+        }
+        assert_eq!(
+            index.candidate_visits(),
+            1_000,
+            "500 production matcher calls must range-query the index instead of rescanning all {MAX_GEOMETRY_CHARS} chars"
+        );
+    }
+
+    fn reference_match_bounding_box(
+        item: &PositionedTextItem,
+        start_utf16: u32,
+        end_utf16: u32,
+    ) -> (Option<TextBoundingBox>, Option<String>) {
+        let char_box = item
+            .chars
+            .iter()
+            .filter(|character| {
+                !character.is_whitespace
+                    && character.item_char_end >= character.item_char_start
+                    && character.item_char_start >= start_utf16
+                    && character.item_char_end <= end_utf16
+            })
+            .filter_map(|character| character.bounding_box)
+            .try_fold(None::<TextBoundingBox>, |current, box_| match current {
+                None => Some(Some(box_)),
+                Some(current) => current.union(box_).map(Some),
+            })
+            .flatten();
+        if let Some(box_) = char_box {
+            (Some(box_), Some("char_estimated".to_string()))
+        } else if let Some(box_) = item.bounding_box {
+            (Some(box_), Some("text_item".to_string()))
+        } else {
+            (None, None)
+        }
+    }
+
+    #[test]
+    fn geometry_index_matches_reference_for_irregular_internal_ranges() {
+        let item_box = TextBoundingBox {
+            left: -10.0,
+            bottom: -10.0,
+            right: 10.0,
+            top: 10.0,
+        };
+        let boxes = [
+            TextBoundingBox {
+                left: 2.0,
+                bottom: 0.0,
+                right: 3.0,
+                top: 1.0,
+            },
+            TextBoundingBox {
+                left: 0.0,
+                bottom: 0.0,
+                right: 1.0,
+                top: 1.0,
+            },
+            TextBoundingBox {
+                left: 1.0,
+                bottom: 0.0,
+                right: 2.0,
+                top: 1.0,
+            },
+        ];
+        let item = PositionedTextItem {
+            text: "abc".to_string(),
+            bounding_box: Some(item_box),
+            chars: vec![
+                TextCharacterGeometry {
+                    text: "c".to_string(),
+                    item_char_start: 2,
+                    item_char_end: 3,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[0]),
+                },
+                TextCharacterGeometry {
+                    text: "".to_string(),
+                    item_char_start: 1,
+                    item_char_end: 1,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[1]),
+                },
+                TextCharacterGeometry {
+                    text: "malformed".to_string(),
+                    item_char_start: 2,
+                    item_char_end: 1,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[2]),
+                },
+                TextCharacterGeometry {
+                    text: "b".to_string(),
+                    item_char_start: 1,
+                    item_char_end: 2,
+                    is_whitespace: false,
+                    bounding_box: Some(boxes[1]),
+                },
+                TextCharacterGeometry {
+                    text: "ignored".to_string(),
+                    item_char_start: 0,
+                    item_char_end: 3,
+                    is_whitespace: true,
+                    bounding_box: Some(boxes[0]),
+                },
+                TextCharacterGeometry {
+                    text: "unboxed".to_string(),
+                    item_char_start: 0,
+                    item_char_end: 1,
+                    is_whitespace: false,
+                    bounding_box: None,
+                },
+            ],
+        };
+        let index = TextGeometryIndex::new(&item);
+        for (start, end) in [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 3), (3, 3)] {
+            assert_eq!(
+                index.match_bounding_box(start, end),
+                reference_match_bounding_box(&item, start, end),
+                "range {start}..{end}"
+            );
+        }
+    }
+
+    #[test]
     fn finds_literal_matches_with_snippets() {
         let text = "Sample PDF file with sample terms inside.";
-        let matches = find_matches_in_text(text, "sample", false, false);
+        let matches = find_matches_in_text(text, "sample", false, false).unwrap();
         assert_eq!(matches.len(), 2);
-        let snippet = build_snippet(text, matches[0].0, matches[0].1, 6).unwrap();
+        let projection = SourceUtf16Projection::new(text);
+        let snippet = build_snippet(
+            text,
+            &projection,
+            matches[0].start_utf16,
+            matches[0].end_utf16,
+            6,
+        )
+        .unwrap();
         assert!(snippet.contains("Sample PDF"));
     }
 
     #[test]
     fn respects_whole_word_boundaries() {
         let text = "risk risky risk";
-        let matches = find_matches_in_text(text, "risk", false, true);
+        let matches = find_matches_in_text(text, "risk", false, true).unwrap();
         assert_eq!(matches.len(), 2);
     }
 
@@ -1117,48 +1361,185 @@ mod tests {
     fn does_not_panic_on_multibyte_ligature_when_searching_ascii() {
         // ﬁ lowercases to "fi" (2 chars); naive byte-index search used to panic in snippets.
         let text = "preﬁx and more text around here for context";
-        let matches = find_matches_in_text(text, "a", false, false);
+        let matches = find_matches_in_text(text, "a", false, false).unwrap();
         assert!(!matches.is_empty());
-        for (start, end) in matches {
-            let _ = build_snippet(text, start, end, 40).unwrap();
-            assert!(text.is_char_boundary(start));
-            assert!(text.is_char_boundary(end));
+        let projection = SourceUtf16Projection::new(text);
+        for item_match in matches {
+            let _ = build_snippet(
+                text,
+                &projection,
+                item_match.start_utf16,
+                item_match.end_utf16,
+                40,
+            )
+            .unwrap();
+            assert!(text.is_char_boundary(item_match.source_start));
+            assert!(text.is_char_boundary(item_match.source_end));
         }
     }
 
     #[test]
     fn reports_offsets_in_javascript_utf16_code_units() {
         let text = "😀Café";
-        let (start, end) = find_matches_in_text(text, "Café", true, false)[0];
-        assert_eq!(utf16_offset(text, start), 2);
-        assert_eq!(utf16_offset(text, end), 6);
+        let matches = find_matches_in_text(text, "Café", true, false).unwrap();
+        assert_eq!(matches[0].start_utf16, 2);
+        assert_eq!(matches[0].end_utf16, 6);
+    }
+
+    #[test]
+    fn projects_length_changing_lowercase_indices_like_v3_0_14() {
+        let text = "A İX Z ASCII ";
+
+        let capital_i_dot = find_matches_in_text(text, "İ", false, false).unwrap()[0];
+        assert_eq!((capital_i_dot.start_utf16, capital_i_dot.end_utf16), (2, 4));
+        assert_eq!(
+            &text[capital_i_dot.source_start..capital_i_dot.source_end],
+            "İX"
+        );
+
+        let combining_dot = find_matches_in_text(text, "\u{307}", false, false).unwrap()[0];
+        assert_eq!((combining_dot.start_utf16, combining_dot.end_utf16), (3, 4));
+        assert_eq!(
+            &text[combining_dot.source_start..combining_dot.source_end],
+            "X"
+        );
+
+        let ascii = find_matches_in_text(text, "ASCII", false, true).unwrap()[0];
+        assert_eq!((ascii.start_utf16, ascii.end_utf16), (8, 13));
+        assert_eq!(&text[ascii.source_start..ascii.source_end], "SCII ");
+    }
+
+    #[test]
+    fn lowercase_index_projection_fails_closed_at_split_surrogate() {
+        let error = find_matches_in_text("İ😀", "😀", false, false).unwrap_err();
+        assert_eq!(error.code, TextIndexErrorCode::InvalidRequest);
+        assert!(error.message.contains("split an astral character"));
+    }
+
+    #[test]
+    fn lowercase_index_projection_preserves_clamping_nonoverlap_and_normalized_words() {
+        let clamped_text = "Aİ";
+        let clamped = find_matches_in_text(clamped_text, "\u{307}", false, false).unwrap()[0];
+        assert_eq!((clamped.start_utf16, clamped.end_utf16), (2, 3));
+        assert_eq!(clamped.source_start, clamped_text.len());
+        assert_eq!(clamped.source_end, clamped_text.len());
+        let projection = SourceUtf16Projection::new(clamped_text);
+        assert_eq!(
+            build_snippet(
+                clamped_text,
+                &projection,
+                clamped.start_utf16,
+                clamped.end_utf16,
+                0,
+            )
+            .unwrap(),
+            "..."
+        );
+
+        let nonoverlapping = find_matches_in_text("aaaa", "aa", false, false).unwrap();
+        assert_eq!(
+            nonoverlapping
+                .iter()
+                .map(|range| (range.start_utf16, range.end_utf16))
+                .collect::<Vec<_>>(),
+            vec![(0, 2), (2, 4)]
+        );
+
+        // The combining dot before `A` exists only in normalized text. TS
+        // therefore admits this whole-word match even though direct projection
+        // to the original string would inspect a different neighbour.
+        let normalized_word = find_matches_in_text("İA", "A", false, true).unwrap()[0];
+        assert_eq!(
+            (normalized_word.start_utf16, normalized_word.end_utf16),
+            (2, 3)
+        );
+        assert_eq!(normalized_word.source_start, "İA".len());
+        assert_eq!(normalized_word.source_end, "İA".len());
+
+        // Conversely, the normalized `A` immediately before this space is a
+        // word character, so TS rejects it even though the same projected
+        // original boundary has a space as its preceding character.
+        assert!(find_matches_in_text("İA ", " ", false, true)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
     fn snippet_context_counts_utf16_units_like_v3_0_14() {
         let text = "Café résumé";
-        let (start, end) = find_matches_in_text(text, "résumé", true, false)[0];
-        assert_eq!(build_snippet(text, start, end, 5).unwrap(), "Café résumé");
-        assert_eq!(build_snippet(text, start, end, 0).unwrap(), "...résumé");
+        let item_match = find_matches_in_text(text, "résumé", true, false).unwrap()[0];
+        let projection = SourceUtf16Projection::new(text);
+        assert_eq!(
+            build_snippet(
+                text,
+                &projection,
+                item_match.start_utf16,
+                item_match.end_utf16,
+                5,
+            )
+            .unwrap(),
+            "Café résumé"
+        );
+        assert_eq!(
+            build_snippet(
+                text,
+                &projection,
+                item_match.start_utf16,
+                item_match.end_utf16,
+                0,
+            )
+            .unwrap(),
+            "...résumé"
+        );
 
         // Rust strings cannot contain lone UTF-16 surrogates. Fail closed when
         // the exact TS context boundary would bisect an astral scalar.
         let astral = "A😀résuméZ";
-        let (start, end) = find_matches_in_text(astral, "résumé", true, false)[0];
-        let error = build_snippet(astral, start, end, 1).unwrap_err();
+        let item_match = find_matches_in_text(astral, "résumé", true, false).unwrap()[0];
+        let projection = SourceUtf16Projection::new(astral);
+        let error = build_snippet(
+            astral,
+            &projection,
+            item_match.start_utf16,
+            item_match.end_utf16,
+            1,
+        )
+        .unwrap_err();
         assert_eq!(error.code, TextIndexErrorCode::InvalidRequest);
         assert!(error.message.contains("split an astral character"));
         assert_eq!(
-            build_snippet(astral, start, end, 2).unwrap(),
+            build_snippet(
+                astral,
+                &projection,
+                item_match.start_utf16,
+                item_match.end_utf16,
+                2,
+            )
+            .unwrap(),
             "...😀résuméZ"
         );
 
         let trailing_astral = "résumé😀A";
-        let (start, end) = find_matches_in_text(trailing_astral, "résumé", true, false)[0];
-        let error = build_snippet(trailing_astral, start, end, 1).unwrap_err();
+        let item_match = find_matches_in_text(trailing_astral, "résumé", true, false).unwrap()[0];
+        let projection = SourceUtf16Projection::new(trailing_astral);
+        let error = build_snippet(
+            trailing_astral,
+            &projection,
+            item_match.start_utf16,
+            item_match.end_utf16,
+            1,
+        )
+        .unwrap_err();
         assert_eq!(error.code, TextIndexErrorCode::InvalidRequest);
         assert_eq!(
-            build_snippet(trailing_astral, start, end, 2).unwrap(),
+            build_snippet(
+                trailing_astral,
+                &projection,
+                item_match.start_utf16,
+                item_match.end_utf16,
+                2,
+            )
+            .unwrap(),
             "résumé😀..."
         );
     }
@@ -1207,27 +1588,47 @@ mod tests {
 
     #[test]
     fn bulk_normalize_case_and_empty_query() {
-        assert_eq!(find_matches_in_text("AbC", "abc", false, false).len(), 1);
-        assert_eq!(find_matches_in_text("AbC", "AbC", true, false).len(), 1);
-        assert!(find_matches_in_text("AbC", "abc", true, false).is_empty());
-        assert!(find_matches_in_text("hello", "", false, false).is_empty());
-        assert!(find_matches_in_text("hello", "z", false, false).is_empty());
+        assert_eq!(
+            find_matches_in_text("AbC", "abc", false, false)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            find_matches_in_text("AbC", "AbC", true, false)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(find_matches_in_text("AbC", "abc", true, false)
+            .unwrap()
+            .is_empty());
+        assert!(find_matches_in_text("hello", "", false, false)
+            .unwrap()
+            .is_empty());
+        assert!(find_matches_in_text("hello", "z", false, false)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
     fn bulk_whole_word_and_snippet_ellipsis() {
         let text = "alpha beta alphabet";
-        let whole = find_matches_in_text(text, "alpha", false, true);
+        let whole = find_matches_in_text(text, "alpha", false, true).unwrap();
         assert_eq!(whole.len(), 1, "{whole:?}");
-        let loose = find_matches_in_text(text, "alpha", false, false);
+        let loose = find_matches_in_text(text, "alpha", false, false).unwrap();
         assert!(loose.len() >= 2, "{loose:?}");
         assert!(is_word_char(Some('a')));
         assert!(is_word_char(Some('_')));
         assert!(!is_word_char(Some(' ')));
         assert!(!is_word_char(None));
-        let snip = build_snippet("0123456789abcdefghij", 8, 12, 2).unwrap();
+        let snippet_text = "0123456789abcdefghij";
+        let projection = SourceUtf16Projection::new(snippet_text);
+        let snip = build_snippet(snippet_text, &projection, 8, 12, 2).unwrap();
         assert!(snip.contains("..."), "{snip}");
-        let snip2 = build_snippet("short", 0, 5, 10).unwrap();
+        let short = "short";
+        let short_projection = SourceUtf16Projection::new(short);
+        let snip2 = build_snippet(short, &short_projection, 0, 5, 10).unwrap();
         assert_eq!(snip2, "short");
     }
 }

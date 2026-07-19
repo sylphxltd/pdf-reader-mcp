@@ -73,6 +73,16 @@ const searchSemanticCorpus = JSON.parse(
     'utf8'
   )
 ) as { cases: Array<{ id: string }>; nonclaim: { utf16SplitSurrogateWireParity: boolean } };
+const lowercaseIndexCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-lowercase-index-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  localeContract: { defaultLocale: string; sentinel: string; lowercase: string };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -364,6 +374,32 @@ if (
 ) {
   failures.push('search-semantic workflow must bind mutation proof, nonclaim, and frozen product truth');
 }
+const lowercaseIndexCaseCount = lowercaseIndexCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-lowercase-index-differential')) {
+  failures.push('rust parity workflow must execute the frozen lowercase-index differential');
+}
+if (
+  !differentialWorkflow.includes(`.caseCount == ${lowercaseIndexCaseCount}`) ||
+  !differentialWorkflow.includes(`.passed == ${lowercaseIndexCaseCount}`)
+) {
+  failures.push(`rust parity workflow must require the exact ${lowercaseIndexCaseCount}/${lowercaseIndexCaseCount} lowercase-index corpus`);
+}
+if (lowercaseIndexCaseCount !== 6) failures.push(`frozen lowercase-index differential must contain exactly 6 cases (got ${lowercaseIndexCaseCount})`);
+if (
+  lowercaseIndexCorpus.localeContract.defaultLocale !== 'en-US' ||
+  lowercaseIndexCorpus.localeContract.sentinel !== 'İX' ||
+  lowercaseIndexCorpus.localeContract.lowercase !== 'i\u0307x' ||
+  Object.values(lowercaseIndexCorpus.nonclaims).some((value) => value !== false)
+) failures.push('lowercase-index locale sentinel and explicit nonclaims must remain frozen');
+if (
+  !differentialWorkflow.includes('.mutationSensitive.mutationManifestSha256 == "ec260134fe80513ee741b5b02c47830a9e3cc409a6420fc9fd5020f0f4662ec4"') ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 43') ||
+  !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
+  !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 2') ||
+  !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 3') ||
+  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+) failures.push('lowercase-index workflow must bind mutation proof and frozen product truth');
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
