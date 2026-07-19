@@ -152,6 +152,11 @@ A frozen six-case public-stdio `read_pdf` `include_ocr_text_layer` subset is adm
 
 A frozen three-case public-stdio residual for `read_pdf` `include_ocr_text_layer` is admitted: plain-text provider stdout without words, JSON text-only without words, and default `max_pages` first-five-of-six truncation with exact warning and five applied OCR pages. Leaf-mutation count is frozen at 154 with relocated fixture-root replay. Document Map `needs_ocr_pages` remains layout-derived and is not overwritten by OCR candidates. `include_ocr_text_layer` remains `PARTIAL`; tesseract-tsv, selectable/OCR table continuation, URL single-fetch, mixed interleaving, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf tesseract-tsv public-stdio subset (bounded)
+
+A frozen two-case public-stdio `MCP_PDF_OCR_PRESET=tesseract-tsv` subset is admitted: valid TSV level-5 words with image-to-PDF box conversion, and malformed TSV soft raw fallback with exact warning. Leaf-mutation count is frozen at 66. Real tesseract binary health checks remain unclaimed. `include_ocr_text_layer` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### Cross-platform native package scaffold (bounded)
 
 Optional native packages and a platform-scoped `bin/native/<platform>/` layout are scaffolded for `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. CI builds and uploads host binaries, but packages remain private and prepublish-blocked while `publishFreeze=true`. Default npm `latest` remains TypeScript 3.0.14; clean registry install/runtime verification and TS retirement remain unclaimed.
