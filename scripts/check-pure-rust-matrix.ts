@@ -118,6 +118,10 @@ const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
 );
+const repositoryDifferential = readFileSync(
+  join(root, 'scripts/run-pdf-reader-differential.sh'),
+  'utf8'
+);
 const rasterImageWorkflowStart = differentialWorkflow.indexOf(
   'RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"'
 );
@@ -500,6 +504,19 @@ if (
 const visualCandidateCaseCount = visualCandidateCorpus.cases.length;
 if (!differentialWorkflow.includes('bun run test:v3014-visual-candidate-differential')) {
   failures.push('rust parity workflow must execute the frozen visual-candidate differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-visual-candidate-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-visual-candidate-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014VisualCandidateCaseCount') ||
+  !repositoryDifferential.includes('v3014VisualCandidateCorpusHash') ||
+  !repositoryDifferential.includes('v3014VisualCandidateOracleHash')
+) {
+  failures.push('repository differential artifact must bind the visual-candidate family');
 }
 if (
   !visualCandidateWorkflow.includes(`.caseCount == ${visualCandidateCaseCount}`) ||
