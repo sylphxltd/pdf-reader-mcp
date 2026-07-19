@@ -188,6 +188,21 @@ const readOcrCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const readOcrResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-read-ocr-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxOcrPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -263,12 +278,24 @@ const readOcrWorkflowStart = differentialWorkflow.indexOf(
   'READ_OCR_ARTIFACT="${SCRATCH_DIR}/v3014-read-ocr-result.json"'
 );
 const readOcrWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'READ_OCR_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-read-ocr-residual-result.json"',
   readOcrWorkflowStart
 );
 const readOcrWorkflow =
   readOcrWorkflowStart >= 0 && readOcrWorkflowEnd > readOcrWorkflowStart
     ? differentialWorkflow.slice(readOcrWorkflowStart, readOcrWorkflowEnd)
+    : '';
+const readOcrResidualWorkflowStart = differentialWorkflow.indexOf(
+  'READ_OCR_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-read-ocr-residual-result.json"'
+);
+const readOcrResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  readOcrResidualWorkflowStart
+);
+const readOcrResidualWorkflow =
+  readOcrResidualWorkflowStart >= 0 &&
+  readOcrResidualWorkflowEnd > readOcrResidualWorkflowStart
+    ? differentialWorkflow.slice(readOcrResidualWorkflowStart, readOcrResidualWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -1023,6 +1050,95 @@ if (
   )
 ) {
   failures.push('read-ocr bounded claim and explicit nonclaims must remain documented');
+}
+
+const readOcrResidualCaseCount = readOcrResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-read-ocr-residual-differential')) {
+  failures.push('rust parity workflow must execute the frozen read-ocr residual differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-read-ocr-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-read-ocr-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014ReadOcrResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014ReadOcrResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014ReadOcrResidualOracleHash')
+) {
+  failures.push('repository differential artifact must bind the read-ocr residual family');
+}
+if (
+  !readOcrResidualWorkflow.includes(`.caseCount == ${readOcrResidualCaseCount}`) ||
+  !readOcrResidualWorkflow.includes(`.passed == ${readOcrResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${readOcrResidualCaseCount}/${readOcrResidualCaseCount} read-ocr residual corpus`
+  );
+}
+if (
+  readOcrResidualCaseCount !== 3 ||
+  readOcrResidualCorpus.envelope.fixtureCount !== 2 ||
+  readOcrResidualCorpus.envelope.caseCount !== 3 ||
+  readOcrResidualCorpus.envelope.maxPagesPerCase !== 6 ||
+  readOcrResidualCorpus.envelope.maxOcrPagesPerCase !== 5 ||
+  readOcrResidualCorpus.nonclaims.tesseractTsv !== false ||
+  readOcrResidualCorpus.nonclaims.selectableOcrTableContinuation !== false ||
+  readOcrResidualCorpus.nonclaims.urlSingleFetch !== false ||
+  readOcrResidualCorpus.nonclaims.mixedSelectableOcrInterleaving !== false ||
+  readOcrResidualCorpus.nonclaims.wholeProductParity !== false ||
+  readOcrResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  readOcrResidualCorpus.nonclaims.publishFreeze !== true
+) {
+  failures.push('read-ocr residual corpus envelope and product-truth nonclaims must remain frozen');
+}
+if (
+  !readOcrResidualWorkflow.includes('.profile == "pdf_reader_v3014_read_ocr_residual_result"') ||
+  !readOcrResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 154') ||
+  !readOcrResidualWorkflow.includes('.portabilityProof.relocatedFixtureRootReplay == true') ||
+  !readOcrResidualWorkflow.includes('.providerProof.configuredCommandOnly == true') ||
+  !readOcrResidualWorkflow.includes('.providerProof.plainTextStdoutOmitsWords == true') ||
+  !readOcrResidualWorkflow.includes('.providerProof.jsonTextOnlyOmitsWords == true') ||
+  !readOcrResidualWorkflow.includes('.providerProof.firstFiveOfSixTruncates == true') ||
+  !readOcrResidualWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
+  !readOcrResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !readOcrResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'read-ocr residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-read-ocr-residual-differential.ts',
+  'scripts/differential/capture-v3014-read-ocr-residual-oracle.ts',
+  'v3014-read-ocr-residual-baseline-runner.ts',
+  'v3014-read-ocr-residual-projection.ts',
+  'reference-ocr-residual-provider.ts',
+  'v3014-read-ocr-residual-corpus.json',
+  'v3014-read-ocr-residual-oracle.json',
+  'v3014ReadOcrResidualCaseCount',
+  'v3014ReadOcrResidualCorpusHash',
+  'v3014ReadOcrResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind read-ocr residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') &&
+      claim.includes('plain-text provider stdout fallback') &&
+      claim.includes('first-five-of-six')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('read_pdf OCR residual outside the frozen 3-case')
+  )
+) {
+  failures.push('read-ocr residual bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;

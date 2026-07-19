@@ -75,7 +75,7 @@ fn remove_stub_warning(warnings: &mut Option<Vec<String>>) {
     }
 }
 
-fn fuse_document_map(map: &mut Value, candidate_pages: &[u32], pages: &[OcrPage]) {
+fn fuse_document_map(map: &mut Value, _candidate_pages: &[u32], pages: &[OcrPage]) {
     let Some(object) = map.as_object_mut() else {
         return;
     };
@@ -121,9 +121,11 @@ fn fuse_document_map(map: &mut Value, candidate_pages: &[u32], pages: &[OcrPage]
         }
     }
 
+    // needs_ocr_pages is layout-derived at map construction time (image/sparse
+    // zero-text pages). Provider fusion must not overwrite it with OCR
+    // candidate pages; only applied OCR pages and summary counters update here.
     let routing = object.entry("routing").or_insert_with(|| json!({}));
     if let Some(routing) = routing.as_object_mut() {
-        routing.insert("needs_ocr_pages".into(), json!(candidate_pages));
         routing.insert(
             "ocr_applied_pages".into(),
             json!(pages.iter().map(|page| page.page).collect::<Vec<_>>()),
@@ -364,7 +366,8 @@ mod tests {
             &["OCR text layer unavailable: provider failed"]
         );
         let map = data.document_map.as_ref().unwrap();
-        assert_eq!(map["routing"]["needs_ocr_pages"], json!([2]));
+        // Layout-derived needs_ocr_pages is preserved; fusion only clears applied pages.
+        assert!(map["routing"].get("needs_ocr_pages").is_none());
         assert_eq!(map["routing"]["ocr_applied_pages"], json!([]));
         assert!(!map["layers"]
             .as_array()
