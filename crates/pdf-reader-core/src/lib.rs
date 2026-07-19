@@ -114,8 +114,8 @@ pub use render::{
     DEFAULT_MAX_RENDER_PIXELS, DEFAULT_RENDER_SCALE, RENDERER_NAME, RENDER_ENGINE,
 };
 pub use search_pdf::{
-    search_pdf, search_pdf_from_value, SearchPdfError, SearchPdfErrorCode, SearchPdfInput,
-    SearchPdfResponse, SearchPdfSource, SEARCH_PDF_ROUTE,
+    fuse_search_ocr_outcomes, search_pdf, search_pdf_from_value, SearchPdfError,
+    SearchPdfErrorCode, SearchPdfInput, SearchPdfResponse, SearchPdfSource, SEARCH_PDF_ROUTE,
 };
 
 pub use page_cache::{

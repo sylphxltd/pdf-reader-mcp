@@ -15,6 +15,7 @@ TEXT_DIFFERENTIAL_JSON="$SCRATCH/ts-vs-rust-text.json"
 V3014_BEHAVIOR_JSON="$SCRATCH/v3014-behavior-result.json"
 V3014_TEXT_LAYER_JSON="$SCRATCH/v3014-text-layer-result.json"
 V3014_SELECTABLE_TEXT_SEGMENTATION_JSON="$SCRATCH/v3014-selectable-text-segmentation-result.json"
+V3014_OCR_SEARCH_JSON="$SCRATCH/v3014-ocr-search-result.json"
 V3014_CITATION_CHUNK_JSON="$SCRATCH/v3014-citation-chunk-result.json"
 V3014_SEMANTIC_HINT_JSON="$SCRATCH/v3014-semantic-hint-result.json"
 V3014_DOCUMENT_AST_JSON="$SCRATCH/v3014-document-ast-result.json"
@@ -93,6 +94,11 @@ bun "$REPO_ROOT/scripts/differential/generate-v3014-selectable-text-segmentation
 bun "$REPO_ROOT/scripts/differential/capture-v3014-selectable-text-segmentation-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-selectable-text-segmentation-differential.ts" \
   --output "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON" >>"$LOG"
+
+echo "--- immutable v3.0.14 command-provider OCR-search differential (15 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-ocr-search-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-ocr-search-differential.ts" \
+  --output "$V3014_OCR_SEARCH_JSON" >>"$LOG"
 
 echo "--- immutable v3.0.14 citation-chunk schema/boundary/dependency differential (6 exact cases) ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-citation-chunk-fixture.ts" 2>&1 | tee -a "$LOG"
@@ -181,6 +187,12 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-selectable-text-segmentation-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-selectable-text-segmentation-fixture.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-ocr-search-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-ocr-search-projection.ts" \
+  "$REPO_ROOT/scripts/differential/reference-ocr-provider.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-ocr-search-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-ocr-search-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-visual-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-oracle.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-citation-chunk-fixture.json" \
@@ -242,6 +254,17 @@ V3014_SELECTABLE_TEXT_SEGMENTATION_SEMANTIC_PROOF="$(jq -c '.semanticProof' "$V3
 V3014_SELECTABLE_TEXT_SEGMENTATION_PDFJS_OBSERVATION="$(jq -c '.pdfjsObservation' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
 V3014_SELECTABLE_TEXT_SEGMENTATION_NONCLAIMS="$(jq -c '.nonclaims' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
 V3014_SELECTABLE_TEXT_SEGMENTATION_PRODUCT_TRUTH="$(jq -c '.productTruth' "$V3014_SELECTABLE_TEXT_SEGMENTATION_JSON")"
+V3014_OCR_SEARCH_CASE_COUNT="$(jq '.caseCount' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_PASSED="$(jq '.passed' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_SKIPPED="$(jq '.skipped' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_PROFILE="$(jq -r '.profile' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_PASS="$(jq '.pass' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_MUTATION_SENSITIVE="$(jq -c '.mutationSensitive' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_RESOURCE_PROOF="$(jq -c '.resourceProof' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_NONCLAIMS="$(jq -c '.nonclaims' "$V3014_OCR_SEARCH_JSON")"
+V3014_OCR_SEARCH_PRODUCT_TRUTH="$(jq -c '.productTruth' "$V3014_OCR_SEARCH_JSON")"
 V3014_CITATION_CHUNK_CASE_COUNT="$(jq '.caseCount' "$V3014_CITATION_CHUNK_JSON")"
 V3014_CITATION_CHUNK_PASSED="$(jq '.passed' "$V3014_CITATION_CHUNK_JSON")"
 V3014_CITATION_CHUNK_SKIPPED="$(jq '.skipped' "$V3014_CITATION_CHUNK_JSON")"
@@ -315,6 +338,9 @@ jq -n \
   --arg v3014SelectableTextSegmentationFixtureManifestHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_FIXTURE_MANIFEST_HASH" \
   --arg v3014SelectableTextSegmentationFixtureHash "$V3014_SELECTABLE_TEXT_SEGMENTATION_FIXTURE_HASH" \
   --arg v3014SelectableTextSegmentationProfile "$V3014_SELECTABLE_TEXT_SEGMENTATION_PROFILE" \
+  --arg v3014OcrSearchCorpusHash "$V3014_OCR_SEARCH_CORPUS_HASH" \
+  --arg v3014OcrSearchOracleHash "$V3014_OCR_SEARCH_ORACLE_HASH" \
+  --arg v3014OcrSearchProfile "$V3014_OCR_SEARCH_PROFILE" \
   --arg v3014CitationChunkCorpusHash "$V3014_CITATION_CHUNK_CORPUS_HASH" \
   --arg v3014CitationChunkOracleHash "$V3014_CITATION_CHUNK_ORACLE_HASH" \
   --arg v3014SemanticHintCorpusHash "$V3014_SEMANTIC_HINT_CORPUS_HASH" \
@@ -354,6 +380,14 @@ jq -n \
   --argjson v3014SelectableTextSegmentationPdfjsObservation "$V3014_SELECTABLE_TEXT_SEGMENTATION_PDFJS_OBSERVATION" \
   --argjson v3014SelectableTextSegmentationNonclaims "$V3014_SELECTABLE_TEXT_SEGMENTATION_NONCLAIMS" \
   --argjson v3014SelectableTextSegmentationProductTruth "$V3014_SELECTABLE_TEXT_SEGMENTATION_PRODUCT_TRUTH" \
+  --argjson v3014OcrSearchCaseCount "$V3014_OCR_SEARCH_CASE_COUNT" \
+  --argjson v3014OcrSearchPassed "$V3014_OCR_SEARCH_PASSED" \
+  --argjson v3014OcrSearchSkipped "$V3014_OCR_SEARCH_SKIPPED" \
+  --argjson v3014OcrSearchPass "$V3014_OCR_SEARCH_PASS" \
+  --argjson v3014OcrSearchMutationSensitive "$V3014_OCR_SEARCH_MUTATION_SENSITIVE" \
+  --argjson v3014OcrSearchResourceProof "$V3014_OCR_SEARCH_RESOURCE_PROOF" \
+  --argjson v3014OcrSearchNonclaims "$V3014_OCR_SEARCH_NONCLAIMS" \
+  --argjson v3014OcrSearchProductTruth "$V3014_OCR_SEARCH_PRODUCT_TRUTH" \
   --argjson v3014CitationChunkCaseCount "$V3014_CITATION_CHUNK_CASE_COUNT" \
   --argjson v3014CitationChunkPassed "$V3014_CITATION_CHUNK_PASSED" \
   --argjson v3014CitationChunkSkipped "$V3014_CITATION_CHUNK_SKIPPED" \
@@ -425,6 +459,17 @@ jq -n \
     v3014SelectableTextSegmentationPdfjsObservation: $v3014SelectableTextSegmentationPdfjsObservation,
     v3014SelectableTextSegmentationNonclaims: $v3014SelectableTextSegmentationNonclaims,
     v3014SelectableTextSegmentationProductTruth: $v3014SelectableTextSegmentationProductTruth,
+    v3014OcrSearchCorpusHash: $v3014OcrSearchCorpusHash,
+    v3014OcrSearchOracleHash: $v3014OcrSearchOracleHash,
+    v3014OcrSearchProfile: $v3014OcrSearchProfile,
+    v3014OcrSearchCaseCount: $v3014OcrSearchCaseCount,
+    v3014OcrSearchPassed: $v3014OcrSearchPassed,
+    v3014OcrSearchSkipped: $v3014OcrSearchSkipped,
+    v3014OcrSearchPass: $v3014OcrSearchPass,
+    v3014OcrSearchMutationSensitive: $v3014OcrSearchMutationSensitive,
+    v3014OcrSearchResourceProof: $v3014OcrSearchResourceProof,
+    v3014OcrSearchNonclaims: $v3014OcrSearchNonclaims,
+    v3014OcrSearchProductTruth: $v3014OcrSearchProductTruth,
     v3014CitationChunkCorpusHash: $v3014CitationChunkCorpusHash,
     v3014CitationChunkOracleHash: $v3014CitationChunkOracleHash,
     v3014CitationChunkCaseCount: $v3014CitationChunkCaseCount,
@@ -485,6 +530,12 @@ jq -n \
     immutableSelectableTextSegmentationProjection: "scripts/differential/v3014-selectable-text-segmentation-projection.ts",
     immutableSelectableTextSegmentationOracle: "scripts/differential/fixtures/v3014-selectable-text-segmentation-oracle.json",
     immutableSelectableTextSegmentationDifferential: "scripts/differential/check-v3014-selectable-text-segmentation-differential.ts",
+    immutableOcrSearchCorpus: "scripts/differential/fixtures/v3014-ocr-search-corpus.json",
+    immutableOcrSearchRunner: "scripts/differential/v3014-ocr-search-baseline-runner.ts",
+    immutableOcrSearchProjection: "scripts/differential/v3014-ocr-search-projection.ts",
+    immutableOcrSearchOracle: "scripts/differential/fixtures/v3014-ocr-search-oracle.json",
+    immutableOcrSearchCapture: "scripts/differential/capture-v3014-ocr-search-oracle.ts",
+    immutableOcrSearchDifferential: "scripts/differential/check-v3014-ocr-search-differential.ts",
     immutableCitationChunkOracle: "scripts/differential/fixtures/v3014-citation-chunk-oracle.json",
     immutableCitationChunkDifferential: "scripts/differential/check-v3014-citation-chunk-differential.ts",
     immutableSemanticHintOracle: "scripts/differential/fixtures/v3014-semantic-hint-oracle.json",

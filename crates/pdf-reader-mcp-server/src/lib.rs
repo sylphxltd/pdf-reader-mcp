@@ -99,14 +99,15 @@ impl PdfReaderMcp {
     }
 
     #[tool(
-        description = "Searches extracted PDF text with page, snippet, and provenance. Pure-Rust: no bounding boxes; OCR flag fails closed."
+        description = "Searches extracted PDF text with page, snippet, geometry, and provenance. Optional OCR uses the bounded command provider."
     )]
-    pub fn search_pdf(
+    pub async fn search_pdf(
         &self,
         Parameters(args): Parameters<SearchPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
             .map_err(|message| ErrorData::invalid_params(message, None))?;
+        let provider_operation = args.include_ocr_text_layer == Some(true);
         let value = serde_json::to_value(args)
             .map(omit_absent_optional_fields)
             .map_err(|error| {
@@ -115,7 +116,15 @@ impl PdfReaderMcp {
                     None,
                 )
             })?;
-        search::search_pdf(value)
+        if provider_operation {
+            tokio::task::spawn_blocking(move || search::search_pdf(value))
+                .await
+                .map_err(|error| {
+                    ErrorData::internal_error(format!("search_pdf worker failed: {error}"), None)
+                })?
+        } else {
+            search::search_pdf(value)
+        }
     }
 
     #[tool(
@@ -321,7 +330,7 @@ mod tests {
             "context_chars": 1001
         }))
         .expect("structurally valid search args");
-        assert!(server.search_pdf(Parameters(search)).is_err());
+        assert!(server.search_pdf(Parameters(search)).await.is_err());
 
         let evidence = serde_json::from_value(serde_json::json!({
             "operation": "inspect",

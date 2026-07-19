@@ -85,6 +85,16 @@ const lowercaseIndexCorpus = JSON.parse(
   localeContract: { defaultLocale: string; sentinel: string; lowercase: string };
   nonclaims: Record<string, boolean>;
 };
+const ocrSearchCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-ocr-search-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: { fixtureCount: number; caseCount: number; maxPagesPerCase: number };
+  nonclaims: Record<string, boolean>;
+};
 const selectableTextSegmentationCorpus = JSON.parse(
   readFileSync(
     join(
@@ -241,6 +251,9 @@ if (matrix.tools.read_pdf.include_images !== 'PARTIAL') {
 }
 if (matrix.tools.read_pdf.include_visual_enrichments !== 'PARTIAL') {
   failures.push('bounded provider-independent visual-candidate claim must remain PARTIAL');
+}
+if (matrix.tools.search_pdf.include_ocr_text_layer !== 'PARTIAL') {
+  failures.push('bounded OCR-search claim must remain PARTIAL');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -751,6 +764,64 @@ if (
 ) {
   failures.push('visual-candidate workflow must bind provider-independent and product-truth proof');
 }
+const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
+if (
+  ocrSearchCaseCount !== 15 ||
+  ocrSearchCorpus.envelope.caseCount !== 15 ||
+  ocrSearchCorpus.envelope.fixtureCount !== 1 ||
+  ocrSearchCorpus.envelope.maxPagesPerCase !== 10001 ||
+  ocrSearchCorpus.nonclaims.dropInFor3014 !== false ||
+  ocrSearchCorpus.nonclaims.publishFreeze !== true ||
+  ocrSearchCorpus.nonclaims.pageNumbersBeyondU32 !== false ||
+  ocrSearchCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push('OCR-search corpus envelope, nonclaims, and product truth must remain frozen');
+}
+if (
+  !differentialWorkflow.includes('bun run test:v3014-ocr-search-differential') ||
+  !differentialWorkflow.includes('.profile == "pdf_reader_v3014_ocr_search_result"') ||
+  !differentialWorkflow.includes('.caseCount == 15 and .passed == 15 and .skipped == 0') ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 247') ||
+  !differentialWorkflow.includes('.envelopeProof.allInvalidIsToolError == true') ||
+  !differentialWorkflow.includes('.envelopeProof.protocolErrorRejected == true') ||
+  !differentialWorkflow.includes('.portabilityProof.relocatedFixtureRootReplay == true') ||
+  !differentialWorkflow.includes('.portabilityProof.windowsPathProjection == true') ||
+  !differentialWorkflow.includes('.portabilityProof.normalizedFixtureToken == "<fixture>"') ||
+  !differentialWorkflow.includes('.resourceProof.sourceCap32PreIoAnd33Rejected == true') ||
+  !differentialWorkflow.includes('.resourceProof.invalidGlobalOptionsRejectedPreIo == true') ||
+  !differentialWorkflow.includes('.resourceProof.invalidPageSpecSourceLocalPreIo == true') ||
+  !differentialWorkflow.includes('.resourceProof.crossRuntimeHostileResourceParity == false') ||
+  !differentialWorkflow.includes('.nonclaims.pageNumbersBeyondU32 == false') ||
+  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('rust parity workflow must bind the exact OCR-search corpus, resources, nonclaims, and product truth');
+}
+for (const required of [
+  'scripts/differential/check-v3014-ocr-search-differential.ts',
+  'scripts/differential/capture-v3014-ocr-search-oracle.ts',
+  'v3014-ocr-search-baseline-runner.ts',
+  'v3014-ocr-search-projection.ts',
+  'v3014-ocr-search-corpus.json',
+  'v3014-ocr-search-oracle.json',
+  'v3014OcrSearchCaseCount',
+  'v3014OcrSearchCorpusHash',
+  'v3014OcrSearchOracleHash',
+  'v3014OcrSearchResourceProof',
+  'v3014OcrSearchNonclaims',
+  'v3014OcrSearchProductTruth',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(`repository differential artifact must bind OCR-search family member: ${required}`);
+  }
+}
+if (
+  !matrix.claimedForDifferential.some((claim) => claim.includes('exact 15-case') && claim.includes('OCR-search')) ||
+  !matrix.explicitlyNotClaimed.some((claim) => claim.includes('OCR search outside the frozen 15-case'))
+) {
+  failures.push('OCR-search bounded claim and explicit nonclaims must remain documented');
+}
+
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
