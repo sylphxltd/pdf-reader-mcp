@@ -30,6 +30,7 @@ V3014_READ_OCR_JSON="$SCRATCH/v3014-read-ocr-result.json"
 V3014_READ_OCR_RESIDUAL_JSON="$SCRATCH/v3014-read-ocr-residual-result.json"
 V3014_OCR_TSV_JSON="$SCRATCH/v3014-ocr-tsv-result.json"
 V3014_OCR_TABLE_MERGE_JSON="$SCRATCH/v3014-ocr-table-merge-result.json"
+V3014_OCR_SEARCH_RESIDUAL_JSON="$SCRATCH/v3014-ocr-search-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -184,6 +185,11 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-ocr-table-merge-oracle.ts" 2>
 bun "$REPO_ROOT/scripts/differential/check-v3014-ocr-table-merge-differential.ts" \
   --output "$V3014_OCR_TABLE_MERGE_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 OCR-search residual differential (4 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-ocr-search-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-ocr-search-residual-differential.ts" \
+  --output "$V3014_OCR_SEARCH_RESIDUAL_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -280,6 +286,11 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/reference-ocr-table-merge-provider.ts" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-ocr-table-merge-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-ocr-table-merge-oracle.json" \
+  "$REPO_ROOT/scripts/differential/v3014-ocr-search-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-ocr-search-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/reference-ocr-search-residual-provider.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-ocr-search-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-ocr-search-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -400,6 +411,11 @@ V3014_OCR_TABLE_MERGE_PASSED="$(jq '.passed' "$V3014_OCR_TABLE_MERGE_JSON")"
 V3014_OCR_TABLE_MERGE_SKIPPED="$(jq '.skipped' "$V3014_OCR_TABLE_MERGE_JSON")"
 V3014_OCR_TABLE_MERGE_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_OCR_TABLE_MERGE_JSON")"
 V3014_OCR_TABLE_MERGE_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_OCR_TABLE_MERGE_JSON")"
+V3014_OCR_SEARCH_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_OCR_SEARCH_RESIDUAL_JSON")"
+V3014_OCR_SEARCH_RESIDUAL_PASSED="$(jq '.passed' "$V3014_OCR_SEARCH_RESIDUAL_JSON")"
+V3014_OCR_SEARCH_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_OCR_SEARCH_RESIDUAL_JSON")"
+V3014_OCR_SEARCH_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_OCR_SEARCH_RESIDUAL_JSON")"
+V3014_OCR_SEARCH_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_OCR_SEARCH_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -464,6 +480,8 @@ jq -n \
   --arg v3014OcrTsvOracleHash "$V3014_OCR_TSV_ORACLE_HASH" \
   --arg v3014OcrTableMergeCorpusHash "$V3014_OCR_TABLE_MERGE_CORPUS_HASH" \
   --arg v3014OcrTableMergeOracleHash "$V3014_OCR_TABLE_MERGE_ORACLE_HASH" \
+  --arg v3014OcrSearchResidualCorpusHash "$V3014_OCR_SEARCH_RESIDUAL_CORPUS_HASH" \
+  --arg v3014OcrSearchResidualOracleHash "$V3014_OCR_SEARCH_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -537,6 +555,9 @@ jq -n \
   --argjson v3014OcrTableMergeCaseCount "$V3014_OCR_TABLE_MERGE_CASE_COUNT" \
   --argjson v3014OcrTableMergePassed "$V3014_OCR_TABLE_MERGE_PASSED" \
   --argjson v3014OcrTableMergeSkipped "$V3014_OCR_TABLE_MERGE_SKIPPED" \
+  --argjson v3014OcrSearchResidualCaseCount "$V3014_OCR_SEARCH_RESIDUAL_CASE_COUNT" \
+  --argjson v3014OcrSearchResidualPassed "$V3014_OCR_SEARCH_RESIDUAL_PASSED" \
+  --argjson v3014OcrSearchResidualSkipped "$V3014_OCR_SEARCH_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -665,6 +686,11 @@ jq -n \
     v3014OcrTableMergeCaseCount: $v3014OcrTableMergeCaseCount,
     v3014OcrTableMergePassed: $v3014OcrTableMergePassed,
     v3014OcrTableMergeSkipped: $v3014OcrTableMergeSkipped,
+    v3014OcrSearchResidualCorpusHash: $v3014OcrSearchResidualCorpusHash,
+    v3014OcrSearchResidualOracleHash: $v3014OcrSearchResidualOracleHash,
+    v3014OcrSearchResidualCaseCount: $v3014OcrSearchResidualCaseCount,
+    v3014OcrSearchResidualPassed: $v3014OcrSearchResidualPassed,
+    v3014OcrSearchResidualSkipped: $v3014OcrSearchResidualSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -719,6 +745,8 @@ jq -n \
     immutableOcrTsvDifferential: "scripts/differential/check-v3014-ocr-tsv-differential.ts",
     immutableOcrTableMergeOracle: "scripts/differential/fixtures/v3014-ocr-table-merge-oracle.json",
     immutableOcrTableMergeDifferential: "scripts/differential/check-v3014-ocr-table-merge-differential.ts",
+    immutableOcrSearchResidualOracle: "scripts/differential/fixtures/v3014-ocr-search-residual-oracle.json",
+    immutableOcrSearchResidualDifferential: "scripts/differential/check-v3014-ocr-search-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",

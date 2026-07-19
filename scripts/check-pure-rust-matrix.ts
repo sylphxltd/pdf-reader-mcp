@@ -230,6 +230,21 @@ const ocrTableMergeCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const ocrSearchResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-ocr-search-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxMatchesPerSource: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -339,13 +354,25 @@ const ocrTableMergeWorkflowStart = differentialWorkflow.indexOf(
   'OCR_TABLE_MERGE_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-table-merge-result.json"'
 );
 const ocrTableMergeWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'OCR_SEARCH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-residual-result.json"',
   ocrTableMergeWorkflowStart
 );
 const ocrTableMergeWorkflow =
   ocrTableMergeWorkflowStart >= 0 &&
   ocrTableMergeWorkflowEnd > ocrTableMergeWorkflowStart
     ? differentialWorkflow.slice(ocrTableMergeWorkflowStart, ocrTableMergeWorkflowEnd)
+    : '';
+const ocrSearchResidualWorkflowStart = differentialWorkflow.indexOf(
+  'OCR_SEARCH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-residual-result.json"'
+);
+const ocrSearchResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  ocrSearchResidualWorkflowStart
+);
+const ocrSearchResidualWorkflow =
+  ocrSearchResidualWorkflowStart >= 0 &&
+  ocrSearchResidualWorkflowEnd > ocrSearchResidualWorkflowStart
+    ? differentialWorkflow.slice(ocrSearchResidualWorkflowStart, ocrSearchResidualWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -1335,6 +1362,87 @@ if (
   )
 ) {
   failures.push('ocr-table-merge bounded claim and explicit nonclaims must remain documented');
+}
+
+const ocrSearchResidualCaseCount = ocrSearchResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-ocr-search-residual-differential')) {
+  failures.push('rust parity workflow must execute the frozen ocr-search residual differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-ocr-search-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-ocr-search-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OcrSearchResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014OcrSearchResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014OcrSearchResidualOracleHash')
+) {
+  failures.push('repository differential artifact must bind the ocr-search residual family');
+}
+if (
+  !ocrSearchResidualWorkflow.includes(`.caseCount == ${ocrSearchResidualCaseCount}`) ||
+  !ocrSearchResidualWorkflow.includes(`.passed == ${ocrSearchResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${ocrSearchResidualCaseCount}/${ocrSearchResidualCaseCount} ocr-search residual corpus`
+  );
+}
+if (
+  ocrSearchResidualCaseCount !== 4 ||
+  ocrSearchResidualCorpus.envelope.fixtureCount !== 2 ||
+  ocrSearchResidualCorpus.envelope.caseCount !== 4 ||
+  ocrSearchResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  ocrSearchResidualCorpus.nonclaims.publishFreeze !== true
+) {
+  failures.push('ocr-search residual corpus envelope and product-truth nonclaims must remain frozen');
+}
+if (
+  !ocrSearchResidualWorkflow.includes('.profile == "pdf_reader_v3014_ocr_search_residual_result"') ||
+  !ocrSearchResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 133') ||
+  !ocrSearchResidualWorkflow.includes('.providerProof.textOnlyPlainOmitsGeometry == true') ||
+  !ocrSearchResidualWorkflow.includes('.providerProof.textOnlyJsonOmitsGeometry == true') ||
+  !ocrSearchResidualWorkflow.includes('.providerProof.wordsControlIncludesGeometry == true') ||
+  !ocrSearchResidualWorkflow.includes('.providerProof.firstFiveOfSixTruncates == true') ||
+  !ocrSearchResidualWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
+  !ocrSearchResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !ocrSearchResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'ocr-search residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-ocr-search-residual-differential.ts',
+  'scripts/differential/capture-v3014-ocr-search-residual-oracle.ts',
+  'v3014-ocr-search-residual-baseline-runner.ts',
+  'v3014-ocr-search-residual-projection.ts',
+  'reference-ocr-search-residual-provider.ts',
+  'v3014-ocr-search-residual-corpus.json',
+  'v3014-ocr-search-residual-oracle.json',
+  'v3014OcrSearchResidualCaseCount',
+  'v3014OcrSearchResidualCorpusHash',
+  'v3014OcrSearchResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind ocr-search residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 4-case') &&
+      claim.includes('OCR-search residual') &&
+      claim.includes('text-only')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('OCR-search residual outside the frozen 4-case')
+  )
+) {
+  failures.push('ocr-search residual bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
