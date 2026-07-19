@@ -66,7 +66,7 @@ const bindings: Array<[Uint8Array, string, string]> = [
 ];
 for (const [bytes, expected, label] of bindings) if (sha256(bytes) !== expected) throw new Error(`raster-image ${label} digest mismatch`);
 for (const [path, expected] of Object.entries(oracle.baseline.entrypointSha256)) if (sha256(git('show', `${commit}:${path}`)) !== expected) throw new Error(`raster-image TS source mismatch: ${path}`);
-if (manifest.fixtures.length !== 2 || corpus.envelope.fixtureCount !== 2 || corpus.envelope.caseCount !== 7 || corpus.envelope.maxPagesPerCase !== 4 || corpus.envelope.maxImagesPerCase !== 2 || corpus.envelope.maxDecodedPixelsPerImage !== 4) throw new Error('raster-image corpus envelope changed');
+if (manifest.fixtures.length !== 3 || corpus.envelope.fixtureCount !== 3 || corpus.envelope.caseCount !== 8 || corpus.envelope.maxPagesPerCase !== 4 || corpus.envelope.maxImagesPerCase !== 2 || corpus.envelope.maxDecodedPixelsPerImage !== 4) throw new Error('raster-image corpus envelope changed');
 if (JSON.stringify(corpus.envelope) !== JSON.stringify(oracle.baseline.envelope) || JSON.stringify(corpus.nonclaims) !== JSON.stringify(oracle.baseline.nonclaims)) throw new Error('raster-image envelope/nonclaims differ from oracle binding');
 if (corpus.nonclaims.dropInFor3014 !== false || corpus.nonclaims.visualEnrichments !== false) throw new Error('raster-image product nonclaims weakened');
 for (const fixture of manifest.fixtures) {
@@ -74,7 +74,7 @@ for (const fixture of manifest.fixtures) {
   if (!existsSync(path) || sha256(readFileSync(path)) !== fixture.sha256 || oracle.baseline.fixtureSha256[fixture.path] !== fixture.sha256) throw new Error(`raster-image fixture identity mismatch: ${fixture.path}`);
 }
 const ids = corpus.cases.map((entry) => entry.id);
-if (new Set(ids).size !== 7 || JSON.stringify(Object.keys(oracle.expectations)) !== JSON.stringify(ids)) throw new Error('raster-image corpus/oracle IDs differ');
+if (new Set(ids).size !== 8 || JSON.stringify(Object.keys(oracle.expectations)) !== JSON.stringify(ids)) throw new Error('raster-image corpus/oracle IDs differ');
 if (!existsSync(rustServerPath)) throw new Error('missing release Rust MCP server');
 
 const materialize = (entry: Case): Record<string, unknown> => {
@@ -213,6 +213,7 @@ if (JSON.stringify(wrongType.map((entry) => entry[2])) !== JSON.stringify(RASTER
 
 const imageFreeOmitted = !Object.hasOwn(observations['image-free-omits-images'] as object, 'images');
 const includeFalseOmitted = !Object.hasOwn(observations['include-images-false-control'] as object, 'images');
+const ancestorShadowed = !Object.hasOwn(observations['direct-resources-shadow-ancestor-xobject'] as object, 'images');
 const malformedOmitted = !Object.hasOwn(observations['malformed-zero-width-unsupported-color-space-fails-closed'] as object, 'images');
 const mixedExpected = oracle.expectations['mixed-text-image-document-twin'] as Record<string, Json>;
 const ast = mixedExpected.document_ast as Record<string, Json>;
@@ -252,7 +253,7 @@ const report = {
     requiredOmissionProbeCount: 2,
   },
   decodedPixelProof: { comparedCompressionBytes: false, maxPixelsPerImage: 4, repeatedPaintPixelIdentity: true },
-  omissionProof: { imageFreeOmitted, includeFalseOmitted, malformedOmitted },
+  omissionProof: { imageFreeOmitted, includeFalseOmitted, ancestorShadowed, malformedOmitted },
   capabilityStatus: { includeImages: 'PARTIAL', visualEnrichments: 'STUB' },
   nonclaims: corpus.nonclaims,
   productTruth: { dropInFor3014: false, publishFreeze: true },

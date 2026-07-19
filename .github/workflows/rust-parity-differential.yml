@@ -380,11 +380,11 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_raster_image_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 7 and .passed == 7 and .skipped == 0 and
+            .caseCount == 8 and .passed == 8 and .skipped == 0 and
             .mutationSensitive.allClaimedFields == true and
             .mutationSensitive.manifestVersion == 1 and
-            .mutationSensitive.mutationManifestSha256 == "6f68a50145eb78a50736d365e9412f4809554e9e312588bc1ad2c0766b33724b" and
-            .mutationSensitive.leafMutationCount == 301 and
+            .mutationSensitive.mutationManifestSha256 == "c79435dd07d77d3aa28499522b70869ca9a68db232e696943746ddfaf17d0f56" and
+            .mutationSensitive.leafMutationCount == 304 and
             .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
             .mutationSensitive.unexpectedFieldProbeCount == 3 and
             .mutationSensitive.requiredOmissionProbeCount == 2 and

@@ -698,7 +698,6 @@ fn requires_text_extraction(input: &ReadPdfInput) -> bool {
         || input.include_elements
         || input.include_text_layer
         || input.include_document_map
-        || input.include_images
         || input.include_tables
         || input.include_html
         || input.include_semantic_hints

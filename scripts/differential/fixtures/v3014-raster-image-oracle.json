@@ -8,16 +8,17 @@
     "bunLockSha256": "07f469c8200fb82c9092cef178c1bdd67f8cf61fe6c027303665395eede9dd45",
     "runnerSha256": "69f7533a344b6bc3e679ca9ae6339cde8f0727639a9330974a6bbaac576c8d4b",
     "projectionSha256": "e5460bb54569ae38df28396b65e3d24666cc61c672b3a620ebee0246eefe7ca4",
-    "generatorSha256": "5df78779d57e7ab25759dc2ec5608419218a09f049bc837e31d28adc363ac96c",
-    "corpusSha256": "df1ea3adc457e1e48bd1bec32f4fe8f47cd1d6a35fa9732edd129be7cb7edf2b",
-    "fixtureManifestSha256": "6a43d816cdbbc6b3b082a68a606b8adc0c542719ca827ca11dbbfb6d4ed8b049",
+    "generatorSha256": "4411c70eac19dc795acfe3fff80b5178f6f90b32dcd9b6bbc15b9899a0a4fdff",
+    "corpusSha256": "d86694f824e191fd1de15c00aa765ef2f6cc498370d33683fde1dc1558f35a88",
+    "fixtureManifestSha256": "8fc54108bf04758a03870291b0b0738e78553486b685fe04084cf4a410c92ccf",
     "fixtureSha256": {
       "test/fixtures/differential/v3014-raster-images-v1.pdf": "85ad1d4c17f432fda99ee7b45f851de772d46414ba641f66ab4e181dfbf0f747",
-      "test/fixtures/differential/v3014-raster-images-unsupported-v1.pdf": "dacb498bd09a6fc555d67ded4fd615e91edba57801a72a83cdff8430e28705ce"
+      "test/fixtures/differential/v3014-raster-images-unsupported-v1.pdf": "dacb498bd09a6fc555d67ded4fd615e91edba57801a72a83cdff8430e28705ce",
+      "test/fixtures/differential/v3014-raster-images-shadowed-v1.pdf": "eb02262351cbfaf1d87f263890f68a31c6b10dd8865d4ec48aa0ea093ff1774e"
     },
     "envelope": {
-      "fixtureCount": 2,
-      "caseCount": 7,
+      "fixtureCount": 3,
+      "caseCount": 8,
       "maxPagesPerCase": 4,
       "maxImagesPerCase": 2,
       "maxDecodedPixelsPerImage": 4
@@ -541,6 +542,15 @@
             "source": "selectable-text"
           },
           "content": "Mixed image page"
+        }
+      ]
+    },
+    "direct-resources-shadow-ancestor-xobject": {
+      "num_pages": 1,
+      "page_texts": [
+        {
+          "page": 1,
+          "text": ""
         }
       ]
     },

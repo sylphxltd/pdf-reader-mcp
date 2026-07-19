@@ -75,6 +75,16 @@ const common = pdf(new Map<number, PdfObject>([
   [13, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'],
 ]));
 
+const shadowPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/AncestorOnly Do\nQ\n', 'ascii');
+const shadowed = pdf(new Map<number, PdfObject>([
+  [1, '<< /Type /Catalog /Pages 2 0 R >>'],
+  [2, '<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] /Resources << /XObject << /AncestorOnly 5 0 R >> >> >>'],
+  [3, '<< /Type /Page /Parent 2 0 R /Resources << /XObject << /DirectOnly 6 0 R >> >> /Contents 4 0 R >>'],
+  [4, stream('', shadowPaint)],
+  [5, stream('/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8', rgbPixels)],
+  [6, stream('/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8', grayPixels)],
+]));
+
 const unsupportedPaint = Buffer.from('q\n20 0 0 20 72 700 cm\n/BAD Do\nQ\n', 'ascii');
 const unsupported = pdf(new Map<number, PdfObject>([
   [1, '<< /Type /Catalog /Pages 2 0 R >>'],
@@ -87,6 +97,7 @@ const unsupported = pdf(new Map<number, PdfObject>([
 const generated = [
   { path: join(fixtureDir, 'v3014-raster-images-v1.pdf'), bytes: common, pageCount: 4 },
   { path: join(fixtureDir, 'v3014-raster-images-unsupported-v1.pdf'), bytes: unsupported, pageCount: 1 },
+  { path: join(fixtureDir, 'v3014-raster-images-shadowed-v1.pdf'), bytes: shadowed, pageCount: 1 },
 ].map((fixture) => ({
   path: relative(repoRoot, fixture.path),
   bytes: fixture.bytes.length,
@@ -118,4 +129,4 @@ for (const fixture of generated) {
 if (!existsSync(manifestPath) || !readFileSync(manifestPath).equals(manifestBytes)) {
   throw new Error('raster-image fixture manifest is stale or missing; run with --write');
 }
-console.log('v3.0.14 raster-image fixtures: OK (2 PDFs, 5 pages)');
+console.log('v3.0.14 raster-image fixtures: OK (3 PDFs, 6 pages)');

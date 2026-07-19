@@ -154,12 +154,14 @@ fn page_xobjects(
     };
     if let Some(resources) = direct {
         collect_xobjects(document, resources, &mut output, budget);
+        return output;
     }
-    for resource_id in inherited {
-        if budget.limited {
-            break;
-        }
-        if let Ok(resources) = document.get_dictionary(resource_id) {
+    // PDF.js resolves inheritable Resources nearest-first and Dict.merge does
+    // not merge sub-dictionaries by default. The closest Resources dictionary
+    // therefore owns the entire XObject key, even when an ancestor has names
+    // that are absent from the closest dictionary.
+    if let Some(resource_id) = inherited.first() {
+        if let Ok(resources) = document.get_dictionary(*resource_id) {
             collect_xobjects(document, resources, &mut output, budget);
         }
     }
@@ -612,6 +614,49 @@ mod tests {
         let resources = page_xobjects(&document, page, &mut overflow);
         assert_eq!(resources.len(), MAX_XOBJECT_RESOURCES_PER_SOURCE);
         assert!(overflow.limited);
+    }
+
+    #[test]
+    fn nearest_resources_dictionary_shadows_ancestor_xobjects() {
+        let mut document = Document::with_version("1.7");
+        let ancestor_image = document.add_object(Stream::new(
+            dictionary! {
+                "Type" => "XObject", "Subtype" => "Image", "Width" => 1,
+                "Height" => 1, "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8,
+            },
+            vec![0],
+        ));
+        let direct_image = document.add_object(Stream::new(
+            dictionary! {
+                "Type" => "XObject", "Subtype" => "Image", "Width" => 1,
+                "Height" => 1, "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8,
+            },
+            vec![255],
+        ));
+        let ancestor_resources = document.add_object(dictionary! {
+            "XObject" => dictionary! {"Ancestor" => ancestor_image},
+        });
+        let pages = document.add_object(dictionary! {
+            "Type" => "Pages", "Resources" => ancestor_resources,
+        });
+        let direct_page = document.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages,
+            "Resources" => dictionary! {"XObject" => dictionary! {"Direct" => direct_image}},
+        });
+        let inherited_page = document.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages,
+        });
+
+        let mut direct_budget = Budget::default();
+        let direct = page_xobjects(&document, direct_page, &mut direct_budget);
+        assert_eq!(direct.len(), 1);
+        assert_eq!(direct.get(b"Direct".as_slice()), Some(&direct_image));
+        assert!(!direct.contains_key(b"Ancestor".as_slice()));
+
+        let mut inherited_budget = Budget::default();
+        let inherited = page_xobjects(&document, inherited_page, &mut inherited_budget);
+        assert_eq!(inherited.len(), 1);
+        assert_eq!(inherited.get(b"Ancestor".as_slice()), Some(&ancestor_image));
     }
 
     #[test]
