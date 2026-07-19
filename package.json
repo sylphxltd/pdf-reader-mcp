@@ -119,7 +119,8 @@
     "test:v3014-visual-fusion-differential": "bun scripts/differential/check-v3014-visual-fusion-differential.ts",
     "test:v3014-document-ast-visual-fusion-differential": "bun scripts/differential/check-v3014-document-ast-visual-fusion-differential.ts",
     "native:platform": "bun scripts/native/platform-package-map.ts",
-    "test:native-platform-map": "bun test test/native-platform-package-map.test.ts"
+    "test:native-platform-map": "bun test test/native-platform-package-map.test.ts",
+    "smoke:native-launcher": "bun scripts/smoke-native-launcher.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
