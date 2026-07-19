@@ -100,10 +100,7 @@ const selectableTablePdf = join(
   import.meta.dir,
   '../fixtures/differential/v3014-selectable-table-v1.pdf'
 );
-const rasterImagePdf = join(
-  import.meta.dir,
-  '../fixtures/differential/v3014-raster-images-v1.pdf'
-);
+const rasterImagePdf = join(import.meta.dir, '../fixtures/differential/v3014-raster-images-v1.pdf');
 
 describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
   let proc: ChildProcess;
@@ -198,14 +195,11 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
         }>;
       }
     ).results?.[0]?.data;
-    expect(data?.image_info).toEqual([
-      { page: 1, index: 0, width: 2, height: 2, format: 'rgb' },
-    ]);
+    expect(data?.image_info).toEqual([{ page: 1, index: 0, width: 2, height: 2, format: 'rgb' }]);
     expect(data?.images).toBeUndefined();
     expect(data?.image_info?.[0]?.data).toBeUndefined();
 
-    const imageParts =
-      response.result?.content?.filter((part) => part.type === 'image') ?? [];
+    const imageParts = response.result?.content?.filter((part) => part.type === 'image') ?? [];
     expect(imageParts).toHaveLength(1);
     expect(imageParts[0]?.mimeType).toBe('image/png');
     expect(imageParts[0]?.data).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
