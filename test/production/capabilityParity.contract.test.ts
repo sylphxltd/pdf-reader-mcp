@@ -37,7 +37,6 @@ const READ_PDF_REQUIRED_FIELDS: Record<string, string[]> = {
   a11y: ['accessibility_report'],
   'page-geometry': ['page_geometry'],
   structure: ['structure_trees'],
-  images: ['images'],
   visual: ['visual_enrichments'],
 };
 
@@ -100,6 +99,10 @@ const structurePdf = join(import.meta.dir, '../fixtures/differential/v3014-struc
 const selectableTablePdf = join(
   import.meta.dir,
   '../fixtures/differential/v3014-selectable-table-v1.pdf'
+);
+const rasterImagePdf = join(
+  import.meta.dir,
+  '../fixtures/differential/v3014-raster-images-v1.pdf'
 );
 
 describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
@@ -169,6 +172,44 @@ describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', 
     }
     expect(failures).toEqual([]);
   }, 600_000);
+
+  test('raster image capability emits public metadata and PNG content without leaking binary data', async () => {
+    const response = await callTool(
+      proc,
+      nextId(),
+      'read_pdf',
+      {
+        sources: [{ path: rasterImagePdf, pages: [1] }],
+        auto: false,
+        include_page_count: true,
+        include_images: true,
+      },
+      90_000
+    );
+    const payload = parseToolPayload(response);
+    expect(payload.isError).toBe(false);
+    const data = (
+      JSON.parse(payload.text) as {
+        results?: Array<{
+          data?: {
+            image_info?: Array<Record<string, unknown>>;
+            images?: unknown;
+          };
+        }>;
+      }
+    ).results?.[0]?.data;
+    expect(data?.image_info).toEqual([
+      { page: 1, index: 0, width: 2, height: 2, format: 'rgb' },
+    ]);
+    expect(data?.images).toBeUndefined();
+    expect(data?.image_info?.[0]?.data).toBeUndefined();
+
+    const imageParts =
+      response.result?.content?.filter((part) => part.type === 'image') ?? [];
+    expect(imageParts).toHaveLength(1);
+    expect(imageParts[0]?.mimeType).toBe('image/png');
+    expect(imageParts[0]?.data).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+  }, 180_000);
 
   test('structure trees match the immutable tagged subset and untagged PDFs omit the field', async () => {
     const tagged = await callTool(

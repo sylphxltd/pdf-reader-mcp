@@ -116,6 +116,7 @@ jobs:
           bun run test:v3014-caption-link-differential
           bun run test:v3014-search-semantic-differential -- --output "${SCRATCH_DIR}/v3014-search-semantic-result.json"
           bun run test:v3014-lowercase-index-differential -- --output "${SCRATCH_DIR}/v3014-lowercase-index-result.json"
+          bun run test:v3014-raster-image-differential -- --output "${SCRATCH_DIR}/v3014-raster-image-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -371,6 +372,34 @@ jobs:
             echo "::error::v3.0.14 lowercase-index result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           }
+          RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"
+          if [ ! -f "$RASTER_IMAGE_ARTIFACT" ]; then
+            echo "::error::v3.0.14 raster-image result missing at $RASTER_IMAGE_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_raster_image_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 14 and .passed == 14 and .skipped == 0 and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "d331d3de0dd6405fc424a9dbc6264b23e9e48b03bc19bf43406007f645f9d494" and
+            .mutationSensitive.leafMutationCount == 430 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
+            .mutationSensitive.unexpectedFieldProbeCount == 3 and
+            .mutationSensitive.requiredOmissionProbeCount == 2 and
+            .decodedPixelProof.comparedCompressionBytes == false and
+            .decodedPixelProof.maxPixelsPerImage == 4 and
+            .decodedPixelProof.repeatedPaintPixelIdentity == true and
+            (.omissionProof | to_entries | all(.value == true)) and
+            .capabilityStatus.includeImages == "PARTIAL" and
+            .capabilityStatus.visualEnrichments == "STUB" and
+            (.nonclaims | to_entries | all(.value == false)) and
+            .productTruth.dropInFor3014 == false and .productTruth.publishFreeze == true
+          ' "$RASTER_IMAGE_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 raster-image result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
@@ -412,6 +441,7 @@ jobs:
             ${{ env.SCRATCH_DIR }}/v3014-caption-link-result.json
             ${{ env.SCRATCH_DIR }}/v3014-search-semantic-result.json
             ${{ env.SCRATCH_DIR }}/v3014-lowercase-index-result.json
+            ${{ env.SCRATCH_DIR }}/v3014-raster-image-result.json
             ${{ env.SCRATCH_DIR }}/v3014-visual-result.json
           if-no-files-found: error
 

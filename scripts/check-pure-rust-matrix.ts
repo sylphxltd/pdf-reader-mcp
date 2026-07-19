@@ -83,10 +83,37 @@ const lowercaseIndexCorpus = JSON.parse(
   localeContract: { defaultLocale: string; sentinel: string; lowercase: string };
   nonclaims: Record<string, boolean>;
 };
+const rasterImageCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-raster-image-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxImagesPerCase: number;
+    maxDecodedPixelsPerImage: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
 );
+const rasterImageWorkflowStart = differentialWorkflow.indexOf(
+  'RASTER_IMAGE_ARTIFACT="${SCRATCH_DIR}/v3014-raster-image-result.json"'
+);
+const rasterImageWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  rasterImageWorkflowStart
+);
+const rasterImageWorkflow =
+  rasterImageWorkflowStart >= 0 && rasterImageWorkflowEnd > rasterImageWorkflowStart
+    ? differentialWorkflow.slice(rasterImageWorkflowStart, rasterImageWorkflowEnd)
+    : '';
 
 const failures: string[] = [];
 if (
@@ -143,6 +170,12 @@ if (matrix.tools.read_pdf.include_trust_report !== 'PARTIAL') {
 }
 if (matrix.tools.read_pdf.include_tables !== 'PARTIAL') {
   failures.push('bounded selectable-table claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_images !== 'PARTIAL') {
+  failures.push('bounded common-raster image claim must remain PARTIAL');
+}
+if (matrix.tools.read_pdf.include_visual_enrichments !== 'STUB') {
+  failures.push('visual enrichments must remain STUB outside the image-metadata slice');
 }
 const behaviorCaseCount = behaviorCorpus.cases.length;
 if (
@@ -400,6 +433,44 @@ if (
   !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
   !differentialWorkflow.includes('.productTruth.publishFreeze == true')
 ) failures.push('lowercase-index workflow must bind mutation proof and frozen product truth');
+const rasterImageCaseCount = rasterImageCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-raster-image-differential')) {
+  failures.push('rust parity workflow must execute the frozen raster-image differential');
+}
+if (
+  !rasterImageWorkflow.includes(`.caseCount == ${rasterImageCaseCount}`) ||
+  !rasterImageWorkflow.includes(`.passed == ${rasterImageCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${rasterImageCaseCount}/${rasterImageCaseCount} raster-image corpus`
+  );
+}
+if (
+  rasterImageCaseCount !== 14 ||
+  rasterImageCorpus.envelope.fixtureCount !== 3 ||
+  rasterImageCorpus.envelope.maxPagesPerCase !== 4 ||
+  rasterImageCorpus.envelope.maxImagesPerCase !== 2 ||
+  rasterImageCorpus.envelope.maxDecodedPixelsPerImage !== 4 ||
+  Object.values(rasterImageCorpus.nonclaims).some((value) => value !== false)
+) {
+  failures.push('raster-image corpus envelope and explicit nonclaims must remain frozen');
+}
+if (
+  !rasterImageWorkflow.includes(
+    '.mutationSensitive.mutationManifestSha256 == "d331d3de0dd6405fc424a9dbc6264b23e9e48b03bc19bf43406007f645f9d494"'
+  ) ||
+  !rasterImageWorkflow.includes('.mutationSensitive.leafMutationCount == 430') ||
+  !rasterImageWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
+  !rasterImageWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 3') ||
+  !rasterImageWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||
+  !rasterImageWorkflow.includes('.decodedPixelProof.comparedCompressionBytes == false') ||
+  !rasterImageWorkflow.includes('.capabilityStatus.includeImages == "PARTIAL"') ||
+  !rasterImageWorkflow.includes('.capabilityStatus.visualEnrichments == "STUB"') ||
+  !rasterImageWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !rasterImageWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push('raster-image workflow must bind mutation, decoded-pixel, capability, and product-truth proof');
+}
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
