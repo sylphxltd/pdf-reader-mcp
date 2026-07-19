@@ -2810,6 +2810,7 @@ fn ast_link_captions_on_page(page_node: &mut DocumentAstNode, budget: &mut AstCa
         .collect::<Vec<_>>();
     let mut links = BTreeMap::<String, Value>::new();
     let mut caption_ids = BTreeMap::<String, Vec<String>>::new();
+    let mut seen_caption_ids = BTreeMap::<String, HashSet<String>>::new();
     'captions: for caption in captions {
         let kind = ast_caption_kind(caption.text.as_deref());
         let mut best: Option<(f64, Value, String)> = None;
@@ -2832,9 +2833,15 @@ fn ast_link_captions_on_page(page_node: &mut DocumentAstNode, budget: &mut AstCa
         }
         if let Some((_, link, target_id)) = best {
             links.insert(caption.id.clone(), link);
-            let ids = caption_ids.entry(target_id).or_default();
-            if !ids.contains(&caption.id) {
-                ids.push(caption.id.clone());
+            if seen_caption_ids
+                .entry(target_id.clone())
+                .or_default()
+                .insert(caption.id.clone())
+            {
+                caption_ids
+                    .entry(target_id)
+                    .or_default()
+                    .push(caption.id.clone());
             }
         }
     }
@@ -4888,5 +4895,86 @@ mod tests {
             .caption_links
             .is_empty());
         assert!(!malformed_budget.exhausted);
+    }
+
+    #[test]
+    fn caption_link_exact_cap_keeps_reverse_id_dedup_linear() {
+        let caption = |index: usize| DocumentAstNode {
+            id: format!("caption-{index}"),
+            node_type: "caption".into(),
+            page_start: 1,
+            page_end: 1,
+            element_ids: vec![format!("caption-{index}")],
+            chunk_ids: Vec::new(),
+            bounding_boxes: vec![json!({"left":0,"bottom":0,"right":100,"top":10})],
+            title: None,
+            text: Some("Table: exact-cap hostile input".into()),
+            level: None,
+            confidence: None,
+            semantic_role: Some("caption".into()),
+            section_path: Vec::new(),
+            continued_from_section_id: None,
+            caption_links: Vec::new(),
+            caption_ids: Vec::new(),
+            table: None,
+            children: None,
+        };
+        let mut children = (0..MAX_AST_CAPTION_LINK_COMPARISONS)
+            .map(caption)
+            .collect::<Vec<_>>();
+        children.push(DocumentAstNode {
+            id: "table".into(),
+            node_type: "table".into(),
+            page_start: 1,
+            page_end: 1,
+            element_ids: vec!["table".into()],
+            chunk_ids: Vec::new(),
+            bounding_boxes: vec![json!({"left":0,"bottom":30,"right":100,"top":80})],
+            title: None,
+            text: None,
+            level: None,
+            confidence: None,
+            semantic_role: None,
+            section_path: Vec::new(),
+            continued_from_section_id: None,
+            caption_links: Vec::new(),
+            caption_ids: Vec::new(),
+            table: Some(json!({})),
+            children: None,
+        });
+        let mut page = DocumentAstNode {
+            id: "p1".into(),
+            node_type: "page".into(),
+            page_start: 1,
+            page_end: 1,
+            element_ids: Vec::new(),
+            chunk_ids: Vec::new(),
+            bounding_boxes: Vec::new(),
+            title: None,
+            text: None,
+            level: None,
+            confidence: None,
+            semantic_role: None,
+            section_path: Vec::new(),
+            continued_from_section_id: None,
+            caption_links: Vec::new(),
+            caption_ids: Vec::new(),
+            table: None,
+            children: Some(children),
+        };
+        let mut budget = AstCaptionLinkBudget::new(MAX_AST_CAPTION_LINK_COMPARISONS);
+
+        ast_link_captions_on_page(&mut page, &mut budget);
+
+        let children = page.children.as_ref().unwrap();
+        let reverse_ids = &children.last().unwrap().caption_ids;
+        assert_eq!(reverse_ids.len(), MAX_AST_CAPTION_LINK_COMPARISONS);
+        assert_eq!(reverse_ids.first().unwrap(), "caption-0");
+        assert_eq!(
+            reverse_ids.last().unwrap(),
+            &format!("caption-{}", MAX_AST_CAPTION_LINK_COMPARISONS - 1)
+        );
+        assert_eq!(budget.remaining, 0);
+        assert!(!budget.exhausted);
     }
 }
