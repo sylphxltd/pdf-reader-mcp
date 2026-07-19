@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use crate::evidence::attach_evidence;
 use crate::ocr_evidence::{run_read_ocr, ReadOcrOptions};
+use crate::page_selection::selected_pages;
 use crate::schema::SearchPdfArgs;
 use crate::visual_evidence::{materialize_read_source, MaterializedSource};
 
@@ -31,11 +32,8 @@ pub fn search_pdf(args_value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
         rmcp::ErrorData::invalid_params(format!("Invalid search_pdf arguments: {error}"), None)
     })?;
 
-    for source in &args.sources {
-        source
-            .validate()
-            .map_err(|message| rmcp::ErrorData::invalid_params(message, None))?;
-    }
+    args.validate()
+        .map_err(|message| rmcp::ErrorData::invalid_params(message, None))?;
     if args.sources.is_empty() {
         return Err(rmcp::ErrorData::invalid_params(
             "sources must include at least one PDF source.",
@@ -111,6 +109,14 @@ fn search_with_ocr(
 
     for (source_index, source) in args.sources.iter().enumerate() {
         let original_label = source.label();
+        if let Err(error) = selected_pages(&source.pages) {
+            results.push(json!({
+                "source": original_label,
+                "success": false,
+                "error": format!("Invalid page specification for source {original_label}: {error}"),
+            }));
+            continue;
+        }
         let owner = match materialize_read_source(source_index, source) {
             Ok(owner) => owner,
             Err(error) => {
@@ -209,6 +215,13 @@ fn search_with_ocr(
 mod tests {
     use super::*;
 
+    fn sample_fixture() -> String {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/sample.pdf")
+            .to_string_lossy()
+            .into_owned()
+    }
+
     #[test]
     fn rejects_ocr_source_cap_plus_one_before_source_io() {
         admit_ocr_source_count(MAX_OCR_SOURCES_PER_REQUEST).expect("exact source cap");
@@ -222,5 +235,39 @@ mod tests {
         }))
         .expect_err("source cap plus one");
         assert!(error.message.contains("at most 32 sources"));
+    }
+
+    #[test]
+    fn rejects_global_options_before_source_io() {
+        let error = search_pdf(json!({
+            "sources": [{"path": "/must-not-touch-invalid-search-options.pdf"}],
+            "query": "x",
+            "include_ocr_text_layer": true,
+            "max_pages": 0,
+        }))
+        .expect_err("invalid global option");
+        assert!(error.message.contains("max_pages"));
+        assert!(!error.message.contains("must-not-touch"));
+    }
+
+    #[test]
+    fn keeps_invalid_page_spec_source_local_before_materialization() {
+        let response = search_pdf(json!({
+            "sources": [
+                {"path": sample_fixture(), "pages": [1]},
+                {"path": "/must-not-touch-invalid-page-spec.pdf", "pages": "abc"}
+            ],
+            "query": "Lorem",
+            "include_ocr_text_layer": true,
+        }))
+        .expect("mixed source request remains successful");
+        let structured = response.structured_content.expect("structured result");
+        let results = structured["results"].as_array().expect("results");
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0]["success"], json!(true));
+        assert_eq!(results[1]["success"], json!(false));
+        let error = results[1]["error"].as_str().expect("source-local error");
+        assert!(error.contains("Invalid page number: abc"));
+        assert!(error.contains("must-not-touch-invalid-page-spec.pdf"));
     }
 }

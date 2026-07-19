@@ -419,17 +419,19 @@ jobs:
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_ocr_search_result" and
             .candidateSha == $sha and .pass == true and
-            .caseCount == 12 and .passed == 12 and .skipped == 0 and
-            .corpusSha256 == "50aced06cd656368b14a03e338d22e9e68100f5cf7ae070fc5e50965b30d51f1" and
-            .oracleSha256 == "f019cab6968057f62a7fe5ecfe9ac80ee26a98dd3e5e19d797d465bc62ee994c" and
+            .caseCount == 14 and .passed == 14 and .skipped == 0 and
+            .corpusSha256 == "5cdd1f247b774eccab366ad671ae90cae6f5e8d38f3fb208931b0e8c21eb013e" and
+            .oracleSha256 == "96b0be121b135585624d59b7397125180b863ff379a2ca6c3c4c8fd7534461a4" and
             .runnerSha256 == "904eaaec0db95e08c4a85c72624e017e5a90f6a0d6875fc2038d75f558714da0" and
             .projectionSha256 == "44331cf5a90d2a9d7844f3cfb12ea8b32595cf120cef5ab45996767d816b459f" and
             .providerSha256 == "256e0430fe3039637f67a12f4845dbaf66c94730f4a792dbc1d22131862dadf7" and
             .fixtureSha256 == "3e2d9b9d96461359b489c76facafd00eea7bd18f03b6aae23c333340e892e89a" and
             .mutationSensitive.allClaimedFields == true and
-            .mutationSensitive.leafMutationCount == 185 and
+            .mutationSensitive.leafMutationCount == 245 and
             .schemaProof.includeOcrTextLayer == true and
             .resourceProof.sourceCap32PreIoAnd33Rejected == true and
+            .resourceProof.invalidGlobalOptionsRejectedPreIo == true and
+            .resourceProof.invalidPageSpecSourceLocalPreIo == true and
             .resourceProof.derivedUtf16Cap2000000ExactAndPlusOne == true and
             .resourceProof.wordCap250000ExactAndPlusOne == true and
             .resourceProof.stickyExhaustion == true and

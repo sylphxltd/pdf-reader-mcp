@@ -145,9 +145,12 @@ fn parse_page_filter(pages_spec: &Option<Value>) -> Result<Option<Vec<u32>>, Sea
     } else if let Some(ranges) = spec.as_str() {
         for raw_part in ranges.split(',') {
             let part = raw_part.trim();
-            if let Some((start_text, end_text)) = part.split_once('-') {
+            if part.contains('-') {
+                let mut segments = part.split('-');
+                let start_text = segments.next().unwrap_or_default();
+                let end_text = segments.next().unwrap_or_default();
                 let start = parse_ts_positive_page(start_text);
-                let end = if end_text.trim().is_empty() {
+                let end = if end_text.is_empty() {
                     start.map(|page| page.saturating_add(10_000))
                 } else {
                     parse_ts_positive_page(end_text)
@@ -848,6 +851,24 @@ mod tests {
             let error = search_pdf(&input).expect_err("zero limit must fail");
             assert_eq!(error.code, SearchPdfErrorCode::InvalidParams);
         }
+    }
+
+    #[test]
+    fn page_ranges_use_only_the_exact_second_hyphen_segment_like_ts() {
+        let open = parse_page_filter(&Some(json!("1--5")))
+            .expect("TS treats an empty second segment as open")
+            .expect("page filter");
+        assert_eq!(open.len(), MAX_SELECTED_PAGES);
+        assert_eq!(open.first(), Some(&1));
+        assert_eq!(open.last(), Some(&10_001));
+        assert_eq!(
+            parse_page_filter(&Some(json!("1-2-999"))).expect("third segment ignored"),
+            Some(vec![1, 2])
+        );
+        let whitespace_open = parse_page_filter(&Some(json!("1-   ")))
+            .expect("TS trims the whole range part before splitting")
+            .expect("page filter");
+        assert_eq!(whitespace_open, open);
     }
 
     #[test]

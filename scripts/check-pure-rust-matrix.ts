@@ -766,10 +766,10 @@ if (
 }
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
 if (
-  ocrSearchCaseCount !== 12 ||
-  ocrSearchCorpus.envelope.caseCount !== 12 ||
+  ocrSearchCaseCount !== 14 ||
+  ocrSearchCorpus.envelope.caseCount !== 14 ||
   ocrSearchCorpus.envelope.fixtureCount !== 1 ||
-  ocrSearchCorpus.envelope.maxPagesPerCase !== 4 ||
+  ocrSearchCorpus.envelope.maxPagesPerCase !== 10001 ||
   ocrSearchCorpus.nonclaims.dropInFor3014 !== false ||
   ocrSearchCorpus.nonclaims.publishFreeze !== true ||
   ocrSearchCorpus.nonclaims.wholeProductParity !== false
@@ -779,9 +779,11 @@ if (
 if (
   !differentialWorkflow.includes('bun run test:v3014-ocr-search-differential') ||
   !differentialWorkflow.includes('.profile == "pdf_reader_v3014_ocr_search_result"') ||
-  !differentialWorkflow.includes('.caseCount == 12 and .passed == 12 and .skipped == 0') ||
-  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 185') ||
+  !differentialWorkflow.includes('.caseCount == 14 and .passed == 14 and .skipped == 0') ||
+  !differentialWorkflow.includes('.mutationSensitive.leafMutationCount == 245') ||
   !differentialWorkflow.includes('.resourceProof.sourceCap32PreIoAnd33Rejected == true') ||
+  !differentialWorkflow.includes('.resourceProof.invalidGlobalOptionsRejectedPreIo == true') ||
+  !differentialWorkflow.includes('.resourceProof.invalidPageSpecSourceLocalPreIo == true') ||
   !differentialWorkflow.includes('.resourceProof.crossRuntimeHostileResourceParity == false') ||
   !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
   !differentialWorkflow.includes('.productTruth.publishFreeze == true')
@@ -807,8 +809,8 @@ for (const required of [
   }
 }
 if (
-  !matrix.claimedForDifferential.some((claim) => claim.includes('exact 12-case') && claim.includes('OCR-search')) ||
-  !matrix.explicitlyNotClaimed.some((claim) => claim.includes('OCR search outside the frozen 12-case'))
+  !matrix.claimedForDifferential.some((claim) => claim.includes('exact 14-case') && claim.includes('OCR-search')) ||
+  !matrix.explicitlyNotClaimed.some((claim) => claim.includes('OCR search outside the frozen 14-case'))
 ) {
   failures.push('OCR-search bounded claim and explicit nonclaims must remain documented');
 }
