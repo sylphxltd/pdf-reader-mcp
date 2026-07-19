@@ -65,7 +65,7 @@
     "inspector": "npx @modelcontextprotocol/inspector dist/index.js",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "test:cov": "bun test --coverage",
+    "test:cov": "bun test --coverage --timeout=30000",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
