@@ -1902,4 +1902,38 @@ mod tests {
             assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
         }
     }
+
+    #[test]
+    fn appearance_present_skips_line_polyline_ink_geometry_expansion() {
+        // AP/N present => keep raw Rect even when L/vertices would expand farther.
+        let cases = [
+            (
+                "v3014-annotation-line-ap-bbox-v1.pdf",
+                "Line",
+                json!({"left": 200.0, "bottom": 200.0, "right": 300.0, "top": 300.0}),
+            ),
+            (
+                "v3014-annotation-polyline-ap-bbox-v1.pdf",
+                "PolyLine",
+                json!({"left": 200.0, "bottom": 200.0, "right": 300.0, "top": 300.0}),
+            ),
+            (
+                "v3014-annotation-ink-ap-bbox-v1.pdf",
+                "Ink",
+                json!({"left": 200.0, "bottom": 200.0, "right": 300.0, "top": 300.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load appearance bbox fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
 }
