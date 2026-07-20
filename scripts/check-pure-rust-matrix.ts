@@ -920,7 +920,22 @@ const borderBsWrongTypeResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const borderZeroSizeClampBypassResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-border-zero-size-clamp-bypass-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
+
 
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1717,7 +1732,7 @@ const borderBsWrongTypeResidualWorkflowStart = differentialWorkflow.indexOf(
   'BORDER_BS_WRONG_TYPE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-wrong-type-residual-result.json"'
 );
 const borderBsWrongTypeResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-zero-size-clamp-bypass-residual-result.json"',
   borderBsWrongTypeResidualWorkflowStart
 );
 const borderBsWrongTypeResidualWorkflow =
@@ -1726,6 +1741,21 @@ const borderBsWrongTypeResidualWorkflow =
     ? differentialWorkflow.slice(
         borderBsWrongTypeResidualWorkflowStart,
         borderBsWrongTypeResidualWorkflowEnd
+      )
+    : '';
+const borderZeroSizeClampBypassResidualWorkflowStart = differentialWorkflow.indexOf(
+  'BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-zero-size-clamp-bypass-residual-result.json"'
+);
+const borderZeroSizeClampBypassResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  borderZeroSizeClampBypassResidualWorkflowStart
+);
+const borderZeroSizeClampBypassResidualWorkflow =
+  borderZeroSizeClampBypassResidualWorkflowStart >= 0 &&
+  borderZeroSizeClampBypassResidualWorkflowEnd > borderZeroSizeClampBypassResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        borderZeroSizeClampBypassResidualWorkflowStart,
+        borderZeroSizeClampBypassResidualWorkflowEnd
       )
     : '';
 
@@ -7691,6 +7721,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the border BS wrong-type residual and frozen leaf-mutation count'
+  );
+}
+
+const borderZeroSizeClampBypassResidualCaseCount = borderZeroSizeClampBypassResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-border-zero-size-clamp-bypass-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen border zero-size clamp-bypass residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-border-zero-size-clamp-bypass-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-border-zero-size-clamp-bypass-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014BorderZeroSizeClampBypassResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014BorderZeroSizeClampBypassResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014BorderZeroSizeClampBypassResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the border zero-size clamp-bypass residual family'
+  );
+}
+if (
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    `.caseCount == ${borderZeroSizeClampBypassResidualCaseCount}`
+  ) ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    `.passed == ${borderZeroSizeClampBypassResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${borderZeroSizeClampBypassResidualCaseCount}/${borderZeroSizeClampBypassResidualCaseCount} border zero-size clamp-bypass residual corpus`
+  );
+}
+if (
+  borderZeroSizeClampBypassResidualCaseCount !== 3 ||
+  borderZeroSizeClampBypassResidualCorpus.envelope.fixtureCount !== 3 ||
+  borderZeroSizeClampBypassResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  borderZeroSizeClampBypassResidualCorpus.nonclaims.publishFreeze !== true ||
+  borderZeroSizeClampBypassResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'border zero-size clamp-bypass residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_border_zero_size_clamp_bypass_residual_result"'
+  ) ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    '.providerProof.polylineZeroHeightClampBypassW2 == true'
+  ) ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    '.providerProof.lineZeroHeightClampBypassW2 == true'
+  ) ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    '.providerProof.inkZeroWidthClampBypassW2 == true'
+  ) ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !borderZeroSizeClampBypassResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'border zero-size clamp-bypass residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-border-zero-size-clamp-bypass-residual-differential.ts',
+  'scripts/differential/capture-v3014-border-zero-size-clamp-bypass-residual-oracle.ts',
+  'v3014-border-zero-size-clamp-bypass-residual-baseline-runner.ts',
+  'v3014-border-zero-size-clamp-bypass-residual-projection.ts',
+  'v3014-border-zero-size-clamp-bypass-residual-corpus.json',
+  'v3014-border-zero-size-clamp-bypass-residual-oracle.json',
+  'v3014-annotation-polyline-zero-h-w2-v1.pdf',
+  'v3014-annotation-line-zero-h-w2-v1.pdf',
+  'v3014-annotation-ink-zero-w-w2-v1.pdf',
+  'v3014BorderZeroSizeClampBypassResidualCaseCount',
+  'v3014BorderZeroSizeClampBypassResidualCorpusHash',
+  'v3014BorderZeroSizeClampBypassResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind border zero-size clamp-bypass residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('zero-size clamp-bypass residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('zero-size clamp-bypass residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'border zero-size clamp-bypass residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustBorderZeroSizeClampBypass = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustBorderZeroSizeClampBypass.includes('zero-size clamp-bypass residual') ||
+  !whyRustBorderZeroSizeClampBypass.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the border zero-size clamp-bypass residual and frozen leaf-mutation count'
   );
 }
 if (

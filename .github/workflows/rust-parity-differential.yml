@@ -174,6 +174,7 @@ jobs:
           bun run test:v3014-border-bs-nondict-residual-differential -- --output "${SCRATCH_DIR}/v3014-border-bs-nondict-residual-result.json"
           bun run test:v3014-border-array-short-residual-differential -- --output "${SCRATCH_DIR}/v3014-border-array-short-residual-result.json"
           bun run test:v3014-border-bs-wrong-type-residual-differential -- --output "${SCRATCH_DIR}/v3014-border-bs-wrong-type-residual-result.json"
+          bun run test:v3014-border-zero-size-clamp-bypass-residual-differential -- --output "${SCRATCH_DIR}/v3014-border-zero-size-clamp-bypass-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1842,6 +1843,27 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$BORDER_BS_WRONG_TYPE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border BS wrong-type residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+          BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-zero-size-clamp-bypass-residual-result.json"
+          if [ ! -f "$BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 border zero-size clamp-bypass residual result missing at $BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_border_zero_size_clamp_bypass_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineZeroHeightClampBypassW2 == true and
+            .providerProof.lineZeroHeightClampBypassW2 == true and
+            .providerProof.inkZeroWidthClampBypassW2 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 border zero-size clamp-bypass residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 
