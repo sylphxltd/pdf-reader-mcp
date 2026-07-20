@@ -305,6 +305,21 @@ const searchMultiwordGeometryCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxFieldsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -474,7 +489,7 @@ const searchMultiwordGeometryWorkflowStart = differentialWorkflow.indexOf(
   'SEARCH_MULTIWORD_GEOMETRY_ARTIFACT="${SCRATCH_DIR}/v3014-search-multiword-geometry-result.json"'
 );
 const searchMultiwordGeometryWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'FORM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-residual-result.json"',
   searchMultiwordGeometryWorkflowStart
 );
 const searchMultiwordGeometryWorkflow =
@@ -484,6 +499,17 @@ const searchMultiwordGeometryWorkflow =
         searchMultiwordGeometryWorkflowStart,
         searchMultiwordGeometryWorkflowEnd
       )
+    : '';
+const formResidualWorkflowStart = differentialWorkflow.indexOf(
+  'FORM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-residual-result.json"'
+);
+const formResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  formResidualWorkflowStart
+);
+const formResidualWorkflow =
+  formResidualWorkflowStart >= 0 && formResidualWorkflowEnd > formResidualWorkflowStart
+    ? differentialWorkflow.slice(formResidualWorkflowStart, formResidualWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -1903,6 +1929,90 @@ if (
   failures.push(
     'search multiword geometry bounded claim and explicit nonclaims must remain documented'
   );
+}
+
+const formResidualCaseCount = formResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-form-residual-differential')) {
+  failures.push('rust parity workflow must execute the frozen form residual differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormResidualOracleHash')
+) {
+  failures.push('repository differential artifact must bind the form residual family');
+}
+if (
+  !formResidualWorkflow.includes(`.caseCount == ${formResidualCaseCount}`) ||
+  !formResidualWorkflow.includes(`.passed == ${formResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${formResidualCaseCount}/${formResidualCaseCount} form residual corpus`
+  );
+}
+if (
+  formResidualCaseCount !== 2 ||
+  formResidualCorpus.envelope.fixtureCount !== 2 ||
+  formResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formResidualCorpus.nonclaims.publishFreeze !== true ||
+  formResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push('form residual corpus envelope and product-truth nonclaims must remain frozen');
+}
+if (
+  !formResidualWorkflow.includes('.profile == "pdf_reader_v3014_form_residual_result"') ||
+  !formResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 90') ||
+  !formResidualWorkflow.includes(
+    '.providerProof.radiobuttonPushbuttonSignatureKinds == true'
+  ) ||
+  !formResidualWorkflow.includes(
+    '.providerProof.signatureOmitsBoxAndEditable == true'
+  ) ||
+  !formResidualWorkflow.includes('.providerProof.valueCoercionResidual == true') ||
+  !formResidualWorkflow.includes(
+    '.capabilityStatus.includeFormFields == "PARTIAL"'
+  ) ||
+  !formResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !formResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'form residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-form-residual-differential.ts',
+  'scripts/differential/capture-v3014-form-residual-oracle.ts',
+  'v3014-form-residual-baseline-runner.ts',
+  'v3014-form-residual-projection.ts',
+  'v3014-form-residual-corpus.json',
+  'v3014-form-residual-oracle.json',
+  'v3014-form-residual-v1.pdf',
+  'v3014-form-coercion-v1.pdf',
+  'v3014FormResidualCaseCount',
+  'v3014FormResidualCorpusHash',
+  'v3014FormResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind form residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 2-case') && claim.includes('include_form_fields residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_form_fields outside the frozen 2-case form residual')
+  )
+) {
+  failures.push('form residual bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;

@@ -131,6 +131,7 @@ jobs:
           bun run test:v3014-url-single-fetch-differential -- --output "${SCRATCH_DIR}/v3014-url-single-fetch-result.json"
           bun run test:v3014-ocr-search-tsv-differential -- --output "${SCRATCH_DIR}/v3014-ocr-search-tsv-result.json"
           bun run test:v3014-search-multiword-geometry-differential -- --output "${SCRATCH_DIR}/v3014-search-multiword-geometry-result.json"
+          bun run test:v3014-form-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -818,6 +819,33 @@ jobs:
               and .candidateSha == $sha
             ' "$SEARCH_MULTIWORD_GEOMETRY_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 search multiword geometry result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          FORM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-residual-result.json"
+          if [ ! -f "$FORM_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 form residual result missing at $FORM_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_form_residual_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 2
+              and .passed == 2
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 90
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.radiobuttonPushbuttonSignatureKinds == true
+              and .providerProof.signatureOmitsBoxAndEditable == true
+              and .providerProof.valueCoercionResidual == true
+              and .capabilityStatus.includeFormFields == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$FORM_RESIDUAL_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 form residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 

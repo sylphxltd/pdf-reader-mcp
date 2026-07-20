@@ -188,6 +188,11 @@ Pure-Rust `search_pdf` now accepts `prefer_speed` and, when OCR is off, matches 
 
 A frozen three-case public-stdio `search_pdf` multiword selectable-text geometry residual is admitted over `v3014-behavior-v1.pdf`: start-item multiword box union, mid-line multiword union, and case-insensitive multiword, all at `char_estimated` level with float-normalized boxes. Leaf-mutation count is frozen at 48 with relocated fixture-root replay. `bounding_box` remains `PARTIAL`; glyph-perfect boxes, RTL/vertical writing, OCR fusion, prefer_speed, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf form residual public-stdio subset (bounded)
+
+A frozen two-case public-stdio `read_pdf` `include_form_fields` residual is admitted: radiobutton/pushbutton/signature kinds (signature omits box and editable), and pdf.js-compatible value coercion for numeric text, missing text defaults, bool button checkbox Off, and choice array first-string selection. Leaf-mutation count is frozen at 90 with relocated fixture-root replay. `include_form_fields` remains `PARTIAL`; radio group kids, broader button-array coercion, malformed-field breadth, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
 
 A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted over `v3014-visual-v1.pdf`: valid TSV level-5 words produce image-to-PDF `ocr_word` geometry on the search match, and malformed TSV soft-falls back to raw text without geometry. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_ocr_text_layer` remains `PARTIAL`; real tesseract binary health checks, selectable/OCR interleaving, URL single-fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
