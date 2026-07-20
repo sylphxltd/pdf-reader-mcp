@@ -934,7 +934,22 @@ const borderZeroSizeClampBypassResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationAppearanceBboxResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-appearance-bbox-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
+
 
 
   join(root, '.github/workflows/rust-parity-differential.yml'),
@@ -1747,7 +1762,7 @@ const borderZeroSizeClampBypassResidualWorkflowStart = differentialWorkflow.inde
   'BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-zero-size-clamp-bypass-residual-result.json"'
 );
 const borderZeroSizeClampBypassResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_APPEARANCE_BBOX_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-appearance-bbox-residual-result.json"',
   borderZeroSizeClampBypassResidualWorkflowStart
 );
 const borderZeroSizeClampBypassResidualWorkflow =
@@ -1756,6 +1771,21 @@ const borderZeroSizeClampBypassResidualWorkflow =
     ? differentialWorkflow.slice(
         borderZeroSizeClampBypassResidualWorkflowStart,
         borderZeroSizeClampBypassResidualWorkflowEnd
+      )
+    : '';
+const annotationAppearanceBboxResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_APPEARANCE_BBOX_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-appearance-bbox-residual-result.json"'
+);
+const annotationAppearanceBboxResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationAppearanceBboxResidualWorkflowStart
+);
+const annotationAppearanceBboxResidualWorkflow =
+  annotationAppearanceBboxResidualWorkflowStart >= 0 &&
+  annotationAppearanceBboxResidualWorkflowEnd > annotationAppearanceBboxResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationAppearanceBboxResidualWorkflowStart,
+        annotationAppearanceBboxResidualWorkflowEnd
       )
     : '';
 
@@ -7838,6 +7868,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the border zero-size clamp-bypass residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationAppearanceBboxResidualCaseCount = annotationAppearanceBboxResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-appearance-bbox-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation appearance bbox residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-appearance-bbox-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-appearance-bbox-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationAppearanceBboxResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationAppearanceBboxResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationAppearanceBboxResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation appearance bbox residual family'
+  );
+}
+if (
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    `.caseCount == ${annotationAppearanceBboxResidualCaseCount}`
+  ) ||
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    `.passed == ${annotationAppearanceBboxResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationAppearanceBboxResidualCaseCount}/${annotationAppearanceBboxResidualCaseCount} annotation appearance bbox residual corpus`
+  );
+}
+if (
+  annotationAppearanceBboxResidualCaseCount !== 3 ||
+  annotationAppearanceBboxResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationAppearanceBboxResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationAppearanceBboxResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationAppearanceBboxResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation appearance bbox residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_appearance_bbox_residual_result"'
+  ) ||
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    '.providerProof.polylineAppearanceKeepsRawRect == true'
+  ) ||
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    '.providerProof.lineAppearanceKeepsRawRect == true'
+  ) ||
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    '.providerProof.inkAppearanceKeepsRawRect == true'
+  ) ||
+  !annotationAppearanceBboxResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationAppearanceBboxResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationAppearanceBboxResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation appearance bbox residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-appearance-bbox-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-appearance-bbox-residual-oracle.ts',
+  'v3014-annotation-appearance-bbox-residual-baseline-runner.ts',
+  'v3014-annotation-appearance-bbox-residual-projection.ts',
+  'v3014-annotation-appearance-bbox-residual-corpus.json',
+  'v3014-annotation-appearance-bbox-residual-oracle.json',
+  'v3014-annotation-line-ap-bbox-v1.pdf',
+  'v3014-annotation-polyline-ap-bbox-v1.pdf',
+  'v3014-annotation-ink-ap-bbox-v1.pdf',
+  'v3014AnnotationAppearanceBboxResidualCaseCount',
+  'v3014AnnotationAppearanceBboxResidualCorpusHash',
+  'v3014AnnotationAppearanceBboxResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation appearance bbox residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('appearance bbox residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('appearance bbox residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation appearance bbox residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationAppearanceBbox = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationAppearanceBbox.includes('appearance bbox residual') ||
+  !whyRustAnnotationAppearanceBbox.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation appearance bbox residual and frozen leaf-mutation count'
   );
 }
 if (
