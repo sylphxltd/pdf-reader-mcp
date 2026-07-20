@@ -606,18 +606,24 @@ fn extract_attachments<'a>(
             .ok()
             .and_then(|value| walker.array_bounded(value, pair_budget.saturating_mul(2)));
         if let Some(names) = names {
-            if names.len() % 2 != 0 {
-                walker.failed = true;
-                return None;
-            }
+            // pdf.js NameTree: complete key/value pairs are admitted; a trailing
+            // unpaired key materializes as an unnamed attachment instead of
+            // failing the whole EmbeddedFiles surface.
             let pair_count = names.len() / 2;
-            if pair_count > pair_budget {
+            let orphan_count = usize::from(names.len() % 2 == 1);
+            let needed = pair_count + orphan_count;
+            if needed > pair_budget {
                 walker.limited = true;
                 return None;
             }
-            pair_budget -= pair_count;
+            pair_budget -= needed;
             for pair in names.chunks_exact(2) {
-                pairs.push((pair[0], pair[1]));
+                pairs.push((pair[0], Some(pair[1])));
+            }
+            if orphan_count == 1 {
+                if let Some(key) = names.last() {
+                    pairs.push((*key, None));
+                }
             }
         }
     }
@@ -630,19 +636,28 @@ fn extract_attachments<'a>(
             return None;
         }
         let name = walker.text(key)?;
-        let spec = walker.dict(spec)?;
-        let filename = filename(walker, spec);
-        let description = spec
-            .get(b"Desc")
-            .ok()
-            .and_then(|v| walker.text(v))
-            .filter(|v| !v.is_empty());
-        let size_bytes = embedded_size(walker, spec);
-        let attachment = Attachment {
-            name: name.clone(),
-            filename,
-            description,
-            size_bytes,
+        let attachment = if let Some(spec) = spec {
+            let spec = walker.dict(spec)?;
+            let filename = filename(walker, spec);
+            let description = spec
+                .get(b"Desc")
+                .ok()
+                .and_then(|v| walker.text(v))
+                .filter(|v| !v.is_empty());
+            let size_bytes = embedded_size(walker, spec);
+            Attachment {
+                name: name.clone(),
+                filename,
+                description,
+                size_bytes,
+            }
+        } else {
+            Attachment {
+                name: name.clone(),
+                filename: Some("unnamed".into()),
+                description: None,
+                size_bytes: None,
+            }
         };
         if let Some(index) = positions.get(&name).copied() {
             output[index] = attachment
@@ -994,6 +1009,56 @@ mod tests {
         assert_eq!(value_of("empty"), serde_json::json!("Off"));
         assert_eq!(value_of("dv"), serde_json::json!(["Yes", "Off"]));
         assert_eq!(default_of("dv"), serde_json::json!(["Yes", "Off"]));
+    }
+
+    #[test]
+    fn odd_length_names_materialize_trailing_orphan_like_pdfjs() {
+        let (mut document, pages) = base_document();
+        let stream = document.add_object(Stream::new(dictionary! {}, b"x".to_vec()));
+        let spec = document.add_object(dictionary! {
+            "F"=>Object::string_literal("a.txt"),
+            "EF"=>dictionary!{"F"=>stream}
+        });
+        let tree = document.add_object(dictionary! {
+            "Names"=>vec![
+                Object::string_literal("child"),
+                spec.into(),
+                Object::string_literal("orphan"),
+            ]
+        });
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"Names"=>dictionary!{"EmbeddedFiles"=>tree}},
+        );
+        let out = extract_form_attachment_signals(&document, &[], false, true);
+        assert!(out.warnings.is_empty());
+        assert_eq!(
+            serde_json::to_value(out.attachments).unwrap(),
+            serde_json::json!([
+                {"name":"child","filename":"a.txt","size_bytes":1},
+                {"name":"orphan","filename":"unnamed"}
+            ])
+        );
+    }
+
+    #[test]
+    fn orphan_only_names_array_materializes_unnamed_attachment() {
+        let (mut document, pages) = base_document();
+        let tree = document.add_object(dictionary! {
+            "Names"=>vec![Object::string_literal("orphan")]
+        });
+        finish_catalog(
+            &mut document,
+            pages,
+            dictionary! {"Names"=>dictionary!{"EmbeddedFiles"=>tree}},
+        );
+        let out = extract_form_attachment_signals(&document, &[], false, true);
+        assert!(out.warnings.is_empty());
+        assert_eq!(
+            serde_json::to_value(out.attachments).unwrap(),
+            serde_json::json!([{"name":"orphan","filename":"unnamed"}])
+        );
     }
 
     #[test]

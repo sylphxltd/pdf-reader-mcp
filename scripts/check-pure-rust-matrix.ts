@@ -738,6 +738,20 @@ const formButtonArrayResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const attachmentOddNamesResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1339,7 +1353,7 @@ const formButtonArrayResidualWorkflowStart = differentialWorkflow.indexOf(
   'FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-button-array-residual-result.json"'
 );
 const formButtonArrayResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ATTACHMENT_ODD_NAMES_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"',
   formButtonArrayResidualWorkflowStart
 );
 const formButtonArrayResidualWorkflow =
@@ -1348,6 +1362,21 @@ const formButtonArrayResidualWorkflow =
     ? differentialWorkflow.slice(
         formButtonArrayResidualWorkflowStart,
         formButtonArrayResidualWorkflowEnd
+      )
+    : '';
+const attachmentOddNamesResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ATTACHMENT_ODD_NAMES_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"'
+);
+const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  attachmentOddNamesResidualWorkflowStart
+);
+const attachmentOddNamesResidualWorkflow =
+  attachmentOddNamesResidualWorkflowStart >= 0 &&
+  attachmentOddNamesResidualWorkflowEnd > attachmentOddNamesResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        attachmentOddNamesResidualWorkflowStart,
+        attachmentOddNamesResidualWorkflowEnd
       )
     : '';
 
@@ -5805,6 +5834,123 @@ if (
   !whyRustDocs.includes('Leaf-mutation count is frozen at 68')
 ) {
   failures.push('why-rust must document the form button-array residual and frozen leaf-mutation count');
+}
+
+
+const attachmentOddNamesResidualCaseCount = attachmentOddNamesResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-attachment-odd-names-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen attachment odd-names residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-attachment-odd-names-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AttachmentOddNamesResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AttachmentOddNamesResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AttachmentOddNamesResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the attachment odd-names residual family'
+  );
+}
+if (
+  !attachmentOddNamesResidualWorkflow.includes(
+    `.caseCount == ${attachmentOddNamesResidualCaseCount}`
+  ) ||
+  !attachmentOddNamesResidualWorkflow.includes(
+    `.passed == ${attachmentOddNamesResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${attachmentOddNamesResidualCaseCount}/${attachmentOddNamesResidualCaseCount} attachment odd-names residual corpus`
+  );
+}
+if (
+  attachmentOddNamesResidualCaseCount !== 2 ||
+  attachmentOddNamesResidualCorpus.envelope.fixtureCount !== 2 ||
+  attachmentOddNamesResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  attachmentOddNamesResidualCorpus.nonclaims.publishFreeze !== true ||
+  attachmentOddNamesResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'attachment odd-names residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !attachmentOddNamesResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_attachment_odd_names_residual_result"'
+  ) ||
+  !attachmentOddNamesResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 15'
+  ) ||
+  !attachmentOddNamesResidualWorkflow.includes(
+    '.providerProof.orphanOnlyOddNames == true'
+  ) ||
+  !attachmentOddNamesResidualWorkflow.includes(
+    '.providerProof.pairPlusOrphanKeepsCompletePair == true'
+  ) ||
+  !attachmentOddNamesResidualWorkflow.includes(
+    '.providerProof.trailingOrphanUnnamedNoSize == true'
+  ) ||
+  !attachmentOddNamesResidualWorkflow.includes(
+    '.capabilityStatus.includeAttachments == "PARTIAL"'
+  ) ||
+  !attachmentOddNamesResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !attachmentOddNamesResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'attachment odd-names residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts',
+  'scripts/differential/capture-v3014-attachment-odd-names-residual-oracle.ts',
+  'v3014-attachment-odd-names-residual-baseline-runner.ts',
+  'v3014-attachment-odd-names-residual-projection.ts',
+  'v3014-attachment-odd-names-residual-corpus.json',
+  'v3014-attachment-odd-names-residual-oracle.json',
+  'v3014-attachment-odd-names-v1.pdf',
+  'v3014-attachment-odd-names-pair-v1.pdf',
+  'v3014AttachmentOddNamesResidualCaseCount',
+  'v3014AttachmentOddNamesResidualCorpusHash',
+  'v3014AttachmentOddNamesResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind attachment odd-names residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('attachment odd-names residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('attachment odd-names residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'attachment odd-names residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAttachmentOdd = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAttachmentOdd.includes('attachment odd-names residual') ||
+  !whyRustAttachmentOdd.includes('Leaf-mutation count is frozen at 15')
+) {
+  failures.push(
+    'why-rust must document the attachment odd-names residual and frozen leaf-mutation count'
+  );
 }
 if (
   !matrix.claimedForDifferential.some(

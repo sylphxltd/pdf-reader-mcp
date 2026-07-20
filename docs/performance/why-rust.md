@@ -9,7 +9,6 @@ title: Why pure Rust + open gaps
 > Published stable remains `@sylphx/pdf-reader-mcp@3.0.14`.
 
 
-
 ## The product decision
 
 `@sylphx/pdf-reader-mcp` is a **starred public MCP**. Agents call it thousands of
@@ -178,7 +177,6 @@ A frozen four-case public-stdio selectable/OCR search interleaving subset is adm
 A frozen two-case public-stdio URL source single-fetch subset is admitted for `read_pdf` over a local fixture HTTP server with `MCP_PDF_ALLOW_PRIVATE_IPS=true`: no-OCR single fetch and OCR-with-document-map single fetch that reuses materialized bytes. Leaf-mutation count is frozen at 16 with relocated fixture-root replay. `url_ssrf` remains `PARTIAL`; `search_pdf` URL+OCR single-fetch (TS double-fetch residual), resolver timeout, TLS-SNI fixtures, public-internet fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
 
-
 ### search_pdf prefer_speed route (post-3.0.14 surface)
 
 Pure-Rust `search_pdf` now accepts `prefer_speed` and, when OCR is off, matches the current TypeScript speed route: match geometry is omitted, provenance uses `rust-text-index`/`text-content`, and the speed-route warning is emitted. This is a current-surface parity fix, not a frozen detached TS v3.0.14 differential claim. `prefer_speed` remains `PARTIAL` in the capability matrix; `dropInFor3014` stays false and publish freeze remains enabled.
@@ -324,22 +322,14 @@ A frozen three-case public-stdio `read_pdf` `include_page_labels` residual is ad
 
 A frozen two-case public-stdio `read_pdf` `include_form_fields` residual is admitted: checkbox/radiobutton/pushbutton non-empty `/V` name arrays preserve pdf.js string arrays, plain string button values remain strings, empty button arrays collapse to `Off`, and absent `/V` falls back to a non-empty `/DV` array for both `value` and `default_value`. Leaf-mutation count is frozen at 68 with relocated fixture-root replay. `include_form_fields` remains `PARTIAL`; malformed-field breadth, nested Kids beyond the parent/child residual, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf include_attachments attachment odd-names residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_attachments` attachment odd-names residual is admitted: odd-length EmbeddedFiles `Names` arrays keep complete key/value pairs and materialize a trailing unpaired key as `filename=unnamed` without `size_bytes` (pdf.js NameTree), covering orphan-only and pair-plus-orphan fixtures. Leaf-mutation count is frozen at 15 with relocated fixture-root replay. `include_attachments` remains `PARTIAL`; broader malformed name-tree breadth, duplicate-kids fail-closed, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
