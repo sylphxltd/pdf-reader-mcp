@@ -1305,6 +1305,7 @@ fn read_local_pdf_filtered(
             pdf_info.encrypt_filter_name = Some(filter_name);
         }
     }
+    pdf_info.is_linearized = parsed.is_linearized;
     let total_pages = parsed.pages.len().max(1) as u32;
     let explicit_pages = parse_page_spec(pages_spec)?;
     let auto_pages = if explicit_pages.is_none()

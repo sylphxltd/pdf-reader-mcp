@@ -148,6 +148,7 @@ jobs:
           bun run test:v3014-metadata-presence-residual-differential -- --output "${SCRATCH_DIR}/v3014-metadata-presence-residual-result.json"
           bun run test:v3014-info-extras-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-extras-residual-result.json"
           bun run test:v3014-encrypt-filter-residual-differential -- --output "${SCRATCH_DIR}/v3014-encrypt-filter-residual-result.json"
+          bun run test:v3014-linearized-residual-differential -- --output "${SCRATCH_DIR}/v3014-linearized-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1281,6 +1282,27 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$ENCRYPT_FILTER_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 encrypt filter residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+          LINEARIZED_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-linearized-residual-result.json"
+          if [ ! -f "$LINEARIZED_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 linearized residual result missing at $LINEARIZED_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_linearized_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 27 and
+            .providerProof.validLinearizedTrue == true and
+            .providerProof.spuriousLinearizedFalse == true and
+            .providerProof.absentLinearizedFalse == true and
+            .providerProof.topLevelNumPagesPreserved == true and
+            .capabilityStatus.includeMetadata == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$LINEARIZED_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 linearized residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
