@@ -1205,6 +1205,34 @@ mod tests {
     }
 
     #[test]
+    fn gotor_named_dest_string_and_name_token_append_like_pdfjs() {
+        for (fixture, _) in [
+            (
+                "../../test/fixtures/differential/v3014-annotation-gotor-named-string-v1.pdf",
+                "string",
+            ),
+            (
+                "../../test/fixtures/differential/v3014-annotation-gotor-named-name-v1.pdf",
+                "name",
+            ),
+        ] {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(fixture);
+            if !path.is_file() {
+                continue;
+            }
+            let document = Document::load(&path).expect("load gotor named fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            assert_eq!(
+                signals.annotations[0]["annotations"][0]["url"],
+                "other.pdf#Chapter1"
+            );
+            assert!(signals.annotations[0]["annotations"][0].get("dest").is_none());
+        }
+    }
+
+
+    #[test]
     fn popup_inherits_parent_title_and_contents() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../test/fixtures/differential/v3014-annotation-popup-v1.pdf");

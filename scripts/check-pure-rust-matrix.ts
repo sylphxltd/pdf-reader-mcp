@@ -696,6 +696,20 @@ const textInvertedRectResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const remoteNamedDestResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-remote-named-dest-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1259,6 +1273,22 @@ const textInvertedRectResidualWorkflow =
     ? differentialWorkflow.slice(
         textInvertedRectResidualWorkflowStart,
         textInvertedRectResidualWorkflowEnd
+      )
+    : '';
+
+const remoteNamedDestResidualWorkflowStart = differentialWorkflow.indexOf(
+  'REMOTE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-remote-named-dest-residual-result.json"'
+);
+const remoteNamedDestResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  remoteNamedDestResidualWorkflowStart
+);
+const remoteNamedDestResidualWorkflow =
+  remoteNamedDestResidualWorkflowStart >= 0 &&
+  remoteNamedDestResidualWorkflowEnd > remoteNamedDestResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        remoteNamedDestResidualWorkflowStart,
+        remoteNamedDestResidualWorkflowEnd
       )
     : '';
 
@@ -5386,6 +5416,115 @@ if (
     'text inverted-rect residual bounded claim and explicit nonclaims must remain documented'
   );
 }
+
+const remoteNamedDestResidualCaseCount = remoteNamedDestResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-remote-named-dest-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen remote named dest residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-remote-named-dest-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-remote-named-dest-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014RemoteNamedDestResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014RemoteNamedDestResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014RemoteNamedDestResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the remote named dest residual family'
+  );
+}
+if (
+  !remoteNamedDestResidualWorkflow.includes(
+    `.caseCount == ${remoteNamedDestResidualCaseCount}`
+  ) ||
+  !remoteNamedDestResidualWorkflow.includes(
+    `.passed == ${remoteNamedDestResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${remoteNamedDestResidualCaseCount}/${remoteNamedDestResidualCaseCount} remote named dest residual corpus`
+  );
+}
+if (
+  remoteNamedDestResidualCaseCount !== 3 ||
+  remoteNamedDestResidualCorpus.envelope.fixtureCount !== 3 ||
+  remoteNamedDestResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  remoteNamedDestResidualCorpus.nonclaims.publishFreeze !== true ||
+  remoteNamedDestResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'remote named dest residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !remoteNamedDestResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_remote_named_dest_residual_result"'
+  ) ||
+  !remoteNamedDestResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 42'
+  ) ||
+  !remoteNamedDestResidualWorkflow.includes(
+    '.providerProof.gotorNamedStringDest == true'
+  ) ||
+  !remoteNamedDestResidualWorkflow.includes(
+    '.providerProof.gotorNamedNameDest == true'
+  ) ||
+  !remoteNamedDestResidualWorkflow.includes(
+    '.providerProof.gotorExplicitDestControl == true'
+  ) ||
+  !remoteNamedDestResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !remoteNamedDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !remoteNamedDestResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'remote named dest residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-remote-named-dest-residual-differential.ts',
+  'scripts/differential/capture-v3014-remote-named-dest-residual-oracle.ts',
+  'v3014-remote-named-dest-residual-baseline-runner.ts',
+  'v3014-remote-named-dest-residual-projection.ts',
+  'v3014-remote-named-dest-residual-corpus.json',
+  'v3014-remote-named-dest-residual-oracle.json',
+  'v3014-annotation-gotor-named-string-v1.pdf',
+  'v3014-annotation-gotor-named-name-v1.pdf',
+  'v3014-annotation-gotor-v1.pdf',
+  'v3014RemoteNamedDestResidualCaseCount',
+  'v3014RemoteNamedDestResidualCorpusHash',
+  'v3014RemoteNamedDestResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind remote named dest residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('remote-named-dest residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('remote-named-dest residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'remote named dest residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
 
 
 
