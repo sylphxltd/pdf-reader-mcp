@@ -290,6 +290,21 @@ const ocrSearchTsvCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const searchMultiwordGeometryCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-search-multiword-geometry-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxMatchesPerSource: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -447,13 +462,28 @@ const ocrSearchTsvWorkflowStart = differentialWorkflow.indexOf(
   'OCR_SEARCH_TSV_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-tsv-result.json"'
 );
 const ocrSearchTsvWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'SEARCH_MULTIWORD_GEOMETRY_ARTIFACT="${SCRATCH_DIR}/v3014-search-multiword-geometry-result.json"',
   ocrSearchTsvWorkflowStart
 );
 const ocrSearchTsvWorkflow =
   ocrSearchTsvWorkflowStart >= 0 &&
   ocrSearchTsvWorkflowEnd > ocrSearchTsvWorkflowStart
     ? differentialWorkflow.slice(ocrSearchTsvWorkflowStart, ocrSearchTsvWorkflowEnd)
+    : '';
+const searchMultiwordGeometryWorkflowStart = differentialWorkflow.indexOf(
+  'SEARCH_MULTIWORD_GEOMETRY_ARTIFACT="${SCRATCH_DIR}/v3014-search-multiword-geometry-result.json"'
+);
+const searchMultiwordGeometryWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  searchMultiwordGeometryWorkflowStart
+);
+const searchMultiwordGeometryWorkflow =
+  searchMultiwordGeometryWorkflowStart >= 0 &&
+  searchMultiwordGeometryWorkflowEnd > searchMultiwordGeometryWorkflowStart
+    ? differentialWorkflow.slice(
+        searchMultiwordGeometryWorkflowStart,
+        searchMultiwordGeometryWorkflowEnd
+      )
     : '';
 
 const failures: string[] = [];
@@ -1772,6 +1802,107 @@ if (
   )
 ) {
   failures.push('ocr-search tsv bounded claim and explicit nonclaims must remain documented');
+}
+
+const searchMultiwordGeometryCaseCount = searchMultiwordGeometryCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-search-multiword-geometry-differential')) {
+  failures.push(
+    'rust parity workflow must execute the frozen search multiword geometry differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-search-multiword-geometry-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-search-multiword-geometry-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014SearchMultiwordGeometryCaseCount') ||
+  !repositoryDifferential.includes('v3014SearchMultiwordGeometryCorpusHash') ||
+  !repositoryDifferential.includes('v3014SearchMultiwordGeometryOracleHash')
+) {
+  failures.push('repository differential artifact must bind the search multiword geometry family');
+}
+if (
+  !searchMultiwordGeometryWorkflow.includes(
+    `.caseCount == ${searchMultiwordGeometryCaseCount}`
+  ) ||
+  !searchMultiwordGeometryWorkflow.includes(
+    `.passed == ${searchMultiwordGeometryCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${searchMultiwordGeometryCaseCount}/${searchMultiwordGeometryCaseCount} search multiword geometry corpus`
+  );
+}
+if (
+  searchMultiwordGeometryCaseCount !== 3 ||
+  searchMultiwordGeometryCorpus.envelope.fixtureCount !== 1 ||
+  searchMultiwordGeometryCorpus.nonclaims.dropInFor3014 !== false ||
+  searchMultiwordGeometryCorpus.nonclaims.publishFreeze !== true ||
+  searchMultiwordGeometryCorpus.nonclaims.glyphPerfectBoxes !== false ||
+  searchMultiwordGeometryCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'search multiword geometry corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !searchMultiwordGeometryWorkflow.includes(
+    '.profile == "pdf_reader_v3014_search_multiword_geometry_result"'
+  ) ||
+  !searchMultiwordGeometryWorkflow.includes('.mutationSensitive.leafMutationCount == 48') ||
+  !searchMultiwordGeometryWorkflow.includes(
+    '.providerProof.multiwordStartItemUnion == true'
+  ) ||
+  !searchMultiwordGeometryWorkflow.includes(
+    '.providerProof.multiwordMidLineUnion == true'
+  ) ||
+  !searchMultiwordGeometryWorkflow.includes(
+    '.providerProof.multiwordCaseInsensitiveUnion == true'
+  ) ||
+  !searchMultiwordGeometryWorkflow.includes(
+    '.providerProof.charEstimatedLevel == true'
+  ) ||
+  !searchMultiwordGeometryWorkflow.includes(
+    '.capabilityStatus.boundingBox == "PARTIAL"'
+  ) ||
+  !searchMultiwordGeometryWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !searchMultiwordGeometryWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'search multiword geometry workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-search-multiword-geometry-differential.ts',
+  'scripts/differential/capture-v3014-search-multiword-geometry-oracle.ts',
+  'v3014-search-multiword-geometry-baseline-runner.ts',
+  'v3014-search-multiword-geometry-projection.ts',
+  'v3014-search-multiword-geometry-corpus.json',
+  'v3014-search-multiword-geometry-oracle.json',
+  'v3014SearchMultiwordGeometryCaseCount',
+  'v3014SearchMultiwordGeometryCorpusHash',
+  'v3014SearchMultiwordGeometryOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind search multiword geometry family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('multiword selectable-text geometry')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('multiword selectable geometry outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'search multiword geometry bounded claim and explicit nonclaims must remain documented'
+  );
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
