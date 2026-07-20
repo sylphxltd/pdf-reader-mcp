@@ -143,6 +143,7 @@ jobs:
           bun run test:v3014-info-flags-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-flags-residual-result.json"
           bun run test:v3014-page-geometry-residual-differential -- --output "${SCRATCH_DIR}/v3014-page-geometry-residual-result.json"
           bun run test:v3014-page-labels-residual-differential -- --output "${SCRATCH_DIR}/v3014-page-labels-residual-result.json"
+          bun run test:v3014-outline-residual-differential -- --output "${SCRATCH_DIR}/v3014-outline-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1153,6 +1154,33 @@ jobs:
               and .candidateSha == $sha
             ' "$PAGE_LABELS_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 page labels residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          OUTLINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-residual-result.json"
+          if [ ! -f "$OUTLINE_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 outline residual result missing at $OUTLINE_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_outline_residual_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 3
+              and .passed == 3
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 39
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.uriParentChildFit == true
+              and .providerProof.fithCoordinate == true
+              and .providerProof.absentOutlineOmitted == true
+              and .capabilityStatus.includeOutline == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$OUTLINE_RESIDUAL_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 outline residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 

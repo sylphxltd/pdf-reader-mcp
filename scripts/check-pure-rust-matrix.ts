@@ -484,6 +484,21 @@ const pageLabelsResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const outlineResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-outline-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxOutlineItemsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -814,13 +829,25 @@ const pageLabelsResidualWorkflowStart = differentialWorkflow.indexOf(
   'PAGE_LABELS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-labels-residual-result.json"'
 );
 const pageLabelsResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'OUTLINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-residual-result.json"',
   pageLabelsResidualWorkflowStart
 );
 const pageLabelsResidualWorkflow =
   pageLabelsResidualWorkflowStart >= 0 &&
   pageLabelsResidualWorkflowEnd > pageLabelsResidualWorkflowStart
     ? differentialWorkflow.slice(pageLabelsResidualWorkflowStart, pageLabelsResidualWorkflowEnd)
+    : '';
+const outlineResidualWorkflowStart = differentialWorkflow.indexOf(
+  'OUTLINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-residual-result.json"'
+);
+const outlineResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  outlineResidualWorkflowStart
+);
+const outlineResidualWorkflow =
+  outlineResidualWorkflowStart >= 0 &&
+  outlineResidualWorkflowEnd > outlineResidualWorkflowStart
+    ? differentialWorkflow.slice(outlineResidualWorkflowStart, outlineResidualWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -3361,6 +3388,93 @@ if (
 ) {
   failures.push(
     'page labels residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const outlineResidualCaseCount = outlineResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-outline-residual-differential')) {
+  failures.push('rust parity workflow must execute the frozen outline residual differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-outline-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-outline-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OutlineResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014OutlineResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014OutlineResidualOracleHash')
+) {
+  failures.push('repository differential artifact must bind the outline residual family');
+}
+if (
+  !outlineResidualWorkflow.includes(`.caseCount == ${outlineResidualCaseCount}`) ||
+  !outlineResidualWorkflow.includes(`.passed == ${outlineResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${outlineResidualCaseCount}/${outlineResidualCaseCount} outline residual corpus`
+  );
+}
+if (
+  outlineResidualCaseCount !== 3 ||
+  outlineResidualCorpus.envelope.fixtureCount !== 3 ||
+  outlineResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  outlineResidualCorpus.nonclaims.publishFreeze !== true ||
+  outlineResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'outline residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !outlineResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_outline_residual_result"'
+  ) ||
+  !outlineResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 39') ||
+  !outlineResidualWorkflow.includes('.providerProof.uriParentChildFit == true') ||
+  !outlineResidualWorkflow.includes('.providerProof.fithCoordinate == true') ||
+  !outlineResidualWorkflow.includes('.providerProof.absentOutlineOmitted == true') ||
+  !outlineResidualWorkflow.includes(
+    '.capabilityStatus.includeOutline == "PARTIAL"'
+  ) ||
+  !outlineResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !outlineResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'outline residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-outline-residual-differential.ts',
+  'scripts/differential/capture-v3014-outline-residual-oracle.ts',
+  'v3014-outline-residual-baseline-runner.ts',
+  'v3014-outline-residual-projection.ts',
+  'v3014-outline-residual-corpus.json',
+  'v3014-outline-residual-oracle.json',
+  'v3014-outline-uri-child-v1.pdf',
+  'v3014-outline-fith-v1.pdf',
+  'v3014-outline-none-v1.pdf',
+  'v3014OutlineResidualCaseCount',
+  'v3014OutlineResidualCorpusHash',
+  'v3014OutlineResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind outline residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('include_outline residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_outline residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'outline residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
