@@ -468,11 +468,15 @@ fn normalize_leaf<'a>(
                 Some(Value::String(value)) if !value.is_empty() => Value::String(value),
                 _ => Value::String("Off".into()),
             });
-            // pdf.js _processCheckBox/_processRadioButton/_processPushButton:
+            // pdf.js _processCheckBox/_processRadioButton only (not pushbutton):
             // when AP/N is a named-state dict and DV is null, defaultFieldValue
-            // becomes "Off". Without that AP shape, default stays null/undefined.
+            // becomes "Off". Pushbutton and non-named AP leave default null.
             if default_value.as_ref().is_none_or(Value::is_null) {
-                if button_has_named_normal_appearance(walker, dict) {
+                let is_checkbox_or_radio = matches!(
+                    field_type.as_deref(),
+                    Some("checkbox") | Some("radiobutton")
+                );
+                if is_checkbox_or_radio && button_has_named_normal_appearance(walker, dict) {
                     default_value = Some(Value::String("Off".into()));
                 } else {
                     default_value.get_or_insert(Value::Null);
@@ -1394,5 +1398,56 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn pushbutton_ap_default_stays_null() {
+        let cases = [
+            (
+                "v3014-form-pushbutton-ap-default-null-v1.pdf",
+                "Go",
+                "button",
+                "Off",
+                serde_json::Value::Null,
+            ),
+            (
+                "v3014-form-pushbutton-noap-default-null-v1.pdf",
+                "Go",
+                "button",
+                "Off",
+                serde_json::Value::Null,
+            ),
+            (
+                "v3014-form-checkbox-ap-default-off-v1.pdf",
+                "Agree",
+                "checkbox",
+                "Yes",
+                serde_json::json!("Off"),
+            ),
+        ];
+        for (fixture, name, kind, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load pushbutton default fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 1, "fixture {fixture}");
+            let field = &fields[0];
+            assert_eq!(field.name, name, "fixture {fixture}");
+            assert_eq!(field.r#type.as_deref(), Some(kind), "fixture {fixture}");
+            assert_eq!(
+                serde_json::to_value(&field.value).unwrap(),
+                serde_json::json!(value),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.default_value).unwrap(),
+                default_value,
+                "fixture {fixture}"
+            );
+        }
+    }
+
 
 }
