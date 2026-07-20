@@ -263,22 +263,42 @@ fn normalize_annotation(
         .get(b"T")
         .ok()
         .and_then(|value| decoded_string(document, value, text_budget));
-    // pdf.js PopupAnnotation inherits title/contents from Parent (and IRT when
-    // Parent.RT is Group). Public TS projection only surfaces title/contents.
+    // pdf.js MarkupAnnotation: when RT == Group, title/contents are taken from IRT
+    // (overwriting local values). Public TS projection only surfaces those fields.
+    if dict
+        .get(b"RT")
+        .ok()
+        .and_then(|value| value.as_name().ok())
+        .is_some_and(|name| name == b"Group")
+    {
+        if let Some(irt) = dict
+            .get(b"IRT")
+            .ok()
+            .and_then(|value| resolve(document, value).ok())
+            .and_then(|value| value.as_dict().ok())
+        {
+            title = irt
+                .get(b"T")
+                .ok()
+                .and_then(|value| decoded_string(document, value, text_budget));
+            contents = irt
+                .get(b"Contents")
+                .ok()
+                .and_then(|value| decoded_string(document, value, text_budget));
+        }
+    }
+    // pdf.js PopupAnnotation always projects title/contents from Parent (and IRT
+    // when Parent.RT is Group). Public TS projection only surfaces title/contents.
     if subtype.as_deref() == Some("Popup") {
         if let Some(parent) = popup_parent_dict(document, dict) {
-            if title.is_none() {
-                title = parent
-                    .get(b"T")
-                    .ok()
-                    .and_then(|value| decoded_string(document, value, text_budget));
-            }
-            if contents.is_none() {
-                contents = parent
-                    .get(b"Contents")
-                    .ok()
-                    .and_then(|value| decoded_string(document, value, text_budget));
-            }
+            title = parent
+                .get(b"T")
+                .ok()
+                .and_then(|value| decoded_string(document, value, text_budget));
+            contents = parent
+                .get(b"Contents")
+                .ok()
+                .and_then(|value| decoded_string(document, value, text_budget));
         }
     }
     let mut rect = dict
@@ -655,6 +675,7 @@ fn destination(
         }
         _ => None,
     }
+
 }
 
 #[cfg(test)]
@@ -1217,6 +1238,34 @@ mod tests {
         assert_eq!(
             text["bounding_box"],
             json!({"left": 100.0, "bottom": 650.0, "right": 122.0, "top": 672.0})
+        );
+    }
+
+
+    #[test]
+    fn group_text_and_popup_inherit_irt_title_and_contents() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-popup-group-irt-v1.pdf");
+        if !path.is_file() {
+            return;
+        }
+        let document = Document::load(&path).expect("load group/irt fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        let anns = signals.annotations[0]["annotations"].as_array().unwrap();
+        assert_eq!(anns.len(), 4);
+        let root = anns.iter().find(|a| a["id"] == "5R").unwrap();
+        assert_eq!(root["contents"], "Root note");
+        assert_eq!(root["title"], "RootAuthor");
+        let group = anns.iter().find(|a| a["id"] == "6R").unwrap();
+        assert_eq!(group["contents"], "Root note");
+        assert_eq!(group["title"], "RootAuthor");
+        let group_popup = anns.iter().find(|a| a["id"] == "9R").unwrap();
+        assert_eq!(group_popup["contents"], "Root note");
+        assert_eq!(group_popup["title"], "RootAuthor");
+        assert_eq!(
+            group_popup["bounding_box"],
+            json!({"left": 230.0, "bottom": 600.0, "right": 350.0, "top": 670.0})
         );
     }
 
