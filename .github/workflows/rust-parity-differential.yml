@@ -157,6 +157,7 @@ jobs:
           bun run test:v3014-popup-group-irt-residual-differential -- --output "${SCRATCH_DIR}/v3014-popup-group-irt-residual-result.json"
           bun run test:v3014-text-appearance-residual-differential -- --output "${SCRATCH_DIR}/v3014-text-appearance-residual-result.json"
           bun run test:v3014-text-named-appearance-residual-differential -- --output "${SCRATCH_DIR}/v3014-text-named-appearance-residual-result.json"
+          bun run test:v3014-text-inverted-rect-residual-differential -- --output "${SCRATCH_DIR}/v3014-text-inverted-rect-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1469,6 +1470,25 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$TEXT_NAMED_APPEARANCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text named appearance residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+          TEXT_INVERTED_RECT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-text-inverted-rect-residual-result.json"
+          if [ ! -f "$TEXT_INVERTED_RECT_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 text inverted-rect residual result missing at $TEXT_INVERTED_RECT_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_text_inverted_rect_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 28 and
+            .providerProof.invertedTextNoAppearanceIconBox == true and
+            .providerProof.ordinaryTextNoAppearanceIconBox == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$TEXT_INVERTED_RECT_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 text inverted-rect residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
