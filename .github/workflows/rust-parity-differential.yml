@@ -132,6 +132,7 @@ jobs:
           bun run test:v3014-ocr-search-tsv-differential -- --output "${SCRATCH_DIR}/v3014-ocr-search-tsv-result.json"
           bun run test:v3014-search-multiword-geometry-differential -- --output "${SCRATCH_DIR}/v3014-search-multiword-geometry-result.json"
           bun run test:v3014-form-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-residual-result.json"
+          bun run test:v3014-form-radio-group-differential -- --output "${SCRATCH_DIR}/v3014-form-radio-group-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -846,6 +847,33 @@ jobs:
               and .candidateSha == $sha
             ' "$FORM_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 form residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          FORM_RADIO_GROUP_ARTIFACT="${SCRATCH_DIR}/v3014-form-radio-group-result.json"
+          if [ ! -f "$FORM_RADIO_GROUP_ARTIFACT" ]; then
+            echo "::error::v3.0.14 form radio-group result missing at $FORM_RADIO_GROUP_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_form_radio_group_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 2
+              and .passed == 2
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 78
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.parentStubPlusRadiobuttonKids == true
+              and .providerProof.inheritedValueAndDefault == true
+              and .providerProof.threeOptionRadioGroup == true
+              and .capabilityStatus.includeFormFields == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$FORM_RADIO_GROUP_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 form radio-group result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 
