@@ -2276,6 +2276,40 @@ mod tests {
         }
     }
 
+    #[test]
+    fn text_markup_with_appearance_keeps_rect() {
+        let cases = [
+            (
+                "v3014-annotation-underline-ap-keeps-rect-v1.pdf",
+                "Underline",
+                json!({"left": 200.0, "bottom": 200.0, "right": 300.0, "top": 300.0}),
+            ),
+            (
+                "v3014-annotation-squiggly-ap-keeps-rect-v1.pdf",
+                "Squiggly",
+                json!({"left": 150.0, "bottom": 160.0, "right": 250.0, "top": 260.0}),
+            ),
+            (
+                "v3014-annotation-strikeout-ap-keeps-rect-v1.pdf",
+                "StrikeOut",
+                json!({"left": 100.0, "bottom": 110.0, "right": 210.0, "top": 220.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load text-markup AP fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
+
 
 
 }
