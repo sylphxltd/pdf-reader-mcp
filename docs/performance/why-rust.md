@@ -295,6 +295,11 @@ A frozen two-case public-stdio `read_pdf` `include_annotations` popup residual i
 
 A frozen two-case public-stdio `read_pdf` `include_annotations` popup zero-size residual is admitted: Popup with zero width or height nulls `rect` (omits `bounding_box`) like pdf.js `PopupAnnotation`; nonzero Popup keeps its `bounding_box`; zero-size Popup still inherits parent Text `title`/`contents`. Leaf-mutation count is frozen at 42 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; Popup Group/IRT chain, richText RC, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+### read_pdf include_annotations popup-group-irt residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_annotations` popup group/IRT residual is admitted: Markup Text with `RT=Group` inherits `title`/`contents` from the `IRT` root (pdf.js MarkupAnnotation overwrite); Popup whose Parent has `RT=Group` also projects the IRT root `title`/`contents`; non-group Popup control keeps parent Text inheritance. Leaf-mutation count is frozen at 64 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; richText RC, group color/flags, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+
 
 
 

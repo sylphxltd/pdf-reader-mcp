@@ -1,0 +1,53 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 7 0 R >> >> /Annots [5 0 R 6 0 R 8 0 R 9 0 R] >>
+endobj
+4 0 obj
+<< /Length 32 >>
+stream
+BT /F1 12 Tf 72 720 Td (G) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Annot /Subtype /Text /Contents (Root note) /Rect [100 650 122 672] /T (RootAuthor) /Popup 8 0 R >>
+endobj
+6 0 obj
+<< /Type /Annot /Subtype /Text /Contents (Group note) /Rect [200 650 222 672] /T (GroupAuthor) /RT /Group /IRT 5 0 R /Popup 9 0 R >>
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+8 0 obj
+<< /Type /Annot /Subtype /Popup /Parent 5 0 R /Rect [130 600 250 670] /Open true >>
+endobj
+9 0 obj
+<< /Type /Annot /Subtype /Popup /Parent 6 0 R /Rect [230 600 350 670] /Open true >>
+endobj
+10 0 obj
+<< /Title (Group IRT) /Producer (fixture) >>
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000281 00000 n 
+0000000363 00000 n 
+0000000487 00000 n 
+0000000635 00000 n 
+0000000705 00000 n 
+0000000804 00000 n 
+0000000903 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R /Info 10 0 R >>
+startxref
+964
+%%EOF
