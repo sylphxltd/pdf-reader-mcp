@@ -248,30 +248,58 @@ fn popup_parent_dict<'a>(
     Some(parent)
 }
 
+fn object_number(document: &Document, value: &Object) -> Option<f64> {
+    match resolve(document, value).ok()? {
+        Object::Integer(v) => Some(*v as f64),
+        Object::Real(v) => Some(f64::from(*v)),
+        _ => None,
+    }
+}
+
 fn border_style_width(
     document: &Document,
     dict: &lopdf::Dictionary,
     rect: Option<[f64; 4]>,
 ) -> f64 {
-    // pdf.js AnnotationBorderStyle defaults width to 1 when absent/zero for line drawing.
+    // pdf.js Annotation.setBorderStyle:
+    // - prefer BS dict (Type absent or Border) width W
+    // - else Border array with length >= 3 uses array[2]
+    // - else Border short array / missing => width 0
+    // Drawing paths then use `width || 1`.
     // When W exceeds half of either Rect dimension (both dimensions > 0), pdf.js clamps to 1.
-    let raw = dict
+    let raw = if let Some(bs) = dict
         .get(b"BS")
         .ok()
         .and_then(|value| resolve(document, value).ok())
         .and_then(|value| value.as_dict().ok())
-        .and_then(|bs| bs.get(b"W").ok())
-        .and_then(|value| match value {
-            Object::Integer(v) => Some(*v as f64),
-            Object::Real(v) => Some(f64::from(*v)),
-            Object::Reference(id) => document.get_object(*id).ok().and_then(|obj| match obj {
-                Object::Integer(v) => Some(*v as f64),
-                Object::Real(v) => Some(f64::from(*v)),
-                _ => None,
-            }),
-            _ => None,
-        })
-        .unwrap_or(1.0);
+    {
+        let type_ok = match bs.get(b"Type").ok() {
+            None => true,
+            Some(value) => value.as_name().ok().is_some_and(|name| name == b"Border"),
+        };
+        if type_ok {
+            bs.get(b"W")
+                .ok()
+                .and_then(|value| object_number(document, value))
+                .unwrap_or(1.0)
+        } else {
+            1.0
+        }
+    } else if let Some(array) = dict
+        .get(b"Border")
+        .ok()
+        .and_then(|value| resolve(document, value).ok())
+        .and_then(|value| value.as_array().ok())
+    {
+        if array.len() >= 3 {
+            object_number(document, &array[2]).unwrap_or(0.0)
+        } else {
+            0.0
+        }
+    } else {
+        // pdf.js sets width 0 when neither BS nor Border is present; drawing uses || 1.
+        0.0
+    };
     let mut width = if raw == 0.0 { 1.0 } else { raw };
     if width > 0.0 {
         if let Some(rect) = rect {
@@ -1657,6 +1685,39 @@ mod tests {
                 .join(fixture);
             assert!(path.is_file(), "missing fixture {fixture}");
             let document = Document::load(&path).expect("load clamp fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
+    #[test]
+    fn border_array_width_drives_line_polyline_ink_boxes() {
+        let cases = [
+            (
+                "v3014-annotation-polyline-border-array-w2-v1.pdf",
+                "PolyLine",
+                json!({"left": 6.0, "bottom": 6.0, "right": 104.0, "top": 84.0}),
+            ),
+            (
+                "v3014-annotation-line-border-array-w2-v1.pdf",
+                "Line",
+                json!({"left": 4.0, "bottom": 4.0, "right": 106.0, "top": 86.0}),
+            ),
+            (
+                "v3014-annotation-ink-border-array-w3-v1.pdf",
+                "Ink",
+                json!({"left": 24.0, "bottom": 24.0, "right": 106.0, "top": 96.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load border array fixture");
             let pages = document.get_pages().into_iter().collect::<Vec<_>>();
             let signals = extract_page_signals(&document, &pages, &[1], false, true);
             let ann = &signals.annotations[0]["annotations"][0];

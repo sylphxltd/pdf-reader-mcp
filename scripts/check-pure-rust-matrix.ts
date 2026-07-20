@@ -850,6 +850,20 @@ const borderWidthClampResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const borderArrayWidthResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-border-array-width-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1571,7 +1585,7 @@ const borderWidthClampResidualWorkflowStart = differentialWorkflow.indexOf(
   'BORDER_WIDTH_CLAMP_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-width-clamp-residual-result.json"'
 );
 const borderWidthClampResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-array-width-residual-result.json"',
   borderWidthClampResidualWorkflowStart
 );
 const borderWidthClampResidualWorkflow =
@@ -1580,6 +1594,21 @@ const borderWidthClampResidualWorkflow =
     ? differentialWorkflow.slice(
         borderWidthClampResidualWorkflowStart,
         borderWidthClampResidualWorkflowEnd
+      )
+    : '';
+const borderArrayWidthResidualWorkflowStart = differentialWorkflow.indexOf(
+  'BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-array-width-residual-result.json"'
+);
+const borderArrayWidthResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  borderArrayWidthResidualWorkflowStart
+);
+const borderArrayWidthResidualWorkflow =
+  borderArrayWidthResidualWorkflowStart >= 0 &&
+  borderArrayWidthResidualWorkflowEnd > borderArrayWidthResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        borderArrayWidthResidualWorkflowStart,
+        borderArrayWidthResidualWorkflowEnd
       )
     : '';
 
@@ -6960,6 +6989,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the border-width clamp residual and frozen leaf-mutation count'
+  );
+}
+
+const borderArrayWidthResidualCaseCount = borderArrayWidthResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-border-array-width-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen border-array width residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-border-array-width-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-border-array-width-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014BorderArrayWidthResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014BorderArrayWidthResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014BorderArrayWidthResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the border-array width residual family'
+  );
+}
+if (
+  !borderArrayWidthResidualWorkflow.includes(
+    `.caseCount == ${borderArrayWidthResidualCaseCount}`
+  ) ||
+  !borderArrayWidthResidualWorkflow.includes(
+    `.passed == ${borderArrayWidthResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${borderArrayWidthResidualCaseCount}/${borderArrayWidthResidualCaseCount} border-array width residual corpus`
+  );
+}
+if (
+  borderArrayWidthResidualCaseCount !== 3 ||
+  borderArrayWidthResidualCorpus.envelope.fixtureCount !== 3 ||
+  borderArrayWidthResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  borderArrayWidthResidualCorpus.nonclaims.publishFreeze !== true ||
+  borderArrayWidthResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'border-array width residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !borderArrayWidthResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_border_array_width_residual_result"'
+  ) ||
+  !borderArrayWidthResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !borderArrayWidthResidualWorkflow.includes(
+    '.providerProof.polylineBorderArrayWidth2 == true'
+  ) ||
+  !borderArrayWidthResidualWorkflow.includes(
+    '.providerProof.lineBorderArrayWidth2 == true'
+  ) ||
+  !borderArrayWidthResidualWorkflow.includes(
+    '.providerProof.inkBorderArrayWidth3 == true'
+  ) ||
+  !borderArrayWidthResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !borderArrayWidthResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !borderArrayWidthResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'border-array width residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-border-array-width-residual-differential.ts',
+  'scripts/differential/capture-v3014-border-array-width-residual-oracle.ts',
+  'v3014-border-array-width-residual-baseline-runner.ts',
+  'v3014-border-array-width-residual-projection.ts',
+  'v3014-border-array-width-residual-corpus.json',
+  'v3014-border-array-width-residual-oracle.json',
+  'v3014-annotation-polyline-border-array-w2-v1.pdf',
+  'v3014-annotation-line-border-array-w2-v1.pdf',
+  'v3014-annotation-ink-border-array-w3-v1.pdf',
+  'v3014BorderArrayWidthResidualCaseCount',
+  'v3014BorderArrayWidthResidualCorpusHash',
+  'v3014BorderArrayWidthResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind border-array width residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('border-array width residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('border-array width residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'border-array width residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustBorderArray = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustBorderArray.includes('border-array width residual') ||
+  !whyRustBorderArray.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the border-array width residual and frozen leaf-mutation count'
   );
 }
 if (
