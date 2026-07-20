@@ -283,6 +283,11 @@ A frozen four-case public-stdio `read_pdf` `include_metadata` form-flags residua
 
 A frozen two-case public-stdio `read_pdf` `include_annotations` text-annotation residual is admitted: Text annotations without appearance use pdf.js 22×22 icon boxes (`bottom = top - 22`, `right = left + 22`); FreeText keeps raw `/Rect` geometry. Leaf-mutation count is frozen at 27 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; Text with appearance stream, Name field, glyph-perfect boxes, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+### read_pdf include_annotations remote-action residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` remote-action residual is admitted: Launch string files map to `url`; Launch file dictionaries prefer `UF` over `F`; GoToR builds remote `url` as `file#` + JSON explicit dest and suppresses `dest`. Leaf-mutation count is frozen at 42 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; GoToE attachments, `newWindow`, named remote dest string variants, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+
 
 
 

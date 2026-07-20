@@ -598,6 +598,20 @@ const textAnnotationResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const remoteActionResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-remote-action-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1042,7 +1056,7 @@ const textAnnotationResidualWorkflowStart = differentialWorkflow.indexOf(
   'TEXT_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-text-annotation-residual-result.json"'
 );
 const textAnnotationResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'REMOTE_ACTION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-remote-action-residual-result.json"',
   textAnnotationResidualWorkflowStart
 );
 const textAnnotationResidualWorkflow =
@@ -1051,6 +1065,21 @@ const textAnnotationResidualWorkflow =
     ? differentialWorkflow.slice(
         textAnnotationResidualWorkflowStart,
         textAnnotationResidualWorkflowEnd
+      )
+    : '';
+const remoteActionResidualWorkflowStart = differentialWorkflow.indexOf(
+  'REMOTE_ACTION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-remote-action-residual-result.json"'
+);
+const remoteActionResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  remoteActionResidualWorkflowStart
+);
+const remoteActionResidualWorkflow =
+  remoteActionResidualWorkflowStart >= 0 &&
+  remoteActionResidualWorkflowEnd > remoteActionResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        remoteActionResidualWorkflowStart,
+        remoteActionResidualWorkflowEnd
       )
     : '';
 
@@ -4435,6 +4464,114 @@ if (
 ) {
   failures.push(
     'text annotation residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const remoteActionResidualCaseCount = remoteActionResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-remote-action-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen remote action residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-remote-action-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-remote-action-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014RemoteActionResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014RemoteActionResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014RemoteActionResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the remote action residual family'
+  );
+}
+if (
+  !remoteActionResidualWorkflow.includes(
+    `.caseCount == ${remoteActionResidualCaseCount}`
+  ) ||
+  !remoteActionResidualWorkflow.includes(
+    `.passed == ${remoteActionResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${remoteActionResidualCaseCount}/${remoteActionResidualCaseCount} remote action residual corpus`
+  );
+}
+if (
+  remoteActionResidualCaseCount !== 3 ||
+  remoteActionResidualCorpus.envelope.fixtureCount !== 3 ||
+  remoteActionResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  remoteActionResidualCorpus.nonclaims.publishFreeze !== true ||
+  remoteActionResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'remote action residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !remoteActionResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_remote_action_residual_result"'
+  ) ||
+  !remoteActionResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 42'
+  ) ||
+  !remoteActionResidualWorkflow.includes(
+    '.providerProof.launchStringFile == true'
+  ) ||
+  !remoteActionResidualWorkflow.includes(
+    '.providerProof.launchFileDictPrefersUf == true'
+  ) ||
+  !remoteActionResidualWorkflow.includes(
+    '.providerProof.gotorRemoteDestJson == true'
+  ) ||
+  !remoteActionResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !remoteActionResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !remoteActionResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'remote action residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-remote-action-residual-differential.ts',
+  'scripts/differential/capture-v3014-remote-action-residual-oracle.ts',
+  'v3014-remote-action-residual-baseline-runner.ts',
+  'v3014-remote-action-residual-projection.ts',
+  'v3014-remote-action-residual-corpus.json',
+  'v3014-remote-action-residual-oracle.json',
+  'v3014-annotation-launch-file-v1.pdf',
+  'v3014-annotation-launch-filedict-v1.pdf',
+  'v3014-annotation-gotor-v1.pdf',
+  'v3014RemoteActionResidualCaseCount',
+  'v3014RemoteActionResidualCorpusHash',
+  'v3014RemoteActionResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind remote action residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('remote-action residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('remote-action residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'remote action residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
