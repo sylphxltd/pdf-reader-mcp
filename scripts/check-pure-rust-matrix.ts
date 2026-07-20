@@ -948,7 +948,22 @@ const annotationAppearanceBboxResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationApNonstreamResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-ap-nonstream-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
+
 
 
 
@@ -1777,7 +1792,7 @@ const annotationAppearanceBboxResidualWorkflowStart = differentialWorkflow.index
   'ANNOTATION_APPEARANCE_BBOX_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-appearance-bbox-residual-result.json"'
 );
 const annotationAppearanceBboxResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_AP_NONSTREAM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-nonstream-residual-result.json"',
   annotationAppearanceBboxResidualWorkflowStart
 );
 const annotationAppearanceBboxResidualWorkflow =
@@ -1786,6 +1801,21 @@ const annotationAppearanceBboxResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationAppearanceBboxResidualWorkflowStart,
         annotationAppearanceBboxResidualWorkflowEnd
+      )
+    : '';
+const annotationApNonstreamResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_AP_NONSTREAM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-nonstream-residual-result.json"'
+);
+const annotationApNonstreamResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationApNonstreamResidualWorkflowStart
+);
+const annotationApNonstreamResidualWorkflow =
+  annotationApNonstreamResidualWorkflowStart >= 0 &&
+  annotationApNonstreamResidualWorkflowEnd > annotationApNonstreamResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationApNonstreamResidualWorkflowStart,
+        annotationApNonstreamResidualWorkflowEnd
       )
     : '';
 
@@ -7985,6 +8015,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation appearance bbox residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationApNonstreamResidualCaseCount = annotationApNonstreamResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-ap-nonstream-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation AP non-stream residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-ap-nonstream-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-ap-nonstream-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationApNonstreamResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationApNonstreamResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationApNonstreamResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation AP non-stream residual family'
+  );
+}
+if (
+  !annotationApNonstreamResidualWorkflow.includes(
+    `.caseCount == ${annotationApNonstreamResidualCaseCount}`
+  ) ||
+  !annotationApNonstreamResidualWorkflow.includes(
+    `.passed == ${annotationApNonstreamResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationApNonstreamResidualCaseCount}/${annotationApNonstreamResidualCaseCount} annotation AP non-stream residual corpus`
+  );
+}
+if (
+  annotationApNonstreamResidualCaseCount !== 3 ||
+  annotationApNonstreamResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationApNonstreamResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationApNonstreamResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationApNonstreamResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation AP non-stream residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationApNonstreamResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_ap_nonstream_residual_result"'
+  ) ||
+  !annotationApNonstreamResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationApNonstreamResidualWorkflow.includes(
+    '.providerProof.lineApNNullExpandsGeometry == true'
+  ) ||
+  !annotationApNonstreamResidualWorkflow.includes(
+    '.providerProof.polylineApNNameExpandsGeometry == true'
+  ) ||
+  !annotationApNonstreamResidualWorkflow.includes(
+    '.providerProof.inkApNNullExpandsGeometry == true'
+  ) ||
+  !annotationApNonstreamResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationApNonstreamResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationApNonstreamResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation AP non-stream residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-ap-nonstream-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-ap-nonstream-residual-oracle.ts',
+  'v3014-annotation-ap-nonstream-residual-baseline-runner.ts',
+  'v3014-annotation-ap-nonstream-residual-projection.ts',
+  'v3014-annotation-ap-nonstream-residual-corpus.json',
+  'v3014-annotation-ap-nonstream-residual-oracle.json',
+  'v3014-annotation-line-ap-n-null-v1.pdf',
+  'v3014-annotation-polyline-ap-n-name-v1.pdf',
+  'v3014-annotation-ink-ap-n-null-v1.pdf',
+  'v3014AnnotationApNonstreamResidualCaseCount',
+  'v3014AnnotationApNonstreamResidualCorpusHash',
+  'v3014AnnotationApNonstreamResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation AP non-stream residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('AP non-stream residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('AP non-stream residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation AP non-stream residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationApNonstream = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationApNonstream.includes('AP non-stream residual') ||
+  !whyRustAnnotationApNonstream.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation AP non-stream residual and frozen leaf-mutation count'
   );
 }
 if (
