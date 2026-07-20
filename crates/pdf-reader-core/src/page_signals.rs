@@ -184,6 +184,33 @@ fn page_annotations(
     (annotations, truncated, inspected)
 }
 
+/// pdf.js TextAnnotation DEFAULT_ICON_SIZE.
+const TEXT_ANNOTATION_ICON_SIZE: f64 = 22.0;
+
+fn text_annotation_has_appearance(document: &Document, dict: &lopdf::Dictionary) -> bool {
+    let Ok(ap) = dict.get(b"AP") else {
+        return false;
+    };
+    let Ok(ap_dict) = resolve(document, ap).and_then(Object::as_dict) else {
+        return false;
+    };
+    let Ok(normal) = ap_dict.get(b"N") else {
+        return false;
+    };
+    match resolve(document, normal) {
+        Ok(Object::Stream(stream)) => !stream.content.is_empty(),
+        Ok(Object::Dictionary(states)) => {
+            // Named appearance states: any non-empty stream counts as appearance.
+            states.iter().any(|(_, value)| {
+                resolve(document, value).ok().is_some_and(
+                    |obj| matches!(obj, Object::Stream(stream) if !stream.content.is_empty()),
+                )
+            })
+        }
+        _ => false,
+    }
+}
+
 fn normalize_annotation(
     document: &Document,
     page: u32,
@@ -208,10 +235,22 @@ fn normalize_annotation(
         .get(b"T")
         .ok()
         .and_then(|value| decoded_string(document, value, text_budget));
-    let rect = dict
+    let mut rect = dict
         .get(b"Rect")
         .ok()
         .and_then(|value| box_values(document, value));
+    // pdf.js TextAnnotation without appearance forces a 22x22 icon box anchored
+    // at the top-left of Rect: bottom = top - 22, right = left + 22.
+    if subtype.as_deref() == Some("Text") && !text_annotation_has_appearance(document, dict) {
+        if let Some([left, _bottom, _right, top]) = rect {
+            rect = Some([
+                left,
+                top - TEXT_ANNOTATION_ICON_SIZE,
+                left + TEXT_ANNOTATION_ICON_SIZE,
+                top,
+            ]);
+        }
+    }
     let direct_dest = dict
         .get(b"Dest")
         .ok()
@@ -911,5 +950,45 @@ mod tests {
         assert!(decoded_string(&document, &sentinel, &mut budget).is_none());
         assert_eq!(budget.decode_attempts, 32);
         assert!(budget.truncated);
+    }
+
+    #[test]
+    fn text_annotation_without_appearance_uses_pdfjs_icon_box() {
+        let annotation = Object::Dictionary(dictionary! {
+            "Subtype" => "Text",
+            "Contents" => "Sticky note",
+            "T" => "Author",
+            "Rect" => vec![120.into(), 680.into(), 140.into(), 700.into()],
+        });
+        let document = document_with_pages(vec![dictionary! {
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Annots" => vec![annotation],
+        }]);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(
+            signals.annotations[0]["annotations"][0]["bounding_box"],
+            json!({"left": 120.0, "bottom": 678.0, "right": 142.0, "top": 700.0})
+        );
+        assert_eq!(signals.annotations[0]["annotations"][0]["subtype"], "Text");
+    }
+
+    #[test]
+    fn freetext_annotation_keeps_raw_rect_box() {
+        let annotation = Object::Dictionary(dictionary! {
+            "Subtype" => "FreeText",
+            "Contents" => "Hello FreeText",
+            "Rect" => vec![100.into(), 600.into(), 250.into(), 650.into()],
+        });
+        let document = document_with_pages(vec![dictionary! {
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Annots" => vec![annotation],
+        }]);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(
+            signals.annotations[0]["annotations"][0]["bounding_box"],
+            json!({"left": 100.0, "bottom": 600.0, "right": 250.0, "top": 650.0})
+        );
     }
 }

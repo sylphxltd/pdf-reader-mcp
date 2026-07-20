@@ -279,6 +279,11 @@ A frozen three-case public-stdio `read_pdf` `include_metadata` linearized residu
 
 A frozen four-case public-stdio `read_pdf` `include_metadata` form-flags residual is admitted matching pdf.js `formInfo`: XFA-only AcroForm yields `IsAcroFormPresent=false` + `IsXFAPresent=true`; Collection catalogs set `IsCollectionPresent=true`; visible Sig fields set `IsSignaturesPresent=true` + `IsAcroFormPresent=true`; invisible-only document signatures set `IsSignaturesPresent=true` + `IsAcroFormPresent=false`. Leaf-mutation count is frozen at 36 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; nested Kids signature-only breadth, empty XFA stream edge cases, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+### read_pdf include_annotations text-annotation residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_annotations` text-annotation residual is admitted: Text annotations without appearance use pdf.js 22×22 icon boxes (`bottom = top - 22`, `right = left + 22`); FreeText keeps raw `/Rect` geometry. Leaf-mutation count is frozen at 27 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; Text with appearance stream, Name field, glyph-perfect boxes, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+
 
 
 
