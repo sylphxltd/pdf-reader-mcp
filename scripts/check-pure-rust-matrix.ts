@@ -1004,6 +1004,20 @@ const annotationApNamedStateSquareCircleResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationHighlightQuadpointsResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-highlight-quadpoints-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
 
 
@@ -1896,7 +1910,7 @@ const annotationApNamedStateSquareCircleResidualWorkflowStart = differentialWork
   'ANNOTATION_AP_NAMED_STATE_SQUARE_CIRCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-square-circle-residual-result.json"'
 );
 const annotationApNamedStateSquareCircleResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_HIGHLIGHT_QUADPOINTS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-highlight-quadpoints-residual-result.json"',
   annotationApNamedStateSquareCircleResidualWorkflowStart
 );
 const annotationApNamedStateSquareCircleResidualWorkflow =
@@ -1905,6 +1919,21 @@ const annotationApNamedStateSquareCircleResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationApNamedStateSquareCircleResidualWorkflowStart,
         annotationApNamedStateSquareCircleResidualWorkflowEnd
+      )
+    : '';
+const annotationHighlightQuadpointsResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_HIGHLIGHT_QUADPOINTS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-highlight-quadpoints-residual-result.json"'
+);
+const annotationHighlightQuadpointsResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationHighlightQuadpointsResidualWorkflowStart
+);
+const annotationHighlightQuadpointsResidualWorkflow =
+  annotationHighlightQuadpointsResidualWorkflowStart >= 0 &&
+  annotationHighlightQuadpointsResidualWorkflowEnd > annotationHighlightQuadpointsResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationHighlightQuadpointsResidualWorkflowStart,
+        annotationHighlightQuadpointsResidualWorkflowEnd
       )
     : '';
 
@@ -8572,6 +8601,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation AP named-state square/circle residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationHighlightQuadpointsResidualCaseCount = annotationHighlightQuadpointsResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-highlight-quadpoints-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation highlight quadpoints residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-highlight-quadpoints-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-highlight-quadpoints-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationHighlightQuadpointsResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationHighlightQuadpointsResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationHighlightQuadpointsResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation highlight quadpoints residual family'
+  );
+}
+if (
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    `.caseCount == ${annotationHighlightQuadpointsResidualCaseCount}`
+  ) ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    `.passed == ${annotationHighlightQuadpointsResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationHighlightQuadpointsResidualCaseCount}/${annotationHighlightQuadpointsResidualCaseCount} annotation highlight quadpoints residual corpus`
+  );
+}
+if (
+  annotationHighlightQuadpointsResidualCaseCount !== 3 ||
+  annotationHighlightQuadpointsResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationHighlightQuadpointsResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationHighlightQuadpointsResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationHighlightQuadpointsResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation highlight quadpoints residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_highlight_quadpoints_residual_result"'
+  ) ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    '.providerProof.highlightQuadNoApUsesQuadpoints == true'
+  ) ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    '.providerProof.highlightApNoExtUsesQuadpoints == true'
+  ) ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    '.providerProof.highlightApExtKeepsRawRect == true'
+  ) ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationHighlightQuadpointsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation highlight quadpoints residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-highlight-quadpoints-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-highlight-quadpoints-residual-oracle.ts',
+  'v3014-annotation-highlight-quadpoints-residual-baseline-runner.ts',
+  'v3014-annotation-highlight-quadpoints-residual-projection.ts',
+  'v3014-annotation-highlight-quadpoints-residual-corpus.json',
+  'v3014-annotation-highlight-quadpoints-residual-oracle.json',
+  'v3014-annotation-highlight-quad-noap-v1.pdf',
+  'v3014-annotation-highlight-ap-noext-v1.pdf',
+  'v3014-annotation-highlight-ap-ext-v1.pdf',
+  'v3014AnnotationHighlightQuadpointsResidualCaseCount',
+  'v3014AnnotationHighlightQuadpointsResidualCorpusHash',
+  'v3014AnnotationHighlightQuadpointsResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation highlight quadpoints residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('highlight quadpoints residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('highlight quadpoints residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation highlight quadpoints residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationHighlightQuadpoints = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationHighlightQuadpoints.includes('highlight quadpoints residual') ||
+  !whyRustAnnotationHighlightQuadpoints.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation highlight quadpoints residual and frozen leaf-mutation count'
   );
 }
 if (
