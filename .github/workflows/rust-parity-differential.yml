@@ -162,6 +162,7 @@ jobs:
           bun run test:v3014-page-labels-kids-residual-differential -- --output "${SCRATCH_DIR}/v3014-page-labels-kids-residual-result.json"
           bun run test:v3014-form-button-array-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-button-array-residual-result.json"
           bun run test:v3014-attachment-odd-names-residual-differential -- --output "${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"
+          bun run test:v3014-form-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1577,6 +1578,28 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$ATTACHMENT_ODD_NAMES_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 attachment odd-names residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+
+          FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"
+          if [ ! -f "$FORM_UTF16_TEXT_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 form utf16-text residual result missing at $FORM_UTF16_TEXT_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_form_utf16_text_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 52 and
+            .providerProof.utf16BeValidBom == true and
+            .providerProof.utf16BeOddLengthDropsTrailingByte == true and
+            .providerProof.utf8BomAndPdfDocEncodingControls == true and
+            .capabilityStatus.includeFormFields == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$FORM_UTF16_TEXT_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 form utf16-text residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 

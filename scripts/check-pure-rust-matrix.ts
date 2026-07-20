@@ -752,6 +752,20 @@ const attachmentOddNamesResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formUtf16TextResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-utf16-text-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1368,7 +1382,7 @@ const attachmentOddNamesResidualWorkflowStart = differentialWorkflow.indexOf(
   'ATTACHMENT_ODD_NAMES_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"'
 );
 const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"',
   attachmentOddNamesResidualWorkflowStart
 );
 const attachmentOddNamesResidualWorkflow =
@@ -1377,6 +1391,21 @@ const attachmentOddNamesResidualWorkflow =
     ? differentialWorkflow.slice(
         attachmentOddNamesResidualWorkflowStart,
         attachmentOddNamesResidualWorkflowEnd
+      )
+    : '';
+const formUtf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
+  'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"'
+);
+const formUtf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  formUtf16TextResidualWorkflowStart
+);
+const formUtf16TextResidualWorkflow =
+  formUtf16TextResidualWorkflowStart >= 0 &&
+  formUtf16TextResidualWorkflowEnd > formUtf16TextResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        formUtf16TextResidualWorkflowStart,
+        formUtf16TextResidualWorkflowEnd
       )
     : '';
 
@@ -5950,6 +5979,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the attachment odd-names residual and frozen leaf-mutation count'
+  );
+}
+
+
+const formUtf16TextResidualCaseCount = formUtf16TextResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-utf16-text-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form utf16-text residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-utf16-text-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-utf16-text-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormUtf16TextResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormUtf16TextResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormUtf16TextResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form utf16-text residual family'
+  );
+}
+if (
+  !formUtf16TextResidualWorkflow.includes(
+    `.caseCount == ${formUtf16TextResidualCaseCount}`
+  ) ||
+  !formUtf16TextResidualWorkflow.includes(
+    `.passed == ${formUtf16TextResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${formUtf16TextResidualCaseCount}/${formUtf16TextResidualCaseCount} form utf16-text residual corpus`
+  );
+}
+if (
+  formUtf16TextResidualCaseCount !== 2 ||
+  formUtf16TextResidualCorpus.envelope.fixtureCount !== 2 ||
+  formUtf16TextResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formUtf16TextResidualCorpus.nonclaims.publishFreeze !== true ||
+  formUtf16TextResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form utf16-text residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !formUtf16TextResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_utf16_text_residual_result"'
+  ) ||
+  !formUtf16TextResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 52'
+  ) ||
+  !formUtf16TextResidualWorkflow.includes(
+    '.providerProof.utf16BeValidBom == true'
+  ) ||
+  !formUtf16TextResidualWorkflow.includes(
+    '.providerProof.utf16BeOddLengthDropsTrailingByte == true'
+  ) ||
+  !formUtf16TextResidualWorkflow.includes(
+    '.providerProof.utf8BomAndPdfDocEncodingControls == true'
+  ) ||
+  !formUtf16TextResidualWorkflow.includes(
+    '.capabilityStatus.includeFormFields == "PARTIAL"'
+  ) ||
+  !formUtf16TextResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !formUtf16TextResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'form utf16-text residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-form-utf16-text-residual-differential.ts',
+  'scripts/differential/capture-v3014-form-utf16-text-residual-oracle.ts',
+  'v3014-form-utf16-text-residual-baseline-runner.ts',
+  'v3014-form-utf16-text-residual-projection.ts',
+  'v3014-form-utf16-text-residual-corpus.json',
+  'v3014-form-utf16-text-residual-oracle.json',
+  'v3014-form-utf16-odd-v1.pdf',
+  'v3014-form-utf8-bom-v1.pdf',
+  'v3014FormUtf16TextResidualCaseCount',
+  'v3014FormUtf16TextResidualCorpusHash',
+  'v3014FormUtf16TextResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind form utf16-text residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('form utf16-text residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('form utf16-text residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'form utf16-text residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustUtf16 = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustUtf16.includes('form utf16-text residual') ||
+  !whyRustUtf16.includes('Leaf-mutation count is frozen at 52')
+) {
+  failures.push(
+    'why-rust must document the form utf16-text residual and frozen leaf-mutation count'
   );
 }
 if (

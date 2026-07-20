@@ -113,6 +113,33 @@ pub(crate) fn extract_form_attachment_signals(
     output
 }
 
+
+/// Match pdf.js `stringToPDFString` for public form-field text:
+/// - UTF-16BE BOM (`FE FF`): drop a trailing unpaired byte, then decode pairs
+/// - UTF-8 BOM (`EF BB BF`): decode UTF-8
+/// - otherwise PDFDocEncoding via lopdf `decode_text_string`
+fn decode_pdfjs_text_string(value: &Object) -> Option<String> {
+    let bytes = match value {
+        Object::String(bytes, _) => bytes.as_slice(),
+        _ => return decode_text_string(value).ok(),
+    };
+    if bytes.starts_with(&[0xFE, 0xFF]) {
+        let mut payload = &bytes[2..];
+        if payload.len() % 2 == 1 {
+            payload = &payload[..payload.len() - 1];
+        }
+        let units: Vec<u16> = payload
+            .chunks_exact(2)
+            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+            .collect();
+        return String::from_utf16(&units).ok();
+    }
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        return String::from_utf8(bytes[3..].to_vec()).ok();
+    }
+    decode_text_string(value).ok()
+}
+
 struct Walker<'a> {
     document: &'a Document,
     work: usize,
@@ -211,7 +238,7 @@ impl<'a> Walker<'a> {
         }
         let text = match value {
             Object::Name(bytes) => String::from_utf8_lossy(bytes).into_owned(),
-            _ => decode_text_string(value).ok()?,
+            _ => decode_pdfjs_text_string(value)?,
         };
         if text.len() > MAX_STRING_BYTES || text.len() > self.text_remaining {
             self.limited = true;
@@ -1009,6 +1036,66 @@ mod tests {
         assert_eq!(value_of("empty"), serde_json::json!("Off"));
         assert_eq!(value_of("dv"), serde_json::json!(["Yes", "Off"]));
         assert_eq!(default_of("dv"), serde_json::json!(["Yes", "Off"]));
+    }
+
+
+    #[test]
+    fn utf16_be_odd_length_form_values_drop_trailing_byte_like_pdfjs() {
+        let mut document = Document::with_version("1.4");
+        let pages_id = document.new_object_id();
+        let page_id = document.add_object(dictionary! {
+            "Type"=>"Page","Parent"=>pages_id,"MediaBox"=>vec![0.into(),0.into(),612.into(),792.into()]
+        });
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type"=>"Pages","Kids"=>vec![page_id.into()],"Count"=>1
+            }),
+        );
+        // FEFF 0041 0064 0061 => "Ada"
+        let valid = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("valid"),
+            "V"=>Object::String(vec![0xFE,0xFF,0x00,0x41,0x00,0x64,0x00,0x61], lopdf::StringFormat::Hexadecimal),
+            "Rect"=>vec![72.into(),650.into(),200.into(),670.into()],"P"=>page_id
+        });
+        // FEFF 0042 006F 62 => drop trailing 0x62 => "Bo"
+        let odd = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("odd"),
+            "V"=>Object::String(vec![0xFE,0xFF,0x00,0x42,0x00,0x6F,0x62], lopdf::StringFormat::Hexadecimal),
+            "DV"=>Object::String(vec![0xFE,0xFF,0x00,0x42,0x00,0x6F,0x62], lopdf::StringFormat::Hexadecimal),
+            "Rect"=>vec![72.into(),620.into(),200.into(),640.into()],"P"=>page_id
+        });
+        // plain PDFDocEncoding control
+        let plain = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Tx","T"=>Object::string_literal("plain"),
+            "V"=>Object::string_literal("Alice"),
+            "Rect"=>vec![72.into(),590.into(),200.into(),610.into()],"P"=>page_id
+        });
+        let catalog = document.add_object(dictionary! {
+            "Type"=>"Catalog","Pages"=>pages_id,
+            "AcroForm"=>dictionary!{"Fields"=>vec![valid.into(), odd.into(), plain.into()]}
+        });
+        document.trailer.set("Root", catalog);
+        let signals = extract_form_attachment_signals(&document, &[(1, page_id)], true, false);
+        let fields = signals.form_fields.expect("fields");
+        let value_of = |name: &str| {
+            fields
+                .iter()
+                .find(|field| field.name == name)
+                .map(|field| serde_json::to_value(&field.value).unwrap())
+                .expect(name)
+        };
+        let default_of = |name: &str| {
+            fields
+                .iter()
+                .find(|field| field.name == name)
+                .map(|field| serde_json::to_value(&field.default_value).unwrap())
+                .expect(name)
+        };
+        assert_eq!(value_of("valid"), serde_json::json!("Ada"));
+        assert_eq!(value_of("odd"), serde_json::json!("Bo"));
+        assert_eq!(default_of("odd"), serde_json::json!("Bo"));
+        assert_eq!(value_of("plain"), serde_json::json!("Alice"));
     }
 
     #[test]
