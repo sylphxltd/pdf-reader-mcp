@@ -293,6 +293,10 @@ mod tests {
             }
         }
 
+        // v3.0.14 tools/list did not advertise prefer_speed (unknown keys were
+        // stripped). Current product intentionally exposes prefer_speed as a
+        // post-3.0.14 additive search_pdf property while dropInFor3014 stays false.
+        const POST_3014_ADDITIVE: &[(&str, &str)] = &[("search_pdf", "prefer_speed")];
         for fact in oracle["absentProperties"]
             .as_array()
             .expect("absent properties")
@@ -301,10 +305,32 @@ mod tests {
             let property = fact["property"].as_str().expect("absent property");
             let schema = tool_schema(tool);
             let properties = schema["properties"].as_object().expect("tool properties");
-            assert!(
-                !properties.contains_key(property),
-                "v3.0.14 {tool} must not expose {property}"
-            );
+            if POST_3014_ADDITIVE.contains(&(tool, property)) {
+                assert!(
+                    properties.contains_key(property),
+                    "post-3.0.14 {tool} must expose additive property {property}"
+                );
+                let ty = properties[property]
+                    .get("type")
+                    .and_then(|value| value.as_str())
+                    .or_else(|| {
+                        properties[property]
+                            .get("anyOf")
+                            .and_then(|value| value.as_array())
+                            .and_then(|items| {
+                                items.iter().find_map(|item| item.get("type").and_then(|t| t.as_str()))
+                            })
+                    });
+                assert!(
+                    matches!(ty, Some("boolean")),
+                    "post-3.0.14 {tool}.{property} must be boolean-typed, got {ty:?}"
+                );
+            } else {
+                assert!(
+                    !properties.contains_key(property),
+                    "v3.0.14 {tool} must not expose {property}"
+                );
+            }
         }
 
         let read_json = tool_schema("read_pdf").to_string();

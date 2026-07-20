@@ -768,6 +768,31 @@ mod tests {
     }
 
     #[test]
+    fn page_labels_kids_number_tree_matches_pdfjs() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-page-labels-kids-v1.pdf");
+        if !path.is_file() {
+            return;
+        }
+        let document = Document::load(path).expect("load kids labels fixture");
+        let out = extract_catalog_signals(
+            &document,
+            None,
+            3,
+            CatalogSignalRequest {
+                page_labels: true,
+                permissions: false,
+                outline: false,
+            },
+        );
+        assert_eq!(
+            out.page_labels,
+            Some(vec!["i".to_string(), "ii".to_string(), "10".to_string()])
+        );
+    }
+
+
+    #[test]
     fn invalid_page_label_dictionary_omits_the_whole_surface() {
         let doc = document(dictionary! {
             "PageLabels"=>dictionary!{"Nums"=>vec![

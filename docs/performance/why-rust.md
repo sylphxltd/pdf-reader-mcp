@@ -315,6 +315,15 @@ A frozen two-case public-stdio `read_pdf` `include_annotations` text inverted-re
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` remote named-dest residual is admitted: GoToR with named dest string and PDF name-object `D` append as `file#name` (pdf.js `fetchRemoteDest`) and suppress `dest`; explicit-array GoToR control keeps `file#` + JSON dest. Leaf-mutation count is frozen at 42 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; GoToE attachments, `newWindow`, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+### read_pdf include_page_labels kids residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_page_labels` residual is admitted: PageLabels number-tree `Kids` nodes expand like pdf.js (internal Kids ignore sibling Nums), multi-style control remains stable, and absent labels omit `page_labels`. Leaf-mutation count is frozen at 18 with relocated fixture-root replay. `include_page_labels` remains `PARTIAL`; hostile label overflow and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
+
+Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
+
+
 
 
 
