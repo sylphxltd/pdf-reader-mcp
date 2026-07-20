@@ -335,6 +335,21 @@ const formRadioGroupCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const attachmentResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-attachment-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxAttachmentsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -530,13 +545,28 @@ const formRadioGroupWorkflowStart = differentialWorkflow.indexOf(
   'FORM_RADIO_GROUP_ARTIFACT="${SCRATCH_DIR}/v3014-form-radio-group-result.json"'
 );
 const formRadioGroupWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ATTACHMENT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-residual-result.json"',
   formRadioGroupWorkflowStart
 );
 const formRadioGroupWorkflow =
   formRadioGroupWorkflowStart >= 0 &&
   formRadioGroupWorkflowEnd > formRadioGroupWorkflowStart
     ? differentialWorkflow.slice(formRadioGroupWorkflowStart, formRadioGroupWorkflowEnd)
+    : '';
+const attachmentResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ATTACHMENT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-residual-result.json"'
+);
+const attachmentResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  attachmentResidualWorkflowStart
+);
+const attachmentResidualWorkflow =
+  attachmentResidualWorkflowStart >= 0 &&
+  attachmentResidualWorkflowEnd > attachmentResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        attachmentResidualWorkflowStart,
+        attachmentResidualWorkflowEnd
+      )
     : '';
 
 const failures: string[] = [];
@@ -2118,6 +2148,94 @@ if (
   )
 ) {
   failures.push('form radio-group bounded claim and explicit nonclaims must remain documented');
+}
+
+const attachmentResidualCaseCount = attachmentResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-attachment-residual-differential')) {
+  failures.push('rust parity workflow must execute the frozen attachment residual differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-attachment-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-attachment-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AttachmentResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AttachmentResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AttachmentResidualOracleHash')
+) {
+  failures.push('repository differential artifact must bind the attachment residual family');
+}
+if (
+  !attachmentResidualWorkflow.includes(`.caseCount == ${attachmentResidualCaseCount}`) ||
+  !attachmentResidualWorkflow.includes(`.passed == ${attachmentResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${attachmentResidualCaseCount}/${attachmentResidualCaseCount} attachment residual corpus`
+  );
+}
+if (
+  attachmentResidualCaseCount !== 2 ||
+  attachmentResidualCorpus.envelope.fixtureCount !== 2 ||
+  attachmentResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  attachmentResidualCorpus.nonclaims.publishFreeze !== true ||
+  attachmentResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'attachment residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !attachmentResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_attachment_residual_result"'
+  ) ||
+  !attachmentResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 17') ||
+  !attachmentResidualWorkflow.includes(
+    '.providerProof.nameTreeKidsWinOverNames == true'
+  ) ||
+  !attachmentResidualWorkflow.includes('.providerProof.trailingSlashUnnamed == true') ||
+  !attachmentResidualWorkflow.includes('.providerProof.windowsPathBasename == true') ||
+  !attachmentResidualWorkflow.includes(
+    '.capabilityStatus.includeAttachments == "PARTIAL"'
+  ) ||
+  !attachmentResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !attachmentResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'attachment residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-attachment-residual-differential.ts',
+  'scripts/differential/capture-v3014-attachment-residual-oracle.ts',
+  'v3014-attachment-residual-baseline-runner.ts',
+  'v3014-attachment-residual-projection.ts',
+  'v3014-attachment-residual-corpus.json',
+  'v3014-attachment-residual-oracle.json',
+  'v3014-attachment-kids-v1.pdf',
+  'v3014-attachment-filename-v1.pdf',
+  'v3014AttachmentResidualCaseCount',
+  'v3014AttachmentResidualCorpusHash',
+  'v3014AttachmentResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind attachment residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 2-case') && claim.includes('include_attachments residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_attachments outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'attachment residual bounded claim and explicit nonclaims must remain documented'
+  );
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
