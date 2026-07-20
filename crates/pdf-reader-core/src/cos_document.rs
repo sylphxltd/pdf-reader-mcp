@@ -15,9 +15,12 @@ pub(crate) struct ParsedPdf {
     pub source_hash: String,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct EncryptionFacts {
     pub permissions: Option<i64>,
+    /// Security handler name from Encrypt.Filter (pdf.js EncryptFilterName).
+    /// Captured before lopdf removes the Encrypt dictionary on empty-password decrypt.
+    pub filter_name: Option<String>,
 }
 
 impl ParsedPdf {
@@ -77,18 +80,30 @@ impl ParsedPdf {
 
 fn read_encryption_facts(document: &Document) -> Option<EncryptionFacts> {
     if let Ok(dictionary) = document.get_encrypted() {
+        let filter_name = dictionary
+            .get(b"Filter")
+            .ok()
+            .and_then(|value| value.as_name().ok())
+            .and_then(|value| std::str::from_utf8(value).ok())
+            .map(|value| value.to_string())
+            .filter(|value| !value.is_empty());
         return Some(EncryptionFacts {
             permissions: dictionary
                 .get(b"P")
                 .ok()
                 .and_then(|value| value.as_i64().ok()),
+            filter_name,
         });
     }
+    // lopdf only supports the Standard security handler and removes Encrypt on
+    // empty-password decrypt. When encryption_state remains, pdf.js still exposes
+    // EncryptFilterName="Standard".
     document
         .encryption_state
         .as_ref()
         .map(|state| EncryptionFacts {
             permissions: Some(state.permissions().p_value() as i64),
+            filter_name: Some("Standard".to_string()),
         })
 }
 

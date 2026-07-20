@@ -1279,7 +1279,7 @@ fn read_local_pdf_filtered(
 ) -> Result<ReadPdfSourceResult, ReadPdfError> {
     let parsed = crate::cos_document::ParsedPdf::load(path, DEFAULT_MAX_FILE_BYTES)?;
     let requires_text = requires_text_extraction(input);
-    let (pages, pdf_info) = if requires_text {
+    let (pages, mut pdf_info) = if requires_text {
         let extracted = extract_pdf_text_from_document(&parsed.document)?;
         (extracted.pages, extracted.info)
     } else {
@@ -1294,6 +1294,17 @@ fn read_local_pdf_filtered(
             crate::text_index::read_pdf_info(&parsed.document),
         )
     };
+    // Encrypt dictionary is removed after empty-password decrypt; restore
+    // pdf.js EncryptFilterName from pre-decrypt encryption facts when needed.
+    if pdf_info.encrypt_filter_name.is_none() {
+        if let Some(filter_name) = parsed
+            .encryption_facts
+            .as_ref()
+            .and_then(|facts| facts.filter_name.clone())
+        {
+            pdf_info.encrypt_filter_name = Some(filter_name);
+        }
+    }
     let total_pages = parsed.pages.len().max(1) as u32;
     let explicit_pages = parse_page_spec(pages_spec)?;
     let auto_pages = if explicit_pages.is_none()
@@ -1692,6 +1703,40 @@ mod tests {
         assert_eq!(
             info.get("IsAcroFormPresent").and_then(Value::as_bool),
             Some(true)
+        );
+    }
+
+    #[test]
+    fn encrypted_pdf_info_exposes_standard_encrypt_filter_name() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-permissions-print-copy-fill-a11y-v1.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+        let response = read_pdf(&ReadPdfInput {
+            sources: vec![ReadPdfSource {
+                path: Some(fixture.to_string_lossy().to_string()),
+                url: None,
+                pages: Some(json!([1])),
+            }],
+            auto: Some(false),
+            include_metadata: true,
+            include_page_count: true,
+            ..Default::default()
+        })
+        .expect("read encrypted residual fixture");
+        let info = response.results[0]
+            .data
+            .as_ref()
+            .expect("data")
+            .info
+            .as_ref()
+            .expect("info")
+            .as_object()
+            .expect("object");
+        assert_eq!(
+            info.get("EncryptFilterName").and_then(Value::as_str),
+            Some("Standard")
         );
     }
 
