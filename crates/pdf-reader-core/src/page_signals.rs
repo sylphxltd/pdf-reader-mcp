@@ -267,21 +267,28 @@ fn border_style_width(
     // - else Border short array / missing => width 0
     // Drawing paths then use `width || 1`.
     // When W exceeds half of either Rect dimension (both dimensions > 0), pdf.js clamps to 1.
-    let raw = if let Some(bs) = dict
-        .get(b"BS")
-        .ok()
-        .and_then(|value| resolve(document, value).ok())
-        .and_then(|value| value.as_dict().ok())
-    {
-        let type_ok = match bs.get(b"Type").ok() {
-            None => true,
-            Some(value) => value.as_name().ok().is_some_and(|name| name == b"Border"),
-        };
-        if type_ok {
-            bs.get(b"W")
-                .ok()
-                .and_then(|value| object_number(document, value))
-                .unwrap_or(1.0)
+    // pdf.js: if the BS key is present, never fall through to Border — even when
+    // BS is null/non-dict or has a non-Border Type. Default AnnotationBorderStyle
+    // width is 1; drawing paths still apply `width || 1`.
+    let raw = if dict.get(b"BS").is_ok() {
+        if let Some(bs) = dict
+            .get(b"BS")
+            .ok()
+            .and_then(|value| resolve(document, value).ok())
+            .and_then(|value| value.as_dict().ok())
+        {
+            let type_ok = match bs.get(b"Type").ok() {
+                None => true,
+                Some(value) => value.as_name().ok().is_some_and(|name| name == b"Border"),
+            };
+            if type_ok {
+                bs.get(b"W")
+                    .ok()
+                    .and_then(|value| object_number(document, value))
+                    .unwrap_or(1.0)
+            } else {
+                1.0
+            }
         } else {
             1.0
         }
@@ -1752,6 +1759,40 @@ mod tests {
                 .join(fixture);
             assert!(path.is_file(), "missing fixture {fixture}");
             let document = Document::load(&path).expect("load border BS preference fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
+    #[test]
+    fn border_bs_nondict_does_not_fall_through_to_border_array() {
+        // BS null with Border [0 0 9] must keep default width 1, not Border[2]=9.
+        let cases = [
+            (
+                "v3014-annotation-polyline-border-bs-null-v1.pdf",
+                "PolyLine",
+                json!({"left": 8.0, "bottom": 8.0, "right": 102.0, "top": 82.0}),
+            ),
+            (
+                "v3014-annotation-line-border-bs-null-v1.pdf",
+                "Line",
+                json!({"left": 7.0, "bottom": 7.0, "right": 103.0, "top": 83.0}),
+            ),
+            (
+                "v3014-annotation-ink-border-bs-null-v1.pdf",
+                "Ink",
+                json!({"left": 28.0, "bottom": 28.0, "right": 102.0, "top": 92.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load border BS nondict fixture");
             let pages = document.get_pages().into_iter().collect::<Vec<_>>();
             let signals = extract_page_signals(&document, &pages, &[1], false, true);
             let ann = &signals.annotations[0]["annotations"][0];
