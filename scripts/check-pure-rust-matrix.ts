@@ -499,6 +499,21 @@ const outlineResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const permissionsResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-permissions-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxPermissionsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -841,13 +856,28 @@ const outlineResidualWorkflowStart = differentialWorkflow.indexOf(
   'OUTLINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-residual-result.json"'
 );
 const outlineResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'PERMISSIONS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-permissions-residual-result.json"',
   outlineResidualWorkflowStart
 );
 const outlineResidualWorkflow =
   outlineResidualWorkflowStart >= 0 &&
   outlineResidualWorkflowEnd > outlineResidualWorkflowStart
     ? differentialWorkflow.slice(outlineResidualWorkflowStart, outlineResidualWorkflowEnd)
+    : '';
+const permissionsResidualWorkflowStart = differentialWorkflow.indexOf(
+  'PERMISSIONS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-permissions-residual-result.json"'
+);
+const permissionsResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  permissionsResidualWorkflowStart
+);
+const permissionsResidualWorkflow =
+  permissionsResidualWorkflowStart >= 0 &&
+  permissionsResidualWorkflowEnd > permissionsResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        permissionsResidualWorkflowStart,
+        permissionsResidualWorkflowEnd
+      )
     : '';
 
 const failures: string[] = [];
@@ -3475,6 +3505,114 @@ if (
 ) {
   failures.push(
     'outline residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const permissionsResidualCaseCount = permissionsResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-permissions-residual-differential')) {
+  failures.push(
+    'rust parity workflow must execute the frozen permissions residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-permissions-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-permissions-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PermissionsResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PermissionsResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PermissionsResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the permissions residual family'
+  );
+}
+if (
+  !permissionsResidualWorkflow.includes(
+    `.caseCount == ${permissionsResidualCaseCount}`
+  ) ||
+  !permissionsResidualWorkflow.includes(
+    `.passed == ${permissionsResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${permissionsResidualCaseCount}/${permissionsResidualCaseCount} permissions residual corpus`
+  );
+}
+if (
+  permissionsResidualCaseCount !== 4 ||
+  permissionsResidualCorpus.envelope.fixtureCount !== 4 ||
+  permissionsResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  permissionsResidualCorpus.nonclaims.publishFreeze !== true ||
+  permissionsResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'permissions residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !permissionsResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_permissions_residual_result"'
+  ) ||
+  !permissionsResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 25'
+  ) ||
+  !permissionsResidualWorkflow.includes(
+    '.providerProof.printCopyFillA11y == true'
+  ) ||
+  !permissionsResidualWorkflow.includes(
+    '.providerProof.modifyAnnotateAssemble == true'
+  ) ||
+  !permissionsResidualWorkflow.includes(
+    '.providerProof.printHighQuality == true'
+  ) ||
+  !permissionsResidualWorkflow.includes(
+    '.providerProof.unencryptedOmitsPermissions == true'
+  ) ||
+  !permissionsResidualWorkflow.includes(
+    '.capabilityStatus.includePermissions == "PARTIAL"'
+  ) ||
+  !permissionsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !permissionsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'permissions residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-permissions-residual-differential.ts',
+  'scripts/differential/capture-v3014-permissions-residual-oracle.ts',
+  'v3014-permissions-residual-baseline-runner.ts',
+  'v3014-permissions-residual-projection.ts',
+  'v3014-permissions-residual-corpus.json',
+  'v3014-permissions-residual-oracle.json',
+  'v3014-permissions-print-copy-fill-a11y-v1.pdf',
+  'v3014-permissions-modify-annotate-assemble-v1.pdf',
+  'v3014-permissions-print-hq-v1.pdf',
+  'v3014-permissions-none-v1.pdf',
+  'v3014PermissionsResidualCaseCount',
+  'v3014PermissionsResidualCorpusHash',
+  'v3014PermissionsResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind permissions residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 4-case') && claim.includes('include_permissions residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_permissions residual outside the frozen 4-case')
+  )
+) {
+  failures.push(
+    'permissions residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
