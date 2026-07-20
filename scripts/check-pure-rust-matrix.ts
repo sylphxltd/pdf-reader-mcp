@@ -379,6 +379,21 @@ const formParentChildCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxAnnotationsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -613,13 +628,25 @@ const formParentChildWorkflowStart = differentialWorkflow.indexOf(
   'FORM_PARENT_CHILD_ARTIFACT="${SCRATCH_DIR}/v3014-form-parent-child-result.json"'
 );
 const formParentChildWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-residual-result.json"',
   formParentChildWorkflowStart
 );
 const formParentChildWorkflow =
   formParentChildWorkflowStart >= 0 &&
   formParentChildWorkflowEnd > formParentChildWorkflowStart
     ? differentialWorkflow.slice(formParentChildWorkflowStart, formParentChildWorkflowEnd)
+    : '';
+const annotationResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-residual-result.json"'
+);
+const annotationResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationResidualWorkflowStart
+);
+const annotationResidualWorkflow =
+  annotationResidualWorkflowStart >= 0 &&
+  annotationResidualWorkflowEnd > annotationResidualWorkflowStart
+    ? differentialWorkflow.slice(annotationResidualWorkflowStart, annotationResidualWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -2465,6 +2492,96 @@ if (
 ) {
   failures.push(
     'form parent-child bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const annotationResidualCaseCount = annotationResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-annotation-residual-differential')) {
+  failures.push('rust parity workflow must execute the frozen annotation residual differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationResidualOracleHash')
+) {
+  failures.push('repository differential artifact must bind the annotation residual family');
+}
+if (
+  !annotationResidualWorkflow.includes(`.caseCount == ${annotationResidualCaseCount}`) ||
+  !annotationResidualWorkflow.includes(`.passed == ${annotationResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationResidualCaseCount}/${annotationResidualCaseCount} annotation residual corpus`
+  );
+}
+if (
+  annotationResidualCaseCount !== 2 ||
+  annotationResidualCorpus.envelope.fixtureCount !== 2 ||
+  annotationResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_residual_result"'
+  ) ||
+  !annotationResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 44') ||
+  !annotationResidualWorkflow.includes(
+    '.providerProof.freeTextAndLinkFullBoxes == true'
+  ) ||
+  !annotationResidualWorkflow.includes('.providerProof.multiPageFreeText == true') ||
+  !annotationResidualWorkflow.includes(
+    '.providerProof.textContentTitleWithoutBoxes == true'
+  ) ||
+  !annotationResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-residual-oracle.ts',
+  'v3014-annotation-residual-baseline-runner.ts',
+  'v3014-annotation-residual-projection.ts',
+  'v3014-annotation-residual-corpus.json',
+  'v3014-annotation-residual-oracle.json',
+  'v3014-annotation-link-freetext-v1.pdf',
+  'v3014-annotation-text-content-v1.pdf',
+  'v3014AnnotationResidualCaseCount',
+  'v3014AnnotationResidualCorpusHash',
+  'v3014AnnotationResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 2-case') && claim.includes('include_annotations residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_annotations outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'annotation residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
