@@ -407,6 +407,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` AP non-stream 
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state residual is admitted: when `AP/N` is a named-state dictionary, pdf.js `Annotation.setAppearance` selects the `AS` stream (appearance present → Line keeps raw Rect) and leaves appearance unset when `AS` is missing or does not select a stream (Line still expands L geometry with `BS/W`). Fixtures prove Line `AS /On` keeps `{200,200,300,300}` while missing/`Off` AS expand to `{4,4,106,86}` with `BS/W=2` on non-intersecting large Rect. Leaf-mutation count is frozen at 39. Appearance-stream content bbox derivation, line endings `LE`, PolyLine/Ink named-state breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+
+### read_pdf include_annotations AP named-state polyline/ink residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state polyline/ink residual is admitted: PolyLine/Ink `AP/N` named-state dictionaries follow pdf.js `Annotation.setAppearance` AS selection — `AS` stream keeps raw Rect; missing/invalid AS leaves appearance unset so PolyLine/Ink expand vertices/InkList with `BS/W`. Fixtures prove PolyLine `AS /On` keeps `{200,200,300,300}`, Ink missing AS expands to `{26,26,104,94}`, and PolyLine invalid AS expands to `{6,6,104,84}` with `BS/W=2` on non-intersecting large Rect. Leaf-mutation count is frozen at 39. Appearance-stream content bbox derivation, line endings `LE`, Square/Circle named-state breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
