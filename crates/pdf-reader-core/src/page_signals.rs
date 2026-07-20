@@ -414,25 +414,48 @@ fn destination(
     value: &Object,
     budget: &mut SignalTextBudget,
 ) -> Option<Value> {
-    let value = resolve(document, value).ok()?;
+    // Match pdf.js annotation dest shape: keep page object refs as {num,gen}
+    // and name tokens as {name}, without resolving array members first.
+    let value = match value {
+        Object::Reference(_) => resolve(document, value).ok()?,
+        other => other,
+    };
     match value {
         Object::String(_, _) => decoded_string(document, value, budget).map(Value::String),
         Object::Name(_) => bounded_name(value, budget).map(Value::String),
-        Object::Array(values) if values.len() <= 8 => Some(Value::Array(
-            values
-                .iter()
-                .filter_map(|value| match resolve(document, value).ok()? {
+        Object::Array(values) if values.len() <= 8 => {
+            let mut parts = Vec::with_capacity(values.len());
+            for part in values {
+                let projected = match part {
+                    Object::Reference((object, generation)) => {
+                        Some(json!({ "num": object, "gen": generation }))
+                    }
                     Object::Integer(value) => Some(json!(value)),
                     Object::Real(value) => Some(json!(value)),
                     Object::Name(_) => {
-                        bounded_name(resolve(document, value).ok()?, budget).map(Value::String)
+                        bounded_name(part, budget).map(|name| json!({ "name": name }))
+                    }
+                    Object::String(_, _) => {
+                        decoded_string(document, part, budget).map(Value::String)
                     }
                     Object::Null => Some(Value::Null),
-                    Object::Reference((object, generation)) => Some(json!([object, generation])),
-                    _ => None,
-                })
-                .collect(),
-        )),
+                    other => match resolve(document, other).ok()? {
+                        Object::Integer(value) => Some(json!(value)),
+                        Object::Real(value) => Some(json!(value)),
+                        Object::Name(_) => bounded_name(resolve(document, other).ok()?, budget)
+                            .map(|name| json!({ "name": name })),
+                        Object::String(_, _) => {
+                            decoded_string(document, resolve(document, other).ok()?, budget)
+                                .map(Value::String)
+                        }
+                        Object::Null => Some(Value::Null),
+                        _ => None,
+                    },
+                }?;
+                parts.push(projected);
+            }
+            Some(Value::Array(parts))
+        }
         _ => None,
     }
 }
@@ -499,6 +522,62 @@ mod tests {
                     "bounding_box": { "left": 50.0, "bottom": 150.0, "right": 100.0, "top": 200.0 },
                 }],
             })]
+        );
+    }
+
+    #[test]
+    fn dest_only_link_keeps_pdfjs_page_ref_and_name_shape() {
+        let mut document = Document::with_version("1.7");
+        let pages_id = document.new_object_id();
+        let font_id = document.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+        });
+        let page_two_id = document.new_object_id();
+        let link_id = document.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Link",
+            "Rect" => vec![72.into(), 500.into(), 140.into(), 530.into()],
+            "Dest" => vec![Object::Reference(page_two_id), Object::Name("Fit".into())],
+        });
+        let page_one_id = document.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+            "Annots" => vec![Object::Reference(link_id)],
+        });
+        document.objects.insert(
+            page_two_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+                "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+            }),
+        );
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![Object::Reference(page_one_id), Object::Reference(page_two_id)],
+                "Count" => 2,
+            }),
+        );
+        let catalog_id = document.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        document.trailer.set("Root", catalog_id);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(signals.warnings, Vec::<String>::new());
+        let annotations = &signals.annotations[0]["annotations"].as_array().unwrap()[0];
+        assert_eq!(annotations["subtype"], json!("Link"));
+        assert_eq!(
+            annotations["dest"],
+            json!([{ "num": page_two_id.0, "gen": page_two_id.1 }, { "name": "Fit" }])
         );
     }
 
