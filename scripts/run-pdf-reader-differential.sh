@@ -36,6 +36,7 @@ V3014_URL_SINGLE_FETCH_JSON="$SCRATCH/v3014-url-single-fetch-result.json"
 V3014_OCR_SEARCH_TSV_JSON="$SCRATCH/v3014-ocr-search-tsv-result.json"
 V3014_SEARCH_MULTIWORD_GEOMETRY_JSON="$SCRATCH/v3014-search-multiword-geometry-result.json"
 V3014_FORM_RESIDUAL_JSON="$SCRATCH/v3014-form-residual-result.json"
+V3014_FORM_RADIO_GROUP_JSON="$SCRATCH/v3014-form-radio-group-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -220,6 +221,11 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-form-residual-oracle.ts" 2>&1
 bun "$REPO_ROOT/scripts/differential/check-v3014-form-residual-differential.ts" \
   --output "$V3014_FORM_RESIDUAL_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 form radio-group differential (2 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-form-radio-group-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-form-radio-group-differential.ts" \
+  --output "$V3014_FORM_RADIO_GROUP_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -346,6 +352,12 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-form-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-residual-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-coercion-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-form-radio-group-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-form-radio-group-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-radio-group-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-radio-group-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-group-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-group-three-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -496,6 +508,11 @@ V3014_FORM_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_RESIDUAL_JSON")"
 V3014_FORM_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_RESIDUAL_JSON")"
 V3014_FORM_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_RESIDUAL_JSON")"
 V3014_FORM_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_RESIDUAL_JSON")"
+V3014_FORM_RADIO_GROUP_CASE_COUNT="$(jq '.caseCount' "$V3014_FORM_RADIO_GROUP_JSON")"
+V3014_FORM_RADIO_GROUP_PASSED="$(jq '.passed' "$V3014_FORM_RADIO_GROUP_JSON")"
+V3014_FORM_RADIO_GROUP_SKIPPED="$(jq '.skipped' "$V3014_FORM_RADIO_GROUP_JSON")"
+V3014_FORM_RADIO_GROUP_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_RADIO_GROUP_JSON")"
+V3014_FORM_RADIO_GROUP_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_RADIO_GROUP_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -572,6 +589,8 @@ jq -n \
   --arg v3014SearchMultiwordGeometryOracleHash "$V3014_SEARCH_MULTIWORD_GEOMETRY_ORACLE_HASH" \
   --arg v3014FormResidualCorpusHash "$V3014_FORM_RESIDUAL_CORPUS_HASH" \
   --arg v3014FormResidualOracleHash "$V3014_FORM_RESIDUAL_ORACLE_HASH" \
+  --arg v3014FormRadioGroupCorpusHash "$V3014_FORM_RADIO_GROUP_CORPUS_HASH" \
+  --arg v3014FormRadioGroupOracleHash "$V3014_FORM_RADIO_GROUP_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -663,6 +682,9 @@ jq -n \
   --argjson v3014FormResidualCaseCount "$V3014_FORM_RESIDUAL_CASE_COUNT" \
   --argjson v3014FormResidualPassed "$V3014_FORM_RESIDUAL_PASSED" \
   --argjson v3014FormResidualSkipped "$V3014_FORM_RESIDUAL_SKIPPED" \
+  --argjson v3014FormRadioGroupCaseCount "$V3014_FORM_RADIO_GROUP_CASE_COUNT" \
+  --argjson v3014FormRadioGroupPassed "$V3014_FORM_RADIO_GROUP_PASSED" \
+  --argjson v3014FormRadioGroupSkipped "$V3014_FORM_RADIO_GROUP_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -821,6 +843,11 @@ jq -n \
     v3014FormResidualCaseCount: $v3014FormResidualCaseCount,
     v3014FormResidualPassed: $v3014FormResidualPassed,
     v3014FormResidualSkipped: $v3014FormResidualSkipped,
+    v3014FormRadioGroupCorpusHash: $v3014FormRadioGroupCorpusHash,
+    v3014FormRadioGroupOracleHash: $v3014FormRadioGroupOracleHash,
+    v3014FormRadioGroupCaseCount: $v3014FormRadioGroupCaseCount,
+    v3014FormRadioGroupPassed: $v3014FormRadioGroupPassed,
+    v3014FormRadioGroupSkipped: $v3014FormRadioGroupSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -887,6 +914,8 @@ jq -n \
     immutableSearchMultiwordGeometryDifferential: "scripts/differential/check-v3014-search-multiword-geometry-differential.ts",
     immutableFormResidualOracle: "scripts/differential/fixtures/v3014-form-residual-oracle.json",
     immutableFormResidualDifferential: "scripts/differential/check-v3014-form-residual-differential.ts",
+    immutableFormRadioGroupOracle: "scripts/differential/fixtures/v3014-form-radio-group-oracle.json",
+    immutableFormRadioGroupDifferential: "scripts/differential/check-v3014-form-radio-group-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",

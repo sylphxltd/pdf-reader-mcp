@@ -320,6 +320,21 @@ const formResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formRadioGroupCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-radio-group-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxFieldsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -504,12 +519,24 @@ const formResidualWorkflowStart = differentialWorkflow.indexOf(
   'FORM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-residual-result.json"'
 );
 const formResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'FORM_RADIO_GROUP_ARTIFACT="${SCRATCH_DIR}/v3014-form-radio-group-result.json"',
   formResidualWorkflowStart
 );
 const formResidualWorkflow =
   formResidualWorkflowStart >= 0 && formResidualWorkflowEnd > formResidualWorkflowStart
     ? differentialWorkflow.slice(formResidualWorkflowStart, formResidualWorkflowEnd)
+    : '';
+const formRadioGroupWorkflowStart = differentialWorkflow.indexOf(
+  'FORM_RADIO_GROUP_ARTIFACT="${SCRATCH_DIR}/v3014-form-radio-group-result.json"'
+);
+const formRadioGroupWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  formRadioGroupWorkflowStart
+);
+const formRadioGroupWorkflow =
+  formRadioGroupWorkflowStart >= 0 &&
+  formRadioGroupWorkflowEnd > formRadioGroupWorkflowStart
+    ? differentialWorkflow.slice(formRadioGroupWorkflowStart, formRadioGroupWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -2013,6 +2040,84 @@ if (
   )
 ) {
   failures.push('form residual bounded claim and explicit nonclaims must remain documented');
+}
+
+const formRadioGroupCaseCount = formRadioGroupCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-form-radio-group-differential')) {
+  failures.push('rust parity workflow must execute the frozen form radio-group differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-radio-group-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-radio-group-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormRadioGroupCaseCount') ||
+  !repositoryDifferential.includes('v3014FormRadioGroupCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormRadioGroupOracleHash')
+) {
+  failures.push('repository differential artifact must bind the form radio-group family');
+}
+if (
+  !formRadioGroupWorkflow.includes(`.caseCount == ${formRadioGroupCaseCount}`) ||
+  !formRadioGroupWorkflow.includes(`.passed == ${formRadioGroupCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${formRadioGroupCaseCount}/${formRadioGroupCaseCount} form radio-group corpus`
+  );
+}
+if (
+  formRadioGroupCaseCount !== 2 ||
+  formRadioGroupCorpus.envelope.fixtureCount !== 2 ||
+  formRadioGroupCorpus.nonclaims.dropInFor3014 !== false ||
+  formRadioGroupCorpus.nonclaims.publishFreeze !== true ||
+  formRadioGroupCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push('form radio-group corpus envelope and product-truth nonclaims must remain frozen');
+}
+if (
+  !formRadioGroupWorkflow.includes('.profile == "pdf_reader_v3014_form_radio_group_result"') ||
+  !formRadioGroupWorkflow.includes('.mutationSensitive.leafMutationCount == 78') ||
+  !formRadioGroupWorkflow.includes('.providerProof.parentStubPlusRadiobuttonKids == true') ||
+  !formRadioGroupWorkflow.includes('.providerProof.inheritedValueAndDefault == true') ||
+  !formRadioGroupWorkflow.includes('.providerProof.threeOptionRadioGroup == true') ||
+  !formRadioGroupWorkflow.includes('.capabilityStatus.includeFormFields == "PARTIAL"') ||
+  !formRadioGroupWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !formRadioGroupWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'form radio-group workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-form-radio-group-differential.ts',
+  'scripts/differential/capture-v3014-form-radio-group-oracle.ts',
+  'v3014-form-radio-group-baseline-runner.ts',
+  'v3014-form-radio-group-projection.ts',
+  'v3014-form-radio-group-corpus.json',
+  'v3014-form-radio-group-oracle.json',
+  'v3014-form-radio-group-v1.pdf',
+  'v3014-form-radio-group-three-v1.pdf',
+  'v3014FormRadioGroupCaseCount',
+  'v3014FormRadioGroupCorpusHash',
+  'v3014FormRadioGroupOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind form radio-group family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 2-case') && claim.includes('radio-group residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('radio-group outside the frozen 2-case')
+  )
+) {
+  failures.push('form radio-group bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
