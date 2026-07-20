@@ -402,6 +402,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` appearance bbo
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` AP non-stream residual is admitted: when `AP/N` is present but is not a usable appearance stream (`null` or name), pdf.js `Annotation.setAppearance` leaves appearance unset, so Line/PolyLine/Ink still apply no-appearance L/vertices/InkList bounding-box expansion with `BS/W`. Fixtures prove Line/Ink `AP/N null` and PolyLine `AP/N /NotAStream` with non-intersecting large Rect and `BS/W=2` expand geometry instead of keeping raw Rect. Leaf-mutation count is frozen at 39. Named appearance-state selection, appearance-stream content bbox derivation, line endings `LE`, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+
+### read_pdf include_annotations AP named-state residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state residual is admitted: when `AP/N` is a named-state dictionary, pdf.js `Annotation.setAppearance` selects the `AS` stream (appearance present → Line keeps raw Rect) and leaves appearance unset when `AS` is missing or does not select a stream (Line still expands L geometry with `BS/W`). Fixtures prove Line `AS /On` keeps `{200,200,300,300}` while missing/`Off` AS expand to `{4,4,106,86}` with `BS/W=2` on non-intersecting large Rect. Leaf-mutation count is frozen at 39. Appearance-stream content bbox derivation, line endings `LE`, PolyLine/Ink named-state breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
