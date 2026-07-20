@@ -808,6 +808,20 @@ const lineAnnotationResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const polylinePolygonResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-polyline-polygon-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1484,7 +1498,7 @@ const lineAnnotationResidualWorkflowStart = differentialWorkflow.indexOf(
   'LINE_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-line-annotation-residual-result.json"'
 );
 const lineAnnotationResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'POLYLINE_POLYGON_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-polyline-polygon-residual-result.json"',
   lineAnnotationResidualWorkflowStart
 );
 const lineAnnotationResidualWorkflow =
@@ -1493,6 +1507,21 @@ const lineAnnotationResidualWorkflow =
     ? differentialWorkflow.slice(
         lineAnnotationResidualWorkflowStart,
         lineAnnotationResidualWorkflowEnd
+      )
+    : '';
+const polylinePolygonResidualWorkflowStart = differentialWorkflow.indexOf(
+  'POLYLINE_POLYGON_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-polyline-polygon-residual-result.json"'
+);
+const polylinePolygonResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  polylinePolygonResidualWorkflowStart
+);
+const polylinePolygonResidualWorkflow =
+  polylinePolygonResidualWorkflowStart >= 0 &&
+  polylinePolygonResidualWorkflowEnd > polylinePolygonResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        polylinePolygonResidualWorkflowStart,
+        polylinePolygonResidualWorkflowEnd
       )
     : '';
 
@@ -6522,6 +6551,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the line annotation residual and frozen leaf-mutation count'
+  );
+}
+
+const polylinePolygonResidualCaseCount = polylinePolygonResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-polyline-polygon-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen polyline/polygon residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-polyline-polygon-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-polyline-polygon-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PolylinePolygonResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PolylinePolygonResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PolylinePolygonResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the polyline/polygon residual family'
+  );
+}
+if (
+  !polylinePolygonResidualWorkflow.includes(
+    `.caseCount == ${polylinePolygonResidualCaseCount}`
+  ) ||
+  !polylinePolygonResidualWorkflow.includes(
+    `.passed == ${polylinePolygonResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${polylinePolygonResidualCaseCount}/${polylinePolygonResidualCaseCount} polyline/polygon residual corpus`
+  );
+}
+if (
+  polylinePolygonResidualCaseCount !== 3 ||
+  polylinePolygonResidualCorpus.envelope.fixtureCount !== 3 ||
+  polylinePolygonResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  polylinePolygonResidualCorpus.nonclaims.publishFreeze !== true ||
+  polylinePolygonResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'polyline/polygon residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !polylinePolygonResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_polyline_polygon_residual_result"'
+  ) ||
+  !polylinePolygonResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !polylinePolygonResidualWorkflow.includes(
+    '.providerProof.polylineNonIntersectingUsesVerticesBbox == true'
+  ) ||
+  !polylinePolygonResidualWorkflow.includes(
+    '.providerProof.polygonNonIntersectingUsesVerticesBbox == true'
+  ) ||
+  !polylinePolygonResidualWorkflow.includes(
+    '.providerProof.borderWidth2VerticesBbox == true'
+  ) ||
+  !polylinePolygonResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !polylinePolygonResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !polylinePolygonResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'polyline/polygon residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-polyline-polygon-residual-differential.ts',
+  'scripts/differential/capture-v3014-polyline-polygon-residual-oracle.ts',
+  'v3014-polyline-polygon-residual-baseline-runner.ts',
+  'v3014-polyline-polygon-residual-projection.ts',
+  'v3014-polyline-polygon-residual-corpus.json',
+  'v3014-polyline-polygon-residual-oracle.json',
+  'v3014-annotation-polyline-l-bbox-v1.pdf',
+  'v3014-annotation-polygon-l-bbox-v1.pdf',
+  'v3014-annotation-polyline-border2-v1.pdf',
+  'v3014PolylinePolygonResidualCaseCount',
+  'v3014PolylinePolygonResidualCorpusHash',
+  'v3014PolylinePolygonResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind polyline/polygon residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('polyline/polygon residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('polyline/polygon residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'polyline/polygon residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustPolylinePolygon = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustPolylinePolygon.includes('polyline/polygon residual') ||
+  !whyRustPolylinePolygon.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the polyline/polygon residual and frozen leaf-mutation count'
   );
 }
 if (
