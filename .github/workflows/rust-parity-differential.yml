@@ -142,6 +142,7 @@ jobs:
           bun run test:v3014-annotation-action-precedence-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-action-precedence-residual-result.json"
           bun run test:v3014-info-flags-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-flags-residual-result.json"
           bun run test:v3014-page-geometry-residual-differential -- --output "${SCRATCH_DIR}/v3014-page-geometry-residual-result.json"
+          bun run test:v3014-page-labels-residual-differential -- --output "${SCRATCH_DIR}/v3014-page-labels-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1125,6 +1126,33 @@ jobs:
               and .candidateSha == $sha
             ' "$PAGE_GEOMETRY_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 page geometry residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          PAGE_LABELS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-labels-residual-result.json"
+          if [ ! -f "$PAGE_LABELS_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 page labels residual result missing at $PAGE_LABELS_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_page_labels_residual_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 3
+              and .passed == 3
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 17
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.multiStyleLabels == true
+              and .providerProof.prefixStartDecimal == true
+              and .providerProof.absentLabelsOmitted == true
+              and .capabilityStatus.includePageLabels == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$PAGE_LABELS_RESIDUAL_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 page labels residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 

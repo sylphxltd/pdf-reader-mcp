@@ -46,6 +46,7 @@ V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON="$SCRATCH/v3014-annotation-action-des
 V3014_ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-action-precedence-residual-result.json"
 V3014_INFO_FLAGS_RESIDUAL_JSON="$SCRATCH/v3014-info-flags-residual-result.json"
 V3014_PAGE_GEOMETRY_RESIDUAL_JSON="$SCRATCH/v3014-page-geometry-residual-result.json"
+V3014_PAGE_LABELS_RESIDUAL_JSON="$SCRATCH/v3014-page-labels-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -267,6 +268,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-info-flags-residual-differentia
 bun "$REPO_ROOT/scripts/differential/capture-v3014-page-geometry-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-page-geometry-residual-differential.ts" \
   --output "$V3014_PAGE_GEOMETRY_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-page-labels-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-page-labels-residual-differential.ts" \
+  --output "$V3014_PAGE_LABELS_RESIDUAL_JSON" >>"$LOG"
 
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
@@ -457,6 +461,13 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-rotate-userunit-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-default-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-inverted-mediabox-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-page-labels-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-page-labels-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-page-labels-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-page-labels-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-page-labels-multi-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-page-labels-prefix-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-page-labels-none-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -657,6 +668,11 @@ V3014_PAGE_GEOMETRY_RESIDUAL_PASSED="$(jq '.passed' "$V3014_PAGE_GEOMETRY_RESIDU
 V3014_PAGE_GEOMETRY_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_PAGE_GEOMETRY_RESIDUAL_JSON")"
 V3014_PAGE_GEOMETRY_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_PAGE_GEOMETRY_RESIDUAL_JSON")"
 V3014_PAGE_GEOMETRY_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_PAGE_GEOMETRY_RESIDUAL_JSON")"
+V3014_PAGE_LABELS_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_PAGE_LABELS_RESIDUAL_JSON")"
+V3014_PAGE_LABELS_RESIDUAL_PASSED="$(jq '.passed' "$V3014_PAGE_LABELS_RESIDUAL_JSON")"
+V3014_PAGE_LABELS_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_PAGE_LABELS_RESIDUAL_JSON")"
+V3014_PAGE_LABELS_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_PAGE_LABELS_RESIDUAL_JSON")"
+V3014_PAGE_LABELS_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_PAGE_LABELS_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -753,6 +769,8 @@ jq -n \
   --arg v3014InfoFlagsResidualOracleHash "$V3014_INFO_FLAGS_RESIDUAL_ORACLE_HASH" \
   --arg v3014PageGeometryResidualCorpusHash "$V3014_PAGE_GEOMETRY_RESIDUAL_CORPUS_HASH" \
   --arg v3014PageGeometryResidualOracleHash "$V3014_PAGE_GEOMETRY_RESIDUAL_ORACLE_HASH" \
+  --arg v3014PageLabelsResidualCorpusHash "$V3014_PAGE_LABELS_RESIDUAL_CORPUS_HASH" \
+  --arg v3014PageLabelsResidualOracleHash "$V3014_PAGE_LABELS_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -874,6 +892,9 @@ jq -n \
   --argjson v3014PageGeometryResidualCaseCount "$V3014_PAGE_GEOMETRY_RESIDUAL_CASE_COUNT" \
   --argjson v3014PageGeometryResidualPassed "$V3014_PAGE_GEOMETRY_RESIDUAL_PASSED" \
   --argjson v3014PageGeometryResidualSkipped "$V3014_PAGE_GEOMETRY_RESIDUAL_SKIPPED" \
+  --argjson v3014PageLabelsResidualCaseCount "$V3014_PAGE_LABELS_RESIDUAL_CASE_COUNT" \
+  --argjson v3014PageLabelsResidualPassed "$V3014_PAGE_LABELS_RESIDUAL_PASSED" \
+  --argjson v3014PageLabelsResidualSkipped "$V3014_PAGE_LABELS_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -1082,6 +1103,11 @@ jq -n \
     v3014PageGeometryResidualCaseCount: $v3014PageGeometryResidualCaseCount,
     v3014PageGeometryResidualPassed: $v3014PageGeometryResidualPassed,
     v3014PageGeometryResidualSkipped: $v3014PageGeometryResidualSkipped,
+    v3014PageLabelsResidualCorpusHash: $v3014PageLabelsResidualCorpusHash,
+    v3014PageLabelsResidualOracleHash: $v3014PageLabelsResidualOracleHash,
+    v3014PageLabelsResidualCaseCount: $v3014PageLabelsResidualCaseCount,
+    v3014PageLabelsResidualPassed: $v3014PageLabelsResidualPassed,
+    v3014PageLabelsResidualSkipped: $v3014PageLabelsResidualSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -1168,6 +1194,8 @@ jq -n \
     immutableInfoFlagsResidualDifferential: "scripts/differential/check-v3014-info-flags-residual-differential.ts",
     immutablePageGeometryResidualOracle: "scripts/differential/fixtures/v3014-page-geometry-residual-oracle.json",
     immutablePageGeometryResidualDifferential: "scripts/differential/check-v3014-page-geometry-residual-differential.ts",
+    immutablePageLabelsResidualOracle: "scripts/differential/fixtures/v3014-page-labels-residual-oracle.json",
+    immutablePageLabelsResidualDifferential: "scripts/differential/check-v3014-page-labels-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
