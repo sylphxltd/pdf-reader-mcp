@@ -682,6 +682,20 @@ const textNamedAppearanceResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const textInvertedRectResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-text-inverted-rect-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1229,6 +1243,22 @@ const textNamedAppearanceResidualWorkflow =
     ? differentialWorkflow.slice(
         textNamedAppearanceResidualWorkflowStart,
         textNamedAppearanceResidualWorkflowEnd
+      )
+    : '';
+
+const textInvertedRectResidualWorkflowStart = differentialWorkflow.indexOf(
+  'TEXT_INVERTED_RECT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-text-inverted-rect-residual-result.json"'
+);
+const textInvertedRectResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  textInvertedRectResidualWorkflowStart
+);
+const textInvertedRectResidualWorkflow =
+  textInvertedRectResidualWorkflowStart >= 0 &&
+  textInvertedRectResidualWorkflowEnd > textInvertedRectResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        textInvertedRectResidualWorkflowStart,
+        textInvertedRectResidualWorkflowEnd
       )
     : '';
 
@@ -5252,6 +5282,111 @@ if (
     'text named appearance residual bounded claim and explicit nonclaims must remain documented'
   );
 }
+
+const textInvertedRectResidualCaseCount = textInvertedRectResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-text-inverted-rect-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen text inverted-rect residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-text-inverted-rect-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-text-inverted-rect-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014TextInvertedRectResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014TextInvertedRectResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014TextInvertedRectResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the text inverted-rect residual family'
+  );
+}
+if (
+  !textInvertedRectResidualWorkflow.includes(
+    `.caseCount == ${textInvertedRectResidualCaseCount}`
+  ) ||
+  !textInvertedRectResidualWorkflow.includes(
+    `.passed == ${textInvertedRectResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${textInvertedRectResidualCaseCount}/${textInvertedRectResidualCaseCount} text inverted-rect residual corpus`
+  );
+}
+if (
+  textInvertedRectResidualCaseCount !== 2 ||
+  textInvertedRectResidualCorpus.envelope.fixtureCount !== 2 ||
+  textInvertedRectResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  textInvertedRectResidualCorpus.nonclaims.publishFreeze !== true ||
+  textInvertedRectResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'text inverted-rect residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !textInvertedRectResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_text_inverted_rect_residual_result"'
+  ) ||
+  !textInvertedRectResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 28'
+  ) ||
+  !textInvertedRectResidualWorkflow.includes(
+    '.providerProof.invertedTextNoAppearanceIconBox == true'
+  ) ||
+  !textInvertedRectResidualWorkflow.includes(
+    '.providerProof.ordinaryTextNoAppearanceIconBox == true'
+  ) ||
+  !textInvertedRectResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !textInvertedRectResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !textInvertedRectResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'text inverted-rect residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-text-inverted-rect-residual-differential.ts',
+  'scripts/differential/capture-v3014-text-inverted-rect-residual-oracle.ts',
+  'v3014-text-inverted-rect-residual-baseline-runner.ts',
+  'v3014-text-inverted-rect-residual-projection.ts',
+  'v3014-text-inverted-rect-residual-corpus.json',
+  'v3014-text-inverted-rect-residual-oracle.json',
+  'v3014-annotation-text-inverted-v1.pdf',
+  'v3014-annotation-text-noap-v1.pdf',
+  'v3014TextInvertedRectResidualCaseCount',
+  'v3014TextInvertedRectResidualCorpusHash',
+  'v3014TextInvertedRectResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind text inverted-rect residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('text-inverted-rect residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('text-inverted-rect residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'text inverted-rect residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
 
 
 

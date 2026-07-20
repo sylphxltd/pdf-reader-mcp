@@ -307,6 +307,11 @@ A frozen two-case public-stdio `read_pdf` `include_annotations` text-appearance 
 
 A frozen two-case public-stdio `read_pdf` `include_annotations` text named-appearance residual is admitted: Text `AP/N` named-state dictionaries require `AS` selection for `hasAppearance` (pdf.js `setAppearance`); `AS`-selected streams keep raw `/Rect`, while missing `AS` falls back to the 22×22 icon box. Leaf-mutation count is frozen at 28 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; Name field, glyph-perfect boxes, invalid-AS fallback variants, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+### read_pdf include_annotations text-inverted-rect residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_annotations` text inverted-rect residual is admitted: Text without appearance normalizes inverted `/Rect` first (pdf.js `lookupNormalRect`) then applies the 22×22 icon box from the normalized top-left; ordinary no-appearance Text keeps the same icon-box rule. Leaf-mutation count is frozen at 28 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; Name field, glyph-perfect boxes, appearance-stream geometry, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+
 
 
 

@@ -314,10 +314,13 @@ fn normalize_annotation(
         .get(b"Rect")
         .ok()
         .and_then(|value| box_values(document, value));
-    // pdf.js TextAnnotation without appearance forces a 22x22 icon box anchored
-    // at the top-left of Rect: bottom = top - 22, right = left + 22.
+    // pdf.js normalizes Rect first (lookupNormalRect), then TextAnnotation without
+    // appearance forces a 22x22 icon box anchored at the top-left of that box:
+    // bottom = top - 22, right = left + 22.
     if subtype.as_deref() == Some("Text") && !text_annotation_has_appearance(document, dict) {
-        if let Some([left, _bottom, _right, top]) = rect {
+        if let Some([x1, y1, x2, y2]) = rect {
+            let left = x1.min(x2);
+            let top = y1.max(y2);
             rect = Some([
                 left,
                 top - TEXT_ANNOTATION_ICON_SIZE,
@@ -1336,6 +1339,26 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn text_no_appearance_normalizes_inverted_rect_before_icon_box() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-text-inverted-v1.pdf");
+        if !path.is_file() {
+            return;
+        }
+        let document = Document::load(&path).expect("load inverted text fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        let ann = &signals.annotations[0]["annotations"][0];
+        assert_eq!(ann["subtype"], "Text");
+        assert_eq!(ann["contents"], "Inverted");
+        assert_eq!(
+            ann["bounding_box"],
+            json!({"left": 100.0, "bottom": 678.0, "right": 122.0, "top": 700.0})
+        );
+    }
+
 
 
 
