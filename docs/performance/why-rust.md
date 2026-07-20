@@ -377,6 +377,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` border BS pref
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` border BS nondict residual is admitted: when the `BS` key is present but is not a usable Border-style dictionary (here `null`), pdf.js `Annotation.setBorderStyle` does **not** fall through to `Border[2]` and keeps the default width 1 before Line/PolyLine/Ink public bounding-box expansion. Large non-intersecting Rect fixtures prove PolyLine/Line/Ink with `BS null` over `Border [0 0 9]`. Leaf-mutation count is frozen at 39. Wrong-Type BS breadth, Border array length < 3, zero-size Rect clamp-bypass breadth, appearance-stream geometry, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+
+### read_pdf include_annotations border array short residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` border array short residual is admitted: when `BS` is absent and `Border` has length &lt; 3, pdf.js `Annotation.setBorderStyle` does not read a missing width index — empty arrays call `setWidth(0)` and short non-empty arrays leave the default width — and drawing uses `width || 1` before Line/PolyLine/Ink public bounding-box expansion. Large non-intersecting Rect fixtures prove PolyLine `Border [0 0]`, Line `Border []`, and Ink `Border [0]`. Leaf-mutation count is frozen at 39. BS-present short Border combinations, zero-size Rect clamp-bypass breadth, appearance-stream geometry, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
