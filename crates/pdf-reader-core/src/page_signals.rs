@@ -212,18 +212,30 @@ fn normalize_annotation(
         .get(b"Rect")
         .ok()
         .and_then(|value| box_values(document, value));
-    let dest = dict
+    let direct_dest = dict
         .get(b"Dest")
         .ok()
         .and_then(|value| destination(document, value, text_budget));
-    let url = dict
+    let action = dict
         .get(b"A")
         .ok()
         .and_then(|value| resolve(document, value).ok())
-        .and_then(|value| value.as_dict().ok())
-        .filter(|action| {
-            action.get(b"S").ok().and_then(|value| value.as_name().ok()) == Some(b"URI")
-        })
+        .and_then(|value| value.as_dict().ok());
+    let action_kind = action
+        .as_ref()
+        .and_then(|action| action.get(b"S").ok())
+        .and_then(|value| value.as_name().ok());
+    // pdf.js exposes GoTo action destinations on annotations as `dest`, matching
+    // outline normalization. Prefer explicit /Dest when both are present.
+    let action_dest = action
+        .as_ref()
+        .filter(|_| action_kind == Some(b"GoTo"))
+        .and_then(|action| action.get(b"D").ok())
+        .and_then(|value| destination(document, value, text_budget));
+    let dest = direct_dest.or(action_dest);
+    let url = action
+        .as_ref()
+        .filter(|_| action_kind == Some(b"URI"))
         .and_then(|action| action.get(b"URI").ok())
         .and_then(|value| decoded_string(document, value, text_budget));
 
@@ -578,6 +590,74 @@ mod tests {
         assert_eq!(
             annotations["dest"],
             json!([{ "num": page_two_id.0, "gen": page_two_id.1 }, { "name": "Fit" }])
+        );
+    }
+
+    #[test]
+    fn goto_action_dest_is_exposed_like_pdfjs() {
+        let mut document = Document::with_version("1.7");
+        let pages_id = document.new_object_id();
+        let font_id = document.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+        });
+        let page_two_id = document.new_object_id();
+        let action = dictionary! {
+            "S" => "GoTo",
+            "D" => vec![
+                Object::Reference(page_two_id),
+                Object::Name("FitH".into()),
+                700.into(),
+            ],
+        };
+        let link_id = document.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Link",
+            "Rect" => vec![72.into(), 500.into(), 140.into(), 530.into()],
+            "A" => action,
+        });
+        let page_one_id = document.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+            "Annots" => vec![Object::Reference(link_id)],
+        });
+        document.objects.insert(
+            page_two_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+                "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+            }),
+        );
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![Object::Reference(page_one_id), Object::Reference(page_two_id)],
+                "Count" => 2,
+            }),
+        );
+        let catalog_id = document.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        document.trailer.set("Root", catalog_id);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(signals.warnings, Vec::<String>::new());
+        let annotations = &signals.annotations[0]["annotations"].as_array().unwrap()[0];
+        assert_eq!(annotations["subtype"], json!("Link"));
+        assert_eq!(
+            annotations["dest"],
+            json!([
+                { "num": page_two_id.0, "gen": page_two_id.1 },
+                { "name": "FitH" },
+                700
+            ])
         );
     }
 
