@@ -74,6 +74,7 @@ V3014_POLYLINE_POLYGON_RESIDUAL_JSON="$SCRATCH/v3014-polyline-polygon-residual-r
 V3014_INK_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-ink-annotation-residual-result.json"
 V3014_BORDER_WIDTH_CLAMP_RESIDUAL_JSON="$SCRATCH/v3014-border-width-clamp-residual-result.json"
 V3014_BORDER_ARRAY_WIDTH_RESIDUAL_JSON="$SCRATCH/v3014-border-array-width-residual-result.json"
+V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON="$SCRATCH/v3014-border-bs-preference-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -379,6 +380,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-border-width-clamp-residual-dif
 bun "$REPO_ROOT/scripts/differential/capture-v3014-border-array-width-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-border-array-width-residual-differential.ts" \
   --output "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-border-bs-preference-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-border-bs-preference-residual-differential.ts" \
+  --output "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON" >>"$LOG"
 
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
@@ -745,6 +749,13 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-polyline-border-array-w2-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-line-border-array-w2-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-ink-border-array-w3-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-border-bs-preference-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-border-bs-preference-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-border-bs-preference-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-border-bs-preference-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-polyline-border-bs-pref-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-line-border-bs-pref-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-ink-border-bs-pref-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-popup-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-freetext-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
@@ -1087,6 +1098,11 @@ V3014_BORDER_ARRAY_WIDTH_RESIDUAL_PASSED="$(jq '.passed' "$V3014_BORDER_ARRAY_WI
 V3014_BORDER_ARRAY_WIDTH_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_JSON")"
 V3014_BORDER_ARRAY_WIDTH_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_JSON")"
 V3014_BORDER_ARRAY_WIDTH_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_JSON")"
+V3014_BORDER_BS_PREFERENCE_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON")"
+V3014_BORDER_BS_PREFERENCE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON")"
+V3014_BORDER_BS_PREFERENCE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON")"
+V3014_BORDER_BS_PREFERENCE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON")"
+V3014_BORDER_BS_PREFERENCE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -1239,6 +1255,8 @@ jq -n \
   --arg v3014BorderWidthClampResidualOracleHash "$V3014_BORDER_WIDTH_CLAMP_RESIDUAL_ORACLE_HASH" \
   --arg v3014BorderArrayWidthResidualCorpusHash "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_CORPUS_HASH" \
   --arg v3014BorderArrayWidthResidualOracleHash "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_ORACLE_HASH" \
+  --arg v3014BorderBsPreferenceResidualCorpusHash "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_CORPUS_HASH" \
+  --arg v3014BorderBsPreferenceResidualOracleHash "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -1444,6 +1462,9 @@ jq -n \
   --argjson v3014BorderArrayWidthResidualCaseCount "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_CASE_COUNT" \
   --argjson v3014BorderArrayWidthResidualPassed "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_PASSED" \
   --argjson v3014BorderArrayWidthResidualSkipped "$V3014_BORDER_ARRAY_WIDTH_RESIDUAL_SKIPPED" \
+  --argjson v3014BorderBsPreferenceResidualCaseCount "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_CASE_COUNT" \
+  --argjson v3014BorderBsPreferenceResidualPassed "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_PASSED" \
+  --argjson v3014BorderBsPreferenceResidualSkipped "$V3014_BORDER_BS_PREFERENCE_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -1717,6 +1738,8 @@ jq -n \
     v3014BorderWidthClampResidualOracleHash: $v3014BorderWidthClampResidualOracleHash,
     v3014BorderArrayWidthResidualCorpusHash: $v3014BorderArrayWidthResidualCorpusHash,
     v3014BorderArrayWidthResidualOracleHash: $v3014BorderArrayWidthResidualOracleHash,
+    v3014BorderBsPreferenceResidualCorpusHash: $v3014BorderBsPreferenceResidualCorpusHash,
+    v3014BorderBsPreferenceResidualOracleHash: $v3014BorderBsPreferenceResidualOracleHash,
     v3014MetadataPresenceResidualCaseCount: $v3014MetadataPresenceResidualCaseCount,
     v3014MetadataPresenceResidualPassed: $v3014MetadataPresenceResidualPassed,
     v3014MetadataPresenceResidualSkipped: $v3014MetadataPresenceResidualSkipped,
@@ -1868,6 +1891,8 @@ jq -n \
     immutableBorderWidthClampResidualDifferential: "scripts/differential/check-v3014-border-width-clamp-residual-differential.ts",
     immutableBorderArrayWidthResidualOracle: "scripts/differential/fixtures/v3014-border-array-width-residual-oracle.json",
     immutableBorderArrayWidthResidualDifferential: "scripts/differential/check-v3014-border-array-width-residual-differential.ts",
+    immutableBorderBsPreferenceResidualOracle: "scripts/differential/fixtures/v3014-border-bs-preference-residual-oracle.json",
+    immutableBorderBsPreferenceResidualDifferential: "scripts/differential/check-v3014-border-bs-preference-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
