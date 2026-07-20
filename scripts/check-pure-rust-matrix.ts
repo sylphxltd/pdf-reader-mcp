@@ -456,6 +456,20 @@ const infoFlagsResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const pageGeometryResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-page-geometry-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -759,13 +773,28 @@ const infoFlagsResidualWorkflowStart = differentialWorkflow.indexOf(
   'INFO_FLAGS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-flags-residual-result.json"'
 );
 const infoFlagsResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'PAGE_GEOMETRY_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-geometry-residual-result.json"',
   infoFlagsResidualWorkflowStart
 );
 const infoFlagsResidualWorkflow =
   infoFlagsResidualWorkflowStart >= 0 &&
   infoFlagsResidualWorkflowEnd > infoFlagsResidualWorkflowStart
     ? differentialWorkflow.slice(infoFlagsResidualWorkflowStart, infoFlagsResidualWorkflowEnd)
+    : '';
+const pageGeometryResidualWorkflowStart = differentialWorkflow.indexOf(
+  'PAGE_GEOMETRY_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-geometry-residual-result.json"'
+);
+const pageGeometryResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  pageGeometryResidualWorkflowStart
+);
+const pageGeometryResidualWorkflow =
+  pageGeometryResidualWorkflowStart >= 0 &&
+  pageGeometryResidualWorkflowEnd > pageGeometryResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        pageGeometryResidualWorkflowStart,
+        pageGeometryResidualWorkflowEnd
+      )
     : '';
 
 const failures: string[] = [];
@@ -3112,6 +3141,108 @@ if (
 ) {
   failures.push(
     'info flags residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const pageGeometryResidualCaseCount = pageGeometryResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-page-geometry-residual-differential')) {
+  failures.push(
+    'rust parity workflow must execute the frozen page geometry residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-page-geometry-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-page-geometry-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PageGeometryResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PageGeometryResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PageGeometryResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the page geometry residual family'
+  );
+}
+if (
+  !pageGeometryResidualWorkflow.includes(
+    `.caseCount == ${pageGeometryResidualCaseCount}`
+  ) ||
+  !pageGeometryResidualWorkflow.includes(
+    `.passed == ${pageGeometryResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${pageGeometryResidualCaseCount}/${pageGeometryResidualCaseCount} page geometry residual corpus`
+  );
+}
+if (
+  pageGeometryResidualCaseCount !== 3 ||
+  pageGeometryResidualCorpus.envelope.fixtureCount !== 3 ||
+  pageGeometryResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  pageGeometryResidualCorpus.nonclaims.publishFreeze !== true ||
+  pageGeometryResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'page geometry residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !pageGeometryResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_page_geometry_residual_result"'
+  ) ||
+  !pageGeometryResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !pageGeometryResidualWorkflow.includes(
+    '.providerProof.rotateUserUnitCropBox == true'
+  ) ||
+  !pageGeometryResidualWorkflow.includes('.providerProof.defaultMediaBox == true') ||
+  !pageGeometryResidualWorkflow.includes(
+    '.providerProof.invertedMediaBoxNormalized == true'
+  ) ||
+  !pageGeometryResidualWorkflow.includes(
+    '.capabilityStatus.includePageGeometry == "PARTIAL"'
+  ) ||
+  !pageGeometryResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !pageGeometryResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'page geometry residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-page-geometry-residual-differential.ts',
+  'scripts/differential/capture-v3014-page-geometry-residual-oracle.ts',
+  'v3014-page-geometry-residual-baseline-runner.ts',
+  'v3014-page-geometry-residual-projection.ts',
+  'v3014-page-geometry-residual-corpus.json',
+  'v3014-page-geometry-residual-oracle.json',
+  'v3014-page-geometry-rotate-userunit-v1.pdf',
+  'v3014-page-geometry-default-v1.pdf',
+  'v3014-page-geometry-inverted-mediabox-v1.pdf',
+  'v3014PageGeometryResidualCaseCount',
+  'v3014PageGeometryResidualCorpusHash',
+  'v3014PageGeometryResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind page geometry residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('include_page_geometry residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_page_geometry residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'page geometry residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
