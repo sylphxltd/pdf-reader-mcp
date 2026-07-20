@@ -325,11 +325,30 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                     }));
                     continue;
                 }
+                let prefer_speed = input.prefer_speed.unwrap_or(false);
+                let include_ocr = input.include_ocr_text_layer.unwrap_or(false);
+                // current TS prefer_speed uses the rust-text-index route only when OCR is off:
+                // matches omit geometry and emit the speed-route warning.
+                let speed_route = prefer_speed && !include_ocr;
                 let matches: Vec<Value> = search
                     .matches
                     .iter()
                     .enumerate()
                     .map(|(index, item)| {
+                        if speed_route {
+                            return json!({
+                                "id": format!("p{}-match-{}", item.page, index + 1),
+                                "page": item.page,
+                                "text": item.text,
+                                "snippet": item.snippet,
+                                "match_start": item.match_start,
+                                "match_end": item.match_end,
+                                "provenance": {
+                                    "engine": "rust-text-index",
+                                    "source": "text-content",
+                                }
+                            });
+                        }
                         let mut value = json!({
                             "id": format!("p{}-match-{}", item.page, index + 1),
                             "page": item.page,
@@ -354,6 +373,12 @@ pub fn search_pdf(input: &SearchPdfInput) -> Result<SearchPdfResponse, SearchPdf
                     .collect();
 
                 let mut warnings = Vec::new();
+                if speed_route {
+                    warnings.push(
+                        "Search route: rust-text-index via literal PDF text extraction. Bounding boxes are unavailable on this route; use read_pdf or pdf_evidence for geometry-backed evidence."
+                            .to_string(),
+                    );
+                }
                 if !invalid_pages.is_empty() {
                     warnings.push(format!(
                         "Requested page numbers {} exceed total pages ({}).",
@@ -990,6 +1015,47 @@ mod tests {
         assert!(item.get("ocr_word_index").is_none());
         assert!(item.get("bounding_box").is_none());
         assert!(item.get("bounding_box_level").is_none());
+    }
+
+    #[test]
+    fn prefer_speed_strips_geometry_and_emits_route_warning() {
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-behavior-v1.pdf");
+        let response = search_pdf(&SearchPdfInput {
+            sources: vec![SearchPdfSource {
+                path: Some(fixture.to_string_lossy().into_owned()),
+                url: None,
+                pages: None,
+            }],
+            query: "Needle".into(),
+            case_sensitive: None,
+            whole_word: None,
+            include_ocr_text_layer: None,
+            max_pages: Some(10),
+            max_matches_per_source: Some(20),
+            context_chars: Some(4),
+            prefer_speed: Some(true),
+        })
+        .expect("prefer_speed search");
+        assert_eq!(response.search_options["prefer_speed"], json!(true));
+        let result = &response.results[0];
+        assert_eq!(result["success"], json!(true));
+        let warnings = result["warnings"].as_array().expect("warnings");
+        assert!(
+            warnings.iter().any(|w| w
+                .as_str()
+                .is_some_and(|s| { s.contains("Bounding boxes are unavailable on this route") })),
+            "missing speed-route warning: {warnings:?}"
+        );
+        let matches = result["matches"].as_array().expect("matches");
+        assert!(!matches.is_empty());
+        for item in matches {
+            assert!(item.get("bounding_box").is_none(), "{item}");
+            assert!(item.get("bounding_box_level").is_none(), "{item}");
+            assert!(item.get("text_item_index").is_none(), "{item}");
+            assert_eq!(item["provenance"]["engine"], json!("rust-text-index"));
+            assert_eq!(item["provenance"]["source"], json!("text-content"));
+        }
     }
 
     #[test]

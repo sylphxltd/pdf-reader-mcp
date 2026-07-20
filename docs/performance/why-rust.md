@@ -178,6 +178,11 @@ A frozen four-case public-stdio selectable/OCR search interleaving subset is adm
 A frozen two-case public-stdio URL source single-fetch subset is admitted for `read_pdf` over a local fixture HTTP server with `MCP_PDF_ALLOW_PRIVATE_IPS=true`: no-OCR single fetch and OCR-with-document-map single fetch that reuses materialized bytes. Leaf-mutation count is frozen at 16 with relocated fixture-root replay. `url_ssrf` remains `PARTIAL`; `search_pdf` URL+OCR single-fetch (TS double-fetch residual), resolver timeout, TLS-SNI fixtures, public-internet fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
 
+
+### search_pdf prefer_speed route (post-3.0.14 surface)
+
+Pure-Rust `search_pdf` now accepts `prefer_speed` and, when OCR is off, matches the current TypeScript speed route: match geometry is omitted, provenance uses `rust-text-index`/`text-content`, and the speed-route warning is emitted. This is a current-surface parity fix, not a frozen detached TS v3.0.14 differential claim. `prefer_speed` remains `PARTIAL` in the capability matrix; `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
 
 A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted over `v3014-visual-v1.pdf`: valid TSV level-5 words produce image-to-PDF `ocr_word` geometry on the search match, and malformed TSV soft-falls back to raw text without geometry. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_ocr_text_layer` remains `PARTIAL`; real tesseract binary health checks, selectable/OCR interleaving, URL single-fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
