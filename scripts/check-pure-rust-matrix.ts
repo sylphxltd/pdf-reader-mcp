@@ -962,7 +962,22 @@ const annotationApNonstreamResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationApNamedStateResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-ap-named-state-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
+
 
 
 
@@ -1807,7 +1822,7 @@ const annotationApNonstreamResidualWorkflowStart = differentialWorkflow.indexOf(
   'ANNOTATION_AP_NONSTREAM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-nonstream-residual-result.json"'
 );
 const annotationApNonstreamResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_AP_NAMED_STATE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-residual-result.json"',
   annotationApNonstreamResidualWorkflowStart
 );
 const annotationApNonstreamResidualWorkflow =
@@ -1816,6 +1831,21 @@ const annotationApNonstreamResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationApNonstreamResidualWorkflowStart,
         annotationApNonstreamResidualWorkflowEnd
+      )
+    : '';
+const annotationApNamedStateResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_AP_NAMED_STATE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-residual-result.json"'
+);
+const annotationApNamedStateResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationApNamedStateResidualWorkflowStart
+);
+const annotationApNamedStateResidualWorkflow =
+  annotationApNamedStateResidualWorkflowStart >= 0 &&
+  annotationApNamedStateResidualWorkflowEnd > annotationApNamedStateResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationApNamedStateResidualWorkflowStart,
+        annotationApNamedStateResidualWorkflowEnd
       )
     : '';
 
@@ -8132,6 +8162,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation AP non-stream residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationApNamedStateResidualCaseCount = annotationApNamedStateResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-ap-named-state-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation AP named-state residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-ap-named-state-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-ap-named-state-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStateResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStateResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStateResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation AP named-state residual family'
+  );
+}
+if (
+  !annotationApNamedStateResidualWorkflow.includes(
+    `.caseCount == ${annotationApNamedStateResidualCaseCount}`
+  ) ||
+  !annotationApNamedStateResidualWorkflow.includes(
+    `.passed == ${annotationApNamedStateResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationApNamedStateResidualCaseCount}/${annotationApNamedStateResidualCaseCount} annotation AP named-state residual corpus`
+  );
+}
+if (
+  annotationApNamedStateResidualCaseCount !== 3 ||
+  annotationApNamedStateResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationApNamedStateResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationApNamedStateResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationApNamedStateResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation AP named-state residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationApNamedStateResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_ap_named_state_residual_result"'
+  ) ||
+  !annotationApNamedStateResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationApNamedStateResidualWorkflow.includes(
+    '.providerProof.lineApAsOnKeepsRawRect == true'
+  ) ||
+  !annotationApNamedStateResidualWorkflow.includes(
+    '.providerProof.lineApAsMissingExpandsGeometry == true'
+  ) ||
+  !annotationApNamedStateResidualWorkflow.includes(
+    '.providerProof.lineApAsInvalidExpandsGeometry == true'
+  ) ||
+  !annotationApNamedStateResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationApNamedStateResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationApNamedStateResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation AP named-state residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-ap-named-state-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-ap-named-state-residual-oracle.ts',
+  'v3014-annotation-ap-named-state-residual-baseline-runner.ts',
+  'v3014-annotation-ap-named-state-residual-projection.ts',
+  'v3014-annotation-ap-named-state-residual-corpus.json',
+  'v3014-annotation-ap-named-state-residual-oracle.json',
+  'v3014-annotation-line-ap-as-on-v1.pdf',
+  'v3014-annotation-line-ap-as-missing-v1.pdf',
+  'v3014-annotation-line-ap-as-invalid-v1.pdf',
+  'v3014AnnotationApNamedStateResidualCaseCount',
+  'v3014AnnotationApNamedStateResidualCorpusHash',
+  'v3014AnnotationApNamedStateResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation AP named-state residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('AP named-state residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('AP named-state residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation AP named-state residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationApNamedState = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationApNamedState.includes('AP named-state residual') ||
+  !whyRustAnnotationApNamedState.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation AP named-state residual and frozen leaf-mutation count'
   );
 }
 if (
