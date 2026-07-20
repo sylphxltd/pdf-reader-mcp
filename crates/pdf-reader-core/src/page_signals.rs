@@ -197,17 +197,24 @@ fn text_annotation_has_appearance(document: &Document, dict: &lopdf::Dictionary)
     let Ok(normal) = ap_dict.get(b"N") else {
         return false;
     };
-    // pdf.js Annotation.setAppearance: any AP/N BaseStream (including empty) sets
-    // this.appearance, so hasAppearance is true and Text keeps raw Rect.
+    // pdf.js Annotation.setAppearance:
+    // - AP/N BaseStream (including empty) sets this.appearance
+    // - AP/N named-state dict requires AS name and a stream for that state
     match resolve(document, normal) {
         Ok(Object::Stream(_)) => true,
         Ok(Object::Dictionary(states)) => {
-            // Named appearance states: any stream counts as appearance.
-            states.iter().any(|(_, value)| {
-                resolve(document, value)
-                    .ok()
-                    .is_some_and(|obj| matches!(obj, Object::Stream(_)))
-            })
+            let Ok(as_name) = dict
+                .get(b"AS")
+                .and_then(|value| value.as_name().map(|name| name.to_vec()))
+            else {
+                return false;
+            };
+            let Ok(selected) = states.get(as_name.as_slice()) else {
+                return false;
+            };
+            resolve(document, selected)
+                .ok()
+                .is_some_and(|obj| matches!(obj, Object::Stream(_)))
         }
         _ => false,
     }
@@ -1300,6 +1307,36 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn text_named_appearance_requires_as_for_raw_rect() {
+        let with_as = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-text-namedap-v1.pdf");
+        if with_as.is_file() {
+            let document = Document::load(&with_as).expect("load named ap fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(
+                ann["bounding_box"],
+                json!({"left": 80.0, "bottom": 600.0, "right": 180.0, "top": 700.0})
+            );
+        }
+        let no_as = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-text-namedap-noas-v1.pdf");
+        if no_as.is_file() {
+            let document = Document::load(&no_as).expect("load named ap no-as fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            // pdf.js icon box: bottom = top-22, right = left+22
+            assert_eq!(
+                ann["bounding_box"],
+                json!({"left": 90.0, "bottom": 688.0, "right": 112.0, "top": 710.0})
+            );
+        }
+    }
+
 
 
 }
