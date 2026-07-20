@@ -714,6 +714,7 @@ mod tests {
     fn permission_bits_match_pdfjs_p_flag_enumeration() {
         let facts = EncryptionFacts {
             permissions: Some(4 | 8 | 256),
+            filter_name: Some("Standard".to_string()),
         };
         assert_eq!(
             extract_permissions(Some(facts)),

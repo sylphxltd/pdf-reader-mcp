@@ -542,6 +542,20 @@ const infoExtrasResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const encryptFilterResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-encrypt-filter-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -926,7 +940,7 @@ const infoExtrasResidualWorkflowStart = differentialWorkflow.indexOf(
   'INFO_EXTRAS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-extras-residual-result.json"'
 );
 const infoExtrasResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ENCRYPT_FILTER_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-encrypt-filter-residual-result.json"',
   infoExtrasResidualWorkflowStart
 );
 const infoExtrasResidualWorkflow =
@@ -935,6 +949,21 @@ const infoExtrasResidualWorkflow =
     ? differentialWorkflow.slice(
         infoExtrasResidualWorkflowStart,
         infoExtrasResidualWorkflowEnd
+      )
+    : '';
+const encryptFilterResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ENCRYPT_FILTER_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-encrypt-filter-residual-result.json"'
+);
+const encryptFilterResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  encryptFilterResidualWorkflowStart
+);
+const encryptFilterResidualWorkflow =
+  encryptFilterResidualWorkflowStart >= 0 &&
+  encryptFilterResidualWorkflowEnd > encryptFilterResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        encryptFilterResidualWorkflowStart,
+        encryptFilterResidualWorkflowEnd
       )
     : '';
 
@@ -3885,6 +3914,113 @@ if (
 ) {
   failures.push(
     'info extras residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const encryptFilterResidualCaseCount = encryptFilterResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-encrypt-filter-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen encrypt filter residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-encrypt-filter-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-encrypt-filter-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014EncryptFilterResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014EncryptFilterResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014EncryptFilterResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the encrypt filter residual family'
+  );
+}
+if (
+  !encryptFilterResidualWorkflow.includes(
+    `.caseCount == ${encryptFilterResidualCaseCount}`
+  ) ||
+  !encryptFilterResidualWorkflow.includes(
+    `.passed == ${encryptFilterResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${encryptFilterResidualCaseCount}/${encryptFilterResidualCaseCount} encrypt filter residual corpus`
+  );
+}
+if (
+  encryptFilterResidualCaseCount !== 2 ||
+  encryptFilterResidualCorpus.envelope.fixtureCount !== 2 ||
+  encryptFilterResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  encryptFilterResidualCorpus.nonclaims.publishFreeze !== true ||
+  encryptFilterResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'encrypt filter residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !encryptFilterResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_encrypt_filter_residual_result"'
+  ) ||
+  !encryptFilterResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 18'
+  ) ||
+  !encryptFilterResidualWorkflow.includes(
+    '.providerProof.encryptedStandardFilter == true'
+  ) ||
+  !encryptFilterResidualWorkflow.includes(
+    '.providerProof.unencryptedNullFilter == true'
+  ) ||
+  !encryptFilterResidualWorkflow.includes(
+    '.providerProof.topLevelNumPagesPreserved == true'
+  ) ||
+  !encryptFilterResidualWorkflow.includes(
+    '.capabilityStatus.includeMetadata == "PARTIAL"'
+  ) ||
+  !encryptFilterResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !encryptFilterResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'encrypt filter residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-encrypt-filter-residual-differential.ts',
+  'scripts/differential/capture-v3014-encrypt-filter-residual-oracle.ts',
+  'v3014-encrypt-filter-residual-baseline-runner.ts',
+  'v3014-encrypt-filter-residual-projection.ts',
+  'v3014-encrypt-filter-residual-corpus.json',
+  'v3014-encrypt-filter-residual-oracle.json',
+  'v3014-permissions-print-copy-fill-a11y-v1.pdf',
+  'v3014-permissions-none-v1.pdf',
+  'v3014EncryptFilterResidualCaseCount',
+  'v3014EncryptFilterResidualCorpusHash',
+  'v3014EncryptFilterResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind encrypt filter residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('encrypt-filter residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('encrypt-filter residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'encrypt filter residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
