@@ -297,6 +297,17 @@ fn normalize_annotation(
             ]);
         }
     }
+    // pdf.js PopupAnnotation: after lookupNormalRect, width==0 || height==0
+    // sets data.rect = null, so public TS omits bounding_box.
+    if subtype.as_deref() == Some("Popup") {
+        if let Some([left, bottom, right, top]) = rect {
+            let width = left.max(right) - left.min(right);
+            let height = bottom.max(top) - bottom.min(top);
+            if width == 0.0 || height == 0.0 {
+                rect = None;
+            }
+        }
+    }
     let direct_dest = dict
         .get(b"Dest")
         .ok()
@@ -1186,4 +1197,27 @@ mod tests {
             json!({"left": 100.0, "bottom": 650.0, "right": 122.0, "top": 672.0})
         );
     }
+
+    #[test]
+    fn popup_zero_size_rect_omits_bounding_box() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-popup-zerosize-v1.pdf");
+        if !path.is_file() {
+            return;
+        }
+        let document = Document::load(&path).expect("load zero-size popup fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        let anns = signals.annotations[0]["annotations"].as_array().unwrap();
+        let popup = anns.iter().find(|a| a["subtype"] == "Popup").unwrap();
+        assert!(popup.get("bounding_box").is_none(), "zero-size popup must omit bounding_box");
+        assert_eq!(popup["contents"], "Parent note");
+        assert_eq!(popup["title"], "Author");
+        let text = anns.iter().find(|a| a["subtype"] == "Text").unwrap();
+        assert_eq!(
+            text["bounding_box"],
+            json!({"left": 100.0, "bottom": 650.0, "right": 122.0, "top": 672.0})
+        );
+    }
+
 }

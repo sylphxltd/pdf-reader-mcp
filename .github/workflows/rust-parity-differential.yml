@@ -153,6 +153,7 @@ jobs:
           bun run test:v3014-text-annotation-residual-differential -- --output "${SCRATCH_DIR}/v3014-text-annotation-residual-result.json"
           bun run test:v3014-remote-action-residual-differential -- --output "${SCRATCH_DIR}/v3014-remote-action-residual-result.json"
           bun run test:v3014-popup-annotation-residual-differential -- --output "${SCRATCH_DIR}/v3014-popup-annotation-residual-result.json"
+          bun run test:v3014-popup-zero-size-residual-differential -- --output "${SCRATCH_DIR}/v3014-popup-zero-size-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1387,6 +1388,26 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$POPUP_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 popup annotation residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+          POPUP_ZERO_SIZE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-popup-zero-size-residual-result.json"
+          if [ ! -f "$POPUP_ZERO_SIZE_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 popup zero-size residual result missing at $POPUP_ZERO_SIZE_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_popup_zero_size_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.popupZeroSizeNullsBoundingBox == true and
+            .providerProof.popupNonzeroKeepsBoundingBox == true and
+            .providerProof.popupZeroSizeStillInheritsParent == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$POPUP_ZERO_SIZE_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 popup zero-size residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
