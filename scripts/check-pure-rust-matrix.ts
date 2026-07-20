@@ -1032,6 +1032,20 @@ const annotationTextMarkupQuadpointsResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationTextMarkupWithApResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-text-markup-with-ap-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
 
 
@@ -1954,7 +1968,7 @@ const annotationTextMarkupQuadpointsResidualWorkflowStart = differentialWorkflow
   'ANNOTATION_TEXT_MARKUP_QUADPOINTS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-text-markup-quadpoints-residual-result.json"'
 );
 const annotationTextMarkupQuadpointsResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_TEXT_MARKUP_WITH_AP_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-text-markup-with-ap-residual-result.json"',
   annotationTextMarkupQuadpointsResidualWorkflowStart
 );
 const annotationTextMarkupQuadpointsResidualWorkflow =
@@ -1963,6 +1977,21 @@ const annotationTextMarkupQuadpointsResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationTextMarkupQuadpointsResidualWorkflowStart,
         annotationTextMarkupQuadpointsResidualWorkflowEnd
+      )
+    : '';
+const annotationTextMarkupWithApResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_TEXT_MARKUP_WITH_AP_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-text-markup-with-ap-residual-result.json"'
+);
+const annotationTextMarkupWithApResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationTextMarkupWithApResidualWorkflowStart
+);
+const annotationTextMarkupWithApResidualWorkflow =
+  annotationTextMarkupWithApResidualWorkflowStart >= 0 &&
+  annotationTextMarkupWithApResidualWorkflowEnd > annotationTextMarkupWithApResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationTextMarkupWithApResidualWorkflowStart,
+        annotationTextMarkupWithApResidualWorkflowEnd
       )
     : '';
 
@@ -8864,6 +8893,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation text-markup quadpoints residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationTextMarkupWithApResidualCaseCount = annotationTextMarkupWithApResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-text-markup-with-ap-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation text-markup with-appearance residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-text-markup-with-ap-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-text-markup-with-ap-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationTextMarkupWithApResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationTextMarkupWithApResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationTextMarkupWithApResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation text-markup with-appearance residual family'
+  );
+}
+if (
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    `.caseCount == ${annotationTextMarkupWithApResidualCaseCount}`
+  ) ||
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    `.passed == ${annotationTextMarkupWithApResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationTextMarkupWithApResidualCaseCount}/${annotationTextMarkupWithApResidualCaseCount} annotation text-markup with-appearance residual corpus`
+  );
+}
+if (
+  annotationTextMarkupWithApResidualCaseCount !== 3 ||
+  annotationTextMarkupWithApResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationTextMarkupWithApResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationTextMarkupWithApResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationTextMarkupWithApResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation text-markup with-appearance residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_text_markup_with_ap_residual_result"'
+  ) ||
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    '.providerProof.underlineApKeepsRawRect == true'
+  ) ||
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    '.providerProof.squigglyApKeepsRawRect == true'
+  ) ||
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    '.providerProof.strikeoutApKeepsRawRect == true'
+  ) ||
+  !annotationTextMarkupWithApResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationTextMarkupWithApResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationTextMarkupWithApResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation text-markup with-appearance residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-text-markup-with-ap-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-text-markup-with-ap-residual-oracle.ts',
+  'v3014-annotation-text-markup-with-ap-residual-baseline-runner.ts',
+  'v3014-annotation-text-markup-with-ap-residual-projection.ts',
+  'v3014-annotation-text-markup-with-ap-residual-corpus.json',
+  'v3014-annotation-text-markup-with-ap-residual-oracle.json',
+  'v3014-annotation-underline-ap-keeps-rect-v1.pdf',
+  'v3014-annotation-squiggly-ap-keeps-rect-v1.pdf',
+  'v3014-annotation-strikeout-ap-keeps-rect-v1.pdf',
+  'v3014AnnotationTextMarkupWithApResidualCaseCount',
+  'v3014AnnotationTextMarkupWithApResidualCorpusHash',
+  'v3014AnnotationTextMarkupWithApResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation text-markup with-appearance residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('text-markup with-appearance residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('text-markup with-appearance residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation text-markup with-appearance residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationTextMarkupWithAp = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationTextMarkupWithAp.includes('text-markup with-appearance residual') ||
+  !whyRustAnnotationTextMarkupWithAp.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation text-markup with-appearance residual and frozen leaf-mutation count'
   );
 }
 if (
