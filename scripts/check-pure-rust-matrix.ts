@@ -794,6 +794,20 @@ const textInvalidAsResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const lineAnnotationResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-line-annotation-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1455,7 +1469,7 @@ const textInvalidAsResidualWorkflowStart = differentialWorkflow.indexOf(
   'TEXT_INVALID_AS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-text-invalid-as-residual-result.json"'
 );
 const textInvalidAsResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'LINE_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-line-annotation-residual-result.json"',
   textInvalidAsResidualWorkflowStart
 );
 const textInvalidAsResidualWorkflow =
@@ -1464,6 +1478,21 @@ const textInvalidAsResidualWorkflow =
     ? differentialWorkflow.slice(
         textInvalidAsResidualWorkflowStart,
         textInvalidAsResidualWorkflowEnd
+      )
+    : '';
+const lineAnnotationResidualWorkflowStart = differentialWorkflow.indexOf(
+  'LINE_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-line-annotation-residual-result.json"'
+);
+const lineAnnotationResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  lineAnnotationResidualWorkflowStart
+);
+const lineAnnotationResidualWorkflow =
+  lineAnnotationResidualWorkflowStart >= 0 &&
+  lineAnnotationResidualWorkflowEnd > lineAnnotationResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        lineAnnotationResidualWorkflowStart,
+        lineAnnotationResidualWorkflowEnd
       )
     : '';
 
@@ -6375,6 +6404,124 @@ if (
 ) {
   failures.push(
     'why-rust must document the text invalid-as residual and frozen leaf-mutation count'
+  );
+}
+
+
+const lineAnnotationResidualCaseCount = lineAnnotationResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-line-annotation-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen line annotation residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-line-annotation-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-line-annotation-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014LineAnnotationResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014LineAnnotationResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014LineAnnotationResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the line annotation residual family'
+  );
+}
+if (
+  !lineAnnotationResidualWorkflow.includes(
+    `.caseCount == ${lineAnnotationResidualCaseCount}`
+  ) ||
+  !lineAnnotationResidualWorkflow.includes(
+    `.passed == ${lineAnnotationResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${lineAnnotationResidualCaseCount}/${lineAnnotationResidualCaseCount} line annotation residual corpus`
+  );
+}
+if (
+  lineAnnotationResidualCaseCount !== 3 ||
+  lineAnnotationResidualCorpus.envelope.fixtureCount !== 3 ||
+  lineAnnotationResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  lineAnnotationResidualCorpus.nonclaims.publishFreeze !== true ||
+  lineAnnotationResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'line annotation residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !lineAnnotationResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_line_annotation_residual_result"'
+  ) ||
+  !lineAnnotationResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !lineAnnotationResidualWorkflow.includes(
+    '.providerProof.defaultBorderExpand == true'
+  ) ||
+  !lineAnnotationResidualWorkflow.includes(
+    '.providerProof.nonIntersectingRectUsesLBbox == true'
+  ) ||
+  !lineAnnotationResidualWorkflow.includes(
+    '.providerProof.borderWidth2Expand == true'
+  ) ||
+  !lineAnnotationResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !lineAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !lineAnnotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'line annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-line-annotation-residual-differential.ts',
+  'scripts/differential/capture-v3014-line-annotation-residual-oracle.ts',
+  'v3014-line-annotation-residual-baseline-runner.ts',
+  'v3014-line-annotation-residual-projection.ts',
+  'v3014-line-annotation-residual-corpus.json',
+  'v3014-line-annotation-residual-oracle.json',
+  'v3014-annotation-line-default-v1.pdf',
+  'v3014-annotation-line-l-bbox-v1.pdf',
+  'v3014-annotation-line-border2-v1.pdf',
+  'v3014LineAnnotationResidualCaseCount',
+  'v3014LineAnnotationResidualCorpusHash',
+  'v3014LineAnnotationResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind line annotation residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('line annotation residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('line annotation residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'line annotation residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustLine = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustLine.includes('line annotation residual') ||
+  !whyRustLine.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the line annotation residual and frozen leaf-mutation count'
   );
 }
 if (
