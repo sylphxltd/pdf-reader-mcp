@@ -160,6 +160,7 @@ jobs:
           bun run test:v3014-text-inverted-rect-residual-differential -- --output "${SCRATCH_DIR}/v3014-text-inverted-rect-residual-result.json"
           bun run test:v3014-remote-named-dest-residual-differential -- --output "${SCRATCH_DIR}/v3014-remote-named-dest-residual-result.json"
           bun run test:v3014-page-labels-kids-residual-differential -- --output "${SCRATCH_DIR}/v3014-page-labels-kids-residual-result.json"
+          bun run test:v3014-form-button-array-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-button-array-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1533,11 +1534,35 @@ jobs:
             echo "::error::v3.0.14 page labels kids residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
+
+
+          FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-button-array-residual-result.json"
+          if [ ! -f "$FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 form button-array residual result missing at $FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_form_button_array_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 68 and
+            .providerProof.checkboxRadioPushbuttonArrayV == true and
+            .providerProof.plainStringButtonControl == true and
+            .providerProof.dvArrayFallbackValue == true and
+            .capabilityStatus.includeFormFields == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 form button-array residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
           VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
             exit 1
           fi
+
 
           jq -e --arg sha "$CANDIDATE_SHA" '
             .profile == "pdf_reader_v3014_visual_result" and
