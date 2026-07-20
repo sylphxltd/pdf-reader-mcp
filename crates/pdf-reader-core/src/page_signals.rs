@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use lopdf::{Document, Object, ObjectId};
-use pdf_extract::decode_text_string;
+use crate::pdfjs_text::decode_pdfjs_text_string;
 use serde_json::{json, Value};
 
 const MAX_PARENT_DEPTH: usize = 64;
@@ -571,7 +571,7 @@ fn decoded_string(
     {
         budget.decode_attempts += 1;
     }
-    let decoded = decode_text_string(value).ok()?;
+    let decoded = decode_pdfjs_text_string(value)?;
     if decoded.len() > MAX_STRING_BYTES {
         budget.reject_oversized();
         return None;
