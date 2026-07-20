@@ -319,6 +319,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` remote named-d
 
 A frozen three-case public-stdio `read_pdf` `include_page_labels` residual is admitted: PageLabels number-tree `Kids` nodes expand like pdf.js (internal Kids ignore sibling Nums), multi-style control remains stable, and absent labels omit `page_labels`. Leaf-mutation count is frozen at 18 with relocated fixture-root replay. `include_page_labels` remains `PARTIAL`; hostile label overflow and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf include_form_fields button-array residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_form_fields` residual is admitted: checkbox/radiobutton/pushbutton non-empty `/V` name arrays preserve pdf.js string arrays, plain string button values remain strings, empty button arrays collapse to `Off`, and absent `/V` falls back to a non-empty `/DV` array for both `value` and `default_value`. Leaf-mutation count is frozen at 68 with relocated fixture-root replay. `include_form_fields` remains `PARTIAL`; malformed-field breadth, nested Kids beyond the parent/child residual, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.

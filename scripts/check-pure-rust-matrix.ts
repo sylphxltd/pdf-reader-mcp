@@ -724,6 +724,20 @@ const pageLabelsKidsResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formButtonArrayResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-button-array-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1310,7 +1324,7 @@ const pageLabelsKidsResidualWorkflowStart = differentialWorkflow.indexOf(
   'PAGE_LABELS_KIDS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-labels-kids-residual-result.json"'
 );
 const pageLabelsKidsResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-button-array-residual-result.json"',
   pageLabelsKidsResidualWorkflowStart
 );
 const pageLabelsKidsResidualWorkflow =
@@ -1319,6 +1333,21 @@ const pageLabelsKidsResidualWorkflow =
     ? differentialWorkflow.slice(
         pageLabelsKidsResidualWorkflowStart,
         pageLabelsKidsResidualWorkflowEnd
+      )
+    : '';
+const formButtonArrayResidualWorkflowStart = differentialWorkflow.indexOf(
+  'FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-button-array-residual-result.json"'
+);
+const formButtonArrayResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  formButtonArrayResidualWorkflowStart
+);
+const formButtonArrayResidualWorkflow =
+  formButtonArrayResidualWorkflowStart >= 0 &&
+  formButtonArrayResidualWorkflowEnd > formButtonArrayResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        formButtonArrayResidualWorkflowStart,
+        formButtonArrayResidualWorkflowEnd
       )
     : '';
 
@@ -5661,6 +5690,121 @@ if (
   failures.push(
     'page labels kids residual bounded claim and explicit nonclaims must remain documented'
   );
+}
+
+
+const formButtonArrayResidualCaseCount = formButtonArrayResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-button-array-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form button-array residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-button-array-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-button-array-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormButtonArrayResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormButtonArrayResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormButtonArrayResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form button-array residual family'
+  );
+}
+if (
+  !formButtonArrayResidualWorkflow.includes(
+    `.caseCount == ${formButtonArrayResidualCaseCount}`
+  ) ||
+  !formButtonArrayResidualWorkflow.includes(
+    `.passed == ${formButtonArrayResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${formButtonArrayResidualCaseCount}/${formButtonArrayResidualCaseCount} form button-array residual corpus`
+  );
+}
+if (
+  formButtonArrayResidualCaseCount !== 2 ||
+  formButtonArrayResidualCorpus.envelope.fixtureCount !== 2 ||
+  formButtonArrayResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formButtonArrayResidualCorpus.nonclaims.publishFreeze !== true ||
+  formButtonArrayResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form button-array residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !formButtonArrayResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_button_array_residual_result"'
+  ) ||
+  !formButtonArrayResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 68'
+  ) ||
+  !formButtonArrayResidualWorkflow.includes(
+    '.providerProof.checkboxRadioPushbuttonArrayV == true'
+  ) ||
+  !formButtonArrayResidualWorkflow.includes(
+    '.providerProof.plainStringButtonControl == true'
+  ) ||
+  !formButtonArrayResidualWorkflow.includes(
+    '.providerProof.dvArrayFallbackValue == true'
+  ) ||
+  !formButtonArrayResidualWorkflow.includes(
+    '.capabilityStatus.includeFormFields == "PARTIAL"'
+  ) ||
+  !formButtonArrayResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !formButtonArrayResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'form button-array residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-form-button-array-residual-differential.ts',
+  'scripts/differential/capture-v3014-form-button-array-residual-oracle.ts',
+  'v3014-form-button-array-residual-baseline-runner.ts',
+  'v3014-form-button-array-residual-projection.ts',
+  'v3014-form-button-array-residual-corpus.json',
+  'v3014-form-button-array-residual-oracle.json',
+  'v3014-form-button-array-v-v1.pdf',
+  'v3014-form-button-array-dv-v1.pdf',
+  'v3014FormButtonArrayResidualCaseCount',
+  'v3014FormButtonArrayResidualCorpusHash',
+  'v3014FormButtonArrayResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind form button-array residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('form button-array residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('form button-array residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'form button-array residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustDocs = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustDocs.includes('button-array residual') ||
+  !whyRustDocs.includes('Leaf-mutation count is frozen at 68')
+) {
+  failures.push('why-rust must document the form button-array residual and frozen leaf-mutation count');
 }
 if (
   !matrix.claimedForDifferential.some(

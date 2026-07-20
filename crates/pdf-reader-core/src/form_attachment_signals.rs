@@ -440,7 +440,11 @@ fn normalize_leaf<'a>(
             }
         }
         Some("checkbox" | "radiobutton" | "button") => {
+            // pdf.js getFieldObjects keeps non-empty button V/DV arrays as string
+            // arrays; only missing/null/empty/non-string non-array values collapse
+            // to the public "Off" sentinel.
             value = Some(match value {
+                Some(Value::Array(values)) if !values.is_empty() => Value::Array(values),
                 Some(Value::String(value)) if !value.is_empty() => Value::String(value),
                 _ => Value::String("Off".into()),
             });
@@ -901,6 +905,95 @@ mod tests {
                 {"name":"fallback","type":"listbox","value":"from-default","default_value":["from-default"],"id":format_id(choice_fallback),"editable":true}
             ])
         );
+    }
+
+
+    #[test]
+    fn button_array_v_and_dv_preserve_pdfjs_arrays() {
+        let mut document = Document::with_version("1.4");
+        let pages_id = document.new_object_id();
+        let page_id = document.add_object(dictionary! {
+            "Type"=>"Page","Parent"=>pages_id,"MediaBox"=>vec![0.into(),0.into(),612.into(),792.into()]
+        });
+        document
+            .objects
+            .insert(pages_id, Object::Dictionary(dictionary! {
+                "Type"=>"Pages","Kids"=>vec![page_id.into()],"Count"=>1
+            }));
+        let checkbox_array = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("flags"),
+            "V"=>vec![Object::Name(b"Yes".to_vec()), Object::Name(b"Off".to_vec())],
+            "Rect"=>vec![72.into(),650.into(),100.into(),670.into()],"P"=>page_id
+        });
+        let radio_array = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("tier"),
+            "V"=>vec![Object::Name(b"Gold".to_vec()), Object::Name(b"Silver".to_vec())],
+            "Ff"=>1i64<<15,
+            "Rect"=>vec![72.into(),620.into(),100.into(),640.into()],"P"=>page_id
+        });
+        let push_array = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("go"),
+            "V"=>vec![Object::Name(b"Off".to_vec()), Object::Name(b"Pushed".to_vec())],
+            "Ff"=>1i64<<16,
+            "Rect"=>vec![72.into(),590.into(),140.into(),610.into()],"P"=>page_id
+        });
+        let plain = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("plain"),
+            "V"=>Object::Name(b"Yes".to_vec()),
+            "Rect"=>vec![72.into(),560.into(),100.into(),580.into()],"P"=>page_id
+        });
+        let empty_array = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("empty"),
+            "V"=>Vec::<Object>::new(),
+            "Rect"=>vec![72.into(),530.into(),100.into(),550.into()],"P"=>page_id
+        });
+        let dv_array = document.add_object(dictionary! {
+            "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("dv"),
+            "DV"=>vec![Object::Name(b"Yes".to_vec()), Object::Name(b"Off".to_vec())],
+            "Rect"=>vec![72.into(),500.into(),100.into(),520.into()],"P"=>page_id
+        });
+        let catalog = document.add_object(dictionary! {
+            "Type"=>"Catalog","Pages"=>pages_id,
+            "AcroForm"=>dictionary! {
+                "Fields"=>vec![
+                    checkbox_array.into(), radio_array.into(), push_array.into(),
+                    plain.into(), empty_array.into(), dv_array.into()
+                ]
+            }
+        });
+        document.trailer.set("Root", catalog);
+        let signals = extract_form_attachment_signals(&document, &[(1, page_id)], true, false);
+        let fields = signals.form_fields.expect("fields");
+        let value_of = |name: &str| {
+            fields
+                .iter()
+                .find(|field| field.name == name)
+                .map(|field| serde_json::to_value(&field.value).unwrap())
+                .expect(name)
+        };
+        let type_of = |name: &str| {
+            fields
+                .iter()
+                .find(|field| field.name == name)
+                .and_then(|field| field.r#type.clone())
+                .expect(name)
+        };
+        let default_of = |name: &str| {
+            fields
+                .iter()
+                .find(|field| field.name == name)
+                .map(|field| serde_json::to_value(&field.default_value).unwrap())
+                .expect(name)
+        };
+        assert_eq!(value_of("flags"), serde_json::json!(["Yes", "Off"]));
+        assert_eq!(value_of("tier"), serde_json::json!(["Gold", "Silver"]));
+        assert_eq!(type_of("tier"), "radiobutton");
+        assert_eq!(value_of("go"), serde_json::json!(["Off", "Pushed"]));
+        assert_eq!(type_of("go"), "button");
+        assert_eq!(value_of("plain"), serde_json::json!("Yes"));
+        assert_eq!(value_of("empty"), serde_json::json!("Off"));
+        assert_eq!(value_of("dv"), serde_json::json!(["Yes", "Off"]));
+        assert_eq!(default_of("dv"), serde_json::json!(["Yes", "Off"]));
     }
 
     #[test]
