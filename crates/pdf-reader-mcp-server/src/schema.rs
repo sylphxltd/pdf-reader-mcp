@@ -160,6 +160,9 @@ pub struct SearchPdfArgs {
     pub max_matches_per_source: Option<u32>,
     #[schemars(range(min = 0, max = 1000))]
     pub context_chars: Option<u32>,
+    /// When true, match the current TS prefer_speed route: omit match geometry and
+    /// emit the rust-text-index speed-route warning (ignored when OCR is enabled).
+    pub prefer_speed: Option<bool>,
 }
 
 impl SearchPdfArgs {
