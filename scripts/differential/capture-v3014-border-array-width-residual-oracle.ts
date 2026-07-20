@@ -116,7 +116,7 @@ try {
   };
   const oracle = {
     schemaVersion: 1,
-    profile: 'pdf_reader_v3014_border_width_clamp_residual_oracle',
+    profile: 'pdf_reader_v3014_border_array_width_residual_oracle',
     baseline: {
       tag: 'v3.0.14',
       commit,

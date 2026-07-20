@@ -277,7 +277,7 @@ if (process.env.CANDIDATE_SHA && process.env.CANDIDATE_SHA !== candidateSha) {
 
 const report = {
   schemaVersion: 1,
-  profile: 'pdf_reader_v3014_border_width_clamp_residual_result',
+  profile: 'pdf_reader_v3014_border_array_width_residual_result',
   candidateSha,
   baselineCommit: commit,
   baselineTree: baseline.tree,
