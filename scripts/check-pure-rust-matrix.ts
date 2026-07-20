@@ -1018,6 +1018,20 @@ const annotationHighlightQuadpointsResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationTextMarkupQuadpointsResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-text-markup-quadpoints-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
 
 
@@ -1925,7 +1939,7 @@ const annotationHighlightQuadpointsResidualWorkflowStart = differentialWorkflow.
   'ANNOTATION_HIGHLIGHT_QUADPOINTS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-highlight-quadpoints-residual-result.json"'
 );
 const annotationHighlightQuadpointsResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_TEXT_MARKUP_QUADPOINTS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-text-markup-quadpoints-residual-result.json"',
   annotationHighlightQuadpointsResidualWorkflowStart
 );
 const annotationHighlightQuadpointsResidualWorkflow =
@@ -1934,6 +1948,21 @@ const annotationHighlightQuadpointsResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationHighlightQuadpointsResidualWorkflowStart,
         annotationHighlightQuadpointsResidualWorkflowEnd
+      )
+    : '';
+const annotationTextMarkupQuadpointsResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_TEXT_MARKUP_QUADPOINTS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-text-markup-quadpoints-residual-result.json"'
+);
+const annotationTextMarkupQuadpointsResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationTextMarkupQuadpointsResidualWorkflowStart
+);
+const annotationTextMarkupQuadpointsResidualWorkflow =
+  annotationTextMarkupQuadpointsResidualWorkflowStart >= 0 &&
+  annotationTextMarkupQuadpointsResidualWorkflowEnd > annotationTextMarkupQuadpointsResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationTextMarkupQuadpointsResidualWorkflowStart,
+        annotationTextMarkupQuadpointsResidualWorkflowEnd
       )
     : '';
 
@@ -8718,6 +8747,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation highlight quadpoints residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationTextMarkupQuadpointsResidualCaseCount = annotationTextMarkupQuadpointsResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-text-markup-quadpoints-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation text-markup quadpoints residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-text-markup-quadpoints-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-text-markup-quadpoints-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationTextMarkupQuadpointsResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationTextMarkupQuadpointsResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationTextMarkupQuadpointsResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation text-markup quadpoints residual family'
+  );
+}
+if (
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    `.caseCount == ${annotationTextMarkupQuadpointsResidualCaseCount}`
+  ) ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    `.passed == ${annotationTextMarkupQuadpointsResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationTextMarkupQuadpointsResidualCaseCount}/${annotationTextMarkupQuadpointsResidualCaseCount} annotation text-markup quadpoints residual corpus`
+  );
+}
+if (
+  annotationTextMarkupQuadpointsResidualCaseCount !== 3 ||
+  annotationTextMarkupQuadpointsResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationTextMarkupQuadpointsResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationTextMarkupQuadpointsResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationTextMarkupQuadpointsResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation text-markup quadpoints residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_text_markup_quadpoints_residual_result"'
+  ) ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    '.providerProof.underlineQuadNoApUsesQuadpoints == true'
+  ) ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    '.providerProof.squigglyQuadNoApUsesStripBbox == true'
+  ) ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    '.providerProof.strikeoutQuadNoApUsesQuadpoints == true'
+  ) ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation text-markup quadpoints residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-text-markup-quadpoints-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-text-markup-quadpoints-residual-oracle.ts',
+  'v3014-annotation-text-markup-quadpoints-residual-baseline-runner.ts',
+  'v3014-annotation-text-markup-quadpoints-residual-projection.ts',
+  'v3014-annotation-text-markup-quadpoints-residual-corpus.json',
+  'v3014-annotation-text-markup-quadpoints-residual-oracle.json',
+  'v3014-annotation-underline-quad-noap-v1.pdf',
+  'v3014-annotation-squiggly-quad-noap-v1.pdf',
+  'v3014-annotation-strikeout-quad-noap-v1.pdf',
+  'v3014AnnotationTextMarkupQuadpointsResidualCaseCount',
+  'v3014AnnotationTextMarkupQuadpointsResidualCorpusHash',
+  'v3014AnnotationTextMarkupQuadpointsResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation text-markup quadpoints residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('text-markup quadpoints residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('text-markup quadpoints residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation text-markup quadpoints residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationTextMarkupQuadpoints = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationTextMarkupQuadpoints.includes('text-markup quadpoints residual') ||
+  !whyRustAnnotationTextMarkupQuadpoints.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation text-markup quadpoints residual and frozen leaf-mutation count'
   );
 }
 if (
