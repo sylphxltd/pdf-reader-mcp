@@ -364,6 +364,21 @@ const markinfoResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formParentChildCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-parent-child-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxFieldsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -586,13 +601,25 @@ const markinfoResidualWorkflowStart = differentialWorkflow.indexOf(
   'MARKINFO_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-markinfo-residual-result.json"'
 );
 const markinfoResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'FORM_PARENT_CHILD_ARTIFACT="${SCRATCH_DIR}/v3014-form-parent-child-result.json"',
   markinfoResidualWorkflowStart
 );
 const markinfoResidualWorkflow =
   markinfoResidualWorkflowStart >= 0 &&
   markinfoResidualWorkflowEnd > markinfoResidualWorkflowStart
     ? differentialWorkflow.slice(markinfoResidualWorkflowStart, markinfoResidualWorkflowEnd)
+    : '';
+const formParentChildWorkflowStart = differentialWorkflow.indexOf(
+  'FORM_PARENT_CHILD_ARTIFACT="${SCRATCH_DIR}/v3014-form-parent-child-result.json"'
+);
+const formParentChildWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  formParentChildWorkflowStart
+);
+const formParentChildWorkflow =
+  formParentChildWorkflowStart >= 0 &&
+  formParentChildWorkflowEnd > formParentChildWorkflowStart
+    ? differentialWorkflow.slice(formParentChildWorkflowStart, formParentChildWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -2348,6 +2375,96 @@ if (
 ) {
   failures.push(
     'markinfo residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const formParentChildCaseCount = formParentChildCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-form-parent-child-differential')) {
+  failures.push('rust parity workflow must execute the frozen form parent-child differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-parent-child-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-parent-child-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormParentChildCaseCount') ||
+  !repositoryDifferential.includes('v3014FormParentChildCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormParentChildOracleHash')
+) {
+  failures.push('repository differential artifact must bind the form parent-child family');
+}
+if (
+  !formParentChildWorkflow.includes(`.caseCount == ${formParentChildCaseCount}`) ||
+  !formParentChildWorkflow.includes(`.passed == ${formParentChildCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${formParentChildCaseCount}/${formParentChildCaseCount} form parent-child corpus`
+  );
+}
+if (
+  formParentChildCaseCount !== 2 ||
+  formParentChildCorpus.envelope.fixtureCount !== 2 ||
+  formParentChildCorpus.nonclaims.dropInFor3014 !== false ||
+  formParentChildCorpus.nonclaims.publishFreeze !== true ||
+  formParentChildCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form parent-child corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !formParentChildWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_parent_child_result"'
+  ) ||
+  !formParentChildWorkflow.includes('.mutationSensitive.leafMutationCount == 34') ||
+  !formParentChildWorkflow.includes('.providerProof.skipDirectDicts == true') ||
+  !formParentChildWorkflow.includes(
+    '.providerProof.dottedChildNameWithDvValue == true'
+  ) ||
+  !formParentChildWorkflow.includes(
+    '.providerProof.readonlyParentEditableFalse == true'
+  ) ||
+  !formParentChildWorkflow.includes(
+    '.capabilityStatus.includeFormFields == "PARTIAL"'
+  ) ||
+  !formParentChildWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !formParentChildWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'form parent-child workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-form-parent-child-differential.ts',
+  'scripts/differential/capture-v3014-form-parent-child-oracle.ts',
+  'v3014-form-parent-child-baseline-runner.ts',
+  'v3014-form-parent-child-projection.ts',
+  'v3014-form-parent-child-corpus.json',
+  'v3014-form-parent-child-oracle.json',
+  'v3014-form-parent-child-v1.pdf',
+  'v3014-form-parent-readonly-v1.pdf',
+  'v3014FormParentChildCaseCount',
+  'v3014FormParentChildCorpusHash',
+  'v3014FormParentChildOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind form parent-child family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 2-case') && claim.includes('parent/child residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('parent/child outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'form parent-child bounded claim and explicit nonclaims must remain documented'
   );
 }
 
