@@ -42,6 +42,7 @@ V3014_MARKINFO_RESIDUAL_JSON="$SCRATCH/v3014-markinfo-residual-result.json"
 V3014_FORM_PARENT_CHILD_JSON="$SCRATCH/v3014-form-parent-child-result.json"
 V3014_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-annotation-residual-result.json"
 V3014_ANNOTATION_DEST_RESIDUAL_JSON="$SCRATCH/v3014-annotation-dest-residual-result.json"
+V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON="$SCRATCH/v3014-annotation-action-dest-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -251,6 +252,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-residual-differentia
 bun "$REPO_ROOT/scripts/differential/capture-v3014-annotation-dest-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-dest-residual-differential.ts" \
   --output "$V3014_ANNOTATION_DEST_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-annotation-action-dest-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-action-dest-residual-differential.ts" \
+  --output "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON" >>"$LOG"
 
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
@@ -415,6 +419,12 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-dest-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-dest-fit-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-dest-xyz-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-annotation-action-dest-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-annotation-action-dest-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-action-dest-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-action-dest-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-named-dest-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-goto-action-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -595,6 +605,11 @@ V3014_ANNOTATION_DEST_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ANNOTATION_DEST_RE
 V3014_ANNOTATION_DEST_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ANNOTATION_DEST_RESIDUAL_JSON")"
 V3014_ANNOTATION_DEST_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ANNOTATION_DEST_RESIDUAL_JSON")"
 V3014_ANNOTATION_DEST_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ANNOTATION_DEST_RESIDUAL_JSON")"
+V3014_ANNOTATION_ACTION_DEST_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON")"
+V3014_ANNOTATION_ACTION_DEST_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON")"
+V3014_ANNOTATION_ACTION_DEST_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON")"
+V3014_ANNOTATION_ACTION_DEST_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON")"
+V3014_ANNOTATION_ACTION_DEST_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -683,6 +698,8 @@ jq -n \
   --arg v3014AnnotationResidualOracleHash "$V3014_ANNOTATION_RESIDUAL_ORACLE_HASH" \
   --arg v3014AnnotationDestResidualCorpusHash "$V3014_ANNOTATION_DEST_RESIDUAL_CORPUS_HASH" \
   --arg v3014AnnotationDestResidualOracleHash "$V3014_ANNOTATION_DEST_RESIDUAL_ORACLE_HASH" \
+  --arg v3014AnnotationActionDestResidualCorpusHash "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_CORPUS_HASH" \
+  --arg v3014AnnotationActionDestResidualOracleHash "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -792,6 +809,9 @@ jq -n \
   --argjson v3014AnnotationDestResidualCaseCount "$V3014_ANNOTATION_DEST_RESIDUAL_CASE_COUNT" \
   --argjson v3014AnnotationDestResidualPassed "$V3014_ANNOTATION_DEST_RESIDUAL_PASSED" \
   --argjson v3014AnnotationDestResidualSkipped "$V3014_ANNOTATION_DEST_RESIDUAL_SKIPPED" \
+  --argjson v3014AnnotationActionDestResidualCaseCount "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_CASE_COUNT" \
+  --argjson v3014AnnotationActionDestResidualPassed "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_PASSED" \
+  --argjson v3014AnnotationActionDestResidualSkipped "$V3014_ANNOTATION_ACTION_DEST_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -980,6 +1000,11 @@ jq -n \
     v3014AnnotationDestResidualCaseCount: $v3014AnnotationDestResidualCaseCount,
     v3014AnnotationDestResidualPassed: $v3014AnnotationDestResidualPassed,
     v3014AnnotationDestResidualSkipped: $v3014AnnotationDestResidualSkipped,
+    v3014AnnotationActionDestResidualCorpusHash: $v3014AnnotationActionDestResidualCorpusHash,
+    v3014AnnotationActionDestResidualOracleHash: $v3014AnnotationActionDestResidualOracleHash,
+    v3014AnnotationActionDestResidualCaseCount: $v3014AnnotationActionDestResidualCaseCount,
+    v3014AnnotationActionDestResidualPassed: $v3014AnnotationActionDestResidualPassed,
+    v3014AnnotationActionDestResidualSkipped: $v3014AnnotationActionDestResidualSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -1058,6 +1083,8 @@ jq -n \
     immutableAnnotationResidualDifferential: "scripts/differential/check-v3014-annotation-residual-differential.ts",
     immutableAnnotationDestResidualOracle: "scripts/differential/fixtures/v3014-annotation-dest-residual-oracle.json",
     immutableAnnotationDestResidualDifferential: "scripts/differential/check-v3014-annotation-dest-residual-differential.ts",
+    immutableAnnotationActionDestResidualOracle: "scripts/differential/fixtures/v3014-annotation-action-dest-residual-oracle.json",
+    immutableAnnotationActionDestResidualDifferential: "scripts/differential/check-v3014-annotation-action-dest-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
