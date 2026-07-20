@@ -197,14 +197,16 @@ fn text_annotation_has_appearance(document: &Document, dict: &lopdf::Dictionary)
     let Ok(normal) = ap_dict.get(b"N") else {
         return false;
     };
+    // pdf.js Annotation.setAppearance: any AP/N BaseStream (including empty) sets
+    // this.appearance, so hasAppearance is true and Text keeps raw Rect.
     match resolve(document, normal) {
-        Ok(Object::Stream(stream)) => !stream.content.is_empty(),
+        Ok(Object::Stream(_)) => true,
         Ok(Object::Dictionary(states)) => {
-            // Named appearance states: any non-empty stream counts as appearance.
+            // Named appearance states: any stream counts as appearance.
             states.iter().any(|(_, value)| {
-                resolve(document, value).ok().is_some_and(
-                    |obj| matches!(obj, Object::Stream(stream) if !stream.content.is_empty()),
-                )
+                resolve(document, value)
+                    .ok()
+                    .is_some_and(|obj| matches!(obj, Object::Stream(_)))
             })
         }
         _ => false,
@@ -1268,5 +1270,36 @@ mod tests {
             json!({"left": 230.0, "bottom": 600.0, "right": 350.0, "top": 670.0})
         );
     }
+
+    #[test]
+    fn text_with_appearance_keeps_raw_rect_even_if_stream_empty() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-text-ap-v1.pdf");
+        if path.is_file() {
+            let document = Document::load(&path).expect("load text ap fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], "Text");
+            assert_eq!(
+                ann["bounding_box"],
+                json!({"left": 100.0, "bottom": 600.0, "right": 200.0, "top": 700.0})
+            );
+        }
+        let empty = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-text-emptyap-v1.pdf");
+        if empty.is_file() {
+            let document = Document::load(&empty).expect("load empty ap fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], "Text");
+            assert_eq!(
+                ann["bounding_box"],
+                json!({"left": 50.0, "bottom": 600.0, "right": 150.0, "top": 700.0})
+            );
+        }
+    }
+
 
 }
