@@ -265,8 +265,10 @@ fn normalize_annotation(
         .and_then(|action| action.get(b"S").ok())
         .and_then(|value| value.as_name().ok());
     // pdf.js Link annotations project destination/url from the action when
-    // present: GoTo supplies dest (winning over /Dest), URI/Launch supply url
-    // and suppress dest, and only action-less annotations fall back to /Dest.
+    // present: GoTo supplies dest (winning over /Dest), URI/Launch/GoToR supply
+    // url and suppress dest, and only action-less annotations fall back to /Dest.
+    // Launch/GoToR file specs prefer UF over F (pdf.js FileSpec/pickPlatformItem).
+    // GoToR appends `#` + remote dest (string name or JSON explicit dest).
     let (dest, url) = match action_kind {
         Some(b"GoTo") => {
             let dest = action
@@ -282,18 +284,27 @@ fn normalize_annotation(
                 .and_then(|value| decoded_string(document, value, text_budget));
             (None, url)
         }
-        Some(b"Launch") => {
+        Some(b"Launch") | Some(b"GoToR") => {
             let url = action.as_ref().and_then(|action| {
                 let file = action.get(b"F").ok()?;
-                match resolve(document, file).ok()? {
-                    Object::String(_, _) => decoded_string(document, file, text_budget),
-                    Object::Dictionary(dict) => dict
-                        .get(b"F")
-                        .ok()
-                        .and_then(|value| decoded_string(document, value, text_budget)),
-                    Object::Name(_) => bounded_name(file, text_budget),
-                    _ => None,
+                let mut base = match resolve(document, file).ok()? {
+                    Object::String(_, _) => decoded_string(document, file, text_budget)?,
+                    Object::Dictionary(ref dict) => {
+                        filespec_raw_filename(document, dict, text_budget)?
+                    }
+                    Object::Name(_) => bounded_name(file, text_budget)?,
+                    _ => return None,
+                };
+                if action_kind == Some(b"GoToR") {
+                    if let Some(remote) = fetch_remote_dest(document, action, text_budget) {
+                        if let Some(hash) = base.find('#') {
+                            base.truncate(hash);
+                        }
+                        base.push('#');
+                        base.push_str(&remote);
+                    }
                 }
+                Some(base)
             });
             (None, url)
         }
@@ -480,6 +491,62 @@ fn decoded_string(
         return None;
     }
     Some(decoded)
+}
+
+fn filespec_raw_filename(
+    document: &Document,
+    dict: &lopdf::Dictionary,
+    budget: &mut SignalTextBudget,
+) -> Option<String> {
+    // pdf.js pickPlatformItem order: UF, F, Unix, Mac, DOS.
+    for key in [b"UF".as_slice(), b"F", b"Unix", b"Mac", b"DOS"] {
+        if let Ok(value) = dict.get(key) {
+            let resolved = match value {
+                Object::Reference(_) => resolve(document, value).ok()?,
+                other => other,
+            };
+            let name = match resolved {
+                Object::String(_, _) => decoded_string(document, resolved, budget),
+                Object::Name(_) => bounded_name(resolved, budget),
+                _ => None,
+            };
+            if let Some(name) = name.filter(|value| !value.is_empty()) {
+                return Some(name);
+            }
+        }
+    }
+    None
+}
+
+fn fetch_remote_dest(
+    document: &Document,
+    action: &lopdf::Dictionary,
+    budget: &mut SignalTextBudget,
+) -> Option<String> {
+    let value = action.get(b"D").ok()?;
+    // Named dest string/name.
+    match value {
+        Object::String(_, _) => return decoded_string(document, value, budget),
+        Object::Name(_) => return bounded_name(value, budget),
+        Object::Reference(_) => {
+            let resolved = resolve(document, value).ok()?;
+            match resolved {
+                Object::String(_, _) => return decoded_string(document, resolved, budget),
+                Object::Name(_) => return bounded_name(resolved, budget),
+                Object::Array(_) => {
+                    let projected = destination(document, resolved, budget)?;
+                    return Some(projected.to_string());
+                }
+                _ => return None,
+            }
+        }
+        Object::Array(_) => {
+            let projected = destination(document, value, budget)?;
+            return Some(projected.to_string());
+        }
+        _ => {}
+    }
+    None
 }
 
 fn destination(
@@ -990,5 +1057,60 @@ mod tests {
             signals.annotations[0]["annotations"][0]["bounding_box"],
             json!({"left": 100.0, "bottom": 600.0, "right": 250.0, "top": 650.0})
         );
+    }
+
+    #[test]
+    fn launch_file_dict_prefers_uf_like_pdfjs() {
+        let annotation = Object::Dictionary(dictionary! {
+            "Subtype" => "Link",
+            "Rect" => vec![72.into(), 500.into(), 140.into(), 530.into()],
+            "A" => dictionary! {
+                "S" => "Launch",
+                "F" => dictionary! {
+                    "F" => Object::string_literal("report.pdf"),
+                    "UF" => Object::string_literal("report-u.pdf"),
+                },
+            },
+        });
+        let document = document_with_pages(vec![dictionary! {
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Annots" => vec![annotation],
+        }]);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(
+            signals.annotations[0]["annotations"][0]["url"],
+            "report-u.pdf"
+        );
+        assert!(signals.annotations[0]["annotations"][0]
+            .get("dest")
+            .is_none());
+    }
+
+    #[test]
+    fn gotor_appends_remote_dest_json_like_pdfjs() {
+        let annotation = Object::Dictionary(dictionary! {
+            "Subtype" => "Link",
+            "Rect" => vec![72.into(), 500.into(), 140.into(), 530.into()],
+            "A" => dictionary! {
+                "S" => "GoToR",
+                "F" => Object::string_literal("other.pdf"),
+                "D" => vec![Object::Integer(0), Object::Name("Fit".into())],
+                "NewWindow" => true,
+            },
+        });
+        let document = document_with_pages(vec![dictionary! {
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Annots" => vec![annotation],
+        }]);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(
+            signals.annotations[0]["annotations"][0]["url"],
+            r#"other.pdf#[0,{"name":"Fit"}]"#
+        );
+        assert!(signals.annotations[0]["annotations"][0]
+            .get("dest")
+            .is_none());
     }
 }
