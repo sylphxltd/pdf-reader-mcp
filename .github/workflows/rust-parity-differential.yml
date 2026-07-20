@@ -169,6 +169,7 @@ jobs:
           bun run test:v3014-polyline-polygon-residual-differential -- --output "${SCRATCH_DIR}/v3014-polyline-polygon-residual-result.json"
           bun run test:v3014-ink-annotation-residual-differential -- --output "${SCRATCH_DIR}/v3014-ink-annotation-residual-result.json"
           bun run test:v3014-border-width-clamp-residual-differential -- --output "${SCRATCH_DIR}/v3014-border-width-clamp-residual-result.json"
+          bun run test:v3014-border-array-width-residual-differential -- --output "${SCRATCH_DIR}/v3014-border-array-width-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1731,6 +1732,27 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$BORDER_WIDTH_CLAMP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border-width clamp residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+          BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-array-width-residual-result.json"
+          if [ ! -f "$BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 border-array width residual result missing at $BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_border_array_width_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineBorderArrayWidth2 == true and
+            .providerProof.lineBorderArrayWidth2 == true and
+            .providerProof.inkBorderArrayWidth3 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 border-array width residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 
