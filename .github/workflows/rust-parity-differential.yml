@@ -1016,7 +1016,7 @@ jobs:
             exit 1
           fi
 
-VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
+          VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"
           if [ ! -f "$VISUAL_ARTIFACT" ]; then
             echo "::error::v3.0.14 visual result missing at $VISUAL_ARTIFACT"
             exit 1
