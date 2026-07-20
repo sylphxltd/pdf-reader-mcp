@@ -397,6 +397,25 @@ fn walk_field<'a>(
     }
 }
 
+
+fn button_has_named_normal_appearance<'a>(walker: &mut Walker<'a>, dict: &'a Dictionary) -> bool {
+    // pdf.js ButtonWidgetAnnotation _processCheckBox/_processRadioButton require
+    // AP dict and AP/N named-state dict before setting defaultFieldValue = "Off".
+    let Ok(ap) = dict.get(b"AP") else {
+        return false;
+    };
+    let Some(ap_dict) = walker.resolve(ap).and_then(|value| value.as_dict().ok()) else {
+        return false;
+    };
+    let Ok(normal) = ap_dict.get(b"N") else {
+        return false;
+    };
+    walker
+        .resolve(normal)
+        .and_then(|value| value.as_dict().ok())
+        .is_some()
+}
+
 fn normalize_leaf<'a>(
     walker: &mut Walker<'a>,
     dict: &'a Dictionary,
@@ -449,7 +468,16 @@ fn normalize_leaf<'a>(
                 Some(Value::String(value)) if !value.is_empty() => Value::String(value),
                 _ => Value::String("Off".into()),
             });
-            default_value.get_or_insert(Value::Null);
+            // pdf.js _processCheckBox/_processRadioButton/_processPushButton:
+            // when AP/N is a named-state dict and DV is null, defaultFieldValue
+            // becomes "Off". Without that AP shape, default stays null/undefined.
+            if default_value.as_ref().is_none_or(Value::is_null) {
+                if button_has_named_normal_appearance(walker, dict) {
+                    default_value = Some(Value::String("Off".into()));
+                } else {
+                    default_value.get_or_insert(Value::Null);
+                }
+            }
         }
         Some("listbox" | "combobox") => {
             value = Some(first_choice_value(value));
@@ -1316,4 +1344,55 @@ mod tests {
         assert!(walker.limited);
         assert!(!walker.failed);
     }
+
+    #[test]
+    fn button_ap_default_off_when_named_normal_appearance() {
+        let cases = [
+            (
+                "v3014-form-checkbox-ap-default-off-v1.pdf",
+                "Agree",
+                "checkbox",
+                "Yes",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-radio-ap-default-off-v1.pdf",
+                "Plan",
+                "radiobutton",
+                "Gold",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-checkbox-noap-default-null-v1.pdf",
+                "Consent",
+                "checkbox",
+                "Yes",
+                serde_json::Value::Null,
+            ),
+        ];
+        for (fixture, name, kind, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load button default fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 1, "fixture {fixture}");
+            let field = &fields[0];
+            assert_eq!(field.name, name, "fixture {fixture}");
+            assert_eq!(field.r#type.as_deref(), Some(kind), "fixture {fixture}");
+            assert_eq!(
+                serde_json::to_value(&field.value).unwrap(),
+                serde_json::json!(value),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.default_value).unwrap(),
+                default_value,
+                "fixture {fixture}"
+            );
+        }
+    }
+
 }
