@@ -39,6 +39,7 @@ V3014_FORM_RESIDUAL_JSON="$SCRATCH/v3014-form-residual-result.json"
 V3014_FORM_RADIO_GROUP_JSON="$SCRATCH/v3014-form-radio-group-result.json"
 V3014_ATTACHMENT_RESIDUAL_JSON="$SCRATCH/v3014-attachment-residual-result.json"
 V3014_MARKINFO_RESIDUAL_JSON="$SCRATCH/v3014-markinfo-residual-result.json"
+V3014_FORM_PARENT_CHILD_JSON="$SCRATCH/v3014-form-parent-child-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -238,6 +239,11 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-markinfo-residual-oracle.ts" 
 bun "$REPO_ROOT/scripts/differential/check-v3014-markinfo-residual-differential.ts" \
   --output "$V3014_MARKINFO_RESIDUAL_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 form parent-child differential (2 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-form-parent-child-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-form-parent-child-differential.ts" \
+  --output "$V3014_FORM_PARENT_CHILD_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -383,6 +389,12 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-markinfo-nonbool-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-markinfo-alltrue-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-markinfo-empty-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-form-parent-child-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-form-parent-child-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-parent-child-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-parent-child-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-parent-child-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-parent-readonly-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -548,6 +560,11 @@ V3014_MARKINFO_RESIDUAL_PASSED="$(jq '.passed' "$V3014_MARKINFO_RESIDUAL_JSON")"
 V3014_MARKINFO_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_MARKINFO_RESIDUAL_JSON")"
 V3014_MARKINFO_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_MARKINFO_RESIDUAL_JSON")"
 V3014_MARKINFO_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_MARKINFO_RESIDUAL_JSON")"
+V3014_FORM_PARENT_CHILD_CASE_COUNT="$(jq '.caseCount' "$V3014_FORM_PARENT_CHILD_JSON")"
+V3014_FORM_PARENT_CHILD_PASSED="$(jq '.passed' "$V3014_FORM_PARENT_CHILD_JSON")"
+V3014_FORM_PARENT_CHILD_SKIPPED="$(jq '.skipped' "$V3014_FORM_PARENT_CHILD_JSON")"
+V3014_FORM_PARENT_CHILD_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_PARENT_CHILD_JSON")"
+V3014_FORM_PARENT_CHILD_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_PARENT_CHILD_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -630,6 +647,8 @@ jq -n \
   --arg v3014AttachmentResidualOracleHash "$V3014_ATTACHMENT_RESIDUAL_ORACLE_HASH" \
   --arg v3014MarkinfoResidualCorpusHash "$V3014_MARKINFO_RESIDUAL_CORPUS_HASH" \
   --arg v3014MarkinfoResidualOracleHash "$V3014_MARKINFO_RESIDUAL_ORACLE_HASH" \
+  --arg v3014FormParentChildCorpusHash "$V3014_FORM_PARENT_CHILD_CORPUS_HASH" \
+  --arg v3014FormParentChildOracleHash "$V3014_FORM_PARENT_CHILD_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -730,6 +749,9 @@ jq -n \
   --argjson v3014MarkinfoResidualCaseCount "$V3014_MARKINFO_RESIDUAL_CASE_COUNT" \
   --argjson v3014MarkinfoResidualPassed "$V3014_MARKINFO_RESIDUAL_PASSED" \
   --argjson v3014MarkinfoResidualSkipped "$V3014_MARKINFO_RESIDUAL_SKIPPED" \
+  --argjson v3014FormParentChildCaseCount "$V3014_FORM_PARENT_CHILD_CASE_COUNT" \
+  --argjson v3014FormParentChildPassed "$V3014_FORM_PARENT_CHILD_PASSED" \
+  --argjson v3014FormParentChildSkipped "$V3014_FORM_PARENT_CHILD_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -903,6 +925,11 @@ jq -n \
     v3014MarkinfoResidualCaseCount: $v3014MarkinfoResidualCaseCount,
     v3014MarkinfoResidualPassed: $v3014MarkinfoResidualPassed,
     v3014MarkinfoResidualSkipped: $v3014MarkinfoResidualSkipped,
+    v3014FormParentChildCorpusHash: $v3014FormParentChildCorpusHash,
+    v3014FormParentChildOracleHash: $v3014FormParentChildOracleHash,
+    v3014FormParentChildCaseCount: $v3014FormParentChildCaseCount,
+    v3014FormParentChildPassed: $v3014FormParentChildPassed,
+    v3014FormParentChildSkipped: $v3014FormParentChildSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -975,6 +1002,8 @@ jq -n \
     immutableAttachmentResidualDifferential: "scripts/differential/check-v3014-attachment-residual-differential.ts",
     immutableMarkinfoResidualOracle: "scripts/differential/fixtures/v3014-markinfo-residual-oracle.json",
     immutableMarkinfoResidualDifferential: "scripts/differential/check-v3014-markinfo-residual-differential.ts",
+    immutableFormParentChildOracle: "scripts/differential/fixtures/v3014-form-parent-child-oracle.json",
+    immutableFormParentChildDifferential: "scripts/differential/check-v3014-form-parent-child-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
