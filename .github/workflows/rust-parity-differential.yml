@@ -140,6 +140,7 @@ jobs:
           bun run test:v3014-annotation-dest-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-dest-residual-result.json"
           bun run test:v3014-annotation-action-dest-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-action-dest-residual-result.json"
           bun run test:v3014-annotation-action-precedence-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-action-precedence-residual-result.json"
+          bun run test:v3014-info-flags-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-flags-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1069,6 +1070,33 @@ jobs:
               and .candidateSha == $sha
             ' "$ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 annotation action precedence residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          INFO_FLAGS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-flags-residual-result.json"
+          if [ ! -f "$INFO_FLAGS_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 info flags residual result missing at $INFO_FLAGS_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_info_flags_residual_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 2
+              and .passed == 2
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 33
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.acroformLangFlags == true
+              and .providerProof.plainNullFlags == true
+              and .providerProof.documentInfoFields == true
+              and .capabilityStatus.includeMetadata == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$INFO_FLAGS_RESIDUAL_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 info flags residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 

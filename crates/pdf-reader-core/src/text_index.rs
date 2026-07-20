@@ -170,6 +170,15 @@ pub struct ExtractedPageText {
 pub struct PdfInfo {
     pub format_version: String,
     pub fields: BTreeMap<String, String>,
+    /// Catalog /Lang; `None` serializes as JSON null like pdf.js.
+    pub language: Option<String>,
+    /// Encrypt dictionary Filter name; `None` serializes as JSON null like pdf.js.
+    pub encrypt_filter_name: Option<String>,
+    pub is_linearized: bool,
+    pub is_acroform_present: bool,
+    pub is_xfa_present: bool,
+    pub is_collection_present: bool,
+    pub is_signatures_present: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -655,9 +664,67 @@ pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
             }
         }
     }
+    let catalog = doc.catalog().ok();
+    let language = catalog.and_then(|catalog| {
+        catalog
+            .get(b"Lang")
+            .ok()
+            .and_then(|value| decode_text_string(value).ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    });
+    let encrypt_filter_name = doc
+        .trailer
+        .get(b"Encrypt")
+        .ok()
+        .and_then(|value| match value {
+            Object::Reference(id) => doc.get_object(*id).ok(),
+            Object::Dictionary(_) => Some(value),
+            _ => None,
+        })
+        .and_then(|value| value.as_dict().ok())
+        .and_then(|dict| dict.get(b"Filter").ok())
+        .and_then(|value| value.as_name().ok())
+        .and_then(|value| std::str::from_utf8(value).ok())
+        .map(|value| value.to_string())
+        .filter(|value| !value.is_empty());
+    let is_linearized = doc.objects.values().any(|object| {
+        object
+            .as_dict()
+            .ok()
+            .and_then(|dict| dict.get(b"Linearized").ok())
+            .is_some()
+    });
+    let acroform = catalog.and_then(|catalog| {
+        catalog.get(b"AcroForm").ok().and_then(|value| match value {
+            Object::Reference(id) => doc.get_object(*id).ok(),
+            Object::Dictionary(_) => Some(value),
+            _ => None,
+        })
+    });
+    let acroform_dict = acroform.and_then(|value| value.as_dict().ok());
+    let is_acroform_present = acroform_dict.is_some();
+    let is_xfa_present = acroform_dict
+        .and_then(|dict| dict.get(b"XFA").ok())
+        .is_some();
+    let is_collection_present = catalog
+        .and_then(|catalog| catalog.get(b"Collection").ok())
+        .is_some();
+    let is_signatures_present = acroform_dict
+        .and_then(|dict| dict.get(b"SigFlags").ok())
+        .and_then(|value| value.as_i64().ok())
+        .is_some_and(|flags| flags & 1 != 0);
+
     PdfInfo {
         format_version: doc.version.clone(),
         fields,
+        language,
+        encrypt_filter_name,
+        is_linearized,
+        is_acroform_present,
+        is_xfa_present,
+        is_collection_present,
+        is_signatures_present,
     }
 }
 
