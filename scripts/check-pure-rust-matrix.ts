@@ -350,6 +350,20 @@ const attachmentResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const markinfoResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-markinfo-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -557,7 +571,7 @@ const attachmentResidualWorkflowStart = differentialWorkflow.indexOf(
   'ATTACHMENT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-residual-result.json"'
 );
 const attachmentResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'MARKINFO_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-markinfo-residual-result.json"',
   attachmentResidualWorkflowStart
 );
 const attachmentResidualWorkflow =
@@ -567,6 +581,18 @@ const attachmentResidualWorkflow =
         attachmentResidualWorkflowStart,
         attachmentResidualWorkflowEnd
       )
+    : '';
+const markinfoResidualWorkflowStart = differentialWorkflow.indexOf(
+  'MARKINFO_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-markinfo-residual-result.json"'
+);
+const markinfoResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  markinfoResidualWorkflowStart
+);
+const markinfoResidualWorkflow =
+  markinfoResidualWorkflowStart >= 0 &&
+  markinfoResidualWorkflowEnd > markinfoResidualWorkflowStart
+    ? differentialWorkflow.slice(markinfoResidualWorkflowStart, markinfoResidualWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -2235,6 +2261,93 @@ if (
 ) {
   failures.push(
     'attachment residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const markinfoResidualCaseCount = markinfoResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-markinfo-residual-differential')) {
+  failures.push('rust parity workflow must execute the frozen markinfo residual differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-markinfo-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-markinfo-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014MarkinfoResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014MarkinfoResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014MarkinfoResidualOracleHash')
+) {
+  failures.push('repository differential artifact must bind the markinfo residual family');
+}
+if (
+  !markinfoResidualWorkflow.includes(`.caseCount == ${markinfoResidualCaseCount}`) ||
+  !markinfoResidualWorkflow.includes(`.passed == ${markinfoResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${markinfoResidualCaseCount}/${markinfoResidualCaseCount} markinfo residual corpus`
+  );
+}
+if (
+  markinfoResidualCaseCount !== 3 ||
+  markinfoResidualCorpus.envelope.fixtureCount !== 3 ||
+  markinfoResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  markinfoResidualCorpus.nonclaims.publishFreeze !== true ||
+  markinfoResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'markinfo residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !markinfoResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_markinfo_residual_result"'
+  ) ||
+  !markinfoResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 30') ||
+  !markinfoResidualWorkflow.includes('.providerProof.nonBooleanDefaultsFalse == true') ||
+  !markinfoResidualWorkflow.includes('.providerProof.allTruePreserved == true') ||
+  !markinfoResidualWorkflow.includes('.providerProof.emptyAllFalse == true') ||
+  !markinfoResidualWorkflow.includes(
+    '.capabilityStatus.includePermissions == "PARTIAL"'
+  ) ||
+  !markinfoResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !markinfoResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'markinfo residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-markinfo-residual-differential.ts',
+  'scripts/differential/capture-v3014-markinfo-residual-oracle.ts',
+  'v3014-markinfo-residual-baseline-runner.ts',
+  'v3014-markinfo-residual-projection.ts',
+  'v3014-markinfo-residual-corpus.json',
+  'v3014-markinfo-residual-oracle.json',
+  'v3014-markinfo-nonbool-v1.pdf',
+  'v3014-markinfo-alltrue-v1.pdf',
+  'v3014-markinfo-empty-v1.pdf',
+  'v3014MarkinfoResidualCaseCount',
+  'v3014MarkinfoResidualCorpusHash',
+  'v3014MarkinfoResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind markinfo residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('mark_info residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('mark_info outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'markinfo residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 

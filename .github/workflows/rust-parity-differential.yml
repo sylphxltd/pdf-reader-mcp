@@ -134,6 +134,7 @@ jobs:
           bun run test:v3014-form-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-residual-result.json"
           bun run test:v3014-form-radio-group-differential -- --output "${SCRATCH_DIR}/v3014-form-radio-group-result.json"
           bun run test:v3014-attachment-residual-differential -- --output "${SCRATCH_DIR}/v3014-attachment-residual-result.json"
+          bun run test:v3014-markinfo-residual-differential -- --output "${SCRATCH_DIR}/v3014-markinfo-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -902,6 +903,33 @@ jobs:
               and .candidateSha == $sha
             ' "$ATTACHMENT_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 attachment residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          MARKINFO_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-markinfo-residual-result.json"
+          if [ ! -f "$MARKINFO_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 markinfo residual result missing at $MARKINFO_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_markinfo_residual_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 3
+              and .passed == 3
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 30
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.nonBooleanDefaultsFalse == true
+              and .providerProof.allTruePreserved == true
+              and .providerProof.emptyAllFalse == true
+              and .capabilityStatus.includePermissions == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$MARKINFO_RESIDUAL_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 markinfo residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 

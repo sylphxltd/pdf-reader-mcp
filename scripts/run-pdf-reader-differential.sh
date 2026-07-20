@@ -38,6 +38,7 @@ V3014_SEARCH_MULTIWORD_GEOMETRY_JSON="$SCRATCH/v3014-search-multiword-geometry-r
 V3014_FORM_RESIDUAL_JSON="$SCRATCH/v3014-form-residual-result.json"
 V3014_FORM_RADIO_GROUP_JSON="$SCRATCH/v3014-form-radio-group-result.json"
 V3014_ATTACHMENT_RESIDUAL_JSON="$SCRATCH/v3014-attachment-residual-result.json"
+V3014_MARKINFO_RESIDUAL_JSON="$SCRATCH/v3014-markinfo-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -232,6 +233,11 @@ bun "$REPO_ROOT/scripts/differential/capture-v3014-attachment-residual-oracle.ts
 bun "$REPO_ROOT/scripts/differential/check-v3014-attachment-residual-differential.ts" \
   --output "$V3014_ATTACHMENT_RESIDUAL_JSON" >>"$LOG"
 
+echo "--- immutable v3.0.14 markinfo residual differential (3 exact cases) ---" | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-markinfo-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-markinfo-residual-differential.ts" \
+  --output "$V3014_MARKINFO_RESIDUAL_JSON" >>"$LOG"
+
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-visual-oracle.ts" 2>&1 | tee -a "$LOG"
@@ -370,6 +376,13 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-attachment-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-attachment-kids-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-attachment-filename-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-markinfo-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-markinfo-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-markinfo-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-markinfo-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-markinfo-nonbool-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-markinfo-alltrue-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-markinfo-empty-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -530,6 +543,11 @@ V3014_ATTACHMENT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ATTACHMENT_RESIDUAL_JSO
 V3014_ATTACHMENT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ATTACHMENT_RESIDUAL_JSON")"
 V3014_ATTACHMENT_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ATTACHMENT_RESIDUAL_JSON")"
 V3014_ATTACHMENT_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ATTACHMENT_RESIDUAL_JSON")"
+V3014_MARKINFO_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_MARKINFO_RESIDUAL_JSON")"
+V3014_MARKINFO_RESIDUAL_PASSED="$(jq '.passed' "$V3014_MARKINFO_RESIDUAL_JSON")"
+V3014_MARKINFO_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_MARKINFO_RESIDUAL_JSON")"
+V3014_MARKINFO_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_MARKINFO_RESIDUAL_JSON")"
+V3014_MARKINFO_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_MARKINFO_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -610,6 +628,8 @@ jq -n \
   --arg v3014FormRadioGroupOracleHash "$V3014_FORM_RADIO_GROUP_ORACLE_HASH" \
   --arg v3014AttachmentResidualCorpusHash "$V3014_ATTACHMENT_RESIDUAL_CORPUS_HASH" \
   --arg v3014AttachmentResidualOracleHash "$V3014_ATTACHMENT_RESIDUAL_ORACLE_HASH" \
+  --arg v3014MarkinfoResidualCorpusHash "$V3014_MARKINFO_RESIDUAL_CORPUS_HASH" \
+  --arg v3014MarkinfoResidualOracleHash "$V3014_MARKINFO_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -707,6 +727,9 @@ jq -n \
   --argjson v3014AttachmentResidualCaseCount "$V3014_ATTACHMENT_RESIDUAL_CASE_COUNT" \
   --argjson v3014AttachmentResidualPassed "$V3014_ATTACHMENT_RESIDUAL_PASSED" \
   --argjson v3014AttachmentResidualSkipped "$V3014_ATTACHMENT_RESIDUAL_SKIPPED" \
+  --argjson v3014MarkinfoResidualCaseCount "$V3014_MARKINFO_RESIDUAL_CASE_COUNT" \
+  --argjson v3014MarkinfoResidualPassed "$V3014_MARKINFO_RESIDUAL_PASSED" \
+  --argjson v3014MarkinfoResidualSkipped "$V3014_MARKINFO_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -875,6 +898,11 @@ jq -n \
     v3014AttachmentResidualCaseCount: $v3014AttachmentResidualCaseCount,
     v3014AttachmentResidualPassed: $v3014AttachmentResidualPassed,
     v3014AttachmentResidualSkipped: $v3014AttachmentResidualSkipped,
+    v3014MarkinfoResidualCorpusHash: $v3014MarkinfoResidualCorpusHash,
+    v3014MarkinfoResidualOracleHash: $v3014MarkinfoResidualOracleHash,
+    v3014MarkinfoResidualCaseCount: $v3014MarkinfoResidualCaseCount,
+    v3014MarkinfoResidualPassed: $v3014MarkinfoResidualPassed,
+    v3014MarkinfoResidualSkipped: $v3014MarkinfoResidualSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -945,6 +973,8 @@ jq -n \
     immutableFormRadioGroupDifferential: "scripts/differential/check-v3014-form-radio-group-differential.ts",
     immutableAttachmentResidualOracle: "scripts/differential/fixtures/v3014-attachment-residual-oracle.json",
     immutableAttachmentResidualDifferential: "scripts/differential/check-v3014-attachment-residual-differential.ts",
+    immutableMarkinfoResidualOracle: "scripts/differential/fixtures/v3014-markinfo-residual-oracle.json",
+    immutableMarkinfoResidualDifferential: "scripts/differential/check-v3014-markinfo-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",

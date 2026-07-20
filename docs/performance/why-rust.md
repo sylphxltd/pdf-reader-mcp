@@ -203,6 +203,11 @@ A frozen two-case public-stdio `read_pdf` `include_form_fields` radio-group resi
 
 A frozen two-case public-stdio `read_pdf` `include_attachments` residual is admitted: EmbeddedFiles name-tree `Kids` win over sibling `Names`, trailing-slash `UF` becomes `unnamed`, and Windows-path `UF` basenames. Leaf-mutation count is frozen at 17 with relocated fixture-root replay. `include_attachments` remains `PARTIAL`; malformed name-tree breadth, duplicate-kids fail-closed, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf mark_info residual public-stdio subset (bounded)
+
+A frozen three-case public-stdio catalog `mark_info` residual is admitted: non-boolean `Suspects` defaults to false with missing `UserProperties` false, all-true MarkInfo, and empty MarkInfo all-false. Leaf-mutation count is frozen at 30 with relocated fixture-root replay. Catalog surfaces remain `PARTIAL`; permissions encryption, outline beyond behavior, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
 
 A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted over `v3014-visual-v1.pdf`: valid TSV level-5 words produce image-to-PDF `ocr_word` geometry on the search match, and malformed TSV soft-falls back to raw text without geometry. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_ocr_text_layer` remains `PARTIAL`; real tesseract binary health checks, selectable/OCR interleaving, URL single-fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
