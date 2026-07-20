@@ -976,7 +976,22 @@ const annotationApNamedStateResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationApNamedStatePolylineInkResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-ap-named-state-polyline-ink-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
+
 
 
 
@@ -1837,7 +1852,7 @@ const annotationApNamedStateResidualWorkflowStart = differentialWorkflow.indexOf
   'ANNOTATION_AP_NAMED_STATE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-residual-result.json"'
 );
 const annotationApNamedStateResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_AP_NAMED_STATE_POLYLINE_INK_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-polyline-ink-residual-result.json"',
   annotationApNamedStateResidualWorkflowStart
 );
 const annotationApNamedStateResidualWorkflow =
@@ -1846,6 +1861,21 @@ const annotationApNamedStateResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationApNamedStateResidualWorkflowStart,
         annotationApNamedStateResidualWorkflowEnd
+      )
+    : '';
+const annotationApNamedStatePolylineInkResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_AP_NAMED_STATE_POLYLINE_INK_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-polyline-ink-residual-result.json"'
+);
+const annotationApNamedStatePolylineInkResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationApNamedStatePolylineInkResidualWorkflowStart
+);
+const annotationApNamedStatePolylineInkResidualWorkflow =
+  annotationApNamedStatePolylineInkResidualWorkflowStart >= 0 &&
+  annotationApNamedStatePolylineInkResidualWorkflowEnd > annotationApNamedStatePolylineInkResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationApNamedStatePolylineInkResidualWorkflowStart,
+        annotationApNamedStatePolylineInkResidualWorkflowEnd
       )
     : '';
 
@@ -8279,6 +8309,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation AP named-state residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationApNamedStatePolylineInkResidualCaseCount = annotationApNamedStatePolylineInkResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-ap-named-state-polyline-ink-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation AP named-state polyline/ink residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-ap-named-state-polyline-ink-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-ap-named-state-polyline-ink-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStatePolylineInkResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStatePolylineInkResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStatePolylineInkResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation AP named-state polyline/ink residual family'
+  );
+}
+if (
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    `.caseCount == ${annotationApNamedStatePolylineInkResidualCaseCount}`
+  ) ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    `.passed == ${annotationApNamedStatePolylineInkResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationApNamedStatePolylineInkResidualCaseCount}/${annotationApNamedStatePolylineInkResidualCaseCount} annotation AP named-state polyline/ink residual corpus`
+  );
+}
+if (
+  annotationApNamedStatePolylineInkResidualCaseCount !== 3 ||
+  annotationApNamedStatePolylineInkResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationApNamedStatePolylineInkResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationApNamedStatePolylineInkResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationApNamedStatePolylineInkResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation AP named-state polyline/ink residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_ap_named_state_polyline_ink_residual_result"'
+  ) ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    '.providerProof.polylineApAsOnKeepsRawRect == true'
+  ) ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    '.providerProof.inkApAsMissingExpandsGeometry == true'
+  ) ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    '.providerProof.polylineApAsInvalidExpandsGeometry == true'
+  ) ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation AP named-state polyline/ink residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-ap-named-state-polyline-ink-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-ap-named-state-polyline-ink-residual-oracle.ts',
+  'v3014-annotation-ap-named-state-polyline-ink-residual-baseline-runner.ts',
+  'v3014-annotation-ap-named-state-polyline-ink-residual-projection.ts',
+  'v3014-annotation-ap-named-state-polyline-ink-residual-corpus.json',
+  'v3014-annotation-ap-named-state-polyline-ink-residual-oracle.json',
+  'v3014-annotation-polyline-ap-as-on-v1.pdf',
+  'v3014-annotation-ink-ap-as-missing-v1.pdf',
+  'v3014-annotation-polyline-ap-as-invalid-v1.pdf',
+  'v3014AnnotationApNamedStatePolylineInkResidualCaseCount',
+  'v3014AnnotationApNamedStatePolylineInkResidualCorpusHash',
+  'v3014AnnotationApNamedStatePolylineInkResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation AP named-state polyline/ink residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('named-state polyline/ink residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('named-state polyline/ink residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation AP named-state polyline/ink residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationApNamedStatePolylineInk = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationApNamedStatePolylineInk.includes('named-state polyline/ink residual') ||
+  !whyRustAnnotationApNamedStatePolylineInk.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation AP named-state polyline/ink residual and frozen leaf-mutation count'
   );
 }
 if (
