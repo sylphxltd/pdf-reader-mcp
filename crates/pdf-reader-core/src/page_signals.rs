@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use lopdf::{Document, Object, ObjectId};
 use crate::pdfjs_text::decode_pdfjs_text_string;
+use lopdf::{Document, Object, ObjectId};
 use serde_json::{json, Value};
 
 const MAX_PARENT_DEPTH: usize = 64;
@@ -248,7 +248,6 @@ fn popup_parent_dict<'a>(
     Some(parent)
 }
 
-
 fn border_style_width(document: &Document, dict: &lopdf::Dictionary) -> f64 {
     // pdf.js AnnotationBorderStyle defaults width to 1 when absent/zero for line drawing.
     let raw = dict
@@ -297,6 +296,49 @@ fn rects_intersect(a: [f64; 4], b: [f64; 4]) -> bool {
 fn line_coordinates(document: &Document, dict: &lopdf::Dictionary) -> Option<[f64; 4]> {
     let value = dict.get(b"L").ok()?;
     box_values(document, value)
+}
+
+fn vertices_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec<(f64, f64)>> {
+    let value = dict.get(b"Vertices").ok()?;
+    let values = resolve(document, value).ok()?.as_array().ok()?;
+    if values.len() < 2 {
+        return None;
+    }
+    let mut points = Vec::with_capacity(values.len() / 2);
+    let mut index = 0;
+    while index + 1 < values.len() {
+        let x = number(resolve(document, &values[index]).ok()?)?;
+        let y = number(resolve(document, &values[index + 1]).ok()?)?;
+        if !x.is_finite() || !y.is_finite() {
+            return None;
+        }
+        points.push((x, y));
+        index += 2;
+    }
+    (!points.is_empty()).then_some(points)
+}
+
+fn vertices_bbox(points: &[(f64, f64)], pad: f64) -> Option<[f64; 4]> {
+    let mut left = f64::INFINITY;
+    let mut bottom = f64::INFINITY;
+    let mut right = f64::NEG_INFINITY;
+    let mut top = f64::NEG_INFINITY;
+    for &(x, y) in points {
+        left = left.min(x - pad);
+        bottom = bottom.min(y - pad);
+        right = right.max(x + pad);
+        top = top.max(y + pad);
+    }
+    left.is_finite().then_some([left, bottom, right, top])
+}
+
+fn annotation_has_normal_appearance(document: &Document, dict: &lopdf::Dictionary) -> bool {
+    dict.get(b"AP")
+        .ok()
+        .and_then(|value| resolve(document, value).ok())
+        .and_then(|value| value.as_dict().ok())
+        .and_then(|ap| ap.get(b"N").ok())
+        .is_some()
 }
 
 fn normalize_annotation(
@@ -396,15 +438,7 @@ fn normalize_annotation(
     // - compute L-normalized bbox expanded by 2*borderWidth (default width 1)
     // - if Rect does not intersect that bbox, replace Rect with the L bbox
     // - public rect is then expanded by borderWidth (default appearance path)
-    if subtype.as_deref() == Some("Line")
-        && !dict
-            .get(b"AP")
-            .ok()
-            .and_then(|value| resolve(document, value).ok())
-            .and_then(|value| value.as_dict().ok())
-            .and_then(|ap| ap.get(b"N").ok())
-            .is_some()
-    {
+    if subtype.as_deref() == Some("Line") && !annotation_has_normal_appearance(document, dict) {
         if let Some(line) = line_coordinates(document, dict) {
             let bw = border_style_width(document, dict);
             let line = normalize_rect_coords(line);
@@ -415,6 +449,25 @@ fn normalize_annotation(
                 _ => line_bbox,
             };
             rect = Some(expand_rect(base, bw));
+        }
+    }
+
+    // pdf.js PolylineAnnotation/PolygonAnnotation without appearance:
+    // - vertices bbox expanded by 2*borderWidth (default width 1)
+    // - if Rect does not intersect that bbox, replace Rect with the vertices bbox
+    // - public rect is the resulting rectangle (no additional borderWidth expand)
+    if matches!(subtype.as_deref(), Some("PolyLine") | Some("Polygon"))
+        && !annotation_has_normal_appearance(document, dict)
+    {
+        if let Some(points) = vertices_points(document, dict) {
+            let bw = border_style_width(document, dict);
+            if let Some(vertices_box) = vertices_bbox(&points, 2.0 * bw) {
+                let current = rect.map(normalize_rect_coords);
+                rect = Some(match current {
+                    Some(r) if rects_intersect(r, vertices_box) => r,
+                    _ => vertices_box,
+                });
+            }
         }
     }
 
@@ -765,7 +818,6 @@ fn destination(
         }
         _ => None,
     }
-
 }
 
 #[cfg(test)]
@@ -1305,10 +1357,11 @@ mod tests {
                 signals.annotations[0]["annotations"][0]["url"],
                 "other.pdf#Chapter1"
             );
-            assert!(signals.annotations[0]["annotations"][0].get("dest").is_none());
+            assert!(signals.annotations[0]["annotations"][0]
+                .get("dest")
+                .is_none());
         }
     }
-
 
     #[test]
     fn popup_inherits_parent_title_and_contents() {
@@ -1349,7 +1402,10 @@ mod tests {
         let signals = extract_page_signals(&document, &pages, &[1], false, true);
         let anns = signals.annotations[0]["annotations"].as_array().unwrap();
         let popup = anns.iter().find(|a| a["subtype"] == "Popup").unwrap();
-        assert!(popup.get("bounding_box").is_none(), "zero-size popup must omit bounding_box");
+        assert!(
+            popup.get("bounding_box").is_none(),
+            "zero-size popup must omit bounding_box"
+        );
         assert_eq!(popup["contents"], "Parent note");
         assert_eq!(popup["title"], "Author");
         let text = anns.iter().find(|a| a["subtype"] == "Text").unwrap();
@@ -1358,7 +1414,6 @@ mod tests {
             json!({"left": 100.0, "bottom": 650.0, "right": 122.0, "top": 672.0})
         );
     }
-
 
     #[test]
     fn group_text_and_popup_inherit_irt_title_and_contents() {
@@ -1465,7 +1520,36 @@ mod tests {
         );
     }
 
-
-
-
+    #[test]
+    fn polyline_polygon_nonintersecting_rect_uses_vertices_bbox() {
+        let cases = [
+            (
+                "v3014-annotation-polyline-l-bbox-v1.pdf",
+                "PolyLine",
+                json!({"left": 98.0, "bottom": 98.0, "right": 202.0, "top": 202.0}),
+            ),
+            (
+                "v3014-annotation-polygon-l-bbox-v1.pdf",
+                "Polygon",
+                json!({"left": 48.0, "bottom": 48.0, "right": 122.0, "top": 122.0}),
+            ),
+            (
+                "v3014-annotation-polyline-border2-v1.pdf",
+                "PolyLine",
+                json!({"left": 6.0, "bottom": 6.0, "right": 104.0, "top": 84.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load polyline/polygon fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype);
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
 }
