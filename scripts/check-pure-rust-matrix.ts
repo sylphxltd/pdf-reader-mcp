@@ -892,6 +892,20 @@ const borderBsNondictResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const borderArrayShortResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-border-array-short-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1658,7 +1672,7 @@ const borderBsNondictResidualWorkflowStart = differentialWorkflow.indexOf(
   'BORDER_BS_NONDICT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-nondict-residual-result.json"'
 );
 const borderBsNondictResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'BORDER_ARRAY_SHORT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-array-short-residual-result.json"',
   borderBsNondictResidualWorkflowStart
 );
 const borderBsNondictResidualWorkflow =
@@ -1667,6 +1681,21 @@ const borderBsNondictResidualWorkflow =
     ? differentialWorkflow.slice(
         borderBsNondictResidualWorkflowStart,
         borderBsNondictResidualWorkflowEnd
+      )
+    : '';
+const borderArrayShortResidualWorkflowStart = differentialWorkflow.indexOf(
+  'BORDER_ARRAY_SHORT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-array-short-residual-result.json"'
+);
+const borderArrayShortResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  borderArrayShortResidualWorkflowStart
+);
+const borderArrayShortResidualWorkflow =
+  borderArrayShortResidualWorkflowStart >= 0 &&
+  borderArrayShortResidualWorkflowEnd > borderArrayShortResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        borderArrayShortResidualWorkflowStart,
+        borderArrayShortResidualWorkflowEnd
       )
     : '';
 
@@ -7398,6 +7427,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the border BS nondict residual and frozen leaf-mutation count'
+  );
+}
+
+const borderArrayShortResidualCaseCount = borderArrayShortResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-border-array-short-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen border array short residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-border-array-short-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-border-array-short-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014BorderArrayShortResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014BorderArrayShortResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014BorderArrayShortResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the border array short residual family'
+  );
+}
+if (
+  !borderArrayShortResidualWorkflow.includes(
+    `.caseCount == ${borderArrayShortResidualCaseCount}`
+  ) ||
+  !borderArrayShortResidualWorkflow.includes(
+    `.passed == ${borderArrayShortResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${borderArrayShortResidualCaseCount}/${borderArrayShortResidualCaseCount} border array short residual corpus`
+  );
+}
+if (
+  borderArrayShortResidualCaseCount !== 3 ||
+  borderArrayShortResidualCorpus.envelope.fixtureCount !== 3 ||
+  borderArrayShortResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  borderArrayShortResidualCorpus.nonclaims.publishFreeze !== true ||
+  borderArrayShortResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'border array short residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !borderArrayShortResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_border_array_short_residual_result"'
+  ) ||
+  !borderArrayShortResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !borderArrayShortResidualWorkflow.includes(
+    '.providerProof.polylineBorderArrayShortW1 == true'
+  ) ||
+  !borderArrayShortResidualWorkflow.includes(
+    '.providerProof.lineBorderArrayEmptyW1 == true'
+  ) ||
+  !borderArrayShortResidualWorkflow.includes(
+    '.providerProof.inkBorderArrayShortW1 == true'
+  ) ||
+  !borderArrayShortResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !borderArrayShortResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !borderArrayShortResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'border array short residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-border-array-short-residual-differential.ts',
+  'scripts/differential/capture-v3014-border-array-short-residual-oracle.ts',
+  'v3014-border-array-short-residual-baseline-runner.ts',
+  'v3014-border-array-short-residual-projection.ts',
+  'v3014-border-array-short-residual-corpus.json',
+  'v3014-border-array-short-residual-oracle.json',
+  'v3014-annotation-polyline-border-short-v1.pdf',
+  'v3014-annotation-line-border-empty-v1.pdf',
+  'v3014-annotation-ink-border-short-v1.pdf',
+  'v3014BorderArrayShortResidualCaseCount',
+  'v3014BorderArrayShortResidualCorpusHash',
+  'v3014BorderArrayShortResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind border array short residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('border array short residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('border array short residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'border array short residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustBorderArrayShort = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustBorderArrayShort.includes('border array short residual') ||
+  !whyRustBorderArrayShort.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the border array short residual and frozen leaf-mutation count'
   );
 }
 if (
