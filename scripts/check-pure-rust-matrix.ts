@@ -864,6 +864,20 @@ const borderArrayWidthResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const borderBsPreferenceResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-border-bs-preference-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1600,7 +1614,7 @@ const borderArrayWidthResidualWorkflowStart = differentialWorkflow.indexOf(
   'BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-array-width-residual-result.json"'
 );
 const borderArrayWidthResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'BORDER_BS_PREFERENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-preference-residual-result.json"',
   borderArrayWidthResidualWorkflowStart
 );
 const borderArrayWidthResidualWorkflow =
@@ -1609,6 +1623,21 @@ const borderArrayWidthResidualWorkflow =
     ? differentialWorkflow.slice(
         borderArrayWidthResidualWorkflowStart,
         borderArrayWidthResidualWorkflowEnd
+      )
+    : '';
+const borderBsPreferenceResidualWorkflowStart = differentialWorkflow.indexOf(
+  'BORDER_BS_PREFERENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-preference-residual-result.json"'
+);
+const borderBsPreferenceResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  borderBsPreferenceResidualWorkflowStart
+);
+const borderBsPreferenceResidualWorkflow =
+  borderBsPreferenceResidualWorkflowStart >= 0 &&
+  borderBsPreferenceResidualWorkflowEnd > borderBsPreferenceResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        borderBsPreferenceResidualWorkflowStart,
+        borderBsPreferenceResidualWorkflowEnd
       )
     : '';
 
@@ -7106,6 +7135,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the border-array width residual and frozen leaf-mutation count'
+  );
+}
+
+const borderBsPreferenceResidualCaseCount = borderBsPreferenceResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-border-bs-preference-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen border BS preference residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-border-bs-preference-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-border-bs-preference-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014BorderBsPreferenceResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014BorderBsPreferenceResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014BorderBsPreferenceResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the border BS preference residual family'
+  );
+}
+if (
+  !borderBsPreferenceResidualWorkflow.includes(
+    `.caseCount == ${borderBsPreferenceResidualCaseCount}`
+  ) ||
+  !borderBsPreferenceResidualWorkflow.includes(
+    `.passed == ${borderBsPreferenceResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${borderBsPreferenceResidualCaseCount}/${borderBsPreferenceResidualCaseCount} border BS preference residual corpus`
+  );
+}
+if (
+  borderBsPreferenceResidualCaseCount !== 3 ||
+  borderBsPreferenceResidualCorpus.envelope.fixtureCount !== 3 ||
+  borderBsPreferenceResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  borderBsPreferenceResidualCorpus.nonclaims.publishFreeze !== true ||
+  borderBsPreferenceResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'border BS preference residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !borderBsPreferenceResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_border_bs_preference_residual_result"'
+  ) ||
+  !borderBsPreferenceResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !borderBsPreferenceResidualWorkflow.includes(
+    '.providerProof.polylineBorderBsPreferenceW2 == true'
+  ) ||
+  !borderBsPreferenceResidualWorkflow.includes(
+    '.providerProof.lineBorderBsPreferenceW2 == true'
+  ) ||
+  !borderBsPreferenceResidualWorkflow.includes(
+    '.providerProof.inkBorderBsPreferenceW3 == true'
+  ) ||
+  !borderBsPreferenceResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !borderBsPreferenceResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !borderBsPreferenceResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'border BS preference residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-border-bs-preference-residual-differential.ts',
+  'scripts/differential/capture-v3014-border-bs-preference-residual-oracle.ts',
+  'v3014-border-bs-preference-residual-baseline-runner.ts',
+  'v3014-border-bs-preference-residual-projection.ts',
+  'v3014-border-bs-preference-residual-corpus.json',
+  'v3014-border-bs-preference-residual-oracle.json',
+  'v3014-annotation-polyline-border-bs-pref-v1.pdf',
+  'v3014-annotation-line-border-bs-pref-v1.pdf',
+  'v3014-annotation-ink-border-bs-pref-v1.pdf',
+  'v3014BorderBsPreferenceResidualCaseCount',
+  'v3014BorderBsPreferenceResidualCorpusHash',
+  'v3014BorderBsPreferenceResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind border BS preference residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('border BS preference residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('border BS preference residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'border BS preference residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustBorderBsPreference = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustBorderBsPreference.includes('border BS preference residual') ||
+  !whyRustBorderBsPreference.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the border BS preference residual and frozen leaf-mutation count'
   );
 }
 if (
