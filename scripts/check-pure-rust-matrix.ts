@@ -752,6 +752,20 @@ const formButtonDefaultOffResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formPushbuttonDefaultNullResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-pushbutton-default-null-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -6533,6 +6547,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form button-default-off residual and frozen leaf-mutation count'
+  );
+}
+
+const formPushbuttonDefaultNullResidualCaseCount = formPushbuttonDefaultNullResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-pushbutton-default-null-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form pushbutton-default-null residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-pushbutton-default-null-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-pushbutton-default-null-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormPushbuttonDefaultNullResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormPushbuttonDefaultNullResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormPushbuttonDefaultNullResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form pushbutton-default-null residual family'
+  );
+}
+if (
+  formPushbuttonDefaultNullResidualCaseCount !== 3 ||
+  formPushbuttonDefaultNullResidualCorpus.envelope.fixtureCount !== 3 ||
+  formPushbuttonDefaultNullResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formPushbuttonDefaultNullResidualCorpus.nonclaims.publishFreeze !== true ||
+  formPushbuttonDefaultNullResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form pushbutton-default-null residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_pushbutton_default_null_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.pushbuttonApDefaultNull == true') ||
+  !differentialWorkflow.includes('.providerProof.pushbuttonNoApDefaultNull == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxApDefaultOffRegression == true')
+) {
+  failures.push(
+    'form pushbutton-default-null residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('pushbutton-default-null residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('pushbutton-default-null residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form pushbutton-default-null residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormPushbuttonDefaultNull = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormPushbuttonDefaultNull.includes('pushbutton-default-null residual') ||
+  !whyRustFormPushbuttonDefaultNull.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form pushbutton-default-null residual and frozen leaf-mutation count'
   );
 }
 
