@@ -612,6 +612,20 @@ const remoteActionResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const popupAnnotationResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-popup-annotation-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1071,7 +1085,7 @@ const remoteActionResidualWorkflowStart = differentialWorkflow.indexOf(
   'REMOTE_ACTION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-remote-action-residual-result.json"'
 );
 const remoteActionResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'POPUP_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-popup-annotation-residual-result.json"',
   remoteActionResidualWorkflowStart
 );
 const remoteActionResidualWorkflow =
@@ -1080,6 +1094,21 @@ const remoteActionResidualWorkflow =
     ? differentialWorkflow.slice(
         remoteActionResidualWorkflowStart,
         remoteActionResidualWorkflowEnd
+      )
+    : '';
+const popupAnnotationResidualWorkflowStart = differentialWorkflow.indexOf(
+  'POPUP_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-popup-annotation-residual-result.json"'
+);
+const popupAnnotationResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  popupAnnotationResidualWorkflowStart
+);
+const popupAnnotationResidualWorkflow =
+  popupAnnotationResidualWorkflowStart >= 0 &&
+  popupAnnotationResidualWorkflowEnd > popupAnnotationResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        popupAnnotationResidualWorkflowStart,
+        popupAnnotationResidualWorkflowEnd
       )
     : '';
 
@@ -4572,6 +4601,113 @@ if (
 ) {
   failures.push(
     'remote action residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const popupAnnotationResidualCaseCount = popupAnnotationResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-popup-annotation-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen popup annotation residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-popup-annotation-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-popup-annotation-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PopupAnnotationResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PopupAnnotationResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PopupAnnotationResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the popup annotation residual family'
+  );
+}
+if (
+  !popupAnnotationResidualWorkflow.includes(
+    `.caseCount == ${popupAnnotationResidualCaseCount}`
+  ) ||
+  !popupAnnotationResidualWorkflow.includes(
+    `.passed == ${popupAnnotationResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${popupAnnotationResidualCaseCount}/${popupAnnotationResidualCaseCount} popup annotation residual corpus`
+  );
+}
+if (
+  popupAnnotationResidualCaseCount !== 2 ||
+  popupAnnotationResidualCorpus.envelope.fixtureCount !== 2 ||
+  popupAnnotationResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  popupAnnotationResidualCorpus.nonclaims.publishFreeze !== true ||
+  popupAnnotationResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'popup annotation residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !popupAnnotationResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_popup_annotation_residual_result"'
+  ) ||
+  !popupAnnotationResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 36'
+  ) ||
+  !popupAnnotationResidualWorkflow.includes(
+    '.providerProof.popupInheritsParentTitleContents == true'
+  ) ||
+  !popupAnnotationResidualWorkflow.includes(
+    '.providerProof.parentTextIconBox == true'
+  ) ||
+  !popupAnnotationResidualWorkflow.includes(
+    '.providerProof.freeTextNoParentInherit == true'
+  ) ||
+  !popupAnnotationResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !popupAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !popupAnnotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'popup annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-popup-annotation-residual-differential.ts',
+  'scripts/differential/capture-v3014-popup-annotation-residual-oracle.ts',
+  'v3014-popup-annotation-residual-baseline-runner.ts',
+  'v3014-popup-annotation-residual-projection.ts',
+  'v3014-popup-annotation-residual-corpus.json',
+  'v3014-popup-annotation-residual-oracle.json',
+  'v3014-annotation-popup-v1.pdf',
+  'v3014-annotation-freetext-v1.pdf',
+  'v3014PopupAnnotationResidualCaseCount',
+  'v3014PopupAnnotationResidualCorpusHash',
+  'v3014PopupAnnotationResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind popup annotation residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('popup-annotation residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('popup-annotation residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'popup annotation residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 

@@ -287,6 +287,11 @@ A frozen two-case public-stdio `read_pdf` `include_annotations` text-annotation 
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` remote-action residual is admitted: Launch string files map to `url`; Launch file dictionaries prefer `UF` over `F`; GoToR builds remote `url` as `file#` + JSON explicit dest and suppresses `dest`. Leaf-mutation count is frozen at 42 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; GoToE attachments, `newWindow`, named remote dest string variants, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+### read_pdf include_annotations popup-annotation residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_annotations` popup residual is admitted: Popup inherits parent Text `title`/`contents` (pdf.js PopupAnnotation parent projection); parent Text keeps no-appearance 22×22 icon box; FreeText control keeps raw `/Rect` without parent inheritance. Leaf-mutation count is frozen at 36 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; Popup Group/IRT chain, zero-size rect nulling, richText RC, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+
 
 
 
