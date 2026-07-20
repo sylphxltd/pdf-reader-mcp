@@ -213,6 +213,11 @@ A frozen three-case public-stdio catalog `mark_info` residual is admitted: non-b
 
 A frozen two-case public-stdio `include_form_fields` parent/child residual is admitted: skip top-level and Kids direct dicts with parent stub plus dotted spaced child name and DV-as-value, and readonly parent `Ff` inheritance making child non-editable. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_form_fields` remains `PARTIAL`; malformed-field breadth, broader button-array coercion, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf annotation residual public-stdio subset (bounded)
+
+A frozen two-case public-stdio `read_pdf` `include_annotations` residual is admitted: FreeText and Link URI keep full `/Rect` boxes including multi-page FreeText, while Text sticky notes claim contents/title only without bounding boxes (pdf.js icon-box geometry remains unclaimed). Leaf-mutation count is frozen at 44 with relocated fixture-root replay. `include_annotations` remains `PARTIAL`; dest-only Link page-ref shape, glyph-perfect boxes, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
 
 A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted over `v3014-visual-v1.pdf`: valid TSV level-5 words produce image-to-PDF `ocr_word` geometry on the search match, and malformed TSV soft-falls back to raw text without geometry. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_ocr_text_layer` remains `PARTIAL`; real tesseract binary health checks, selectable/OCR interleaving, URL single-fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.

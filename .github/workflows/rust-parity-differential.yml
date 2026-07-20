@@ -136,6 +136,7 @@ jobs:
           bun run test:v3014-attachment-residual-differential -- --output "${SCRATCH_DIR}/v3014-attachment-residual-result.json"
           bun run test:v3014-markinfo-residual-differential -- --output "${SCRATCH_DIR}/v3014-markinfo-residual-result.json"
           bun run test:v3014-form-parent-child-differential -- --output "${SCRATCH_DIR}/v3014-form-parent-child-result.json"
+          bun run test:v3014-annotation-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -958,6 +959,32 @@ jobs:
               and .candidateSha == $sha
             ' "$FORM_PARENT_CHILD_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 form parent-child result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+          ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-residual-result.json"
+          if [ ! -f "$ANNOTATION_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 annotation residual result missing at $ANNOTATION_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_annotation_residual_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 2
+              and .passed == 2
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 44
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.freeTextAndLinkFullBoxes == true
+              and .providerProof.multiPageFreeText == true
+              and .providerProof.textContentTitleWithoutBoxes == true
+              and .capabilityStatus.includeAnnotations == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 annotation residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 
