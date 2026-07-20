@@ -120,8 +120,27 @@ where
     Err(format!("Too many redirects (>{MAX_REDIRECTS})."))
 }
 
+fn env_allow_private_ips() -> bool {
+    match std::env::var("MCP_PDF_ALLOW_PRIVATE_IPS") {
+        Ok(value) => {
+            let normalized = value.trim().to_ascii_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+        }
+        Err(_) => false,
+    }
+}
+
+/// Fetch a URL PDF body into a temporary file.
+///
+/// By default non-public addresses are rejected. Set
+/// `MCP_PDF_ALLOW_PRIVATE_IPS=true` to match the TypeScript LKG opt-in that
+/// permits loopback/private fetches for local fixtures and trusted networks.
 pub fn fetch_url_to_temp_file(url: &str) -> Result<PathBuf, String> {
-    fetch_url_to_temp_file_with(url, &SystemDnsResolver, is_private_ip)
+    if env_allow_private_ips() {
+        fetch_url_to_temp_file_with(url, &SystemDnsResolver, |_| false)
+    } else {
+        fetch_url_to_temp_file_with(url, &SystemDnsResolver, is_private_ip)
+    }
 }
 
 pub fn cleanup_temp_file(path: &Path) {

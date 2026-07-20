@@ -172,6 +172,11 @@ A frozen four-case public-stdio residual for `search_pdf` `include_ocr_text_laye
 
 A frozen four-case public-stdio selectable/OCR search interleaving subset is admitted: selectable matches append before OCR matches, exact `max_matches` admits one OCR match, a full selectable cap skips OCR without a truncation flag, and unique OCR-only tokens append as sole matches. Leaf-mutation count is frozen at 149. `include_ocr_text_layer` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### URL source single-fetch public-stdio subset (bounded)
+
+A frozen two-case public-stdio URL source single-fetch subset is admitted for `read_pdf` over a local fixture HTTP server with `MCP_PDF_ALLOW_PRIVATE_IPS=true`: no-OCR single fetch and OCR-with-document-map single fetch that reuses materialized bytes. Leaf-mutation count is frozen at 16 with relocated fixture-root replay. `url_ssrf` remains `PARTIAL`; `search_pdf` URL+OCR single-fetch (TS double-fetch residual), resolver timeout, TLS-SNI fixtures, public-internet fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### Cross-platform native package scaffold (bounded)
 
 Optional native packages and a platform-scoped `bin/native/<platform>/` layout are scaffolded for `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. CI builds and uploads host binaries, but packages remain private and prepublish-blocked while `publishFreeze=true`. Default npm `latest` remains TypeScript 3.0.14; clean registry install/runtime verification and TS retirement remain unclaimed.

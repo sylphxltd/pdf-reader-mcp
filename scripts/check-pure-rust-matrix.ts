@@ -260,6 +260,21 @@ const ocrSearchInterleaveCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const urlSingleFetchCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-url-single-fetch-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxFetchesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -393,13 +408,25 @@ const ocrSearchInterleaveWorkflowStart = differentialWorkflow.indexOf(
   'OCR_SEARCH_INTERLEAVE_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-interleave-result.json"'
 );
 const ocrSearchInterleaveWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'URL_SINGLE_FETCH_ARTIFACT="${SCRATCH_DIR}/v3014-url-single-fetch-result.json"',
   ocrSearchInterleaveWorkflowStart
 );
 const ocrSearchInterleaveWorkflow =
   ocrSearchInterleaveWorkflowStart >= 0 &&
   ocrSearchInterleaveWorkflowEnd > ocrSearchInterleaveWorkflowStart
     ? differentialWorkflow.slice(ocrSearchInterleaveWorkflowStart, ocrSearchInterleaveWorkflowEnd)
+    : '';
+const urlSingleFetchWorkflowStart = differentialWorkflow.indexOf(
+  'URL_SINGLE_FETCH_ARTIFACT="${SCRATCH_DIR}/v3014-url-single-fetch-result.json"'
+);
+const urlSingleFetchWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  urlSingleFetchWorkflowStart
+);
+const urlSingleFetchWorkflow =
+  urlSingleFetchWorkflowStart >= 0 &&
+  urlSingleFetchWorkflowEnd > urlSingleFetchWorkflowStart
+    ? differentialWorkflow.slice(urlSingleFetchWorkflowStart, urlSingleFetchWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -1553,6 +1580,89 @@ if (
   )
 ) {
   failures.push('ocr-search interleave bounded claim and explicit nonclaims must remain documented');
+}
+
+const urlSingleFetchCaseCount = urlSingleFetchCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-url-single-fetch-differential')) {
+  failures.push('rust parity workflow must execute the frozen url single-fetch differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-url-single-fetch-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-url-single-fetch-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014UrlSingleFetchCaseCount') ||
+  !repositoryDifferential.includes('v3014UrlSingleFetchCorpusHash') ||
+  !repositoryDifferential.includes('v3014UrlSingleFetchOracleHash')
+) {
+  failures.push('repository differential artifact must bind the url single-fetch family');
+}
+if (
+  !urlSingleFetchWorkflow.includes(`.caseCount == ${urlSingleFetchCaseCount}`) ||
+  !urlSingleFetchWorkflow.includes(`.passed == ${urlSingleFetchCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${urlSingleFetchCaseCount}/${urlSingleFetchCaseCount} url single-fetch corpus`
+  );
+}
+if (
+  urlSingleFetchCaseCount !== 2 ||
+  urlSingleFetchCorpus.envelope.fixtureCount !== 1 ||
+  urlSingleFetchCorpus.envelope.maxFetchesPerCase !== 1 ||
+  urlSingleFetchCorpus.nonclaims.dropInFor3014 !== false ||
+  urlSingleFetchCorpus.nonclaims.publishFreeze !== true ||
+  urlSingleFetchCorpus.nonclaims.searchPdfUrlOcrSingleFetch !== false ||
+  urlSingleFetchCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'url single-fetch corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !urlSingleFetchWorkflow.includes(
+    '.profile == "pdf_reader_v3014_url_single_fetch_result"'
+  ) ||
+  !urlSingleFetchWorkflow.includes('.mutationSensitive.leafMutationCount == 16') ||
+  !urlSingleFetchWorkflow.includes('.providerProof.allowPrivateIpsRequired == true') ||
+  !urlSingleFetchWorkflow.includes('.providerProof.readPdfNoOcrSingleFetch == true') ||
+  !urlSingleFetchWorkflow.includes('.providerProof.readPdfWithOcrSingleFetch == true') ||
+  !urlSingleFetchWorkflow.includes('.capabilityStatus.urlSsrf == "PARTIAL"') ||
+  !urlSingleFetchWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !urlSingleFetchWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'url single-fetch workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-url-single-fetch-differential.ts',
+  'scripts/differential/capture-v3014-url-single-fetch-oracle.ts',
+  'v3014-url-single-fetch-baseline-runner.ts',
+  'v3014-url-single-fetch-projection.ts',
+  'url-single-fetch-fixture-server.ts',
+  'v3014-url-single-fetch-corpus.json',
+  'v3014-url-single-fetch-oracle.json',
+  'v3014UrlSingleFetchCaseCount',
+  'v3014UrlSingleFetchCorpusHash',
+  'v3014UrlSingleFetchOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind url single-fetch family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 2-case') && claim.includes('URL source single-fetch')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('URL single-fetch outside the frozen 2-case')
+  )
+) {
+  failures.push('url single-fetch bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
