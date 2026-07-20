@@ -653,6 +653,8 @@ struct BuildSignals {
     accessibility_structure_trees: Option<Value>,
     accessibility_structure_valid: bool,
     images: Option<Value>,
+    /// Catalog /Metadata stream present. TS emits `metadata` only then.
+    has_catalog_metadata: bool,
     warnings: Vec<String>,
 }
 
@@ -740,6 +742,7 @@ fn build_data(
         accessibility_structure_trees,
         accessibility_structure_valid,
         images,
+        has_catalog_metadata,
         mut warnings,
     } = signals;
     let full_text = join_page_text(pages);
@@ -1098,18 +1101,14 @@ fn build_data(
                 .expect("info object")
                 .insert("num_pages".into(), json!(total_pages));
         }
-        data.info = Some(info.clone());
-        let mut metadata = json!({
-            "info": info,
-            "text_chars": text_chars,
-        });
-        if want_page_count {
-            metadata
-                .as_object_mut()
-                .expect("metadata object")
-                .insert("num_pages".into(), json!(total_pages));
+        data.info = Some(info);
+        // Match TS/pdf.js: `metadata` is only present when getMetadata() returns a
+        // metadata object (catalog /Metadata stream). Do not invent a synthetic
+        // wrapper around info/text_chars. When the stream exists but exposes no
+        // getAll keys (common in pdfjs-dist Node), TS returns {}.
+        if has_catalog_metadata {
+            data.metadata = Some(json!({}));
         }
-        data.metadata = Some(metadata);
     }
     if explicit_page_selection {
         data.page_texts = Some(pages.to_vec());
@@ -1440,6 +1439,12 @@ fn read_local_pdf_filtered(
             accessibility_structure_trees,
             accessibility_structure_valid,
             images: input.include_images.then(|| json!(image_signals.images)),
+            has_catalog_metadata: parsed
+                .document
+                .catalog()
+                .ok()
+                .and_then(|catalog| catalog.get(b"Metadata").ok())
+                .is_some(),
             warnings: signal_warnings,
         },
     );

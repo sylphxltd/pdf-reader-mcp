@@ -258,6 +258,11 @@ A frozen three-case public-stdio `read_pdf` `include_outline` residual is admitt
 
 A frozen four-case public-stdio `read_pdf` `include_permissions` residual is admitted: empty-user-password encrypted PDFs expose pdf.js permission labels for print/copy/fill/a11y, modify/annotate/assemble, and print+print_high_quality; unencrypted PDFs omit permissions. Leaf-mutation count is frozen at 25 with relocated fixture-root replay. `include_permissions` remains `PARTIAL`; non-empty user password, owner-only unlock, unknown permission bits, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf metadata presence residual public-stdio subset (bounded)
+
+A frozen two-case public-stdio `read_pdf` `include_metadata` presence residual is admitted: catalog without `/Metadata` omits `data.metadata`; catalog with `/Metadata` stream emits an empty metadata object matching pdfjs-dist Node presence (no synthetic info wrapper). Leaf-mutation count is frozen at 12 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP key/value parsing, rich getAll payloads, rust-only info extras, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
 
 A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted over `v3014-visual-v1.pdf`: valid TSV level-5 words produce image-to-PDF `ocr_word` geometry on the search match, and malformed TSV soft-falls back to raw text without geometry. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_ocr_text_layer` remains `PARTIAL`; real tesseract binary health checks, selectable/OCR interleaving, URL single-fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.

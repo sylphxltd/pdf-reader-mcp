@@ -514,6 +514,20 @@ const permissionsResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const metadataPresenceResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-metadata-presence-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -868,7 +882,7 @@ const permissionsResidualWorkflowStart = differentialWorkflow.indexOf(
   'PERMISSIONS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-permissions-residual-result.json"'
 );
 const permissionsResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'METADATA_PRESENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-metadata-presence-residual-result.json"',
   permissionsResidualWorkflowStart
 );
 const permissionsResidualWorkflow =
@@ -877,6 +891,21 @@ const permissionsResidualWorkflow =
     ? differentialWorkflow.slice(
         permissionsResidualWorkflowStart,
         permissionsResidualWorkflowEnd
+      )
+    : '';
+const metadataPresenceResidualWorkflowStart = differentialWorkflow.indexOf(
+  'METADATA_PRESENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-metadata-presence-residual-result.json"'
+);
+const metadataPresenceResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  metadataPresenceResidualWorkflowStart
+);
+const metadataPresenceResidualWorkflow =
+  metadataPresenceResidualWorkflowStart >= 0 &&
+  metadataPresenceResidualWorkflowEnd > metadataPresenceResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        metadataPresenceResidualWorkflowStart,
+        metadataPresenceResidualWorkflowEnd
       )
     : '';
 
@@ -3613,6 +3642,113 @@ if (
 ) {
   failures.push(
     'permissions residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const metadataPresenceResidualCaseCount = metadataPresenceResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-metadata-presence-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen metadata presence residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-metadata-presence-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-metadata-presence-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014MetadataPresenceResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014MetadataPresenceResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014MetadataPresenceResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the metadata presence residual family'
+  );
+}
+if (
+  !metadataPresenceResidualWorkflow.includes(
+    `.caseCount == ${metadataPresenceResidualCaseCount}`
+  ) ||
+  !metadataPresenceResidualWorkflow.includes(
+    `.passed == ${metadataPresenceResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${metadataPresenceResidualCaseCount}/${metadataPresenceResidualCaseCount} metadata presence residual corpus`
+  );
+}
+if (
+  metadataPresenceResidualCaseCount !== 2 ||
+  metadataPresenceResidualCorpus.envelope.fixtureCount !== 2 ||
+  metadataPresenceResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  metadataPresenceResidualCorpus.nonclaims.publishFreeze !== true ||
+  metadataPresenceResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'metadata presence residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !metadataPresenceResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_metadata_presence_residual_result"'
+  ) ||
+  !metadataPresenceResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 12'
+  ) ||
+  !metadataPresenceResidualWorkflow.includes(
+    '.providerProof.absentOmitsMetadata == true'
+  ) ||
+  !metadataPresenceResidualWorkflow.includes(
+    '.providerProof.presentEmptyObject == true'
+  ) ||
+  !metadataPresenceResidualWorkflow.includes(
+    '.providerProof.infoStillPresent == true'
+  ) ||
+  !metadataPresenceResidualWorkflow.includes(
+    '.capabilityStatus.includeMetadata == "PARTIAL"'
+  ) ||
+  !metadataPresenceResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !metadataPresenceResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'metadata presence residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-metadata-presence-residual-differential.ts',
+  'scripts/differential/capture-v3014-metadata-presence-residual-oracle.ts',
+  'v3014-metadata-presence-residual-baseline-runner.ts',
+  'v3014-metadata-presence-residual-projection.ts',
+  'v3014-metadata-presence-residual-corpus.json',
+  'v3014-metadata-presence-residual-oracle.json',
+  'v3014-metadata-absent-v1.pdf',
+  'v3014-metadata-present-v1.pdf',
+  'v3014MetadataPresenceResidualCaseCount',
+  'v3014MetadataPresenceResidualCorpusHash',
+  'v3014MetadataPresenceResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind metadata presence residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('metadata presence residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('metadata presence residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'metadata presence residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
