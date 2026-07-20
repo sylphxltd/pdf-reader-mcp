@@ -50,6 +50,7 @@ V3014_PAGE_LABELS_RESIDUAL_JSON="$SCRATCH/v3014-page-labels-residual-result.json
 V3014_OUTLINE_RESIDUAL_JSON="$SCRATCH/v3014-outline-residual-result.json"
 V3014_PERMISSIONS_RESIDUAL_JSON="$SCRATCH/v3014-permissions-residual-result.json"
 V3014_METADATA_PRESENCE_RESIDUAL_JSON="$SCRATCH/v3014-metadata-presence-residual-result.json"
+V3014_INFO_EXTRAS_RESIDUAL_JSON="$SCRATCH/v3014-info-extras-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -283,6 +284,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-permissions-residual-differenti
 bun "$REPO_ROOT/scripts/differential/capture-v3014-metadata-presence-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-metadata-presence-residual-differential.ts" \
   --output "$V3014_METADATA_PRESENCE_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-info-extras-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-info-extras-residual-differential.ts" \
+  --output "$V3014_INFO_EXTRAS_RESIDUAL_JSON" >>"$LOG"
 
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
@@ -501,6 +505,12 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-metadata-presence-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-metadata-absent-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-metadata-present-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-info-extras-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-info-extras-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-info-extras-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-info-extras-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-info-flags-acroform-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-info-flags-plain-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-candidate-fixtures.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-visual-corpus.json" \
@@ -721,6 +731,11 @@ V3014_METADATA_PRESENCE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_METADATA_PRESENC
 V3014_METADATA_PRESENCE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_METADATA_PRESENCE_RESIDUAL_JSON")"
 V3014_METADATA_PRESENCE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_METADATA_PRESENCE_RESIDUAL_JSON")"
 V3014_METADATA_PRESENCE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_METADATA_PRESENCE_RESIDUAL_JSON")"
+V3014_INFO_EXTRAS_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_INFO_EXTRAS_RESIDUAL_JSON")"
+V3014_INFO_EXTRAS_RESIDUAL_PASSED="$(jq '.passed' "$V3014_INFO_EXTRAS_RESIDUAL_JSON")"
+V3014_INFO_EXTRAS_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_INFO_EXTRAS_RESIDUAL_JSON")"
+V3014_INFO_EXTRAS_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_INFO_EXTRAS_RESIDUAL_JSON")"
+V3014_INFO_EXTRAS_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_INFO_EXTRAS_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -825,6 +840,8 @@ jq -n \
   --arg v3014PermissionsResidualOracleHash "$V3014_PERMISSIONS_RESIDUAL_ORACLE_HASH" \
   --arg v3014MetadataPresenceResidualCorpusHash "$V3014_METADATA_PRESENCE_RESIDUAL_CORPUS_HASH" \
   --arg v3014MetadataPresenceResidualOracleHash "$V3014_METADATA_PRESENCE_RESIDUAL_ORACLE_HASH" \
+  --arg v3014InfoExtrasResidualCorpusHash "$V3014_INFO_EXTRAS_RESIDUAL_CORPUS_HASH" \
+  --arg v3014InfoExtrasResidualOracleHash "$V3014_INFO_EXTRAS_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -958,6 +975,9 @@ jq -n \
   --argjson v3014MetadataPresenceResidualCaseCount "$V3014_METADATA_PRESENCE_RESIDUAL_CASE_COUNT" \
   --argjson v3014MetadataPresenceResidualPassed "$V3014_METADATA_PRESENCE_RESIDUAL_PASSED" \
   --argjson v3014MetadataPresenceResidualSkipped "$V3014_METADATA_PRESENCE_RESIDUAL_SKIPPED" \
+  --argjson v3014InfoExtrasResidualCaseCount "$V3014_INFO_EXTRAS_RESIDUAL_CASE_COUNT" \
+  --argjson v3014InfoExtrasResidualPassed "$V3014_INFO_EXTRAS_RESIDUAL_PASSED" \
+  --argjson v3014InfoExtrasResidualSkipped "$V3014_INFO_EXTRAS_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -1183,9 +1203,14 @@ jq -n \
     v3014PermissionsResidualSkipped: $v3014PermissionsResidualSkipped,
     v3014MetadataPresenceResidualCorpusHash: $v3014MetadataPresenceResidualCorpusHash,
     v3014MetadataPresenceResidualOracleHash: $v3014MetadataPresenceResidualOracleHash,
+    v3014InfoExtrasResidualCorpusHash: $v3014InfoExtrasResidualCorpusHash,
+    v3014InfoExtrasResidualOracleHash: $v3014InfoExtrasResidualOracleHash,
     v3014MetadataPresenceResidualCaseCount: $v3014MetadataPresenceResidualCaseCount,
     v3014MetadataPresenceResidualPassed: $v3014MetadataPresenceResidualPassed,
     v3014MetadataPresenceResidualSkipped: $v3014MetadataPresenceResidualSkipped,
+    v3014InfoExtrasResidualCaseCount: $v3014InfoExtrasResidualCaseCount,
+    v3014InfoExtrasResidualPassed: $v3014InfoExtrasResidualPassed,
+    v3014InfoExtrasResidualSkipped: $v3014InfoExtrasResidualSkipped,
     v3014VisualCorpusHash: $v3014VisualCorpusHash,
     v3014VisualOracleHash: $v3014VisualOracleHash,
     v3014VisualCaseCount: $v3014VisualCaseCount,
@@ -1280,6 +1305,8 @@ jq -n \
     immutablePermissionsResidualDifferential: "scripts/differential/check-v3014-permissions-residual-differential.ts",
     immutableMetadataPresenceResidualOracle: "scripts/differential/fixtures/v3014-metadata-presence-residual-oracle.json",
     immutableMetadataPresenceResidualDifferential: "scripts/differential/check-v3014-metadata-presence-residual-differential.ts",
+    immutableInfoExtrasResidualOracle: "scripts/differential/fixtures/v3014-info-extras-residual-oracle.json",
+    immutableInfoExtrasResidualDifferential: "scripts/differential/check-v3014-info-extras-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",

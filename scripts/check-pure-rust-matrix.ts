@@ -528,6 +528,20 @@ const metadataPresenceResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const infoExtrasResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-info-extras-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -897,7 +911,7 @@ const metadataPresenceResidualWorkflowStart = differentialWorkflow.indexOf(
   'METADATA_PRESENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-metadata-presence-residual-result.json"'
 );
 const metadataPresenceResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'INFO_EXTRAS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-extras-residual-result.json"',
   metadataPresenceResidualWorkflowStart
 );
 const metadataPresenceResidualWorkflow =
@@ -906,6 +920,21 @@ const metadataPresenceResidualWorkflow =
     ? differentialWorkflow.slice(
         metadataPresenceResidualWorkflowStart,
         metadataPresenceResidualWorkflowEnd
+      )
+    : '';
+const infoExtrasResidualWorkflowStart = differentialWorkflow.indexOf(
+  'INFO_EXTRAS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-extras-residual-result.json"'
+);
+const infoExtrasResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  infoExtrasResidualWorkflowStart
+);
+const infoExtrasResidualWorkflow =
+  infoExtrasResidualWorkflowStart >= 0 &&
+  infoExtrasResidualWorkflowEnd > infoExtrasResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        infoExtrasResidualWorkflowStart,
+        infoExtrasResidualWorkflowEnd
       )
     : '';
 
@@ -3749,6 +3778,113 @@ if (
 ) {
   failures.push(
     'metadata presence residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const infoExtrasResidualCaseCount = infoExtrasResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-info-extras-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen info extras residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-info-extras-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-info-extras-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014InfoExtrasResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014InfoExtrasResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014InfoExtrasResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the info extras residual family'
+  );
+}
+if (
+  !infoExtrasResidualWorkflow.includes(
+    `.caseCount == ${infoExtrasResidualCaseCount}`
+  ) ||
+  !infoExtrasResidualWorkflow.includes(
+    `.passed == ${infoExtrasResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${infoExtrasResidualCaseCount}/${infoExtrasResidualCaseCount} info extras residual corpus`
+  );
+}
+if (
+  infoExtrasResidualCaseCount !== 2 ||
+  infoExtrasResidualCorpus.envelope.fixtureCount !== 2 ||
+  infoExtrasResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  infoExtrasResidualCorpus.nonclaims.publishFreeze !== true ||
+  infoExtrasResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'info extras residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !infoExtrasResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_info_extras_residual_result"'
+  ) ||
+  !infoExtrasResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 60'
+  ) ||
+  !infoExtrasResidualWorkflow.includes(
+    '.providerProof.noRustOnlyInfoExtras == true'
+  ) ||
+  !infoExtrasResidualWorkflow.includes(
+    '.providerProof.exactInfoKeySet == true'
+  ) ||
+  !infoExtrasResidualWorkflow.includes(
+    '.providerProof.topLevelNumPagesPreserved == true'
+  ) ||
+  !infoExtrasResidualWorkflow.includes(
+    '.capabilityStatus.includeMetadata == "PARTIAL"'
+  ) ||
+  !infoExtrasResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !infoExtrasResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'info extras residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-info-extras-residual-differential.ts',
+  'scripts/differential/capture-v3014-info-extras-residual-oracle.ts',
+  'v3014-info-extras-residual-baseline-runner.ts',
+  'v3014-info-extras-residual-projection.ts',
+  'v3014-info-extras-residual-corpus.json',
+  'v3014-info-extras-residual-oracle.json',
+  'v3014-info-flags-acroform-v1.pdf',
+  'v3014-info-flags-plain-v1.pdf',
+  'v3014InfoExtrasResidualCaseCount',
+  'v3014InfoExtrasResidualCorpusHash',
+  'v3014InfoExtrasResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind info extras residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('info-extras residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('info-extras residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'info extras residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 

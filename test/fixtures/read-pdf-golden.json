@@ -27,8 +27,7 @@
                 "info": {
                   "Title": "sample",
                   "Producer": "Mac OS X 10.5.4 Quartz PDFContext",
-                  "PDFFormatVersion": "1.3",
-                  "route": "rust-read-pdf-v1"
+                  "PDFFormatVersion": "1.3"
                 }
               }
             }
