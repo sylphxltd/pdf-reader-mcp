@@ -422,6 +422,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` highlight quadpoints residual is admitted: Highlight `QuadPoints` rewrite public `bounding_box` when appearance is unset or `AP/N` stream Resources lack `ExtGState` (pdf.js `HighlightAnnotation` ignores such streams); `AP/N` stream with `ExtGState` keeps raw Rect. Fixtures prove no-AP uses `{10,10,100,80}`, AP without ExtGState uses `{10,10,100,80}`, and AP with ExtGState keeps `{200,200,300,300}`. Leaf-mutation count is frozen at 39. Underline/Squiggly/StrikeOut quadpoints breadth, appearance-stream content bbox derivation, line endings `LE`, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+
+### read_pdf include_annotations text-markup quadpoints residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` text-markup quadpoints residual is admitted: Underline/Squiggly/StrikeOut without appearance rewrite public `bounding_box` from `QuadPoints` (pdf.js text-markup annotations). Squiggly uses bottom-strip `[minX, minY-2*dy, maxX, minY+2*dy]` with `dy=(maxY-minY)/6`; Underline/StrikeOut use the full axis-aligned quad union. Fixtures prove Underline `{20,20,120,90}`, Squiggly `{30,6.666...,130,53.333...}`, StrikeOut `{40,40,140,110}`. Leaf-mutation count is frozen at 39. Text-markup with appearance breadth, appearance-stream content bbox derivation, line endings `LE`, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.

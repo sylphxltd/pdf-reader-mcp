@@ -379,6 +379,34 @@ fn vertices_bbox(points: &[(f64, f64)], pad: f64) -> Option<[f64; 4]> {
     left.is_finite().then_some([left, bottom, right, top])
 }
 
+fn squiggly_quad_bbox(points: &[(f64, f64)]) -> Option<[f64; 4]> {
+    // pdf.js SquigglyAnnotation pointsCallback over normalized quads
+    // [minX,maxY, maxX,maxY, minX,minY, maxX,minY] returns
+    // [minX, minY-2*dy, maxX, minY+2*dy] with dy=(maxY-minY)/6, unioned.
+    if points.len() < 4 || points.len() % 4 != 0 {
+        return None;
+    }
+    let mut left = f64::INFINITY;
+    let mut bottom = f64::INFINITY;
+    let mut right = f64::NEG_INFINITY;
+    let mut top = f64::NEG_INFINITY;
+    let mut index = 0;
+    while index + 3 < points.len() {
+        let (min_x, max_y) = points[index];
+        let (max_x, _) = points[index + 1];
+        let (_, min_y) = points[index + 2];
+        let dy = (max_y - min_y) / 6.0;
+        left = left.min(min_x);
+        bottom = bottom.min(min_y - 2.0 * dy);
+        right = right.max(max_x);
+        top = top.max(min_y + 2.0 * dy);
+        index += 4;
+    }
+    left.is_finite().then_some([left, bottom, right, top])
+}
+
+
+
 fn ink_lists_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec<(f64, f64)>> {
     let value = dict.get(b"InkList").ok()?;
     let lists = resolve(document, value).ok()?.as_array().ok()?;
@@ -647,7 +675,10 @@ fn normalize_annotation(
 
     // pdf.js Highlight/Underline/Squiggly/StrikeOut:
     // - when synthesizing default appearance from QuadPoints, public data.rect
-    //   becomes the axis-aligned union of those quads (via _setDefaultAppearance).
+    //   is rewritten by _setDefaultAppearance from pointsCallback returns.
+    // - Highlight/Underline/StrikeOut return the axis-aligned quad union.
+    // - Squiggly returns a bottom-strip around the squiggle:
+    //   [minX, minY-2*dy, maxX, minY+2*dy] where dy=(maxY-minY)/6.
     // - Highlight additionally ignores appearance streams without ExtGState.
     if matches!(
         subtype.as_deref(),
@@ -656,7 +687,11 @@ fn normalize_annotation(
         let subtype_name = subtype.as_deref().unwrap();
         if text_markup_should_use_quad_bbox(document, dict, subtype_name) {
             if let Some(points) = quad_points(document, dict) {
-                if let Some(quad_box) = vertices_bbox(&points, 0.0) {
+                if subtype_name == "Squiggly" {
+                    if let Some(box_rect) = squiggly_quad_bbox(&points) {
+                        rect = Some(box_rect);
+                    }
+                } else if let Some(quad_box) = vertices_bbox(&points, 0.0) {
                     rect = Some(quad_box);
                 }
             }
@@ -2207,6 +2242,40 @@ mod tests {
             assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
         }
     }
+
+    #[test]
+    fn text_markup_quadpoints_breadth() {
+        let cases = [
+            (
+                "v3014-annotation-underline-quad-noap-v1.pdf",
+                "Underline",
+                json!({"left": 20.0, "bottom": 20.0, "right": 120.0, "top": 90.0}),
+            ),
+            (
+                "v3014-annotation-squiggly-quad-noap-v1.pdf",
+                "Squiggly",
+                json!({"left": 30.0, "bottom": 6.666666666666668, "right": 130.0, "top": 53.33333333333333}),
+            ),
+            (
+                "v3014-annotation-strikeout-quad-noap-v1.pdf",
+                "StrikeOut",
+                json!({"left": 40.0, "bottom": 40.0, "right": 140.0, "top": 110.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load text-markup fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
 
 
 }
