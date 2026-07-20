@@ -780,6 +780,20 @@ const utf16TextResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const textInvalidAsResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-text-invalid-as-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1426,7 +1440,7 @@ const utf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
   'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"'
 );
 const utf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'TEXT_INVALID_AS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-text-invalid-as-residual-result.json"',
   utf16TextResidualWorkflowStart
 );
 const utf16TextResidualWorkflow =
@@ -1435,6 +1449,21 @@ const utf16TextResidualWorkflow =
     ? differentialWorkflow.slice(
         utf16TextResidualWorkflowStart,
         utf16TextResidualWorkflowEnd
+      )
+    : '';
+const textInvalidAsResidualWorkflowStart = differentialWorkflow.indexOf(
+  'TEXT_INVALID_AS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-text-invalid-as-residual-result.json"'
+);
+const textInvalidAsResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  textInvalidAsResidualWorkflowStart
+);
+const textInvalidAsResidualWorkflow =
+  textInvalidAsResidualWorkflowStart >= 0 &&
+  textInvalidAsResidualWorkflowEnd > textInvalidAsResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        textInvalidAsResidualWorkflowStart,
+        textInvalidAsResidualWorkflowEnd
       )
     : '';
 
@@ -6232,6 +6261,120 @@ if (
 ) {
   failures.push(
     'why-rust must document the utf16-text residual and frozen leaf-mutation count'
+  );
+}
+
+
+const textInvalidAsResidualCaseCount = textInvalidAsResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-text-invalid-as-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen text invalid-as residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-text-invalid-as-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-text-invalid-as-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014TextInvalidAsResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014TextInvalidAsResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014TextInvalidAsResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the text invalid-as residual family'
+  );
+}
+if (
+  !textInvalidAsResidualWorkflow.includes(
+    `.caseCount == ${textInvalidAsResidualCaseCount}`
+  ) ||
+  !textInvalidAsResidualWorkflow.includes(
+    `.passed == ${textInvalidAsResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${textInvalidAsResidualCaseCount}/${textInvalidAsResidualCaseCount} text invalid-as residual corpus`
+  );
+}
+if (
+  textInvalidAsResidualCaseCount !== 2 ||
+  textInvalidAsResidualCorpus.envelope.fixtureCount !== 2 ||
+  textInvalidAsResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  textInvalidAsResidualCorpus.nonclaims.publishFreeze !== true ||
+  textInvalidAsResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'text invalid-as residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !textInvalidAsResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_text_invalid_as_residual_result"'
+  ) ||
+  !textInvalidAsResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 28'
+  ) ||
+  !textInvalidAsResidualWorkflow.includes(
+    '.providerProof.invalidAsNameUsesIconBox == true'
+  ) ||
+  !textInvalidAsResidualWorkflow.includes(
+    '.providerProof.asNonstreamUsesIconBox == true'
+  ) ||
+  !textInvalidAsResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !textInvalidAsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !textInvalidAsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'text invalid-as residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-text-invalid-as-residual-differential.ts',
+  'scripts/differential/capture-v3014-text-invalid-as-residual-oracle.ts',
+  'v3014-text-invalid-as-residual-baseline-runner.ts',
+  'v3014-text-invalid-as-residual-projection.ts',
+  'v3014-text-invalid-as-residual-corpus.json',
+  'v3014-text-invalid-as-residual-oracle.json',
+  'v3014-annotation-text-namedap-badas-v1.pdf',
+  'v3014-annotation-text-namedap-as-nonstream-v1.pdf',
+  'v3014TextInvalidAsResidualCaseCount',
+  'v3014TextInvalidAsResidualCorpusHash',
+  'v3014TextInvalidAsResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind text invalid-as residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('text invalid-as residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('text invalid-as residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'text invalid-as residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustInvalidAs = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustInvalidAs.includes('text invalid-as residual') ||
+  !whyRustInvalidAs.includes('Leaf-mutation count is frozen at 28')
+) {
+  failures.push(
+    'why-rust must document the text invalid-as residual and frozen leaf-mutation count'
   );
 }
 if (

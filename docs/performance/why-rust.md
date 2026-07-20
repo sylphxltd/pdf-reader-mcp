@@ -335,6 +335,10 @@ A frozen two-case public-stdio `read_pdf` `include_form_fields` form utf16-text 
 
 A frozen three-case public-stdio utf16-text residual is admitted: pdf.js `stringToPDFString` odd-length UTF-16BE trailing-byte drop for Text annotation title/contents, FreeText contents, outline titles, and metadata `Title`/`Author`. Leaf-mutation count is frozen at 41 with relocated fixture-root replay. Form-field UTF-16 decoding remains covered by the form utf16-text residual. `include_annotations`/`include_outline`/`include_metadata` remain `PARTIAL`; split-surrogate wire parity, XMP key/value, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+### read_pdf include_annotations text invalid-as residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_annotations` text invalid-as residual is admitted: Text `AP/N` named-state dictionaries with invalid `AS` selection fall back to the 22×22 icon box (pdf.js `setAppearance`) for missing `AS` name and `AS` pointing at a non-stream. Leaf-mutation count is frozen at 28 with relocated fixture-root replay. Valid `AS` raw-rect selection remains covered by the named-appearance residual. `include_annotations` remains `PARTIAL`; Name field, glyph-perfect boxes, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
