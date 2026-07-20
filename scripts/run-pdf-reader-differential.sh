@@ -65,6 +65,7 @@ V3014_TEXT_INVERTED_RECT_RESIDUAL_JSON="$SCRATCH/v3014-text-inverted-rect-residu
 V3014_REMOTE_NAMED_DEST_RESIDUAL_JSON="$SCRATCH/v3014-remote-named-dest-residual-result.json"
 V3014_PAGE_LABELS_KIDS_RESIDUAL_JSON="$SCRATCH/v3014-page-labels-kids-residual-result.json"
 V3014_FORM_BUTTON_ARRAY_RESIDUAL_JSON="$SCRATCH/v3014-form-button-array-residual-result.json"
+V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_JSON="$SCRATCH/v3014-form-button-default-off-residual-result.json"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON="$SCRATCH/v3014-attachment-odd-names-residual-result.json"
 V3014_FORM_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-form-utf16-text-residual-result.json"
 V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
@@ -365,6 +366,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-page-labels-kids-residual-diffe
 bun "$REPO_ROOT/scripts/differential/capture-v3014-form-button-array-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-form-button-array-residual-differential.ts" \
   --output "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-form-button-default-off-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-form-button-default-off-residual-differential.ts" \
+  --output "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-attachment-odd-names-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts" \
   --output "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON" >>"$LOG"
@@ -736,6 +740,13 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/v3014-form-button-array-residual-projection.ts" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-form-button-array-residual-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-form-button-array-residual-oracle.json" \
+  "$REPO_ROOT/scripts/differential/v3014-form-button-default-off-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-form-button-default-off-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-button-default-off-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-button-default-off-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-ap-default-off-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-ap-default-off-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-noap-default-null-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-button-array-v-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-button-array-dv-v1.pdf" \
   "$REPO_ROOT/scripts/differential/v3014-attachment-odd-names-residual-baseline-runner.ts" \
@@ -1186,6 +1197,11 @@ V3014_PAGE_LABELS_KIDS_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_PAG
 V3014_PAGE_LABELS_KIDS_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_PAGE_LABELS_KIDS_RESIDUAL_JSON")"
 V3014_FORM_BUTTON_ARRAY_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_JSON")"
 V3014_FORM_BUTTON_ARRAY_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_JSON")"
+V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_JSON")"
+V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_JSON")"
+V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_JSON")"
+V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_JSON")"
+V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
@@ -1430,6 +1446,8 @@ jq -n \
   --arg v3014PageLabelsKidsResidualOracleHash "$V3014_PAGE_LABELS_KIDS_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormButtonArrayResidualCorpusHash "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_CORPUS_HASH" \
   --arg v3014FormButtonArrayResidualOracleHash "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_ORACLE_HASH" \
+  --arg v3014FormButtonDefaultOffResidualCorpusHash "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_CORPUS_HASH" \
+  --arg v3014FormButtonDefaultOffResidualOracleHash "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_ORACLE_HASH" \
   --arg v3014AttachmentOddNamesResidualCorpusHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CORPUS_HASH" \
   --arg v3014AttachmentOddNamesResidualOracleHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormUtf16TextResidualCorpusHash "$V3014_FORM_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
@@ -1652,6 +1670,9 @@ jq -n \
   --argjson v3014FormButtonArrayResidualCaseCount "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_CASE_COUNT" \
   --argjson v3014FormButtonArrayResidualPassed "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_PASSED" \
   --argjson v3014FormButtonArrayResidualSkipped "$V3014_FORM_BUTTON_ARRAY_RESIDUAL_SKIPPED" \
+  --argjson v3014FormButtonDefaultOffResidualCaseCount "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_CASE_COUNT" \
+  --argjson v3014FormButtonDefaultOffResidualPassed "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_PASSED" \
+  --argjson v3014FormButtonDefaultOffResidualSkipped "$V3014_FORM_BUTTON_DEFAULT_OFF_RESIDUAL_SKIPPED" \
   --argjson v3014AttachmentOddNamesResidualCaseCount "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT" \
   --argjson v3014AttachmentOddNamesResidualPassed "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED" \
   --argjson v3014AttachmentOddNamesResidualSkipped "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED" \
@@ -1973,6 +1994,8 @@ jq -n \
     v3014PageLabelsKidsResidualOracleHash: $v3014PageLabelsKidsResidualOracleHash,
     v3014FormButtonArrayResidualCorpusHash: $v3014FormButtonArrayResidualCorpusHash,
     v3014FormButtonArrayResidualOracleHash: $v3014FormButtonArrayResidualOracleHash,
+    v3014FormButtonDefaultOffResidualCorpusHash: $v3014FormButtonDefaultOffResidualCorpusHash,
+    v3014FormButtonDefaultOffResidualOracleHash: $v3014FormButtonDefaultOffResidualOracleHash,
     v3014AttachmentOddNamesResidualCorpusHash: $v3014AttachmentOddNamesResidualCorpusHash,
     v3014AttachmentOddNamesResidualOracleHash: $v3014AttachmentOddNamesResidualOracleHash,
     v3014FormUtf16TextResidualCorpusHash: $v3014FormUtf16TextResidualCorpusHash,
@@ -2150,6 +2173,8 @@ jq -n \
     immutablePageLabelsKidsResidualDifferential: "scripts/differential/check-v3014-page-labels-kids-residual-differential.ts",
     immutableFormButtonArrayResidualOracle: "scripts/differential/fixtures/v3014-form-button-array-residual-oracle.json",
     immutableFormButtonArrayResidualDifferential: "scripts/differential/check-v3014-form-button-array-residual-differential.ts",
+    immutableFormButtonDefaultOffResidualOracle: "scripts/differential/fixtures/v3014-form-button-default-off-residual-oracle.json",
+    immutableFormButtonDefaultOffResidualDifferential: "scripts/differential/check-v3014-form-button-default-off-residual-differential.ts",
     immutableAttachmentOddNamesResidualOracle: "scripts/differential/fixtures/v3014-attachment-odd-names-residual-oracle.json",
     immutableAttachmentOddNamesResidualDifferential: "scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts",
     immutableFormUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-form-utf16-text-residual-oracle.json",
