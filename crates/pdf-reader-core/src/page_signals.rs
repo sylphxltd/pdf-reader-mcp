@@ -399,6 +399,96 @@ fn ink_lists_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec
     (!points.is_empty()).then_some(points)
 }
 
+
+fn quad_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec<(f64, f64)>> {
+    // pdf.js getQuadPoints: array length > 0 and multiple of 8; each group becomes
+    // axis-aligned corners [minX,maxY,maxX,maxY,minX,minY,maxX,minY].
+    let value = dict.get(b"QuadPoints").ok()?;
+    let values = resolve(document, value).ok()?.as_array().ok()?;
+    if values.is_empty() || values.len() % 8 != 0 {
+        return None;
+    }
+    let mut points = Vec::with_capacity(values.len() / 2);
+    let mut index = 0;
+    while index + 7 < values.len() {
+        let mut xs = [0.0; 4];
+        let mut ys = [0.0; 4];
+        for corner in 0..4 {
+            let x = number(resolve(document, &values[index + corner * 2]).ok()?)?;
+            let y = number(resolve(document, &values[index + corner * 2 + 1]).ok()?)?;
+            if !x.is_finite() || !y.is_finite() {
+                return None;
+            }
+            xs[corner] = x;
+            ys[corner] = y;
+        }
+        let min_x = xs[0].min(xs[1]).min(xs[2]).min(xs[3]);
+        let max_x = xs[0].max(xs[1]).max(xs[2]).max(xs[3]);
+        let min_y = ys[0].min(ys[1]).min(ys[2]).min(ys[3]);
+        let max_y = ys[0].max(ys[1]).max(ys[2]).max(ys[3]);
+        // normalized pdf.js order: TL, TR, BL, BR
+        points.push((min_x, max_y));
+        points.push((max_x, max_y));
+        points.push((min_x, min_y));
+        points.push((max_x, min_y));
+        index += 8;
+    }
+    (!points.is_empty()).then_some(points)
+}
+
+fn appearance_resources_have_ext_gstate(document: &Document, dict: &lopdf::Dictionary) -> bool {
+    // Highlight keeps built-in appearance only when AP/N stream Resources has ExtGState.
+    let Ok(ap) = dict.get(b"AP") else {
+        return false;
+    };
+    let Ok(ap_dict) = resolve(document, ap).and_then(Object::as_dict) else {
+        return false;
+    };
+    let Ok(normal) = ap_dict.get(b"N") else {
+        return false;
+    };
+    let stream = match resolve(document, normal) {
+        Ok(Object::Stream(stream)) => stream,
+        Ok(Object::Dictionary(states)) => {
+            let Ok(as_name) = dict
+                .get(b"AS")
+                .and_then(|value| value.as_name().map(|name| name.to_vec()))
+            else {
+                return false;
+            };
+            let Ok(selected) = states.get(as_name.as_slice()) else {
+                return false;
+            };
+            match resolve(document, selected) {
+                Ok(Object::Stream(stream)) => stream,
+                _ => return false,
+            }
+        }
+        _ => return false,
+    };
+    let Ok(resources) = stream.dict.get(b"Resources") else {
+        return false;
+    };
+    let Ok(resources_dict) = resolve(document, resources).and_then(Object::as_dict) else {
+        return false;
+    };
+    resources_dict.get(b"ExtGState").is_ok()
+}
+
+fn text_markup_should_use_quad_bbox(document: &Document, dict: &lopdf::Dictionary, subtype: &str) -> bool {
+    // pdf.js text-markup annotations:
+    // - Underline/Squiggly/StrikeOut: synthesize from QuadPoints only when appearance is unset
+    // - Highlight: also ignore appearance streams whose Resources lack ExtGState
+    match subtype {
+        "Highlight" => {
+            !annotation_has_normal_appearance(document, dict)
+                || !appearance_resources_have_ext_gstate(document, dict)
+        }
+        "Underline" | "Squiggly" | "StrikeOut" => !annotation_has_normal_appearance(document, dict),
+        _ => false,
+    }
+}
+
 fn annotation_has_normal_appearance(document: &Document, dict: &lopdf::Dictionary) -> bool {
     // pdf.js Annotation.setAppearance: AP/N must be a stream, or a named-state
     // dict with AS selecting a stream. A bare AP/N key (null/name/non-stream)
@@ -550,6 +640,25 @@ fn normalize_annotation(
                     Some(r) if rects_intersect(r, ink_box) => r,
                     _ => ink_box,
                 });
+            }
+        }
+    }
+
+
+    // pdf.js Highlight/Underline/Squiggly/StrikeOut:
+    // - when synthesizing default appearance from QuadPoints, public data.rect
+    //   becomes the axis-aligned union of those quads (via _setDefaultAppearance).
+    // - Highlight additionally ignores appearance streams without ExtGState.
+    if matches!(
+        subtype.as_deref(),
+        Some("Highlight") | Some("Underline") | Some("Squiggly") | Some("StrikeOut")
+    ) {
+        let subtype_name = subtype.as_deref().unwrap();
+        if text_markup_should_use_quad_bbox(document, dict, subtype_name) {
+            if let Some(points) = quad_points(document, dict) {
+                if let Some(quad_box) = vertices_bbox(&points, 0.0) {
+                    rect = Some(quad_box);
+                }
             }
         }
     }
@@ -2065,5 +2174,39 @@ mod tests {
             assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
         }
     }
+
+    #[test]
+    fn highlight_quadpoints_bbox() {
+        let cases = [
+            (
+                "v3014-annotation-highlight-quad-noap-v1.pdf",
+                "Highlight",
+                json!({"left": 10.0, "bottom": 10.0, "right": 100.0, "top": 80.0}),
+            ),
+            (
+                "v3014-annotation-highlight-ap-noext-v1.pdf",
+                "Highlight",
+                json!({"left": 10.0, "bottom": 10.0, "right": 100.0, "top": 80.0}),
+            ),
+            (
+                "v3014-annotation-highlight-ap-ext-v1.pdf",
+                "Highlight",
+                json!({"left": 200.0, "bottom": 200.0, "right": 300.0, "top": 300.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load highlight fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
 
 }

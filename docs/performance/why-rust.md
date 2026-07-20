@@ -417,6 +417,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state square/circle residual is admitted: Square/Circle `AP/N` named-state dictionaries follow pdf.js `Annotation.setAppearance` AS selection — `AS` stream keeps raw Rect; missing/invalid AS leaves appearance unset but Square/Circle still keep raw Rect (no Line/PolyLine/Ink-style geometry expansion) with `BS/W` present. Fixtures prove Square `AS /On` keeps `{200,200,300,300}`, Circle missing AS keeps `{50,60,150,160}`, and Square invalid AS keeps `{10,20,110,120}` with `BS/W=2`. Leaf-mutation count is frozen at 39. Appearance-stream content bbox derivation, line endings `LE`, Widget named-state breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+
+### read_pdf include_annotations highlight quadpoints residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` highlight quadpoints residual is admitted: Highlight `QuadPoints` rewrite public `bounding_box` when appearance is unset or `AP/N` stream Resources lack `ExtGState` (pdf.js `HighlightAnnotation` ignores such streams); `AP/N` stream with `ExtGState` keeps raw Rect. Fixtures prove no-AP uses `{10,10,100,80}`, AP without ExtGState uses `{10,10,100,80}`, and AP with ExtGState keeps `{200,200,300,300}`. Leaf-mutation count is frozen at 39. Underline/Squiggly/StrikeOut quadpoints breadth, appearance-stream content bbox derivation, line endings `LE`, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
