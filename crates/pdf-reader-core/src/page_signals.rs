@@ -1834,4 +1834,38 @@ mod tests {
             assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
         }
     }
+
+    #[test]
+    fn border_bs_wrong_type_ignores_w_and_border() {
+        // BS Type not Border with W=9 and Border[2]=5 must keep default width 1.
+        let cases = [
+            (
+                "v3014-annotation-polyline-border-bs-wrong-type-v1.pdf",
+                "PolyLine",
+                json!({"left": 8.0, "bottom": 8.0, "right": 102.0, "top": 82.0}),
+            ),
+            (
+                "v3014-annotation-line-border-bs-wrong-type-v1.pdf",
+                "Line",
+                json!({"left": 7.0, "bottom": 7.0, "right": 103.0, "top": 83.0}),
+            ),
+            (
+                "v3014-annotation-ink-border-bs-wrong-type-v1.pdf",
+                "Ink",
+                json!({"left": 28.0, "bottom": 28.0, "right": 102.0, "top": 92.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load BS wrong-type fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
 }

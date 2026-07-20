@@ -77,6 +77,7 @@ V3014_BORDER_ARRAY_WIDTH_RESIDUAL_JSON="$SCRATCH/v3014-border-array-width-residu
 V3014_BORDER_BS_PREFERENCE_RESIDUAL_JSON="$SCRATCH/v3014-border-bs-preference-residual-result.json"
 V3014_BORDER_BS_NONDICT_RESIDUAL_JSON="$SCRATCH/v3014-border-bs-nondict-residual-result.json"
 V3014_BORDER_ARRAY_SHORT_RESIDUAL_JSON="$SCRATCH/v3014-border-array-short-residual-result.json"
+V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_JSON="$SCRATCH/v3014-border-bs-wrong-type-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -391,6 +392,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-border-bs-nondict-residual-diff
 bun "$REPO_ROOT/scripts/differential/capture-v3014-border-array-short-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-border-array-short-residual-differential.ts" \
   --output "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-border-bs-wrong-type-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-border-bs-wrong-type-residual-differential.ts" \
+  --output "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_JSON" >>"$LOG"
 
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
@@ -778,6 +782,13 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-polyline-border-short-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-line-border-empty-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-ink-border-short-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-border-bs-wrong-type-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-border-bs-wrong-type-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-border-bs-wrong-type-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-border-bs-wrong-type-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-polyline-border-bs-wrong-type-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-line-border-bs-wrong-type-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-ink-border-bs-wrong-type-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-popup-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-freetext-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
@@ -1135,6 +1146,11 @@ V3014_BORDER_ARRAY_SHORT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_BORDER_ARRAY_SH
 V3014_BORDER_ARRAY_SHORT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_JSON")"
 V3014_BORDER_ARRAY_SHORT_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_JSON")"
 V3014_BORDER_ARRAY_SHORT_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_JSON")"
+V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_JSON")"
+V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_JSON")"
+V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_JSON")"
+V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_JSON")"
+V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -1293,6 +1309,8 @@ jq -n \
   --arg v3014BorderBsNondictResidualOracleHash "$V3014_BORDER_BS_NONDICT_RESIDUAL_ORACLE_HASH" \
   --arg v3014BorderArrayShortResidualCorpusHash "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_CORPUS_HASH" \
   --arg v3014BorderArrayShortResidualOracleHash "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_ORACLE_HASH" \
+  --arg v3014BorderBsWrongTypeResidualCorpusHash "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_CORPUS_HASH" \
+  --arg v3014BorderBsWrongTypeResidualOracleHash "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -1507,6 +1525,9 @@ jq -n \
   --argjson v3014BorderArrayShortResidualCaseCount "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_CASE_COUNT" \
   --argjson v3014BorderArrayShortResidualPassed "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_PASSED" \
   --argjson v3014BorderArrayShortResidualSkipped "$V3014_BORDER_ARRAY_SHORT_RESIDUAL_SKIPPED" \
+  --argjson v3014BorderBsWrongTypeResidualCaseCount "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_CASE_COUNT" \
+  --argjson v3014BorderBsWrongTypeResidualPassed "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_PASSED" \
+  --argjson v3014BorderBsWrongTypeResidualSkipped "$V3014_BORDER_BS_WRONG_TYPE_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -1786,6 +1807,8 @@ jq -n \
     v3014BorderBsNondictResidualOracleHash: $v3014BorderBsNondictResidualOracleHash,
     v3014BorderArrayShortResidualCorpusHash: $v3014BorderArrayShortResidualCorpusHash,
     v3014BorderArrayShortResidualOracleHash: $v3014BorderArrayShortResidualOracleHash,
+    v3014BorderBsWrongTypeResidualCorpusHash: $v3014BorderBsWrongTypeResidualCorpusHash,
+    v3014BorderBsWrongTypeResidualOracleHash: $v3014BorderBsWrongTypeResidualOracleHash,
     v3014MetadataPresenceResidualCaseCount: $v3014MetadataPresenceResidualCaseCount,
     v3014MetadataPresenceResidualPassed: $v3014MetadataPresenceResidualPassed,
     v3014MetadataPresenceResidualSkipped: $v3014MetadataPresenceResidualSkipped,
@@ -1943,6 +1966,8 @@ jq -n \
     immutableBorderBsNondictResidualDifferential: "scripts/differential/check-v3014-border-bs-nondict-residual-differential.ts",
     immutableBorderArrayShortResidualOracle: "scripts/differential/fixtures/v3014-border-array-short-residual-oracle.json",
     immutableBorderArrayShortResidualDifferential: "scripts/differential/check-v3014-border-array-short-residual-differential.ts",
+    immutableBorderBsWrongTypeResidualOracle: "scripts/differential/fixtures/v3014-border-bs-wrong-type-residual-oracle.json",
+    immutableBorderBsWrongTypeResidualDifferential: "scripts/differential/check-v3014-border-bs-wrong-type-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",

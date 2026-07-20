@@ -906,7 +906,22 @@ const borderArrayShortResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const borderBsWrongTypeResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-border-bs-wrong-type-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
+
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
 );
@@ -1687,7 +1702,7 @@ const borderArrayShortResidualWorkflowStart = differentialWorkflow.indexOf(
   'BORDER_ARRAY_SHORT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-array-short-residual-result.json"'
 );
 const borderArrayShortResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'BORDER_BS_WRONG_TYPE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-wrong-type-residual-result.json"',
   borderArrayShortResidualWorkflowStart
 );
 const borderArrayShortResidualWorkflow =
@@ -1696,6 +1711,21 @@ const borderArrayShortResidualWorkflow =
     ? differentialWorkflow.slice(
         borderArrayShortResidualWorkflowStart,
         borderArrayShortResidualWorkflowEnd
+      )
+    : '';
+const borderBsWrongTypeResidualWorkflowStart = differentialWorkflow.indexOf(
+  'BORDER_BS_WRONG_TYPE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-wrong-type-residual-result.json"'
+);
+const borderBsWrongTypeResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  borderBsWrongTypeResidualWorkflowStart
+);
+const borderBsWrongTypeResidualWorkflow =
+  borderBsWrongTypeResidualWorkflowStart >= 0 &&
+  borderBsWrongTypeResidualWorkflowEnd > borderBsWrongTypeResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        borderBsWrongTypeResidualWorkflowStart,
+        borderBsWrongTypeResidualWorkflowEnd
       )
     : '';
 
@@ -7544,6 +7574,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the border array short residual and frozen leaf-mutation count'
+  );
+}
+
+const borderBsWrongTypeResidualCaseCount = borderBsWrongTypeResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-border-bs-wrong-type-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen border BS wrong-type residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-border-bs-wrong-type-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-border-bs-wrong-type-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014BorderBsWrongTypeResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014BorderBsWrongTypeResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014BorderBsWrongTypeResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the border BS wrong-type residual family'
+  );
+}
+if (
+  !borderBsWrongTypeResidualWorkflow.includes(
+    `.caseCount == ${borderBsWrongTypeResidualCaseCount}`
+  ) ||
+  !borderBsWrongTypeResidualWorkflow.includes(
+    `.passed == ${borderBsWrongTypeResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${borderBsWrongTypeResidualCaseCount}/${borderBsWrongTypeResidualCaseCount} border BS wrong-type residual corpus`
+  );
+}
+if (
+  borderBsWrongTypeResidualCaseCount !== 3 ||
+  borderBsWrongTypeResidualCorpus.envelope.fixtureCount !== 3 ||
+  borderBsWrongTypeResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  borderBsWrongTypeResidualCorpus.nonclaims.publishFreeze !== true ||
+  borderBsWrongTypeResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'border BS wrong-type residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !borderBsWrongTypeResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_border_bs_wrong_type_residual_result"'
+  ) ||
+  !borderBsWrongTypeResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !borderBsWrongTypeResidualWorkflow.includes(
+    '.providerProof.polylineBorderBsWrongTypeW1 == true'
+  ) ||
+  !borderBsWrongTypeResidualWorkflow.includes(
+    '.providerProof.lineBorderBsWrongTypeW1 == true'
+  ) ||
+  !borderBsWrongTypeResidualWorkflow.includes(
+    '.providerProof.inkBorderBsWrongTypeW1 == true'
+  ) ||
+  !borderBsWrongTypeResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !borderBsWrongTypeResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !borderBsWrongTypeResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'border BS wrong-type residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-border-bs-wrong-type-residual-differential.ts',
+  'scripts/differential/capture-v3014-border-bs-wrong-type-residual-oracle.ts',
+  'v3014-border-bs-wrong-type-residual-baseline-runner.ts',
+  'v3014-border-bs-wrong-type-residual-projection.ts',
+  'v3014-border-bs-wrong-type-residual-corpus.json',
+  'v3014-border-bs-wrong-type-residual-oracle.json',
+  'v3014-annotation-polyline-border-bs-wrong-type-v1.pdf',
+  'v3014-annotation-line-border-bs-wrong-type-v1.pdf',
+  'v3014-annotation-ink-border-bs-wrong-type-v1.pdf',
+  'v3014BorderBsWrongTypeResidualCaseCount',
+  'v3014BorderBsWrongTypeResidualCorpusHash',
+  'v3014BorderBsWrongTypeResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind border BS wrong-type residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('border BS wrong-type residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('border BS wrong-type residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'border BS wrong-type residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustBorderBsWrongType = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustBorderBsWrongType.includes('border BS wrong-type residual') ||
+  !whyRustBorderBsWrongType.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the border BS wrong-type residual and frozen leaf-mutation count'
   );
 }
 if (
