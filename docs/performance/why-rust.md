@@ -387,6 +387,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` border array s
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` border BS wrong-type residual is admitted: when `BS` is a dictionary whose `Type` is present and not `Border`, pdf.js `Annotation.setBorderStyle` ignores `BS/W` and does not fall through to `Border[2]`, keeping default width 1 before Line/PolyLine/Ink public bounding-box expansion. Large non-intersecting Rect fixtures prove PolyLine/Line/Ink with `BS Type /NotBorder W 9` over `Border [0 0 5]`. Leaf-mutation count is frozen at 39. Missing-Type BS (uses W), zero-size Rect clamp-bypass breadth, appearance-stream geometry, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+
+### read_pdf include_annotations border zero-size clamp-bypass residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` border zero-size clamp-bypass residual is admitted: when `Rect` has a zero dimension, pdf.js `AnnotationBorderStyle.setWidth` does not clamp `BS/W` because the half-dimension gate requires both maxWidth and maxHeight &gt; 0. Line/PolyLine/Ink public bounding-box expansion therefore uses the unclamped width. Fixtures prove PolyLine/Line zero-height `Rect` + `BS/W=2` and Ink zero-width `Rect` + `BS/W=2` on non-intersecting geometry. Leaf-mutation count is frozen at 39. Positive-dimension clamp cases, appearance-stream geometry, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
