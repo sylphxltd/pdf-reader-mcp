@@ -238,6 +238,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` action-precede
 
 A frozen two-case public-stdio `read_pdf` `include_metadata` info residual is admitted: pdf.js info flags (`Language`, `EncryptFilterName`, `IsLinearized`, `IsAcroFormPresent`, `IsXFAPresent`, `IsCollectionPresent`, `IsSignaturesPresent`) plus document info fields for AcroForm+Lang and plain catalogs. Leaf-mutation count is frozen at 33 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP metadata payload, encrypted filter-name variants, linearized-true, signatures-true, rust-only info extras, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf page_geometry residual public-stdio subset (bounded)
+
+A frozen three-case public-stdio `read_pdf` `include_page_geometry` residual is admitted: Rotate+UserUnit+CropBox dimensions, default MediaBox identity geometry, and inverted MediaBox normalization with `view_box`. Leaf-mutation count is frozen at 39 with relocated fixture-root replay. `include_page_geometry` remains `PARTIAL`; Bleed/Trim/Art boxes, non-right-angle rotation, inherited MediaBox breadth, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
 
 A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted over `v3014-visual-v1.pdf`: valid TSV level-5 words produce image-to-PDF `ocr_word` geometry on the search match, and malformed TSV soft-falls back to raw text without geometry. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_ocr_text_layer` remains `PARTIAL`; real tesseract binary health checks, selectable/OCR interleaving, URL single-fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
