@@ -59,6 +59,7 @@ V3014_REMOTE_ACTION_RESIDUAL_JSON="$SCRATCH/v3014-remote-action-residual-result.
 V3014_POPUP_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-popup-annotation-residual-result.json"
 V3014_POPUP_ZERO_SIZE_RESIDUAL_JSON="$SCRATCH/v3014-popup-zero-size-residual-result.json"
 V3014_POPUP_GROUP_IRT_RESIDUAL_JSON="$SCRATCH/v3014-popup-group-irt-residual-result.json"
+V3014_TEXT_APPEARANCE_RESIDUAL_JSON="$SCRATCH/v3014-text-appearance-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -319,6 +320,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-popup-zero-size-residual-differ
 bun "$REPO_ROOT/scripts/differential/capture-v3014-popup-group-irt-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-popup-group-irt-residual-differential.ts" \
   --output "$V3014_POPUP_GROUP_IRT_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-text-appearance-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-text-appearance-residual-differential.ts" \
+  --output "$V3014_TEXT_APPEARANCE_RESIDUAL_JSON" >>"$LOG"
 
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
@@ -591,6 +595,12 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-popup-group-irt-residual-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-popup-group-irt-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-popup-group-irt-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-text-appearance-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-text-appearance-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-text-appearance-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-text-appearance-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-text-ap-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-text-emptyap-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-popup-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-freetext-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
@@ -858,6 +868,11 @@ V3014_POPUP_GROUP_IRT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_POPUP_GROUP_IRT_RE
 V3014_POPUP_GROUP_IRT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_POPUP_GROUP_IRT_RESIDUAL_JSON")"
 V3014_POPUP_GROUP_IRT_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_POPUP_GROUP_IRT_RESIDUAL_JSON")"
 V3014_POPUP_GROUP_IRT_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_POPUP_GROUP_IRT_RESIDUAL_JSON")"
+V3014_TEXT_APPEARANCE_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_TEXT_APPEARANCE_RESIDUAL_JSON")"
+V3014_TEXT_APPEARANCE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_TEXT_APPEARANCE_RESIDUAL_JSON")"
+V3014_TEXT_APPEARANCE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_TEXT_APPEARANCE_RESIDUAL_JSON")"
+V3014_TEXT_APPEARANCE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_TEXT_APPEARANCE_RESIDUAL_JSON")"
+V3014_TEXT_APPEARANCE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_TEXT_APPEARANCE_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -980,6 +995,8 @@ jq -n \
   --arg v3014PopupZeroSizeResidualOracleHash "$V3014_POPUP_ZERO_SIZE_RESIDUAL_ORACLE_HASH" \
   --arg v3014PopupGroupIrtResidualCorpusHash "$V3014_POPUP_GROUP_IRT_RESIDUAL_CORPUS_HASH" \
   --arg v3014PopupGroupIrtResidualOracleHash "$V3014_POPUP_GROUP_IRT_RESIDUAL_ORACLE_HASH" \
+  --arg v3014TextAppearanceResidualCorpusHash "$V3014_TEXT_APPEARANCE_RESIDUAL_CORPUS_HASH" \
+  --arg v3014TextAppearanceResidualOracleHash "$V3014_TEXT_APPEARANCE_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -1140,6 +1157,9 @@ jq -n \
   --argjson v3014PopupGroupIrtResidualCaseCount "$V3014_POPUP_GROUP_IRT_RESIDUAL_CASE_COUNT" \
   --argjson v3014PopupGroupIrtResidualPassed "$V3014_POPUP_GROUP_IRT_RESIDUAL_PASSED" \
   --argjson v3014PopupGroupIrtResidualSkipped "$V3014_POPUP_GROUP_IRT_RESIDUAL_SKIPPED" \
+  --argjson v3014TextAppearanceResidualCaseCount "$V3014_TEXT_APPEARANCE_RESIDUAL_CASE_COUNT" \
+  --argjson v3014TextAppearanceResidualPassed "$V3014_TEXT_APPEARANCE_RESIDUAL_PASSED" \
+  --argjson v3014TextAppearanceResidualSkipped "$V3014_TEXT_APPEARANCE_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -1383,6 +1403,8 @@ jq -n \
     v3014PopupZeroSizeResidualOracleHash: $v3014PopupZeroSizeResidualOracleHash,
     v3014PopupGroupIrtResidualCorpusHash: $v3014PopupGroupIrtResidualCorpusHash,
     v3014PopupGroupIrtResidualOracleHash: $v3014PopupGroupIrtResidualOracleHash,
+    v3014TextAppearanceResidualCorpusHash: $v3014TextAppearanceResidualCorpusHash,
+    v3014TextAppearanceResidualOracleHash: $v3014TextAppearanceResidualOracleHash,
     v3014MetadataPresenceResidualCaseCount: $v3014MetadataPresenceResidualCaseCount,
     v3014MetadataPresenceResidualPassed: $v3014MetadataPresenceResidualPassed,
     v3014MetadataPresenceResidualSkipped: $v3014MetadataPresenceResidualSkipped,
@@ -1504,6 +1526,8 @@ jq -n \
     immutablePopupZeroSizeResidualDifferential: "scripts/differential/check-v3014-popup-zero-size-residual-differential.ts",
     immutablePopupGroupIrtResidualOracle: "scripts/differential/fixtures/v3014-popup-group-irt-residual-oracle.json",
     immutablePopupGroupIrtResidualDifferential: "scripts/differential/check-v3014-popup-group-irt-residual-differential.ts",
+    immutableTextAppearanceResidualOracle: "scripts/differential/fixtures/v3014-text-appearance-residual-oracle.json",
+    immutableTextAppearanceResidualDifferential: "scripts/differential/check-v3014-text-appearance-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",
