@@ -211,6 +211,34 @@ fn text_annotation_has_appearance(document: &Document, dict: &lopdf::Dictionary)
     }
 }
 
+fn popup_parent_dict<'a>(
+    document: &'a Document,
+    dict: &'a lopdf::Dictionary,
+) -> Option<&'a lopdf::Dictionary> {
+    let mut parent = dict
+        .get(b"Parent")
+        .ok()
+        .and_then(|value| resolve(document, value).ok())
+        .and_then(|value| value.as_dict().ok())?;
+    // pdf.js: if Parent.RT == Group, follow IRT for title/contents/color source.
+    if parent
+        .get(b"RT")
+        .ok()
+        .and_then(|value| value.as_name().ok())
+        .is_some_and(|name| name == b"Group")
+    {
+        if let Some(irt) = parent
+            .get(b"IRT")
+            .ok()
+            .and_then(|value| resolve(document, value).ok())
+            .and_then(|value| value.as_dict().ok())
+        {
+            parent = irt;
+        }
+    }
+    Some(parent)
+}
+
 fn normalize_annotation(
     document: &Document,
     page: u32,
@@ -227,14 +255,32 @@ fn normalize_annotation(
     };
     let dict = resolve(document, value).ok()?.as_dict().ok()?;
     let subtype = bounded_name(dict.get(b"Subtype").ok()?, text_budget);
-    let contents = dict
+    let mut contents = dict
         .get(b"Contents")
         .ok()
         .and_then(|value| decoded_string(document, value, text_budget));
-    let title = dict
+    let mut title = dict
         .get(b"T")
         .ok()
         .and_then(|value| decoded_string(document, value, text_budget));
+    // pdf.js PopupAnnotation inherits title/contents from Parent (and IRT when
+    // Parent.RT is Group). Public TS projection only surfaces title/contents.
+    if subtype.as_deref() == Some("Popup") {
+        if let Some(parent) = popup_parent_dict(document, dict) {
+            if title.is_none() {
+                title = parent
+                    .get(b"T")
+                    .ok()
+                    .and_then(|value| decoded_string(document, value, text_budget));
+            }
+            if contents.is_none() {
+                contents = parent
+                    .get(b"Contents")
+                    .ok()
+                    .and_then(|value| decoded_string(document, value, text_budget));
+            }
+        }
+    }
     let mut rect = dict
         .get(b"Rect")
         .ok()
@@ -1112,5 +1158,32 @@ mod tests {
         assert!(signals.annotations[0]["annotations"][0]
             .get("dest")
             .is_none());
+    }
+
+    #[test]
+    fn popup_inherits_parent_title_and_contents() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-popup-v1.pdf");
+        if !path.is_file() {
+            return;
+        }
+        let document = Document::load(&path).expect("load popup fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        let anns = signals.annotations[0]["annotations"].as_array().unwrap();
+        assert_eq!(anns.len(), 2);
+        let popup = anns.iter().find(|a| a["subtype"] == "Popup").unwrap();
+        assert_eq!(popup["contents"], "Parent note");
+        assert_eq!(popup["title"], "Author");
+        assert_eq!(
+            popup["bounding_box"],
+            json!({"left": 130.0, "bottom": 600.0, "right": 250.0, "top": 670.0})
+        );
+        let text = anns.iter().find(|a| a["subtype"] == "Text").unwrap();
+        assert_eq!(text["contents"], "Parent note");
+        assert_eq!(
+            text["bounding_box"],
+            json!({"left": 100.0, "bottom": 650.0, "right": 122.0, "top": 672.0})
+        );
     }
 }
