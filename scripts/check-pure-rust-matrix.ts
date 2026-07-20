@@ -990,6 +990,20 @@ const annotationApNamedStatePolylineInkResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationApNamedStateSquareCircleResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-ap-named-state-square-circle-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
 
 
@@ -1867,7 +1881,7 @@ const annotationApNamedStatePolylineInkResidualWorkflowStart = differentialWorkf
   'ANNOTATION_AP_NAMED_STATE_POLYLINE_INK_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-polyline-ink-residual-result.json"'
 );
 const annotationApNamedStatePolylineInkResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_AP_NAMED_STATE_SQUARE_CIRCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-square-circle-residual-result.json"',
   annotationApNamedStatePolylineInkResidualWorkflowStart
 );
 const annotationApNamedStatePolylineInkResidualWorkflow =
@@ -1876,6 +1890,21 @@ const annotationApNamedStatePolylineInkResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationApNamedStatePolylineInkResidualWorkflowStart,
         annotationApNamedStatePolylineInkResidualWorkflowEnd
+      )
+    : '';
+const annotationApNamedStateSquareCircleResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_AP_NAMED_STATE_SQUARE_CIRCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-ap-named-state-square-circle-residual-result.json"'
+);
+const annotationApNamedStateSquareCircleResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationApNamedStateSquareCircleResidualWorkflowStart
+);
+const annotationApNamedStateSquareCircleResidualWorkflow =
+  annotationApNamedStateSquareCircleResidualWorkflowStart >= 0 &&
+  annotationApNamedStateSquareCircleResidualWorkflowEnd > annotationApNamedStateSquareCircleResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationApNamedStateSquareCircleResidualWorkflowStart,
+        annotationApNamedStateSquareCircleResidualWorkflowEnd
       )
     : '';
 
@@ -8426,6 +8455,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation AP named-state polyline/ink residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationApNamedStateSquareCircleResidualCaseCount = annotationApNamedStateSquareCircleResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-ap-named-state-square-circle-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation AP named-state square/circle residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-ap-named-state-square-circle-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-ap-named-state-square-circle-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStateSquareCircleResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStateSquareCircleResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationApNamedStateSquareCircleResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation AP named-state square/circle residual family'
+  );
+}
+if (
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    `.caseCount == ${annotationApNamedStateSquareCircleResidualCaseCount}`
+  ) ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    `.passed == ${annotationApNamedStateSquareCircleResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationApNamedStateSquareCircleResidualCaseCount}/${annotationApNamedStateSquareCircleResidualCaseCount} annotation AP named-state square/circle residual corpus`
+  );
+}
+if (
+  annotationApNamedStateSquareCircleResidualCaseCount !== 3 ||
+  annotationApNamedStateSquareCircleResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationApNamedStateSquareCircleResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationApNamedStateSquareCircleResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationApNamedStateSquareCircleResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation AP named-state square/circle residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_ap_named_state_square_circle_residual_result"'
+  ) ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    '.providerProof.squareApAsOnKeepsRawRect == true'
+  ) ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    '.providerProof.circleApAsMissingKeepsRawRect == true'
+  ) ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    '.providerProof.squareApAsInvalidKeepsRawRect == true'
+  ) ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation AP named-state square/circle residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-ap-named-state-square-circle-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-ap-named-state-square-circle-residual-oracle.ts',
+  'v3014-annotation-ap-named-state-square-circle-residual-baseline-runner.ts',
+  'v3014-annotation-ap-named-state-square-circle-residual-projection.ts',
+  'v3014-annotation-ap-named-state-square-circle-residual-corpus.json',
+  'v3014-annotation-ap-named-state-square-circle-residual-oracle.json',
+  'v3014-annotation-square-ap-as-on-v1.pdf',
+  'v3014-annotation-circle-ap-as-missing-v1.pdf',
+  'v3014-annotation-square-ap-as-invalid-v1.pdf',
+  'v3014AnnotationApNamedStateSquareCircleResidualCaseCount',
+  'v3014AnnotationApNamedStateSquareCircleResidualCorpusHash',
+  'v3014AnnotationApNamedStateSquareCircleResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation AP named-state square/circle residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('named-state square/circle residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('named-state square/circle residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation AP named-state square/circle residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationApNamedStateSquareCircle = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationApNamedStateSquareCircle.includes('named-state square/circle residual') ||
+  !whyRustAnnotationApNamedStateSquareCircle.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the annotation AP named-state square/circle residual and frozen leaf-mutation count'
   );
 }
 if (

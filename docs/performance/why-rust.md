@@ -412,6 +412,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state polyline/ink residual is admitted: PolyLine/Ink `AP/N` named-state dictionaries follow pdf.js `Annotation.setAppearance` AS selection — `AS` stream keeps raw Rect; missing/invalid AS leaves appearance unset so PolyLine/Ink expand vertices/InkList with `BS/W`. Fixtures prove PolyLine `AS /On` keeps `{200,200,300,300}`, Ink missing AS expands to `{26,26,104,94}`, and PolyLine invalid AS expands to `{6,6,104,84}` with `BS/W=2` on non-intersecting large Rect. Leaf-mutation count is frozen at 39. Appearance-stream content bbox derivation, line endings `LE`, Square/Circle named-state breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+
+### read_pdf include_annotations AP named-state square/circle residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` AP named-state square/circle residual is admitted: Square/Circle `AP/N` named-state dictionaries follow pdf.js `Annotation.setAppearance` AS selection — `AS` stream keeps raw Rect; missing/invalid AS leaves appearance unset but Square/Circle still keep raw Rect (no Line/PolyLine/Ink-style geometry expansion) with `BS/W` present. Fixtures prove Square `AS /On` keeps `{200,200,300,300}`, Circle missing AS keeps `{50,60,150,160}`, and Square invalid AS keeps `{10,20,110,120}` with `BS/W=2`. Leaf-mutation count is frozen at 39. Appearance-stream content bbox derivation, line endings `LE`, Widget named-state breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
