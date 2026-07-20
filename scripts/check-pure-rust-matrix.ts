@@ -275,6 +275,21 @@ const urlSingleFetchCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const ocrSearchTsvCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-ocr-search-tsv-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxMatchesPerSource: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -420,13 +435,25 @@ const urlSingleFetchWorkflowStart = differentialWorkflow.indexOf(
   'URL_SINGLE_FETCH_ARTIFACT="${SCRATCH_DIR}/v3014-url-single-fetch-result.json"'
 );
 const urlSingleFetchWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'OCR_SEARCH_TSV_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-tsv-result.json"',
   urlSingleFetchWorkflowStart
 );
 const urlSingleFetchWorkflow =
   urlSingleFetchWorkflowStart >= 0 &&
   urlSingleFetchWorkflowEnd > urlSingleFetchWorkflowStart
     ? differentialWorkflow.slice(urlSingleFetchWorkflowStart, urlSingleFetchWorkflowEnd)
+    : '';
+const ocrSearchTsvWorkflowStart = differentialWorkflow.indexOf(
+  'OCR_SEARCH_TSV_ARTIFACT="${SCRATCH_DIR}/v3014-ocr-search-tsv-result.json"'
+);
+const ocrSearchTsvWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  ocrSearchTsvWorkflowStart
+);
+const ocrSearchTsvWorkflow =
+  ocrSearchTsvWorkflowStart >= 0 &&
+  ocrSearchTsvWorkflowEnd > ocrSearchTsvWorkflowStart
+    ? differentialWorkflow.slice(ocrSearchTsvWorkflowStart, ocrSearchTsvWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -1663,6 +1690,88 @@ if (
   )
 ) {
   failures.push('url single-fetch bounded claim and explicit nonclaims must remain documented');
+}
+
+const ocrSearchTsvCaseCount = ocrSearchTsvCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-ocr-search-tsv-differential')) {
+  failures.push('rust parity workflow must execute the frozen ocr-search tsv differential');
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-ocr-search-tsv-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-ocr-search-tsv-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OcrSearchTsvCaseCount') ||
+  !repositoryDifferential.includes('v3014OcrSearchTsvCorpusHash') ||
+  !repositoryDifferential.includes('v3014OcrSearchTsvOracleHash')
+) {
+  failures.push('repository differential artifact must bind the ocr-search tsv family');
+}
+if (
+  !ocrSearchTsvWorkflow.includes(`.caseCount == ${ocrSearchTsvCaseCount}`) ||
+  !ocrSearchTsvWorkflow.includes(`.passed == ${ocrSearchTsvCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${ocrSearchTsvCaseCount}/${ocrSearchTsvCaseCount} ocr-search tsv corpus`
+  );
+}
+if (
+  ocrSearchTsvCaseCount !== 2 ||
+  ocrSearchTsvCorpus.envelope.fixtureCount !== 1 ||
+  ocrSearchTsvCorpus.nonclaims.dropInFor3014 !== false ||
+  ocrSearchTsvCorpus.nonclaims.publishFreeze !== true ||
+  ocrSearchTsvCorpus.nonclaims.realTesseractBinary !== false ||
+  ocrSearchTsvCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'ocr-search tsv corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !ocrSearchTsvWorkflow.includes(
+    '.profile == "pdf_reader_v3014_ocr_search_tsv_result"'
+  ) ||
+  !ocrSearchTsvWorkflow.includes('.mutationSensitive.leafMutationCount == 34') ||
+  !ocrSearchTsvWorkflow.includes('.providerProof.tesseractTsvPreset == true') ||
+  !ocrSearchTsvWorkflow.includes('.providerProof.validTsvWordGeometry == true') ||
+  !ocrSearchTsvWorkflow.includes('.providerProof.malformedTsvSoftFallback == true') ||
+  !ocrSearchTsvWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
+  !ocrSearchTsvWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !ocrSearchTsvWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'ocr-search tsv workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-ocr-search-tsv-differential.ts',
+  'scripts/differential/capture-v3014-ocr-search-tsv-oracle.ts',
+  'v3014-ocr-search-tsv-baseline-runner.ts',
+  'v3014-ocr-search-tsv-projection.ts',
+  'reference-ocr-search-tsv-provider.ts',
+  'v3014-ocr-search-tsv-corpus.json',
+  'v3014-ocr-search-tsv-oracle.json',
+  'v3014OcrSearchTsvCaseCount',
+  'v3014OcrSearchTsvCorpusHash',
+  'v3014OcrSearchTsvOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind ocr-search tsv family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 2-case') && claim.includes('search_pdf tesseract-tsv')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('search_pdf tesseract-tsv outside the frozen 2-case')
+  )
+) {
+  failures.push('ocr-search tsv bounded claim and explicit nonclaims must remain documented');
 }
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
