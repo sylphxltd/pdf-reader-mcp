@@ -822,6 +822,20 @@ const polylinePolygonResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const inkAnnotationResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-ink-annotation-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1513,7 +1527,7 @@ const polylinePolygonResidualWorkflowStart = differentialWorkflow.indexOf(
   'POLYLINE_POLYGON_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-polyline-polygon-residual-result.json"'
 );
 const polylinePolygonResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'INK_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-ink-annotation-residual-result.json"',
   polylinePolygonResidualWorkflowStart
 );
 const polylinePolygonResidualWorkflow =
@@ -1522,6 +1536,21 @@ const polylinePolygonResidualWorkflow =
     ? differentialWorkflow.slice(
         polylinePolygonResidualWorkflowStart,
         polylinePolygonResidualWorkflowEnd
+      )
+    : '';
+const inkAnnotationResidualWorkflowStart = differentialWorkflow.indexOf(
+  'INK_ANNOTATION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-ink-annotation-residual-result.json"'
+);
+const inkAnnotationResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  inkAnnotationResidualWorkflowStart
+);
+const inkAnnotationResidualWorkflow =
+  inkAnnotationResidualWorkflowStart >= 0 &&
+  inkAnnotationResidualWorkflowEnd > inkAnnotationResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        inkAnnotationResidualWorkflowStart,
+        inkAnnotationResidualWorkflowEnd
       )
     : '';
 
@@ -6668,6 +6697,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the polyline/polygon residual and frozen leaf-mutation count'
+  );
+}
+
+const inkAnnotationResidualCaseCount = inkAnnotationResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-ink-annotation-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen ink annotation residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-ink-annotation-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-ink-annotation-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014InkAnnotationResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014InkAnnotationResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014InkAnnotationResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the ink annotation residual family'
+  );
+}
+if (
+  !inkAnnotationResidualWorkflow.includes(
+    `.caseCount == ${inkAnnotationResidualCaseCount}`
+  ) ||
+  !inkAnnotationResidualWorkflow.includes(
+    `.passed == ${inkAnnotationResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${inkAnnotationResidualCaseCount}/${inkAnnotationResidualCaseCount} ink annotation residual corpus`
+  );
+}
+if (
+  inkAnnotationResidualCaseCount !== 3 ||
+  inkAnnotationResidualCorpus.envelope.fixtureCount !== 3 ||
+  inkAnnotationResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  inkAnnotationResidualCorpus.nonclaims.publishFreeze !== true ||
+  inkAnnotationResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'ink annotation residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !inkAnnotationResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_ink_annotation_residual_result"'
+  ) ||
+  !inkAnnotationResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !inkAnnotationResidualWorkflow.includes(
+    '.providerProof.inkNonIntersectingUsesInkListBbox == true'
+  ) ||
+  !inkAnnotationResidualWorkflow.includes(
+    '.providerProof.inkMultiStrokeUsesInkListBbox == true'
+  ) ||
+  !inkAnnotationResidualWorkflow.includes(
+    '.providerProof.borderWidth2InkListBbox == true'
+  ) ||
+  !inkAnnotationResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !inkAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !inkAnnotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'ink annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-ink-annotation-residual-differential.ts',
+  'scripts/differential/capture-v3014-ink-annotation-residual-oracle.ts',
+  'v3014-ink-annotation-residual-baseline-runner.ts',
+  'v3014-ink-annotation-residual-projection.ts',
+  'v3014-ink-annotation-residual-corpus.json',
+  'v3014-ink-annotation-residual-oracle.json',
+  'v3014-annotation-ink-l-bbox-v1.pdf',
+  'v3014-annotation-ink-multistroke-v1.pdf',
+  'v3014-annotation-ink-border2-v1.pdf',
+  'v3014InkAnnotationResidualCaseCount',
+  'v3014InkAnnotationResidualCorpusHash',
+  'v3014InkAnnotationResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind ink annotation residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('ink annotation residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('ink annotation residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'ink annotation residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustInk = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustInk.includes('ink annotation residual') ||
+  !whyRustInk.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the ink annotation residual and frozen leaf-mutation count'
   );
 }
 if (
