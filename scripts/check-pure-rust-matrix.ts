@@ -424,6 +424,24 @@ const annotationActionDestResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationActionPrecedenceResidualCorpus = JSON.parse(
+  readFileSync(
+    join(
+      root,
+      'scripts/differential/fixtures/v3014-annotation-action-precedence-residual-corpus.json'
+    ),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+    maxAnnotationsPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -697,7 +715,7 @@ const annotationActionDestResidualWorkflowStart = differentialWorkflow.indexOf(
   'ANNOTATION_ACTION_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-action-dest-residual-result.json"'
 );
 const annotationActionDestResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-action-precedence-residual-result.json"',
   annotationActionDestResidualWorkflowStart
 );
 const annotationActionDestResidualWorkflow =
@@ -706,6 +724,21 @@ const annotationActionDestResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationActionDestResidualWorkflowStart,
         annotationActionDestResidualWorkflowEnd
+      )
+    : '';
+const annotationActionPrecedenceResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-action-precedence-residual-result.json"'
+);
+const annotationActionPrecedenceResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  annotationActionPrecedenceResidualWorkflowStart
+);
+const annotationActionPrecedenceResidualWorkflow =
+  annotationActionPrecedenceResidualWorkflowStart >= 0 &&
+  annotationActionPrecedenceResidualWorkflowEnd > annotationActionPrecedenceResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationActionPrecedenceResidualWorkflowStart,
+        annotationActionPrecedenceResidualWorkflowEnd
       )
     : '';
 
@@ -2854,6 +2887,119 @@ if (
 ) {
   failures.push(
     'annotation action dest residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const annotationActionPrecedenceResidualCaseCount =
+  annotationActionPrecedenceResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-action-precedence-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation action precedence residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-action-precedence-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-action-precedence-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationActionPrecedenceResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationActionPrecedenceResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationActionPrecedenceResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation action precedence residual family'
+  );
+}
+if (
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    `.caseCount == ${annotationActionPrecedenceResidualCaseCount}`
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    `.passed == ${annotationActionPrecedenceResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationActionPrecedenceResidualCaseCount}/${annotationActionPrecedenceResidualCaseCount} annotation action precedence residual corpus`
+  );
+}
+if (
+  annotationActionPrecedenceResidualCaseCount !== 3 ||
+  annotationActionPrecedenceResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationActionPrecedenceResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationActionPrecedenceResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationActionPrecedenceResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation action precedence residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_action_precedence_residual_result"'
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 42'
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.providerProof.gotoOverDest == true'
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.providerProof.uriSuppressesDest == true'
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.providerProof.launchFileUrl == true'
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.productTruth.dropInFor3014 == false'
+  ) ||
+  !annotationActionPrecedenceResidualWorkflow.includes(
+    '.productTruth.publishFreeze == true'
+  )
+) {
+  failures.push(
+    'annotation action precedence residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-action-precedence-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-action-precedence-residual-oracle.ts',
+  'v3014-annotation-action-precedence-residual-baseline-runner.ts',
+  'v3014-annotation-action-precedence-residual-projection.ts',
+  'v3014-annotation-action-precedence-residual-corpus.json',
+  'v3014-annotation-action-precedence-residual-oracle.json',
+  'v3014-annotation-goto-over-dest-v1.pdf',
+  'v3014-annotation-uri-over-dest-v1.pdf',
+  'v3014-annotation-launch-file-v1.pdf',
+  'v3014AnnotationActionPrecedenceResidualCaseCount',
+  'v3014AnnotationActionPrecedenceResidualCorpusHash',
+  'v3014AnnotationActionPrecedenceResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation action precedence residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('action-precedence residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('action-precedence residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation action precedence residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
