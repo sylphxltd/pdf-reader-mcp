@@ -626,6 +626,20 @@ const popupAnnotationResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const popupZeroSizeResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-popup-zero-size-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1109,6 +1123,22 @@ const popupAnnotationResidualWorkflow =
     ? differentialWorkflow.slice(
         popupAnnotationResidualWorkflowStart,
         popupAnnotationResidualWorkflowEnd
+      )
+    : '';
+
+const popupZeroSizeResidualWorkflowStart = differentialWorkflow.indexOf(
+  'POPUP_ZERO_SIZE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-popup-zero-size-residual-result.json"'
+);
+const popupZeroSizeResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  popupZeroSizeResidualWorkflowStart
+);
+const popupZeroSizeResidualWorkflow =
+  popupZeroSizeResidualWorkflowStart >= 0 &&
+  popupZeroSizeResidualWorkflowEnd > popupZeroSizeResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        popupZeroSizeResidualWorkflowStart,
+        popupZeroSizeResidualWorkflowEnd
       )
     : '';
 
@@ -4710,6 +4740,114 @@ if (
     'popup annotation residual bounded claim and explicit nonclaims must remain documented'
   );
 }
+
+const popupZeroSizeResidualCaseCount = popupZeroSizeResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-popup-zero-size-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen popup zero-size residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-popup-zero-size-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-popup-zero-size-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PopupZeroSizeResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PopupZeroSizeResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PopupZeroSizeResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the popup zero-size residual family'
+  );
+}
+if (
+  !popupZeroSizeResidualWorkflow.includes(
+    `.caseCount == ${popupZeroSizeResidualCaseCount}`
+  ) ||
+  !popupZeroSizeResidualWorkflow.includes(
+    `.passed == ${popupZeroSizeResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${popupZeroSizeResidualCaseCount}/${popupZeroSizeResidualCaseCount} popup zero-size residual corpus`
+  );
+}
+if (
+  popupZeroSizeResidualCaseCount !== 2 ||
+  popupZeroSizeResidualCorpus.envelope.fixtureCount !== 2 ||
+  popupZeroSizeResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  popupZeroSizeResidualCorpus.nonclaims.publishFreeze !== true ||
+  popupZeroSizeResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'popup zero-size residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !popupZeroSizeResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_popup_zero_size_residual_result"'
+  ) ||
+  !popupZeroSizeResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 42'
+  ) ||
+  !popupZeroSizeResidualWorkflow.includes(
+    '.providerProof.popupZeroSizeNullsBoundingBox == true'
+  ) ||
+  !popupZeroSizeResidualWorkflow.includes(
+    '.providerProof.popupNonzeroKeepsBoundingBox == true'
+  ) ||
+  !popupZeroSizeResidualWorkflow.includes(
+    '.providerProof.popupZeroSizeStillInheritsParent == true'
+  ) ||
+  !popupZeroSizeResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !popupZeroSizeResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !popupZeroSizeResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'popup zero-size residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-popup-zero-size-residual-differential.ts',
+  'scripts/differential/capture-v3014-popup-zero-size-residual-oracle.ts',
+  'v3014-popup-zero-size-residual-baseline-runner.ts',
+  'v3014-popup-zero-size-residual-projection.ts',
+  'v3014-popup-zero-size-residual-corpus.json',
+  'v3014-popup-zero-size-residual-oracle.json',
+  'v3014-annotation-popup-zerosize-v1.pdf',
+  'v3014-annotation-popup-v1.pdf',
+  'v3014PopupZeroSizeResidualCaseCount',
+  'v3014PopupZeroSizeResidualCorpusHash',
+  'v3014PopupZeroSizeResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind popup zero-size residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('popup-zero-size residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('popup-zero-size residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'popup zero-size residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
 
 const ocrSearchCaseCount = ocrSearchCorpus.cases.length;
 if (
