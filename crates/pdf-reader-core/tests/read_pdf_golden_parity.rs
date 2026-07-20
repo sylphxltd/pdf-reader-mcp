@@ -178,7 +178,6 @@ fn assert_success_case(id: &str, fixture: &str, input: &Value, expected: &Value)
         "/results/0/data/info/Title",
         "/results/0/data/info/Producer",
         "/results/0/data/info/PDFFormatVersion",
-        "/results/0/data/info/route",
     ] {
         if pointer.contains("/info/")
             && input.get("include_metadata").and_then(Value::as_bool) == Some(false)
@@ -340,7 +339,6 @@ fn pdf_reader_cli_read_pdf_matches_core_golden_payload() {
         "/results/0/data/engine/version",
         "/results/0/data/info/Title",
         "/results/0/data/info/Producer",
-        "/results/0/data/info/route",
     ] {
         subset_matches(&actual, expected, "sample-metadata-on", pointer);
     }

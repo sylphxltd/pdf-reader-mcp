@@ -236,7 +236,7 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` action-precede
 
 ### read_pdf info flags residual public-stdio subset (bounded)
 
-A frozen two-case public-stdio `read_pdf` `include_metadata` info residual is admitted: pdf.js info flags (`Language`, `EncryptFilterName`, `IsLinearized`, `IsAcroFormPresent`, `IsXFAPresent`, `IsCollectionPresent`, `IsSignaturesPresent`) plus document info fields for AcroForm+Lang and plain catalogs. Leaf-mutation count is frozen at 33 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP metadata payload, encrypted filter-name variants, linearized-true, signatures-true, rust-only info extras, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+A frozen two-case public-stdio `read_pdf` `include_metadata` info residual is admitted: pdf.js info flags (`Language`, `EncryptFilterName`, `IsLinearized`, `IsAcroFormPresent`, `IsXFAPresent`, `IsCollectionPresent`, `IsSignaturesPresent`) plus document info fields for AcroForm+Lang and plain catalogs. Leaf-mutation count is frozen at 33 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP metadata payload, encrypted filter-name variants, linearized-true, signatures-true, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
 
 ### read_pdf page_geometry residual public-stdio subset (bounded)
@@ -261,7 +261,12 @@ A frozen four-case public-stdio `read_pdf` `include_permissions` residual is adm
 
 ### read_pdf metadata presence residual public-stdio subset (bounded)
 
-A frozen two-case public-stdio `read_pdf` `include_metadata` presence residual is admitted: catalog without `/Metadata` omits `data.metadata`; catalog with `/Metadata` stream emits an empty metadata object matching pdfjs-dist Node presence (no synthetic info wrapper). Leaf-mutation count is frozen at 12 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP key/value parsing, rich getAll payloads, rust-only info extras, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+A frozen two-case public-stdio `read_pdf` `include_metadata` presence residual is admitted: catalog without `/Metadata` omits `data.metadata`; catalog with `/Metadata` stream emits an empty metadata object matching pdfjs-dist Node presence (no synthetic info wrapper). Leaf-mutation count is frozen at 12 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP key/value parsing, rich getAll payloads, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+### read_pdf include_metadata info-extras residual (frozen TS v3.0.14)
+
+A frozen two-case public-stdio `read_pdf` `include_metadata` info-extras residual is admitted: `data.info` key sets match pdf.js `getMetadata().info` with no rust-only extras (`text_chars`, nested `route`, nested `num_pages`) for AcroForm+Lang and plain catalogs, while top-level `num_pages` remains separate. Leaf-mutation count is frozen at 60 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP key/value parsing, encrypted filter-name variants, linearized-true, signatures-true, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 
 ### search_pdf tesseract-tsv public-stdio subset (bounded)
 

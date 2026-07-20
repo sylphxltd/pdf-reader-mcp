@@ -746,7 +746,6 @@ fn build_data(
         mut warnings,
     } = signals;
     let full_text = join_page_text(pages);
-    let text_chars = full_text.chars().count();
 
     // auto is resolved in read_pdf_from_value for JSON callers; programmatic callers
     // should set auto explicitly. Default remains true only when auto is None and no
@@ -1049,7 +1048,7 @@ fn build_data(
     };
 
     if want_meta {
-        let mut info = pdf_info
+        let info = pdf_info
             .map(|pdf_info| {
                 let mut values = serde_json::Map::new();
                 // Match pdf.js getMetadata().info key order and flag presence.
@@ -1090,21 +1089,13 @@ fn build_data(
                 Value::Object(values)
             })
             .unwrap_or_else(|| json!({}));
-        info.as_object_mut()
-            .expect("info object")
-            .insert("text_chars".into(), json!(text_chars));
-        info.as_object_mut()
-            .expect("info object")
-            .insert("route".into(), json!(READ_PDF_ROUTE));
-        if want_page_count {
-            info.as_object_mut()
-                .expect("info object")
-                .insert("num_pages".into(), json!(total_pages));
-        }
+        // Match TS/pdf.js getMetadata().info: do not inject rust-only extras
+        // (text_chars/route/num_pages). route and num_pages stay on data.*; text_chars
+        // is not a public pdf.js info field.
         data.info = Some(info);
         // Match TS/pdf.js: `metadata` is only present when getMetadata() returns a
         // metadata object (catalog /Metadata stream). Do not invent a synthetic
-        // wrapper around info/text_chars. When the stream exists but exposes no
+        // wrapper around info. When the stream exists but exposes no
         // getAll keys (common in pdfjs-dist Node), TS returns {}.
         if has_catalog_metadata {
             data.metadata = Some(json!({}));
@@ -1656,6 +1647,52 @@ mod tests {
             .unwrap()
             .full_text
             .is_some());
+    }
+
+    #[test]
+    fn include_metadata_info_omits_rust_only_extras() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-info-flags-acroform-v1.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+        let response = read_pdf(&ReadPdfInput {
+            sources: vec![ReadPdfSource {
+                path: Some(fixture.to_string_lossy().to_string()),
+                url: None,
+                pages: Some(json!([1])),
+            }],
+            auto: Some(false),
+            include_metadata: true,
+            include_page_count: true,
+            ..Default::default()
+        })
+        .expect("read");
+        assert!(response.results[0].success);
+        let data = response.results[0].data.as_ref().expect("data");
+        assert_eq!(data.num_pages, Some(1));
+        assert_eq!(data.route, READ_PDF_ROUTE);
+        let info = data
+            .info
+            .as_ref()
+            .expect("info")
+            .as_object()
+            .expect("object");
+        for forbidden in ["text_chars", "route", "num_pages"] {
+            assert!(
+                !info.contains_key(forbidden),
+                "info must not contain rust-only key {forbidden}"
+            );
+        }
+        assert_eq!(
+            info.get("Title").and_then(Value::as_str),
+            Some("Info Flags AcroForm")
+        );
+        assert_eq!(info.get("Language").and_then(Value::as_str), Some("en-US"));
+        assert_eq!(
+            info.get("IsAcroFormPresent").and_then(Value::as_bool),
+            Some(true)
+        );
     }
 
     #[test]
