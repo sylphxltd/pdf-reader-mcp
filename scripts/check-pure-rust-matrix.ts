@@ -878,6 +878,20 @@ const borderBsPreferenceResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const borderBsNondictResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-border-bs-nondict-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1629,7 +1643,7 @@ const borderBsPreferenceResidualWorkflowStart = differentialWorkflow.indexOf(
   'BORDER_BS_PREFERENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-preference-residual-result.json"'
 );
 const borderBsPreferenceResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'BORDER_BS_NONDICT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-nondict-residual-result.json"',
   borderBsPreferenceResidualWorkflowStart
 );
 const borderBsPreferenceResidualWorkflow =
@@ -1638,6 +1652,21 @@ const borderBsPreferenceResidualWorkflow =
     ? differentialWorkflow.slice(
         borderBsPreferenceResidualWorkflowStart,
         borderBsPreferenceResidualWorkflowEnd
+      )
+    : '';
+const borderBsNondictResidualWorkflowStart = differentialWorkflow.indexOf(
+  'BORDER_BS_NONDICT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-border-bs-nondict-residual-result.json"'
+);
+const borderBsNondictResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  borderBsNondictResidualWorkflowStart
+);
+const borderBsNondictResidualWorkflow =
+  borderBsNondictResidualWorkflowStart >= 0 &&
+  borderBsNondictResidualWorkflowEnd > borderBsNondictResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        borderBsNondictResidualWorkflowStart,
+        borderBsNondictResidualWorkflowEnd
       )
     : '';
 
@@ -7252,6 +7281,123 @@ if (
 ) {
   failures.push(
     'why-rust must document the border BS preference residual and frozen leaf-mutation count'
+  );
+}
+
+const borderBsNondictResidualCaseCount = borderBsNondictResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-border-bs-nondict-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen border BS nondict residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-border-bs-nondict-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-border-bs-nondict-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014BorderBsNondictResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014BorderBsNondictResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014BorderBsNondictResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the border BS nondict residual family'
+  );
+}
+if (
+  !borderBsNondictResidualWorkflow.includes(
+    `.caseCount == ${borderBsNondictResidualCaseCount}`
+  ) ||
+  !borderBsNondictResidualWorkflow.includes(
+    `.passed == ${borderBsNondictResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${borderBsNondictResidualCaseCount}/${borderBsNondictResidualCaseCount} border BS nondict residual corpus`
+  );
+}
+if (
+  borderBsNondictResidualCaseCount !== 3 ||
+  borderBsNondictResidualCorpus.envelope.fixtureCount !== 3 ||
+  borderBsNondictResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  borderBsNondictResidualCorpus.nonclaims.publishFreeze !== true ||
+  borderBsNondictResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'border BS nondict residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !borderBsNondictResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_border_bs_nondict_residual_result"'
+  ) ||
+  !borderBsNondictResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !borderBsNondictResidualWorkflow.includes(
+    '.providerProof.polylineBorderBsNondictW1 == true'
+  ) ||
+  !borderBsNondictResidualWorkflow.includes(
+    '.providerProof.lineBorderBsNondictW1 == true'
+  ) ||
+  !borderBsNondictResidualWorkflow.includes(
+    '.providerProof.inkBorderBsNondictW1 == true'
+  ) ||
+  !borderBsNondictResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !borderBsNondictResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !borderBsNondictResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'border BS nondict residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-border-bs-nondict-residual-differential.ts',
+  'scripts/differential/capture-v3014-border-bs-nondict-residual-oracle.ts',
+  'v3014-border-bs-nondict-residual-baseline-runner.ts',
+  'v3014-border-bs-nondict-residual-projection.ts',
+  'v3014-border-bs-nondict-residual-corpus.json',
+  'v3014-border-bs-nondict-residual-oracle.json',
+  'v3014-annotation-polyline-border-bs-null-v1.pdf',
+  'v3014-annotation-line-border-bs-null-v1.pdf',
+  'v3014-annotation-ink-border-bs-null-v1.pdf',
+  'v3014BorderBsNondictResidualCaseCount',
+  'v3014BorderBsNondictResidualCorpusHash',
+  'v3014BorderBsNondictResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind border BS nondict residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('border BS nondict residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('border BS nondict residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'border BS nondict residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustBorderBsNondict = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustBorderBsNondict.includes('border BS nondict residual') ||
+  !whyRustBorderBsNondict.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the border BS nondict residual and frozen leaf-mutation count'
   );
 }
 if (
