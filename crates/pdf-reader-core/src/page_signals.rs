@@ -400,12 +400,11 @@ fn ink_lists_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec
 }
 
 fn annotation_has_normal_appearance(document: &Document, dict: &lopdf::Dictionary) -> bool {
-    dict.get(b"AP")
-        .ok()
-        .and_then(|value| resolve(document, value).ok())
-        .and_then(|value| value.as_dict().ok())
-        .and_then(|ap| ap.get(b"N").ok())
-        .is_some()
+    // pdf.js Annotation.setAppearance: AP/N must be a stream, or a named-state
+    // dict with AS selecting a stream. A bare AP/N key (null/name/non-stream)
+    // does not set appearance, so Line/PolyLine/Ink keep geometry expansion.
+    // Share the same gate as Text annotation appearance detection.
+    text_annotation_has_appearance(document, dict)
 }
 
 fn normalize_annotation(
@@ -1929,6 +1928,40 @@ mod tests {
                 .join(fixture);
             assert!(path.is_file(), "missing fixture {fixture}");
             let document = Document::load(&path).expect("load appearance bbox fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
+    #[test]
+    fn ap_n_nonstream_still_expands_line_polyline_ink_geometry() {
+        // AP/N null or name is not appearance => expand geometry with BS/W=2.
+        let cases = [
+            (
+                "v3014-annotation-line-ap-n-null-v1.pdf",
+                "Line",
+                json!({"left": 4.0, "bottom": 4.0, "right": 106.0, "top": 86.0}),
+            ),
+            (
+                "v3014-annotation-polyline-ap-n-name-v1.pdf",
+                "PolyLine",
+                json!({"left": 6.0, "bottom": 6.0, "right": 104.0, "top": 84.0}),
+            ),
+            (
+                "v3014-annotation-ink-ap-n-null-v1.pdf",
+                "Ink",
+                json!({"left": 26.0, "bottom": 26.0, "right": 104.0, "top": 94.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load AP non-stream fixture");
             let pages = document.get_pages().into_iter().collect::<Vec<_>>();
             let signals = extract_page_signals(&document, &pages, &[1], false, true);
             let ann = &signals.annotations[0]["annotations"][0];
