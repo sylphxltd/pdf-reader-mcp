@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use lopdf::{Dictionary, Document, Object, ObjectId};
-use pdf_extract::decode_text_string;
+use crate::pdfjs_text::decode_pdfjs_text_string;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -113,32 +113,6 @@ pub(crate) fn extract_form_attachment_signals(
     output
 }
 
-
-/// Match pdf.js `stringToPDFString` for public form-field text:
-/// - UTF-16BE BOM (`FE FF`): drop a trailing unpaired byte, then decode pairs
-/// - UTF-8 BOM (`EF BB BF`): decode UTF-8
-/// - otherwise PDFDocEncoding via lopdf `decode_text_string`
-fn decode_pdfjs_text_string(value: &Object) -> Option<String> {
-    let bytes = match value {
-        Object::String(bytes, _) => bytes.as_slice(),
-        _ => return decode_text_string(value).ok(),
-    };
-    if bytes.starts_with(&[0xFE, 0xFF]) {
-        let mut payload = &bytes[2..];
-        if payload.len() % 2 == 1 {
-            payload = &payload[..payload.len() - 1];
-        }
-        let units: Vec<u16> = payload
-            .chunks_exact(2)
-            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
-            .collect();
-        return String::from_utf16(&units).ok();
-    }
-    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        return String::from_utf8(bytes[3..].to_vec()).ok();
-    }
-    decode_text_string(value).ok()
-}
 
 struct Walker<'a> {
     document: &'a Document,

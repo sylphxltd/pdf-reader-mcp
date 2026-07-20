@@ -766,6 +766,20 @@ const formUtf16TextResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const utf16TextResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1397,7 +1411,7 @@ const formUtf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
   'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"'
 );
 const formUtf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
   formUtf16TextResidualWorkflowStart
 );
 const formUtf16TextResidualWorkflow =
@@ -1406,6 +1420,21 @@ const formUtf16TextResidualWorkflow =
     ? differentialWorkflow.slice(
         formUtf16TextResidualWorkflowStart,
         formUtf16TextResidualWorkflowEnd
+      )
+    : '';
+const utf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
+  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"'
+);
+const utf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  utf16TextResidualWorkflowStart
+);
+const utf16TextResidualWorkflow =
+  utf16TextResidualWorkflowStart >= 0 &&
+  utf16TextResidualWorkflowEnd > utf16TextResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        utf16TextResidualWorkflowStart,
+        utf16TextResidualWorkflowEnd
       )
     : '';
 
@@ -6096,6 +6125,113 @@ if (
 ) {
   failures.push(
     'why-rust must document the form utf16-text residual and frozen leaf-mutation count'
+  );
+}
+
+
+const utf16TextResidualCaseCount = utf16TextResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes('bun run test:v3014-utf16-text-residual-differential')
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen utf16-text residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-utf16-text-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-utf16-text-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014Utf16TextResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014Utf16TextResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014Utf16TextResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the utf16-text residual family'
+  );
+}
+if (
+  !utf16TextResidualWorkflow.includes(`.caseCount == ${utf16TextResidualCaseCount}`) ||
+  !utf16TextResidualWorkflow.includes(`.passed == ${utf16TextResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${utf16TextResidualCaseCount}/${utf16TextResidualCaseCount} utf16-text residual corpus`
+  );
+}
+if (
+  utf16TextResidualCaseCount !== 3 ||
+  utf16TextResidualCorpus.envelope.fixtureCount !== 3 ||
+  utf16TextResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  utf16TextResidualCorpus.nonclaims.publishFreeze !== true ||
+  utf16TextResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'utf16-text residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !utf16TextResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_utf16_text_residual_result"'
+  ) ||
+  !utf16TextResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 41'
+  ) ||
+  !utf16TextResidualWorkflow.includes('.providerProof.annotTextOddUtf16 == true') ||
+  !utf16TextResidualWorkflow.includes('.providerProof.freeTextOddUtf16 == true') ||
+  !utf16TextResidualWorkflow.includes(
+    '.providerProof.catalogOutlineAndInfoOddUtf16 == true'
+  ) ||
+  !utf16TextResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !utf16TextResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !utf16TextResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'utf16-text residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-utf16-text-residual-differential.ts',
+  'scripts/differential/capture-v3014-utf16-text-residual-oracle.ts',
+  'v3014-utf16-text-residual-baseline-runner.ts',
+  'v3014-utf16-text-residual-projection.ts',
+  'v3014-utf16-text-residual-corpus.json',
+  'v3014-utf16-text-residual-oracle.json',
+  'v3014-annot-utf16-odd-v1.pdf',
+  'v3014-freetext-utf16-odd-v1.pdf',
+  'v3014-catalog-utf16-odd-v1.pdf',
+  'v3014Utf16TextResidualCaseCount',
+  'v3014Utf16TextResidualCorpusHash',
+  'v3014Utf16TextResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind utf16-text residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('utf16-text residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('utf16-text residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'utf16-text residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustUtf16Breadth = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustUtf16Breadth.includes('utf16-text residual') ||
+  !whyRustUtf16Breadth.includes('Leaf-mutation count is frozen at 41')
+) {
+  failures.push(
+    'why-rust must document the utf16-text residual and frozen leaf-mutation count'
   );
 }
 if (

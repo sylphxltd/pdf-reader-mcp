@@ -1,7 +1,7 @@
 use std::collections::{HashSet, VecDeque};
 
 use lopdf::{Dictionary, Document, Object, ObjectId};
-use pdf_extract::decode_text_string;
+use crate::pdfjs_text::decode_pdfjs_text_string;
 use serde::Serialize;
 
 use crate::cos_document::EncryptionFacts;
@@ -159,9 +159,9 @@ impl<'a> Walker<'a> {
         }
         let decoded = match &value {
             Object::Name(bytes) => String::from_utf8_lossy(bytes).into_owned(),
-            _ => match decode_text_string(&value) {
-                Ok(value) => value,
-                Err(_) => {
+            _ => match decode_pdfjs_text_string(&value) {
+                Some(value) => value,
+                None => {
                     self.failed = true;
                     return None;
                 }

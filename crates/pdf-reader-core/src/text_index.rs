@@ -1,11 +1,12 @@
 //! Literal PDF text indexing and search for pdf-reader-mcp.
 
+use crate::pdfjs_text::decode_pdfjs_text_string;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 use pdf_extract::{
-    decode_text_string, output_doc, ColorSpace, Document, MediaBox, Object, OutputDev, OutputError,
+    output_doc, ColorSpace, Document, MediaBox, Object, OutputDev, OutputError,
     Path as PdfPath, Transform,
 };
 use serde::{Deserialize, Serialize};
@@ -725,7 +726,7 @@ pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
             "Trapped",
         ] {
             if let Ok(value) = info.get(key.as_bytes()) {
-                if let Ok(decoded) = decode_text_string(value) {
+                if let Some(decoded) = decode_pdfjs_text_string(value) {
                     fields.insert(key.to_string(), decoded);
                 }
             }
@@ -736,7 +737,7 @@ pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
         catalog
             .get(b"Lang")
             .ok()
-            .and_then(|value| decode_text_string(value).ok())
+            .and_then(|value| decode_pdfjs_text_string(value))
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
     });

@@ -5,6 +5,7 @@ mod catalog_signals;
 mod cos_document;
 pub mod document_twin;
 mod form_attachment_signals;
+mod pdfjs_text;
 mod image_signals;
 pub mod legacy;
 pub mod ocr_fusion;
