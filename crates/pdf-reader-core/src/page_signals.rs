@@ -332,6 +332,26 @@ fn vertices_bbox(points: &[(f64, f64)], pad: f64) -> Option<[f64; 4]> {
     left.is_finite().then_some([left, bottom, right, top])
 }
 
+fn ink_lists_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec<(f64, f64)>> {
+    let value = dict.get(b"InkList").ok()?;
+    let lists = resolve(document, value).ok()?.as_array().ok()?;
+    let mut points = Vec::new();
+    for entry in lists {
+        let values = resolve(document, entry).ok()?.as_array().ok()?;
+        let mut index = 0;
+        while index + 1 < values.len() {
+            let x = number(resolve(document, &values[index]).ok()?)?;
+            let y = number(resolve(document, &values[index + 1]).ok()?)?;
+            if !x.is_finite() || !y.is_finite() {
+                return None;
+            }
+            points.push((x, y));
+            index += 2;
+        }
+    }
+    (!points.is_empty()).then_some(points)
+}
+
 fn annotation_has_normal_appearance(document: &Document, dict: &lopdf::Dictionary) -> bool {
     dict.get(b"AP")
         .ok()
@@ -466,6 +486,23 @@ fn normalize_annotation(
                 rect = Some(match current {
                     Some(r) if rects_intersect(r, vertices_box) => r,
                     _ => vertices_box,
+                });
+            }
+        }
+    }
+
+    // pdf.js InkAnnotation without appearance:
+    // - ink-list points bbox expanded by 2*borderWidth (default width 1)
+    // - if Rect does not intersect that bbox, replace Rect with the ink bbox
+    // - public rect is the resulting rectangle (no additional borderWidth expand)
+    if subtype.as_deref() == Some("Ink") && !annotation_has_normal_appearance(document, dict) {
+        if let Some(points) = ink_lists_points(document, dict) {
+            let bw = border_style_width(document, dict);
+            if let Some(ink_box) = vertices_bbox(&points, 2.0 * bw) {
+                let current = rect.map(normalize_rect_coords);
+                rect = Some(match current {
+                    Some(r) if rects_intersect(r, ink_box) => r,
+                    _ => ink_box,
                 });
             }
         }
@@ -1549,6 +1586,36 @@ mod tests {
             let signals = extract_page_signals(&document, &pages, &[1], false, true);
             let ann = &signals.annotations[0]["annotations"][0];
             assert_eq!(ann["subtype"], subtype);
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
+    #[test]
+    fn ink_nonintersecting_rect_uses_inklist_bbox() {
+        let cases = [
+            (
+                "v3014-annotation-ink-l-bbox-v1.pdf",
+                json!({"left": 98.0, "bottom": 98.0, "right": 182.0, "top": 202.0}),
+            ),
+            (
+                "v3014-annotation-ink-multistroke-v1.pdf",
+                json!({"left": 8.0, "bottom": 48.0, "right": 92.0, "top": 122.0}),
+            ),
+            (
+                "v3014-annotation-ink-border2-v1.pdf",
+                json!({"left": 26.0, "bottom": 26.0, "right": 104.0, "top": 94.0}),
+            ),
+        ];
+        for (fixture, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load ink fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], "Ink");
             assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
         }
     }

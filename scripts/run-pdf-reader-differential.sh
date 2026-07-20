@@ -71,6 +71,7 @@ V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
 V3014_TEXT_INVALID_AS_RESIDUAL_JSON="$SCRATCH/v3014-text-invalid-as-residual-result.json"
 V3014_LINE_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-line-annotation-residual-result.json"
 V3014_POLYLINE_POLYGON_RESIDUAL_JSON="$SCRATCH/v3014-polyline-polygon-residual-result.json"
+V3014_INK_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-ink-annotation-residual-result.json"
 V3014_VISUAL_JSON="$SCRATCH/v3014-visual-result.json"
 SLICE_FILTER="all"
 : >"$LOG"
@@ -367,6 +368,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-line-annotation-residual-differ
 bun "$REPO_ROOT/scripts/differential/capture-v3014-polyline-polygon-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-polyline-polygon-residual-differential.ts" \
   --output "$V3014_POLYLINE_POLYGON_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-ink-annotation-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-ink-annotation-residual-differential.ts" \
+  --output "$V3014_INK_ANNOTATION_RESIDUAL_JSON" >>"$LOG"
 
 echo "--- deterministic v3.0.14 visual fixture + baseline replay ---" | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/generate-v3014-visual-fixtures.ts" 2>&1 | tee -a "$LOG"
@@ -712,6 +716,13 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-polyline-l-bbox-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-polygon-l-bbox-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-polyline-border2-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-ink-annotation-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-ink-annotation-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-ink-annotation-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-ink-annotation-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-ink-l-bbox-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-ink-multistroke-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-ink-border2-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-popup-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-annotation-freetext-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-visual-candidate-v1.pdf" \
@@ -1039,6 +1050,11 @@ V3014_POLYLINE_POLYGON_RESIDUAL_PASSED="$(jq '.passed' "$V3014_POLYLINE_POLYGON_
 V3014_POLYLINE_POLYGON_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_POLYLINE_POLYGON_RESIDUAL_JSON")"
 V3014_POLYLINE_POLYGON_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_POLYLINE_POLYGON_RESIDUAL_JSON")"
 V3014_POLYLINE_POLYGON_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_POLYLINE_POLYGON_RESIDUAL_JSON")"
+V3014_INK_ANNOTATION_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_INK_ANNOTATION_RESIDUAL_JSON")"
+V3014_INK_ANNOTATION_RESIDUAL_PASSED="$(jq '.passed' "$V3014_INK_ANNOTATION_RESIDUAL_JSON")"
+V3014_INK_ANNOTATION_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_INK_ANNOTATION_RESIDUAL_JSON")"
+V3014_INK_ANNOTATION_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_INK_ANNOTATION_RESIDUAL_JSON")"
+V3014_INK_ANNOTATION_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_INK_ANNOTATION_RESIDUAL_JSON")"
 V3014_VISUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_PASSED="$(jq '.passed' "$V3014_VISUAL_JSON")"
 V3014_VISUAL_SKIPPED="$(jq '.skipped' "$V3014_VISUAL_JSON")"
@@ -1185,6 +1201,8 @@ jq -n \
   --arg v3014LineAnnotationResidualOracleHash "$V3014_LINE_ANNOTATION_RESIDUAL_ORACLE_HASH" \
   --arg v3014PolylinePolygonResidualCorpusHash "$V3014_POLYLINE_POLYGON_RESIDUAL_CORPUS_HASH" \
   --arg v3014PolylinePolygonResidualOracleHash "$V3014_POLYLINE_POLYGON_RESIDUAL_ORACLE_HASH" \
+  --arg v3014InkAnnotationResidualCorpusHash "$V3014_INK_ANNOTATION_RESIDUAL_CORPUS_HASH" \
+  --arg v3014InkAnnotationResidualOracleHash "$V3014_INK_ANNOTATION_RESIDUAL_ORACLE_HASH" \
   --arg v3014VisualCorpusHash "$V3014_VISUAL_CORPUS_HASH" \
   --arg v3014VisualOracleHash "$V3014_VISUAL_ORACLE_HASH" \
   --arg sliceFilter "$SLICE_FILTER" \
@@ -1381,6 +1399,9 @@ jq -n \
   --argjson v3014PolylinePolygonResidualCaseCount "$V3014_POLYLINE_POLYGON_RESIDUAL_CASE_COUNT" \
   --argjson v3014PolylinePolygonResidualPassed "$V3014_POLYLINE_POLYGON_RESIDUAL_PASSED" \
   --argjson v3014PolylinePolygonResidualSkipped "$V3014_POLYLINE_POLYGON_RESIDUAL_SKIPPED" \
+  --argjson v3014InkAnnotationResidualCaseCount "$V3014_INK_ANNOTATION_RESIDUAL_CASE_COUNT" \
+  --argjson v3014InkAnnotationResidualPassed "$V3014_INK_ANNOTATION_RESIDUAL_PASSED" \
+  --argjson v3014InkAnnotationResidualSkipped "$V3014_INK_ANNOTATION_RESIDUAL_SKIPPED" \
   --argjson v3014VisualCaseCount "$V3014_VISUAL_CASE_COUNT" \
   --argjson v3014VisualPassed "$V3014_VISUAL_PASSED" \
   --argjson v3014VisualSkipped "$V3014_VISUAL_SKIPPED" \
@@ -1648,6 +1669,8 @@ jq -n \
     v3014LineAnnotationResidualOracleHash: $v3014LineAnnotationResidualOracleHash,
     v3014PolylinePolygonResidualCorpusHash: $v3014PolylinePolygonResidualCorpusHash,
     v3014PolylinePolygonResidualOracleHash: $v3014PolylinePolygonResidualOracleHash,
+    v3014InkAnnotationResidualCorpusHash: $v3014InkAnnotationResidualCorpusHash,
+    v3014InkAnnotationResidualOracleHash: $v3014InkAnnotationResidualOracleHash,
     v3014MetadataPresenceResidualCaseCount: $v3014MetadataPresenceResidualCaseCount,
     v3014MetadataPresenceResidualPassed: $v3014MetadataPresenceResidualPassed,
     v3014MetadataPresenceResidualSkipped: $v3014MetadataPresenceResidualSkipped,
@@ -1793,6 +1816,8 @@ jq -n \
     immutableLineAnnotationResidualDifferential: "scripts/differential/check-v3014-line-annotation-residual-differential.ts",
     immutablePolylinePolygonResidualOracle: "scripts/differential/fixtures/v3014-polyline-polygon-residual-oracle.json",
     immutablePolylinePolygonResidualDifferential: "scripts/differential/check-v3014-polyline-polygon-residual-differential.ts",
+    immutableInkAnnotationResidualOracle: "scripts/differential/fixtures/v3014-ink-annotation-residual-oracle.json",
+    immutableInkAnnotationResidualDifferential: "scripts/differential/check-v3014-ink-annotation-residual-differential.ts",
     immutableVisualOracle: "scripts/differential/fixtures/v3014-visual-oracle.json",
     immutableVisualDifferential: "scripts/differential/check-v3014-visual-differential.ts",
     liveTextOracle: "scripts/differential/ts-vs-rust-text-oracle.ts",

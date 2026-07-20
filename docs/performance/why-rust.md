@@ -349,6 +349,12 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` line annotatio
 A frozen three-case public-stdio `read_pdf` `include_annotations` polyline/polygon residual is admitted: PolyLine/Polygon annotations without appearance replace a non-intersecting public bounding box from the vertices bbox expanded by `2*borderWidth` like pdf.js `PolylineAnnotation`/`PolygonAnnotation` — default border width 1, Polygon subtype, and `BS/W=2` with a non-clamped Rect. Leaf-mutation count is frozen at 39. Line endings `LE`, appearance-stream geometry, Ink, tiny-Rect border-width clamp, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
 
+
+### read_pdf include_annotations ink annotation residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` ink annotation residual is admitted: Ink annotations without appearance replace a non-intersecting public bounding box from the InkList points bbox expanded by `2*borderWidth` like pdf.js `InkAnnotation` — default border width 1, multi-stroke union, and `BS/W=2` with a non-clamped Rect. Leaf-mutation count is frozen at 39. Appearance-stream geometry, tiny-Rect border-width clamp, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
