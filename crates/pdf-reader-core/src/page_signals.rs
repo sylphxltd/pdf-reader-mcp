@@ -225,19 +225,41 @@ fn normalize_annotation(
         .as_ref()
         .and_then(|action| action.get(b"S").ok())
         .and_then(|value| value.as_name().ok());
-    // pdf.js exposes GoTo action destinations on annotations as `dest`, matching
-    // outline normalization. Prefer explicit /Dest when both are present.
-    let action_dest = action
-        .as_ref()
-        .filter(|_| action_kind == Some(b"GoTo"))
-        .and_then(|action| action.get(b"D").ok())
-        .and_then(|value| destination(document, value, text_budget));
-    let dest = direct_dest.or(action_dest);
-    let url = action
-        .as_ref()
-        .filter(|_| action_kind == Some(b"URI"))
-        .and_then(|action| action.get(b"URI").ok())
-        .and_then(|value| decoded_string(document, value, text_budget));
+    // pdf.js Link annotations project destination/url from the action when
+    // present: GoTo supplies dest (winning over /Dest), URI/Launch supply url
+    // and suppress dest, and only action-less annotations fall back to /Dest.
+    let (dest, url) = match action_kind {
+        Some(b"GoTo") => {
+            let dest = action
+                .as_ref()
+                .and_then(|action| action.get(b"D").ok())
+                .and_then(|value| destination(document, value, text_budget));
+            (dest, None)
+        }
+        Some(b"URI") => {
+            let url = action
+                .as_ref()
+                .and_then(|action| action.get(b"URI").ok())
+                .and_then(|value| decoded_string(document, value, text_budget));
+            (None, url)
+        }
+        Some(b"Launch") => {
+            let url = action.as_ref().and_then(|action| {
+                let file = action.get(b"F").ok()?;
+                match resolve(document, file).ok()? {
+                    Object::String(_, _) => decoded_string(document, file, text_budget),
+                    Object::Dictionary(dict) => dict
+                        .get(b"F")
+                        .ok()
+                        .and_then(|value| decoded_string(document, value, text_budget)),
+                    Object::Name(_) => bounded_name(file, text_budget),
+                    _ => None,
+                }
+            });
+            (None, url)
+        }
+        _ => (direct_dest, None),
+    };
 
     if id.is_none()
         && subtype.is_none()
@@ -659,6 +681,134 @@ mod tests {
                 700
             ])
         );
+    }
+
+    #[test]
+    fn goto_action_wins_over_explicit_dest_like_pdfjs() {
+        let mut document = Document::with_version("1.7");
+        let pages_id = document.new_object_id();
+        let font_id = document.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+        });
+        let page_two_id = document.new_object_id();
+        let action = dictionary! {
+            "S" => "GoTo",
+            "D" => vec![
+                Object::Reference(page_two_id),
+                Object::Name("FitH".into()),
+                10.into(),
+            ],
+        };
+        let link_id = document.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Link",
+            "Rect" => vec![72.into(), 500.into(), 140.into(), 530.into()],
+            "Dest" => vec![Object::Reference(page_two_id), Object::Name("Fit".into())],
+            "A" => action,
+        });
+        let page_one_id = document.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+            "Annots" => vec![Object::Reference(link_id)],
+        });
+        document.objects.insert(
+            page_two_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+                "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+            }),
+        );
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![Object::Reference(page_one_id), Object::Reference(page_two_id)],
+                "Count" => 2,
+            }),
+        );
+        let catalog_id = document.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        document.trailer.set("Root", catalog_id);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        let annotations = &signals.annotations[0]["annotations"].as_array().unwrap()[0];
+        assert_eq!(
+            annotations["dest"],
+            json!([
+                { "num": page_two_id.0, "gen": page_two_id.1 },
+                { "name": "FitH" },
+                10
+            ])
+        );
+        assert!(annotations.get("url").is_none());
+    }
+
+    #[test]
+    fn uri_action_suppresses_dest_and_launch_maps_file_to_url() {
+        let mut document = Document::with_version("1.7");
+        let pages_id = document.new_object_id();
+        let page_two_id = document.new_object_id();
+        let uri_link = document.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Link",
+            "Rect" => vec![72.into(), 500.into(), 140.into(), 530.into()],
+            "Dest" => vec![Object::Reference(page_two_id), Object::Name("Fit".into())],
+            "A" => dictionary! {
+                "S" => "URI",
+                "URI" => Object::string_literal("https://example.com/x"),
+            },
+        });
+        let launch_link = document.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Link",
+            "Rect" => vec![150.into(), 500.into(), 220.into(), 530.into()],
+            "A" => dictionary! {
+                "S" => "Launch",
+                "F" => Object::string_literal("evil.exe"),
+            },
+        });
+        let page_one_id = document.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Annots" => vec![Object::Reference(uri_link), Object::Reference(launch_link)],
+        });
+        document.objects.insert(
+            page_two_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            }),
+        );
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![Object::Reference(page_one_id), Object::Reference(page_two_id)],
+                "Count" => 2,
+            }),
+        );
+        let catalog_id = document.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        document.trailer.set("Root", catalog_id);
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        let annotations = signals.annotations[0]["annotations"].as_array().unwrap();
+        assert_eq!(annotations[0]["url"], json!("https://example.com/x"));
+        assert!(annotations[0].get("dest").is_none());
+        assert_eq!(annotations[1]["url"], json!("evil.exe"));
+        assert!(annotations[1].get("dest").is_none());
     }
 
     #[test]

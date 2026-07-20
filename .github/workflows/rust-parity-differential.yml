@@ -139,6 +139,7 @@ jobs:
           bun run test:v3014-annotation-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-residual-result.json"
           bun run test:v3014-annotation-dest-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-dest-residual-result.json"
           bun run test:v3014-annotation-action-dest-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-action-dest-residual-result.json"
+          bun run test:v3014-annotation-action-precedence-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-action-precedence-residual-result.json"
           bun run test:capability-parity
 
       - name: Assert proof SHA binding
@@ -1041,6 +1042,33 @@ jobs:
               and .candidateSha == $sha
             ' "$ANNOTATION_ACTION_DEST_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 annotation action dest residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
+            exit 1
+          fi
+
+
+          ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-action-precedence-residual-result.json"
+          if [ ! -f "$ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 annotation action precedence residual result missing at $ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          if ! jq -e --arg sha "$CANDIDATE_SHA" '
+              .profile == "pdf_reader_v3014_annotation_action_precedence_residual_result"
+              and .pass == true
+              and .skipped == 0
+              and .caseCount == 3
+              and .passed == 3
+              and .mutationSensitive.allClaimedFields == true
+              and .mutationSensitive.leafMutationCount == 42
+              and .portabilityProof.relocatedFixtureRootReplay == true
+              and .providerProof.gotoOverDest == true
+              and .providerProof.uriSuppressesDest == true
+              and .providerProof.launchFileUrl == true
+              and .capabilityStatus.includeAnnotations == "PARTIAL"
+              and .productTruth.dropInFor3014 == false
+              and .productTruth.publishFreeze == true
+              and .candidateSha == $sha
+            ' "$ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT" >/dev/null; then
+            echo "::error::v3.0.14 annotation action precedence residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
           fi
 
