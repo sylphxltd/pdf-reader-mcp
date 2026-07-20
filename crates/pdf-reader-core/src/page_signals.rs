@@ -248,6 +248,57 @@ fn popup_parent_dict<'a>(
     Some(parent)
 }
 
+
+fn border_style_width(document: &Document, dict: &lopdf::Dictionary) -> f64 {
+    // pdf.js AnnotationBorderStyle defaults width to 1 when absent/zero for line drawing.
+    let raw = dict
+        .get(b"BS")
+        .ok()
+        .and_then(|value| resolve(document, value).ok())
+        .and_then(|value| value.as_dict().ok())
+        .and_then(|bs| bs.get(b"W").ok())
+        .and_then(|value| match value {
+            Object::Integer(v) => Some(*v as f64),
+            Object::Real(v) => Some(f64::from(*v)),
+            Object::Reference(id) => document.get_object(*id).ok().and_then(|obj| match obj {
+                Object::Integer(v) => Some(*v as f64),
+                Object::Real(v) => Some(f64::from(*v)),
+                _ => None,
+            }),
+            _ => None,
+        })
+        .unwrap_or(1.0);
+    if raw == 0.0 {
+        1.0
+    } else {
+        raw
+    }
+}
+
+fn normalize_rect_coords(rect: [f64; 4]) -> [f64; 4] {
+    let left = rect[0].min(rect[2]);
+    let right = rect[0].max(rect[2]);
+    let bottom = rect[1].min(rect[3]);
+    let top = rect[1].max(rect[3]);
+    [left, bottom, right, top]
+}
+
+fn expand_rect(rect: [f64; 4], pad: f64) -> [f64; 4] {
+    let [left, bottom, right, top] = normalize_rect_coords(rect);
+    [left - pad, bottom - pad, right + pad, top + pad]
+}
+
+fn rects_intersect(a: [f64; 4], b: [f64; 4]) -> bool {
+    let a = normalize_rect_coords(a);
+    let b = normalize_rect_coords(b);
+    a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]
+}
+
+fn line_coordinates(document: &Document, dict: &lopdf::Dictionary) -> Option<[f64; 4]> {
+    let value = dict.get(b"L").ok()?;
+    box_values(document, value)
+}
+
 fn normalize_annotation(
     document: &Document,
     page: u32,
@@ -340,6 +391,33 @@ fn normalize_annotation(
             }
         }
     }
+
+    // pdf.js LineAnnotation without appearance:
+    // - compute L-normalized bbox expanded by 2*borderWidth (default width 1)
+    // - if Rect does not intersect that bbox, replace Rect with the L bbox
+    // - public rect is then expanded by borderWidth (default appearance path)
+    if subtype.as_deref() == Some("Line")
+        && !dict
+            .get(b"AP")
+            .ok()
+            .and_then(|value| resolve(document, value).ok())
+            .and_then(|value| value.as_dict().ok())
+            .and_then(|ap| ap.get(b"N").ok())
+            .is_some()
+    {
+        if let Some(line) = line_coordinates(document, dict) {
+            let bw = border_style_width(document, dict);
+            let line = normalize_rect_coords(line);
+            let line_bbox = expand_rect(line, 2.0 * bw);
+            let current = rect.map(normalize_rect_coords);
+            let base = match current {
+                Some(r) if rects_intersect(r, line_bbox) => r,
+                _ => line_bbox,
+            };
+            rect = Some(expand_rect(base, bw));
+        }
+    }
+
     let direct_dest = dict
         .get(b"Dest")
         .ok()
