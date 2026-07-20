@@ -1708,6 +1708,86 @@ mod tests {
     }
 
     #[test]
+    fn form_info_flags_match_pdfjs_semantics() {
+        for (fixture, acro, xfa, collection, signatures) in [
+            (
+                "../../test/fixtures/differential/v3014-info-xfa-present-v1.pdf",
+                false,
+                true,
+                false,
+                false,
+            ),
+            (
+                "../../test/fixtures/differential/v3014-info-collection-present-v1.pdf",
+                false,
+                false,
+                true,
+                false,
+            ),
+            (
+                "../../test/fixtures/differential/v3014-info-signatures-present-v1.pdf",
+                true,
+                false,
+                false,
+                true,
+            ),
+            (
+                "../../test/fixtures/differential/v3014-info-signatures-invisible-v1.pdf",
+                false,
+                false,
+                false,
+                true,
+            ),
+        ] {
+            let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(fixture);
+            if !path.is_file() {
+                continue;
+            }
+            let response = read_pdf(&ReadPdfInput {
+                sources: vec![ReadPdfSource {
+                    path: Some(path.to_string_lossy().to_string()),
+                    url: None,
+                    pages: Some(json!([1])),
+                }],
+                auto: Some(false),
+                include_metadata: true,
+                include_page_count: true,
+                ..Default::default()
+            })
+            .unwrap_or_else(|err| panic!("{fixture}: {err:?}"));
+            let info = response.results[0]
+                .data
+                .as_ref()
+                .unwrap()
+                .info
+                .as_ref()
+                .unwrap()
+                .as_object()
+                .unwrap();
+            assert_eq!(
+                info.get("IsAcroFormPresent").and_then(Value::as_bool),
+                Some(acro),
+                "{fixture} IsAcroFormPresent"
+            );
+            assert_eq!(
+                info.get("IsXFAPresent").and_then(Value::as_bool),
+                Some(xfa),
+                "{fixture} IsXFAPresent"
+            );
+            assert_eq!(
+                info.get("IsCollectionPresent").and_then(Value::as_bool),
+                Some(collection),
+                "{fixture} IsCollectionPresent"
+            );
+            assert_eq!(
+                info.get("IsSignaturesPresent").and_then(Value::as_bool),
+                Some(signatures),
+                "{fixture} IsSignaturesPresent"
+            );
+        }
+    }
+
+    #[test]
     fn encrypted_pdf_info_exposes_standard_encrypt_filter_name() {
         let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../test/fixtures/differential/v3014-permissions-print-copy-fill-a11y-v1.pdf");
