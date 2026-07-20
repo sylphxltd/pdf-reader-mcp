@@ -634,6 +634,73 @@ fn normalize_page_text_parts(
     Ok(output)
 }
 
+fn xfa_present(doc: &Document, value: &Object) -> bool {
+    match value {
+        Object::Array(items) => !items.is_empty(),
+        Object::Reference(id) => doc
+            .get_object(*id)
+            .ok()
+            .is_some_and(|obj| xfa_present(doc, obj)),
+        Object::Stream(stream) => !stream.content.is_empty(),
+        _ => false,
+    }
+}
+
+fn has_only_document_signatures(doc: &Document, fields: &[Object], depth: usize) -> bool {
+    const RECURSION_LIMIT: usize = 10;
+    if depth > RECURSION_LIMIT || fields.is_empty() {
+        return false;
+    }
+    fields.iter().all(|field| {
+        let resolved = match field {
+            Object::Reference(id) => doc.get_object(*id).ok(),
+            other => Some(other),
+        };
+        let Some(Object::Dictionary(dict)) = resolved else {
+            return false;
+        };
+        if let Some(kids) = dict.get(b"Kids").ok().and_then(|value| match value {
+            Object::Reference(id) => doc.get_object(*id).ok().and_then(|obj| match obj {
+                Object::Array(arr) => Some(arr.clone()),
+                _ => None,
+            }),
+            Object::Array(arr) => Some(arr.clone()),
+            _ => None,
+        }) {
+            return has_only_document_signatures(doc, &kids, depth + 1);
+        }
+        let is_signature = dict
+            .get(b"FT")
+            .ok()
+            .and_then(|value| value.as_name().ok())
+            .is_some_and(|name| name == b"Sig");
+        let is_invisible = dict
+            .get(b"Rect")
+            .ok()
+            .and_then(|value| match value {
+                Object::Reference(id) => doc.get_object(*id).ok().and_then(|obj| match obj {
+                    Object::Array(arr) => Some(arr.clone()),
+                    _ => None,
+                }),
+                Object::Array(arr) => Some(arr.clone()),
+                _ => None,
+            })
+            .is_some_and(|rect| {
+                !rect.is_empty()
+                    && rect.iter().all(|entry| match entry {
+                        Object::Integer(0) => true,
+                        Object::Real(v) => *v == 0.0,
+                        Object::Reference(id) => doc.get_object(*id).ok().is_some_and(|obj| {
+                            matches!(obj, Object::Integer(0))
+                                || matches!(obj, Object::Real(v) if *v == 0.0)
+                        }),
+                        _ => false,
+                    })
+            });
+        is_signature && is_invisible
+    })
+}
+
 pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
     let mut fields = BTreeMap::new();
     let info_object = doc
@@ -700,10 +767,22 @@ pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
         })
     });
     let acroform_dict = acroform.and_then(|value| value.as_dict().ok());
-    let is_acroform_present = acroform_dict.is_some();
+    // Match pdf.js formInfo:
+    // hasFields = Fields is a non-empty array
+    // hasXfa = XFA array non-empty OR non-empty stream
+    // hasSignatures = SigFlags & 0x1
+    // hasOnlyDocumentSignatures = every leaf field is invisible Sig
+    // hasAcroForm = hasFields && !hasOnlyDocumentSignatures
+    let fields_obj = acroform_dict.and_then(|dict| dict.get(b"Fields").ok());
+    let fields_array = fields_obj.and_then(|value| match value {
+        Object::Reference(id) => doc.get_object(*id).ok().and_then(|obj| obj.as_array().ok()),
+        Object::Array(arr) => Some(arr),
+        _ => None,
+    });
+    let has_fields = fields_array.is_some_and(|arr| !arr.is_empty());
     let is_xfa_present = acroform_dict
         .and_then(|dict| dict.get(b"XFA").ok())
-        .is_some();
+        .is_some_and(|value| xfa_present(doc, value));
     let is_collection_present = catalog
         .and_then(|catalog| catalog.get(b"Collection").ok())
         .is_some();
@@ -711,6 +790,9 @@ pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
         .and_then(|dict| dict.get(b"SigFlags").ok())
         .and_then(|value| value.as_i64().ok())
         .is_some_and(|flags| flags & 1 != 0);
+    let has_only_document_signatures = is_signatures_present
+        && fields_array.is_some_and(|arr| has_only_document_signatures(doc, arr, 0));
+    let is_acroform_present = has_fields && !has_only_document_signatures;
 
     PdfInfo {
         format_version: doc.version.clone(),

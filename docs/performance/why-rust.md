@@ -236,7 +236,7 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` action-precede
 
 ### read_pdf info flags residual public-stdio subset (bounded)
 
-A frozen two-case public-stdio `read_pdf` `include_metadata` info residual is admitted: pdf.js info flags (`Language`, `EncryptFilterName`, `IsLinearized`, `IsAcroFormPresent`, `IsXFAPresent`, `IsCollectionPresent`, `IsSignaturesPresent`) plus document info fields for AcroForm+Lang and plain catalogs. Leaf-mutation count is frozen at 33 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP metadata payload, signatures-true, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+A frozen two-case public-stdio `read_pdf` `include_metadata` info residual is admitted: pdf.js info flags (`Language`, `EncryptFilterName`, `IsLinearized`, `IsAcroFormPresent`, `IsXFAPresent`, `IsCollectionPresent`, `IsSignaturesPresent`) plus document info fields for AcroForm+Lang and plain catalogs. Leaf-mutation count is frozen at 33 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP metadata payload, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
 
 ### read_pdf page_geometry residual public-stdio subset (bounded)
@@ -265,7 +265,7 @@ A frozen two-case public-stdio `read_pdf` `include_metadata` presence residual i
 
 ### read_pdf include_metadata info-extras residual (frozen TS v3.0.14)
 
-A frozen two-case public-stdio `read_pdf` `include_metadata` info-extras residual is admitted: `data.info` key sets match pdf.js `getMetadata().info` with no rust-only extras (`text_chars`, nested `route`, nested `num_pages`) for AcroForm+Lang and plain catalogs, while top-level `num_pages` remains separate. Leaf-mutation count is frozen at 60 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP key/value parsing, signatures-true, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+A frozen two-case public-stdio `read_pdf` `include_metadata` info-extras residual is admitted: `data.info` key sets match pdf.js `getMetadata().info` with no rust-only extras (`text_chars`, nested `route`, nested `num_pages`) for AcroForm+Lang and plain catalogs, while top-level `num_pages` remains separate. Leaf-mutation count is frozen at 60 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP key/value parsing, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
 ### read_pdf include_metadata encrypt-filter residual (frozen TS v3.0.14)
 
@@ -273,7 +273,12 @@ A frozen two-case public-stdio `read_pdf` `include_metadata` encrypt-filter resi
 
 ### read_pdf include_metadata linearized residual (frozen TS v3.0.14)
 
-A frozen three-case public-stdio `read_pdf` `include_metadata` linearized residual is admitted: pdf.js `IsLinearized` matches `Linearization.create` over exact source bytes — valid first-object linearization dictionaries are true; spurious `Linearized` dictionaries (bad `L`/`H`) and absent linearization are false. Leaf-mutation count is frozen at 27 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; four-entry hint arrays, pageFirst optional variants, signatures-true, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+A frozen three-case public-stdio `read_pdf` `include_metadata` linearized residual is admitted: pdf.js `IsLinearized` matches `Linearization.create` over exact source bytes — valid first-object linearization dictionaries are true; spurious `Linearized` dictionaries (bad `L`/`H`) and absent linearization are false. Leaf-mutation count is frozen at 27 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; four-entry hint arrays, pageFirst optional variants, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
+### read_pdf include_metadata form-flags residual (frozen TS v3.0.14)
+
+A frozen four-case public-stdio `read_pdf` `include_metadata` form-flags residual is admitted matching pdf.js `formInfo`: XFA-only AcroForm yields `IsAcroFormPresent=false` + `IsXFAPresent=true`; Collection catalogs set `IsCollectionPresent=true`; visible Sig fields set `IsSignaturesPresent=true` + `IsAcroFormPresent=true`; invisible-only document signatures set `IsSignaturesPresent=true` + `IsAcroFormPresent=false`. Leaf-mutation count is frozen at 36 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; nested Kids signature-only breadth, empty XFA stream edge cases, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+
 
 
 

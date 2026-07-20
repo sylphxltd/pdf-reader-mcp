@@ -570,6 +570,20 @@ const linearizedResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formFlagsResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-flags-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -984,7 +998,7 @@ const linearizedResidualWorkflowStart = differentialWorkflow.indexOf(
   'LINEARIZED_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-linearized-residual-result.json"'
 );
 const linearizedResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'FORM_FLAGS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-flags-residual-result.json"',
   linearizedResidualWorkflowStart
 );
 const linearizedResidualWorkflow =
@@ -993,6 +1007,21 @@ const linearizedResidualWorkflow =
     ? differentialWorkflow.slice(
         linearizedResidualWorkflowStart,
         linearizedResidualWorkflowEnd
+      )
+    : '';
+const formFlagsResidualWorkflowStart = differentialWorkflow.indexOf(
+  'FORM_FLAGS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-flags-residual-result.json"'
+);
+const formFlagsResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  formFlagsResidualWorkflowStart
+);
+const formFlagsResidualWorkflow =
+  formFlagsResidualWorkflowStart >= 0 &&
+  formFlagsResidualWorkflowEnd > formFlagsResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        formFlagsResidualWorkflowStart,
+        formFlagsResidualWorkflowEnd
       )
     : '';
 
@@ -4161,6 +4190,118 @@ if (
 ) {
   failures.push(
     'linearized residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const formFlagsResidualCaseCount = formFlagsResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-flags-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form flags residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-flags-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-flags-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormFlagsResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormFlagsResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormFlagsResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form flags residual family'
+  );
+}
+if (
+  !formFlagsResidualWorkflow.includes(
+    `.caseCount == ${formFlagsResidualCaseCount}`
+  ) ||
+  !formFlagsResidualWorkflow.includes(
+    `.passed == ${formFlagsResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${formFlagsResidualCaseCount}/${formFlagsResidualCaseCount} form flags residual corpus`
+  );
+}
+if (
+  formFlagsResidualCaseCount !== 4 ||
+  formFlagsResidualCorpus.envelope.fixtureCount !== 4 ||
+  formFlagsResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formFlagsResidualCorpus.nonclaims.publishFreeze !== true ||
+  formFlagsResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form flags residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !formFlagsResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_flags_residual_result"'
+  ) ||
+  !formFlagsResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 36'
+  ) ||
+  !formFlagsResidualWorkflow.includes(
+    '.providerProof.xfaOnlyAcroformFalse == true'
+  ) ||
+  !formFlagsResidualWorkflow.includes(
+    '.providerProof.collectionPresent == true'
+  ) ||
+  !formFlagsResidualWorkflow.includes(
+    '.providerProof.visibleSignaturesAcroformTrue == true'
+  ) ||
+  !formFlagsResidualWorkflow.includes(
+    '.providerProof.invisibleSignaturesAcroformFalse == true'
+  ) ||
+  !formFlagsResidualWorkflow.includes(
+    '.capabilityStatus.includeMetadata == "PARTIAL"'
+  ) ||
+  !formFlagsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !formFlagsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'form flags residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-form-flags-residual-differential.ts',
+  'scripts/differential/capture-v3014-form-flags-residual-oracle.ts',
+  'v3014-form-flags-residual-baseline-runner.ts',
+  'v3014-form-flags-residual-projection.ts',
+  'v3014-form-flags-residual-corpus.json',
+  'v3014-form-flags-residual-oracle.json',
+  'v3014-info-xfa-present-v1.pdf',
+  'v3014-info-collection-present-v1.pdf',
+  'v3014-info-signatures-present-v1.pdf',
+  'v3014-info-signatures-invisible-v1.pdf',
+  'v3014FormFlagsResidualCaseCount',
+  'v3014FormFlagsResidualCorpusHash',
+  'v3014FormFlagsResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind form flags residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 4-case') && claim.includes('form-flags residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('form-flags residual outside the frozen 4-case')
+  )
+) {
+  failures.push(
+    'form flags residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
