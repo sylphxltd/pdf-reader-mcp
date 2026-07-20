@@ -556,6 +556,20 @@ const encryptFilterResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const linearizedResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-linearized-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -955,7 +969,7 @@ const encryptFilterResidualWorkflowStart = differentialWorkflow.indexOf(
   'ENCRYPT_FILTER_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-encrypt-filter-residual-result.json"'
 );
 const encryptFilterResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'LINEARIZED_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-linearized-residual-result.json"',
   encryptFilterResidualWorkflowStart
 );
 const encryptFilterResidualWorkflow =
@@ -964,6 +978,21 @@ const encryptFilterResidualWorkflow =
     ? differentialWorkflow.slice(
         encryptFilterResidualWorkflowStart,
         encryptFilterResidualWorkflowEnd
+      )
+    : '';
+const linearizedResidualWorkflowStart = differentialWorkflow.indexOf(
+  'LINEARIZED_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-linearized-residual-result.json"'
+);
+const linearizedResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  linearizedResidualWorkflowStart
+);
+const linearizedResidualWorkflow =
+  linearizedResidualWorkflowStart >= 0 &&
+  linearizedResidualWorkflowEnd > linearizedResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        linearizedResidualWorkflowStart,
+        linearizedResidualWorkflowEnd
       )
     : '';
 
@@ -4021,6 +4050,117 @@ if (
 ) {
   failures.push(
     'encrypt filter residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const linearizedResidualCaseCount = linearizedResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-linearized-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen linearized residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-linearized-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-linearized-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014LinearizedResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014LinearizedResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014LinearizedResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the linearized residual family'
+  );
+}
+if (
+  !linearizedResidualWorkflow.includes(
+    `.caseCount == ${linearizedResidualCaseCount}`
+  ) ||
+  !linearizedResidualWorkflow.includes(
+    `.passed == ${linearizedResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${linearizedResidualCaseCount}/${linearizedResidualCaseCount} linearized residual corpus`
+  );
+}
+if (
+  linearizedResidualCaseCount !== 3 ||
+  linearizedResidualCorpus.envelope.fixtureCount !== 3 ||
+  linearizedResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  linearizedResidualCorpus.nonclaims.publishFreeze !== true ||
+  linearizedResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'linearized residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !linearizedResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_linearized_residual_result"'
+  ) ||
+  !linearizedResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 27'
+  ) ||
+  !linearizedResidualWorkflow.includes(
+    '.providerProof.validLinearizedTrue == true'
+  ) ||
+  !linearizedResidualWorkflow.includes(
+    '.providerProof.spuriousLinearizedFalse == true'
+  ) ||
+  !linearizedResidualWorkflow.includes(
+    '.providerProof.absentLinearizedFalse == true'
+  ) ||
+  !linearizedResidualWorkflow.includes(
+    '.providerProof.topLevelNumPagesPreserved == true'
+  ) ||
+  !linearizedResidualWorkflow.includes(
+    '.capabilityStatus.includeMetadata == "PARTIAL"'
+  ) ||
+  !linearizedResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !linearizedResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'linearized residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-linearized-residual-differential.ts',
+  'scripts/differential/capture-v3014-linearized-residual-oracle.ts',
+  'v3014-linearized-residual-baseline-runner.ts',
+  'v3014-linearized-residual-projection.ts',
+  'v3014-linearized-residual-corpus.json',
+  'v3014-linearized-residual-oracle.json',
+  'v3014-info-linearized-valid-v1.pdf',
+  'v3014-info-linearized-spurious-v1.pdf',
+  'v3014-info-linearized-absent-v1.pdf',
+  'v3014LinearizedResidualCaseCount',
+  'v3014LinearizedResidualCorpusHash',
+  'v3014LinearizedResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind linearized residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('linearized residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('linearized residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'linearized residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 

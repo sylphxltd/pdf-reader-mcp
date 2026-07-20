@@ -688,13 +688,10 @@ pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
         .and_then(|value| std::str::from_utf8(value).ok())
         .map(|value| value.to_string())
         .filter(|value| !value.is_empty());
-    let is_linearized = doc.objects.values().any(|object| {
-        object
-            .as_dict()
-            .ok()
-            .and_then(|dict| dict.get(b"Linearized").ok())
-            .is_some()
-    });
+    // pdf.js IsLinearized requires first-object Linearization.create validation
+    // against the exact source stream length. Document object graphs alone are
+    // insufficient and over-admit; callers with source bytes should override.
+    let is_linearized = false;
     let acroform = catalog.and_then(|catalog| {
         catalog.get(b"AcroForm").ok().and_then(|value| match value {
             Object::Reference(id) => doc.get_object(*id).ok(),
