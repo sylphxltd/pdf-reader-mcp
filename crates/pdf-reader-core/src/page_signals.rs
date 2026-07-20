@@ -248,8 +248,13 @@ fn popup_parent_dict<'a>(
     Some(parent)
 }
 
-fn border_style_width(document: &Document, dict: &lopdf::Dictionary) -> f64 {
+fn border_style_width(
+    document: &Document,
+    dict: &lopdf::Dictionary,
+    rect: Option<[f64; 4]>,
+) -> f64 {
     // pdf.js AnnotationBorderStyle defaults width to 1 when absent/zero for line drawing.
+    // When W exceeds half of either Rect dimension (both dimensions > 0), pdf.js clamps to 1.
     let raw = dict
         .get(b"BS")
         .ok()
@@ -267,11 +272,18 @@ fn border_style_width(document: &Document, dict: &lopdf::Dictionary) -> f64 {
             _ => None,
         })
         .unwrap_or(1.0);
-    if raw == 0.0 {
-        1.0
-    } else {
-        raw
+    let mut width = if raw == 0.0 { 1.0 } else { raw };
+    if width > 0.0 {
+        if let Some(rect) = rect {
+            let rect = normalize_rect_coords(rect);
+            let max_width = (rect[2] - rect[0]) / 2.0;
+            let max_height = (rect[3] - rect[1]) / 2.0;
+            if max_width > 0.0 && max_height > 0.0 && (width > max_width || width > max_height) {
+                width = 1.0;
+            }
+        }
     }
+    width
 }
 
 fn normalize_rect_coords(rect: [f64; 4]) -> [f64; 4] {
@@ -460,7 +472,7 @@ fn normalize_annotation(
     // - public rect is then expanded by borderWidth (default appearance path)
     if subtype.as_deref() == Some("Line") && !annotation_has_normal_appearance(document, dict) {
         if let Some(line) = line_coordinates(document, dict) {
-            let bw = border_style_width(document, dict);
+            let bw = border_style_width(document, dict, rect);
             let line = normalize_rect_coords(line);
             let line_bbox = expand_rect(line, 2.0 * bw);
             let current = rect.map(normalize_rect_coords);
@@ -480,7 +492,7 @@ fn normalize_annotation(
         && !annotation_has_normal_appearance(document, dict)
     {
         if let Some(points) = vertices_points(document, dict) {
-            let bw = border_style_width(document, dict);
+            let bw = border_style_width(document, dict, rect);
             if let Some(vertices_box) = vertices_bbox(&points, 2.0 * bw) {
                 let current = rect.map(normalize_rect_coords);
                 rect = Some(match current {
@@ -497,7 +509,7 @@ fn normalize_annotation(
     // - public rect is the resulting rectangle (no additional borderWidth expand)
     if subtype.as_deref() == Some("Ink") && !annotation_has_normal_appearance(document, dict) {
         if let Some(points) = ink_lists_points(document, dict) {
-            let bw = border_style_width(document, dict);
+            let bw = border_style_width(document, dict, rect);
             if let Some(ink_box) = vertices_bbox(&points, 2.0 * bw) {
                 let current = rect.map(normalize_rect_coords);
                 rect = Some(match current {
@@ -1616,6 +1628,39 @@ mod tests {
             let signals = extract_page_signals(&document, &pages, &[1], false, true);
             let ann = &signals.annotations[0]["annotations"][0];
             assert_eq!(ann["subtype"], "Ink");
+            assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
+        }
+    }
+
+    #[test]
+    fn tiny_rect_border_width_clamp_matches_pdfjs() {
+        let cases = [
+            (
+                "v3014-annotation-polyline-clamp-w2-v1.pdf",
+                "PolyLine",
+                json!({"left": 8.0, "bottom": 8.0, "right": 102.0, "top": 82.0}),
+            ),
+            (
+                "v3014-annotation-line-clamp-w2-v1.pdf",
+                "Line",
+                json!({"left": 7.0, "bottom": 7.0, "right": 103.0, "top": 83.0}),
+            ),
+            (
+                "v3014-annotation-ink-clamp-w2-v1.pdf",
+                "Ink",
+                json!({"left": 28.0, "bottom": 28.0, "right": 102.0, "top": 92.0}),
+            ),
+        ];
+        for (fixture, subtype, expected) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            assert!(path.is_file(), "missing fixture {fixture}");
+            let document = Document::load(&path).expect("load clamp fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let signals = extract_page_signals(&document, &pages, &[1], false, true);
+            let ann = &signals.annotations[0]["annotations"][0];
+            assert_eq!(ann["subtype"], subtype, "fixture {fixture}");
             assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
         }
     }
