@@ -668,6 +668,20 @@ const textAppearanceResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const textNamedAppearanceResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-text-named-appearance-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -1199,6 +1213,22 @@ const textAppearanceResidualWorkflow =
     ? differentialWorkflow.slice(
         textAppearanceResidualWorkflowStart,
         textAppearanceResidualWorkflowEnd
+      )
+    : '';
+
+const textNamedAppearanceResidualWorkflowStart = differentialWorkflow.indexOf(
+  'TEXT_NAMED_APPEARANCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-text-named-appearance-residual-result.json"'
+);
+const textNamedAppearanceResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  textNamedAppearanceResidualWorkflowStart
+);
+const textNamedAppearanceResidualWorkflow =
+  textNamedAppearanceResidualWorkflowStart >= 0 &&
+  textNamedAppearanceResidualWorkflowEnd > textNamedAppearanceResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        textNamedAppearanceResidualWorkflowStart,
+        textNamedAppearanceResidualWorkflowEnd
       )
     : '';
 
@@ -5118,6 +5148,111 @@ if (
     'text appearance residual bounded claim and explicit nonclaims must remain documented'
   );
 }
+
+const textNamedAppearanceResidualCaseCount = textNamedAppearanceResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-text-named-appearance-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen text named appearance residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-text-named-appearance-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-text-named-appearance-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014TextNamedAppearanceResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014TextNamedAppearanceResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014TextNamedAppearanceResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the text named appearance residual family'
+  );
+}
+if (
+  !textNamedAppearanceResidualWorkflow.includes(
+    `.caseCount == ${textNamedAppearanceResidualCaseCount}`
+  ) ||
+  !textNamedAppearanceResidualWorkflow.includes(
+    `.passed == ${textNamedAppearanceResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${textNamedAppearanceResidualCaseCount}/${textNamedAppearanceResidualCaseCount} text named appearance residual corpus`
+  );
+}
+if (
+  textNamedAppearanceResidualCaseCount !== 2 ||
+  textNamedAppearanceResidualCorpus.envelope.fixtureCount !== 2 ||
+  textNamedAppearanceResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  textNamedAppearanceResidualCorpus.nonclaims.publishFreeze !== true ||
+  textNamedAppearanceResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'text named appearance residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !textNamedAppearanceResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_text_named_appearance_residual_result"'
+  ) ||
+  !textNamedAppearanceResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 28'
+  ) ||
+  !textNamedAppearanceResidualWorkflow.includes(
+    '.providerProof.namedAppearanceWithAsKeepsRawRect == true'
+  ) ||
+  !textNamedAppearanceResidualWorkflow.includes(
+    '.providerProof.namedAppearanceWithoutAsUsesIconBox == true'
+  ) ||
+  !textNamedAppearanceResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !textNamedAppearanceResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !textNamedAppearanceResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'text named appearance residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-text-named-appearance-residual-differential.ts',
+  'scripts/differential/capture-v3014-text-named-appearance-residual-oracle.ts',
+  'v3014-text-named-appearance-residual-baseline-runner.ts',
+  'v3014-text-named-appearance-residual-projection.ts',
+  'v3014-text-named-appearance-residual-corpus.json',
+  'v3014-text-named-appearance-residual-oracle.json',
+  'v3014-annotation-text-namedap-v1.pdf',
+  'v3014-annotation-text-namedap-noas-v1.pdf',
+  'v3014TextNamedAppearanceResidualCaseCount',
+  'v3014TextNamedAppearanceResidualCorpusHash',
+  'v3014TextNamedAppearanceResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind text named appearance residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 2-case') && claim.includes('text-named-appearance residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('text-named-appearance residual outside the frozen 2-case')
+  )
+) {
+  failures.push(
+    'text named appearance residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
 
 
 
