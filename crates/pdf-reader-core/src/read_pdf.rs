@@ -1049,7 +1049,38 @@ fn build_data(
         let mut info = pdf_info
             .map(|pdf_info| {
                 let mut values = serde_json::Map::new();
+                // Match pdf.js getMetadata().info key order and flag presence.
                 values.insert("PDFFormatVersion".into(), json!(pdf_info.format_version));
+                values.insert(
+                    "Language".into(),
+                    pdf_info
+                        .language
+                        .as_ref()
+                        .map(|value| json!(value))
+                        .unwrap_or(Value::Null),
+                );
+                values.insert(
+                    "EncryptFilterName".into(),
+                    pdf_info
+                        .encrypt_filter_name
+                        .as_ref()
+                        .map(|value| json!(value))
+                        .unwrap_or(Value::Null),
+                );
+                values.insert("IsLinearized".into(), json!(pdf_info.is_linearized));
+                values.insert(
+                    "IsAcroFormPresent".into(),
+                    json!(pdf_info.is_acroform_present),
+                );
+                values.insert("IsXFAPresent".into(), json!(pdf_info.is_xfa_present));
+                values.insert(
+                    "IsCollectionPresent".into(),
+                    json!(pdf_info.is_collection_present),
+                );
+                values.insert(
+                    "IsSignaturesPresent".into(),
+                    json!(pdf_info.is_signatures_present),
+                );
                 for (key, value) in &pdf_info.fields {
                     values.insert(key.clone(), json!(value));
                 }
