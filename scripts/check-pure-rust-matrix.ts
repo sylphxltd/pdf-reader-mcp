@@ -470,6 +470,20 @@ const pageGeometryResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const pageLabelsResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-page-labels-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const differentialWorkflow = readFileSync(
   join(root, '.github/workflows/rust-parity-differential.yml'),
   'utf8'
@@ -785,7 +799,7 @@ const pageGeometryResidualWorkflowStart = differentialWorkflow.indexOf(
   'PAGE_GEOMETRY_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-geometry-residual-result.json"'
 );
 const pageGeometryResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  'PAGE_LABELS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-labels-residual-result.json"',
   pageGeometryResidualWorkflowStart
 );
 const pageGeometryResidualWorkflow =
@@ -795,6 +809,18 @@ const pageGeometryResidualWorkflow =
         pageGeometryResidualWorkflowStart,
         pageGeometryResidualWorkflowEnd
       )
+    : '';
+const pageLabelsResidualWorkflowStart = differentialWorkflow.indexOf(
+  'PAGE_LABELS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-labels-residual-result.json"'
+);
+const pageLabelsResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'VISUAL_ARTIFACT="${SCRATCH_DIR}/v3014-visual-result.json"',
+  pageLabelsResidualWorkflowStart
+);
+const pageLabelsResidualWorkflow =
+  pageLabelsResidualWorkflowStart >= 0 &&
+  pageLabelsResidualWorkflowEnd > pageLabelsResidualWorkflowStart
+    ? differentialWorkflow.slice(pageLabelsResidualWorkflowStart, pageLabelsResidualWorkflowEnd)
     : '';
 
 const failures: string[] = [];
@@ -3243,6 +3269,98 @@ if (
 ) {
   failures.push(
     'page geometry residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+
+const pageLabelsResidualCaseCount = pageLabelsResidualCorpus.cases.length;
+if (!differentialWorkflow.includes('bun run test:v3014-page-labels-residual-differential')) {
+  failures.push(
+    'rust parity workflow must execute the frozen page labels residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-page-labels-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-page-labels-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PageLabelsResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PageLabelsResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PageLabelsResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the page labels residual family'
+  );
+}
+if (
+  !pageLabelsResidualWorkflow.includes(`.caseCount == ${pageLabelsResidualCaseCount}`) ||
+  !pageLabelsResidualWorkflow.includes(`.passed == ${pageLabelsResidualCaseCount}`)
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${pageLabelsResidualCaseCount}/${pageLabelsResidualCaseCount} page labels residual corpus`
+  );
+}
+if (
+  pageLabelsResidualCaseCount !== 3 ||
+  pageLabelsResidualCorpus.envelope.fixtureCount !== 3 ||
+  pageLabelsResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  pageLabelsResidualCorpus.nonclaims.publishFreeze !== true ||
+  pageLabelsResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'page labels residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !pageLabelsResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_page_labels_residual_result"'
+  ) ||
+  !pageLabelsResidualWorkflow.includes('.mutationSensitive.leafMutationCount == 17') ||
+  !pageLabelsResidualWorkflow.includes('.providerProof.multiStyleLabels == true') ||
+  !pageLabelsResidualWorkflow.includes('.providerProof.prefixStartDecimal == true') ||
+  !pageLabelsResidualWorkflow.includes('.providerProof.absentLabelsOmitted == true') ||
+  !pageLabelsResidualWorkflow.includes(
+    '.capabilityStatus.includePageLabels == "PARTIAL"'
+  ) ||
+  !pageLabelsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !pageLabelsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'page labels residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-page-labels-residual-differential.ts',
+  'scripts/differential/capture-v3014-page-labels-residual-oracle.ts',
+  'v3014-page-labels-residual-baseline-runner.ts',
+  'v3014-page-labels-residual-projection.ts',
+  'v3014-page-labels-residual-corpus.json',
+  'v3014-page-labels-residual-oracle.json',
+  'v3014-page-labels-multi-v1.pdf',
+  'v3014-page-labels-prefix-v1.pdf',
+  'v3014-page-labels-none-v1.pdf',
+  'v3014PageLabelsResidualCaseCount',
+  'v3014PageLabelsResidualCorpusHash',
+  'v3014PageLabelsResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind page labels residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('include_page_labels residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_page_labels residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'page labels residual bounded claim and explicit nonclaims must remain documented'
   );
 }
 
