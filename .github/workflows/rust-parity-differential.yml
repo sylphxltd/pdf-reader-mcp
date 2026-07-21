@@ -179,6 +179,7 @@ jobs:
           bun run test:v3014-annotation-link-uri-normalize-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-link-uri-normalize-residual-result.json"
           bun run test:v3014-annotation-freetext-rect-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-freetext-rect-residual-result.json"
           bun run test:v3014-annotation-link-uri-name-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-link-uri-name-residual-result.json"
+          bun run test:v3014-annotation-link-aa-action-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-link-aa-action-residual-result.json"
           bun run test:v3014-attachment-odd-names-residual-differential -- --output "${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"
           bun run test:v3014-form-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"
           bun run test:v3014-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"
@@ -1958,6 +1959,26 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$ANNOTATION_LINK_URI_NAME_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-uri-name residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+          ANNOTATION_LINK_AA_ACTION_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-link-aa-action-residual-result.json"
+          if [ ! -f "$ANNOTATION_LINK_AA_ACTION_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 annotation link-aa-action residual result is missing at $ANNOTATION_LINK_AA_ACTION_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_annotation_link_aa_action_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.linkAaUUri == true and
+            .providerProof.linkAaDGoto == true and
+            .providerProof.linkAWinsOverAa == true and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$ANNOTATION_LINK_AA_ACTION_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 annotation link-aa-action residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 
