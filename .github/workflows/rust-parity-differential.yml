@@ -148,6 +148,7 @@ jobs:
           bun run test:v3014-metadata-presence-residual-differential -- --output "${SCRATCH_DIR}/v3014-metadata-presence-residual-result.json"
           bun run test:v3014-info-extras-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-extras-residual-result.json"
           bun run test:v3014-info-trapped-custom-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"
+          bun run test:v3014-page-geometry-inheritance-residual-differential -- --output "${SCRATCH_DIR}/v3014-page-geometry-inheritance-residual-result.json"
           bun run test:v3014-encrypt-filter-residual-differential -- --output "${SCRATCH_DIR}/v3014-encrypt-filter-residual-result.json"
           bun run test:v3014-linearized-residual-differential -- --output "${SCRATCH_DIR}/v3014-linearized-residual-result.json"
           bun run test:v3014-form-flags-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-flags-residual-result.json"
@@ -2153,6 +2154,28 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 info trapped-custom residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+
+          PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-page-geometry-inheritance-residual-result.json"
+          if [ ! -f "$PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 page geometry inheritance residual result missing at $PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_page_geometry_inheritance_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.inheritedMediaBoxRotate == true and
+            .providerProof.inheritedMediaBoxPageCrop == true and
+            .providerProof.negativeRightAngleRotate == true and
+            .capabilityStatus.includePageGeometry == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 page geometry inheritance residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 

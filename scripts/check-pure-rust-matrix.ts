@@ -1116,6 +1116,20 @@ const infoTrappedCustomResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const pageGeometryInheritanceResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-page-geometry-inheritance-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -9117,6 +9131,110 @@ if (
 ) {
   failures.push(
     'why-rust must document the info trapped-custom residual and frozen leaf-mutation count'
+  );
+}
+
+
+const pageGeometryInheritanceResidualCaseCount = pageGeometryInheritanceResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-page-geometry-inheritance-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen page geometry inheritance residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-page-geometry-inheritance-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-page-geometry-inheritance-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PageGeometryInheritanceResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PageGeometryInheritanceResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PageGeometryInheritanceResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the page geometry inheritance residual family'
+  );
+}
+if (
+  pageGeometryInheritanceResidualCaseCount !== 3 ||
+  pageGeometryInheritanceResidualCorpus.envelope.fixtureCount !== 3 ||
+  pageGeometryInheritanceResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  pageGeometryInheritanceResidualCorpus.nonclaims.publishFreeze !== true ||
+  pageGeometryInheritanceResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'page geometry inheritance residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_page_geometry_inheritance_residual_result"'
+  ) ||
+  !differentialWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 39'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.inheritedMediaBoxRotate == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.inheritedMediaBoxPageCrop == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.negativeRightAngleRotate == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.capabilityStatus.includePageGeometry == "PARTIAL"'
+  )
+) {
+  failures.push(
+    'page geometry inheritance residual workflow must bind mutation, provider, and capability proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-page-geometry-inheritance-residual-differential.ts',
+  'scripts/differential/capture-v3014-page-geometry-inheritance-residual-oracle.ts',
+  'v3014-page-geometry-inheritance-residual-baseline-runner.ts',
+  'v3014-page-geometry-inheritance-residual-projection.ts',
+  'v3014-page-geometry-inheritance-residual-corpus.json',
+  'v3014-page-geometry-inheritance-residual-oracle.json',
+  'v3014-page-geometry-inherited-rotate-v1.pdf',
+  'v3014-page-geometry-inherited-crop-v1.pdf',
+  'v3014-page-geometry-negative-rotate-v1.pdf',
+  'v3014PageGeometryInheritanceResidualCaseCount',
+  'v3014PageGeometryInheritanceResidualCorpusHash',
+  'v3014PageGeometryInheritanceResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind page geometry inheritance residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('geometry inheritance residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('geometry inheritance residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'page geometry inheritance residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustPageGeometryInheritance = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustPageGeometryInheritance.includes('geometry inheritance residual') ||
+  !whyRustPageGeometryInheritance.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the page geometry inheritance residual and frozen leaf-mutation count'
   );
 }
 
