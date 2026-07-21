@@ -1046,6 +1046,20 @@ const formUtf16TextResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formTextMultilineResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-text-multiline-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -1949,6 +1963,7 @@ const attachmentOddNamesResidualWorkflowStart = differentialWorkflow.indexOf(
 );
 const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
   'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"',
+  'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
   attachmentOddNamesResidualWorkflowStart
 );
 const attachmentOddNamesResidualWorkflow =
@@ -1963,7 +1978,7 @@ const formUtf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
   'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"'
 );
 const formUtf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
   formUtf16TextResidualWorkflowStart
 );
 const formUtf16TextResidualWorkflow =
@@ -1972,6 +1987,21 @@ const formUtf16TextResidualWorkflow =
     ? differentialWorkflow.slice(
         formUtf16TextResidualWorkflowStart,
         formUtf16TextResidualWorkflowEnd
+      )
+    : '';
+const formTextMultilineResidualWorkflowStart = differentialWorkflow.indexOf(
+  'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"'
+);
+const formTextMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  formTextMultilineResidualWorkflowStart
+);
+const formTextMultilineResidualWorkflow =
+  formTextMultilineResidualWorkflowStart >= 0 &&
+  formTextMultilineResidualWorkflowEnd > formTextMultilineResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        formTextMultilineResidualWorkflowStart,
+        formTextMultilineResidualWorkflowEnd
       )
     : '';
 const utf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -8369,6 +8399,124 @@ if (
   );
 }
 
+
+
+const formTextMultilineResidualCaseCount = formTextMultilineResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-text-multiline-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form text-multiline residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-text-multiline-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-text-multiline-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormTextMultilineResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormTextMultilineResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormTextMultilineResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form text-multiline residual family'
+  );
+}
+if (
+  !formTextMultilineResidualWorkflow.includes(
+    `.caseCount == ${formTextMultilineResidualCaseCount}`
+  ) ||
+  !formTextMultilineResidualWorkflow.includes(
+    `.passed == ${formTextMultilineResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${formTextMultilineResidualCaseCount}/${formTextMultilineResidualCaseCount} form text-multiline residual corpus`
+  );
+}
+if (
+  formTextMultilineResidualCaseCount !== 3 ||
+  formTextMultilineResidualCorpus.envelope.fixtureCount !== 3 ||
+  formTextMultilineResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formTextMultilineResidualCorpus.nonclaims.publishFreeze !== true ||
+  formTextMultilineResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form text-multiline residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !formTextMultilineResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_text_multiline_residual_result"'
+  ) ||
+  !formTextMultilineResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 45'
+  ) ||
+  !formTextMultilineResidualWorkflow.includes(
+    '.providerProof.escapedLfPreserved == true'
+  ) ||
+  !formTextMultilineResidualWorkflow.includes(
+    '.providerProof.escapedCrlfPreserved == true'
+  ) ||
+  !formTextMultilineResidualWorkflow.includes(
+    '.providerProof.rawLfPreserved == true'
+  ) ||
+  !formTextMultilineResidualWorkflow.includes(
+    '.capabilityStatus.includeFormFields == "PARTIAL"'
+  ) ||
+  !formTextMultilineResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !formTextMultilineResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'form text-multiline residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-form-text-multiline-residual-differential.ts',
+  'scripts/differential/capture-v3014-form-text-multiline-residual-oracle.ts',
+  'v3014-form-text-multiline-residual-baseline-runner.ts',
+  'v3014-form-text-multiline-residual-projection.ts',
+  'v3014-form-text-multiline-residual-corpus.json',
+  'v3014-form-text-multiline-residual-oracle.json',
+  'v3014-form-text-multiline-lf-v1.pdf',
+  'v3014-form-text-multiline-crlf-v1.pdf',
+  'v3014-form-text-multiline-rawlf-v1.pdf',
+  'v3014FormTextMultilineResidualCaseCount',
+  'v3014FormTextMultilineResidualCorpusHash',
+  'v3014FormTextMultilineResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind form text-multiline residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('form text-multiline residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('form text-multiline residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form text-multiline residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormTextMultiline = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormTextMultiline.includes('form text-multiline residual') ||
+  !whyRustFormTextMultiline.includes('Leaf-mutation count is frozen at 45')
+) {
+  failures.push(
+    'why-rust must document the form text-multiline residual and frozen leaf-mutation count'
+  );
+}
 
 const utf16TextResidualCaseCount = utf16TextResidualCorpus.cases.length;
 if (
