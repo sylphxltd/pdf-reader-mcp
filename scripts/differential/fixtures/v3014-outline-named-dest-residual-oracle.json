@@ -11,7 +11,7 @@
     "corpusSha256": "eace490200b7abd517076dc952f519e8b6412a9031f104c2595d8c8ccf37b426",
     "fixtureSha256": {
       "v3014-outline-named-dest-string-v1.pdf": "6e55843f85b3d42fb833ed4899b54d49e987d30261934a39da32f35e95dee779",
-      "v3014-outline-named-dest-token-v1.pdf": "af63af0cff2a9684fe18f747efcf311a175e8ed130c8594e0217382857cab2a3",
+      "v3014-outline-named-dest-token-v1.pdf": "6f423084b0eb01ab95e9cc87d00237395519e03857416b72e3a32db6d4277c47",
       "v3014-outline-named-dest-goto-v1.pdf": "f6f96142acfba6c01df9c63e5363ed782e103062a78c034e6b78796be571de89"
     },
     "pathPortabilityProof": true,
