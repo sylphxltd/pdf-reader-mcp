@@ -495,6 +495,10 @@ A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-mal
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-parent-kids-ap residual is admitted: pdf.js radio parent/kids inherit parent `V`; kid `AS` does not override; default-`Off` only when kid `AP/N` is a named-state dict. Fixtures prove kids with `AP` stream → `value=Gold`/`default_value=null`, kids with `AP/N` stream → `value=Gold`/`default_value=null`, and kids with named `AP/N` → `value=Gold`/`default_value=Off`, while the parent stub remains type/value null. Leaf-mutation count is frozen at 84. Deeper kids nesting breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
 
 
+### read_pdf include_form_fields form radio-deeper-kids-ap residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-deeper-kids-ap residual is admitted: pdf.js radio deeper kids nesting inherits parent `V` across an intermediate named group with Parent links; kid `AS` does not override; default-`Off` only when leaf `AP/N` is a named-state dict. Fixtures prove root `Plan` and intermediate `Plan.Opt` stubs remain type/value null, leaves with `AP` stream → `value=Gold`/`default_value=null`, leaves with `AP/N` stream → `value=Gold`/`default_value=null`, and leaves with named `AP/N` → `value=Gold`/`default_value=Off`. Leaf-mutation count is frozen at 90. Broken parent-chain intermediate breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
