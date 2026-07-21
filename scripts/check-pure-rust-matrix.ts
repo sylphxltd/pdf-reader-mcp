@@ -1144,6 +1144,20 @@ const pageGeometryDepthClampResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const pageGeometryUserunitMultipageResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-page-geometry-userunit-multipage-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -9349,6 +9363,109 @@ if (
 ) {
   failures.push(
     'why-rust must document the page geometry depth-clamp residual and frozen leaf-mutation count'
+  );
+}
+
+const pageGeometryUserunitMultipageResidualCaseCount = pageGeometryUserunitMultipageResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-page-geometry-userunit-multipage-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen page geometry userunit-multipage residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-page-geometry-userunit-multipage-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-page-geometry-userunit-multipage-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PageGeometryUserunitMultipageResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PageGeometryUserunitMultipageResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PageGeometryUserunitMultipageResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the page geometry userunit-multipage residual family'
+  );
+}
+if (
+  pageGeometryUserunitMultipageResidualCaseCount !== 3 ||
+  pageGeometryUserunitMultipageResidualCorpus.envelope.fixtureCount !== 3 ||
+  pageGeometryUserunitMultipageResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  pageGeometryUserunitMultipageResidualCorpus.nonclaims.publishFreeze !== true ||
+  pageGeometryUserunitMultipageResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'page geometry userunit-multipage residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_page_geometry_userunit_multipage_residual_result"'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.userUnitPagesNotInherited == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.multiPageGeometry == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.bleedTrimArtIgnored == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 48'
+  ) ||
+  !differentialWorkflow.includes(
+    '.capabilityStatus.includePageGeometry == "PARTIAL"'
+  )
+) {
+  failures.push(
+    'page geometry userunit-multipage residual workflow must bind mutation, provider, and capability proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-page-geometry-userunit-multipage-residual-differential.ts',
+  'scripts/differential/capture-v3014-page-geometry-userunit-multipage-residual-oracle.ts',
+  'v3014-page-geometry-userunit-multipage-residual-baseline-runner.ts',
+  'v3014-page-geometry-userunit-multipage-residual-projection.ts',
+  'v3014-page-geometry-userunit-multipage-residual-corpus.json',
+  'v3014-page-geometry-userunit-multipage-residual-oracle.json',
+  'v3014-page-geometry-userunit-pages-v1.pdf',
+  'v3014-page-geometry-multi-page-v1.pdf',
+  'v3014-page-geometry-bleed-ignore-v1.pdf',
+  'v3014PageGeometryUserunitMultipageResidualCaseCount',
+  'v3014PageGeometryUserunitMultipageResidualCorpusHash',
+  'v3014PageGeometryUserunitMultipageResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind page geometry userunit-multipage residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('geometry userunit-multipage residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('geometry userunit-multipage residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'page geometry userunit-multipage residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustPageGeometryUserunitMultipage = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustPageGeometryUserunitMultipage.includes('geometry userunit-multipage residual') ||
+  !whyRustPageGeometryUserunitMultipage.includes('Leaf-mutation count is frozen at 48')
+) {
+  failures.push(
+    'why-rust must document the page geometry userunit-multipage residual and frozen leaf-mutation count'
   );
 }
 
