@@ -471,6 +471,12 @@ A frozen three-case public-stdio `read_pdf` `include_form_fields` form checkbox-
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form checkbox-multi-export-many residual is admitted: pdf.js checkbox `_processCheckBox` multi-export `AP/N` with more than three named-state options admits selected custom exports after `AS` overwrite and forces `Off` for non-admitted `AS` values. Fixtures prove `AP/N={A,Off,B,C,D}` with `AS=/C` → `value=C`, `AS=/A` → `value=A`, and `AS=/Z` → `value=Off`. Leaf-mutation count is frozen at 45. Empty/single export-option breadth, radio multi-export breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
 
 
+
+### read_pdf include_form_fields form checkbox-export-empty-single residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_form_fields` form checkbox-export-empty-single residual is admitted: pdf.js checkbox `_processCheckBox` empty and single-key `AP/N` exportValues construction admits `AS`-selected exports (empty `AP/N` synthesizes `Off/Yes`; single non-`Off` key synthesizes `Off+key`) and forces `Off` for non-admitted `AS` values. Fixtures prove empty `AP/N` + `AS=/Yes` → `value=Yes`, single `/Foo` + `AS=/Foo` → `value=Foo`, and single `/Foo` + `AS=/Bar` → `value=Off`. Leaf-mutation count is frozen at 45. Radio empty/single export breadth, malformed AP breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
+
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.

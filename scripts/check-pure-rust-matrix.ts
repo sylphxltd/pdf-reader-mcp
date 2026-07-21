@@ -836,6 +836,20 @@ const formCheckboxMultiExportManyResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formCheckboxExportEmptySingleResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-checkbox-export-empty-single-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7037,6 +7051,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form checkbox-multi-export-many residual and frozen leaf-mutation count'
+  );
+}
+
+const formCheckboxExportEmptySingleResidualCaseCount = formCheckboxExportEmptySingleResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-checkbox-export-empty-single-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form checkbox-export-empty-single residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-checkbox-export-empty-single-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-checkbox-export-empty-single-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormCheckboxExportEmptySingleResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormCheckboxExportEmptySingleResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormCheckboxExportEmptySingleResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form checkbox-export-empty-single residual family'
+  );
+}
+if (
+  formCheckboxExportEmptySingleResidualCaseCount !== 3 ||
+  formCheckboxExportEmptySingleResidualCorpus.envelope.fixtureCount !== 3 ||
+  formCheckboxExportEmptySingleResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formCheckboxExportEmptySingleResidualCorpus.nonclaims.publishFreeze !== true ||
+  formCheckboxExportEmptySingleResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form checkbox-export-empty-single residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_checkbox_export_empty_single_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.checkboxExportEmptyApYes == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxExportSingleFoo == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxExportSingleBarOff == true')
+) {
+  failures.push(
+    'form checkbox-export-empty-single residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('checkbox-export-empty-single residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('checkbox-export-empty-single residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form checkbox-export-empty-single residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormCheckboxExportEmptySingle = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormCheckboxExportEmptySingle.includes('checkbox-export-empty-single residual') ||
+  !whyRustFormCheckboxExportEmptySingle.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form checkbox-export-empty-single residual and frozen leaf-mutation count'
   );
 }
 
