@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use crate::pdfjs_text::decode_pdfjs_text_string;
 use lopdf::{Document, Object, ObjectId};
 use serde_json::{json, Value};
+use url::Url;
 
 const MAX_PARENT_DEPTH: usize = 64;
 const MAX_ANNOTATIONS_PER_PAGE: usize = 1_000;
@@ -526,6 +527,29 @@ fn annotation_has_normal_appearance(document: &Document, dict: &lopdf::Dictionar
     text_annotation_has_appearance(document, dict)
 }
 
+/// pdf.js Catalog.parseDestDictionary + createValidAbsoluteUrl:
+/// public `url` prefers absoluteUrl.href when the raw URI parses as a valid
+/// absolute URL (with optional www. → http:// default protocol). Otherwise the
+/// raw string is kept (TS falls back to unsafeUrl).
+fn normalize_public_annotation_url(raw: String) -> String {
+    let candidate = if raw.starts_with("www.") {
+        let dots = raw.bytes().filter(|b| *b == b'.').count();
+        if dots >= 2 {
+            format!("http://{raw}")
+        } else {
+            raw.clone()
+        }
+    } else {
+        raw.clone()
+    };
+    match Url::parse(&candidate) {
+        Ok(url) if matches!(url.scheme(), "http" | "https" | "ftp" | "mailto" | "tel") => {
+            url.to_string()
+        }
+        _ => raw,
+    }
+}
+
 fn normalize_annotation(
     document: &Document,
     page: u32,
@@ -787,7 +811,7 @@ fn normalize_annotation(
         output.insert("title".into(), json!(value));
     }
     if let Some(value) = url.filter(|value| !value.is_empty()) {
-        output.insert("url".into(), json!(value));
+        output.insert("url".into(), json!(normalize_public_annotation_url(value)));
     }
     if let Some(value) = dest {
         output.insert("dest".into(), value);
@@ -1664,6 +1688,19 @@ mod tests {
         assert_eq!(
             ann["bounding_box"],
             serde_json::json!({"left":72.0,"bottom":600.0,"right":120.0,"top":620.0})
+        );
+    }
+
+    #[test]
+    fn link_uri_domain_gets_trailing_slash_like_pdfjs() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-link-uri-domain-v1.pdf");
+        let document = Document::load(path).expect("load link domain fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(
+            signals.annotations[0]["annotations"][0]["url"],
+            json!("https://example.com/")
         );
     }
 

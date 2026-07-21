@@ -948,6 +948,20 @@ const annotationSquareCircleWidgetResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationLinkUriNormalizeResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-link-uri-normalize-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7712,6 +7726,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation square/circle/widget residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationLinkUriNormalizeResidualCaseCount = annotationLinkUriNormalizeResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-link-uri-normalize-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation link-uri-normalize residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-link-uri-normalize-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-link-uri-normalize-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationLinkUriNormalizeResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationLinkUriNormalizeResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationLinkUriNormalizeResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation link-uri-normalize residual family'
+  );
+}
+if (
+  annotationLinkUriNormalizeResidualCaseCount !== 3 ||
+  annotationLinkUriNormalizeResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationLinkUriNormalizeResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationLinkUriNormalizeResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationLinkUriNormalizeResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation link-uri-normalize residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_link_uri_normalize_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.linkUriDomain == true') ||
+  !differentialWorkflow.includes('.providerProof.linkUriPath == true') ||
+  !differentialWorkflow.includes('.providerProof.linkUriWww == true')
+) {
+  failures.push(
+    'annotation link-uri-normalize residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('link-uri-normalize residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('link-uri-normalize residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation link-uri-normalize residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationLinkUriNormalize = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationLinkUriNormalize.includes('link-uri-normalize residual') ||
+  !whyRustAnnotationLinkUriNormalize.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the annotation link-uri-normalize residual and frozen leaf-mutation count'
   );
 }
 
