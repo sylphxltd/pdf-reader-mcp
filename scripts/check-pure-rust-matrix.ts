@@ -1088,6 +1088,20 @@ const outlineCycleResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const outlineNamedDestResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-outline-named-dest-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -1994,6 +2008,7 @@ const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
   'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
+  'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
   attachmentOddNamesResidualWorkflowStart
 );
 const attachmentOddNamesResidualWorkflow =
@@ -2011,6 +2026,7 @@ const formUtf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
   'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
+  'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
   formUtf16TextResidualWorkflowStart
 );
 const formUtf16TextResidualWorkflow =
@@ -2027,6 +2043,7 @@ const formTextMultilineResidualWorkflowStart = differentialWorkflow.indexOf(
 const formTextMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
+  'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
   formTextMultilineResidualWorkflowStart
 );
 const formTextMultilineResidualWorkflow =
@@ -2042,6 +2059,7 @@ const annotationContentsMultilineResidualWorkflowStart = differentialWorkflow.in
 );
 const annotationContentsMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
+  'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
   annotationContentsMultilineResidualWorkflowStart
 );
 const annotationContentsMultilineResidualWorkflow =
@@ -2056,7 +2074,7 @@ const outlineCycleResidualWorkflowStart = differentialWorkflow.indexOf(
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"'
 );
 const outlineCycleResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
   outlineCycleResidualWorkflowStart
 );
 const outlineCycleResidualWorkflow =
@@ -2065,6 +2083,21 @@ const outlineCycleResidualWorkflow =
     ? differentialWorkflow.slice(
         outlineCycleResidualWorkflowStart,
         outlineCycleResidualWorkflowEnd
+      )
+    : '';
+const outlineNamedDestResidualWorkflowStart = differentialWorkflow.indexOf(
+  'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"'
+);
+const outlineNamedDestResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  outlineNamedDestResidualWorkflowStart
+);
+const outlineNamedDestResidualWorkflow =
+  outlineNamedDestResidualWorkflowStart >= 0 &&
+  outlineNamedDestResidualWorkflowEnd > outlineNamedDestResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        outlineNamedDestResidualWorkflowStart,
+        outlineNamedDestResidualWorkflowEnd
       )
     : '';
 const utf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -8814,6 +8847,124 @@ if (
 ) {
   failures.push(
     'why-rust must document the outline cycle residual and frozen leaf-mutation count'
+  );
+}
+
+
+const outlineNamedDestResidualCaseCount = outlineNamedDestResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-outline-named-dest-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen outline named-dest residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-outline-named-dest-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-outline-named-dest-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OutlineNamedDestResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014OutlineNamedDestResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014OutlineNamedDestResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the outline named-dest residual family'
+  );
+}
+if (
+  !outlineNamedDestResidualWorkflow.includes(
+    `.caseCount == ${outlineNamedDestResidualCaseCount}`
+  ) ||
+  !outlineNamedDestResidualWorkflow.includes(
+    `.passed == ${outlineNamedDestResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${outlineNamedDestResidualCaseCount}/${outlineNamedDestResidualCaseCount} outline named-dest residual corpus`
+  );
+}
+if (
+  outlineNamedDestResidualCaseCount !== 3 ||
+  outlineNamedDestResidualCorpus.envelope.fixtureCount !== 3 ||
+  outlineNamedDestResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  outlineNamedDestResidualCorpus.nonclaims.publishFreeze !== true ||
+  outlineNamedDestResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'outline named-dest residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !outlineNamedDestResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_outline_named_dest_residual_result"'
+  ) ||
+  !outlineNamedDestResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 33'
+  ) ||
+  !outlineNamedDestResidualWorkflow.includes(
+    '.providerProof.namedDestStringPreserved == true'
+  ) ||
+  !outlineNamedDestResidualWorkflow.includes(
+    '.providerProof.namedDestTokenPreserved == true'
+  ) ||
+  !outlineNamedDestResidualWorkflow.includes(
+    '.providerProof.namedDestGotoActionPreserved == true'
+  ) ||
+  !outlineNamedDestResidualWorkflow.includes(
+    '.capabilityStatus.includeOutline == "PARTIAL"'
+  ) ||
+  !outlineNamedDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !outlineNamedDestResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'outline named-dest residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-outline-named-dest-residual-differential.ts',
+  'scripts/differential/capture-v3014-outline-named-dest-residual-oracle.ts',
+  'v3014-outline-named-dest-residual-baseline-runner.ts',
+  'v3014-outline-named-dest-residual-projection.ts',
+  'v3014-outline-named-dest-residual-corpus.json',
+  'v3014-outline-named-dest-residual-oracle.json',
+  'v3014-outline-named-dest-string-v1.pdf',
+  'v3014-outline-named-dest-token-v1.pdf',
+  'v3014-outline-named-dest-goto-v1.pdf',
+  'v3014OutlineNamedDestResidualCaseCount',
+  'v3014OutlineNamedDestResidualCorpusHash',
+  'v3014OutlineNamedDestResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind outline named-dest residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('include_outline named-dest residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_outline named-dest residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'outline named-dest residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustOutlineNamedDest = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustOutlineNamedDest.includes('include_outline named-dest residual') ||
+  !whyRustOutlineNamedDest.includes('Leaf-mutation count is frozen at 33')
+) {
+  failures.push(
+    'why-rust must document the outline named-dest residual and frozen leaf-mutation count'
   );
 }
 
