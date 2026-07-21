@@ -794,6 +794,20 @@ const formCheckboxExportNormalizeResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formRadioAsNoOverrideResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-radio-as-no-override-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -6785,6 +6799,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form checkbox-export-normalize residual and frozen leaf-mutation count'
+  );
+}
+
+const formRadioAsNoOverrideResidualCaseCount = formRadioAsNoOverrideResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-radio-as-no-override-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form radio-as-no-override residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-radio-as-no-override-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-radio-as-no-override-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormRadioAsNoOverrideResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormRadioAsNoOverrideResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormRadioAsNoOverrideResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form radio-as-no-override residual family'
+  );
+}
+if (
+  formRadioAsNoOverrideResidualCaseCount !== 3 ||
+  formRadioAsNoOverrideResidualCorpus.envelope.fixtureCount !== 3 ||
+  formRadioAsNoOverrideResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formRadioAsNoOverrideResidualCorpus.nonclaims.publishFreeze !== true ||
+  formRadioAsNoOverrideResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form radio-as-no-override residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_radio_as_no_override_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.radioAsDoesNotOverrideV == true') ||
+  !differentialWorkflow.includes('.providerProof.radioAsInvalidKeepsV == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxAsOverrideRegression == true')
+) {
+  failures.push(
+    'form radio-as-no-override residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('radio-as-no-override residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('radio-as-no-override residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form radio-as-no-override residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormRadioAsNoOverride = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormRadioAsNoOverride.includes('radio-as-no-override residual') ||
+  !whyRustFormRadioAsNoOverride.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form radio-as-no-override residual and frozen leaf-mutation count'
   );
 }
 
