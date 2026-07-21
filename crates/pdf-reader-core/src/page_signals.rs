@@ -754,10 +754,20 @@ fn normalize_annotation(
             (dest, None)
         }
         Some(b"URI") => {
-            let url = action
-                .as_ref()
-                .and_then(|action| action.get(b"URI").ok())
-                .and_then(|value| decoded_string(document, value, text_budget));
+            // pdf.js parseDestDictionary: if URI is a Name, url = "/" + name.
+            let url = action.as_ref().and_then(|action| {
+                let value = action.get(b"URI").ok()?;
+                match resolve(document, value).ok()? {
+                    Object::Name(name) => {
+                        let text = std::str::from_utf8(name).ok()?.to_string();
+                        if text.is_empty() {
+                            return None;
+                        }
+                        Some(format!("/{text}"))
+                    }
+                    _ => decoded_string(document, value, text_budget),
+                }
+            });
             (None, url)
         }
         Some(b"Launch") | Some(b"GoToR") => {
@@ -1703,6 +1713,20 @@ mod tests {
             json!("https://example.com/")
         );
     }
+
+    #[test]
+    fn link_uri_name_becomes_slash_name_like_pdfjs() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-link-uri-name-v1.pdf");
+        let document = Document::load(path).expect("load uri name fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(
+            signals.annotations[0]["annotations"][0]["url"],
+            json!("/Example")
+        );
+    }
+
 
     #[test]
     fn group_text_and_popup_inherit_irt_title_and_contents() {
