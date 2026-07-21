@@ -1074,6 +1074,20 @@ const annotationContentsMultilineResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const outlineCycleResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-outline-cycle-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -1979,6 +1993,7 @@ const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
   'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"',
   'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
+  'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   attachmentOddNamesResidualWorkflowStart
 );
 const attachmentOddNamesResidualWorkflow =
@@ -1995,6 +2010,7 @@ const formUtf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
 const formUtf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
   'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
+  'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   formUtf16TextResidualWorkflowStart
 );
 const formUtf16TextResidualWorkflow =
@@ -2010,6 +2026,7 @@ const formTextMultilineResidualWorkflowStart = differentialWorkflow.indexOf(
 );
 const formTextMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
+  'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   formTextMultilineResidualWorkflowStart
 );
 const formTextMultilineResidualWorkflow =
@@ -2024,7 +2041,7 @@ const annotationContentsMultilineResidualWorkflowStart = differentialWorkflow.in
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"'
 );
 const annotationContentsMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   annotationContentsMultilineResidualWorkflowStart
 );
 const annotationContentsMultilineResidualWorkflow =
@@ -2033,6 +2050,21 @@ const annotationContentsMultilineResidualWorkflow =
     ? differentialWorkflow.slice(
         annotationContentsMultilineResidualWorkflowStart,
         annotationContentsMultilineResidualWorkflowEnd
+      )
+    : '';
+const outlineCycleResidualWorkflowStart = differentialWorkflow.indexOf(
+  'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"'
+);
+const outlineCycleResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  outlineCycleResidualWorkflowStart
+);
+const outlineCycleResidualWorkflow =
+  outlineCycleResidualWorkflowStart >= 0 &&
+  outlineCycleResidualWorkflowEnd > outlineCycleResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        outlineCycleResidualWorkflowStart,
+        outlineCycleResidualWorkflowEnd
       )
     : '';
 const utf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -8664,6 +8696,124 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation contents-multiline residual and frozen leaf-mutation count'
+  );
+}
+
+
+const outlineCycleResidualCaseCount = outlineCycleResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-outline-cycle-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen outline cycle residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-outline-cycle-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-outline-cycle-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OutlineCycleResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014OutlineCycleResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014OutlineCycleResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the outline cycle residual family'
+  );
+}
+if (
+  !outlineCycleResidualWorkflow.includes(
+    `.caseCount == ${outlineCycleResidualCaseCount}`
+  ) ||
+  !outlineCycleResidualWorkflow.includes(
+    `.passed == ${outlineCycleResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${outlineCycleResidualCaseCount}/${outlineCycleResidualCaseCount} outline cycle residual corpus`
+  );
+}
+if (
+  outlineCycleResidualCaseCount !== 3 ||
+  outlineCycleResidualCorpus.envelope.fixtureCount !== 3 ||
+  outlineCycleResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  outlineCycleResidualCorpus.nonclaims.publishFreeze !== true ||
+  outlineCycleResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'outline cycle residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !outlineCycleResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_outline_cycle_residual_result"'
+  ) ||
+  !outlineCycleResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 49'
+  ) ||
+  !outlineCycleResidualWorkflow.includes(
+    '.providerProof.nextSelfCycleSuppressed == true'
+  ) ||
+  !outlineCycleResidualWorkflow.includes(
+    '.providerProof.siblingNextCycleSuppressed == true'
+  ) ||
+  !outlineCycleResidualWorkflow.includes(
+    '.providerProof.selfFirstCycleSuppressed == true'
+  ) ||
+  !outlineCycleResidualWorkflow.includes(
+    '.capabilityStatus.includeOutline == "PARTIAL"'
+  ) ||
+  !outlineCycleResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !outlineCycleResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'outline cycle residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-outline-cycle-residual-differential.ts',
+  'scripts/differential/capture-v3014-outline-cycle-residual-oracle.ts',
+  'v3014-outline-cycle-residual-baseline-runner.ts',
+  'v3014-outline-cycle-residual-projection.ts',
+  'v3014-outline-cycle-residual-corpus.json',
+  'v3014-outline-cycle-residual-oracle.json',
+  'v3014-outline-cycle-next-self-v1.pdf',
+  'v3014-outline-cycle-sibling-v1.pdf',
+  'v3014-outline-cycle-self-first-v1.pdf',
+  'v3014OutlineCycleResidualCaseCount',
+  'v3014OutlineCycleResidualCorpusHash',
+  'v3014OutlineCycleResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind outline cycle residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('outline cycle residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('outline cycle residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'outline cycle residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustOutlineCycle = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustOutlineCycle.includes('outline cycle residual') ||
+  !whyRustOutlineCycle.includes('Leaf-mutation count is frozen at 49')
+) {
+  failures.push(
+    'why-rust must document the outline cycle residual and frozen leaf-mutation count'
   );
 }
 
