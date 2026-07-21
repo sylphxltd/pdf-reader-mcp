@@ -92,6 +92,7 @@ V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-con
 V3014_OUTLINE_CYCLE_RESIDUAL_JSON="$SCRATCH/v3014-outline-cycle-residual-result.json"
 V3014_OUTLINE_NAMED_DEST_RESIDUAL_JSON="$SCRATCH/v3014-outline-named-dest-residual-result.json"
 V3014_OUTLINE_GOTOR_RESIDUAL_JSON="$SCRATCH/v3014-outline-gotor-residual-result.json"
+V3014_OUTLINE_LAUNCH_RESIDUAL_JSON="$SCRATCH/v3014-outline-launch-residual-result.json"
 V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON="$SCRATCH/v3014-info-trapped-custom-residual-result.json"
 V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_JSON="$SCRATCH/v3014-page-geometry-inheritance-residual-result.json"
 V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON="$SCRATCH/v3014-page-geometry-depth-clamp-residual-result.json"
@@ -475,6 +476,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-outline-named-dest-residual-dif
 bun "$REPO_ROOT/scripts/differential/capture-v3014-outline-gotor-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-outline-gotor-residual-differential.ts" \
   --output "$V3014_OUTLINE_GOTOR_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-outline-launch-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-outline-launch-residual-differential.ts" \
+  --output "$V3014_OUTLINE_LAUNCH_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-info-trapped-custom-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts" \
   --output "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON" >>"$LOG"
@@ -1040,6 +1044,15 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-outline-gotor-string-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-outline-gotor-name-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-outline-gotor-explicit-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/check-v3014-outline-launch-residual-differential.ts" \
+  "$REPO_ROOT/scripts/differential/capture-v3014-outline-launch-residual-oracle.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-outline-launch-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-outline-launch-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-outline-launch-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-outline-launch-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-outline-launch-string-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-outline-launch-filespec-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-outline-launch-explicit-v1.pdf" \
   "$REPO_ROOT/scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts" \
   "$REPO_ROOT/scripts/differential/capture-v3014-info-trapped-custom-residual-oracle.ts" \
   "$REPO_ROOT/scripts/differential/v3014-info-trapped-custom-residual-baseline-runner.ts" \
@@ -1648,6 +1661,11 @@ V3014_OUTLINE_GOTOR_RESIDUAL_PASSED="$(jq '.passed' "$V3014_OUTLINE_GOTOR_RESIDU
 V3014_OUTLINE_GOTOR_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_OUTLINE_GOTOR_RESIDUAL_JSON")"
 V3014_OUTLINE_GOTOR_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_OUTLINE_GOTOR_RESIDUAL_JSON")"
 V3014_OUTLINE_GOTOR_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_OUTLINE_GOTOR_RESIDUAL_JSON")"
+V3014_OUTLINE_LAUNCH_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_OUTLINE_LAUNCH_RESIDUAL_JSON")"
+V3014_OUTLINE_LAUNCH_RESIDUAL_PASSED="$(jq '.passed' "$V3014_OUTLINE_LAUNCH_RESIDUAL_JSON")"
+V3014_OUTLINE_LAUNCH_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_OUTLINE_LAUNCH_RESIDUAL_JSON")"
+V3014_OUTLINE_LAUNCH_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_OUTLINE_LAUNCH_RESIDUAL_JSON")"
+V3014_OUTLINE_LAUNCH_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_OUTLINE_LAUNCH_RESIDUAL_JSON")"
 V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
 V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_PASSED="$(jq '.passed' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
 V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
@@ -1956,6 +1974,8 @@ jq -n \
   --arg v3014OutlineNamedDestResidualOracleHash "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_ORACLE_HASH" \
   --arg v3014OutlineGotorResidualCorpusHash "$V3014_OUTLINE_GOTOR_RESIDUAL_CORPUS_HASH" \
   --arg v3014OutlineGotorResidualOracleHash "$V3014_OUTLINE_GOTOR_RESIDUAL_ORACLE_HASH" \
+  --arg v3014OutlineLaunchResidualCorpusHash "$V3014_OUTLINE_LAUNCH_RESIDUAL_CORPUS_HASH" \
+  --arg v3014OutlineLaunchResidualOracleHash "$V3014_OUTLINE_LAUNCH_RESIDUAL_ORACLE_HASH" \
   --arg v3014InfoTrappedCustomResidualCorpusHash "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_CORPUS_HASH" \
   --arg v3014InfoTrappedCustomResidualOracleHash "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_ORACLE_HASH" \
   --arg v3014PageGeometryInheritanceResidualCorpusHash "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_CORPUS_HASH" \
@@ -2263,6 +2283,9 @@ jq -n \
   --argjson v3014OutlineGotorResidualCaseCount "$V3014_OUTLINE_GOTOR_RESIDUAL_CASE_COUNT" \
   --argjson v3014OutlineGotorResidualPassed "$V3014_OUTLINE_GOTOR_RESIDUAL_PASSED" \
   --argjson v3014OutlineGotorResidualSkipped "$V3014_OUTLINE_GOTOR_RESIDUAL_SKIPPED" \
+  --argjson v3014OutlineLaunchResidualCaseCount "$V3014_OUTLINE_LAUNCH_RESIDUAL_CASE_COUNT" \
+  --argjson v3014OutlineLaunchResidualPassed "$V3014_OUTLINE_LAUNCH_RESIDUAL_PASSED" \
+  --argjson v3014OutlineLaunchResidualSkipped "$V3014_OUTLINE_LAUNCH_RESIDUAL_SKIPPED" \
   --argjson v3014InfoTrappedCustomResidualCaseCount "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_CASE_COUNT" \
   --argjson v3014InfoTrappedCustomResidualPassed "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_PASSED" \
   --argjson v3014InfoTrappedCustomResidualSkipped "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_SKIPPED" \
@@ -2644,6 +2667,8 @@ jq -n \
     v3014OutlineNamedDestResidualOracleHash: $v3014OutlineNamedDestResidualOracleHash,
     v3014OutlineGotorResidualCorpusHash: $v3014OutlineGotorResidualCorpusHash,
     v3014OutlineGotorResidualOracleHash: $v3014OutlineGotorResidualOracleHash,
+    v3014OutlineLaunchResidualCorpusHash: $v3014OutlineLaunchResidualCorpusHash,
+    v3014OutlineLaunchResidualOracleHash: $v3014OutlineLaunchResidualOracleHash,
     v3014InfoTrappedCustomResidualCorpusHash: $v3014InfoTrappedCustomResidualCorpusHash,
     v3014InfoTrappedCustomResidualOracleHash: $v3014InfoTrappedCustomResidualOracleHash,
     v3014PageGeometryInheritanceResidualCorpusHash: $v3014PageGeometryInheritanceResidualCorpusHash,
@@ -2879,6 +2904,8 @@ jq -n \
     immutableOutlineNamedDestResidualDifferential: "scripts/differential/check-v3014-outline-named-dest-residual-differential.ts",
     immutableOutlineGotorResidualOracle: "scripts/differential/fixtures/v3014-outline-gotor-residual-oracle.json",
     immutableOutlineGotorResidualDifferential: "scripts/differential/check-v3014-outline-gotor-residual-differential.ts",
+    immutableOutlineLaunchResidualOracle: "scripts/differential/fixtures/v3014-outline-launch-residual-oracle.json",
+    immutableOutlineLaunchResidualDifferential: "scripts/differential/check-v3014-outline-launch-residual-differential.ts",
     immutableInfoTrappedCustomResidualOracle: "scripts/differential/fixtures/v3014-info-trapped-custom-residual-oracle.json",
     immutableInfoTrappedCustomResidualDifferential: "scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts",
     immutablePageGeometryInheritanceResidualOracle: "scripts/differential/fixtures/v3014-page-geometry-inheritance-residual-oracle.json",
