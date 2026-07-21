@@ -2,8 +2,6 @@ version = "1"
 
 [project]
 name = "@sylphx/pdf-reader-mcp"
-slug = "pdf-reader-mcp"
-org = "sylphx"
 
 [build]
 strategy = "auto"
