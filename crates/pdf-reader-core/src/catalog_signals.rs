@@ -564,8 +564,8 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
     // pdf.js outline actions:
     // - URI supplies absolute-safe url
     // - GoTo supplies dest (winning over /Dest)
-    // - GoToR supplies absolute-safe url built from F + "#" + remote D, and
-    //   forces dest null (relative file specs are dropped by URL validation)
+    // - Launch and GoToR supply absolute-safe url built from F + "#" + remote D,
+    //   and force dest null (relative file specs are dropped by URL validation)
     // - unsupported / missing actions keep dest null unless /Dest is present
     let (url, dest) = match action_kind {
         Some(b"URI") => {
@@ -585,7 +585,7 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
                 .unwrap_or(Destination::Null);
             (None, dest)
         }
-        Some(b"GoToR") => {
+        Some(b"Launch") | Some(b"GoToR") => {
             let url = action.as_ref().and_then(|a| outline_gotor_url(walker, a));
             (url, Destination::Null)
         }
@@ -916,6 +916,104 @@ mod tests {
         let value = serde_json::to_value(out.outline).unwrap();
         assert_eq!(value[0]["title"], "Remote");
         assert!(value[0].get("url").is_none());
+        assert_eq!(value[0]["dest"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn outline_launch_absolute_url_matches_gotor_like_pdfjs() {
+        let mut doc = Document::with_version("1.7");
+        let pages = doc.add_object(dictionary! {
+            "Type" => "Pages",
+            "Kids" => Vec::<Object>::new(),
+            "Count" => 0
+        });
+        let action = doc.add_object(dictionary! {
+            "S" => "Launch",
+            "F" => Object::string_literal("https://example.com/docs/other.pdf"),
+            "D" => Object::string_literal("Chapter1"),
+        });
+        let item = doc.add_object(dictionary! {
+            "Title" => Object::string_literal("Launch Remote"),
+            "A" => action,
+        });
+        let outlines = doc.add_object(dictionary! {
+            "Type" => "Outlines",
+            "First" => item,
+            "Last" => item,
+            "Count" => 1
+        });
+        let catalog = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages,
+            "Outlines" => outlines,
+        });
+        doc.trailer.set("Root", catalog);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            1,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value[0]["title"], "Launch Remote");
+        assert_eq!(
+            value[0]["url"],
+            "https://example.com/docs/other.pdf#Chapter1"
+        );
+        assert_eq!(value[0]["dest"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn outline_launch_filespec_prefers_uf_like_pdfjs() {
+        let mut doc = Document::with_version("1.7");
+        let pages = doc.add_object(dictionary! {
+            "Type" => "Pages",
+            "Kids" => Vec::<Object>::new(),
+            "Count" => 0
+        });
+        let filespec = dictionary! {
+            "UF" => Object::string_literal("https://example.com/docs/uf.pdf"),
+            "F" => Object::string_literal("https://example.com/docs/f.pdf"),
+        };
+        let action = doc.add_object(dictionary! {
+            "S" => "Launch",
+            "F" => filespec,
+            "D" => Object::string_literal("Intro"),
+        });
+        let item = doc.add_object(dictionary! {
+            "Title" => Object::string_literal("Launch Filespec"),
+            "Dest" => Object::string_literal("ShouldBeSuppressed"),
+            "A" => action,
+        });
+        let outlines = doc.add_object(dictionary! {
+            "Type" => "Outlines",
+            "First" => item,
+            "Last" => item,
+            "Count" => 1
+        });
+        let catalog = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages,
+            "Outlines" => outlines,
+        });
+        doc.trailer.set("Root", catalog);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            1,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value[0]["title"], "Launch Filespec");
+        assert_eq!(value[0]["url"], "https://example.com/docs/uf.pdf#Intro");
         assert_eq!(value[0]["dest"], serde_json::Value::Null);
     }
 

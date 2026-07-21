@@ -1116,6 +1116,20 @@ const outlineGotorResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const outlineLaunchResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-outline-launch-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const infoTrappedCustomResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-info-trapped-custom-residual-corpus.json'),
@@ -2179,7 +2193,7 @@ const outlineGotorResidualWorkflowStart = differentialWorkflow.indexOf(
   'OUTLINE_GOTOR_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-gotor-residual-result.json"'
 );
 const outlineGotorResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
+  'OUTLINE_LAUNCH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-launch-residual-result.json"',
   outlineGotorResidualWorkflowStart
 );
 const outlineGotorResidualWorkflow =
@@ -2188,6 +2202,21 @@ const outlineGotorResidualWorkflow =
     ? differentialWorkflow.slice(
         outlineGotorResidualWorkflowStart,
         outlineGotorResidualWorkflowEnd
+      )
+    : '';
+const outlineLaunchResidualWorkflowStart = differentialWorkflow.indexOf(
+  'OUTLINE_LAUNCH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-launch-residual-result.json"'
+);
+const outlineLaunchResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
+  outlineLaunchResidualWorkflowStart
+);
+const outlineLaunchResidualWorkflow =
+  outlineLaunchResidualWorkflowStart >= 0 &&
+  outlineLaunchResidualWorkflowEnd > outlineLaunchResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        outlineLaunchResidualWorkflowStart,
+        outlineLaunchResidualWorkflowEnd
       )
     : '';
 const infoTrappedCustomResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -9185,6 +9214,121 @@ if (
 ) {
   failures.push(
     'why-rust must document the outline GoToR residual and frozen leaf-mutation count'
+  );
+}
+
+const outlineLaunchResidualCaseCount = outlineLaunchResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes('bun run test:v3014-outline-launch-residual-differential')
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen outline Launch residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-outline-launch-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-outline-launch-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OutlineLaunchResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014OutlineLaunchResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014OutlineLaunchResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the outline Launch residual family'
+  );
+}
+if (
+  !outlineLaunchResidualWorkflow.includes(
+    `.caseCount == ${outlineLaunchResidualCaseCount}`
+  ) ||
+  !outlineLaunchResidualWorkflow.includes(
+    `.passed == ${outlineLaunchResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${outlineLaunchResidualCaseCount}/${outlineLaunchResidualCaseCount} outline Launch residual corpus`
+  );
+}
+if (
+  outlineLaunchResidualCaseCount !== 3 ||
+  outlineLaunchResidualCorpus.envelope.fixtureCount !== 3 ||
+  outlineLaunchResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  outlineLaunchResidualCorpus.nonclaims.publishFreeze !== true ||
+  outlineLaunchResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'outline Launch residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !outlineLaunchResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_outline_launch_residual_result"'
+  ) ||
+  !outlineLaunchResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 36'
+  ) ||
+  !outlineLaunchResidualWorkflow.includes(
+    '.providerProof.launchStringDestUrl == true'
+  ) ||
+  !outlineLaunchResidualWorkflow.includes(
+    '.providerProof.launchFilespecUfUrl == true'
+  ) ||
+  !outlineLaunchResidualWorkflow.includes(
+    '.providerProof.launchExplicitDestUrl == true'
+  ) ||
+  !outlineLaunchResidualWorkflow.includes(
+    '.capabilityStatus.includeOutline == "PARTIAL"'
+  ) ||
+  !outlineLaunchResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !outlineLaunchResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'outline Launch residual workflow must bind mutation, provider, and capability proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-outline-launch-residual-differential.ts',
+  'scripts/differential/capture-v3014-outline-launch-residual-oracle.ts',
+  'v3014-outline-launch-residual-baseline-runner.ts',
+  'v3014-outline-launch-residual-projection.ts',
+  'v3014-outline-launch-residual-corpus.json',
+  'v3014-outline-launch-residual-oracle.json',
+  'v3014-outline-launch-string-v1.pdf',
+  'v3014-outline-launch-filespec-v1.pdf',
+  'v3014-outline-launch-explicit-v1.pdf',
+  'v3014OutlineLaunchResidualCaseCount',
+  'v3014OutlineLaunchResidualCorpusHash',
+  'v3014OutlineLaunchResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind outline Launch residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('include_outline Launch residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_outline Launch residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'outline Launch residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustOutlineLaunch = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustOutlineLaunch.includes('include_outline Launch residual') ||
+  !whyRustOutlineLaunch.includes('filespec `UF` preference')
+) {
+  failures.push(
+    'why-rust must document the outline Launch residual and filespec UF preference'
   );
 }
 
