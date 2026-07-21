@@ -6,8 +6,8 @@ use std::fs;
 use std::path::Path;
 
 use pdf_extract::{
-    output_doc, ColorSpace, Document, MediaBox, Object, OutputDev, OutputError,
-    Path as PdfPath, Transform,
+    output_doc, ColorSpace, Document, MediaBox, Object, OutputDev, OutputError, Path as PdfPath,
+    Transform,
 };
 use serde::{Deserialize, Serialize};
 

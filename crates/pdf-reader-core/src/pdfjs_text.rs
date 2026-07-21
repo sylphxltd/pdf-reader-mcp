@@ -47,7 +47,10 @@ mod tests {
             vec![0xFE, 0xFF, 0x00, 0x41, 0x00, 0x64, 0x00, 0x61],
             StringFormat::Hexadecimal,
         );
-        let utf8 = Object::String(vec![0xEF, 0xBB, 0xBF, b'H', b'i'], StringFormat::Hexadecimal);
+        let utf8 = Object::String(
+            vec![0xEF, 0xBB, 0xBF, b'H', b'i'],
+            StringFormat::Hexadecimal,
+        );
         assert_eq!(decode_pdfjs_text_string(&utf16).as_deref(), Some("Ada"));
         assert_eq!(decode_pdfjs_text_string(&utf8).as_deref(), Some("Hi"));
     }

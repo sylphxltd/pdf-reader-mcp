@@ -437,6 +437,10 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` text-markup wi
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` stamp/caret/fileattachment residual is admitted: Stamp, Caret, and FileAttachment markup annotations expose `subtype`/`contents`/`title`/`id`/`page` and keep raw Rect public `bounding_box` without appearance rewrite. Leaf-mutation count is frozen at 42. Appearance-stream content bbox derivation, FileAttachment payload surface, stamp icon-name breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+### read_pdf include_annotations square/circle/widget residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` square/circle/widget residual is admitted: Square/Circle normalize inverted Rect public `bounding_box` like pdf.js `lookupNormalRect`; Widget annotations keep `subtype`/`contents`/`id`/`page`/`bounding_box` but do not project field `/T` as `title` (pdf.js `fieldName`, not `titleObj`). Leaf-mutation count is frozen at 41. Appearance-stream content bbox derivation, widget form-field parity, FreeText inverted breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### read_pdf include_form_fields form button-default-off residual (frozen TS v3.0.14)
 
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form button-default-off residual is admitted: pdf.js `ButtonWidgetAnnotation` sets `defaultFieldValue` to `Off` when `DV` is null and `AP/N` is a named-state dict (checkbox/radiobutton). Without that `AP/N` shape, missing `DV` remains null. Fixtures prove checkbox AP → `default_value=Off`, radiobutton AP → `default_value=Off`, and checkbox no-AP → `default_value=null`. Leaf-mutation count is frozen at 45. Pushbutton AP default-off breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.

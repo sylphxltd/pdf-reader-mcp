@@ -1,7 +1,7 @@
 use std::collections::{HashSet, VecDeque};
 
-use lopdf::{Dictionary, Document, Object, ObjectId};
 use crate::pdfjs_text::decode_pdfjs_text_string;
+use lopdf::{Dictionary, Document, Object, ObjectId};
 use serde::Serialize;
 
 use crate::cos_document::EncryptionFacts;
@@ -790,7 +790,6 @@ mod tests {
             Some(vec!["i".to_string(), "ii".to_string(), "10".to_string()])
         );
     }
-
 
     #[test]
     fn invalid_page_label_dictionary_omits_the_whole_surface() {
