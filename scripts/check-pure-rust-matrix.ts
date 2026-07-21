@@ -1060,6 +1060,20 @@ const formTextMultilineResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationContentsMultilineResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-contents-multiline-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -1964,6 +1978,7 @@ const attachmentOddNamesResidualWorkflowStart = differentialWorkflow.indexOf(
 const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
   'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"',
   'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
+  'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   attachmentOddNamesResidualWorkflowStart
 );
 const attachmentOddNamesResidualWorkflow =
@@ -1979,6 +1994,7 @@ const formUtf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
 );
 const formUtf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
   'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
+  'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   formUtf16TextResidualWorkflowStart
 );
 const formUtf16TextResidualWorkflow =
@@ -1993,7 +2009,7 @@ const formTextMultilineResidualWorkflowStart = differentialWorkflow.indexOf(
   'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"'
 );
 const formTextMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   formTextMultilineResidualWorkflowStart
 );
 const formTextMultilineResidualWorkflow =
@@ -2002,6 +2018,21 @@ const formTextMultilineResidualWorkflow =
     ? differentialWorkflow.slice(
         formTextMultilineResidualWorkflowStart,
         formTextMultilineResidualWorkflowEnd
+      )
+    : '';
+const annotationContentsMultilineResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"'
+);
+const annotationContentsMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  annotationContentsMultilineResidualWorkflowStart
+);
+const annotationContentsMultilineResidualWorkflow =
+  annotationContentsMultilineResidualWorkflowStart >= 0 &&
+  annotationContentsMultilineResidualWorkflowEnd > annotationContentsMultilineResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        annotationContentsMultilineResidualWorkflowStart,
+        annotationContentsMultilineResidualWorkflowEnd
       )
     : '';
 const utf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -8515,6 +8546,124 @@ if (
 ) {
   failures.push(
     'why-rust must document the form text-multiline residual and frozen leaf-mutation count'
+  );
+}
+
+
+const annotationContentsMultilineResidualCaseCount = annotationContentsMultilineResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-contents-multiline-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation contents-multiline residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-contents-multiline-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-contents-multiline-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationContentsMultilineResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationContentsMultilineResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationContentsMultilineResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation contents-multiline residual family'
+  );
+}
+if (
+  !annotationContentsMultilineResidualWorkflow.includes(
+    `.caseCount == ${annotationContentsMultilineResidualCaseCount}`
+  ) ||
+  !annotationContentsMultilineResidualWorkflow.includes(
+    `.passed == ${annotationContentsMultilineResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${annotationContentsMultilineResidualCaseCount}/${annotationContentsMultilineResidualCaseCount} annotation contents-multiline residual corpus`
+  );
+}
+if (
+  annotationContentsMultilineResidualCaseCount !== 3 ||
+  annotationContentsMultilineResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationContentsMultilineResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationContentsMultilineResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationContentsMultilineResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation contents-multiline residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !annotationContentsMultilineResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_contents_multiline_residual_result"'
+  ) ||
+  !annotationContentsMultilineResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 42'
+  ) ||
+  !annotationContentsMultilineResidualWorkflow.includes(
+    '.providerProof.freeTextEscapedLfPreserved == true'
+  ) ||
+  !annotationContentsMultilineResidualWorkflow.includes(
+    '.providerProof.freeTextEscapedCrlfPreserved == true'
+  ) ||
+  !annotationContentsMultilineResidualWorkflow.includes(
+    '.providerProof.textStickyEscapedLfPreserved == true'
+  ) ||
+  !annotationContentsMultilineResidualWorkflow.includes(
+    '.capabilityStatus.includeAnnotations == "PARTIAL"'
+  ) ||
+  !annotationContentsMultilineResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !annotationContentsMultilineResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'annotation contents-multiline residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-annotation-contents-multiline-residual-differential.ts',
+  'scripts/differential/capture-v3014-annotation-contents-multiline-residual-oracle.ts',
+  'v3014-annotation-contents-multiline-residual-baseline-runner.ts',
+  'v3014-annotation-contents-multiline-residual-projection.ts',
+  'v3014-annotation-contents-multiline-residual-corpus.json',
+  'v3014-annotation-contents-multiline-residual-oracle.json',
+  'v3014-annotation-contents-multiline-freetext-lf-v1.pdf',
+  'v3014-annotation-contents-multiline-freetext-crlf-v1.pdf',
+  'v3014-annotation-contents-multiline-text-lf-v1.pdf',
+  'v3014AnnotationContentsMultilineResidualCaseCount',
+  'v3014AnnotationContentsMultilineResidualCorpusHash',
+  'v3014AnnotationContentsMultilineResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind annotation contents-multiline residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('contents-multiline residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('contents-multiline residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation contents-multiline residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationContentsMultiline = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationContentsMultiline.includes('contents-multiline residual') ||
+  !whyRustAnnotationContentsMultiline.includes('Leaf-mutation count is frozen at 42')
+) {
+  failures.push(
+    'why-rust must document the annotation contents-multiline residual and frozen leaf-mutation count'
   );
 }
 

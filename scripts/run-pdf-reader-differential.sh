@@ -88,6 +88,7 @@ V3014_ANNOTATION_LINK_AA_PRECEDENCE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-lin
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON="$SCRATCH/v3014-attachment-odd-names-residual-result.json"
 V3014_FORM_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-form-utf16-text-residual-result.json"
 V3014_FORM_TEXT_MULTILINE_RESIDUAL_JSON="$SCRATCH/v3014-form-text-multiline-residual-result.json"
+V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-contents-multiline-residual-result.json"
 V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
 V3014_TEXT_INVALID_AS_RESIDUAL_JSON="$SCRATCH/v3014-text-invalid-as-residual-result.json"
 V3014_LINE_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-line-annotation-residual-result.json"
@@ -455,6 +456,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-form-utf16-text-residual-differ
 bun "$REPO_ROOT/scripts/differential/capture-v3014-form-text-multiline-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-form-text-multiline-residual-differential.ts" \
   --output "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-annotation-contents-multiline-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-contents-multiline-residual-differential.ts" \
+  --output "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-utf16-text-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-utf16-text-residual-differential.ts" \
   --output "$V3014_UTF16_TEXT_RESIDUAL_JSON" >>"$LOG"
@@ -972,6 +976,15 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-text-multiline-lf-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-text-multiline-crlf-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-text-multiline-rawlf-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/check-v3014-annotation-contents-multiline-residual-differential.ts" \
+  "$REPO_ROOT/scripts/differential/capture-v3014-annotation-contents-multiline-residual-oracle.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-annotation-contents-multiline-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-annotation-contents-multiline-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-contents-multiline-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-contents-multiline-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-contents-multiline-freetext-lf-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-contents-multiline-freetext-crlf-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-annotation-contents-multiline-text-lf-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-utf8-bom-v1.pdf" \
   "$REPO_ROOT/scripts/differential/v3014-utf16-text-residual-baseline-runner.ts" \
   "$REPO_ROOT/scripts/differential/v3014-utf16-text-residual-projection.ts" \
@@ -1524,6 +1537,11 @@ V3014_FORM_TEXT_MULTILINE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_TEXT_MULT
 V3014_FORM_TEXT_MULTILINE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_JSON")"
 V3014_FORM_TEXT_MULTILINE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_JSON")"
 V3014_FORM_TEXT_MULTILINE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_JSON")"
+V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON")"
+V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON")"
+V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON")"
+V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON")"
+V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
@@ -1804,6 +1822,8 @@ jq -n \
   --arg v3014FormUtf16TextResidualOracleHash "$V3014_FORM_UTF16_TEXT_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormTextMultilineResidualCorpusHash "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_CORPUS_HASH" \
   --arg v3014FormTextMultilineResidualOracleHash "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_ORACLE_HASH" \
+  --arg v3014AnnotationContentsMultilineResidualCorpusHash "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_CORPUS_HASH" \
+  --arg v3014AnnotationContentsMultilineResidualOracleHash "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ORACLE_HASH" \
   --arg v3014Utf16TextResidualCorpusHash "$V3014_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
   --arg v3014Utf16TextResidualOracleHash "$V3014_UTF16_TEXT_RESIDUAL_ORACLE_HASH" \
   --arg v3014TextInvalidAsResidualCorpusHash "$V3014_TEXT_INVALID_AS_RESIDUAL_CORPUS_HASH" \
@@ -2091,6 +2111,9 @@ jq -n \
   --argjson v3014FormTextMultilineResidualCaseCount "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_CASE_COUNT" \
   --argjson v3014FormTextMultilineResidualPassed "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_PASSED" \
   --argjson v3014FormTextMultilineResidualSkipped "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_SKIPPED" \
+  --argjson v3014AnnotationContentsMultilineResidualCaseCount "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_CASE_COUNT" \
+  --argjson v3014AnnotationContentsMultilineResidualPassed "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_PASSED" \
+  --argjson v3014AnnotationContentsMultilineResidualSkipped "$V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_SKIPPED" \
   --argjson v3014Utf16TextResidualCaseCount "$V3014_UTF16_TEXT_RESIDUAL_CASE_COUNT" \
   --argjson v3014Utf16TextResidualPassed "$V3014_UTF16_TEXT_RESIDUAL_PASSED" \
   --argjson v3014Utf16TextResidualSkipped "$V3014_UTF16_TEXT_RESIDUAL_SKIPPED" \
@@ -2452,6 +2475,8 @@ jq -n \
     v3014FormUtf16TextResidualOracleHash: $v3014FormUtf16TextResidualOracleHash,
     v3014FormTextMultilineResidualCorpusHash: $v3014FormTextMultilineResidualCorpusHash,
     v3014FormTextMultilineResidualOracleHash: $v3014FormTextMultilineResidualOracleHash,
+    v3014AnnotationContentsMultilineResidualCorpusHash: $v3014AnnotationContentsMultilineResidualCorpusHash,
+    v3014AnnotationContentsMultilineResidualOracleHash: $v3014AnnotationContentsMultilineResidualOracleHash,
     v3014Utf16TextResidualCorpusHash: $v3014Utf16TextResidualCorpusHash,
     v3014Utf16TextResidualOracleHash: $v3014Utf16TextResidualOracleHash,
     v3014TextInvalidAsResidualCorpusHash: $v3014TextInvalidAsResidualCorpusHash,
@@ -2671,6 +2696,8 @@ jq -n \
     immutableFormUtf16TextResidualDifferential: "scripts/differential/check-v3014-form-utf16-text-residual-differential.ts",
     immutableFormTextMultilineResidualOracle: "scripts/differential/fixtures/v3014-form-text-multiline-residual-oracle.json",
     immutableFormTextMultilineResidualDifferential: "scripts/differential/check-v3014-form-text-multiline-residual-differential.ts",
+    immutableAnnotationContentsMultilineResidualOracle: "scripts/differential/fixtures/v3014-annotation-contents-multiline-residual-oracle.json",
+    immutableAnnotationContentsMultilineResidualDifferential: "scripts/differential/check-v3014-annotation-contents-multiline-residual-differential.ts",
     immutableUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-utf16-text-residual-oracle.json",
     immutableUtf16TextResidualDifferential: "scripts/differential/check-v3014-utf16-text-residual-differential.ts",
     immutableTextInvalidAsResidualOracle: "scripts/differential/fixtures/v3014-text-invalid-as-residual-oracle.json",
