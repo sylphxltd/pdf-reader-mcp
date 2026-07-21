@@ -346,6 +346,11 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` contents-multi
 
 A frozen three-case public-stdio `read_pdf` `include_outline` cycle residual is admitted: pdf.js global processed-set outline cycle suppression for `Next` self-cycle (single item), sibling `Next` cycle (both siblings once), and self `First` child cycle (no nested items). Leaf-mutation count is frozen at 49 with relocated fixture-root replay. Named dest string lookup, remote GoToR, outline beyond cycle breadth, and whole-product parity remain unclaimed; `include_outline` remains `PARTIAL`. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf include_outline named-dest residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_outline` named-dest residual is admitted: pdf.js keeps named outline `Dest`/action `D` as destination strings for literal string, name token, and GoTo `D` string without resolving `Names/Dests` to arrays. Leaf-mutation count is frozen at 33 with relocated fixture-root replay. Named dest resolution to array, remote GoToR, outline beyond named-dest breadth, and whole-product parity remain unclaimed; `include_outline` remains `PARTIAL`. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### public-stdio utf16-text residual (frozen TS v3.0.14)
 
 A frozen three-case public-stdio utf16-text residual is admitted: pdf.js `stringToPDFString` odd-length UTF-16BE trailing-byte drop for Text annotation title/contents, FreeText contents, outline titles, and metadata `Title`/`Author`. Leaf-mutation count is frozen at 41 with relocated fixture-root replay. Form-field UTF-16 decoding remains covered by the form utf16-text residual. `include_annotations`/`include_outline`/`include_metadata` remain `PARTIAL`; split-surrogate wire parity, XMP key/value, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
