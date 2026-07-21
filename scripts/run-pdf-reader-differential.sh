@@ -71,6 +71,7 @@ V3014_FORM_CHECKBOX_AS_VALUE_RESIDUAL_JSON="$SCRATCH/v3014-form-checkbox-as-valu
 V3014_FORM_CHECKBOX_EXPORT_NORMALIZE_RESIDUAL_JSON="$SCRATCH/v3014-form-checkbox-export-normalize-residual-result.json"
 V3014_FORM_RADIO_AS_NO_OVERRIDE_RESIDUAL_JSON="$SCRATCH/v3014-form-radio-as-no-override-residual-result.json"
 V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_JSON="$SCRATCH/v3014-form-checkbox-multi-export-residual-result.json"
+V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_JSON="$SCRATCH/v3014-form-checkbox-multi-export-many-residual-result.json"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON="$SCRATCH/v3014-attachment-odd-names-residual-result.json"
 V3014_FORM_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-form-utf16-text-residual-result.json"
 V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
@@ -389,6 +390,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-form-radio-as-no-override-resid
 bun "$REPO_ROOT/scripts/differential/capture-v3014-form-checkbox-multi-export-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-form-checkbox-multi-export-residual-differential.ts" \
   --output "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-form-checkbox-multi-export-many-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-form-checkbox-multi-export-many-residual-differential.ts" \
+  --output "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-attachment-odd-names-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts" \
   --output "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON" >>"$LOG"
@@ -799,6 +803,16 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-foo-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-as-bar-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-as-baz-off-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-foo-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-as-bar-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-as-baz-off-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/v3014-form-checkbox-multi-export-many-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-form-checkbox-multi-export-many-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-checkbox-multi-export-many-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-checkbox-multi-export-many-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-many-c-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-many-a-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-multi-export-many-z-off-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-pushbutton-ap-default-null-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-pushbutton-noap-default-null-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-checkbox-ap-default-off-v1.pdf" \
@@ -1284,6 +1298,11 @@ V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_CH
 V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_JSON")"
 V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_JSON")"
 V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_JSON")"
+V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_JSON")"
+V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_JSON")"
+V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_JSON")"
+V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_JSON")"
+V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
@@ -1540,6 +1559,8 @@ jq -n \
   --arg v3014FormRadioAsNoOverrideResidualOracleHash "$V3014_FORM_RADIO_AS_NO_OVERRIDE_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormCheckboxMultiExportResidualCorpusHash "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_CORPUS_HASH" \
   --arg v3014FormCheckboxMultiExportResidualOracleHash "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_ORACLE_HASH" \
+  --arg v3014FormCheckboxMultiExportManyResidualCorpusHash "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_CORPUS_HASH" \
+  --arg v3014FormCheckboxMultiExportManyResidualOracleHash "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_ORACLE_HASH" \
   --arg v3014AttachmentOddNamesResidualCorpusHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CORPUS_HASH" \
   --arg v3014AttachmentOddNamesResidualOracleHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormUtf16TextResidualCorpusHash "$V3014_FORM_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
@@ -1780,6 +1801,9 @@ jq -n \
   --argjson v3014FormCheckboxMultiExportResidualCaseCount "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_CASE_COUNT" \
   --argjson v3014FormCheckboxMultiExportResidualPassed "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_PASSED" \
   --argjson v3014FormCheckboxMultiExportResidualSkipped "$V3014_FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_SKIPPED" \
+  --argjson v3014FormCheckboxMultiExportManyResidualCaseCount "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_CASE_COUNT" \
+  --argjson v3014FormCheckboxMultiExportManyResidualPassed "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_PASSED" \
+  --argjson v3014FormCheckboxMultiExportManyResidualSkipped "$V3014_FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_SKIPPED" \
   --argjson v3014AttachmentOddNamesResidualCaseCount "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT" \
   --argjson v3014AttachmentOddNamesResidualPassed "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED" \
   --argjson v3014AttachmentOddNamesResidualSkipped "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED" \
@@ -2113,6 +2137,8 @@ jq -n \
     v3014FormRadioAsNoOverrideResidualOracleHash: $v3014FormRadioAsNoOverrideResidualOracleHash,
     v3014FormCheckboxMultiExportResidualCorpusHash: $v3014FormCheckboxMultiExportResidualCorpusHash,
     v3014FormCheckboxMultiExportResidualOracleHash: $v3014FormCheckboxMultiExportResidualOracleHash,
+    v3014FormCheckboxMultiExportManyResidualCorpusHash: $v3014FormCheckboxMultiExportManyResidualCorpusHash,
+    v3014FormCheckboxMultiExportManyResidualOracleHash: $v3014FormCheckboxMultiExportManyResidualOracleHash,
     v3014AttachmentOddNamesResidualCorpusHash: $v3014AttachmentOddNamesResidualCorpusHash,
     v3014AttachmentOddNamesResidualOracleHash: $v3014AttachmentOddNamesResidualOracleHash,
     v3014FormUtf16TextResidualCorpusHash: $v3014FormUtf16TextResidualCorpusHash,
@@ -2302,6 +2328,8 @@ jq -n \
     immutableFormRadioAsNoOverrideResidualDifferential: "scripts/differential/check-v3014-form-radio-as-no-override-residual-differential.ts",
     immutableFormCheckboxMultiExportResidualOracle: "scripts/differential/fixtures/v3014-form-checkbox-multi-export-residual-oracle.json",
     immutableFormCheckboxMultiExportResidualDifferential: "scripts/differential/check-v3014-form-checkbox-multi-export-residual-differential.ts",
+    immutableFormCheckboxMultiExportManyResidualOracle: "scripts/differential/fixtures/v3014-form-checkbox-multi-export-many-residual-oracle.json",
+    immutableFormCheckboxMultiExportManyResidualDifferential: "scripts/differential/check-v3014-form-checkbox-multi-export-many-residual-differential.ts",
     immutableAttachmentOddNamesResidualOracle: "scripts/differential/fixtures/v3014-attachment-odd-names-residual-oracle.json",
     immutableAttachmentOddNamesResidualDifferential: "scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts",
     immutableFormUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-form-utf16-text-residual-oracle.json",

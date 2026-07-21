@@ -1710,4 +1710,51 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn checkbox_multi_export_many_options() {
+        let cases = [
+            (
+                "v3014-form-checkbox-multi-export-many-c-v1.pdf",
+                "C",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-checkbox-multi-export-many-a-v1.pdf",
+                "A",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-checkbox-multi-export-many-z-off-v1.pdf",
+                "Off",
+                serde_json::json!("Off"),
+            ),
+        ];
+        for (fixture, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load multi-export-many fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 1, "fixture {fixture}");
+            let field = &fields[0];
+            assert_eq!(field.name, "Agree", "fixture {fixture}");
+            assert_eq!(
+                field.r#type.as_deref(),
+                Some("checkbox"),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.value).unwrap(),
+                serde_json::json!(value),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.default_value).unwrap(),
+                default_value,
+                "fixture {fixture}"
+            );
+        }
+    }
 }
