@@ -561,21 +561,36 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
         .as_ref()
         .and_then(|a| a.get(b"S").ok())
         .and_then(|v| v.as_name().ok());
-    let url = action
-        .as_ref()
-        .filter(|_| action_kind == Some(b"URI"))
-        .and_then(|a| a.get(b"URI").ok())
-        .and_then(|v| walker.text(v))
-        .and_then(|value| safe_outline_url(walker, &value));
-    let action_dest = action
-        .as_ref()
-        .filter(|_| action_kind == Some(b"GoTo"))
-        .and_then(|a| a.get(b"D").ok())
-        .and_then(|v| normalized_destination(walker, v));
-    // PDF.js initializes every outline destination to null, including items
-    // with no action or with an unsupported action. The TS sanitizer retains
-    // null because the member is defined.
-    let dest = direct_dest.or(action_dest).unwrap_or(Destination::Null);
+    // pdf.js outline actions:
+    // - URI supplies absolute-safe url
+    // - GoTo supplies dest (winning over /Dest)
+    // - GoToR supplies absolute-safe url built from F + "#" + remote D, and
+    //   forces dest null (relative file specs are dropped by URL validation)
+    // - unsupported / missing actions keep dest null unless /Dest is present
+    let (url, dest) = match action_kind {
+        Some(b"URI") => {
+            let url = action
+                .as_ref()
+                .and_then(|a| a.get(b"URI").ok())
+                .and_then(|v| walker.text(v))
+                .and_then(|value| safe_outline_url(walker, &value));
+            (url, Destination::Null)
+        }
+        Some(b"GoTo") => {
+            let dest = action
+                .as_ref()
+                .and_then(|a| a.get(b"D").ok())
+                .and_then(|v| normalized_destination(walker, v))
+                .or(direct_dest)
+                .unwrap_or(Destination::Null);
+            (None, dest)
+        }
+        Some(b"GoToR") => {
+            let url = action.as_ref().and_then(|a| outline_gotor_url(walker, a));
+            (url, Destination::Null)
+        }
+        _ => (None, direct_dest.unwrap_or(Destination::Null)),
+    };
     Some(OutlineItem {
         title,
         bold: flags & 2 != 0,
@@ -585,6 +600,50 @@ fn normalize_outline_item(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<
         dest,
         items: None,
     })
+}
+
+fn outline_gotor_url(walker: &mut Walker<'_>, action: &Dictionary) -> Option<String> {
+    let file = action.get(b"F").ok()?;
+    let mut base = match walker.resolve_owned(file)? {
+        Object::String(_, _) | Object::Name(_) => walker.text(file)?,
+        Object::Dictionary(dict) => outline_filespec_filename(walker, &dict)?,
+        _ => return None,
+    };
+    if base.is_empty() {
+        return None;
+    }
+    if let Some(remote) = outline_remote_dest(walker, action) {
+        if let Some(hash) = base.find('#') {
+            base.truncate(hash);
+        }
+        base.push('#');
+        base.push_str(&remote);
+    }
+    safe_outline_url(walker, &base)
+}
+
+fn outline_filespec_filename(walker: &mut Walker<'_>, dict: &Dictionary) -> Option<String> {
+    // pdf.js pickPlatformItem order: UF, F, Unix, Mac, DOS.
+    for key in [b"UF".as_slice(), b"F", b"Unix", b"Mac", b"DOS"] {
+        if let Ok(value) = dict.get(key) {
+            if let Some(name) = walker.text(value).filter(|value| !value.is_empty()) {
+                return Some(name);
+            }
+        }
+    }
+    None
+}
+
+fn outline_remote_dest(walker: &mut Walker<'_>, action: &Dictionary) -> Option<String> {
+    let value = action.get(b"D").ok()?;
+    match walker.resolve_owned(value)? {
+        Object::String(_, _) | Object::Name(_) => walker.text(value),
+        Object::Array(_) => {
+            let dest = normalized_destination(walker, value)?;
+            serde_json::to_string(&dest).ok()
+        }
+        _ => None,
+    }
 }
 
 fn safe_outline_url(walker: &mut Walker<'_>, value: &str) -> Option<String> {
@@ -765,6 +824,99 @@ mod tests {
         assert_eq!(value[0]["dest"], serde_json::Value::Null);
         assert_eq!(value[0]["bold"], false);
         assert_eq!(value[0]["color"], serde_json::json!([0, 0, 0]));
+    }
+
+    #[test]
+    fn outline_gotor_absolute_url_appends_remote_dest_like_pdfjs() {
+        let mut doc = Document::with_version("1.7");
+        let pages = doc.add_object(dictionary! {
+            "Type" => "Pages",
+            "Kids" => Vec::<Object>::new(),
+            "Count" => 0
+        });
+        let action = doc.add_object(dictionary! {
+            "S" => "GoToR",
+            "F" => Object::string_literal("https://example.com/docs/other.pdf"),
+            "D" => Object::string_literal("Chapter1"),
+        });
+        let item = doc.add_object(dictionary! {
+            "Title" => Object::string_literal("Remote"),
+            "A" => action,
+        });
+        let outlines = doc.add_object(dictionary! {
+            "Type" => "Outlines",
+            "First" => item,
+            "Last" => item,
+            "Count" => 1
+        });
+        let catalog = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages,
+            "Outlines" => outlines,
+        });
+        doc.trailer.set("Root", catalog);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            1,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value[0]["title"], "Remote");
+        assert_eq!(
+            value[0]["url"],
+            "https://example.com/docs/other.pdf#Chapter1"
+        );
+        assert_eq!(value[0]["dest"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn outline_gotor_relative_file_is_dropped_like_pdfjs() {
+        let mut doc = Document::with_version("1.7");
+        let pages = doc.add_object(dictionary! {
+            "Type" => "Pages",
+            "Kids" => Vec::<Object>::new(),
+            "Count" => 0
+        });
+        let action = doc.add_object(dictionary! {
+            "S" => "GoToR",
+            "F" => Object::string_literal("other.pdf"),
+            "D" => Object::string_literal("Chapter1"),
+        });
+        let item = doc.add_object(dictionary! {
+            "Title" => Object::string_literal("Remote"),
+            "A" => action,
+        });
+        let outlines = doc.add_object(dictionary! {
+            "Type" => "Outlines",
+            "First" => item,
+            "Last" => item,
+            "Count" => 1
+        });
+        let catalog = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages,
+            "Outlines" => outlines,
+        });
+        doc.trailer.set("Root", catalog);
+        let out = extract_catalog_signals(
+            &doc,
+            None,
+            1,
+            CatalogSignalRequest {
+                page_labels: false,
+                permissions: false,
+                outline: true,
+            },
+        );
+        let value = serde_json::to_value(out.outline).unwrap();
+        assert_eq!(value[0]["title"], "Remote");
+        assert!(value[0].get("url").is_none());
+        assert_eq!(value[0]["dest"], serde_json::Value::Null);
     }
 
     #[test]
