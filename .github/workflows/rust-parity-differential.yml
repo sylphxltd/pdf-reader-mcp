@@ -171,6 +171,7 @@ jobs:
           bun run test:v3014-form-checkbox-export-empty-single-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-checkbox-export-empty-single-residual-result.json"
           bun run test:v3014-form-checkbox-malformed-ap-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-checkbox-malformed-ap-residual-result.json"
           bun run test:v3014-form-radio-malformed-ap-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-radio-malformed-ap-residual-result.json"
+          bun run test:v3014-form-radio-parent-kids-ap-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-radio-parent-kids-ap-residual-result.json"
           bun run test:v3014-attachment-odd-names-residual-differential -- --output "${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"
           bun run test:v3014-form-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"
           bun run test:v3014-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"
@@ -1790,6 +1791,26 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$FORM_RADIO_MALFORMED_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-malformed-ap residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+          FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-radio-parent-kids-ap-residual-result.json"
+          if [ ! -f "$FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 form radio-parent-kids-ap residual result missing at $FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_form_radio_parent_kids_ap_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 84 and
+            .providerProof.radioKidsApStream == true and
+            .providerProof.radioKidsApnStream == true and
+            .providerProof.radioKidsApNamed == true and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 form radio-parent-kids-ap residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 

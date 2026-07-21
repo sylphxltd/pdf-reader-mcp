@@ -489,6 +489,12 @@ A frozen three-case public-stdio `read_pdf` `include_form_fields` form checkbox-
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-malformed-ap residual is admitted: pdf.js radio default-`Off` requires `AP/N` named-state dict and `AS` does not override `V`. Fixtures prove radio `AP` stream → `value=Gold`/`default_value=null`, `AP/N` stream → `value=Gold`/`default_value=null`, and named `AP/N` with `AS=/Silver` → `value=Gold`/`default_value=Off`. Leaf-mutation count is frozen at 45. Radio parent/kids malformed AP breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
 
 
+
+### read_pdf include_form_fields form radio-parent-kids-ap residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-parent-kids-ap residual is admitted: pdf.js radio parent/kids inherit parent `V`; kid `AS` does not override; default-`Off` only when kid `AP/N` is a named-state dict. Fixtures prove kids with `AP` stream → `value=Gold`/`default_value=null`, kids with `AP/N` stream → `value=Gold`/`default_value=null`, and kids with named `AP/N` → `value=Gold`/`default_value=Off`, while the parent stub remains type/value null. Leaf-mutation count is frozen at 84. Deeper kids nesting breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
+
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.

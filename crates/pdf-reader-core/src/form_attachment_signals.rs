@@ -1898,4 +1898,55 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn radio_parent_kids_ap_inheritance() {
+        let cases = [
+            (
+                "v3014-form-radio-kids-ap-stream-v1.pdf",
+                "Gold",
+                serde_json::Value::Null,
+            ),
+            (
+                "v3014-form-radio-kids-apn-stream-v1.pdf",
+                "Gold",
+                serde_json::Value::Null,
+            ),
+            (
+                "v3014-form-radio-kids-ap-named-v1.pdf",
+                "Gold",
+                serde_json::json!("Off"),
+            ),
+        ];
+        for (fixture, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load radio parent/kids fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 3, "fixture {fixture}");
+            assert_eq!(fields[0].name, "Plan", "fixture {fixture}");
+            assert!(fields[0].r#type.is_none(), "fixture {fixture}");
+            assert!(fields[0].value.is_none(), "fixture {fixture}");
+            for kid in &fields[1..] {
+                assert_eq!(kid.name, "Plan", "fixture {fixture}");
+                assert_eq!(
+                    kid.r#type.as_deref(),
+                    Some("radiobutton"),
+                    "fixture {fixture}"
+                );
+                assert_eq!(
+                    serde_json::to_value(&kid.value).unwrap(),
+                    serde_json::json!(value),
+                    "fixture {fixture}"
+                );
+                assert_eq!(
+                    serde_json::to_value(&kid.default_value).unwrap(),
+                    default_value,
+                    "fixture {fixture}"
+                );
+            }
+        }
+    }
 }
