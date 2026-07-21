@@ -808,6 +808,20 @@ const formRadioAsNoOverrideResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formCheckboxMultiExportResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-checkbox-multi-export-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -6869,6 +6883,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form radio-as-no-override residual and frozen leaf-mutation count'
+  );
+}
+
+const formCheckboxMultiExportResidualCaseCount = formCheckboxMultiExportResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-checkbox-multi-export-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form checkbox-multi-export residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-checkbox-multi-export-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-checkbox-multi-export-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormCheckboxMultiExportResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormCheckboxMultiExportResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormCheckboxMultiExportResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form checkbox-multi-export residual family'
+  );
+}
+if (
+  formCheckboxMultiExportResidualCaseCount !== 3 ||
+  formCheckboxMultiExportResidualCorpus.envelope.fixtureCount !== 3 ||
+  formCheckboxMultiExportResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formCheckboxMultiExportResidualCorpus.nonclaims.publishFreeze !== true ||
+  formCheckboxMultiExportResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form checkbox-multi-export residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_checkbox_multi_export_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.checkboxMultiExportFoo == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxMultiExportAsBar == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxMultiExportAsBazOff == true')
+) {
+  failures.push(
+    'form checkbox-multi-export residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('checkbox-multi-export residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('checkbox-multi-export residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form checkbox-multi-export residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormCheckboxMultiExport = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormCheckboxMultiExport.includes('checkbox-multi-export residual') ||
+  !whyRustFormCheckboxMultiExport.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form checkbox-multi-export residual and frozen leaf-mutation count'
   );
 }
 
