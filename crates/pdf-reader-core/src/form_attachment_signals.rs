@@ -282,8 +282,6 @@ fn extract_forms<'a>(
             walker,
             field,
             0,
-            "",
-            &Inherited::default(),
             &page_by_id,
             &annotation_pages,
             &mut visited,
@@ -297,13 +295,94 @@ fn extract_forms<'a>(
     (!output.is_empty()).then_some(output)
 }
 
+/// pdf.js Annotation._constructFieldName: walk Parent chain for T parts.
+fn construct_field_name<'a>(walker: &mut Walker<'a>, dict: &'a Dictionary) -> String {
+    let has_t = dict.get(b"T").is_ok();
+    let has_parent = dict.get(b"Parent").is_ok();
+    if !has_t && !has_parent {
+        return String::new();
+    }
+    if !has_parent {
+        return dict
+            .get(b"T")
+            .ok()
+            .and_then(|value| walker.text(value))
+            .unwrap_or_default();
+    }
+    let mut parts = Vec::new();
+    if let Some(partial) = dict.get(b"T").ok().and_then(|value| walker.text(value)) {
+        if !partial.is_empty() {
+            parts.push(partial);
+        }
+    }
+    let mut current = dict.get(b"Parent").ok();
+    let mut seen = HashSet::new();
+    while let Some(parent_value) = current {
+        if let Ok(parent_id) = parent_value.as_reference() {
+            if !seen.insert(parent_id) {
+                break;
+            }
+        }
+        let Some(parent_dict) = walker.dict(parent_value) else {
+            break;
+        };
+        if let Some(partial) = parent_dict
+            .get(b"T")
+            .ok()
+            .and_then(|value| walker.text(value))
+        {
+            if !partial.is_empty() {
+                parts.push(partial);
+            }
+        }
+        current = parent_dict.get(b"Parent").ok();
+    }
+    parts.reverse();
+    parts.join(".")
+}
+
+/// pdf.js getInheritableProperty: first own-or-Parent-chain value for key.
+fn inheritable_property<'a>(
+    walker: &mut Walker<'a>,
+    dict: &'a Dictionary,
+    key: &[u8],
+) -> Option<&'a Object> {
+    if let Ok(value) = dict.get(key) {
+        return Some(value);
+    }
+    let mut current = dict.get(b"Parent").ok();
+    let mut seen = HashSet::new();
+    while let Some(parent_value) = current {
+        if let Ok(parent_id) = parent_value.as_reference() {
+            if !seen.insert(parent_id) {
+                break;
+            }
+        }
+        let Some(parent_dict) = walker.dict(parent_value) else {
+            break;
+        };
+        if let Ok(value) = parent_dict.get(key) {
+            return Some(value);
+        }
+        current = parent_dict.get(b"Parent").ok();
+    }
+    None
+}
+
+fn inherited_from_parent_chain<'a>(walker: &mut Walker<'a>, dict: &'a Dictionary) -> Inherited<'a> {
+    Inherited {
+        field_type: inheritable_property(walker, dict, b"FT"),
+        flags: inheritable_property(walker, dict, b"Ff"),
+        value: inheritable_property(walker, dict, b"V"),
+        default_value: inheritable_property(walker, dict, b"DV"),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn walk_field<'a>(
     walker: &mut Walker<'a>,
     value: &'a Object,
     depth: usize,
-    parent_name: &str,
-    inherited: &Inherited<'a>,
     page_by_id: &HashMap<ObjectId, u32>,
     annotation_pages: &HashMap<ObjectId, u32>,
     visited: &mut HashSet<ObjectId>,
@@ -329,23 +408,6 @@ fn walk_field<'a>(
     if dict.get(b"Subtype").ok().and_then(|v| v.as_name().ok()) == Some(b"Link") {
         return;
     }
-    let partial = dict
-        .get(b"T")
-        .ok()
-        .and_then(|v| walker.text(v))
-        .unwrap_or_default();
-    let name = match (parent_name.is_empty(), partial.is_empty()) {
-        (true, true) => String::new(),
-        (true, false) => partial,
-        (false, true) => parent_name.to_string(),
-        (false, false) => format!("{parent_name}.{partial}"),
-    };
-    let next = Inherited {
-        field_type: dict.get(b"FT").ok().or(inherited.field_type),
-        flags: dict.get(b"Ff").ok().or(inherited.flags),
-        value: dict.get(b"V").ok().or(inherited.value),
-        default_value: dict.get(b"DV").ok().or(inherited.default_value),
-    };
     let kids = dict
         .get(b"Kids")
         .ok()
@@ -353,7 +415,8 @@ fn walk_field<'a>(
     if let Some(kids) = kids.as_ref() {
         *raw_node_budget -= kids.len();
     }
-    let public_name = name.trim().to_string();
+    // Public names follow pdf.js Parent-chain construction, not Kids-path alone.
+    let public_name = construct_field_name(walker, dict).trim().to_string();
     if !public_name.is_empty() {
         if kids.is_some() {
             output.push(FormField {
@@ -366,16 +429,23 @@ fn walk_field<'a>(
                 editable: None,
                 bounding_box: None,
             });
-        } else if let Some(field) = normalize_leaf(
-            walker,
-            dict,
-            Some(id),
-            public_name,
-            &next,
-            page_by_id,
-            annotation_pages,
-        ) {
-            output.push(field);
+        } else {
+            let inherited = inherited_from_parent_chain(walker, dict);
+            // pdf.js WidgetAnnotation without inheritable FT falls back to base
+            // WidgetAnnotation whose getFieldObject() returns null.
+            if inherited.field_type.is_some() {
+                if let Some(field) = normalize_leaf(
+                    walker,
+                    dict,
+                    Some(id),
+                    public_name,
+                    &inherited,
+                    page_by_id,
+                    annotation_pages,
+                ) {
+                    output.push(field);
+                }
+            }
         }
     }
     if let Some(kids) = kids {
@@ -384,8 +454,6 @@ fn walk_field<'a>(
                 walker,
                 kid,
                 depth + 1,
-                &name,
-                &next,
                 page_by_id,
                 annotation_pages,
                 visited,
@@ -896,7 +964,7 @@ mod tests {
             serde_json::to_value(output.form_fields).unwrap(),
             serde_json::json!([
                 {"name":"parent","id":format_id(parent)},
-                {"name":"parent  .  child","type":"text","value":"fallback","default_value":"fallback","id":format_id(child),"editable":true}
+                {"name":"child","type":"text","value":"fallback","default_value":"fallback","id":format_id(child),"editable":true}
             ])
         );
     }
@@ -1898,6 +1966,68 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn radio_broken_parent_chain_drops_widgets_and_names_intermediate_opt() {
+        // pdf.js: intermediate without Parent does not inherit FT/V from radio root.
+        // Public names use Parent-chain construction, so intermediate is "Opt" not "Plan.Opt".
+        let mut document = Document::with_version("1.4");
+        let pages_id = document.new_object_id();
+        let page_id = document.add_object(dictionary! {
+            "Type"=>"Page","Parent"=>pages_id,"MediaBox"=>vec![0.into(),0.into(),612.into(),792.into()]
+        });
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type"=>"Pages","Kids"=>vec![page_id.into()],"Count"=>1
+            }),
+        );
+        let gold = document.add_object(Stream::new(dictionary! {}, Vec::new()));
+        let off = document.add_object(Stream::new(dictionary! {}, Vec::new()));
+        let intermediate = document.add_object(dictionary! {
+            "T"=>Object::string_literal("Opt"),
+            "Kids"=>Vec::<Object>::new()
+        });
+        let leaf0 = document.add_object(dictionary! {
+            "Type"=>"Annot","Subtype"=>"Widget","Parent"=>intermediate,
+            "AS"=>"Silver",
+            "Rect"=>vec![72.into(),600.into(),100.into(),620.into()],
+            "AP"=>dictionary! {"N"=>dictionary! {"Gold"=>gold, "Off"=>off}},
+            "P"=>page_id
+        });
+        let leaf1 = document.add_object(dictionary! {
+            "Type"=>"Annot","Subtype"=>"Widget","Parent"=>intermediate,
+            "AS"=>"Bronze",
+            "Rect"=>vec![120.into(),600.into(),148.into(),620.into()],
+            "AP"=>dictionary! {"N"=>dictionary! {"Gold"=>gold, "Off"=>off}},
+            "P"=>page_id
+        });
+        if let Some(Object::Dictionary(dict)) = document.objects.get_mut(&intermediate) {
+            dict.set("Kids", vec![leaf0.into(), leaf1.into()]);
+        }
+        if let Some(Object::Dictionary(page)) = document.objects.get_mut(&page_id) {
+            page.set("Annots", vec![leaf0.into(), leaf1.into()]);
+        }
+        let root = document.add_object(dictionary! {
+            "FT"=>"Btn","T"=>Object::string_literal("Plan"),"V"=>"Gold","Ff"=>1i64<<15,
+            "Kids"=>vec![intermediate.into()]
+        });
+        let catalog = document.add_object(dictionary! {
+            "Type"=>"Catalog","Pages"=>pages_id,
+            "AcroForm"=>dictionary! {"Fields"=>vec![root.into()]}
+        });
+        document.trailer.set("Root", catalog);
+        let signals = extract_form_attachment_signals(&document, &[(1, page_id)], true, false);
+        let fields = signals.form_fields.expect("fields");
+        assert_eq!(
+            serde_json::to_value(&fields).unwrap(),
+            serde_json::json!([
+                {"name":"Plan","id":format_id(root)},
+                {"name":"Opt","id":format_id(intermediate)}
+            ])
+        );
+    }
+
     #[test]
     fn radio_parent_kids_ap_inheritance() {
         let cases = [
