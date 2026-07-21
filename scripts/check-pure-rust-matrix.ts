@@ -1130,6 +1130,20 @@ const outlineLaunchResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const outlineRelativeRemoteResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-outline-relative-remote-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const infoTrappedCustomResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-info-trapped-custom-residual-corpus.json'),
@@ -2208,7 +2222,7 @@ const outlineLaunchResidualWorkflowStart = differentialWorkflow.indexOf(
   'OUTLINE_LAUNCH_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-launch-residual-result.json"'
 );
 const outlineLaunchResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
+  'OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-relative-remote-residual-result.json"',
   outlineLaunchResidualWorkflowStart
 );
 const outlineLaunchResidualWorkflow =
@@ -2217,6 +2231,21 @@ const outlineLaunchResidualWorkflow =
     ? differentialWorkflow.slice(
         outlineLaunchResidualWorkflowStart,
         outlineLaunchResidualWorkflowEnd
+      )
+    : '';
+const outlineRelativeRemoteResidualWorkflowStart = differentialWorkflow.indexOf(
+  'OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-relative-remote-residual-result.json"'
+);
+const outlineRelativeRemoteResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
+  outlineRelativeRemoteResidualWorkflowStart
+);
+const outlineRelativeRemoteResidualWorkflow =
+  outlineRelativeRemoteResidualWorkflowStart >= 0 &&
+  outlineRelativeRemoteResidualWorkflowEnd > outlineRelativeRemoteResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        outlineRelativeRemoteResidualWorkflowStart,
+        outlineRelativeRemoteResidualWorkflowEnd
       )
     : '';
 const infoTrappedCustomResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -9329,6 +9358,121 @@ if (
 ) {
   failures.push(
     'why-rust must document the outline Launch residual and filespec UF preference'
+  );
+}
+
+const outlineRelativeRemoteResidualCaseCount = outlineRelativeRemoteResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes('bun run test:v3014-outline-relative-remote-residual-differential')
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen outline relative-remote residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-outline-relative-remote-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-outline-relative-remote-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OutlineRelativeRemoteResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014OutlineRelativeRemoteResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014OutlineRelativeRemoteResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the outline relative-remote residual family'
+  );
+}
+if (
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    `.caseCount == ${outlineRelativeRemoteResidualCaseCount}`
+  ) ||
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    `.passed == ${outlineRelativeRemoteResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${outlineRelativeRemoteResidualCaseCount}/${outlineRelativeRemoteResidualCaseCount} outline relative-remote residual corpus`
+  );
+}
+if (
+  outlineRelativeRemoteResidualCaseCount !== 3 ||
+  outlineRelativeRemoteResidualCorpus.envelope.fixtureCount !== 3 ||
+  outlineRelativeRemoteResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  outlineRelativeRemoteResidualCorpus.nonclaims.publishFreeze !== true ||
+  outlineRelativeRemoteResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'outline relative-remote residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_outline_relative_remote_residual_result"'
+  ) ||
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 33'
+  ) ||
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    '.providerProof.relativeGotorDropped == true'
+  ) ||
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    '.providerProof.relativeLaunchDropped == true'
+  ) ||
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    '.providerProof.relativeLaunchDestSuppressed == true'
+  ) ||
+  !outlineRelativeRemoteResidualWorkflow.includes(
+    '.capabilityStatus.includeOutline == "PARTIAL"'
+  ) ||
+  !outlineRelativeRemoteResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !outlineRelativeRemoteResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'outline relative-remote residual workflow must bind mutation, provider, and capability proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-outline-relative-remote-residual-differential.ts',
+  'scripts/differential/capture-v3014-outline-relative-remote-residual-oracle.ts',
+  'v3014-outline-relative-remote-residual-baseline-runner.ts',
+  'v3014-outline-relative-remote-residual-projection.ts',
+  'v3014-outline-relative-remote-residual-corpus.json',
+  'v3014-outline-relative-remote-residual-oracle.json',
+  'v3014-outline-relative-gotor-v1.pdf',
+  'v3014-outline-relative-launch-v1.pdf',
+  'v3014-outline-relative-launch-dest-v1.pdf',
+  'v3014OutlineRelativeRemoteResidualCaseCount',
+  'v3014OutlineRelativeRemoteResidualCorpusHash',
+  'v3014OutlineRelativeRemoteResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind outline relative-remote residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('include_outline relative-remote residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_outline relative-remote residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'outline relative-remote residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustOutlineRelativeRemote = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustOutlineRelativeRemote.includes('include_outline relative-remote residual') ||
+  !whyRustOutlineRelativeRemote.includes('Leaf-mutation count is frozen at 33')
+) {
+  failures.push(
+    'why-rust must document the outline relative-remote residual and frozen leaf-mutation count'
   );
 }
 

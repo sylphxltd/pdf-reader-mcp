@@ -193,6 +193,7 @@ jobs:
           bun run test:v3014-outline-named-dest-residual-differential -- --output "${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"
           bun run test:v3014-outline-gotor-residual-differential -- --output "${SCRATCH_DIR}/v3014-outline-gotor-residual-result.json"
           bun run test:v3014-outline-launch-residual-differential -- --output "${SCRATCH_DIR}/v3014-outline-launch-residual-result.json"
+          bun run test:v3014-outline-relative-remote-residual-differential -- --output "${SCRATCH_DIR}/v3014-outline-relative-remote-residual-result.json"
           bun run test:v3014-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"
           bun run test:v3014-text-invalid-as-residual-differential -- --output "${SCRATCH_DIR}/v3014-text-invalid-as-residual-result.json"
           bun run test:v3014-line-annotation-residual-differential -- --output "${SCRATCH_DIR}/v3014-line-annotation-residual-result.json"
@@ -2180,6 +2181,27 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$OUTLINE_LAUNCH_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline Launch residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+          OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-relative-remote-residual-result.json"
+          if [ ! -f "$OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 outline relative-remote residual result missing at $OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_outline_relative_remote_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 33 and
+            .providerProof.relativeGotorDropped == true and
+            .providerProof.relativeLaunchDropped == true and
+            .providerProof.relativeLaunchDestSuppressed == true and
+            .capabilityStatus.includeOutline == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 outline relative-remote residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 
