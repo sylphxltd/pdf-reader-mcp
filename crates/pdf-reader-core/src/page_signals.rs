@@ -731,11 +731,30 @@ fn normalize_annotation(
         .get(b"Dest")
         .ok()
         .and_then(|value| destination(document, value, text_budget));
+    // pdf.js Catalog.parseDestDictionary:
+    // 1) prefer /A action dict
+    // 2) else if /Dest present, treat Dest as the action object (handled via direct_dest)
+    // 3) else fall back to /AA additional-actions, preferring /D then /U
     let action = dict
         .get(b"A")
         .ok()
         .and_then(|value| resolve(document, value).ok())
-        .and_then(|value| value.as_dict().ok());
+        .and_then(|value| value.as_dict().ok())
+        .or_else(|| {
+            if dict.get(b"Dest").is_ok() {
+                return None;
+            }
+            let aa = dict
+                .get(b"AA")
+                .ok()
+                .and_then(|value| resolve(document, value).ok())
+                .and_then(|value| value.as_dict().ok())?;
+            aa.get(b"D")
+                .ok()
+                .or_else(|| aa.get(b"U").ok())
+                .and_then(|value| resolve(document, value).ok())
+                .and_then(|value| value.as_dict().ok())
+        });
     let action_kind = action
         .as_ref()
         .and_then(|action| action.get(b"S").ok())
@@ -745,6 +764,7 @@ fn normalize_annotation(
     // url and suppress dest, and only action-less annotations fall back to /Dest.
     // Launch/GoToR file specs prefer UF over F (pdf.js FileSpec/pickPlatformItem).
     // GoToR appends `#` + remote dest (string name or JSON explicit dest).
+    // AA/D and AA/U are admitted only when /A is absent and /Dest is absent.
     let (dest, url) = match action_kind {
         Some(b"GoTo") => {
             let dest = action
@@ -1726,6 +1746,20 @@ mod tests {
             json!("/Example")
         );
     }
+
+    #[test]
+    fn link_aa_u_uri_projects_url_like_pdfjs() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-link-aa-u-uri-v1.pdf");
+        let document = Document::load(path).expect("load aa/u fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        assert_eq!(
+            signals.annotations[0]["annotations"][0]["url"],
+            json!("https://example.com/aa")
+        );
+    }
+
 
 
     #[test]
