@@ -1004,6 +1004,20 @@ const annotationLinkAaActionResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationLinkAaPrecedenceResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-link-aa-precedence-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -8048,6 +8062,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation link-aa-action residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationLinkAaPrecedenceResidualCaseCount = annotationLinkAaPrecedenceResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-link-aa-precedence-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation link-aa-precedence residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-link-aa-precedence-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-link-aa-precedence-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationLinkAaPrecedenceResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationLinkAaPrecedenceResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationLinkAaPrecedenceResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation link-aa-precedence residual family'
+  );
+}
+if (
+  annotationLinkAaPrecedenceResidualCaseCount !== 3 ||
+  annotationLinkAaPrecedenceResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationLinkAaPrecedenceResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationLinkAaPrecedenceResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationLinkAaPrecedenceResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation link-aa-precedence residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_link_aa_precedence_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.linkAaEIgnored == true') ||
+  !differentialWorkflow.includes('.providerProof.linkDestOverAa == true') ||
+  !differentialWorkflow.includes('.providerProof.linkAaDOverU == true')
+) {
+  failures.push(
+    'annotation link-aa-precedence residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('link-aa-precedence residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('link-aa-precedence residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation link-aa-precedence residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationLinkAaPrecedence = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationLinkAaPrecedence.includes('link-aa-precedence residual') ||
+  !whyRustAnnotationLinkAaPrecedence.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the annotation link-aa-precedence residual and frozen leaf-mutation count'
   );
 }
 
