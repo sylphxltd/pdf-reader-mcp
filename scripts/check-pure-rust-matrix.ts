@@ -976,6 +976,20 @@ const annotationFreetextRectResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationLinkUriNameResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-link-uri-name-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7880,6 +7894,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation freetext-rect residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationLinkUriNameResidualCaseCount = annotationLinkUriNameResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-link-uri-name-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation link-uri-name residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-link-uri-name-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-link-uri-name-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationLinkUriNameResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationLinkUriNameResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationLinkUriNameResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation link-uri-name residual family'
+  );
+}
+if (
+  annotationLinkUriNameResidualCaseCount !== 3 ||
+  annotationLinkUriNameResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationLinkUriNameResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationLinkUriNameResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationLinkUriNameResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation link-uri-name residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_link_uri_name_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.linkUriName == true') ||
+  !differentialWorkflow.includes('.providerProof.linkUriJavascript == true') ||
+  !differentialWorkflow.includes('.providerProof.linkUriRelative == true')
+) {
+  failures.push(
+    'annotation link-uri-name residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('link-uri-name residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('link-uri-name residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation link-uri-name residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationLinkUriName = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationLinkUriName.includes('link-uri-name residual') ||
+  !whyRustAnnotationLinkUriName.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the annotation link-uri-name residual and frozen leaf-mutation count'
   );
 }
 
