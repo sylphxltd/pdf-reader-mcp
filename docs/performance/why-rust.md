@@ -442,6 +442,11 @@ A frozen three-case public-stdio `read_pdf` `include_form_fields` form button-de
 
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form pushbutton-default-null residual is admitted: pdf.js pushbutton fields keep `defaultFieldValue` null when `DV` is missing, even with an `AP/N` named-state dict. Checkbox `AP/N` named-state missing `DV` still defaults to `Off`. Fixtures prove pushbutton AP → `default_value=null`, pushbutton no-AP → `default_value=null`, and checkbox AP regression → `default_value=Off`. Leaf-mutation count is frozen at 45. Pushbutton action/export breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
 
+
+### read_pdf include_form_fields form checkbox-as-value residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_form_fields` form checkbox-as-value residual is admitted: pdf.js checkbox `_processCheckBox` sets `fieldValue` from the `AS` string when `AP/N` is a named-state dict. Without that AP shape, `V` remains authoritative and missing `DV` stays null. Fixtures prove `V=/Yes AS=/Off` → `value=Off`, `V=/Off AS=/Yes` → `value=Yes`, and no-AP `V=/Yes AS=/Off` → `value=Yes` with `default_value=null`. Leaf-mutation count is frozen at 45. Radio AS override breadth, export-value normalization breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.

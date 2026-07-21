@@ -163,6 +163,7 @@ jobs:
           bun run test:v3014-form-button-array-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-button-array-residual-result.json"
           bun run test:v3014-form-button-default-off-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-button-default-off-residual-result.json"
           bun run test:v3014-form-pushbutton-default-null-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-pushbutton-default-null-residual-result.json"
+          bun run test:v3014-form-checkbox-as-value-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-checkbox-as-value-residual-result.json"
           bun run test:v3014-attachment-odd-names-residual-differential -- --output "${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"
           bun run test:v3014-form-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"
           bun run test:v3014-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"
@@ -1621,6 +1622,27 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$FORM_PUSHBUTTON_DEFAULT_NULL_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form pushbutton-default-null residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+
+          FORM_CHECKBOX_AS_VALUE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-checkbox-as-value-residual-result.json"
+          if [ ! -f "$FORM_CHECKBOX_AS_VALUE_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 form checkbox-as-value residual result missing at $FORM_CHECKBOX_AS_VALUE_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_form_checkbox_as_value_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxAsOverridesVOff == true and
+            .providerProof.checkboxAsOverridesVYes == true and
+            .providerProof.checkboxAsNoApKeepsV == true and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$FORM_CHECKBOX_AS_VALUE_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 form checkbox-as-value residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 

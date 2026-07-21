@@ -460,6 +460,18 @@ fn normalize_leaf<'a>(
             }
         }
         Some("checkbox" | "radiobutton" | "button") => {
+            // pdf.js _processCheckBox: when AP/N is a named-state dict, AS string
+            // overwrites fieldValue before export-value normalization.
+            if field_type.as_deref() == Some("checkbox")
+                && button_has_named_normal_appearance(walker, dict)
+            {
+                if let Some(as_value) = dict.get(b"AS").ok().and_then(|v| form_value(walker, v)) {
+                    match &as_value {
+                        Value::String(s) if !s.is_empty() => value = Some(as_value),
+                        _ => {}
+                    }
+                }
+            }
             // pdf.js getFieldObjects keeps non-empty button V/DV arrays as string
             // arrays; only missing/null/empty/non-string non-array values collapse
             // to the public "Off" sentinel.
@@ -1448,6 +1460,51 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn checkbox_as_overrides_v_when_named_normal_appearance() {
+        let cases = [
+            (
+                "v3014-form-checkbox-as-overrides-v-off-v1.pdf",
+                "Off",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-checkbox-as-overrides-v-yes-v1.pdf",
+                "Yes",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-checkbox-as-noap-keeps-v-v1.pdf",
+                "Yes",
+                serde_json::Value::Null,
+            ),
+        ];
+        for (fixture, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load checkbox AS fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 1, "fixture {fixture}");
+            let field = &fields[0];
+            assert_eq!(field.name, "Agree", "fixture {fixture}");
+            assert_eq!(field.r#type.as_deref(), Some("checkbox"), "fixture {fixture}");
+            assert_eq!(
+                serde_json::to_value(&field.value).unwrap(),
+                serde_json::json!(value),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.default_value).unwrap(),
+                default_value,
+                "fixture {fixture}"
+            );
+        }
+    }
+
 
 
 }
