@@ -1614,4 +1614,53 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn radio_as_does_not_override_v() {
+        let cases = [
+            (
+                "v3014-form-radio-as-does-not-override-v-v1.pdf",
+                "radiobutton",
+                "Gold",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-radio-as-invalid-keeps-v-v1.pdf",
+                "radiobutton",
+                "Gold",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-radio-checkbox-as-regression-v1.pdf",
+                "checkbox",
+                "Off",
+                serde_json::json!("Off"),
+            ),
+        ];
+        for (fixture, field_type, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load radio as residual fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 1, "fixture {fixture}");
+            let field = &fields[0];
+            assert_eq!(
+                field.r#type.as_deref(),
+                Some(field_type),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.value).unwrap(),
+                serde_json::json!(value),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.default_value).unwrap(),
+                default_value,
+                "fixture {fixture}"
+            );
+        }
+    }
 }

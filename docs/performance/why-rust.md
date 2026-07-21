@@ -453,6 +453,12 @@ A frozen three-case public-stdio `read_pdf` `include_form_fields` form checkbox-
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form checkbox-export-normalize residual is admitted: pdf.js checkbox `_processCheckBox` builds `exportValues` from `AP/N` named-state keys and forces `fieldValue` to `Off` when the post-AS value is not an admitted export value. Fixtures prove invalid `AS=/Maybe` with `Off/Yes` export keys → `value=Off`, AP/N only-`Off` key with `AS=/Yes` → `value=Yes`, and valid `AS=/Off` → `value=Off`. Leaf-mutation count is frozen at 45. Radio export-normalize breadth, multi-export option breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
 
 
+
+### read_pdf include_form_fields form radio-as-no-override residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-as-no-override residual is admitted: pdf.js radio `_processRadioButton` does not apply checkbox `AS` overwrite or `exportValues` force-`Off`, so `V` remains authoritative for radiobutton widgets. Fixtures prove radiobutton `V=/Gold AS=/Silver` → `value=Gold`, radiobutton invalid `AS=/Maybe` → `value=Gold`, and checkbox `AS=/Off` regression → `value=Off`. Leaf-mutation count is frozen at 45. Radio parent/kids AS breadth, radio exportValues materialization, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
+
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
