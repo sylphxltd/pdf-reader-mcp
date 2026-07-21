@@ -906,6 +906,20 @@ const formRadioDeeperKidsApResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formRadioBrokenParentChainResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-radio-broken-parent-chain-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7459,6 +7473,77 @@ if (
 ) {
   failures.push(
     'why-rust must document the form radio-deeper-kids-ap residual and frozen leaf-mutation count'
+  );
+}
+
+const formRadioBrokenParentChainResidualCaseCount = formRadioBrokenParentChainResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-radio-broken-parent-chain-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form radio-broken-parent-chain residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-radio-broken-parent-chain-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-radio-broken-parent-chain-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormRadioBrokenParentChainResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormRadioBrokenParentChainResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormRadioBrokenParentChainResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form radio-broken-parent-chain residual family'
+  );
+}
+if (
+  formRadioBrokenParentChainResidualCaseCount !== 3 ||
+  formRadioBrokenParentChainResidualCorpus.envelope.fixtureCount !== 3 ||
+  formRadioBrokenParentChainResidualCorpus.envelope.maxFieldsPerCase !== 2 ||
+  formRadioBrokenParentChainResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formRadioBrokenParentChainResidualCorpus.nonclaims.publishFreeze !== true ||
+  formRadioBrokenParentChainResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form radio-broken-parent-chain residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_radio_broken_parent_chain_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.radioBrokenParentApStream == true') ||
+  !differentialWorkflow.includes('.providerProof.radioBrokenParentApnStream == true') ||
+  !differentialWorkflow.includes('.providerProof.radioBrokenParentApNamed == true')
+) {
+  failures.push(
+    'form radio-broken-parent-chain residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('radio-broken-parent-chain residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('radio-broken-parent-chain residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form radio-broken-parent-chain residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormRadioBrokenParentChain = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormRadioBrokenParentChain.includes('radio-broken-parent-chain residual') ||
+  !whyRustFormRadioBrokenParentChain.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form radio-broken-parent-chain residual and frozen leaf-mutation count'
   );
 }
 

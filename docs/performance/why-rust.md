@@ -499,6 +499,10 @@ A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-par
 
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-deeper-kids-ap residual is admitted: pdf.js radio deeper kids nesting inherits parent `V` across an intermediate named group with Parent links; kid `AS` does not override; default-`Off` only when leaf `AP/N` is a named-state dict. Fixtures prove root `Plan` and intermediate `Plan.Opt` stubs remain type/value null, leaves with `AP` stream → `value=Gold`/`default_value=null`, leaves with `AP/N` stream → `value=Gold`/`default_value=null`, and leaves with named `AP/N` → `value=Gold`/`default_value=Off`. Leaf-mutation count is frozen at 90. Broken parent-chain intermediate breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
 
+### read_pdf include_form_fields form radio-broken-parent-chain residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_form_fields` form radio-broken-parent-chain residual is admitted: when a radio intermediate group lacks a Parent link to the radio root, pdf.js drops leaf widgets (no inheritable `FT`) and names the intermediate via Parent-chain construction only (`Opt`, not `Plan.Opt`). Root `Plan` stub remains across AP stream / AP/N stream / named AP/N variants. Rust form extraction matches by using Parent-chain name construction and Parent-chain `FT`/`V`/`Ff`/`DV` inheritance instead of Kids-path downward inheritance. Leaf-mutation count is frozen at 24. Malformed-field breadth and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
+
 ### search_pdf prefer_speed tools/list (post-3.0.14 additive surface)
 
 Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3.0.14 additive boolean property matching the current TypeScript surface. Frozen v3.0.14 input-schema ranges/enums remain enforced; `prefer_speed` is not a detached v3.0.14 residual claim. `prefer_speed` remains `PARTIAL`; `dropInFor3014` stays false and publish freeze remains enabled.
