@@ -76,6 +76,7 @@ V3014_FORM_CHECKBOX_EXPORT_EMPTY_SINGLE_RESIDUAL_JSON="$SCRATCH/v3014-form-check
 V3014_FORM_CHECKBOX_MALFORMED_AP_RESIDUAL_JSON="$SCRATCH/v3014-form-checkbox-malformed-ap-residual-result.json"
 V3014_FORM_RADIO_MALFORMED_AP_RESIDUAL_JSON="$SCRATCH/v3014-form-radio-malformed-ap-residual-result.json"
 V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_JSON="$SCRATCH/v3014-form-radio-parent-kids-ap-residual-result.json"
+V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_JSON="$SCRATCH/v3014-form-radio-deeper-kids-ap-residual-result.json"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON="$SCRATCH/v3014-attachment-odd-names-residual-result.json"
 V3014_FORM_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-form-utf16-text-residual-result.json"
 V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
@@ -409,6 +410,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-form-radio-malformed-ap-residua
 bun "$REPO_ROOT/scripts/differential/capture-v3014-form-radio-parent-kids-ap-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-form-radio-parent-kids-ap-residual-differential.ts" \
   --output "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-form-radio-deeper-kids-ap-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-form-radio-deeper-kids-ap-residual-differential.ts" \
+  --output "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-attachment-odd-names-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts" \
   --output "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON" >>"$LOG"
@@ -866,6 +870,10 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/v3014-form-radio-parent-kids-ap-residual-projection.ts" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-form-radio-parent-kids-ap-residual-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-form-radio-parent-kids-ap-residual-oracle.json" \
+  "$REPO_ROOT/scripts/differential/v3014-form-radio-deeper-kids-ap-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-form-radio-deeper-kids-ap-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-radio-deeper-kids-ap-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-form-radio-deeper-kids-ap-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-kids-ap-stream-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-kids-apn-stream-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-kids-ap-named-v1.pdf" \
@@ -1379,6 +1387,11 @@ V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_RAD
 V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_JSON")"
 V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_JSON")"
 V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_JSON")"
+V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_JSON")"
+V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_JSON")"
+V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_JSON")"
+V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_JSON")"
+V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
@@ -1645,6 +1658,8 @@ jq -n \
   --arg v3014FormRadioMalformedApResidualOracleHash "$V3014_FORM_RADIO_MALFORMED_AP_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormRadioParentKidsApResidualCorpusHash "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_CORPUS_HASH" \
   --arg v3014FormRadioParentKidsApResidualOracleHash "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ORACLE_HASH" \
+  --arg v3014FormRadioDeeperKidsApResidualCorpusHash "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_CORPUS_HASH" \
+  --arg v3014FormRadioDeeperKidsApResidualOracleHash "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_ORACLE_HASH" \
   --arg v3014AttachmentOddNamesResidualCorpusHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CORPUS_HASH" \
   --arg v3014AttachmentOddNamesResidualOracleHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormUtf16TextResidualCorpusHash "$V3014_FORM_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
@@ -1900,6 +1915,9 @@ jq -n \
   --argjson v3014FormRadioParentKidsApResidualCaseCount "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_CASE_COUNT" \
   --argjson v3014FormRadioParentKidsApResidualPassed "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_PASSED" \
   --argjson v3014FormRadioParentKidsApResidualSkipped "$V3014_FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_SKIPPED" \
+  --argjson v3014FormRadioDeeperKidsApResidualCaseCount "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_CASE_COUNT" \
+  --argjson v3014FormRadioDeeperKidsApResidualPassed "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_PASSED" \
+  --argjson v3014FormRadioDeeperKidsApResidualSkipped "$V3014_FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_SKIPPED" \
   --argjson v3014AttachmentOddNamesResidualCaseCount "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT" \
   --argjson v3014AttachmentOddNamesResidualPassed "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED" \
   --argjson v3014AttachmentOddNamesResidualSkipped "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED" \
@@ -2243,6 +2261,8 @@ jq -n \
     v3014FormRadioMalformedApResidualOracleHash: $v3014FormRadioMalformedApResidualOracleHash,
     v3014FormRadioParentKidsApResidualCorpusHash: $v3014FormRadioParentKidsApResidualCorpusHash,
     v3014FormRadioParentKidsApResidualOracleHash: $v3014FormRadioParentKidsApResidualOracleHash,
+    v3014FormRadioDeeperKidsApResidualCorpusHash: $v3014FormRadioDeeperKidsApResidualCorpusHash,
+    v3014FormRadioDeeperKidsApResidualOracleHash: $v3014FormRadioDeeperKidsApResidualOracleHash,
     v3014AttachmentOddNamesResidualCorpusHash: $v3014AttachmentOddNamesResidualCorpusHash,
     v3014AttachmentOddNamesResidualOracleHash: $v3014AttachmentOddNamesResidualOracleHash,
     v3014FormUtf16TextResidualCorpusHash: $v3014FormUtf16TextResidualCorpusHash,
@@ -2442,6 +2462,8 @@ jq -n \
     immutableFormRadioMalformedApResidualDifferential: "scripts/differential/check-v3014-form-radio-malformed-ap-residual-differential.ts",
     immutableFormRadioParentKidsApResidualOracle: "scripts/differential/fixtures/v3014-form-radio-parent-kids-ap-residual-oracle.json",
     immutableFormRadioParentKidsApResidualDifferential: "scripts/differential/check-v3014-form-radio-parent-kids-ap-residual-differential.ts",
+    immutableFormRadioDeeperKidsApResidualOracle: "scripts/differential/fixtures/v3014-form-radio-deeper-kids-ap-residual-oracle.json",
+    immutableFormRadioDeeperKidsApResidualDifferential: "scripts/differential/check-v3014-form-radio-deeper-kids-ap-residual-differential.ts",
     immutableAttachmentOddNamesResidualOracle: "scripts/differential/fixtures/v3014-attachment-odd-names-residual-oracle.json",
     immutableAttachmentOddNamesResidualDifferential: "scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts",
     immutableFormUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-form-utf16-text-residual-oracle.json",

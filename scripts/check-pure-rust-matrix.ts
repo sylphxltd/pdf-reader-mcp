@@ -892,6 +892,20 @@ const formRadioParentKidsApResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formRadioDeeperKidsApResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-radio-deeper-kids-ap-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7373,6 +7387,78 @@ if (
 ) {
   failures.push(
     'why-rust must document the form radio-parent-kids-ap residual and frozen leaf-mutation count'
+  );
+}
+
+const formRadioDeeperKidsApResidualCaseCount = formRadioDeeperKidsApResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-radio-deeper-kids-ap-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form radio-deeper-kids-ap residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-radio-deeper-kids-ap-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-radio-deeper-kids-ap-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormRadioDeeperKidsApResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormRadioDeeperKidsApResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormRadioDeeperKidsApResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form radio-deeper-kids-ap residual family'
+  );
+}
+if (
+  formRadioDeeperKidsApResidualCaseCount !== 3 ||
+  formRadioDeeperKidsApResidualCorpus.envelope.fixtureCount !== 3 ||
+  formRadioDeeperKidsApResidualCorpus.envelope.maxFieldsPerCase !== 4 ||
+  formRadioDeeperKidsApResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formRadioDeeperKidsApResidualCorpus.nonclaims.publishFreeze !== true ||
+  formRadioDeeperKidsApResidualCorpus.nonclaims.wholeProductParity !== false ||
+  formRadioDeeperKidsApResidualCorpus.nonclaims.brokenParentChainIntermediate !== false
+) {
+  failures.push(
+    'form radio-deeper-kids-ap residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_radio_deeper_kids_ap_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.radioDeeperKidsApStream == true') ||
+  !differentialWorkflow.includes('.providerProof.radioDeeperKidsApnStream == true') ||
+  !differentialWorkflow.includes('.providerProof.radioDeeperKidsApNamed == true')
+) {
+  failures.push(
+    'form radio-deeper-kids-ap residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('radio-deeper-kids-ap residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('radio-deeper-kids-ap residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form radio-deeper-kids-ap residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormRadioDeeperKidsAp = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormRadioDeeperKidsAp.includes('radio-deeper-kids-ap residual') ||
+  !whyRustFormRadioDeeperKidsAp.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form radio-deeper-kids-ap residual and frozen leaf-mutation count'
   );
 }
 
