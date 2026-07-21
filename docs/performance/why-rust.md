@@ -265,6 +265,11 @@ A frozen two-case public-stdio `read_pdf` `include_metadata` presence residual i
 
 A frozen two-case public-stdio `read_pdf` `include_metadata` info-extras residual is admitted: `data.info` key sets match pdf.js `getMetadata().info` with no rust-only extras (`text_chars`, nested `route`, nested `num_pages`) for AcroForm+Lang and plain catalogs, while top-level `num_pages` remains separate. Leaf-mutation count is frozen at 60 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; XMP key/value parsing, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf include_metadata info trapped-custom residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_metadata` info trapped-custom residual is admitted: pdf.js `getMetadata().info` projects `Trapped` Name as `{name}` and non-standard Info keys under `Custom` (string/number/boolean/Name). Leaf-mutation count is frozen at 48 with relocated fixture-root replay. XMP key/value parsing, keywords array coercion, info beyond Trapped/Custom breadth, and whole-product parity remain unclaimed; `include_metadata` remains `PARTIAL`. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### read_pdf include_metadata encrypt-filter residual (frozen TS v3.0.14)
 
 A frozen two-case public-stdio `read_pdf` `include_metadata` encrypt-filter residual is admitted: empty-user-password Standard-encrypted PDFs expose `EncryptFilterName=Standard`, and unencrypted PDFs keep `EncryptFilterName` null, matching pdf.js `getMetadata().info`. Leaf-mutation count is frozen at 18 with relocated fixture-root replay. `include_metadata` remains `PARTIAL`; non-Standard security handlers, non-empty user password, linearized-true, signatures-true, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.

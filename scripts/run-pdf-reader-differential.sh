@@ -91,6 +91,7 @@ V3014_FORM_TEXT_MULTILINE_RESIDUAL_JSON="$SCRATCH/v3014-form-text-multiline-resi
 V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-contents-multiline-residual-result.json"
 V3014_OUTLINE_CYCLE_RESIDUAL_JSON="$SCRATCH/v3014-outline-cycle-residual-result.json"
 V3014_OUTLINE_NAMED_DEST_RESIDUAL_JSON="$SCRATCH/v3014-outline-named-dest-residual-result.json"
+V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON="$SCRATCH/v3014-info-trapped-custom-residual-result.json"
 V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
 V3014_TEXT_INVALID_AS_RESIDUAL_JSON="$SCRATCH/v3014-text-invalid-as-residual-result.json"
 V3014_LINE_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-line-annotation-residual-result.json"
@@ -467,6 +468,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-outline-cycle-residual-differen
 bun "$REPO_ROOT/scripts/differential/capture-v3014-outline-named-dest-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-outline-named-dest-residual-differential.ts" \
   --output "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-info-trapped-custom-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts" \
+  --output "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-utf16-text-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-utf16-text-residual-differential.ts" \
   --output "$V3014_UTF16_TEXT_RESIDUAL_JSON" >>"$LOG"
@@ -1011,6 +1015,15 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-outline-named-dest-string-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-outline-named-dest-token-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-outline-named-dest-goto-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts" \
+  "$REPO_ROOT/scripts/differential/capture-v3014-info-trapped-custom-residual-oracle.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-info-trapped-custom-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-info-trapped-custom-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-info-trapped-custom-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-info-trapped-custom-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-info-trapped-true-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-info-trapped-false-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-info-custom-mixed-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-utf8-bom-v1.pdf" \
   "$REPO_ROOT/scripts/differential/v3014-utf16-text-residual-baseline-runner.ts" \
   "$REPO_ROOT/scripts/differential/v3014-utf16-text-residual-projection.ts" \
@@ -1578,6 +1591,11 @@ V3014_OUTLINE_NAMED_DEST_RESIDUAL_PASSED="$(jq '.passed' "$V3014_OUTLINE_NAMED_D
 V3014_OUTLINE_NAMED_DEST_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_JSON")"
 V3014_OUTLINE_NAMED_DEST_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_JSON")"
 V3014_OUTLINE_NAMED_DEST_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_JSON")"
+V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
+V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_PASSED="$(jq '.passed' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
+V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
+V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
+V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
@@ -1864,6 +1882,8 @@ jq -n \
   --arg v3014OutlineCycleResidualOracleHash "$V3014_OUTLINE_CYCLE_RESIDUAL_ORACLE_HASH" \
   --arg v3014OutlineNamedDestResidualCorpusHash "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_CORPUS_HASH" \
   --arg v3014OutlineNamedDestResidualOracleHash "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_ORACLE_HASH" \
+  --arg v3014InfoTrappedCustomResidualCorpusHash "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_CORPUS_HASH" \
+  --arg v3014InfoTrappedCustomResidualOracleHash "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_ORACLE_HASH" \
   --arg v3014Utf16TextResidualCorpusHash "$V3014_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
   --arg v3014Utf16TextResidualOracleHash "$V3014_UTF16_TEXT_RESIDUAL_ORACLE_HASH" \
   --arg v3014TextInvalidAsResidualCorpusHash "$V3014_TEXT_INVALID_AS_RESIDUAL_CORPUS_HASH" \
@@ -2160,6 +2180,9 @@ jq -n \
   --argjson v3014OutlineNamedDestResidualCaseCount "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_CASE_COUNT" \
   --argjson v3014OutlineNamedDestResidualPassed "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_PASSED" \
   --argjson v3014OutlineNamedDestResidualSkipped "$V3014_OUTLINE_NAMED_DEST_RESIDUAL_SKIPPED" \
+  --argjson v3014InfoTrappedCustomResidualCaseCount "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_CASE_COUNT" \
+  --argjson v3014InfoTrappedCustomResidualPassed "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_PASSED" \
+  --argjson v3014InfoTrappedCustomResidualSkipped "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_SKIPPED" \
   --argjson v3014Utf16TextResidualCaseCount "$V3014_UTF16_TEXT_RESIDUAL_CASE_COUNT" \
   --argjson v3014Utf16TextResidualPassed "$V3014_UTF16_TEXT_RESIDUAL_PASSED" \
   --argjson v3014Utf16TextResidualSkipped "$V3014_UTF16_TEXT_RESIDUAL_SKIPPED" \
@@ -2527,6 +2550,8 @@ jq -n \
     v3014OutlineCycleResidualOracleHash: $v3014OutlineCycleResidualOracleHash,
     v3014OutlineNamedDestResidualCorpusHash: $v3014OutlineNamedDestResidualCorpusHash,
     v3014OutlineNamedDestResidualOracleHash: $v3014OutlineNamedDestResidualOracleHash,
+    v3014InfoTrappedCustomResidualCorpusHash: $v3014InfoTrappedCustomResidualCorpusHash,
+    v3014InfoTrappedCustomResidualOracleHash: $v3014InfoTrappedCustomResidualOracleHash,
     v3014Utf16TextResidualCorpusHash: $v3014Utf16TextResidualCorpusHash,
     v3014Utf16TextResidualOracleHash: $v3014Utf16TextResidualOracleHash,
     v3014TextInvalidAsResidualCorpusHash: $v3014TextInvalidAsResidualCorpusHash,
@@ -2752,6 +2777,8 @@ jq -n \
     immutableOutlineCycleResidualDifferential: "scripts/differential/check-v3014-outline-cycle-residual-differential.ts",
     immutableOutlineNamedDestResidualOracle: "scripts/differential/fixtures/v3014-outline-named-dest-residual-oracle.json",
     immutableOutlineNamedDestResidualDifferential: "scripts/differential/check-v3014-outline-named-dest-residual-differential.ts",
+    immutableInfoTrappedCustomResidualOracle: "scripts/differential/fixtures/v3014-info-trapped-custom-residual-oracle.json",
+    immutableInfoTrappedCustomResidualDifferential: "scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts",
     immutableUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-utf16-text-residual-oracle.json",
     immutableUtf16TextResidualDifferential: "scripts/differential/check-v3014-utf16-text-residual-differential.ts",
     immutableTextInvalidAsResidualOracle: "scripts/differential/fixtures/v3014-text-invalid-as-residual-oracle.json",

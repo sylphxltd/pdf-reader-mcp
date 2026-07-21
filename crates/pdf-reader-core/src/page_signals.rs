@@ -1760,8 +1760,6 @@ mod tests {
         );
     }
 
-
-
     #[test]
     fn group_text_and_popup_inherit_irt_title_and_contents() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
