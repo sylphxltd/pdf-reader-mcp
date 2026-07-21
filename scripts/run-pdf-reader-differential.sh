@@ -93,6 +93,7 @@ V3014_OUTLINE_CYCLE_RESIDUAL_JSON="$SCRATCH/v3014-outline-cycle-residual-result.
 V3014_OUTLINE_NAMED_DEST_RESIDUAL_JSON="$SCRATCH/v3014-outline-named-dest-residual-result.json"
 V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_JSON="$SCRATCH/v3014-info-trapped-custom-residual-result.json"
 V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_JSON="$SCRATCH/v3014-page-geometry-inheritance-residual-result.json"
+V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON="$SCRATCH/v3014-page-geometry-depth-clamp-residual-result.json"
 V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
 V3014_TEXT_INVALID_AS_RESIDUAL_JSON="$SCRATCH/v3014-text-invalid-as-residual-result.json"
 V3014_LINE_ANNOTATION_RESIDUAL_JSON="$SCRATCH/v3014-line-annotation-residual-result.json"
@@ -475,6 +476,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-info-trapped-custom-residual-di
 bun "$REPO_ROOT/scripts/differential/capture-v3014-page-geometry-inheritance-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-page-geometry-inheritance-residual-differential.ts" \
   --output "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-page-geometry-depth-clamp-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-page-geometry-depth-clamp-residual-differential.ts" \
+  --output "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-utf16-text-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-utf16-text-residual-differential.ts" \
   --output "$V3014_UTF16_TEXT_RESIDUAL_JSON" >>"$LOG"
@@ -1037,6 +1041,15 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-inherited-rotate-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-inherited-crop-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-negative-rotate-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/check-v3014-page-geometry-depth-clamp-residual-differential.ts" \
+  "$REPO_ROOT/scripts/differential/capture-v3014-page-geometry-depth-clamp-residual-oracle.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-page-geometry-depth-clamp-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-page-geometry-depth-clamp-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-page-geometry-depth-clamp-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-page-geometry-depth-clamp-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-deeper-inherit-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-non-right-angle-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-page-geometry-crop-intersect-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-utf8-bom-v1.pdf" \
   "$REPO_ROOT/scripts/differential/v3014-utf16-text-residual-baseline-runner.ts" \
   "$REPO_ROOT/scripts/differential/v3014-utf16-text-residual-projection.ts" \
@@ -1614,6 +1627,11 @@ V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_PAGE_GEO
 V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_JSON")"
 V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_JSON")"
 V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_JSON")"
+V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON")"
+V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_PASSED="$(jq '.passed' "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON")"
+V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON")"
+V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON")"
+V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_UTF16_TEXT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_UTF16_TEXT_RESIDUAL_JSON")"
@@ -1904,6 +1922,8 @@ jq -n \
   --arg v3014InfoTrappedCustomResidualOracleHash "$V3014_INFO_TRAPPED_CUSTOM_RESIDUAL_ORACLE_HASH" \
   --arg v3014PageGeometryInheritanceResidualCorpusHash "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_CORPUS_HASH" \
   --arg v3014PageGeometryInheritanceResidualOracleHash "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ORACLE_HASH" \
+  --arg v3014PageGeometryDepthClampResidualCorpusHash "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_CORPUS_HASH" \
+  --arg v3014PageGeometryDepthClampResidualOracleHash "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_ORACLE_HASH" \
   --arg v3014Utf16TextResidualCorpusHash "$V3014_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
   --arg v3014Utf16TextResidualOracleHash "$V3014_UTF16_TEXT_RESIDUAL_ORACLE_HASH" \
   --arg v3014TextInvalidAsResidualCorpusHash "$V3014_TEXT_INVALID_AS_RESIDUAL_CORPUS_HASH" \
@@ -2206,6 +2226,9 @@ jq -n \
   --argjson v3014PageGeometryInheritanceResidualCaseCount "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_CASE_COUNT" \
   --argjson v3014PageGeometryInheritanceResidualPassed "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_PASSED" \
   --argjson v3014PageGeometryInheritanceResidualSkipped "$V3014_PAGE_GEOMETRY_INHERITANCE_RESIDUAL_SKIPPED" \
+  --argjson v3014PageGeometryDepthClampResidualCaseCount "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_CASE_COUNT" \
+  --argjson v3014PageGeometryDepthClampResidualPassed "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_PASSED" \
+  --argjson v3014PageGeometryDepthClampResidualSkipped "$V3014_PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_SKIPPED" \
   --argjson v3014Utf16TextResidualCaseCount "$V3014_UTF16_TEXT_RESIDUAL_CASE_COUNT" \
   --argjson v3014Utf16TextResidualPassed "$V3014_UTF16_TEXT_RESIDUAL_PASSED" \
   --argjson v3014Utf16TextResidualSkipped "$V3014_UTF16_TEXT_RESIDUAL_SKIPPED" \
@@ -2577,6 +2600,8 @@ jq -n \
     v3014InfoTrappedCustomResidualOracleHash: $v3014InfoTrappedCustomResidualOracleHash,
     v3014PageGeometryInheritanceResidualCorpusHash: $v3014PageGeometryInheritanceResidualCorpusHash,
     v3014PageGeometryInheritanceResidualOracleHash: $v3014PageGeometryInheritanceResidualOracleHash,
+    v3014PageGeometryDepthClampResidualCorpusHash: $v3014PageGeometryDepthClampResidualCorpusHash,
+    v3014PageGeometryDepthClampResidualOracleHash: $v3014PageGeometryDepthClampResidualOracleHash,
     v3014Utf16TextResidualCorpusHash: $v3014Utf16TextResidualCorpusHash,
     v3014Utf16TextResidualOracleHash: $v3014Utf16TextResidualOracleHash,
     v3014TextInvalidAsResidualCorpusHash: $v3014TextInvalidAsResidualCorpusHash,
@@ -2806,6 +2831,8 @@ jq -n \
     immutableInfoTrappedCustomResidualDifferential: "scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts",
     immutablePageGeometryInheritanceResidualOracle: "scripts/differential/fixtures/v3014-page-geometry-inheritance-residual-oracle.json",
     immutablePageGeometryInheritanceResidualDifferential: "scripts/differential/check-v3014-page-geometry-inheritance-residual-differential.ts",
+    immutablePageGeometryDepthClampResidualOracle: "scripts/differential/fixtures/v3014-page-geometry-depth-clamp-residual-oracle.json",
+    immutablePageGeometryDepthClampResidualDifferential: "scripts/differential/check-v3014-page-geometry-depth-clamp-residual-differential.ts",
     immutableUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-utf16-text-residual-oracle.json",
     immutableUtf16TextResidualDifferential: "scripts/differential/check-v3014-utf16-text-residual-differential.ts",
     immutableTextInvalidAsResidualOracle: "scripts/differential/fixtures/v3014-text-invalid-as-residual-oracle.json",
