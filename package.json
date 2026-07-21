@@ -194,7 +194,8 @@
     "test:v3014-annotation-ap-named-state-square-circle-residual-differential": "bun scripts/differential/check-v3014-annotation-ap-named-state-square-circle-residual-differential.ts",
     "test:v3014-annotation-highlight-quadpoints-residual-differential": "bun scripts/differential/check-v3014-annotation-highlight-quadpoints-residual-differential.ts",
     "test:v3014-annotation-text-markup-quadpoints-residual-differential": "bun scripts/differential/check-v3014-annotation-text-markup-quadpoints-residual-differential.ts",
-    "test:v3014-annotation-text-markup-with-ap-residual-differential": "bun scripts/differential/check-v3014-annotation-text-markup-with-ap-residual-differential.ts"
+    "test:v3014-annotation-text-markup-with-ap-residual-differential": "bun scripts/differential/check-v3014-annotation-text-markup-with-ap-residual-differential.ts",
+    "test:v3014-annotation-stamp-caret-file-residual-differential": "bun scripts/differential/check-v3014-annotation-stamp-caret-file-residual-differential.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
