@@ -457,6 +457,10 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` link-uri-name 
 
 A frozen three-case public-stdio `read_pdf` `include_annotations` link-aa-action residual is admitted: when Link has no `/A` and no `/Dest`, pdf.js `parseDestDictionary` falls back to `/AA` additional-actions preferring `/D` then `/U`. AA/U URI projects `url`, AA/D GoTo projects `dest`, and present `/A` wins over `/AA`. Leaf-mutation count is frozen at 39. AA other triggers, relative URL `docBaseUrl` breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
+### read_pdf include_annotations link-aa-precedence residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` link-aa-precedence residual is admitted: pdf.js `parseDestDictionary` AA fallback ignores non-D/U triggers (`AA/E` alone projects no url), `/Dest` presence suppresses AA fallback, and `AA/D` is preferred over `AA/U` when both exist. Leaf-mutation count is frozen at 38. AA other triggers breadth, relative URL `docBaseUrl` breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### read_pdf include_form_fields form button-default-off residual (frozen TS v3.0.14)
 
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form button-default-off residual is admitted: pdf.js `ButtonWidgetAnnotation` sets `defaultFieldValue` to `Off` when `DV` is null and `AP/N` is a named-state dict (checkbox/radiobutton). Without that `AP/N` shape, missing `DV` remains null. Fixtures prove checkbox AP → `default_value=Off`, radiobutton AP → `default_value=Off`, and checkbox no-AP → `default_value=null`. Leaf-mutation count is frozen at 45. Pushbutton AP default-off breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.
