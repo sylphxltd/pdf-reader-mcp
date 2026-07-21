@@ -850,6 +850,20 @@ const formCheckboxExportEmptySingleResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formCheckboxMalformedApResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-checkbox-malformed-ap-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7121,6 +7135,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form checkbox-export-empty-single residual and frozen leaf-mutation count'
+  );
+}
+
+const formCheckboxMalformedApResidualCaseCount = formCheckboxMalformedApResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-checkbox-malformed-ap-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form checkbox-malformed-ap residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-checkbox-malformed-ap-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-checkbox-malformed-ap-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormCheckboxMalformedApResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormCheckboxMalformedApResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormCheckboxMalformedApResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form checkbox-malformed-ap residual family'
+  );
+}
+if (
+  formCheckboxMalformedApResidualCaseCount !== 3 ||
+  formCheckboxMalformedApResidualCorpus.envelope.fixtureCount !== 3 ||
+  formCheckboxMalformedApResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formCheckboxMalformedApResidualCorpus.nonclaims.publishFreeze !== true ||
+  formCheckboxMalformedApResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form checkbox-malformed-ap residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_checkbox_malformed_ap_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.checkboxApStreamKeepsV == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxApnStreamKeepsV == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxApNamedAsOff == true')
+) {
+  failures.push(
+    'form checkbox-malformed-ap residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('checkbox-malformed-ap residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('checkbox-malformed-ap residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form checkbox-malformed-ap residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormCheckboxMalformedAp = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormCheckboxMalformedAp.includes('checkbox-malformed-ap residual') ||
+  !whyRustFormCheckboxMalformedAp.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form checkbox-malformed-ap residual and frozen leaf-mutation count'
   );
 }
 
