@@ -86,6 +86,7 @@ V3014_ANNOTATION_LINK_URI_NAME_RESIDUAL_JSON="$SCRATCH/v3014-annotation-link-uri
 V3014_ANNOTATION_LINK_AA_ACTION_RESIDUAL_JSON="$SCRATCH/v3014-annotation-link-aa-action-residual-result.json"
 V3014_ANNOTATION_LINK_AA_PRECEDENCE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-link-aa-precedence-residual-result.json"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON="$SCRATCH/v3014-attachment-odd-names-residual-result.json"
+V3014_ATTACHMENT_DUPKIDS_RESIDUAL_JSON="$SCRATCH/v3014-attachment-dupkids-residual-result.json"
 V3014_FORM_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-form-utf16-text-residual-result.json"
 V3014_FORM_TEXT_MULTILINE_RESIDUAL_JSON="$SCRATCH/v3014-form-text-multiline-residual-result.json"
 V3014_ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-contents-multiline-residual-result.json"
@@ -459,6 +460,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-link-aa-precedence-r
 bun "$REPO_ROOT/scripts/differential/capture-v3014-attachment-odd-names-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts" \
   --output "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-attachment-dupkids-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-attachment-dupkids-residual-differential.ts" \
+  --output "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-form-utf16-text-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-form-utf16-text-residual-differential.ts" \
   --output "$V3014_FORM_UTF16_TEXT_RESIDUAL_JSON" >>"$LOG"
@@ -695,6 +699,15 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-attachment-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-attachment-kids-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-attachment-filename-v1.pdf" \
+  "$REPO_ROOT/scripts/differential/check-v3014-attachment-dupkids-residual-differential.ts" \
+  "$REPO_ROOT/scripts/differential/capture-v3014-attachment-dupkids-residual-oracle.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-attachment-dupkids-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-attachment-dupkids-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-attachment-dupkids-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-attachment-dupkids-residual-oracle.json" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-attachment-dupkids-control-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-attachment-dupkids-duplicate-v1.pdf" \
+  "$REPO_ROOT/test/fixtures/differential/v3014-attachment-dupkids-cycle-v1.pdf" \
   "$REPO_ROOT/scripts/differential/v3014-markinfo-residual-baseline-runner.ts" \
   "$REPO_ROOT/scripts/differential/v3014-markinfo-residual-projection.ts" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-markinfo-residual-corpus.json" \
@@ -1644,6 +1657,11 @@ V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ATTACHMENT_OD
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
+V3014_ATTACHMENT_DUPKIDS_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_JSON")"
+V3014_ATTACHMENT_DUPKIDS_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_JSON")"
+V3014_ATTACHMENT_DUPKIDS_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_JSON")"
+V3014_ATTACHMENT_DUPKIDS_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_JSON")"
+V3014_ATTACHMENT_DUPKIDS_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_JSON")"
 V3014_FORM_UTF16_TEXT_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_FORM_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_FORM_UTF16_TEXT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_FORM_UTF16_TEXT_RESIDUAL_JSON")"
 V3014_FORM_UTF16_TEXT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_FORM_UTF16_TEXT_RESIDUAL_JSON")"
@@ -1980,6 +1998,8 @@ jq -n \
   --arg v3014AnnotationLinkAaPrecedenceResidualOracleHash "$V3014_ANNOTATION_LINK_AA_PRECEDENCE_RESIDUAL_ORACLE_HASH" \
   --arg v3014AttachmentOddNamesResidualCorpusHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CORPUS_HASH" \
   --arg v3014AttachmentOddNamesResidualOracleHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_ORACLE_HASH" \
+  --arg v3014AttachmentDupkidsResidualCorpusHash "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_CORPUS_HASH" \
+  --arg v3014AttachmentDupkidsResidualOracleHash "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormUtf16TextResidualCorpusHash "$V3014_FORM_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
   --arg v3014FormUtf16TextResidualOracleHash "$V3014_FORM_UTF16_TEXT_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormTextMultilineResidualCorpusHash "$V3014_FORM_TEXT_MULTILINE_RESIDUAL_CORPUS_HASH" \
@@ -2285,6 +2305,9 @@ jq -n \
   --argjson v3014AttachmentOddNamesResidualCaseCount "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT" \
   --argjson v3014AttachmentOddNamesResidualPassed "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED" \
   --argjson v3014AttachmentOddNamesResidualSkipped "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED" \
+  --argjson v3014AttachmentDupkidsResidualCaseCount "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_CASE_COUNT" \
+  --argjson v3014AttachmentDupkidsResidualPassed "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_PASSED" \
+  --argjson v3014AttachmentDupkidsResidualSkipped "$V3014_ATTACHMENT_DUPKIDS_RESIDUAL_SKIPPED" \
   --argjson v3014FormUtf16TextResidualCaseCount "$V3014_FORM_UTF16_TEXT_RESIDUAL_CASE_COUNT" \
   --argjson v3014FormUtf16TextResidualPassed "$V3014_FORM_UTF16_TEXT_RESIDUAL_PASSED" \
   --argjson v3014FormUtf16TextResidualSkipped "$V3014_FORM_UTF16_TEXT_RESIDUAL_SKIPPED" \
@@ -2678,6 +2701,8 @@ jq -n \
     v3014AnnotationLinkAaPrecedenceResidualOracleHash: $v3014AnnotationLinkAaPrecedenceResidualOracleHash,
     v3014AttachmentOddNamesResidualCorpusHash: $v3014AttachmentOddNamesResidualCorpusHash,
     v3014AttachmentOddNamesResidualOracleHash: $v3014AttachmentOddNamesResidualOracleHash,
+    v3014AttachmentDupkidsResidualCorpusHash: $v3014AttachmentDupkidsResidualCorpusHash,
+    v3014AttachmentDupkidsResidualOracleHash: $v3014AttachmentDupkidsResidualOracleHash,
     v3014FormUtf16TextResidualCorpusHash: $v3014FormUtf16TextResidualCorpusHash,
     v3014FormUtf16TextResidualOracleHash: $v3014FormUtf16TextResidualOracleHash,
     v3014FormTextMultilineResidualCorpusHash: $v3014FormTextMultilineResidualCorpusHash,
@@ -2917,6 +2942,8 @@ jq -n \
     immutableAnnotationLinkAaPrecedenceResidualDifferential: "scripts/differential/check-v3014-annotation-link-aa-precedence-residual-differential.ts",
     immutableAttachmentOddNamesResidualOracle: "scripts/differential/fixtures/v3014-attachment-odd-names-residual-oracle.json",
     immutableAttachmentOddNamesResidualDifferential: "scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts",
+    immutableAttachmentDupkidsResidualOracle: "scripts/differential/fixtures/v3014-attachment-dupkids-residual-oracle.json",
+    immutableAttachmentDupkidsResidualDifferential: "scripts/differential/check-v3014-attachment-dupkids-residual-differential.ts",
     immutableFormUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-form-utf16-text-residual-oracle.json",
     immutableFormUtf16TextResidualDifferential: "scripts/differential/check-v3014-form-utf16-text-residual-differential.ts",
     immutableFormTextMultilineResidualOracle: "scripts/differential/fixtures/v3014-form-text-multiline-residual-oracle.json",
