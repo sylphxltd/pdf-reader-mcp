@@ -1102,6 +1102,20 @@ const outlineNamedDestResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const outlineGotorResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-outline-gotor-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const infoTrappedCustomResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-info-trapped-custom-residual-corpus.json'),
@@ -2150,7 +2164,7 @@ const outlineNamedDestResidualWorkflowStart = differentialWorkflow.indexOf(
   'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"'
 );
 const outlineNamedDestResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
+  'OUTLINE_GOTOR_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-gotor-residual-result.json"',
   outlineNamedDestResidualWorkflowStart
 );
 const outlineNamedDestResidualWorkflow =
@@ -2159,6 +2173,21 @@ const outlineNamedDestResidualWorkflow =
     ? differentialWorkflow.slice(
         outlineNamedDestResidualWorkflowStart,
         outlineNamedDestResidualWorkflowEnd
+      )
+    : '';
+const outlineGotorResidualWorkflowStart = differentialWorkflow.indexOf(
+  'OUTLINE_GOTOR_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-gotor-residual-result.json"'
+);
+const outlineGotorResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
+  outlineGotorResidualWorkflowStart
+);
+const outlineGotorResidualWorkflow =
+  outlineGotorResidualWorkflowStart >= 0 &&
+  outlineGotorResidualWorkflowEnd > outlineGotorResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        outlineGotorResidualWorkflowStart,
+        outlineGotorResidualWorkflowEnd
       )
     : '';
 const infoTrappedCustomResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -9041,6 +9070,121 @@ if (
 ) {
   failures.push(
     'why-rust must document the outline named-dest residual and frozen leaf-mutation count'
+  );
+}
+
+const outlineGotorResidualCaseCount = outlineGotorResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes('bun run test:v3014-outline-gotor-residual-differential')
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen outline GoToR residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-outline-gotor-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-outline-gotor-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014OutlineGotorResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014OutlineGotorResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014OutlineGotorResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the outline GoToR residual family'
+  );
+}
+if (
+  !outlineGotorResidualWorkflow.includes(
+    `.caseCount == ${outlineGotorResidualCaseCount}`
+  ) ||
+  !outlineGotorResidualWorkflow.includes(
+    `.passed == ${outlineGotorResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${outlineGotorResidualCaseCount}/${outlineGotorResidualCaseCount} outline GoToR residual corpus`
+  );
+}
+if (
+  outlineGotorResidualCaseCount !== 3 ||
+  outlineGotorResidualCorpus.envelope.fixtureCount !== 3 ||
+  outlineGotorResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  outlineGotorResidualCorpus.nonclaims.publishFreeze !== true ||
+  outlineGotorResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'outline GoToR residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !outlineGotorResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_outline_gotor_residual_result"'
+  ) ||
+  !outlineGotorResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 36'
+  ) ||
+  !outlineGotorResidualWorkflow.includes(
+    '.providerProof.gotorStringDestUrl == true'
+  ) ||
+  !outlineGotorResidualWorkflow.includes(
+    '.providerProof.gotorNameDestUrl == true'
+  ) ||
+  !outlineGotorResidualWorkflow.includes(
+    '.providerProof.gotorExplicitDestUrl == true'
+  ) ||
+  !outlineGotorResidualWorkflow.includes(
+    '.capabilityStatus.includeOutline == "PARTIAL"'
+  ) ||
+  !outlineGotorResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !outlineGotorResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'outline GoToR residual workflow must bind mutation, provider, and capability proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-outline-gotor-residual-differential.ts',
+  'scripts/differential/capture-v3014-outline-gotor-residual-oracle.ts',
+  'v3014-outline-gotor-residual-baseline-runner.ts',
+  'v3014-outline-gotor-residual-projection.ts',
+  'v3014-outline-gotor-residual-corpus.json',
+  'v3014-outline-gotor-residual-oracle.json',
+  'v3014-outline-gotor-string-v1.pdf',
+  'v3014-outline-gotor-name-v1.pdf',
+  'v3014-outline-gotor-explicit-v1.pdf',
+  'v3014OutlineGotorResidualCaseCount',
+  'v3014OutlineGotorResidualCorpusHash',
+  'v3014OutlineGotorResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind outline GoToR residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('include_outline GoToR residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('include_outline GoToR residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'outline GoToR residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustOutlineGotor = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustOutlineGotor.includes('include_outline GoToR residual') ||
+  !whyRustOutlineGotor.includes('Leaf-mutation count is frozen at 36')
+) {
+  failures.push(
+    'why-rust must document the outline GoToR residual and frozen leaf-mutation count'
   );
 }
 
