@@ -331,6 +331,11 @@ A frozen two-case public-stdio `read_pdf` `include_attachments` attachment odd-n
 
 A frozen two-case public-stdio `read_pdf` `include_form_fields` form utf16-text residual is admitted: pdf.js `stringToPDFString` decoding for form `V`/`DV` — valid UTF-16BE BOM, odd-length UTF-16BE drops the trailing unpaired byte, UTF-8 BOM, and PDFDocEncoding plain control. Leaf-mutation count is frozen at 52 with relocated fixture-root replay. `include_form_fields` remains `PARTIAL`; split-surrogate wire parity, metadata/annotation UTF-16 breadth, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf include_form_fields form text-multiline residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_form_fields` form text-multiline residual is admitted: pdf.js `stringToPDFString` preserves multiline Tx field values for escaped LF, escaped CRLF, and raw LF inside PDF literal strings. Leaf-mutation count is frozen at 45 with relocated fixture-root replay. Password/fileSelect flags, richText/DA, annotation/metadata multiline breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### public-stdio utf16-text residual (frozen TS v3.0.14)
 
 A frozen three-case public-stdio utf16-text residual is admitted: pdf.js `stringToPDFString` odd-length UTF-16BE trailing-byte drop for Text annotation title/contents, FreeText contents, outline titles, and metadata `Title`/`Author`. Leaf-mutation count is frozen at 41 with relocated fixture-root replay. Form-field UTF-16 decoding remains covered by the form utf16-text residual. `include_annotations`/`include_outline`/`include_metadata` remain `PARTIAL`; split-surrogate wire parity, XMP key/value, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
