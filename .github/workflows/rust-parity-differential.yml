@@ -147,6 +147,7 @@ jobs:
           bun run test:v3014-permissions-residual-differential -- --output "${SCRATCH_DIR}/v3014-permissions-residual-result.json"
           bun run test:v3014-metadata-presence-residual-differential -- --output "${SCRATCH_DIR}/v3014-metadata-presence-residual-result.json"
           bun run test:v3014-info-extras-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-extras-residual-result.json"
+          bun run test:v3014-info-trapped-custom-residual-differential -- --output "${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"
           bun run test:v3014-encrypt-filter-residual-differential -- --output "${SCRATCH_DIR}/v3014-encrypt-filter-residual-result.json"
           bun run test:v3014-linearized-residual-differential -- --output "${SCRATCH_DIR}/v3014-linearized-residual-result.json"
           bun run test:v3014-form-flags-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-flags-residual-result.json"
@@ -2131,6 +2132,27 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline named-dest residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+          INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"
+          if [ ! -f "$INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 info trapped-custom residual result missing at $INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_info_trapped_custom_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 48 and
+            .providerProof.trappedTrueName == true and
+            .providerProof.trappedFalseName == true and
+            .providerProof.customMixedValues == true and
+            .capabilityStatus.includeMetadata == "PARTIAL" and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 info trapped-custom residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 

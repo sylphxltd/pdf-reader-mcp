@@ -10,6 +10,7 @@ use pdf_extract::{
     Transform,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 const MAX_EXTRACTED_TEXT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_GEOMETRY_CHARS: usize = 250_000;
@@ -170,7 +171,9 @@ pub struct ExtractedPageText {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PdfInfo {
     pub format_version: String,
-    pub fields: BTreeMap<String, String>,
+    /// Document Info dictionary fields projected like pdf.js getMetadata().info
+    /// (standard string keys, Trapped Name object, and nested Custom map).
+    pub fields: BTreeMap<String, Value>,
     /// Catalog /Lang; `None` serializes as JSON null like pdf.js.
     pub language: Option<String>,
     /// Encrypt dictionary Filter name; `None` serializes as JSON null like pdf.js.
@@ -714,22 +717,56 @@ pub(crate) fn read_pdf_info(doc: &Document) -> PdfInfo {
             _ => None,
         });
     if let Some(info) = info_object.and_then(|object| object.as_dict().ok()) {
-        for key in [
-            "Title",
-            "Author",
-            "Subject",
-            "Keywords",
-            "Creator",
-            "Producer",
-            "CreationDate",
-            "ModDate",
-            "Trapped",
-        ] {
-            if let Ok(value) = info.get(key.as_bytes()) {
+        const STANDARD_STRING_KEYS: &[&[u8]] = &[
+            b"Title",
+            b"Author",
+            b"Subject",
+            b"Keywords",
+            b"Creator",
+            b"Producer",
+            b"CreationDate",
+            b"ModDate",
+        ];
+        let mut custom = serde_json::Map::new();
+        for (key_bytes, value) in info.iter() {
+            let Ok(key) = std::str::from_utf8(key_bytes) else {
+                continue;
+            };
+            if STANDARD_STRING_KEYS
+                .iter()
+                .any(|candidate| *candidate == key_bytes)
+            {
                 if let Some(decoded) = decode_pdfjs_text_string(value) {
-                    fields.insert(key.to_string(), decoded);
+                    fields.insert(key.to_string(), Value::String(decoded));
                 }
+                continue;
             }
+            if key_bytes == b"Trapped" {
+                // pdf.js: only Name values are admitted for Trapped.
+                if let Ok(name) = value.as_name() {
+                    if let Ok(name) = std::str::from_utf8(name) {
+                        fields.insert("Trapped".into(), json!({ "name": name }));
+                    }
+                }
+                continue;
+            }
+            // pdf.js default branch: string/number/boolean/Name become Custom[key].
+            let custom_value = match value {
+                Object::String(_, _) => decode_pdfjs_text_string(value).map(Value::String),
+                Object::Integer(n) => Some(json!(*n)),
+                Object::Real(n) if n.is_finite() => Some(json!(f64::from(*n))),
+                Object::Boolean(b) => Some(json!(*b)),
+                Object::Name(name) => std::str::from_utf8(name)
+                    .ok()
+                    .map(|name| json!({ "name": name })),
+                _ => None,
+            };
+            if let Some(custom_value) = custom_value {
+                custom.insert(key.to_string(), custom_value);
+            }
+        }
+        if !custom.is_empty() {
+            fields.insert("Custom".into(), Value::Object(custom));
         }
     }
     let catalog = doc.catalog().ok();

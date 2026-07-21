@@ -1102,6 +1102,20 @@ const outlineNamedDestResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const infoTrappedCustomResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-info-trapped-custom-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -2009,6 +2023,7 @@ const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
   attachmentOddNamesResidualWorkflowStart
 );
 const attachmentOddNamesResidualWorkflow =
@@ -2027,6 +2042,7 @@ const formUtf16TextResidualWorkflowEnd = differentialWorkflow.indexOf(
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
   formUtf16TextResidualWorkflowStart
 );
 const formUtf16TextResidualWorkflow =
@@ -2044,6 +2060,7 @@ const formTextMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
   'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
   formTextMultilineResidualWorkflowStart
 );
 const formTextMultilineResidualWorkflow =
@@ -2060,6 +2077,7 @@ const annotationContentsMultilineResidualWorkflowStart = differentialWorkflow.in
 const annotationContentsMultilineResidualWorkflowEnd = differentialWorkflow.indexOf(
   'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
   'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
   annotationContentsMultilineResidualWorkflowStart
 );
 const annotationContentsMultilineResidualWorkflow =
@@ -2075,6 +2093,7 @@ const outlineCycleResidualWorkflowStart = differentialWorkflow.indexOf(
 );
 const outlineCycleResidualWorkflowEnd = differentialWorkflow.indexOf(
   'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
   outlineCycleResidualWorkflowStart
 );
 const outlineCycleResidualWorkflow =
@@ -2089,7 +2108,7 @@ const outlineNamedDestResidualWorkflowStart = differentialWorkflow.indexOf(
   'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"'
 );
 const outlineNamedDestResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
   outlineNamedDestResidualWorkflowStart
 );
 const outlineNamedDestResidualWorkflow =
@@ -2098,6 +2117,21 @@ const outlineNamedDestResidualWorkflow =
     ? differentialWorkflow.slice(
         outlineNamedDestResidualWorkflowStart,
         outlineNamedDestResidualWorkflowEnd
+      )
+    : '';
+const infoTrappedCustomResidualWorkflowStart = differentialWorkflow.indexOf(
+  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"'
+);
+const infoTrappedCustomResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"',
+  infoTrappedCustomResidualWorkflowStart
+);
+const infoTrappedCustomResidualWorkflow =
+  infoTrappedCustomResidualWorkflowStart >= 0 &&
+  infoTrappedCustomResidualWorkflowEnd > infoTrappedCustomResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        infoTrappedCustomResidualWorkflowStart,
+        infoTrappedCustomResidualWorkflowEnd
       )
     : '';
 const utf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
@@ -8965,6 +8999,124 @@ if (
 ) {
   failures.push(
     'why-rust must document the outline named-dest residual and frozen leaf-mutation count'
+  );
+}
+
+
+const infoTrappedCustomResidualCaseCount = infoTrappedCustomResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-info-trapped-custom-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen info trapped-custom residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-info-trapped-custom-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014InfoTrappedCustomResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014InfoTrappedCustomResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014InfoTrappedCustomResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the info trapped-custom residual family'
+  );
+}
+if (
+  !infoTrappedCustomResidualWorkflow.includes(
+    `.caseCount == ${infoTrappedCustomResidualCaseCount}`
+  ) ||
+  !infoTrappedCustomResidualWorkflow.includes(
+    `.passed == ${infoTrappedCustomResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${infoTrappedCustomResidualCaseCount}/${infoTrappedCustomResidualCaseCount} info trapped-custom residual corpus`
+  );
+}
+if (
+  infoTrappedCustomResidualCaseCount !== 3 ||
+  infoTrappedCustomResidualCorpus.envelope.fixtureCount !== 3 ||
+  infoTrappedCustomResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  infoTrappedCustomResidualCorpus.nonclaims.publishFreeze !== true ||
+  infoTrappedCustomResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'info trapped-custom residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !infoTrappedCustomResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_info_trapped_custom_residual_result"'
+  ) ||
+  !infoTrappedCustomResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 48'
+  ) ||
+  !infoTrappedCustomResidualWorkflow.includes(
+    '.providerProof.trappedTrueName == true'
+  ) ||
+  !infoTrappedCustomResidualWorkflow.includes(
+    '.providerProof.trappedFalseName == true'
+  ) ||
+  !infoTrappedCustomResidualWorkflow.includes(
+    '.providerProof.customMixedValues == true'
+  ) ||
+  !infoTrappedCustomResidualWorkflow.includes(
+    '.capabilityStatus.includeMetadata == "PARTIAL"'
+  ) ||
+  !infoTrappedCustomResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !infoTrappedCustomResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'info trapped-custom residual workflow must bind mutation, provider, capability, and product-truth proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-info-trapped-custom-residual-differential.ts',
+  'scripts/differential/capture-v3014-info-trapped-custom-residual-oracle.ts',
+  'v3014-info-trapped-custom-residual-baseline-runner.ts',
+  'v3014-info-trapped-custom-residual-projection.ts',
+  'v3014-info-trapped-custom-residual-corpus.json',
+  'v3014-info-trapped-custom-residual-oracle.json',
+  'v3014-info-trapped-true-v1.pdf',
+  'v3014-info-trapped-false-v1.pdf',
+  'v3014-info-custom-mixed-v1.pdf',
+  'v3014InfoTrappedCustomResidualCaseCount',
+  'v3014InfoTrappedCustomResidualCorpusHash',
+  'v3014InfoTrappedCustomResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind info trapped-custom residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('trapped-custom residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('trapped-custom residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'info trapped-custom residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustInfoTrappedCustom = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustInfoTrappedCustom.includes('trapped-custom residual') ||
+  !whyRustInfoTrappedCustom.includes('Leaf-mutation count is frozen at 48')
+) {
+  failures.push(
+    'why-rust must document the info trapped-custom residual and frozen leaf-mutation count'
   );
 }
 
