@@ -1032,6 +1032,20 @@ const attachmentOddNamesResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const attachmentDupkidsResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-attachment-dupkids-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const formUtf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-form-utf16-text-residual-corpus.json'),
@@ -2102,12 +2116,7 @@ const attachmentOddNamesResidualWorkflowStart = differentialWorkflow.indexOf(
   'ATTACHMENT_ODD_NAMES_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"'
 );
 const attachmentOddNamesResidualWorkflowEnd = differentialWorkflow.indexOf(
-  'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"',
-  'FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-text-multiline-residual-result.json"',
-  'ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-contents-multiline-residual-result.json"',
-  'OUTLINE_CYCLE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-cycle-residual-result.json"',
-  'OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-outline-named-dest-residual-result.json"',
-  'INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-info-trapped-custom-residual-result.json"',
+  'ATTACHMENT_DUPKIDS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-dupkids-residual-result.json"',
   attachmentOddNamesResidualWorkflowStart
 );
 const attachmentOddNamesResidualWorkflow =
@@ -2118,6 +2127,22 @@ const attachmentOddNamesResidualWorkflow =
         attachmentOddNamesResidualWorkflowEnd
       )
     : '';
+const attachmentDupkidsResidualWorkflowStart = differentialWorkflow.indexOf(
+  'ATTACHMENT_DUPKIDS_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-attachment-dupkids-residual-result.json"'
+);
+const attachmentDupkidsResidualWorkflowEnd = differentialWorkflow.indexOf(
+  'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"',
+  attachmentDupkidsResidualWorkflowStart
+);
+const attachmentDupkidsResidualWorkflow =
+  attachmentDupkidsResidualWorkflowStart >= 0 &&
+  attachmentDupkidsResidualWorkflowEnd > attachmentDupkidsResidualWorkflowStart
+    ? differentialWorkflow.slice(
+        attachmentDupkidsResidualWorkflowStart,
+        attachmentDupkidsResidualWorkflowEnd
+      )
+    : '';
+
 const formUtf16TextResidualWorkflowStart = differentialWorkflow.indexOf(
   'FORM_UTF16_TEXT_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"'
 );
@@ -8538,6 +8563,121 @@ if (
 ) {
   failures.push(
     'why-rust must document the attachment odd-names residual and frozen leaf-mutation count'
+  );
+}
+
+const attachmentDupkidsResidualCaseCount = attachmentDupkidsResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes('bun run test:v3014-attachment-dupkids-residual-differential')
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen attachment dupkids residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-attachment-dupkids-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-attachment-dupkids-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AttachmentDupkidsResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AttachmentDupkidsResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AttachmentDupkidsResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the attachment dupkids residual family'
+  );
+}
+if (
+  !attachmentDupkidsResidualWorkflow.includes(
+    `.caseCount == ${attachmentDupkidsResidualCaseCount}`
+  ) ||
+  !attachmentDupkidsResidualWorkflow.includes(
+    `.passed == ${attachmentDupkidsResidualCaseCount}`
+  )
+) {
+  failures.push(
+    `rust parity workflow must require the exact ${attachmentDupkidsResidualCaseCount}/${attachmentDupkidsResidualCaseCount} attachment dupkids residual corpus`
+  );
+}
+if (
+  attachmentDupkidsResidualCaseCount !== 3 ||
+  attachmentDupkidsResidualCorpus.envelope.fixtureCount !== 3 ||
+  attachmentDupkidsResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  attachmentDupkidsResidualCorpus.nonclaims.publishFreeze !== true ||
+  attachmentDupkidsResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'attachment dupkids residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !attachmentDupkidsResidualWorkflow.includes(
+    '.profile == "pdf_reader_v3014_attachment_dupkids_residual_result"'
+  ) ||
+  !attachmentDupkidsResidualWorkflow.includes(
+    '.mutationSensitive.leafMutationCount == 15'
+  ) ||
+  !attachmentDupkidsResidualWorkflow.includes(
+    '.providerProof.controlAttachmentPresent == true'
+  ) ||
+  !attachmentDupkidsResidualWorkflow.includes(
+    '.providerProof.duplicateKidsOmitted == true'
+  ) ||
+  !attachmentDupkidsResidualWorkflow.includes(
+    '.providerProof.cycleKidsOmitted == true'
+  ) ||
+  !attachmentDupkidsResidualWorkflow.includes(
+    '.capabilityStatus.includeAttachments == "PARTIAL"'
+  ) ||
+  !attachmentDupkidsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
+  !attachmentDupkidsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+) {
+  failures.push(
+    'attachment dupkids residual workflow must bind mutation, provider, and capability proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-attachment-dupkids-residual-differential.ts',
+  'scripts/differential/capture-v3014-attachment-dupkids-residual-oracle.ts',
+  'v3014-attachment-dupkids-residual-baseline-runner.ts',
+  'v3014-attachment-dupkids-residual-projection.ts',
+  'v3014-attachment-dupkids-residual-corpus.json',
+  'v3014-attachment-dupkids-residual-oracle.json',
+  'v3014-attachment-dupkids-control-v1.pdf',
+  'v3014-attachment-dupkids-duplicate-v1.pdf',
+  'v3014-attachment-dupkids-cycle-v1.pdf',
+  'v3014AttachmentDupkidsResidualCaseCount',
+  'v3014AttachmentDupkidsResidualCorpusHash',
+  'v3014AttachmentDupkidsResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind attachment dupkids residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('attachment dupkids residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('attachment dupkids residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'attachment dupkids residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAttachmentDupkids = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAttachmentDupkids.includes('attachment dupkids residual') ||
+  !whyRustAttachmentDupkids.includes('duplicate Kids refs and self-cycle Kids fail closed')
+) {
+  failures.push(
+    'why-rust must document the attachment dupkids residual and fail-closed Kids behavior'
   );
 }
 
