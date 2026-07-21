@@ -81,6 +81,7 @@ V3014_FORM_RADIO_BROKEN_PARENT_CHAIN_RESIDUAL_JSON="$SCRATCH/v3014-form-radio-br
 V3014_ANNOTATION_STAMP_CARET_FILE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-stamp-caret-file-residual-result.json"
 V3014_ANNOTATION_SQUARE_CIRCLE_WIDGET_RESIDUAL_JSON="$SCRATCH/v3014-annotation-square-circle-widget-residual-result.json"
 V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_JSON="$SCRATCH/v3014-annotation-link-uri-normalize-residual-result.json"
+V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_JSON="$SCRATCH/v3014-annotation-freetext-rect-residual-result.json"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON="$SCRATCH/v3014-attachment-odd-names-residual-result.json"
 V3014_FORM_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-form-utf16-text-residual-result.json"
 V3014_UTF16_TEXT_RESIDUAL_JSON="$SCRATCH/v3014-utf16-text-residual-result.json"
@@ -429,6 +430,9 @@ bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-square-circle-widget
 bun "$REPO_ROOT/scripts/differential/capture-v3014-annotation-link-uri-normalize-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-link-uri-normalize-residual-differential.ts" \
   --output "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_JSON" >>"$LOG"
+bun "$REPO_ROOT/scripts/differential/capture-v3014-annotation-freetext-rect-residual-oracle.ts" 2>&1 | tee -a "$LOG"
+bun "$REPO_ROOT/scripts/differential/check-v3014-annotation-freetext-rect-residual-differential.ts" \
+  --output "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_JSON" >>"$LOG"
 bun "$REPO_ROOT/scripts/differential/capture-v3014-attachment-odd-names-residual-oracle.ts" 2>&1 | tee -a "$LOG"
 bun "$REPO_ROOT/scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts" \
   --output "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON" >>"$LOG"
@@ -906,6 +910,10 @@ BEHAVIOR_SPEC_HASH="$(sha256sum \
   "$REPO_ROOT/scripts/differential/v3014-annotation-link-uri-normalize-residual-projection.ts" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-link-uri-normalize-residual-corpus.json" \
   "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-link-uri-normalize-residual-oracle.json" \
+  "$REPO_ROOT/scripts/differential/v3014-annotation-freetext-rect-residual-baseline-runner.ts" \
+  "$REPO_ROOT/scripts/differential/v3014-annotation-freetext-rect-residual-projection.ts" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-freetext-rect-residual-corpus.json" \
+  "$REPO_ROOT/scripts/differential/fixtures/v3014-annotation-freetext-rect-residual-oracle.json" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-kids-ap-stream-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-kids-apn-stream-v1.pdf" \
   "$REPO_ROOT/test/fixtures/differential/v3014-form-radio-kids-ap-named-v1.pdf" \
@@ -1444,6 +1452,11 @@ V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ANNO
 V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_JSON")"
 V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_JSON")"
 V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_JSON")"
+V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_JSON")"
+V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_JSON")"
+V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_JSON")"
+V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_CORPUS_HASH="$(jq -r '.corpusSha256' "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_JSON")"
+V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_ORACLE_HASH="$(jq -r '.oracleSha256' "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT="$(jq '.caseCount' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED="$(jq '.passed' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
 V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED="$(jq '.skipped' "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_JSON")"
@@ -1720,6 +1733,8 @@ jq -n \
   --arg v3014AnnotationSquareCircleWidgetResidualOracleHash "$V3014_ANNOTATION_SQUARE_CIRCLE_WIDGET_RESIDUAL_ORACLE_HASH" \
   --arg v3014AnnotationLinkUriNormalizeResidualCorpusHash "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_CORPUS_HASH" \
   --arg v3014AnnotationLinkUriNormalizeResidualOracleHash "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_ORACLE_HASH" \
+  --arg v3014AnnotationFreetextRectResidualCorpusHash "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_CORPUS_HASH" \
+  --arg v3014AnnotationFreetextRectResidualOracleHash "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_ORACLE_HASH" \
   --arg v3014AttachmentOddNamesResidualCorpusHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CORPUS_HASH" \
   --arg v3014AttachmentOddNamesResidualOracleHash "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_ORACLE_HASH" \
   --arg v3014FormUtf16TextResidualCorpusHash "$V3014_FORM_UTF16_TEXT_RESIDUAL_CORPUS_HASH" \
@@ -1990,6 +2005,9 @@ jq -n \
   --argjson v3014AnnotationLinkUriNormalizeResidualCaseCount "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_CASE_COUNT" \
   --argjson v3014AnnotationLinkUriNormalizeResidualPassed "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_PASSED" \
   --argjson v3014AnnotationLinkUriNormalizeResidualSkipped "$V3014_ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_SKIPPED" \
+  --argjson v3014AnnotationFreetextRectResidualCaseCount "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_CASE_COUNT" \
+  --argjson v3014AnnotationFreetextRectResidualPassed "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_PASSED" \
+  --argjson v3014AnnotationFreetextRectResidualSkipped "$V3014_ANNOTATION_FREETEXT_RECT_RESIDUAL_SKIPPED" \
   --argjson v3014AttachmentOddNamesResidualCaseCount "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_CASE_COUNT" \
   --argjson v3014AttachmentOddNamesResidualPassed "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_PASSED" \
   --argjson v3014AttachmentOddNamesResidualSkipped "$V3014_ATTACHMENT_ODD_NAMES_RESIDUAL_SKIPPED" \
@@ -2343,6 +2361,8 @@ jq -n \
     v3014AnnotationSquareCircleWidgetResidualOracleHash: $v3014AnnotationSquareCircleWidgetResidualOracleHash,
     v3014AnnotationLinkUriNormalizeResidualCorpusHash: $v3014AnnotationLinkUriNormalizeResidualCorpusHash,
     v3014AnnotationLinkUriNormalizeResidualOracleHash: $v3014AnnotationLinkUriNormalizeResidualOracleHash,
+    v3014AnnotationFreetextRectResidualCorpusHash: $v3014AnnotationFreetextRectResidualCorpusHash,
+    v3014AnnotationFreetextRectResidualOracleHash: $v3014AnnotationFreetextRectResidualOracleHash,
     v3014AttachmentOddNamesResidualCorpusHash: $v3014AttachmentOddNamesResidualCorpusHash,
     v3014AttachmentOddNamesResidualOracleHash: $v3014AttachmentOddNamesResidualOracleHash,
     v3014FormUtf16TextResidualCorpusHash: $v3014FormUtf16TextResidualCorpusHash,
@@ -2552,6 +2572,8 @@ jq -n \
     immutableAnnotationSquareCircleWidgetResidualDifferential: "scripts/differential/check-v3014-annotation-square-circle-widget-residual-differential.ts",
     immutableAnnotationLinkUriNormalizeResidualOracle: "scripts/differential/fixtures/v3014-annotation-link-uri-normalize-residual-oracle.json",
     immutableAnnotationLinkUriNormalizeResidualDifferential: "scripts/differential/check-v3014-annotation-link-uri-normalize-residual-differential.ts",
+    immutableAnnotationFreetextRectResidualOracle: "scripts/differential/fixtures/v3014-annotation-freetext-rect-residual-oracle.json",
+    immutableAnnotationFreetextRectResidualDifferential: "scripts/differential/check-v3014-annotation-freetext-rect-residual-differential.ts",
     immutableAttachmentOddNamesResidualOracle: "scripts/differential/fixtures/v3014-attachment-odd-names-residual-oracle.json",
     immutableAttachmentOddNamesResidualDifferential: "scripts/differential/check-v3014-attachment-odd-names-residual-differential.ts",
     immutableFormUtf16TextResidualOracle: "scripts/differential/fixtures/v3014-form-utf16-text-residual-oracle.json",
