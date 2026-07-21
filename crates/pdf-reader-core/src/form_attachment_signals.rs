@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use lopdf::{Dictionary, Document, Object, ObjectId};
 use crate::pdfjs_text::decode_pdfjs_text_string;
+use lopdf::{Dictionary, Document, Object, ObjectId};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -112,7 +112,6 @@ pub(crate) fn extract_form_attachment_signals(
     }
     output
 }
-
 
 struct Walker<'a> {
     document: &'a Document,
@@ -397,7 +396,6 @@ fn walk_field<'a>(
     }
 }
 
-
 fn button_has_named_normal_appearance<'a>(walker: &mut Walker<'a>, dict: &'a Dictionary) -> bool {
     // pdf.js ButtonWidgetAnnotation _processCheckBox/_processRadioButton require
     // AP dict and AP/N named-state dict before setting defaultFieldValue = "Off".
@@ -414,6 +412,56 @@ fn button_has_named_normal_appearance<'a>(walker: &mut Walker<'a>, dict: &'a Dic
         .resolve(normal)
         .and_then(|value| value.as_dict().ok())
         .is_some()
+}
+
+fn checkbox_named_export_values<'a>(
+    walker: &mut Walker<'a>,
+    dict: &'a Dictionary,
+    field_value: Option<&Value>,
+) -> Option<Vec<String>> {
+    // pdf.js _processCheckBox exportValues construction from AP/N keys.
+    let Ok(ap) = dict.get(b"AP") else {
+        return None;
+    };
+    let ap_dict = walker.resolve(ap).and_then(|value| value.as_dict().ok())?;
+    let Ok(normal) = ap_dict.get(b"N") else {
+        return None;
+    };
+    let normal_dict = walker
+        .resolve(normal)
+        .and_then(|value| value.as_dict().ok())?;
+    let mut keys: Vec<String> = normal_dict
+        .iter()
+        .filter_map(|(k, _)| std::str::from_utf8(k).ok().map(str::to_string))
+        .collect();
+    let yes = match field_value {
+        Some(Value::String(s)) if !s.is_empty() && s != "Off" => s.clone(),
+        _ => "Yes".to_string(),
+    };
+    if keys.is_empty() {
+        keys.push("Off".into());
+        keys.push(yes);
+    } else if keys.len() == 1 {
+        if keys[0] == "Off" {
+            keys.push(yes);
+        } else {
+            keys.insert(0, "Off".into());
+        }
+    } else if keys.iter().any(|k| k == &yes) {
+        keys.clear();
+        keys.push("Off".into());
+        keys.push(yes);
+    } else {
+        let other_yes = keys
+            .iter()
+            .find(|k| k.as_str() != "Off")
+            .cloned()
+            .unwrap_or_else(|| "Yes".into());
+        keys.clear();
+        keys.push("Off".into());
+        keys.push(other_yes);
+    }
+    Some(keys)
 }
 
 fn normalize_leaf<'a>(
@@ -461,7 +509,7 @@ fn normalize_leaf<'a>(
         }
         Some("checkbox" | "radiobutton" | "button") => {
             // pdf.js _processCheckBox: when AP/N is a named-state dict, AS string
-            // overwrites fieldValue before export-value normalization.
+            // overwrites fieldValue, then exportValues normalization may force Off.
             if field_type.as_deref() == Some("checkbox")
                 && button_has_named_normal_appearance(walker, dict)
             {
@@ -469,6 +517,17 @@ fn normalize_leaf<'a>(
                     match &as_value {
                         Value::String(s) if !s.is_empty() => value = Some(as_value),
                         _ => {}
+                    }
+                }
+                if let Some(export_values) =
+                    checkbox_named_export_values(walker, dict, value.as_ref())
+                {
+                    let current = match &value {
+                        Some(Value::String(s)) => Some(s.as_str()),
+                        _ => None,
+                    };
+                    if current.is_none_or(|s| !export_values.iter().any(|k| k == s)) {
+                        value = Some(Value::String("Off".into()));
                     }
                 }
             }
@@ -967,7 +1026,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn button_array_v_and_dv_preserve_pdfjs_arrays() {
         let mut document = Document::with_version("1.4");
@@ -975,11 +1033,12 @@ mod tests {
         let page_id = document.add_object(dictionary! {
             "Type"=>"Page","Parent"=>pages_id,"MediaBox"=>vec![0.into(),0.into(),612.into(),792.into()]
         });
-        document
-            .objects
-            .insert(pages_id, Object::Dictionary(dictionary! {
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
                 "Type"=>"Pages","Kids"=>vec![page_id.into()],"Count"=>1
-            }));
+            }),
+        );
         let checkbox_array = document.add_object(dictionary! {
             "Subtype"=>"Widget","FT"=>"Btn","T"=>Object::string_literal("flags"),
             "V"=>vec![Object::Name(b"Yes".to_vec()), Object::Name(b"Off".to_vec())],
@@ -1055,7 +1114,6 @@ mod tests {
         assert_eq!(value_of("dv"), serde_json::json!(["Yes", "Off"]));
         assert_eq!(default_of("dv"), serde_json::json!(["Yes", "Off"]));
     }
-
 
     #[test]
     fn utf16_be_odd_length_form_values_drop_trailing_byte_like_pdfjs() {
@@ -1491,7 +1549,11 @@ mod tests {
             assert_eq!(fields.len(), 1, "fixture {fixture}");
             let field = &fields[0];
             assert_eq!(field.name, "Agree", "fixture {fixture}");
-            assert_eq!(field.r#type.as_deref(), Some("checkbox"), "fixture {fixture}");
+            assert_eq!(
+                field.r#type.as_deref(),
+                Some("checkbox"),
+                "fixture {fixture}"
+            );
             assert_eq!(
                 serde_json::to_value(&field.value).unwrap(),
                 serde_json::json!(value),
@@ -1505,6 +1567,51 @@ mod tests {
         }
     }
 
-
-
+    #[test]
+    fn checkbox_export_value_normalization() {
+        let cases = [
+            (
+                "v3014-form-checkbox-as-invalid-export-off-v1.pdf",
+                "Off",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-checkbox-as-only-off-yes-v1.pdf",
+                "Yes",
+                serde_json::json!("Off"),
+            ),
+            (
+                "v3014-form-checkbox-as-off-export-ok-v1.pdf",
+                "Off",
+                serde_json::json!("Off"),
+            ),
+        ];
+        for (fixture, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load checkbox export fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 1, "fixture {fixture}");
+            let field = &fields[0];
+            assert_eq!(field.name, "Agree", "fixture {fixture}");
+            assert_eq!(
+                field.r#type.as_deref(),
+                Some("checkbox"),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.value).unwrap(),
+                serde_json::json!(value),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.default_value).unwrap(),
+                default_value,
+                "fixture {fixture}"
+            );
+        }
+    }
 }

@@ -780,6 +780,20 @@ const formCheckboxAsValueResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formCheckboxExportNormalizeResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-checkbox-export-normalize-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -6701,6 +6715,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form checkbox-as-value residual and frozen leaf-mutation count'
+  );
+}
+
+const formCheckboxExportNormalizeResidualCaseCount = formCheckboxExportNormalizeResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-checkbox-export-normalize-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form checkbox-export-normalize residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-checkbox-export-normalize-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-checkbox-export-normalize-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormCheckboxExportNormalizeResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormCheckboxExportNormalizeResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormCheckboxExportNormalizeResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form checkbox-export-normalize residual family'
+  );
+}
+if (
+  formCheckboxExportNormalizeResidualCaseCount !== 3 ||
+  formCheckboxExportNormalizeResidualCorpus.envelope.fixtureCount !== 3 ||
+  formCheckboxExportNormalizeResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formCheckboxExportNormalizeResidualCorpus.nonclaims.publishFreeze !== true ||
+  formCheckboxExportNormalizeResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form checkbox-export-normalize residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_checkbox_export_normalize_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.checkboxInvalidExportOff == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxOnlyOffYes == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxOffExportOk == true')
+) {
+  failures.push(
+    'form checkbox-export-normalize residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('checkbox-export-normalize residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('checkbox-export-normalize residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form checkbox-export-normalize residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormCheckboxExportNormalize = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormCheckboxExportNormalize.includes('checkbox-export-normalize residual') ||
+  !whyRustFormCheckboxExportNormalize.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form checkbox-export-normalize residual and frozen leaf-mutation count'
   );
 }
 
