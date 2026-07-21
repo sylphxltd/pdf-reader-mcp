@@ -433,6 +433,10 @@ A frozen three-case public-stdio `read_pdf` `include_annotations` text-markup qu
 A frozen three-case public-stdio `read_pdf` `include_annotations` text-markup with-appearance residual is admitted: Underline/Squiggly/StrikeOut with usable `AP/N` appearance keep raw Rect public `bounding_box` and do not rewrite from `QuadPoints` (pdf.js text-markup annotations only synthesize when appearance is unset). Fixtures prove Underline keeps `{200,200,300,300}`, Squiggly keeps `{150,160,250,260}`, and StrikeOut keeps `{100,110,210,220}` despite non-intersecting QuadPoints. Leaf-mutation count is frozen at 39. Appearance-stream content bbox derivation, line endings `LE`, Widget named-state breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
 
 
+### read_pdf include_annotations stamp/caret/fileattachment residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_annotations` stamp/caret/fileattachment residual is admitted: Stamp, Caret, and FileAttachment markup annotations expose `subtype`/`contents`/`title`/`id`/`page` and keep raw Rect public `bounding_box` without appearance rewrite. Leaf-mutation count is frozen at 42. Appearance-stream content bbox derivation, FileAttachment payload surface, stamp icon-name breadth, and whole-product parity remain unclaimed; `include_annotations` remains `PARTIAL`.
+
 ### read_pdf include_form_fields form button-default-off residual (frozen TS v3.0.14)
 
 A frozen three-case public-stdio `read_pdf` `include_form_fields` form button-default-off residual is admitted: pdf.js `ButtonWidgetAnnotation` sets `defaultFieldValue` to `Off` when `DV` is null and `AP/N` is a named-state dict (checkbox/radiobutton). Without that `AP/N` shape, missing `DV` remains null. Fixtures prove checkbox AP → `default_value=Off`, radiobutton AP → `default_value=Off`, and checkbox no-AP → `default_value=null`. Leaf-mutation count is frozen at 45. Pushbutton AP default-off breadth, malformed-field breadth, and whole-product parity remain unclaimed; `include_form_fields` remains `PARTIAL`.

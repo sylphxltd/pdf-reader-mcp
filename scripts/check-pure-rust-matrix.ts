@@ -920,6 +920,20 @@ const formRadioBrokenParentChainResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationStampCaretFileResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-stamp-caret-file-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7544,6 +7558,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form radio-broken-parent-chain residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationStampCaretFileResidualCaseCount = annotationStampCaretFileResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-stamp-caret-file-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation stamp/caret/file residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-stamp-caret-file-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-stamp-caret-file-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationStampCaretFileResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationStampCaretFileResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationStampCaretFileResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation stamp/caret/file residual family'
+  );
+}
+if (
+  annotationStampCaretFileResidualCaseCount !== 3 ||
+  annotationStampCaretFileResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationStampCaretFileResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationStampCaretFileResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationStampCaretFileResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation stamp/caret/file residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_stamp_caret_file_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.stampBasic == true') ||
+  !differentialWorkflow.includes('.providerProof.caretBasic == true') ||
+  !differentialWorkflow.includes('.providerProof.fileAttachmentBasic == true')
+) {
+  failures.push(
+    'annotation stamp/caret/file residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('stamp/caret/fileattachment residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('stamp/caret/fileattachment residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation stamp/caret/file residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationStampCaretFile = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationStampCaretFile.includes('stamp/caret/fileattachment residual') ||
+  !whyRustAnnotationStampCaretFile.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the annotation stamp/caret/file residual and frozen leaf-mutation count'
   );
 }
 

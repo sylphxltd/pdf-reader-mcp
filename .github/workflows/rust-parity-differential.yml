@@ -174,6 +174,7 @@ jobs:
           bun run test:v3014-form-radio-parent-kids-ap-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-radio-parent-kids-ap-residual-result.json"
           bun run test:v3014-form-radio-deeper-kids-ap-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-radio-deeper-kids-ap-residual-result.json"
           bun run test:v3014-form-radio-broken-parent-chain-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-radio-broken-parent-chain-residual-result.json"
+          bun run test:v3014-annotation-stamp-caret-file-residual-differential -- --output "${SCRATCH_DIR}/v3014-annotation-stamp-caret-file-residual-result.json"
           bun run test:v3014-attachment-odd-names-residual-differential -- --output "${SCRATCH_DIR}/v3014-attachment-odd-names-residual-result.json"
           bun run test:v3014-form-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-form-utf16-text-residual-result.json"
           bun run test:v3014-utf16-text-residual-differential -- --output "${SCRATCH_DIR}/v3014-utf16-text-residual-result.json"
@@ -1853,6 +1854,26 @@ jobs:
             .productTruth.publishFreeze == true
           ' "$FORM_RADIO_BROKEN_PARENT_CHAIN_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-broken-parent-chain residual result is incomplete, failing, or not SHA-bound"
+            exit 1
+          }
+
+          ANNOTATION_STAMP_CARET_FILE_RESIDUAL_ARTIFACT="${SCRATCH_DIR}/v3014-annotation-stamp-caret-file-residual-result.json"
+          if [ ! -f "$ANNOTATION_STAMP_CARET_FILE_RESIDUAL_ARTIFACT" ]; then
+            echo "::error::v3.0.14 annotation stamp/caret/file residual result missing at $ANNOTATION_STAMP_CARET_FILE_RESIDUAL_ARTIFACT"
+            exit 1
+          fi
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .profile == "pdf_reader_v3014_annotation_stamp_caret_file_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.stampBasic == true and
+            .providerProof.caretBasic == true and
+            .providerProof.fileAttachmentBasic == true and
+            .productTruth.dropInFor3014 == false and
+            .productTruth.publishFreeze == true
+          ' "$ANNOTATION_STAMP_CARET_FILE_RESIDUAL_ARTIFACT" >/dev/null || {
+            echo "::error::v3.0.14 annotation stamp/caret/file residual result is incomplete, failing, or not SHA-bound"
             exit 1
           }
 
