@@ -369,10 +369,7 @@ fn inheritable_property<'a>(
     None
 }
 
-fn inherited_from_parent_chain<'a>(
-    walker: &mut Walker<'a>,
-    dict: &'a Dictionary,
-) -> Inherited<'a> {
+fn inherited_from_parent_chain<'a>(walker: &mut Walker<'a>, dict: &'a Dictionary) -> Inherited<'a> {
     Inherited {
         field_type: inheritable_property(walker, dict, b"FT"),
         flags: inheritable_property(walker, dict, b"Ff"),
@@ -1969,6 +1966,68 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn radio_broken_parent_chain_drops_widgets_and_names_intermediate_opt() {
+        // pdf.js: intermediate without Parent does not inherit FT/V from radio root.
+        // Public names use Parent-chain construction, so intermediate is "Opt" not "Plan.Opt".
+        let mut document = Document::with_version("1.4");
+        let pages_id = document.new_object_id();
+        let page_id = document.add_object(dictionary! {
+            "Type"=>"Page","Parent"=>pages_id,"MediaBox"=>vec![0.into(),0.into(),612.into(),792.into()]
+        });
+        document.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type"=>"Pages","Kids"=>vec![page_id.into()],"Count"=>1
+            }),
+        );
+        let gold = document.add_object(Stream::new(dictionary! {}, Vec::new()));
+        let off = document.add_object(Stream::new(dictionary! {}, Vec::new()));
+        let intermediate = document.add_object(dictionary! {
+            "T"=>Object::string_literal("Opt"),
+            "Kids"=>Vec::<Object>::new()
+        });
+        let leaf0 = document.add_object(dictionary! {
+            "Type"=>"Annot","Subtype"=>"Widget","Parent"=>intermediate,
+            "AS"=>"Silver",
+            "Rect"=>vec![72.into(),600.into(),100.into(),620.into()],
+            "AP"=>dictionary! {"N"=>dictionary! {"Gold"=>gold, "Off"=>off}},
+            "P"=>page_id
+        });
+        let leaf1 = document.add_object(dictionary! {
+            "Type"=>"Annot","Subtype"=>"Widget","Parent"=>intermediate,
+            "AS"=>"Bronze",
+            "Rect"=>vec![120.into(),600.into(),148.into(),620.into()],
+            "AP"=>dictionary! {"N"=>dictionary! {"Gold"=>gold, "Off"=>off}},
+            "P"=>page_id
+        });
+        if let Some(Object::Dictionary(dict)) = document.objects.get_mut(&intermediate) {
+            dict.set("Kids", vec![leaf0.into(), leaf1.into()]);
+        }
+        if let Some(Object::Dictionary(page)) = document.objects.get_mut(&page_id) {
+            page.set("Annots", vec![leaf0.into(), leaf1.into()]);
+        }
+        let root = document.add_object(dictionary! {
+            "FT"=>"Btn","T"=>Object::string_literal("Plan"),"V"=>"Gold","Ff"=>1i64<<15,
+            "Kids"=>vec![intermediate.into()]
+        });
+        let catalog = document.add_object(dictionary! {
+            "Type"=>"Catalog","Pages"=>pages_id,
+            "AcroForm"=>dictionary! {"Fields"=>vec![root.into()]}
+        });
+        document.trailer.set("Root", catalog);
+        let signals = extract_form_attachment_signals(&document, &[(1, page_id)], true, false);
+        let fields = signals.form_fields.expect("fields");
+        assert_eq!(
+            serde_json::to_value(&fields).unwrap(),
+            serde_json::json!([
+                {"name":"Plan","id":format_id(root)},
+                {"name":"Opt","id":format_id(intermediate)}
+            ])
+        );
+    }
+
     #[test]
     fn radio_parent_kids_ap_inheritance() {
         let cases = [
