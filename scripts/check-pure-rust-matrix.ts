@@ -766,6 +766,20 @@ const formPushbuttonDefaultNullResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formCheckboxAsValueResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-checkbox-as-value-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -6617,6 +6631,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form pushbutton-default-null residual and frozen leaf-mutation count'
+  );
+}
+
+const formCheckboxAsValueResidualCaseCount = formCheckboxAsValueResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-checkbox-as-value-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form checkbox-as-value residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-checkbox-as-value-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-checkbox-as-value-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormCheckboxAsValueResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormCheckboxAsValueResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormCheckboxAsValueResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form checkbox-as-value residual family'
+  );
+}
+if (
+  formCheckboxAsValueResidualCaseCount !== 3 ||
+  formCheckboxAsValueResidualCorpus.envelope.fixtureCount !== 3 ||
+  formCheckboxAsValueResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formCheckboxAsValueResidualCorpus.nonclaims.publishFreeze !== true ||
+  formCheckboxAsValueResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form checkbox-as-value residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_checkbox_as_value_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.checkboxAsOverridesVOff == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxAsOverridesVYes == true') ||
+  !differentialWorkflow.includes('.providerProof.checkboxAsNoApKeepsV == true')
+) {
+  failures.push(
+    'form checkbox-as-value residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('checkbox-as-value residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('checkbox-as-value residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form checkbox-as-value residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormCheckboxAsValue = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormCheckboxAsValue.includes('checkbox-as-value residual') ||
+  !whyRustFormCheckboxAsValue.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form checkbox-as-value residual and frozen leaf-mutation count'
   );
 }
 
