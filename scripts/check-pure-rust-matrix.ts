@@ -1130,6 +1130,20 @@ const pageGeometryInheritanceResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const pageGeometryDepthClampResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-page-geometry-depth-clamp-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const utf16TextResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-utf16-text-residual-corpus.json'),
@@ -9235,6 +9249,106 @@ if (
 ) {
   failures.push(
     'why-rust must document the page geometry inheritance residual and frozen leaf-mutation count'
+  );
+}
+
+const pageGeometryDepthClampResidualCaseCount = pageGeometryDepthClampResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-page-geometry-depth-clamp-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen page geometry depth-clamp residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-page-geometry-depth-clamp-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-page-geometry-depth-clamp-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014PageGeometryDepthClampResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014PageGeometryDepthClampResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014PageGeometryDepthClampResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the page geometry depth-clamp residual family'
+  );
+}
+if (
+  pageGeometryDepthClampResidualCaseCount !== 3 ||
+  pageGeometryDepthClampResidualCorpus.envelope.fixtureCount !== 3 ||
+  pageGeometryDepthClampResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  pageGeometryDepthClampResidualCorpus.nonclaims.publishFreeze !== true ||
+  pageGeometryDepthClampResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'page geometry depth-clamp residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_page_geometry_depth_clamp_residual_result"'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.deeperPagesInheritance == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.nonRightAngleClamp == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.providerProof.partialCropIntersect == true'
+  ) ||
+  !differentialWorkflow.includes(
+    '.capabilityStatus.includePageGeometry == "PARTIAL"'
+  )
+) {
+  failures.push(
+    'page geometry depth-clamp residual workflow must bind mutation, provider, and capability proof'
+  );
+}
+for (const required of [
+  'scripts/differential/check-v3014-page-geometry-depth-clamp-residual-differential.ts',
+  'scripts/differential/capture-v3014-page-geometry-depth-clamp-residual-oracle.ts',
+  'v3014-page-geometry-depth-clamp-residual-baseline-runner.ts',
+  'v3014-page-geometry-depth-clamp-residual-projection.ts',
+  'v3014-page-geometry-depth-clamp-residual-corpus.json',
+  'v3014-page-geometry-depth-clamp-residual-oracle.json',
+  'v3014-page-geometry-deeper-inherit-v1.pdf',
+  'v3014-page-geometry-non-right-angle-v1.pdf',
+  'v3014-page-geometry-crop-intersect-v1.pdf',
+  'v3014PageGeometryDepthClampResidualCaseCount',
+  'v3014PageGeometryDepthClampResidualCorpusHash',
+  'v3014PageGeometryDepthClampResidualOracleHash',
+]) {
+  if (!repositoryDifferential.includes(required)) {
+    failures.push(
+      `repository differential artifact must bind page geometry depth-clamp residual family member: ${required}`
+    );
+  }
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) =>
+      claim.includes('exact 3-case') && claim.includes('geometry depth-clamp residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('geometry depth-clamp residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'page geometry depth-clamp residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustPageGeometryDepthClamp = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustPageGeometryDepthClamp.includes('geometry depth-clamp residual') ||
+  !whyRustPageGeometryDepthClamp.includes('Leaf-mutation count is frozen at 39')
+) {
+  failures.push(
+    'why-rust must document the page geometry depth-clamp residual and frozen leaf-mutation count'
   );
 }
 
