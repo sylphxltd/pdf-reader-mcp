@@ -864,6 +864,20 @@ const formCheckboxMalformedApResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const formRadioMalformedApResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-form-radio-malformed-ap-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7205,6 +7219,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the form checkbox-malformed-ap residual and frozen leaf-mutation count'
+  );
+}
+
+const formRadioMalformedApResidualCaseCount = formRadioMalformedApResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-form-radio-malformed-ap-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen form radio-malformed-ap residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-form-radio-malformed-ap-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-form-radio-malformed-ap-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014FormRadioMalformedApResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014FormRadioMalformedApResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014FormRadioMalformedApResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the form radio-malformed-ap residual family'
+  );
+}
+if (
+  formRadioMalformedApResidualCaseCount !== 3 ||
+  formRadioMalformedApResidualCorpus.envelope.fixtureCount !== 3 ||
+  formRadioMalformedApResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  formRadioMalformedApResidualCorpus.nonclaims.publishFreeze !== true ||
+  formRadioMalformedApResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'form radio-malformed-ap residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_form_radio_malformed_ap_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.radioApStreamKeepsV == true') ||
+  !differentialWorkflow.includes('.providerProof.radioApnStreamKeepsV == true') ||
+  !differentialWorkflow.includes('.providerProof.radioApNamedKeepsV == true')
+) {
+  failures.push(
+    'form radio-malformed-ap residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('radio-malformed-ap residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('radio-malformed-ap residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'form radio-malformed-ap residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustFormRadioMalformedAp = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustFormRadioMalformedAp.includes('radio-malformed-ap residual') ||
+  !whyRustFormRadioMalformedAp.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the form radio-malformed-ap residual and frozen leaf-mutation count'
   );
 }
 
