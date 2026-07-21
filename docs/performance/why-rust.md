@@ -252,6 +252,11 @@ A frozen three-case public-stdio `read_pdf` `include_page_geometry` inheritance 
 
 A frozen three-case public-stdio `read_pdf` `include_page_geometry` depth-clamp residual is admitted: pdf.js deeper Pages `MediaBox`/`CropBox` inheritance across an intermediate Pages node, non-right-angle `Rotate` `45` clamps to `0`, and partial `MediaBox`/`CropBox` intersection projects the clipped `view_box`. Leaf-mutation count is frozen at 39 with relocated fixture-root replay. Bleed/Trim/Art boxes, UserUnit Pages inheritance, multi-page geometry breadth, and whole-product parity remain unclaimed; `include_page_geometry` remains `PARTIAL`. `dropInFor3014` stays false and publish freeze remains enabled.
 
+
+### read_pdf include_page_geometry userunit-multipage residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_page_geometry` userunit-multipage residual is admitted: pdf.js does not inherit Pages `UserUnit` onto page geometry, multi-page selected geometry projects per-page `MediaBox`/`Rotate` (including 90-degree width/height swap), and Bleed/Trim/Art boxes do not replace `MediaBox` `view_box`. Leaf-mutation count is frozen at 48 with relocated fixture-root replay. Bleed/Trim/Art as alternate view source, page-level UserUnit override breadth beyond the frozen fixtures, large multi-page breadth, and whole-product parity remain unclaimed; `include_page_geometry` remains `PARTIAL`. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### read_pdf page_labels residual public-stdio subset (bounded)
 
 A frozen three-case public-stdio `read_pdf` `include_page_labels` residual is admitted: multi-style PageLabels (prefix roman, decimal start, alpha), prefix+start decimal sequence, and absent labels omitted. Leaf-mutation count is frozen at 17 with relocated fixture-root replay. `include_page_labels` remains `PARTIAL`; number-tree Kids breadth, hostile label overflow, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
