@@ -242,6 +242,11 @@ A frozen two-case public-stdio `read_pdf` `include_metadata` info residual is ad
 A frozen three-case public-stdio `read_pdf` `include_page_geometry` residual is admitted: Rotate+UserUnit+CropBox dimensions, default MediaBox identity geometry, and inverted MediaBox normalization with `view_box`. Leaf-mutation count is frozen at 39 with relocated fixture-root replay. `include_page_geometry` remains `PARTIAL`; Bleed/Trim/Art boxes, non-right-angle rotation, inherited MediaBox breadth, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
 
+
+### read_pdf include_page_geometry inheritance residual (frozen TS v3.0.14)
+
+A frozen three-case public-stdio `read_pdf` `include_page_geometry` inheritance residual is admitted: pdf.js inherits `MediaBox`/`Rotate` from `Pages`, intersects page `CropBox` with inherited `MediaBox` for `view_box`, and normalizes negative right-angle `Rotate` (`-90` → `270`) with width/height swap. Leaf-mutation count is frozen at 39 with relocated fixture-root replay. Bleed/Trim/Art boxes, non-right-angle rotation beyond clamp, deeper Pages inheritance breadth, and whole-product parity remain unclaimed; `include_page_geometry` remains `PARTIAL`. `dropInFor3014` stays false and publish freeze remains enabled.
+
 ### read_pdf page_labels residual public-stdio subset (bounded)
 
 A frozen three-case public-stdio `read_pdf` `include_page_labels` residual is admitted: multi-style PageLabels (prefix roman, decimal start, alpha), prefix+start decimal sequence, and absent labels omitted. Leaf-mutation count is frozen at 17 with relocated fixture-root replay. `include_page_labels` remains `PARTIAL`; number-tree Kids breadth, hostile label overflow, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
