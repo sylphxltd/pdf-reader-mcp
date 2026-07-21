@@ -1851,4 +1851,51 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn radio_malformed_ap_keeps_v() {
+        let cases = [
+            (
+                "v3014-form-radio-ap-stream-keeps-v-v1.pdf",
+                "Gold",
+                serde_json::Value::Null,
+            ),
+            (
+                "v3014-form-radio-apn-stream-keeps-v-v1.pdf",
+                "Gold",
+                serde_json::Value::Null,
+            ),
+            (
+                "v3014-form-radio-ap-named-keeps-v-v1.pdf",
+                "Gold",
+                serde_json::json!("Off"),
+            ),
+        ];
+        for (fixture, value, default_value) in cases {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../test/fixtures/differential")
+                .join(fixture);
+            let document = Document::load(path).expect("load radio malformed-ap fixture");
+            let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+            let output = extract_form_attachment_signals(&document, &pages, true, false);
+            let fields = output.form_fields.expect("form fields");
+            assert_eq!(fields.len(), 1, "fixture {fixture}");
+            let field = &fields[0];
+            assert_eq!(field.name, "Plan", "fixture {fixture}");
+            assert_eq!(
+                field.r#type.as_deref(),
+                Some("radiobutton"),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.value).unwrap(),
+                serde_json::json!(value),
+                "fixture {fixture}"
+            );
+            assert_eq!(
+                serde_json::to_value(&field.default_value).unwrap(),
+                default_value,
+                "fixture {fixture}"
+            );
+        }
+    }
 }
