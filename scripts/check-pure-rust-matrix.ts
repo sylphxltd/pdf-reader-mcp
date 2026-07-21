@@ -934,6 +934,20 @@ const annotationStampCaretFileResidualCorpus = JSON.parse(
   };
   nonclaims: Record<string, boolean>;
 };
+const annotationSquareCircleWidgetResidualCorpus = JSON.parse(
+  readFileSync(
+    join(root, 'scripts/differential/fixtures/v3014-annotation-square-circle-widget-residual-corpus.json'),
+    'utf8'
+  )
+) as {
+  cases: Array<{ id: string }>;
+  envelope: {
+    fixtureCount: number;
+    caseCount: number;
+    maxPagesPerCase: number;
+  };
+  nonclaims: Record<string, boolean>;
+};
 const attachmentOddNamesResidualCorpus = JSON.parse(
   readFileSync(
     join(root, 'scripts/differential/fixtures/v3014-attachment-odd-names-residual-corpus.json'),
@@ -7628,6 +7642,76 @@ if (
 ) {
   failures.push(
     'why-rust must document the annotation stamp/caret/file residual and frozen leaf-mutation count'
+  );
+}
+
+const annotationSquareCircleWidgetResidualCaseCount = annotationSquareCircleWidgetResidualCorpus.cases.length;
+if (
+  !differentialWorkflow.includes(
+    'bun run test:v3014-annotation-square-circle-widget-residual-differential'
+  )
+) {
+  failures.push(
+    'rust parity workflow must execute the frozen annotation square/circle/widget residual differential'
+  );
+}
+if (
+  !repositoryDifferential.includes(
+    'scripts/differential/check-v3014-annotation-square-circle-widget-residual-differential.ts'
+  ) ||
+  !repositoryDifferential.includes(
+    'scripts/differential/capture-v3014-annotation-square-circle-widget-residual-oracle.ts'
+  ) ||
+  !repositoryDifferential.includes('v3014AnnotationSquareCircleWidgetResidualCaseCount') ||
+  !repositoryDifferential.includes('v3014AnnotationSquareCircleWidgetResidualCorpusHash') ||
+  !repositoryDifferential.includes('v3014AnnotationSquareCircleWidgetResidualOracleHash')
+) {
+  failures.push(
+    'repository differential artifact must bind the annotation square/circle/widget residual family'
+  );
+}
+if (
+  annotationSquareCircleWidgetResidualCaseCount !== 3 ||
+  annotationSquareCircleWidgetResidualCorpus.envelope.fixtureCount !== 3 ||
+  annotationSquareCircleWidgetResidualCorpus.nonclaims.dropInFor3014 !== false ||
+  annotationSquareCircleWidgetResidualCorpus.nonclaims.publishFreeze !== true ||
+  annotationSquareCircleWidgetResidualCorpus.nonclaims.wholeProductParity !== false
+) {
+  failures.push(
+    'annotation square/circle/widget residual corpus envelope and product-truth nonclaims must remain frozen'
+  );
+}
+if (
+  !differentialWorkflow.includes(
+    '.profile == "pdf_reader_v3014_annotation_square_circle_widget_residual_result"'
+  ) ||
+  !differentialWorkflow.includes('.providerProof.squareInverted == true') ||
+  !differentialWorkflow.includes('.providerProof.circleInverted == true') ||
+  !differentialWorkflow.includes('.providerProof.widgetFieldTNotTitle == true')
+) {
+  failures.push(
+    'annotation square/circle/widget residual workflow must bind provider proof'
+  );
+}
+if (
+  !matrix.claimedForDifferential.some(
+    (claim) => claim.includes('exact 3-case') && claim.includes('square/circle/widget residual')
+  ) ||
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('square/circle/widget residual outside the frozen 3-case')
+  )
+) {
+  failures.push(
+    'annotation square/circle/widget residual bounded claim and explicit nonclaims must remain documented'
+  );
+}
+const whyRustAnnotationSquareCircleWidget = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAnnotationSquareCircleWidget.includes('square/circle/widget residual') ||
+  !whyRustAnnotationSquareCircleWidget.includes('Leaf-mutation count is frozen at')
+) {
+  failures.push(
+    'why-rust must document the annotation square/circle/widget residual and frozen leaf-mutation count'
   );
 }
 

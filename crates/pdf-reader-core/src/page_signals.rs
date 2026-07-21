@@ -405,8 +405,6 @@ fn squiggly_quad_bbox(points: &[(f64, f64)]) -> Option<[f64; 4]> {
     left.is_finite().then_some([left, bottom, right, top])
 }
 
-
-
 fn ink_lists_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec<(f64, f64)>> {
     let value = dict.get(b"InkList").ok()?;
     let lists = resolve(document, value).ok()?.as_array().ok()?;
@@ -426,7 +424,6 @@ fn ink_lists_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec
     }
     (!points.is_empty()).then_some(points)
 }
-
 
 fn quad_points(document: &Document, dict: &lopdf::Dictionary) -> Option<Vec<(f64, f64)>> {
     // pdf.js getQuadPoints: array length > 0 and multiple of 8; each group becomes
@@ -503,7 +500,11 @@ fn appearance_resources_have_ext_gstate(document: &Document, dict: &lopdf::Dicti
     resources_dict.get(b"ExtGState").is_ok()
 }
 
-fn text_markup_should_use_quad_bbox(document: &Document, dict: &lopdf::Dictionary, subtype: &str) -> bool {
+fn text_markup_should_use_quad_bbox(
+    document: &Document,
+    dict: &lopdf::Dictionary,
+    subtype: &str,
+) -> bool {
     // pdf.js text-markup annotations:
     // - Underline/Squiggly/StrikeOut: synthesize from QuadPoints only when appearance is unset
     // - Highlight: also ignore appearance streams whose Resources lack ExtGState
@@ -572,6 +573,11 @@ fn normalize_annotation(
                 .ok()
                 .and_then(|value| decoded_string(document, value, text_budget));
         }
+    }
+    // pdf.js WidgetAnnotation stores /T as fieldName, not titleObj. Public TS
+    // normalizeAnnotation only projects title from titleObj, so Widget omits title.
+    if subtype.as_deref() == Some("Widget") {
+        title = None;
     }
     // pdf.js PopupAnnotation always projects title/contents from Parent (and IRT
     // when Parent.RT is Group). Public TS projection only surfaces title/contents.
@@ -671,7 +677,6 @@ fn normalize_annotation(
             }
         }
     }
-
 
     // pdf.js Highlight/Underline/Squiggly/StrikeOut:
     // - when synthesizing default appearance from QuadPoints, public data.rect
@@ -1643,6 +1648,26 @@ mod tests {
     }
 
     #[test]
+    fn widget_field_t_is_not_projected_as_title() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-annotation-widget-field-t-v1.pdf");
+        let document = Document::load(path).expect("load widget fixture");
+        let pages = document.get_pages().into_iter().collect::<Vec<_>>();
+        let signals = extract_page_signals(&document, &pages, &[1], false, true);
+        let ann = &signals.annotations[0]["annotations"][0];
+        assert_eq!(ann["subtype"], "Widget");
+        assert_eq!(ann["contents"], "Widget note");
+        assert!(
+            ann.get("title").is_none(),
+            "Widget /T is fieldName, not title: {ann}"
+        );
+        assert_eq!(
+            ann["bounding_box"],
+            serde_json::json!({"left":72.0,"bottom":600.0,"right":120.0,"top":620.0})
+        );
+    }
+
+    #[test]
     fn group_text_and_popup_inherit_irt_title_and_contents() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../test/fixtures/differential/v3014-annotation-popup-group-irt-v1.pdf");
@@ -2308,8 +2333,4 @@ mod tests {
             assert_eq!(ann["bounding_box"], expected, "fixture {fixture}");
         }
     }
-
-
-
-
 }
