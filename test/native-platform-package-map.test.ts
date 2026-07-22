@@ -43,7 +43,9 @@ describe('native platform package map', () => {
         readFileSync(join(root, `packages/pdf-reader-mcp-${platformId}/package.json`), 'utf8')
       ) as { private?: boolean; scripts?: { prepublishOnly?: string }; name?: string };
       expect(pkg.private).toBe(true);
-      expect(pkg.name).toBe(NATIVE_PLATFORM_PACKAGES[platformId as keyof typeof NATIVE_PLATFORM_PACKAGES].npmName);
+      expect(pkg.name).toBe(
+        NATIVE_PLATFORM_PACKAGES[platformId as keyof typeof NATIVE_PLATFORM_PACKAGES].npmName
+      );
       expect(pkg.scripts?.prepublishOnly ?? '').toContain('PUBLISH FREEZE');
     }
     // ensure map completeness matches package dirs
