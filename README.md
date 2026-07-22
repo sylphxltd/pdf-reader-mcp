@@ -172,6 +172,18 @@ git checkout:
 ```bash
 bun run build:rust
 PDF_READER_ENGINE_MODE=pure-rust ./bin/pdf-reader-mcp
+
+Experimental pure-Rust **library** import (does not change the default TypeScript package entry; publish freeze remains):
+
+```ts
+import { createPureRustClient } from '@sylphx/pdf-reader-mcp/pure-rust';
+
+const client = createPureRustClient();
+const result = await client.readPdf({
+  sources: [{ path: './doc.pdf', pages: [1] }],
+  include_full_text: true,
+});
+```
 ```
 
 ### Docker

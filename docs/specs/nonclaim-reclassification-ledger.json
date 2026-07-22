@@ -24,8 +24,8 @@
   "stats": {
     "total": 109,
     "byClass": {
-      "blocking_capability_gap": 3,
-      "quality_risk": 72,
+      "blocking_capability_gap": 2,
+      "quality_risk": 73,
       "pdfjs_implementation_non_goal": 16,
       "security_or_resource_bound": 16,
       "equivalent_representation": 1,
@@ -263,17 +263,6 @@
       "notes": [
         "host-runtime-smoke-five-ci-2026-07-22",
         "registry-install-unproven"
-      ]
-    },
-    {
-      "nonclaim": "npm library exports for pure-Rust",
-      "class": "blocking_capability_gap",
-      "confidence": "reviewed",
-      "rationale": "Sole-runtime publish requires clean native package distribution/export proof.",
-      "blockingForUnfreeze": true,
-      "notes": [
-        "still-blocking",
-        "native-binary-runtime-smoke-does-not-close-library-exports"
       ]
     },
     {
@@ -807,6 +796,16 @@
       "confidence": "provisional_heuristic",
       "rationale": "Broad whole-product/residual-outside claim; needs task-eval rather than exact residual expansion.",
       "blockingForUnfreeze": false
+    },
+    {
+      "nonclaim": "npm library exports for pure-Rust beyond experimental ./pure-rust client contract (including public API stability and registry-install proof)",
+      "class": "quality_risk",
+      "confidence": "reviewed",
+      "rationale": "Experimental pure-Rust library export contract exists; public API stability and registry install readback remain before unfreeze.",
+      "blockingForUnfreeze": true,
+      "notes": [
+        "experimental-export-landed-2026-07-22"
+      ]
     }
   ]
 }

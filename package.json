@@ -15,7 +15,8 @@
     "LICENSE"
   ],
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./pure-rust": "./dist/pure-rust.js"
   },
   "publishConfig": {
     "access": "public"
@@ -60,7 +61,7 @@
     "document-processing"
   ],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target node && bun build src/doctor-cli.ts --outdir dist --target node && bun build src/legacy-engine-runtime.ts --outdir dist --target node && bun scripts/stage-pdfjs-worker.ts",
+    "build": "bun build src/index.ts --outdir dist --target node && bun build src/doctor-cli.ts --outdir dist --target node && bun build src/legacy-engine-runtime.ts --outdir dist --target node && bun build src/pure-rust.ts --outdir dist --target node && bun scripts/stage-pdfjs-worker.ts",
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector dist/index.js",
     "test": "bun test",
@@ -220,7 +221,9 @@
     "test:agent-task-eval": "bun scripts/run-agent-task-eval.ts --runtime=pure-rust --compare-baseline",
     "test:agent-task-eval:calibrate": "bun scripts/run-agent-task-eval.ts --runtime=both --write-baseline --compare-baseline",
     "test:agent-task-eval:baseline": "bun scripts/run-agent-task-eval.ts --runtime=typescript --write-baseline --no-compare",
-    "smoke:native-package-resolve": "bun scripts/smoke-native-package-resolve.ts"
+    "smoke:native-package-resolve": "bun scripts/smoke-native-package-resolve.ts",
+    "check:pure-rust-exports": "bun scripts/check-pure-rust-exports.ts",
+    "test:pure-rust-exports": "bun test test/pure-rust-exports.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

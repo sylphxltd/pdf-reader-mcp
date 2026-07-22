@@ -389,6 +389,7 @@ export const validateExtractedPackage = async (
   const packageJsonPath = path.join(packageDir, 'package.json');
   const packageJson = await readJson(packageJsonPath);
   const tsEntryPath = path.join(packageDir, 'dist', 'index.js');
+  const pureRustEntryPath = path.join(packageDir, 'dist', 'pure-rust.js');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
   const publicProviderManifestPath = path.join(
     packageDir,
@@ -420,6 +421,17 @@ export const validateExtractedPackage = async (
     bin?.['pdf-reader-mcp'] === './dist/index.js' && exportsField?.['.'] === './dist/index.js',
     'package bin/exports point at TypeScript dist/index.js (published 3.0.14 path)',
     { bin: bin?.['pdf-reader-mcp'], exports: exportsField?.['.'] }
+  );
+  addCheck(
+    checks,
+    'runtime:pure-rust-export-contract',
+    exportsField?.['./pure-rust'] === './dist/pure-rust.js' && (await fileExists(pureRustEntryPath)),
+    'package exposes experimental pure-Rust library export at ./pure-rust without changing default TS entry',
+    {
+      export: exportsField?.['./pure-rust'],
+      path: 'package/dist/pure-rust.js',
+      productTruth: { dropInFor3014: false, publishFreeze: true },
+    }
   );
   addCheck(
     checks,
@@ -523,6 +535,12 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
       tarballEntries.includes('package/dist/index.js'),
       'tarball includes package/dist/index.js',
       { entries: tarballEntries.filter((e) => e.includes('dist/')).slice(0, 20) }
+    );
+    addCheck(
+      checks,
+      'tarball:pure-rust-entry',
+      tarballEntries.includes('package/dist/pure-rust.js'),
+      'tarball includes package/dist/pure-rust.js experimental library export'
     );
     addCheck(
       checks,

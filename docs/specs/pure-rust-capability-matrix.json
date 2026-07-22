@@ -192,7 +192,8 @@
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-parent-kids-ap residual: pdf.js radio parent/kids inherit parent V; kid AS does not override; default-Off only when kid AP/N is named-state dict; AP stream or AP/N stream kids keep V with null default; named AP/N kids keep V with default Off; parent stub remains type/value null; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (84), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; deeper kids nesting breadth, malformed-field breadth, and whole-product parity remain unclaimed; include_form_fields remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-deeper-kids-ap residual: pdf.js radio deeper kids nesting inherits parent V across an intermediate named group with Parent links; kid AS does not override; default-Off only when leaf AP/N is named-state dict; root Plan stub and intermediate Plan.Opt stub remain type/value null; AP stream or AP/N stream leaves keep V with null default; named AP/N leaves keep V with default Off; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation, relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; broken parent-chain intermediate breadth, malformed-field breadth, and whole-product parity remain unclaimed; include_form_fields remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-broken-parent-chain residual: pdf.js radio broken parent-chain intermediate omits widgets without inheritable FT and names the intermediate via Parent-chain only (Opt, not Plan.Opt); root Plan stub remains; AP stream / AP/N stream / named AP/N variants all drop leaves when intermediate has no Parent to the radio root; Rust form extraction uses Parent-chain name construction and Parent-chain FT/V/Ff/DV inheritance; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation, relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; malformed-field breadth and whole-product parity remain unclaimed; include_form_fields remains PARTIAL",
-    "pure-Rust analyze_regions HTTP and preset providers: MCP_PDF_REGION_ANALYSIS_HTTP_URL raw JSON body path, MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible/lmstudio/llamacpp with model/url env contracts, HTTP headers JSON, OpenAI bearer key injection, fail-closed invalid preset/url, local mock HTTP round-trip unit proof, provider/provenance labels external-http; command provider remains first; dropInFor3014=false and publishFreeze=true; arbitrary remote provider fidelity and whole-product parity remain unclaimed"
+    "pure-Rust analyze_regions HTTP and preset providers: MCP_PDF_REGION_ANALYSIS_HTTP_URL raw JSON body path, MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible/lmstudio/llamacpp with model/url env contracts, HTTP headers JSON, OpenAI bearer key injection, fail-closed invalid preset/url, local mock HTTP round-trip unit proof, provider/provenance labels external-http; command provider remains first; dropInFor3014=false and publishFreeze=true; arbitrary remote provider fidelity and whole-product parity remain unclaimed",
+    "pure-Rust npm library export contract: package exports[\"./pure-rust\"] -> dist/pure-rust.js provides resolvePureRustServerBinary/createPureRustClient/readPdf/searchPdf/pdfEvidence over the staged pure-Rust MCP server binary; default exports[\".\"] and bin remain TypeScript dist/index.js; host binary resolution covers platform optional packages, staged bin/native, and target/release fallbacks; dropInFor3014=false and publishFreeze=true; npm registry install readback remains unclaimed"
   ],
   "explicitlyNotClaimed": [
     "complete reviewed closure of all blocking_capability_gap nonclaims including OCR provider breadth and five-platform native package install/runtime proof",
@@ -227,7 +228,6 @@
     "full COS outline/PageLabels/permissions parity outside the frozen common catalog subset; AcroForm radio/pushbutton/signature, button-array V coercion, and malformed-field breadth, integer-like/duplicate attachment-key ordering, odd-length Names arrays (PDF.js may materialize a final unnamed entry), filtered embedded-stream decoded sizes, and Associated Files",
     "structure-tree, accessibility, and inspect parity outside the immutable 11-case subset, including broader malformed/deep-number-tree corpus coverage, image-paint inspection, provider recommendations, and non-reference top-level StructElem forms",
     "cross-platform npm native binary",
-    "npm library exports for pure-Rust",
     "2.0x/3.3x industry benchmark headline",
     "read_pdf include_metadata info residual outside the frozen 2-case public-stdio residual, including and whole-product parity",
     "read_pdf include_page_geometry residual outside the frozen 3-case public-stdio residual, including Bleed/Trim/Art boxes, non-right-angle rotation, inherited MediaBox breadth, and whole-product parity",
@@ -303,7 +303,8 @@
     "read_pdf include_form_fields form radio-malformed-ap residual outside the frozen 3-case public-stdio residual, including radio parent/kids malformed AP breadth, malformed-field breadth, and whole-product parity",
     "read_pdf include_form_fields form radio-parent-kids-ap residual outside the frozen 3-case public-stdio residual, including malformed-field breadth and whole-product parity beyond the admitted deeper-kids residual",
     "read_pdf include_form_fields form radio-deeper-kids-ap residual outside the frozen 3-case public-stdio residual, including malformed-field breadth and whole-product parity beyond the admitted broken-parent-chain residual",
-    "read_pdf include_form_fields form radio-broken-parent-chain residual outside the frozen 3-case public-stdio residual, including malformed-field breadth and whole-product parity"
+    "read_pdf include_form_fields form radio-broken-parent-chain residual outside the frozen 3-case public-stdio residual, including malformed-field breadth and whole-product parity",
+    "npm library exports for pure-Rust beyond experimental ./pure-rust client contract (including public API stability and registry-install proof)"
   ],
   "admissionProgram": {
     "mode": "capability-first-semantic-compatibility",
@@ -326,7 +327,6 @@
     "nextActions": [
       "Expand OCR/visual public agent-task corpus beyond local fixtures",
       "Complete npm registry native package install/readback proof after unfreeze candidate is chosen",
-      "Add pure-Rust npm library exports contract",
       "Whole-product independent review of one exact candidate before unfreeze"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
@@ -348,6 +348,13 @@
         "bun run smoke:native-package-resolve"
       ],
       "workflow": ".github/workflows/native-package-scaffold.yml"
+    },
+    "libraryExports": {
+      "status": "experimental-opt-in-contract",
+      "exportPath": "./pure-rust",
+      "artifact": "dist/pure-rust.js",
+      "defaultStillTypescript": true,
+      "publishFreeze": true
     }
   }
 }
