@@ -24,6 +24,7 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   fs.mkdirSync(path.join(packageDir, 'dist'), { recursive: true });
   if (includeRuntime) {
     fs.writeFileSync(path.join(packageDir, 'dist', 'index.js'), 'export {};\n', 'utf8');
+    fs.writeFileSync(path.join(packageDir, 'dist', 'pure-rust.js'), 'export {};\n', 'utf8');
   }
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
@@ -33,6 +34,7 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
     },
     exports: {
       '.': './dist/index.js',
+      './pure-rust': './dist/pure-rust.js',
     },
     files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],
   });
