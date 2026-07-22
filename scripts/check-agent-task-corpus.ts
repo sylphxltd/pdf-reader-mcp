@@ -13,6 +13,7 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
   calibration?: { inventedNumericThresholdsForbidden?: boolean };
   fixtures?: Record<string, string>;
   taskFiles?: string[];
+  baselineArtifact?: string;
 };
 
 if (manifest.schemaVersion !== 1) failures.push('manifest schemaVersion must be 1');
@@ -26,6 +27,12 @@ for (const [name, fixture] of Object.entries(manifest.fixtures ?? {})) {
 
 const taskFiles = manifest.taskFiles ?? [];
 if (taskFiles.length < 4) failures.push('manifest must reference at least four tasks');
+if (manifest.baselineArtifact) {
+  const baselinePath = join(root, 'docs/specs/agent-task-corpus', manifest.baselineArtifact);
+  if (!existsSync(baselinePath)) {
+    failures.push(`baselineArtifact missing: ${manifest.baselineArtifact}`);
+  }
+}
 
 const ids = new Set<string>();
 const contractIds = new Set<string>();
@@ -71,4 +78,4 @@ if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
 }
-console.log(`[check-agent-task-corpus] PASS ${taskFiles.length} tasks scaffolded under ADR-0005`);
+console.log(`[check-agent-task-corpus] PASS ${taskFiles.length} tasks under ADR-0005`);

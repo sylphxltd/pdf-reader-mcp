@@ -3,7 +3,7 @@
   "title": "Agent-task corpus for capability-first quality parity",
   "updated": "2026-07-22",
   "authority": "ADR-0005",
-  "status": "scaffold",
+  "status": "calibrating",
   "baselineRuntime": "typescript-v3.0.14",
   "candidateRuntime": "pure-rust-opt-in",
   "calibration": {
@@ -14,17 +14,25 @@
   "fixtures": {
     "sample": "test/fixtures/sample.pdf",
     "selectableTable": "test/fixtures/differential/v3014-selectable-table-v1.pdf",
-    "selectableText": "test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf"
+    "selectableText": "test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf",
+    "outlineNamedDest": "test/fixtures/differential/v3014-outline-named-dest-goto-v1.pdf",
+    "formTextMultiline": "test/fixtures/differential/v3014-form-text-multiline-lf-v1.pdf",
+    "annotationFreetext": "test/fixtures/differential/v3014-annotation-freetext-normal-v1.pdf"
   },
   "taskFiles": [
     "tasks/extract-passage.json",
     "tasks/table-value.json",
     "tasks/search-page-localization.json",
-    "tasks/invalid-page-failclosed.json"
+    "tasks/invalid-page-failclosed.json",
+    "tasks/outline-headings.json",
+    "tasks/form-fields.json",
+    "tasks/annotation-presence.json"
   ],
   "notes": [
-    "This corpus is a scaffold for ADR-0005 quality parity.",
-    "Smoke execution uses local fixtures only; public URL corpus remains opt-in.",
-    "Thresholds must be calibrated from TS baseline measurements before unfreeze."
-  ]
+    "Local corpus under ADR-0005 quality parity.",
+    "Thresholds are measured from TS baseline via scripts/run-agent-task-eval.ts --write-baseline.",
+    "Invented absolute percentage thresholds are forbidden; comparison uses measured capability presence floors.",
+    "Public URL corpus and OCR/visual task classes remain follow-on work before unfreeze."
+  ],
+  "baselineArtifact": "baselines/typescript-v3.0.14.local.json"
 }

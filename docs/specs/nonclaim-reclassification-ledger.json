@@ -45,8 +45,11 @@
       "nonclaim": "calibrated public agent-task corpus thresholds and full quality-parity scorecard against TS baseline",
       "class": "quality_risk",
       "confidence": "reviewed",
-      "rationale": "Scaffold exists; calibrated public thresholds are still required before unfreeze.",
-      "blockingForUnfreeze": true
+      "rationale": "Local measured TS baseline + pure-Rust presence comparison exists; public/OCR/visual corpus calibration and full quality-parity scorecard remain before unfreeze.",
+      "blockingForUnfreeze": true,
+      "notes": [
+        "local-baseline-measured-2026-07-22"
+      ]
     },
     {
       "nonclaim": "exact PDF.js/TS 3.0.14 whole-product output equality outside frozen regression families; residual expansion for representation-only PDF.js quirks is a non-goal under ADR-0005",

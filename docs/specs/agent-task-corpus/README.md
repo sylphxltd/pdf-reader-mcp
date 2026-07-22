@@ -1,17 +1,28 @@
-# Agent-task corpus
+# Agent-task corpus (ADR-0005)
 
-Capability-first quality parity corpus for ADR-0005.
+Quality-parity corpus for capability-first admission.
 
-- `manifest.json` — corpus index and calibration policy
-- `tasks/*.json` — executable task definitions
-- Local fixtures only for smoke; public URL corpus stays opt-in
+## Rules
 
-Validate:
+- Same tasks run against TS 3.0.14 baseline and pure-Rust candidate.
+- Thresholds come from **measured** TS baseline metrics.
+- Invented absolute percentage thresholds are forbidden.
+- Exact PDF.js JSON equality is not required.
+
+## Commands
 
 ```bash
-bun run check:agent-task-corpus
+# pure-Rust smoke predicates
 bun run test:agent-task-smoke
+
+# measure TS baseline + compare pure-Rust presence floors
+bun run test:agent-task-eval:calibrate
+
+# compare pure-Rust against committed measured baseline
+bun run test:agent-task-eval
 ```
 
-Unfreeze requires calibrated TS-baseline thresholds on a broader corpus, not
-only this smoke scaffold.
+## Status
+
+`calibrating` — local fixtures only. OCR/visual/public corpus and five-platform
+native install proof remain separate blocking gates before unfreeze.

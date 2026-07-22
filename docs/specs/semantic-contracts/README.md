@@ -1,15 +1,23 @@
-# Semantic capability contracts
+# Semantic contracts (ADR-0005)
 
-These contracts implement ADR-0005 capability-first admission.
+Executable capability contracts for capability-first admission.
 
-- `schema.json` — machine schema for every contract
-- `*.json` contracts — active requirements by layer
-- Exact PDF.js JSON equality is not required unless a frozen residual family
-  still claims it
-- Closure evidence is suite-backed (`evidence.suites`) and/or agent-task corpus
+## Active contracts
 
-Validate with:
+- `interface-mcp-surface`
+- `semantic-read-text-citation`
+- `semantic-table-structure`
+- `semantic-search-relevance`
+- `semantic-outline-headings`
+- `semantic-form-fields`
+- `semantic-annotations`
+- `security-resource-bounds`
+
+## Validation
 
 ```bash
 bun run check:semantic-contracts
+bun run check:agent-task-corpus
+bun run test:agent-task-smoke
+bun run test:agent-task-eval
 ```
