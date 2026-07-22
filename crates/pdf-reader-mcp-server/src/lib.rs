@@ -128,7 +128,7 @@ impl PdfReaderMcp {
     }
 
     #[tool(
-        description = "Focused PDF evidence operations. Pure-Rust supports inspect, bounded page rendering/crops, and opt-in bounded command-provider OCR and region analysis. HTTP/preset region providers are not yet available."
+        description = "Focused PDF evidence operations. Pure-Rust supports inspect, bounded page rendering/crops, opt-in bounded command-provider OCR, and region analysis via command, HTTP URL, or ollama/openai-compatible/lmstudio/llamacpp presets."
     )]
     pub async fn pdf_evidence(
         &self,

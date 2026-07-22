@@ -18,7 +18,20 @@ const DEFAULT_MAX_OUTPUT_CHARS: usize = 200_000;
 const COMMAND_ENV: &str = "MCP_PDF_REGION_ANALYSIS_COMMAND";
 const ARGS_ENV: &str = "MCP_PDF_REGION_ANALYSIS_ARGS_JSON";
 const HTTP_ENV: &str = "MCP_PDF_REGION_ANALYSIS_HTTP_URL";
+const HTTP_HEADERS_ENV: &str = "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON";
 const PRESET_ENV: &str = "MCP_PDF_REGION_ANALYSIS_PRESET";
+const OLLAMA_URL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_OLLAMA_URL";
+const OLLAMA_MODEL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL";
+const OPENAI_URL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_OPENAI_URL";
+const OPENAI_MODEL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_OPENAI_MODEL";
+const OPENAI_API_KEY_ENV: &str = "MCP_PDF_REGION_ANALYSIS_OPENAI_API_KEY";
+const LMSTUDIO_URL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL";
+const LMSTUDIO_MODEL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_LMSTUDIO_MODEL";
+const LLAMACPP_URL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL";
+const LLAMACPP_MODEL_ENV: &str = "MCP_PDF_REGION_ANALYSIS_LLAMACPP_MODEL";
+const DEFAULT_OLLAMA_URL: &str = "http://127.0.0.1:11434/api/generate";
+const DEFAULT_LMSTUDIO_URL: &str = "http://127.0.0.1:1234/v1/chat/completions";
+const DEFAULT_LLAMACPP_URL: &str = "http://127.0.0.1:8080/v1/chat/completions";
 const MAX_SOURCES_PER_REQUEST: usize = 32;
 const MAX_REQUEST_TIMEOUT_MS: u64 = 600_000;
 const MAX_REQUEST_OUTPUT_CHARS: usize = 2_000_000;
@@ -101,9 +114,33 @@ impl RequestBudget {
 }
 
 #[derive(Clone, Debug)]
-struct ProviderConfig {
-    command: String,
-    args_template: Vec<String>,
+enum ProviderConfig {
+    Command {
+        command: String,
+        args_template: Vec<String>,
+    },
+    Http {
+        url: String,
+        headers: Vec<(String, String)>,
+        preset: Option<String>,
+        model: Option<String>,
+    },
+}
+
+impl ProviderConfig {
+    fn provider_label(&self) -> &'static str {
+        match self {
+            Self::Command { .. } => "command",
+            Self::Http { .. } => "http",
+        }
+    }
+
+    fn engine_label(&self) -> &'static str {
+        match self {
+            Self::Command { .. } => "external-command",
+            Self::Http { .. } => "external-http",
+        }
+    }
 }
 
 fn parse_args(value: &Value) -> Result<PdfEvidenceArgs, rmcp::ErrorData> {
@@ -115,25 +152,59 @@ fn parse_args(value: &Value) -> Result<PdfEvidenceArgs, rmcp::ErrorData> {
     Ok(args)
 }
 
-fn provider_config_from(
-    command_value: Option<String>,
-    args_value: Option<String>,
-    http_value: Option<String>,
-    preset_value: Option<String>,
-) -> Result<ProviderConfig, String> {
-    let command = command_value
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    if command.is_none()
-        && (http_value.is_some_and(|value| !value.trim().is_empty())
-            || preset_value.is_some_and(|value| !value.trim().is_empty()))
-    {
-        return Err("HTTP and preset region analysis providers are not available in the pure-Rust engine yet; set MCP_PDF_REGION_ANALYSIS_COMMAND for the bounded command adapter.".into());
-    }
-    let command = command.ok_or_else(|| {
-        "Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND to enable analyze_regions in the pure-Rust engine."
-            .to_string()
+fn not_configured_message() -> String {
+    "Region analysis provider is not configured. Set MCP_PDF_REGION_ANALYSIS_COMMAND, MCP_PDF_REGION_ANALYSIS_HTTP_URL, or MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible/lmstudio/llamacpp to enable analyze_regions.".into()
+}
+
+fn parse_http_headers(raw: Option<String>) -> Result<Vec<(String, String)>, String> {
+    let Some(raw) = raw.map(|value| value.trim().to_string()).filter(|value| !value.is_empty()) else {
+        return Ok(Vec::new());
+    };
+    let value: Value = serde_json::from_str(&raw).map_err(|_| {
+        "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON must be a JSON object with string keys and string values.".to_string()
     })?;
+    let object = value.as_object().ok_or_else(|| {
+        "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON must be a JSON object with string keys and string values.".to_string()
+    })?;
+    let mut headers = Vec::with_capacity(object.len());
+    for (key, value) in object {
+        let key = key.trim();
+        let Some(header_value) = value.as_str().map(str::trim) else {
+            return Err(
+                "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON must be a JSON object with string keys and string values."
+                    .into(),
+            );
+        };
+        if key.is_empty() {
+            return Err(
+                "MCP_PDF_REGION_ANALYSIS_HTTP_HEADERS_JSON must be a JSON object with string keys and string values."
+                    .into(),
+            );
+        }
+        headers.push((key.to_string(), header_value.to_string()));
+    }
+    Ok(headers)
+}
+
+fn validate_http_url(url: &str, invalid_message: &str) -> Result<(), String> {
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err(invalid_message.to_string());
+    }
+    let without_scheme = url.split_once("://").map(|(_, rest)| rest).unwrap_or("");
+    let host = without_scheme.split(['/', '?', '#']).next().unwrap_or("");
+    let host = host.split('@').next_back().unwrap_or("");
+    let host = host.rsplit_once(':').map_or(host, |(host, _)| host);
+    if host.is_empty() || host == "[" {
+        return Err(invalid_message.to_string());
+    }
+    Ok(())
+}
+
+fn command_provider_config(
+    command: String,
+    args_value: Option<String>,
+) -> Result<ProviderConfig, String> {
     let args_template = match args_value {
         None => vec!["{input}".into()],
         Some(raw) => {
@@ -157,10 +228,154 @@ fn provider_config_from(
             args
         }
     };
-    Ok(ProviderConfig {
+    Ok(ProviderConfig::Command {
         command,
         args_template,
     })
+}
+
+fn http_provider_config(
+    url: String,
+    headers: Vec<(String, String)>,
+    preset: Option<String>,
+    model: Option<String>,
+) -> Result<ProviderConfig, String> {
+    validate_http_url(
+        &url,
+        if preset.as_deref() == Some("openai-compatible") {
+            "MCP_PDF_REGION_ANALYSIS_OPENAI_URL must be a valid URL."
+        } else if preset.as_deref() == Some("ollama") {
+            "MCP_PDF_REGION_ANALYSIS_OLLAMA_URL must be a valid URL."
+        } else if preset.as_deref() == Some("lmstudio") {
+            "MCP_PDF_REGION_ANALYSIS_LMSTUDIO_URL must be a valid URL."
+        } else if preset.as_deref() == Some("llamacpp") {
+            "MCP_PDF_REGION_ANALYSIS_LLAMACPP_URL must be a valid URL."
+        } else {
+            "MCP_PDF_REGION_ANALYSIS_HTTP_URL must be a valid URL."
+        },
+    )?;
+    Ok(ProviderConfig::Http {
+        url,
+        headers,
+        preset,
+        model,
+    })
+}
+
+fn provider_config_from(
+    command_value: Option<String>,
+    args_value: Option<String>,
+    http_value: Option<String>,
+    headers_value: Option<String>,
+    preset_value: Option<String>,
+    ollama_url: Option<String>,
+    ollama_model: Option<String>,
+    openai_url: Option<String>,
+    openai_model: Option<String>,
+    openai_api_key: Option<String>,
+    lmstudio_url: Option<String>,
+    lmstudio_model: Option<String>,
+    llamacpp_url: Option<String>,
+    llamacpp_model: Option<String>,
+) -> Result<ProviderConfig, String> {
+    let command = command_value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    if let Some(command) = command {
+        return command_provider_config(command, args_value);
+    }
+
+    let headers = parse_http_headers(headers_value)?;
+    let preset = preset_value
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty());
+    if let Some(preset) = preset.clone() {
+        match preset.as_str() {
+            "ollama" => {
+                let model = ollama_model
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| {
+                        "MCP_PDF_REGION_ANALYSIS_OLLAMA_MODEL is required when MCP_PDF_REGION_ANALYSIS_PRESET=ollama."
+                            .to_string()
+                    })?;
+                let url = ollama_url
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| DEFAULT_OLLAMA_URL.into());
+                return http_provider_config(url, headers, Some(preset), Some(model));
+            }
+            "openai-compatible" | "lmstudio" | "llamacpp" => {
+                let (model_env, url_env, default_url, model_value, url_value) = match preset.as_str()
+                {
+                    "openai-compatible" => (
+                        OPENAI_MODEL_ENV,
+                        OPENAI_URL_ENV,
+                        None,
+                        openai_model,
+                        openai_url,
+                    ),
+                    "lmstudio" => (
+                        LMSTUDIO_MODEL_ENV,
+                        LMSTUDIO_URL_ENV,
+                        Some(DEFAULT_LMSTUDIO_URL),
+                        lmstudio_model,
+                        lmstudio_url,
+                    ),
+                    _ => (
+                        LLAMACPP_MODEL_ENV,
+                        LLAMACPP_URL_ENV,
+                        Some(DEFAULT_LLAMACPP_URL),
+                        llamacpp_model,
+                        llamacpp_url,
+                    ),
+                };
+                let model = model_value
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| {
+                        format!(
+                            "{model_env} is required when MCP_PDF_REGION_ANALYSIS_PRESET={preset}."
+                        )
+                    })?;
+                let url = url_value
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                    .or_else(|| default_url.map(str::to_string))
+                    .ok_or_else(|| {
+                        if preset == "openai-compatible" {
+                            "MCP_PDF_REGION_ANALYSIS_OPENAI_URL is required when MCP_PDF_REGION_ANALYSIS_PRESET=openai-compatible.".into()
+                        } else {
+                            format!("{url_env} is required when MCP_PDF_REGION_ANALYSIS_PRESET={preset}.")
+                        }
+                    })?;
+                let mut headers = headers;
+                if let Some(api_key) = openai_api_key
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                {
+                    headers.retain(|(key, _)| !key.eq_ignore_ascii_case("authorization"));
+                    headers.push(("Authorization".into(), format!("Bearer {api_key}")));
+                }
+                return http_provider_config(url, headers, Some(preset), Some(model));
+            }
+            _ => {
+                return Err(
+                    "Unsupported MCP_PDF_REGION_ANALYSIS_PRESET. Supported values: ollama, openai-compatible, lmstudio, llamacpp."
+                        .into(),
+                );
+            }
+        }
+    }
+
+    let http_url = http_value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    if let Some(url) = http_url {
+        return http_provider_config(url, headers, None, None);
+    }
+
+    Err(not_configured_message())
 }
 
 fn provider_config() -> Result<ProviderConfig, String> {
@@ -168,7 +383,17 @@ fn provider_config() -> Result<ProviderConfig, String> {
         env::var(COMMAND_ENV).ok(),
         env::var(ARGS_ENV).ok(),
         env::var(HTTP_ENV).ok(),
+        env::var(HTTP_HEADERS_ENV).ok(),
         env::var(PRESET_ENV).ok(),
+        env::var(OLLAMA_URL_ENV).ok(),
+        env::var(OLLAMA_MODEL_ENV).ok(),
+        env::var(OPENAI_URL_ENV).ok(),
+        env::var(OPENAI_MODEL_ENV).ok(),
+        env::var(OPENAI_API_KEY_ENV).ok(),
+        env::var(LMSTUDIO_URL_ENV).ok(),
+        env::var(LMSTUDIO_MODEL_ENV).ok(),
+        env::var(LLAMACPP_URL_ENV).ok(),
+        env::var(LLAMACPP_MODEL_ENV).ok(),
     )
 }
 
@@ -591,6 +816,218 @@ fn normalize_output(stdout: &str, maximum: usize) -> Value {
     Value::Object(output)
 }
 
+fn vision_prompt(region: &Value, source: &str, languages: &[String]) -> String {
+    let box_ = &region["source_bounding_box"];
+    format!(
+        "Analyze this cropped PDF region for an AI document parser.\nSource: {source}\nRegion id: {}\nPage: {}\nPDF bounding box: left={}, bottom={}, right={}, top={}\nLanguages: {}\nReturn only one JSON object with kind/description/table/formula/chart fields when applicable.",
+        region["region_id"].as_str().unwrap_or(""),
+        region["page"].as_u64().unwrap_or(0),
+        js_number(box_["left"].as_f64().unwrap_or(0.0)),
+        js_number(box_["bottom"].as_f64().unwrap_or(0.0)),
+        js_number(box_["right"].as_f64().unwrap_or(0.0)),
+        js_number(box_["top"].as_f64().unwrap_or(0.0)),
+        if languages.is_empty() {
+            "unspecified".into()
+        } else {
+            languages.join(",")
+        }
+    )
+}
+
+fn build_http_request_body(
+    config: &ProviderConfig,
+    image_b64: &str,
+    mime_type: &str,
+    source: &str,
+    region: &Value,
+    languages: &[String],
+) -> Result<Value, String> {
+    let ProviderConfig::Http {
+        preset,
+        model,
+        ..
+    } = config
+    else {
+        return Err("Internal error: HTTP body builder called for non-HTTP provider.".into());
+    };
+    match preset.as_deref() {
+        Some("ollama") => Ok(json!({
+            "model": model,
+            "prompt": vision_prompt(region, source, languages),
+            "images": [image_b64],
+            "stream": false,
+            "format": "json",
+        })),
+        Some("openai-compatible" | "lmstudio" | "llamacpp") => Ok(json!({
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You analyze cropped PDF regions for an AI document parser. Return only one JSON object."
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": vision_prompt(region, source, languages)},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": format!("data:{mime_type};base64,{image_b64}")
+                            }
+                        }
+                    ]
+                }
+            ],
+            "temperature": 0
+        })),
+        _ => Ok(json!({
+            "image_base64": image_b64,
+            "mime_type": mime_type,
+            "format": region.get("format").cloned().unwrap_or_else(|| json!("png")),
+            "page": region.get("page").cloned().unwrap_or(json!(0)),
+            "region_id": region.get("region_id").cloned().unwrap_or(json!("")),
+            "evidence_id": region.get("evidence_id").cloned().unwrap_or(json!("")),
+            "source": source,
+            "source_bounding_box": region.get("source_bounding_box").cloned().unwrap_or(json!({})),
+            "crop_pixels": region.get("crop_pixels").cloned().unwrap_or(json!({})),
+            "scale": region.get("scale").cloned().unwrap_or(json!(1.0)),
+            "languages": languages,
+        })),
+    }
+}
+
+fn parse_http_provider_stdout(preset: Option<&str>, stdout: &str) -> Result<String, String> {
+    match preset {
+        Some("ollama") => {
+            let parsed: Value = serde_json::from_str(stdout)
+                .map_err(|_| "Ollama region analysis response was not a JSON object.".to_string())?;
+            let response = parsed
+                .get("response")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    "Ollama region analysis response did not include a non-empty response string."
+                        .to_string()
+                })?;
+            Ok(response.to_string())
+        }
+        Some("openai-compatible" | "lmstudio" | "llamacpp") => {
+            let parsed: Value = serde_json::from_str(stdout).map_err(|_| {
+                "OpenAI-compatible region analysis response was not a JSON object.".to_string()
+            })?;
+            let content = parsed
+                .pointer("/choices/0/message/content")
+                .cloned()
+                .ok_or_else(|| {
+                    "OpenAI-compatible region analysis response did not include message content."
+                        .to_string()
+                })?;
+            if let Some(text) = content.as_str().map(str::trim).filter(|value| !value.is_empty()) {
+                return Ok(text.to_string());
+            }
+            if let Some(parts) = content.as_array() {
+                let text = parts
+                    .iter()
+                    .filter_map(|part| part.get("text").and_then(Value::as_str))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .trim()
+                    .to_string();
+                if !text.is_empty() {
+                    return Ok(text);
+                }
+            }
+            Err(
+                "OpenAI-compatible region analysis response did not include message content."
+                    .into(),
+            )
+        }
+        _ => Ok(stdout.to_string()),
+    }
+}
+
+fn run_http_provider(
+    config: &ProviderConfig,
+    png: &[u8],
+    source: &str,
+    region: &Value,
+    languages: &[String],
+    timeout_ms: u64,
+) -> Result<String, CommandRunError> {
+    let ProviderConfig::Http {
+        url,
+        headers,
+        preset,
+        ..
+    } = config
+    else {
+        return Err(CommandRunError::new(
+            "Internal error: HTTP provider invoked for non-HTTP config.".into(),
+            0,
+        ));
+    };
+    let page = region["page"].as_u64().unwrap_or(0);
+    let region_id = region["region_id"].as_str().unwrap_or("unknown");
+    let mime_type = region["mime_type"].as_str().unwrap_or("image/png");
+    let image_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, png);
+    let body = match build_http_request_body(config, &image_b64, mime_type, source, region, languages)
+    {
+        Ok(body) => body,
+        Err(message) => return Err(CommandRunError::new(message, 0)),
+    };
+    let agent = ureq::AgentBuilder::new()
+        .timeout(Duration::from_millis(timeout_ms.max(1)))
+        .build();
+    let mut request = agent.post(url).set("Content-Type", "application/json");
+    for (key, value) in headers {
+        request = request.set(key, value);
+    }
+    let response = match request.send_json(body) {
+        Ok(response) => response,
+        Err(ureq::Error::Status(code, response)) => {
+            let body = response.into_string().unwrap_or_default();
+            return Err(CommandRunError::new(
+                format!("Region analysis HTTP provider failed with status {code}."),
+                body.len(),
+            ));
+        }
+        Err(ureq::Error::Transport(error)) => {
+            let message = error.to_string();
+            let timed_out = message.to_ascii_lowercase().contains("timed out")
+                || message.to_ascii_lowercase().contains("timeout");
+            return Err(CommandRunError::new(
+                if timed_out {
+                    format!(
+                        "Region analysis HTTP provider timed out for page {page} region {region_id}."
+                    )
+                } else {
+                    format!(
+                        "Region analysis HTTP provider failed for page {page} region {region_id}."
+                    )
+                },
+                0,
+            ));
+        }
+    };
+    let status = response.status();
+    let stdout = response.into_string().map_err(|_| {
+        CommandRunError::new(
+            format!("Region analysis HTTP provider failed for page {page} region {region_id}."),
+            0,
+        )
+    })?;
+    if !(200..300).contains(&status) {
+        return Err(CommandRunError::new(
+            format!("Region analysis HTTP provider failed with status {status}."),
+            stdout.len(),
+        ));
+    }
+    parse_http_provider_stdout(preset.as_deref(), &stdout).map_err(|message| {
+        CommandRunError::new(message, stdout.len())
+    })
+}
+
 fn run_provider(
     config: &ProviderConfig,
     png: &[u8],
@@ -600,40 +1037,48 @@ fn run_provider(
     timeout_ms: u64,
     max_output_chars: usize,
 ) -> Result<String, CommandRunError> {
-    let page = region["page"].as_u64().unwrap_or(0);
-    let region_id = region["region_id"].as_str().unwrap_or("unknown");
-    let temp = TempDir::with_prefix("pdf-reader-mcp-region-analysis-").map_err(|_| {
-        CommandRunError::new(
-            "Failed to create region analysis provider workspace.".into(),
-            0,
-        )
-    })?;
-    let input = temp.path().join(format!("region-{page}.png"));
-    std::fs::write(&input, png).map_err(|_| {
-        CommandRunError::new(
-            "Failed to write region analysis provider input image.".into(),
-            0,
-        )
-    })?;
-    let input = input.to_string_lossy();
-    let args = config
-        .args_template
-        .iter()
-        .map(|arg| replace_placeholders(arg, &input, source, region, languages))
-        .collect();
-    command_provider::run(CommandInvocation {
-        command: config.command.clone(),
-        args,
-        timeout_ms,
-        max_stdout_bytes: max_output_chars.saturating_mul(4).max(1024 * 1024),
-        failure_message: format!(
-            "Region analysis provider command failed for page {page} region {region_id}."
-        ),
-        timeout_message: format!(
-            "Region analysis provider command timed out for page {page} region {region_id}."
-        ),
-    })
+    match config {
+        ProviderConfig::Http { .. } => run_http_provider(config, png, source, region, languages, timeout_ms),
+        ProviderConfig::Command {
+            command,
+            args_template,
+        } => {
+            let page = region["page"].as_u64().unwrap_or(0);
+            let region_id = region["region_id"].as_str().unwrap_or("unknown");
+            let temp = TempDir::with_prefix("pdf-reader-mcp-region-analysis-").map_err(|_| {
+                CommandRunError::new(
+                    "Failed to create region analysis provider workspace.".into(),
+                    0,
+                )
+            })?;
+            let input = temp.path().join(format!("region-{page}.png"));
+            std::fs::write(&input, png).map_err(|_| {
+                CommandRunError::new(
+                    "Failed to write region analysis provider input image.".into(),
+                    0,
+                )
+            })?;
+            let input = input.to_string_lossy();
+            let args = args_template
+                .iter()
+                .map(|arg| replace_placeholders(arg, &input, source, region, languages))
+                .collect();
+            command_provider::run(CommandInvocation {
+                command: command.clone(),
+                args,
+                timeout_ms,
+                max_stdout_bytes: max_output_chars.saturating_mul(4).max(1024 * 1024),
+                failure_message: format!(
+                    "Region analysis provider command failed for page {page} region {region_id}."
+                ),
+                timeout_message: format!(
+                    "Region analysis provider command timed out for page {page} region {region_id}."
+                ),
+            })
+        }
+    }
 }
+
 
 fn text_result(payload: Value) -> CallToolResult {
     let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
@@ -649,9 +1094,7 @@ fn error_result(message: String) -> CallToolResult {
     CallToolResult::error(vec![Content::text(message)])
 }
 
-/// True when a valid command region-analysis provider is configured.
-///
-/// HTTP/preset-only configuration is intentionally not ready in pure Rust.
+/// True when a valid region-analysis provider is configured (command, HTTP, or preset).
 pub(crate) fn command_provider_ready() -> bool {
     provider_config().is_ok()
 }
@@ -914,7 +1357,7 @@ pub(crate) fn analyze_visual_candidates_for_sources(
                 if let Some(object) = normalized.as_object_mut() {
                     object.insert("region_id".into(), json!(region_id));
                     object.insert("page".into(), region["page"].clone());
-                    object.insert("provider".into(), json!("command"));
+                    object.insert("provider".into(), json!(config.provider_label()));
                     object.insert(
                         "source_crop_evidence_id".into(),
                         region["evidence_id"].clone(),
@@ -927,7 +1370,7 @@ pub(crate) fn analyze_visual_candidates_for_sources(
                     object.insert("scale".into(), region["scale"].clone());
                     object.insert(
                         "provenance".into(),
-                        json!({"engine": "external-command", "source": "region-analysis-provider"}),
+                        json!({"engine": config.engine_label(), "source": "region-analysis-provider"}),
                     );
                     object.insert("id".into(), json!(format!("visual-{region_id}")));
                     object.insert("target_element_id".into(), json!(target_element_id));
@@ -1095,13 +1538,13 @@ pub fn analyze_regions(value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
                 request_budget.charge(stdout.len(), output_chars)?;
                 normalized["region_id"] = region["region_id"].clone();
                 normalized["page"] = region["page"].clone();
-                normalized["provider"] = json!("command");
+                normalized["provider"] = json!(config.provider_label());
                 normalized["source_crop_evidence_id"] = region["evidence_id"].clone();
                 normalized["source_bounding_box"] = region["source_bounding_box"].clone();
                 normalized["crop_pixels"] = region["crop_pixels"].clone();
                 normalized["scale"] = region["scale"].clone();
                 normalized["provenance"] =
-                    json!({"engine": "external-command", "source": "region-analysis-provider"});
+                    json!({"engine": config.engine_label(), "source": "region-analysis-provider"});
                 analyses.push(normalized);
             }
             let mut result = json!({"source": source_label, "success": true, "num_pages": source["num_pages"], "region_analyses": analyses});
@@ -1176,20 +1619,144 @@ mod tests {
     }
 
     #[test]
-    fn rejects_non_command_configuration_and_missing_input_placeholder() {
-        assert!(
-            provider_config_from(None, None, Some("http://localhost".into()), None)
-                .unwrap_err()
-                .contains("not available")
-        );
+    fn accepts_http_and_preset_configuration_and_rejects_bad_command_args() {
+        let http = provider_config_from(
+            None,
+            None,
+            Some("http://127.0.0.1:9/analyze".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("http config");
+        assert_eq!(http.provider_label(), "http");
+
+        let ollama = provider_config_from(
+            None,
+            None,
+            None,
+            None,
+            Some("ollama".into()),
+            None,
+            Some("llava".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("ollama config");
+        assert_eq!(ollama.provider_label(), "http");
+
         assert!(provider_config_from(
             Some("provider".into()),
             Some(r#"["--flag"]"#.into()),
             None,
-            None
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         )
         .unwrap_err()
         .contains("{input}"));
+
+        assert!(provider_config_from(
+            None,
+            None,
+            None,
+            None,
+            Some("nope".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .contains("Unsupported"));
+    }
+
+    #[test]
+    fn http_provider_round_trip_against_local_mock() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::thread;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut buffer = [0u8; 8192];
+            let _ = stream.read(&mut buffer);
+            let body = br#"{"kind":"table","description":"mock http table","confidence":0.9}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                std::str::from_utf8(body).unwrap()
+            );
+            let _ = stream.write_all(response.as_bytes());
+        });
+
+        let config = provider_config_from(
+            None,
+            None,
+            Some(format!("http://{addr}/analyze")),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("http config");
+        let region = json!({
+            "page": 1,
+            "region_id": "r1",
+            "evidence_id": "e1",
+            "mime_type": "image/png",
+            "format": "png",
+            "source_bounding_box": {"left": 0, "bottom": 0, "right": 10, "top": 10},
+            "crop_pixels": {"width": 10, "height": 10},
+            "scale": 2.0
+        });
+        let stdout = run_provider(
+            &config,
+            b"\x89PNG\r\n",
+            "fixture.pdf",
+            &region,
+            &[],
+            5_000,
+            200_000,
+        )
+        .expect("http provider");
+        assert!(stdout.contains("mock http table"));
+        handle.join().expect("server thread");
     }
 
     #[test]
