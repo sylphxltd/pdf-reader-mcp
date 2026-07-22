@@ -148,7 +148,7 @@ layer, link applied pages into `document_map`, emit OCR MCP text parts, and
 project one bounded boxed-word table subset through tables, elements, chunks,
 Markdown, HTML, AST, and map. The immutable detached TS 3.0.14 differential
 covers these bounded fusion cases. It remains partial: mixed selectable/OCR
-table continuation, full AST hierarchy, OCR TSV, region-analysis HTTP/presets,
+table continuation, full AST hierarchy, OCR TSV breadth beyond admitted subsets,
 broader renderer fixtures, and full Document Twin fusion are open. Unavailable
 paths fail closed; this is not TS 3.0.14 parity.
 
@@ -159,7 +159,7 @@ See [installation guide](../guide/installation.md). Pure-Rust remains experiment
 
 ### Configured-command visual enrichment fusion (bounded)
 
-A frozen five-case configured-command `read_pdf` visual-enrichment payload and Document Map fusion subset is admitted through the exact-SHA differential harness. It covers direct table fusion, page sort/dedup/invalid + max-one admission, ordered two-caption analyses, fail-closed second-provider failure, and ready/no-candidate zero invocation. `include_visual_enrichments` remains `PARTIAL`; Document AST visual fusion and HTTP/preset providers are unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
+A frozen five-case configured-command `read_pdf` visual-enrichment payload and Document Map fusion subset is admitted through the exact-SHA differential harness. It covers direct table fusion, page sort/dedup/invalid + max-one admission, ordered two-caption analyses, fail-closed second-provider failure, and ready/no-candidate zero invocation. Pure-Rust also implements analyze_regions HTTP URL and ollama/openai-compatible/lmstudio/llamacpp presets with local mock proof. `include_visual_enrichments` remains `PARTIAL` while public remote-provider fidelity and whole-product parity stay unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
 ### Document AST visual enrichment fusion (bounded)
 

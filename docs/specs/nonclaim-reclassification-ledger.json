@@ -22,16 +22,16 @@
     "unclassified": "Temporary; must be reclassified before unfreeze."
   },
   "stats": {
-    "total": 110,
+    "total": 109,
     "byClass": {
-      "blocking_capability_gap": 4,
+      "blocking_capability_gap": 3,
       "quality_risk": 72,
       "pdfjs_implementation_non_goal": 16,
       "security_or_resource_bound": 16,
       "equivalent_representation": 1,
       "compatibility_only": 1
     },
-    "blockingForUnfreezeCount": 5
+    "blockingForUnfreezeCount": 4
   },
   "entries": [
     {
@@ -239,13 +239,6 @@
       "confidence": "reviewed",
       "rationale": "Exact pdf.js pixels/antialiasing are representation non-goals under ADR-0005; remaining fusion breadth is tracked via semantic contracts and task-eval, not pixel equality.",
       "blockingForUnfreeze": false
-    },
-    {
-      "nonclaim": "OCR success paths outside the opt-in command JSON/plain-text subset, including tesseract-tsv; mixed selectable/OCR table continuation; analyze_regions HTTP and preset providers",
-      "class": "blocking_capability_gap",
-      "confidence": "reviewed",
-      "rationale": "OCR/provider breadth beyond the frozen command subset can block real scanned-document agent tasks; close via capability evidence/task-eval, not exact residual micro-parity.",
-      "blockingForUnfreeze": true
     },
     {
       "nonclaim": "full COS outline/PageLabels/permissions parity outside the frozen common catalog subset; AcroForm radio/pushbutton/signature, button-array V coercion, and malformed-field breadth, integer-like/duplicate attachment-key ordering, odd-length Names arrays (PDF.js may materialize a final unnamed entry), filtered embedded-stream decoded sizes, and Associated Files",
