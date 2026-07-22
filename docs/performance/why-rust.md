@@ -24,6 +24,10 @@ compatibility**, not whole-product exact PDF.js output parity.
 See `docs/adr/0005-capability-first-semantic-compatibility.md` and
 `docs/specs/capability-first-admission-contract.md`.
 
+Executable scaffolds now live under `docs/specs/semantic-contracts/` and
+`docs/specs/agent-task-corpus/`, with `bun run check:semantic-contracts`,
+`bun run check:agent-task-corpus`, and `bun run test:agent-task-smoke`.
+
 
 > **Status:** experimental. **Not** a full drop-in for TypeScript 3.0.14.
 > Published stable remains `@sylphx/pdf-reader-mcp@3.0.14`.

@@ -2737,6 +2737,53 @@ if (
 ) {
   failures.push('temporary Rust migration fences must cite capability-first admission and nonclaim ledger');
 }
+
+// Semantic contracts + agent-task corpus scaffold (ADR-0005 execution path)
+for (const requiredDoc of [
+  'docs/specs/semantic-contracts/schema.json',
+  'docs/specs/semantic-contracts/interface-mcp-surface.json',
+  'docs/specs/semantic-contracts/semantic-read-text-citation.json',
+  'docs/specs/semantic-contracts/semantic-table-structure.json',
+  'docs/specs/semantic-contracts/semantic-search-relevance.json',
+  'docs/specs/semantic-contracts/security-resource-bounds.json',
+  'docs/specs/agent-task-corpus/manifest.json',
+  'scripts/check-semantic-contracts.ts',
+  'scripts/check-agent-task-corpus.ts',
+  'scripts/run-agent-task-smoke.ts',
+]) {
+  if (!existsSync(join(root, requiredDoc))) {
+    failures.push(`capability-first execution scaffold missing: ${requiredDoc}`);
+  }
+}
+const packageJsonText = readFileSync(join(root, 'package.json'), 'utf8');
+for (const scriptName of [
+  'check:semantic-contracts',
+  'check:agent-task-corpus',
+  'test:agent-task-smoke',
+]) {
+  if (!packageJsonText.includes(scriptName)) {
+    failures.push(`package.json must wire ${scriptName}`);
+  }
+}
+if (
+  !matrix.claimedForDifferential.some((claim) =>
+    claim.includes('capability-first semantic contracts scaffold')
+  ) ||
+  !matrix.claimedForDifferential.some((claim) =>
+    claim.includes('capability-first agent-task corpus scaffold')
+  )
+) {
+  failures.push('matrix must claim semantic-contracts and agent-task corpus scaffolds');
+}
+if ((nonclaimLedger.stats as { byClass?: Record<string, number> } | undefined)?.byClass?.unclassified) {
+  // unclassified allowed only if zero; enforce zero after seed refinement
+  const unclassified = Number(
+    (nonclaimLedger.stats as { byClass?: Record<string, number> }).byClass?.unclassified ?? 0
+  );
+  if (unclassified > 0) {
+    failures.push(`nonclaim ledger still has unclassified entries: ${unclassified}`);
+  }
+}
 if (matrix.tools.read_pdf.include_semantic_hints !== 'PARTIAL') {
   failures.push('bounded semantic-hint claim must remain PARTIAL');
 }

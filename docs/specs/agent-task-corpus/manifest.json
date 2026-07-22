@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "title": "Agent-task corpus for capability-first quality parity",
+  "updated": "2026-07-22",
+  "authority": "ADR-0005",
+  "status": "scaffold",
+  "baselineRuntime": "typescript-v3.0.14",
+  "candidateRuntime": "pure-rust-opt-in",
+  "calibration": {
+    "method": "compare-candidate-to-ts-baseline-on-same-tasks",
+    "thresholdSource": "measured-ts-baseline",
+    "inventedNumericThresholdsForbidden": true
+  },
+  "fixtures": {
+    "sample": "test/fixtures/sample.pdf",
+    "selectableTable": "test/fixtures/differential/v3014-selectable-table-v1.pdf",
+    "selectableText": "test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf"
+  },
+  "taskFiles": [
+    "tasks/extract-passage.json",
+    "tasks/table-value.json",
+    "tasks/search-page-localization.json",
+    "tasks/invalid-page-failclosed.json"
+  ],
+  "notes": [
+    "This corpus is a scaffold for ADR-0005 quality parity.",
+    "Smoke execution uses local fixtures only; public URL corpus remains opt-in.",
+    "Thresholds must be calibrated from TS baseline measurements before unfreeze."
+  ]
+}
