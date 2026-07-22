@@ -187,6 +187,35 @@ for (const rel of manifest.taskFiles) {
         }
       }
     }
+    if (typeof acc.minOutlineItems === 'number') {
+      const outline =
+        (data.outline as unknown[] | undefined) ??
+        (first.outline as unknown[] | undefined) ??
+        (data.outlines as unknown[] | undefined) ??
+        [];
+      if (!Array.isArray(outline) || outline.length < acc.minOutlineItems) {
+        failures.push(`${task.id}: expected outline items, got ${Array.isArray(outline) ? outline.length : 0}`);
+      }
+    }
+    if (typeof acc.minFormFields === 'number') {
+      const fields =
+        (data.form_fields as unknown[] | undefined) ??
+        (first.form_fields as unknown[] | undefined) ??
+        (data.fields as unknown[] | undefined) ??
+        [];
+      if (!Array.isArray(fields) || fields.length < acc.minFormFields) {
+        failures.push(`${task.id}: expected form fields, got ${Array.isArray(fields) ? fields.length : 0}`);
+      }
+    }
+    if (typeof acc.minAnnotations === 'number') {
+      const annotations =
+        (data.annotations as unknown[] | undefined) ??
+        (first.annotations as unknown[] | undefined) ??
+        [];
+      if (!Array.isArray(annotations) || annotations.length < acc.minAnnotations) {
+        failures.push(`${task.id}: expected annotations, got ${Array.isArray(annotations) ? annotations.length : 0}`);
+      }
+    }
     if (acc.requireWarningOrEmptyText === true) {
       const text = fullText;
       const warnings = (data.warnings as unknown[] | undefined) ?? (first.warnings as unknown[] | undefined) ?? [];

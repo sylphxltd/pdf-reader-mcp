@@ -324,12 +324,20 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Review remaining nonclaim ledger classes to zero unclassified",
-      "Expand semantic contracts for OCR/visual/forms/annotations",
-      "Calibrate agent-task thresholds from TS baseline measurements",
-      "Close blocking OCR provider breadth and five-platform native install proof"
+      "Close blocking OCR provider breadth with task-eval evidence",
+      "Prove five-platform native package install/runtime and npm library exports",
+      "Expand OCR/visual public agent-task corpus beyond local fixtures",
+      "Whole-product independent review of one exact candidate before unfreeze"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
-    "agentTaskCorpus": "docs/specs/agent-task-corpus/"
+    "agentTaskCorpus": "docs/specs/agent-task-corpus/",
+    "agentTaskCalibration": {
+      "status": "local-baseline-measured",
+      "baselineArtifact": "docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.local.json",
+      "commands": [
+        "bun run test:agent-task-eval:calibrate",
+        "bun run test:agent-task-eval"
+      ]
+    }
   }
 }

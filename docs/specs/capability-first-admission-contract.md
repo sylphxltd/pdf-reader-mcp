@@ -125,3 +125,18 @@ for compatibility discovery, not the product’s semantic SSOT.
 - Agent-task corpus: `docs/specs/agent-task-corpus/`
 - Validators: `bun run check:semantic-contracts`, `bun run check:agent-task-corpus`
 - Local pure-Rust smoke: `bun run test:agent-task-smoke`
+
+## Measured baseline artifact
+
+Local agent-task calibration is stored at:
+
+`docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.local.json`
+
+Regenerate with:
+
+```bash
+bun run test:agent-task-eval:calibrate
+```
+
+Comparison uses measured capability presence floors, not invented percentages.
+
