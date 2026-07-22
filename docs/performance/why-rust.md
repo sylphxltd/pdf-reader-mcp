@@ -5,6 +5,26 @@ title: Why pure Rust + open gaps
 
 # Why pure Rust + open gaps
 
+
+## Capability-first admission (ADR-0005)
+
+As of 2026-07-22, pure-Rust admission is **capability-first semantic
+compatibility**, not whole-product exact PDF.js output parity.
+
+- Interface/schema/transport/error contracts remain exact.
+- Semantic capability equivalence and calibrated agent-task quality are the
+  release standards.
+- Frozen TS v3.0.14 differential families below remain valuable regression and
+  coverage evidence.
+- Do **not** expand exact residual families for representation-only PDF.js
+  quirks unless classified as contract break, semantic regression, or
+  security/resource fail-closed gap.
+- `dropInFor3014=false` and publish freeze remain until the ADR-0005 bar is met.
+
+See `docs/adr/0005-capability-first-semantic-compatibility.md` and
+`docs/specs/capability-first-admission-contract.md`.
+
+
 > **Status:** experimental. **Not** a full drop-in for TypeScript 3.0.14.
 > Published stable remains `@sylphx/pdf-reader-mcp@3.0.14`.
 

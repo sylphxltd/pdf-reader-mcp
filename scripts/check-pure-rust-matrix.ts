@@ -2630,6 +2630,113 @@ if (matrix.productTruth.dropInFor3014 !== false) {
 if (matrix.productTruth.publishFreeze !== true) {
   failures.push('bounded Rust parity slices must keep publishFreeze=true');
 }
+
+// ADR-0005 capability-first admission invariants
+const admissionProgram = (matrix as {
+  admissionProgram?: {
+    mode?: string;
+    authority?: string;
+    contract?: string;
+    nonclaimLedger?: string;
+    exactPdfJsOutputParity?: boolean;
+    publishFreeze?: boolean;
+    dropInFor3014?: boolean;
+  };
+  productTruth: {
+    admissionBar?: string;
+    exactPdfJsOutputParityRequired?: boolean;
+    ts3014Role?: string;
+  };
+}).admissionProgram;
+if (!admissionProgram || admissionProgram.mode !== 'capability-first-semantic-compatibility') {
+  failures.push('matrix admissionProgram.mode must be capability-first-semantic-compatibility');
+}
+if (admissionProgram?.exactPdfJsOutputParity !== false) {
+  failures.push('admissionProgram.exactPdfJsOutputParity must be false under ADR-0005');
+}
+if (admissionProgram?.publishFreeze !== true || admissionProgram?.dropInFor3014 !== false) {
+  failures.push('admissionProgram must keep publishFreeze=true and dropInFor3014=false until the new bar is met');
+}
+if ((matrix.productTruth as { admissionBar?: string }).admissionBar !== 'capability-first-semantic-compatibility') {
+  failures.push('productTruth.admissionBar must record capability-first-semantic-compatibility');
+}
+if ((matrix.productTruth as { exactPdfJsOutputParityRequired?: boolean }).exactPdfJsOutputParityRequired !== false) {
+  failures.push('productTruth.exactPdfJsOutputParityRequired must be false');
+}
+for (const requiredDoc of [
+  'docs/adr/0005-capability-first-semantic-compatibility.md',
+  'docs/specs/capability-first-admission-contract.md',
+  'docs/specs/nonclaim-reclassification-ledger.json',
+]) {
+  if (!existsSync(join(root, requiredDoc))) {
+    failures.push(`capability-first admission document missing: ${requiredDoc}`);
+  }
+}
+const nonclaimLedger = JSON.parse(
+  readFileSync(join(root, 'docs/specs/nonclaim-reclassification-ledger.json'), 'utf8')
+) as {
+  authority?: string;
+  entries?: Array<{ nonclaim: string; class: string; blockingForUnfreeze?: boolean }>;
+  stats?: { total?: number };
+  taxonomy?: Record<string, string>;
+};
+if (nonclaimLedger.authority !== 'ADR-0005') {
+  failures.push('nonclaim reclassification ledger must cite ADR-0005 authority');
+}
+const allowedNonclaimClasses = new Set([
+  'blocking_capability_gap',
+  'quality_risk',
+  'compatibility_only',
+  'pdfjs_implementation_non_goal',
+  'equivalent_representation',
+  'security_or_resource_bound',
+  'unclassified',
+]);
+if (!nonclaimLedger.taxonomy || Object.keys(nonclaimLedger.taxonomy).length < 7) {
+  failures.push('nonclaim ledger must define the full ADR-0005 taxonomy');
+}
+const ledgerNonclaims = new Set((nonclaimLedger.entries ?? []).map((entry) => entry.nonclaim));
+for (const nonclaim of matrix.explicitlyNotClaimed) {
+  if (!ledgerNonclaims.has(nonclaim)) {
+    failures.push(`nonclaim ledger missing matrix nonclaim: ${nonclaim.slice(0, 120)}`);
+  }
+}
+if ((nonclaimLedger.stats?.total ?? -1) !== matrix.explicitlyNotClaimed.length) {
+  failures.push('nonclaim ledger stats.total must equal matrix.explicitlyNotClaimed length');
+}
+for (const entry of nonclaimLedger.entries ?? []) {
+  if (!allowedNonclaimClasses.has(entry.class)) {
+    failures.push(`nonclaim ledger entry has invalid class: ${entry.class}`);
+  }
+}
+if (
+  !matrix.claimedForDifferential.some((claim) =>
+    claim.includes('capability-first semantic admission program accepted (ADR-0005)')
+  )
+) {
+  failures.push('matrix must claim the ADR-0005 capability-first admission program');
+}
+if (
+  !matrix.explicitlyNotClaimed.some((claim) =>
+    claim.includes('exact PDF.js/TS 3.0.14 whole-product output equality')
+  )
+) {
+  failures.push('matrix must explicitly nonclaim whole-product exact PDF.js output equality');
+}
+const whyRustAdmission = readFileSync(join(root, 'docs/performance/why-rust.md'), 'utf8');
+if (
+  !whyRustAdmission.includes('Capability-first admission (ADR-0005)') ||
+  !whyRustAdmission.includes('exact PDF.js output parity')
+) {
+  failures.push('why-rust must document the ADR-0005 capability-first admission pivot');
+}
+const fences = readFileSync(join(root, 'docs/specs/temporary-rust-migration-fences.md'), 'utf8');
+if (
+  !fences.includes('capability-first semantic compatibility') ||
+  !fences.includes('nonclaim-reclassification-ledger.json')
+) {
+  failures.push('temporary Rust migration fences must cite capability-first admission and nonclaim ledger');
+}
 if (matrix.tools.read_pdf.include_semantic_hints !== 'PARTIAL') {
   failures.push('bounded semantic-hint claim must remain PARTIAL');
 }
