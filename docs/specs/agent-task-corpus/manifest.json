@@ -3,7 +3,7 @@
   "title": "Agent-task corpus for capability-first quality parity",
   "updated": "2026-07-22",
   "authority": "ADR-0005",
-  "status": "calibrating",
+  "status": "local-calibrated-with-ocr-visual",
   "baselineRuntime": "typescript-v3.0.14",
   "candidateRuntime": "pure-rust-opt-in",
   "calibration": {
@@ -17,7 +17,9 @@
     "selectableText": "test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf",
     "outlineNamedDest": "test/fixtures/differential/v3014-outline-named-dest-goto-v1.pdf",
     "formTextMultiline": "test/fixtures/differential/v3014-form-text-multiline-lf-v1.pdf",
-    "annotationFreetext": "test/fixtures/differential/v3014-annotation-freetext-normal-v1.pdf"
+    "annotationFreetext": "test/fixtures/differential/v3014-annotation-freetext-normal-v1.pdf",
+    "visualCandidate": "test/fixtures/differential/v3014-visual-candidate-v1.pdf",
+    "visualOcr": "test/fixtures/differential/v3014-visual-v1.pdf"
   },
   "taskFiles": [
     "tasks/extract-passage.json",
@@ -26,13 +28,16 @@
     "tasks/invalid-page-failclosed.json",
     "tasks/outline-headings.json",
     "tasks/form-fields.json",
-    "tasks/annotation-presence.json"
+    "tasks/annotation-presence.json",
+    "tasks/visual-candidates.json",
+    "tasks/ocr-text-layer.json",
+    "tasks/visual-enrichment-fusion.json"
   ],
   "notes": [
-    "Local corpus under ADR-0005 quality parity.",
+    "Local corpus under ADR-0005 quality parity, including OCR and visual task classes.",
     "Thresholds are measured from TS baseline via scripts/run-agent-task-eval.ts --write-baseline.",
     "Invented absolute percentage thresholds are forbidden; comparison uses measured capability presence floors.",
-    "Public URL corpus and OCR/visual task classes remain follow-on work before unfreeze."
+    "Public URL corpus remains follow-on work before unfreeze."
   ],
   "baselineArtifact": "baselines/typescript-v3.0.14.local.json"
 }

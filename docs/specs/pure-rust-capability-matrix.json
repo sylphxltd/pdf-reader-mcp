@@ -75,6 +75,7 @@
   },
   "claimedForDifferential": [
     "capability-first semantic admission program accepted (ADR-0005): exact PDF.js output parity is no longer the whole-product bar; interface compatibility remains exact; semantic capability equivalence and calibrated agent-task quality are the release standards; TS 3.0.14 exact differentials remain frozen regression/coverage assets; dropInFor3014=false and publishFreeze=true until the new bar is met",
+    "capability-first agent-task corpus local calibration includes OCR and visual classes: extract/table/search/fail-closed/outline/forms/annotations plus visual candidates, OCR text-layer mock provider, and configured-command visual enrichment Document Map fusion; measured TS v3.0.14 baseline floors drive pure-Rust presence comparison; dropInFor3014=false and publishFreeze=true; public URL corpus remains unclaimed",
     "capability-first agent-task corpus scaffold: local-fixture task definitions for extract/table/search/failclosed classes with TS-baseline calibration policy and pure-Rust smoke predicates; broader public corpus thresholds remain future work; dropInFor3014=false and publishFreeze=true",
     "capability-first semantic contracts scaffold: active interface/semantic/security contracts under docs/specs/semantic-contracts with schema validation and matrix path linkage; exact PDF.js output equality remains non-required outside frozen residual families; dropInFor3014=false and publishFreeze=true",
     "exact 14-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, uniformly estimated selectable-text match bounding boxes and levels, missing and malformed inputs, mixed-source partial success, inherited crop/media/rotation geometry with page UserUnit, an indirect Link/URI annotation, common catalog signals, a bounded AcroForm text/parent-widget/checkbox/listbox subset, and EmbeddedFiles metadata with distinct ASCII tree keys, path-normalized filenames, descriptions, fixture ordering, and unfiltered content sizes",
@@ -193,7 +194,8 @@
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-deeper-kids-ap residual: pdf.js radio deeper kids nesting inherits parent V across an intermediate named group with Parent links; kid AS does not override; default-Off only when leaf AP/N is named-state dict; root Plan stub and intermediate Plan.Opt stub remain type/value null; AP stream or AP/N stream leaves keep V with null default; named AP/N leaves keep V with default Off; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation, relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; broken parent-chain intermediate breadth, malformed-field breadth, and whole-product parity remain unclaimed; include_form_fields remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-broken-parent-chain residual: pdf.js radio broken parent-chain intermediate omits widgets without inheritable FT and names the intermediate via Parent-chain only (Opt, not Plan.Opt); root Plan stub remains; AP stream / AP/N stream / named AP/N variants all drop leaves when intermediate has no Parent to the radio root; Rust form extraction uses Parent-chain name construction and Parent-chain FT/V/Ff/DV inheritance; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation, relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; malformed-field breadth and whole-product parity remain unclaimed; include_form_fields remains PARTIAL",
     "pure-Rust analyze_regions HTTP and preset providers: MCP_PDF_REGION_ANALYSIS_HTTP_URL raw JSON body path, MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible/lmstudio/llamacpp with model/url env contracts, HTTP headers JSON, OpenAI bearer key injection, fail-closed invalid preset/url, local mock HTTP round-trip unit proof, provider/provenance labels external-http; command provider remains first; dropInFor3014=false and publishFreeze=true; arbitrary remote provider fidelity and whole-product parity remain unclaimed",
-    "pure-Rust npm library export contract: package exports[\"./pure-rust\"] -> dist/pure-rust.js provides resolvePureRustServerBinary/createPureRustClient/readPdf/searchPdf/pdfEvidence over the staged pure-Rust MCP server binary; default exports[\".\"] and bin remain TypeScript dist/index.js; host binary resolution covers platform optional packages, staged bin/native, and target/release fallbacks; dropInFor3014=false and publishFreeze=true; npm registry install readback remains unclaimed"
+    "pure-Rust npm library export contract: package exports[\"./pure-rust\"] -> dist/pure-rust.js provides resolvePureRustServerBinary/createPureRustClient/readPdf/searchPdf/pdfEvidence over the staged pure-Rust MCP server binary; default exports[\".\"] and bin remain TypeScript dist/index.js; host binary resolution covers platform optional packages, staged bin/native, and target/release fallbacks; dropInFor3014=false and publishFreeze=true; npm registry install readback remains unclaimed",
+    "whole-product independent review package drafted under ADR-0005: docs/specs/whole-product-independent-review-package.md records exact-SHA review layers, local agent-task/OCR-visual evidence, native host smoke, pure-Rust library export contract, and remaining unfreeze blockers; dropInFor3014=false and publishFreeze=true until review + remaining gates close"
   ],
   "explicitlyNotClaimed": [
     "complete reviewed closure of all blocking_capability_gap nonclaims including OCR provider breadth and five-platform native package install/runtime proof",
@@ -325,18 +327,20 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Expand OCR/visual public agent-task corpus beyond local fixtures",
       "Complete npm registry native package install/readback proof after unfreeze candidate is chosen",
+      "Expand public URL agent-task corpus beyond local fixtures",
       "Whole-product independent review of one exact candidate before unfreeze"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
     "agentTaskCalibration": {
-      "status": "local-baseline-measured",
+      "status": "local-baseline-measured-with-ocr-visual",
       "baselineArtifact": "docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.local.json",
+      "taskCount": 10,
       "commands": [
         "bun run test:agent-task-eval:calibrate",
-        "bun run test:agent-task-eval"
+        "bun run test:agent-task-eval",
+        "bun run test:agent-task-smoke"
       ]
     },
     "nativePackageProof": {
@@ -355,6 +359,7 @@
       "artifact": "dist/pure-rust.js",
       "defaultStillTypescript": true,
       "publishFreeze": true
-    }
+    },
+    "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md"
   }
 }

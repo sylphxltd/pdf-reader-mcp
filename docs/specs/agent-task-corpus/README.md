@@ -9,20 +9,23 @@ Quality-parity corpus for capability-first admission.
 - Invented absolute percentage thresholds are forbidden.
 - Exact PDF.js JSON equality is not required.
 
+## Task classes (local)
+
+- extract passage / table / search / fail-closed pages
+- outline / forms / annotations
+- visual candidates (provider-independent)
+- OCR text layer (mock command provider)
+- visual enrichment + Document Map fusion (configured command provider)
+
 ## Commands
 
 ```bash
-# pure-Rust smoke predicates
+bun run check:agent-task-corpus
 bun run test:agent-task-smoke
-
-# measure TS baseline + compare pure-Rust presence floors
 bun run test:agent-task-eval:calibrate
-
-# compare pure-Rust against committed measured baseline
 bun run test:agent-task-eval
 ```
 
 ## Status
 
-`calibrating` — local fixtures only. OCR/visual/public corpus and five-platform
-native install proof remain separate blocking gates before unfreeze.
+`local-calibrated-with-ocr-visual`. Public URL corpus remains follow-on work before unfreeze.
