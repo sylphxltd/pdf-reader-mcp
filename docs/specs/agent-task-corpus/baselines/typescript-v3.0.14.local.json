@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "authority": "ADR-0005",
   "runtime": "typescript-v3.0.14",
-  "measuredAt": "2026-07-22T20:50:56.511Z",
+  "measuredAt": "2026-07-22T22:45:52.645Z",
   "method": "scripts/run-agent-task-eval.ts --write-baseline",
-  "note": "Measured local-fixture metrics. Thresholds must not be invented above these floors.",
+  "note": "Measured local-fixture metrics including OCR/visual task classes. No invented % thresholds.",
   "tasks": {
     "extract-passage-sample": {
       "class": "extract_passage",
@@ -21,7 +21,11 @@
         "formFieldCount": 0,
         "annotationCount": 0,
         "warningCount": 0,
-        "inventedFullTextRisk": false
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": false
       },
       "acceptancePass": true
     },
@@ -40,7 +44,11 @@
         "formFieldCount": 0,
         "annotationCount": 0,
         "warningCount": 0,
-        "inventedFullTextRisk": false
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": false
       },
       "acceptancePass": true
     },
@@ -59,7 +67,11 @@
         "formFieldCount": 0,
         "annotationCount": 0,
         "warningCount": 0,
-        "inventedFullTextRisk": false
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": false
       },
       "acceptancePass": true
     },
@@ -78,7 +90,11 @@
         "formFieldCount": 0,
         "annotationCount": 0,
         "warningCount": 0,
-        "inventedFullTextRisk": false
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": false
       },
       "acceptancePass": true
     },
@@ -97,7 +113,11 @@
         "formFieldCount": 0,
         "annotationCount": 0,
         "warningCount": 0,
-        "inventedFullTextRisk": false
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": false
       },
       "acceptancePass": true
     },
@@ -116,7 +136,11 @@
         "formFieldCount": 1,
         "annotationCount": 0,
         "warningCount": 0,
-        "inventedFullTextRisk": false
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": false
       },
       "acceptancePass": true
     },
@@ -135,7 +159,80 @@
         "formFieldCount": 0,
         "annotationCount": 1,
         "warningCount": 0,
-        "inventedFullTextRisk": false
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": false
+      },
+      "acceptancePass": true
+    },
+    "visual-candidates-provider-independent": {
+      "class": "visual_candidates",
+      "metrics": {
+        "success": true,
+        "isError": false,
+        "fullTextChars": 34,
+        "pageCount": 7,
+        "tableCount": 0,
+        "matchCount": 0,
+        "firstMatchPage": null,
+        "firstTablePage": null,
+        "outlineCount": 0,
+        "formFieldCount": 0,
+        "annotationCount": 0,
+        "warningCount": 0,
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 1,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 0,
+        "hasDocumentMap": true
+      },
+      "acceptancePass": true
+    },
+    "ocr-text-layer-mock-provider": {
+      "class": "ocr_scanned_page",
+      "metrics": {
+        "success": true,
+        "isError": false,
+        "fullTextChars": 0,
+        "pageCount": 3,
+        "tableCount": 0,
+        "matchCount": 0,
+        "firstMatchPage": null,
+        "firstTablePage": null,
+        "outlineCount": 0,
+        "formFieldCount": 0,
+        "annotationCount": 0,
+        "warningCount": 0,
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 0,
+        "visualEnrichmentCount": 0,
+        "ocrTextChars": 24,
+        "hasDocumentMap": true
+      },
+      "acceptancePass": true
+    },
+    "visual-enrichment-document-map-fusion": {
+      "class": "visual_enrichment",
+      "metrics": {
+        "success": true,
+        "isError": false,
+        "fullTextChars": 34,
+        "pageCount": 7,
+        "tableCount": 0,
+        "matchCount": 0,
+        "firstMatchPage": null,
+        "firstTablePage": null,
+        "outlineCount": 0,
+        "formFieldCount": 0,
+        "annotationCount": 0,
+        "warningCount": 0,
+        "inventedFullTextRisk": false,
+        "visualCandidateCount": 1,
+        "visualEnrichmentCount": 1,
+        "ocrTextChars": 0,
+        "hasDocumentMap": true
       },
       "acceptancePass": true
     }

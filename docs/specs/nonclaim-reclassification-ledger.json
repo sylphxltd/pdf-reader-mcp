@@ -45,10 +45,10 @@
       "nonclaim": "calibrated public agent-task corpus thresholds and full quality-parity scorecard against TS baseline",
       "class": "quality_risk",
       "confidence": "reviewed",
-      "rationale": "Local measured TS baseline + pure-Rust presence comparison exists; public/OCR/visual corpus calibration and full quality-parity scorecard remain before unfreeze.",
+      "rationale": "Local measured TS baseline now covers OCR/visual task classes; public URL corpus calibration and full quality-parity scorecard remain before unfreeze.",
       "blockingForUnfreeze": true,
       "notes": [
-        "local-baseline-measured-2026-07-22"
+        "local-ocr-visual-baseline-2026-07-22"
       ]
     },
     {

@@ -75,6 +75,7 @@
   },
   "claimedForDifferential": [
     "capability-first semantic admission program accepted (ADR-0005): exact PDF.js output parity is no longer the whole-product bar; interface compatibility remains exact; semantic capability equivalence and calibrated agent-task quality are the release standards; TS 3.0.14 exact differentials remain frozen regression/coverage assets; dropInFor3014=false and publishFreeze=true until the new bar is met",
+    "capability-first agent-task corpus local calibration includes OCR and visual classes: extract/table/search/fail-closed/outline/forms/annotations plus visual candidates, OCR text-layer mock provider, and configured-command visual enrichment Document Map fusion; measured TS v3.0.14 baseline floors drive pure-Rust presence comparison; dropInFor3014=false and publishFreeze=true; public URL corpus remains unclaimed",
     "capability-first agent-task corpus scaffold: local-fixture task definitions for extract/table/search/failclosed classes with TS-baseline calibration policy and pure-Rust smoke predicates; broader public corpus thresholds remain future work; dropInFor3014=false and publishFreeze=true",
     "capability-first semantic contracts scaffold: active interface/semantic/security contracts under docs/specs/semantic-contracts with schema validation and matrix path linkage; exact PDF.js output equality remains non-required outside frozen residual families; dropInFor3014=false and publishFreeze=true",
     "exact 14-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, uniformly estimated selectable-text match bounding boxes and levels, missing and malformed inputs, mixed-source partial success, inherited crop/media/rotation geometry with page UserUnit, an indirect Link/URI annotation, common catalog signals, a bounded AcroForm text/parent-widget/checkbox/listbox subset, and EmbeddedFiles metadata with distinct ASCII tree keys, path-normalized filenames, descriptions, fixture ordering, and unfiltered content sizes",
@@ -325,18 +326,20 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Expand OCR/visual public agent-task corpus beyond local fixtures",
       "Complete npm registry native package install/readback proof after unfreeze candidate is chosen",
+      "Expand public URL agent-task corpus beyond local fixtures",
       "Whole-product independent review of one exact candidate before unfreeze"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
     "agentTaskCalibration": {
-      "status": "local-baseline-measured",
+      "status": "local-baseline-measured-with-ocr-visual",
       "baselineArtifact": "docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.local.json",
+      "taskCount": 10,
       "commands": [
         "bun run test:agent-task-eval:calibrate",
-        "bun run test:agent-task-eval"
+        "bun run test:agent-task-eval",
+        "bun run test:agent-task-smoke"
       ]
     },
     "nativePackageProof": {

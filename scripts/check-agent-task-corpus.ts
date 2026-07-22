@@ -26,7 +26,7 @@ for (const [name, fixture] of Object.entries(manifest.fixtures ?? {})) {
 }
 
 const taskFiles = manifest.taskFiles ?? [];
-if (taskFiles.length < 4) failures.push('manifest must reference at least four tasks');
+if (taskFiles.length < 7) failures.push('manifest must reference at least seven tasks');
 if (manifest.baselineArtifact) {
   const baselinePath = join(root, 'docs/specs/agent-task-corpus', manifest.baselineArtifact);
   if (!existsSync(baselinePath)) {
@@ -72,6 +72,17 @@ for (const rel of taskFiles) {
 for (const id of contractIds) {
   const contractPath = join(root, 'docs/specs/semantic-contracts', `${id}.json`);
   if (!existsSync(contractPath)) failures.push(`task corpus links missing contract: ${id}`);
+}
+
+const requiredTaskIds = [
+  'extract-passage-sample',
+  'table-value-selectable',
+  'visual-candidates-provider-independent',
+  'ocr-text-layer-mock-provider',
+  'visual-enrichment-document-map-fusion',
+];
+for (const requiredId of requiredTaskIds) {
+  if (!ids.has(requiredId)) failures.push(`missing required task id: ${requiredId}`);
 }
 
 if (failures.length) {
