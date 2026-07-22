@@ -1,8 +1,9 @@
 # pdf-reader-mcp — local agent notes only
 
-Doctrine and fleet delivery law live in the **host always-on constitution**
-(`~/.grok/AGENTS.md` / Doctrine template). This file must **not** restate,
-weaken, or fork that law (including PR-vs-direct-trunk delivery).
+Static engineering and delivery standards load from the active Skills runtime
+([SylphxAI/skills](https://github.com/SylphxAI/skills) is binding instruction
+SSOT). Doctrine and Mission Control are retired historical lineage and must not
+be loaded as current instruction authority.
 
 Local truth: `PROJECT.md`, `.doctrine/project.json` when present.
 
