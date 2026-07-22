@@ -117,3 +117,11 @@ Until the new bar is met:
 
 Canonical model ownership stays in Rust. PDF.js is a reference implementation
 for compatibility discovery, not the product’s semantic SSOT.
+
+
+## Executable scaffolds
+
+- Semantic contracts: `docs/specs/semantic-contracts/`
+- Agent-task corpus: `docs/specs/agent-task-corpus/`
+- Validators: `bun run check:semantic-contracts`, `bun run check:agent-task-corpus`
+- Local pure-Rust smoke: `bun run test:agent-task-smoke`
