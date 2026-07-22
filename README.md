@@ -13,7 +13,7 @@ The most-starred PDF MCP server on GitHub.
 > **Published stable: `@sylphx/pdf-reader-mcp@3.0.14` (TypeScript path).**  
 > Pure-Rust cutover is **in progress and not published**. Versions `3.0.15`–`3.1.1`
 > are **WITHDRAWN** (deprecated on npm). Do not install them.  
-> **Publish freeze** until capability parity is real — no more premature releases.
+> **Publish freeze** until capability-first semantic compatibility is proven (ADR-0005) — not exact PDF.js JSON equality, and no premature releases.
 
 [![GitHub stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=for-the-badge&logo=github)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)

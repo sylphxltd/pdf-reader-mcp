@@ -1,5 +1,7 @@
 # ADR-PROPOSED — Fleet PDF Reader MCP Rust North Star architecture
 
+> **Admission update (2026-07-22):** whole-product exact PDF.js/TS output parity is no longer the Rust release bar. See [ADR-0005](0005-capability-first-semantic-compatibility.md) for capability-first semantic compatibility. Frozen exact residual families remain regression assets.
+
 - **Status:** Proposed
 - **Date:** 2026-07-10
 - **Relates to:** ADR-167 (SylphxAI/doctrine), ADR-0004 (reader portfolio architecture), SylphxAI/mcp-server-sdk

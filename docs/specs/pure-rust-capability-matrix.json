@@ -1,18 +1,21 @@
 {
   "schemaVersion": 1,
-  "title": "Pure-Rust experimental capability matrix (honest SSOT)",
-  "updated": "2026-07-21",
+  "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
+  "updated": "2026-07-22",
   "productTruth": {
     "publishedStable": "@sylphx/pdf-reader-mcp@3.0.14",
     "publishedImplementation": "TypeScript dist/index.js",
     "pureRustStatus": "experimental-opt-in",
     "optIn": "PDF_READER_ENGINE_MODE=pure-rust",
     "dropInFor3014": false,
-    "publishFreeze": true
+    "publishFreeze": true,
+    "admissionBar": "capability-first-semantic-compatibility",
+    "exactPdfJsOutputParityRequired": false,
+    "ts3014Role": "regression-baseline-coverage-discovery-compatibility-reference"
   },
   "legend": {
-    "FULL": "Production-usable semantic parity with TS 3.0.14 intent for this slice",
-    "PARTIAL": "Present with reduced depth / heuristic",
+    "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
+    "PARTIAL": "Capability present with reduced depth, breadth, or proven subset only",
     "STUB": "Key exists but empty/placeholder",
     "FAIL_CLOSED": "Explicit error (not silent success)",
     "MISSING": "Not implemented"
@@ -71,6 +74,7 @@
     }
   },
   "claimedForDifferential": [
+    "capability-first semantic admission program accepted (ADR-0005): exact PDF.js output parity is no longer the whole-product bar; interface compatibility remains exact; semantic capability equivalence and calibrated agent-task quality are the release standards; TS 3.0.14 exact differentials remain frozen regression/coverage assets; dropInFor3014=false and publishFreeze=true until the new bar is met",
     "exact 14-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, uniformly estimated selectable-text match bounding boxes and levels, missing and malformed inputs, mixed-source partial success, inherited crop/media/rotation geometry with page UserUnit, an indirect Link/URI annotation, common catalog signals, a bounded AcroForm text/parent-widget/checkbox/listbox subset, and EmbeddedFiles metadata with distinct ASCII tree keys, path-normalized filenames, descriptions, fixture ordering, and unfiltered content sizes",
     "exact 16-case immutable TS v3.0.14 render/crop/command-provider semantic subset over stdio: defaults, page selection and warnings, region ordering, padding and fractional bounds, rotated pages, mixed-source and late-provider partial success, all-source failure, MCP image indexing, standalone OCR normalization, read_pdf OCR text-layer/map fusion, boxed OCR table projection into elements/chunks/markdown/html/document_ast/document_map, rich region-analysis normalization, plain-text truncation, and truthful provenance; exact pdf.js pixels and antialiasing are not claimed",
     "exact 11-case immutable TS v3.0.14 tagged-structure and inspect subset: RoleMap, ParentTree, StructParents, inherited page association, scalar-reference, scalar-direct, combined-scalar, and array StructTreeRoot/StructElem /K plus ParentTree values, MCID/MCR and OBJR identifiers, sorted/deduplicated selected pages, empty Root pages, untagged omission, accessibility-private consumption, document-map accessibility routing, auto-full explicit-false override, and tagged-fixture inspect profile/page/document/recommendation signals; fixture, runner, projection, normalizer, generator, TS source, and pdf.js 6.0.227 digests are bound with mutation-sensitivity checks",
@@ -188,6 +192,7 @@
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-broken-parent-chain residual: pdf.js radio broken parent-chain intermediate omits widgets without inheritable FT and names the intermediate via Parent-chain only (Opt, not Plan.Opt); root Plan stub remains; AP stream / AP/N stream / named AP/N variants all drop leaves when intermediate has no Parent to the radio root; Rust form extraction uses Parent-chain name construction and Parent-chain FT/V/Ff/DV inheritance; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation, relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; malformed-field breadth and whole-product parity remain unclaimed; include_form_fields remains PARTIAL"
   ],
   "explicitlyNotClaimed": [
+    "exact PDF.js/TS 3.0.14 whole-product output equality outside frozen regression families; residual expansion for representation-only PDF.js quirks is a non-goal under ADR-0005",
     "complete TS 3.0.14 semantic parity outside the immutable 14-case subset",
     "selectable-text segmentation outside the frozen 4-case LTR corpus, including RTL or vertical writing, negative-Y JavaScript rounding, arbitrary font kerning or TJ spacing, glyph-perfect geometry, OCR or provider fusion, cross-runtime hostile-input resource parity, and whole-product parity",
     "UTF-16 split-surrogate wire parity is explicitly excluded and fail-closed because Rust String and Serde cannot represent lone surrogate values; the admitted astral search case consumes the complete two-unit scalar only, and full search parity is not claimed",
@@ -295,5 +300,31 @@
     "read_pdf include_form_fields form radio-parent-kids-ap residual outside the frozen 3-case public-stdio residual, including malformed-field breadth and whole-product parity beyond the admitted deeper-kids residual",
     "read_pdf include_form_fields form radio-deeper-kids-ap residual outside the frozen 3-case public-stdio residual, including malformed-field breadth and whole-product parity beyond the admitted broken-parent-chain residual",
     "read_pdf include_form_fields form radio-broken-parent-chain residual outside the frozen 3-case public-stdio residual, including malformed-field breadth and whole-product parity"
-  ]
+  ],
+  "admissionProgram": {
+    "mode": "capability-first-semantic-compatibility",
+    "authority": "docs/adr/0005-capability-first-semantic-compatibility.md",
+    "contract": "docs/specs/capability-first-admission-contract.md",
+    "nonclaimLedger": "docs/specs/nonclaim-reclassification-ledger.json",
+    "exactPdfJsOutputParity": false,
+    "expandExactResidualsOnlyFor": [
+      "contract_break",
+      "semantic_regression",
+      "security_or_resource_bound"
+    ],
+    "layers": {
+      "interfaceCompatibility": "exact",
+      "semanticCapabilityEquivalence": "primary-release-standard",
+      "qualityParity": "task-eval-gated"
+    },
+    "publishFreeze": true,
+    "dropInFor3014": false,
+    "nextActions": [
+      "Review provisional nonclaim ledger classifications",
+      "Author executable semantic contracts for core capabilities",
+      "Build calibrated agent-task corpus and thresholds against TS baseline",
+      "Close remaining blocking_capability_gap items with capability evidence, not PDF.js micro-parity",
+      "Keep five-platform native install/runtime proof on the critical path"
+    ]
+  }
 }
