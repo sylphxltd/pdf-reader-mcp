@@ -265,15 +265,23 @@
       "nonclaim": "cross-platform npm native binary",
       "class": "blocking_capability_gap",
       "confidence": "reviewed",
-      "rationale": "Sole-runtime publish requires clean native package distribution/export proof.",
-      "blockingForUnfreeze": true
+      "rationale": "Five CI runners now build binaries and prove host MCP initialize + simulated node_modules package resolve. Registry publish/install readback remains blocked while publishFreeze=true; keep as blocking until public install proof exists.",
+      "blockingForUnfreeze": true,
+      "notes": [
+        "host-runtime-smoke-five-ci-2026-07-22",
+        "registry-install-unproven"
+      ]
     },
     {
       "nonclaim": "npm library exports for pure-Rust",
       "class": "blocking_capability_gap",
       "confidence": "reviewed",
       "rationale": "Sole-runtime publish requires clean native package distribution/export proof.",
-      "blockingForUnfreeze": true
+      "blockingForUnfreeze": true,
+      "notes": [
+        "still-blocking",
+        "native-binary-runtime-smoke-does-not-close-library-exports"
+      ]
     },
     {
       "nonclaim": "2.0x/3.3x industry benchmark headline",

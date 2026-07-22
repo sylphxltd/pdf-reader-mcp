@@ -12630,8 +12630,20 @@ if (!matrix.claimedForDifferential.some((entry: string) => entry.includes('five-
 if (!existsSync(join(root, 'scripts/smoke-native-launcher.ts'))) {
   failures.push('native launcher smoke script must exist');
 }
-if (!readFileSync(join(root, 'package.json'), 'utf8').includes('smoke:native-launcher')) {
+if (!existsSync(join(root, 'scripts/smoke-native-package-resolve.ts'))) {
+  failures.push('native package resolve smoke script must exist');
+}
+if (!nativeWorkflow.includes('smoke:native-launcher') || !nativeWorkflow.includes('smoke:native-package-resolve')) {
+  failures.push('native package scaffold workflow must run host launcher and package-resolve smokes');
+}
+if (nativeWorkflow.includes("if: matrix.platformId == 'linux-x64-gnu'")) {
+  failures.push('native package scaffold workflow must not limit runtime smoke to linux-x64-gnu only');
+}
+if (!packageJsonText.includes('smoke:native-launcher')) {
   failures.push('package.json must wire smoke:native-launcher');
+}
+if (!packageJsonText.includes('smoke:native-package-resolve')) {
+  failures.push('package.json must wire smoke:native-package-resolve');
 }
 
 

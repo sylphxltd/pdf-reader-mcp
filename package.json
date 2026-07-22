@@ -219,7 +219,8 @@
     "test:v3014-page-geometry-userunit-multipage-residual-differential": "bun scripts/differential/check-v3014-page-geometry-userunit-multipage-residual-differential.ts",
     "test:agent-task-eval": "bun scripts/run-agent-task-eval.ts --runtime=pure-rust --compare-baseline",
     "test:agent-task-eval:calibrate": "bun scripts/run-agent-task-eval.ts --runtime=both --write-baseline --compare-baseline",
-    "test:agent-task-eval:baseline": "bun scripts/run-agent-task-eval.ts --runtime=typescript --write-baseline --no-compare"
+    "test:agent-task-eval:baseline": "bun scripts/run-agent-task-eval.ts --runtime=typescript --write-baseline --no-compare",
+    "smoke:native-package-resolve": "bun scripts/smoke-native-package-resolve.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

@@ -1,13 +1,15 @@
 #!/usr/bin/env bun
 /**
- * Local pure-Rust launcher smoke (not registry install proof).
- * Verifies platform mapping + staged binary resolution + MCP initialize.
- * Keeps publishFreeze/dropInFor3014 product truth unchanged.
+ * Host pure-Rust native binary smoke (not registry publish proof).
+ *
+ * Spawns the staged platform binary directly (works on Windows without bash).
+ * Verifies MCP initialize. Keeps publishFreeze/dropInFor3014 unchanged.
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  NATIVE_PLATFORM_PACKAGES,
   nativeBinaryRelativePath,
   resolveNativePlatformId,
 } from './native/platform-package-map.ts';
@@ -19,21 +21,20 @@ if (!platformId) {
   process.exit(2);
 }
 
+const meta = NATIVE_PLATFORM_PACKAGES[platformId];
 const staged = join(repoRoot, nativeBinaryRelativePath(platformId));
-const packageBin = join(
-  repoRoot,
-  `packages/pdf-reader-mcp-${platformId}/bin`,
-  platformId.startsWith('win32') ? 'pdf-reader-mcp-server.exe' : 'pdf-reader-mcp-server'
-);
+const packageBin = join(repoRoot, meta.packageDir, 'bin', meta.binaryName);
+const legacy = join(repoRoot, 'bin/native', meta.binaryName);
+const binaryPath = [staged, packageBin, legacy].find((path) => existsSync(path));
 
-if (!existsSync(staged) && !existsSync(packageBin)) {
+if (!binaryPath) {
   console.error(
-    `[smoke-native-launcher] missing staged binary for ${platformId}. Run: bun run build:rust`
+    `[smoke-native-launcher] missing staged binary for ${platformId}. Run: bun run build:rust && bun scripts/stage-rust-mcp.ts`
   );
   process.exit(1);
 }
 
-const child = spawn(join(repoRoot, 'bin/pdf-reader-mcp'), [], {
+const child = spawn(binaryPath, [], {
   cwd: repoRoot,
   stdio: ['pipe', 'pipe', 'pipe'],
   env: {
@@ -53,7 +54,7 @@ const fail = (message: string) => {
   process.exit(1);
 };
 
-const timer = setTimeout(() => fail('timed out waiting for initialize'), 15_000);
+const timer = setTimeout(() => fail('timed out waiting for initialize'), 20_000);
 child.stderr.on('data', () => {});
 child.stdout.on('data', (chunk: Buffer) => {
   buffer += chunk.toString();
@@ -82,7 +83,8 @@ child.stdout.on('data', (chunk: Buffer) => {
         {
           profile: 'pdf_native_launcher_smoke',
           platformId,
-          stagedPath: existsSync(staged) ? staged : packageBin,
+          binaryPath,
+          resolutionOrder: [staged, packageBin, legacy],
           serverName: serverInfo?.name,
           serverVersion: serverInfo?.version,
           productTruth: { dropInFor3014: false, publishFreeze: true },
@@ -96,7 +98,7 @@ child.stdout.on('data', (chunk: Buffer) => {
   }
 });
 child.on('exit', (code) => {
-  if (!resolved) fail(`launcher exited early with code ${String(code)}`);
+  if (!resolved) fail(`binary exited early with code ${String(code)}`);
 });
 
 child.stdin.write(
