@@ -629,3 +629,10 @@ A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted
 Optional native packages and a platform-scoped `bin/native/<platform>/` layout are scaffolded for `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. CI builds and uploads host binaries, but packages remain private and prepublish-blocked while `publishFreeze=true`. Default npm `latest` remains TypeScript 3.0.14; clean registry install/runtime verification and TS retirement remain unclaimed.
 
 Local pure-Rust launcher smoke (`bun run smoke:native-launcher`) verifies staged platform-path binary resolution and MCP initialize on the host. This is not registry install proof.
+
+## Experimental pure-Rust npm library export
+
+`@sylphx/pdf-reader-mcp/pure-rust` exports an opt-in client that resolves the
+staged pure-Rust MCP server binary and calls `read_pdf` / `search_pdf` /
+`pdf_evidence` over stdio. The default package export remains TypeScript
+`dist/index.js`. `dropInFor3014` stays false and publish freeze remains enabled.

@@ -12598,7 +12598,7 @@ if (
 
 
 const nativeWorkflow = readFileSync(join(root, '.github/workflows/native-package-scaffold.yml'), 'utf8');
-const platformMap = readFileSync(join(root, 'scripts/native/platform-package-map.ts'), 'utf8');
+const platformMap = readFileSync(join(root, 'src/native/platform-package-map.ts'), 'utf8');
 const packageDirs = [
   'packages/pdf-reader-mcp-darwin-arm64',
   'packages/pdf-reader-mcp-darwin-x64',
@@ -12651,4 +12651,11 @@ if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
 }
+if (!matrix.claimedForDifferential.some((entry: string) => entry.includes('pure-Rust npm library export'))) {
+  failures.push('capability matrix must claim pure-Rust npm library export contract');
+}
+if (!existsSync(join(root, 'src/pure-rust.ts'))) {
+  failures.push('src/pure-rust.ts library export surface missing');
+}
+
 console.log('[check-pure-rust-matrix] PASS honest matrix invariants');
