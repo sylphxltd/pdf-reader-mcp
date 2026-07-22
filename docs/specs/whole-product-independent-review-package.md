@@ -1,6 +1,6 @@
 # Whole-product independent review package (Rust replacement candidate)
 
-Status: draft package for review launch  
+Status: launched; review_pass_freeze_retained for candidate f1a1626  
 Date: 2026-07-22  
 Authority: ADR-0005 capability-first semantic compatibility  
 Product truth SSOT: `docs/specs/pure-rust-capability-matrix.json`
@@ -19,7 +19,7 @@ independent whole-product review.
 | --- | --- |
 | Repository | `SylphxAI/pdf-reader-mcp` |
 | Branch baseline | `main` at review start |
-| Candidate SHA | _fill at review launch_ |
+| Candidate SHA | `f1a162682dfe21a7b5b94e9f0028b61529183e39` |
 | Admission bar | capability-first semantic compatibility (not exact PDF.js equality) |
 | `dropInFor3014` | `false` until review + remaining gates pass |
 | `publishFreeze` | `true` until review + remaining gates pass |
@@ -97,16 +97,29 @@ Evidence:
 
 Reviewer must verify from current main/candidate SHA (not memory):
 
-- [ ] Candidate SHA recorded above
-- [ ] `productTruth.publishFreeze === true` and `dropInFor3014 === false` before unfreeze decision
-- [ ] Interface contracts green
-- [ ] Semantic contracts green (`bun run check:semantic-contracts`)
-- [ ] Agent-task local corpus green vs measured TS baseline
-- [ ] Native five-platform host smoke green on latest main workflow
-- [ ] Pure-Rust library export contract green without changing default TS entry
-- [ ] Release workflow fails only at publish freeze (or succeeds only after intentional unfreeze)
-- [ ] Residual exact PDF.js micro-parity expansion is not required for admission
-- [ ] Remaining blockers listed explicitly; none silently reclassified as pass
+- [x] Candidate SHA recorded above (`f1a162682dfe21a7b5b94e9f0028b61529183e39`)
+- [x] `productTruth.publishFreeze === true` and `dropInFor3014 === false` before unfreeze decision
+- [x] Interface contracts green (`check:pure-rust-matrix`)
+- [x] Semantic contracts green (`check:semantic-contracts` — 11 contracts)
+- [x] Agent-task local corpus green vs measured TS baseline (10 tasks smoke + eval)
+- [x] Native host smoke green on linux-x64-gnu; five-platform scaffold green on recent main SHAs through #549
+- [x] Pure-Rust library export contract green without changing default TS entry
+- [x] Release workflow fails only at publish freeze ([run 29967329121](https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/29967329121))
+- [x] Residual exact PDF.js micro-parity expansion is not required for admission (ADR-0005)
+- [x] Remaining blockers listed explicitly; none silently reclassified as pass
+
+Evidence artifact: `verification/pdf-reader-whole-product-independent-review-f1a1626.json`
+
+### Review outcome
+
+`review_pass_freeze_retained`
+
+Unfreeze is **not** authorized. Remaining blockers:
+
+1. npm registry native package install/readback on five platforms
+2. public URL agent-task corpus calibration
+3. explicit `publishFreeze=false` / drop-in decision after blockers close
+4. TypeScript retirement + rollback plan readback
 
 ## Launch command template
 
@@ -129,4 +142,14 @@ bun run smoke:native-package-resolve
 | Review pass with freeze retained | Candidate is review-ready; unfreeze still blocked by registry/public corpus/explicit decision |
 | Review fail | Record contract/semantic/security gaps; do not unfreeze |
 | Unfreeze authorized | Only after review pass **and** remaining blockers closed with evidence |
+
+## Launch result for f1a1626
+
+| Field | Value |
+| --- | --- |
+| Launched | 2026-07-22 |
+| Outcome | `review_pass_freeze_retained` |
+| Evidence | `verification/pdf-reader-whole-product-independent-review-f1a1626.json` |
+| Unfreeze authorized | no |
+| TS retirement authorized | no |
 

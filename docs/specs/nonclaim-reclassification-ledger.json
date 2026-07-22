@@ -39,7 +39,10 @@
       "class": "blocking_capability_gap",
       "confidence": "reviewed",
       "rationale": "Meta-blocker listing remaining sole-runtime publish gaps under ADR-0005.",
-      "blockingForUnfreeze": true
+      "blockingForUnfreeze": true,
+      "notes": [
+        "independent-review-pass-freeze-retained-f1a1626"
+      ]
     },
     {
       "nonclaim": "calibrated public agent-task corpus thresholds and full quality-parity scorecard against TS baseline",
@@ -48,7 +51,8 @@
       "rationale": "Local measured TS baseline now covers OCR/visual task classes; public URL corpus calibration and full quality-parity scorecard remain before unfreeze.",
       "blockingForUnfreeze": true,
       "notes": [
-        "local-ocr-visual-baseline-2026-07-22"
+        "local-ocr-visual-baseline-2026-07-22",
+        "local-pass-public-corpus-still-blocking-f1a1626"
       ]
     },
     {
