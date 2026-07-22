@@ -33,4 +33,27 @@ describe('native platform package map', () => {
       'bin/native/win32-x64-msvc/pdf-reader-mcp-server.exe'
     );
   });
+
+  test('package metadata stays freeze-blocked and private', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const root = join(import.meta.dir, '..');
+    for (const platformId of Object.keys(NATIVE_PLATFORM_PACKAGES)) {
+      const pkg = JSON.parse(
+        readFileSync(join(root, `packages/pdf-reader-mcp-${platformId}/package.json`), 'utf8')
+      ) as { private?: boolean; scripts?: { prepublishOnly?: string }; name?: string };
+      expect(pkg.private).toBe(true);
+      expect(pkg.name).toBe(NATIVE_PLATFORM_PACKAGES[platformId as keyof typeof NATIVE_PLATFORM_PACKAGES].npmName);
+      expect(pkg.scripts?.prepublishOnly ?? '').toContain('PUBLISH FREEZE');
+    }
+    // ensure map completeness matches package dirs
+    const dirs = readdirSync(join(root, 'packages')).filter((name) =>
+      name.startsWith('pdf-reader-mcp-')
+    );
+    expect(dirs.sort()).toEqual(
+      Object.keys(NATIVE_PLATFORM_PACKAGES)
+        .map((id) => `pdf-reader-mcp-${id}`)
+        .sort()
+    );
+  });
 });

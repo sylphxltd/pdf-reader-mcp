@@ -7,6 +7,8 @@ on:
       - 'packages/**'
       - 'scripts/native/**'
       - 'scripts/stage-rust-mcp.ts'
+      - 'scripts/smoke-native-launcher.ts'
+      - 'scripts/smoke-native-package-resolve.ts'
       - 'bin/pdf-reader-mcp'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -18,6 +20,8 @@ on:
       - 'packages/**'
       - 'scripts/native/**'
       - 'scripts/stage-rust-mcp.ts'
+      - 'scripts/smoke-native-launcher.ts'
+      - 'scripts/smoke-native-package-resolve.ts'
       - 'bin/pdf-reader-mcp'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -88,13 +92,23 @@ jobs:
           name: pdf-reader-mcp-server-${{ matrix.platformId }}
           path: bin/native/${{ matrix.platformId }}/**
           if-no-files-found: error
-      - name: Host pure-rust launcher smoke (linux-x64-gnu only)
-        if: matrix.platformId == 'linux-x64-gnu'
+      - name: Stage package/legacy paths and host runtime smoke
+        shell: bash
         run: |
-          test -x "bin/native/linux-x64-gnu/pdf-reader-mcp-server"
-          # also stage package/legacy paths used by resolver
-          mkdir -p packages/pdf-reader-mcp-linux-x64-gnu/bin
-          cp bin/native/linux-x64-gnu/pdf-reader-mcp-server packages/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server
-          cp bin/native/linux-x64-gnu/pdf-reader-mcp-server bin/native/pdf-reader-mcp-server
-          chmod +x packages/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server bin/native/pdf-reader-mcp-server
+          set -euo pipefail
+          platform="${{ matrix.platformId }}"
+          if [[ "$platform" == "win32-x64-msvc" ]]; then
+            bin_name="pdf-reader-mcp-server.exe"
+          else
+            bin_name="pdf-reader-mcp-server"
+          fi
+          staged="bin/native/${platform}/${bin_name}"
+          test -f "$staged"
+          mkdir -p "packages/pdf-reader-mcp-${platform}/bin" "bin/native"
+          cp "$staged" "packages/pdf-reader-mcp-${platform}/bin/${bin_name}"
+          cp "$staged" "bin/native/${bin_name}"
+          if [[ "$platform" != "win32-x64-msvc" ]]; then
+            chmod +x "$staged" "packages/pdf-reader-mcp-${platform}/bin/${bin_name}" "bin/native/${bin_name}"
+          fi
           bun run smoke:native-launcher
+          bun run smoke:native-package-resolve

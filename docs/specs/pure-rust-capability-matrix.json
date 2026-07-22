@@ -115,7 +115,7 @@
     "exact 2-case immutable TS v3.0.14 public-stdio read_pdf include_annotations action/named dest residual over dedicated fixtures: named Dest string is preserved, and GoTo action D is exposed as pdf.js dest with page-ref {num,gen}, name token FitH, and coordinate, with full Rect boxes; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/two-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (29), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; named dest resolution to array, URI action beyond url, glyph-perfect boxes, and whole-product parity remain explicitly unclaimed; include_annotations remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_annotations action-precedence residual over dedicated fixtures: GoTo action dest wins over explicit Dest (FitH+coord), URI action exposes url and suppresses Dest, and Launch file maps to url with no dest, with full Rect boxes; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/three-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (42), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; named dest resolution to array, glyph-perfect boxes, and whole-product parity remain explicitly unclaimed; include_annotations remains PARTIAL",
     "auto off when include_* keys are present",
-    "exact five-platform npm native package scaffold: optional packages for darwin-arm64, darwin-x64, linux-arm64-gnu, linux-x64-gnu, and win32-x64-msvc; host triple mapping; staged bin/native/<platform>/ layout; private freeze-blocked package manifests; CI matrix builds and uploads platform binaries without publishing; local and CI host pure-rust launcher smoke prove staged platform-path initialize on linux-x64-gnu; dropInFor3014=false and publishFreeze=true remain enforced; clean five-platform registry install/runtime verification, default npm latest cutover, and TS retirement remain explicitly unclaimed",
+    "exact five-platform npm native package scaffold plus host runtime smoke: optional packages for darwin-arm64, darwin-x64, linux-arm64-gnu, linux-x64-gnu, and win32-x64-msvc; host triple mapping; staged bin/native/<platform>/ layout; private freeze-blocked package manifests; CI matrix builds and uploads platform binaries; each runner stages package/legacy paths then proves MCP initialize via direct binary smoke and simulated node_modules optional-package resolution; dropInFor3014=false and publishFreeze=true; npm registry install readback and pure-Rust library exports remain unclaimed",
     "exact 2-case immutable TS v3.0.14 public-stdio read_pdf include_metadata info residual over dedicated fixtures: pdf.js info flags (Language/EncryptFilterName/IsLinearized/IsAcroFormPresent/IsXFAPresent/IsCollectionPresent/IsSignaturesPresent) plus document info fields for AcroForm+Lang and plain catalogs; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/two-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (33), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; XMP metadata payload, and whole-product parity remain explicitly unclaimed; include_metadata remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_page_geometry residual over dedicated fixtures: Rotate+UserUnit+CropBox dimensions, default MediaBox identity geometry, and inverted MediaBox normalization with view_box; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/three-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (39), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; Bleed/Trim/Art boxes, non-right-angle rotation, inherited MediaBox breadth, and whole-product parity remain explicitly unclaimed; include_page_geometry remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_page_geometry inheritance residual: pdf.js inherits MediaBox/Rotate from Pages, intersects page CropBox with inherited MediaBox for view_box, and normalizes negative right-angle Rotate (-90 -> 270) with width/height swap; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (39), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; Bleed/Trim/Art boxes, non-right-angle rotation beyond clamp, deeper Pages inheritance breadth, and whole-product parity remain unclaimed; include_page_geometry remains PARTIAL",
@@ -324,8 +324,9 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Close blocking OCR provider breadth with task-eval evidence",
-      "Prove five-platform native package install/runtime and npm library exports",
+      "Close blocking OCR provider breadth with task-eval evidence (HTTP/preset region analysis still pure-Rust-missing)",
+      "Complete npm registry native package install/readback proof after unfreeze candidate is chosen",
+      "Add pure-Rust npm library exports contract",
       "Expand OCR/visual public agent-task corpus beyond local fixtures",
       "Whole-product independent review of one exact candidate before unfreeze"
     ],
@@ -338,6 +339,16 @@
         "bun run test:agent-task-eval:calibrate",
         "bun run test:agent-task-eval"
       ]
+    },
+    "nativePackageProof": {
+      "status": "host-runtime-smoke-on-five-ci-runners",
+      "registryInstall": false,
+      "publishFreeze": true,
+      "commands": [
+        "bun run smoke:native-launcher",
+        "bun run smoke:native-package-resolve"
+      ],
+      "workflow": ".github/workflows/native-package-scaffold.yml"
     }
   }
 }

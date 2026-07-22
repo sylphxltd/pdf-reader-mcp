@@ -6,9 +6,16 @@ import {
 } from './native/platform-package-map.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
-const source = path.join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const platformIdEarly = resolveNativePlatformId();
+const binaryName =
+  platformIdEarly != null
+    ? path.basename(nativeBinaryRelativePath(platformIdEarly))
+    : process.platform === 'win32'
+      ? 'pdf-reader-mcp-server.exe'
+      : 'pdf-reader-mcp-server';
+const source = path.join(repoRoot, 'target/release', binaryName);
 const legacyTargetDir = path.join(repoRoot, 'bin/native');
-const legacyTarget = path.join(legacyTargetDir, 'pdf-reader-mcp-server');
+const legacyTarget = path.join(legacyTargetDir, binaryName);
 
 if (!fs.existsSync(source)) {
   console.error(
