@@ -75,7 +75,7 @@ jobs:
     name: Publish natives + main
     needs: build-native
     if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_USER_IMPACT' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,22 +104,42 @@ jobs:
           pattern: pdf-reader-mcp-server-*
           merge-multiple: false
 
-      - name: Stage native binaries into packages
-        run: bun run native:stage-from-artifacts -- --artifact-root=native-artifacts
-
-      - name: Sync manifests and assert all platforms ready
-        run: |
-          bun run native:sync-manifests
-          bun run native:assert-ready -- --all
-
-      - name: Set up Rust (main package build)
+      - name: Set up Rust (for package smoke only)
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build package (TS + host rust staging)
+      - name: Build TypeScript package and host rust for smoke
         run: |
           bun run build
+          # Host build is for package:smoke only. It must NOT be what we publish.
           bun run build:rust
           bun run package:smoke
+
+      - name: Stage multi-platform native binaries into packages (after host build)
+        run: |
+          set -euo pipefail
+          # Critical: build:rust stages the publish-job host binary into
+          # packages/pdf-reader-mcp-<host>/bin and would overwrite the
+          # Ubuntu 22.04 artifact with a newer-glibc binary. Restage all
+          # matrix artifacts immediately before publish.
+          bun run native:stage-from-artifacts -- --artifact-root=native-artifacts
+          bun run native:sync-manifests
+          bun run native:assert-ready -- --all
+          bin="packages/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server"
+          test -f "$bin"
+          if command -v objdump >/dev/null 2>&1; then
+            mapfile -t vers < <(objdump -T "$bin" | sed -n 's/.*GLIBC_\([0-9][0-9.]*\).*/\1/p' | sort -u)
+            echo "GLIBC symbols: ${vers[*]}"
+            for v in "${vers[@]}"; do
+              major=${v%%.*}
+              rest=${v#*.}
+              minor=${rest%%.*}
+              if [ "$major" -gt 2 ] || { [ "$major" -eq 2 ] && [ "${minor:-0}" -gt 35 ]; }; then
+                echo "::error::linux-x64-gnu binary requires GLIBC_$v (> 2.35). Refusing publish."
+                exit 1
+              fi
+            done
+            echo "linux-x64-gnu GLIBC requirement OK (<= 2.35)"
+          fi
 
       - name: Publish natives then main
         env:
