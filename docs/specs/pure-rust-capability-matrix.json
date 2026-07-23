@@ -416,17 +416,17 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
     "wholeProductReview": {
-      "status": "corrective_packaging_authorized_pending_exact_sha_revalidation",
-      "candidateSha": "b75bd2905ffcdaf358868a72e24038c2a2f8949a",
+      "status": "corrective_packaging_authorized_main_squash",
+      "candidateSha": "af1516b259c909d561148ba2a58ee59f5beebff2",
       "evidence": "verification/pdf-reader-corrective-3.2.1-packaging-review.json",
       "package": "docs/specs/whole-product-independent-review-package.md",
       "unfreezeAuthorized": true,
       "tsRetirementAuthorized": true,
       "soleRuntimeAuthorized": true,
       "notes": [
-        "Authorizes corrective 3.2.1 packaging only: fail-closed native default, fixed serverInfo/instructions, honest productTruth, hardened admission.",
-        "Does not treat rewritten f1a1626 review JSON as authority for 3.2.x packaging.",
-        "Goal complete still requires independent whole-product review of the exact published 3.2.1 SHA plus multi-channel registry readback."
+        "Authorizes corrective 3.2.1 packaging merged via #572 squash af1516b lineage.",
+        "Fail-closed native default, fixed serverInfo/instructions, honest productTruth, hardened admission.",
+        "Does not authorize overall goal complete; publish + multi-channel registry readback + independent whole-product review of published artifacts remain."
       ],
       "priorReviewEvidence": "verification/pdf-reader-whole-product-independent-review-f1a1626.json",
       "priorReviewScope": "capability-first local evidence under publish freeze; not exact-SHA authority for 3.2.0/3.2.1 packaging"

@@ -5,9 +5,10 @@
   "reviewer": "release-corrective-packaging-audit",
   "scope": "corrective-packaging-only",
   "candidate": {
-    "sha": "b75bd2905ffcdaf358868a72e24038c2a2f8949a",
+    "sha": "af1516b259c909d561148ba2a58ee59f5beebff2",
     "versionTarget": "3.2.1",
-    "note": "Packaging commit including fail-closed default and admission hardening. Publish exact-head allows this SHA or a pin-path-only descendant (matrix/verification only)."
+    "note": "Main squash-merge commit of #572 packaging corrective. Publish exact-head should match this SHA or a pin-path-only descendant.",
+    "mergedVia": "https://github.com/SylphxAI/pdf-reader-mcp/pull/572"
   },
   "productTruthSnapshot": {
     "publishedStable": "@sylphx/pdf-reader-mcp@3.2.1",
