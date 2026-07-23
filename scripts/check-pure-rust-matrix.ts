@@ -2590,11 +2590,25 @@ const annotationTextMarkupWithApResidualWorkflow =
     : '';
 
 const failures: string[] = [];
-if (
-  !matrix.productTruth.dropInFor3014 &&
-  !String(matrix.productTruth.publishedStable).includes('3.0.14')
-) {
-  failures.push('publishedStable must reference 3.0.14 while Rust is not drop-in');
+if (!matrix.productTruth.dropInFor3014) {
+  const publishedStable = String(matrix.productTruth.publishedStable ?? '');
+  const publishedImplementation = String(matrix.productTruth.publishedImplementation ?? '');
+  // While not sole-runtime, published stable may remain TS 3.0.14 LKG or a later
+  // progress package that still defaults to TypeScript (e.g. 3.1.2 Stage B).
+  const okStable =
+    publishedStable.includes('3.0.14') ||
+    publishedStable.includes('@sylphx/pdf-reader-mcp@3.1.') ||
+    /@sylphx\/pdf-reader-mcp@\d+\.\d+\.\d+/.test(publishedStable);
+  if (!okStable) {
+    failures.push(
+      'publishedStable must identify a published @sylphx/pdf-reader-mcp version while Rust is not drop-in'
+    );
+  }
+  if (!publishedImplementation.toLowerCase().includes('typescript')) {
+    failures.push(
+      'publishedImplementation must still identify TypeScript default while dropInFor3014=false'
+    );
+  }
 }
 const capabilityStatuses = Object.entries(matrix.tools).flatMap(([tool, capabilities]) =>
   Object.entries(capabilities).map(([capability, status]) => ({
