@@ -196,7 +196,6 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
           .filter(Boolean);
         const allow = (rel: string) =>
           rel === 'docs/specs/pure-rust-capability-matrix.json' ||
-          rel === 'scripts/check-verified-candidate-admission.ts' ||
           rel.startsWith('verification/');
         const onlyPinPaths = changed.length > 0 && changed.every(allow);
         if (ancestor.status !== 0 || !onlyPinPaths) {
@@ -219,12 +218,6 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
 const runtimeEntry = existsSync(join(root, 'src/runtime-entry.ts'))
   ? readFileSync(join(root, 'src/runtime-entry.ts'), 'utf8')
   : '';
-const hasSilentTsFallback =
-  runtimeEntry.includes('// TypeScript fallback path') ||
-  /nativeBinary\)\s*\{[\s\S]*\}\s*else\s*\{\s*\/\/ TypeScript fallback/m.test(runtimeEntry) ||
-  (runtimeEntry.includes('await import(pathToFileURL(tsEntry).href)') &&
-    !runtimeEntry.includes('forceTs') &&
-    runtimeEntry.includes('TypeScript fallback'));
 const failClosedMentioned =
   runtimeEntry.includes('fail-closed') ||
   runtimeEntry.includes('no automatic TypeScript fallback');
@@ -284,18 +277,15 @@ if (truth.publishFreeze === true) {
     if (truth.automaticTypescriptFallback === true) {
       failures.push('dropInFor3014=true forbids automaticTypescriptFallback=true');
     }
-    if (
-      truth.typescriptFallback &&
-      truth.typescriptFallback !== 'explicit-only' &&
-      truth.typescriptFallback !== false
-    ) {
-      // allow boolean false or explicit-only string
-      if (truth.typescriptFallback !== true) {
-        // true would mean automatic; reject non-explicit-only strings except false
-      }
-    }
-    if (String(truth.typescriptFallback) === 'true' || truth.typescriptFallback === true) {
-      failures.push('typescriptFallback must be explicit-only (or false), not automatic true');
+    const tsFallback = truth.typescriptFallback;
+    const tsFallbackOk =
+      tsFallback === 'explicit-only' ||
+      tsFallback === false ||
+      tsFallback === undefined;
+    if (!tsFallbackOk) {
+      failures.push(
+        "typescriptFallback must be 'explicit-only' or false (not automatic true or other values)"
+      );
     }
     if (!explicitOnlyTs || !failClosedMentioned) {
       failures.push(

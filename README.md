@@ -137,7 +137,7 @@ Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 ### Published stable (npm — pure-Rust fail-closed default 3.2.1)
 
 Install **3.2.1**. Default requires pure-Rust native optional packages (fail-closed if missing); TypeScript is explicit rollback only.
-Requires **Node.js `>=22.13`**. The package runs `dist/runtime-entry.js` (pure-Rust preferred, TypeScript fallback).
+Requires **Node.js `>=22.13`**. The package runs `dist/runtime-entry.js` (pure-Rust fail-closed default; TypeScript only via explicit rollback).
 
 ```bash
 # Claude Code
@@ -163,10 +163,10 @@ Claude Desktop (`claude_desktop_config.json`):
 > **Do not install 3.0.15–3.1.1** — withdrawn incomplete pure-Rust cutover
 > (deprecated on npm). Registry `latest` target is **3.2.1** (corrective over 3.2.0 silent TypeScript fallback).
 
-### Pure-Rust library export + TypeScript fallback
+### Pure-Rust library export + explicit TypeScript rollback
 
 Default package entry (`dist/runtime-entry.js`) prefers the platform optional
-pure-Rust native binary when installed. TypeScript remains fallback-only.
+pure-Rust native binary when installed (fail-closed if missing). TypeScript is explicit rollback only.
 
 Library import:
 
@@ -180,7 +180,7 @@ const result = await client.readPdf({
 });
 ```
 
-Force TypeScript fallback:
+Force explicit TypeScript rollback:
 
 ```bash
 PDF_READER_FORCE_TYPESCRIPT=1 npx @sylphx/pdf-reader-mcp@3.2.1

@@ -2,7 +2,7 @@
   "name": "@sylphx/pdf-reader-mcp",
   "version": "3.2.1",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Evidence-first PDF MCP. Default entry prefers pure-Rust optional native binary when installed, with TypeScript fallback. Capability-first admission (ADR-0005). Withdrawn 3.0.15\u20133.1.1 must not be used.",
+  "description": "Evidence-first PDF MCP. Default entry is pure-Rust native (fail-closed if missing); TypeScript is explicit rollback only. Capability-first admission (ADR-0005). Withdrawn 3.0.15\u20133.1.1 must not be used.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/runtime-entry.js"
