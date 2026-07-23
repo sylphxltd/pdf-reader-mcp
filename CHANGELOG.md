@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.2
+
+### Patch Changes
+
+- Stage B progress release after withdrawn 3.0.15–3.1.1 range: five-platform pure-Rust optional native packages with binary-gated publish, optionalDependencies wiring, and admission-gated multi-platform publish pipeline. TypeScript remains the default entry (`dropInFor3014=false`). Do not use withdrawn 3.0.15–3.1.1.
+
+
 ## 3.0.15
 
 ### Patch Changes
