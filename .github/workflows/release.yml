@@ -99,7 +99,7 @@ jobs:
       # `publish` directly, so shell operators embedded in that input do not
       # enforce a failing freeze.
       - name: Enforce verified-candidate admission (replaces hard publish freeze)
-        run: bun scripts/check-verified-candidate-admission.ts
+        run: bun scripts/check-verified-candidate-admission.ts --require-exact-head
 
       - name: Normalize tracked dist permissions before version PR
         run: |

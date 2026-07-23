@@ -10,7 +10,8 @@
     "This ledger seeds classification for the historical explicitlyNotClaimed list.",
     "Classes marked provisional_heuristic require review before unfreeze.",
     "Unfreeze requires zero unclassified and zero unresolved blocking_capability_gap.",
-    "Exact residual expansion is not the default closure path for pdfjs_implementation_non_goal items."
+    "Exact residual expansion is not the default closure path for pdfjs_implementation_non_goal items.",
+    "2026-07-23 corrective rebaseline: four-host registry runtime proof + public-url opt-in agent-task baseline clear prior unfreeze blockers; Darwin x64 host proof and broader quality scorecard remain quality risks."
   ],
   "taxonomy": {
     "blocking_capability_gap": "Real missing/weak capability that can fail agent tasks or block sole-runtime publish.",
@@ -24,38 +25,38 @@
   "stats": {
     "total": 109,
     "byClass": {
-      "blocking_capability_gap": 2,
-      "quality_risk": 73,
+      "quality_risk": 75,
       "pdfjs_implementation_non_goal": 16,
       "security_or_resource_bound": 16,
       "equivalent_representation": 1,
       "compatibility_only": 1
     },
-    "blockingForUnfreezeCount": 4
+    "blockingForUnfreezeCount": 0
   },
   "entries": [
     {
       "nonclaim": "complete reviewed closure of all blocking_capability_gap nonclaims including OCR provider breadth and five-platform native package install/runtime proof",
-      "class": "blocking_capability_gap",
+      "class": "quality_risk",
       "confidence": "reviewed",
-      "rationale": "Meta-blocker listing remaining sole-runtime publish gaps under ADR-0005.",
-      "blockingForUnfreeze": true,
+      "rationale": "Meta-gap reduced after four-host registry initialize proof and fail-closed 3.2.1 packaging corrective. Remaining OCR provider breadth and Darwin x64 host proof are tracked as quality risks, not unfreeze blockers.",
+      "blockingForUnfreeze": false,
       "notes": [
         "independent-review-pass-freeze-retained-f1a1626",
-        "verified-candidate-admission-wired-2026-07-23"
+        "verified-candidate-admission-wired-2026-07-23",
+        "reclassified-nonblocking-after-3.2.0-four-host-proof-and-3.2.1-fail-closed-2026-07-23"
       ]
     },
     {
       "nonclaim": "calibrated public agent-task corpus thresholds and full quality-parity scorecard against TS baseline",
       "class": "quality_risk",
       "confidence": "reviewed",
-      "rationale": "Public-url opt-in agent-task calibration with measured TS baseline now exists for downloadable cases; remaining unfreeze risk is broader public permanence/scorecard and sole-runtime registry proof, not total absence.",
-      "blockingForUnfreeze": true,
+      "rationale": "Local agent-task corpus and public-url opt-in calibrated baseline exist. Broader permanent public scorecard remains a quality risk, not a packaging unfreeze blocker under ADR-0005.",
+      "blockingForUnfreeze": false,
       "notes": [
         "local-ocr-visual-baseline-2026-07-22",
-        "local-pass-public-corpus-still-blocking-f1a1626",
         "public-url-opt-in-calibration-2026-07-23",
-        "public-url-baseline-committed-2026-07-23"
+        "public-url-baseline-committed-2026-07-23",
+        "reclassified-nonblocking-quality-scorecard-2026-07-23"
       ]
     },
     {
@@ -263,14 +264,15 @@
     },
     {
       "nonclaim": "cross-platform npm native binary",
-      "class": "blocking_capability_gap",
+      "class": "quality_risk",
       "confidence": "reviewed",
-      "rationale": "Five CI runners now build binaries and prove host MCP initialize + simulated node_modules package resolve. Registry publish/install readback remains blocked while publishFreeze=true; keep as blocking until public install proof exists.",
-      "blockingForUnfreeze": true,
+      "rationale": "Five native packages published; four distinct host triples have registry install + pure-Rust MCP initialize proof. Darwin x64 package is published but host runtime remains unverified on real x86_64 hardware.",
+      "blockingForUnfreeze": false,
       "notes": [
         "host-runtime-smoke-five-ci-2026-07-22",
-        "registry-install-unproven",
-        "publish-freeze-lifted-registry-publish-authorized-2026-07-23"
+        "registry-install-proof-3.2.0-four-distinct-hosts",
+        "darwin-x64-package-published-host-unverified",
+        "reclassified-nonblocking-with-darwin-x64-caveat-2026-07-23"
       ]
     },
     {
@@ -809,10 +811,12 @@
       "nonclaim": "npm library exports for pure-Rust beyond experimental ./pure-rust client contract (including public API stability and registry-install proof)",
       "class": "quality_risk",
       "confidence": "reviewed",
-      "rationale": "Experimental pure-Rust library export contract exists; public API stability and registry install readback remain before unfreeze.",
-      "blockingForUnfreeze": true,
+      "rationale": "Default package entry is pure-Rust fail-closed; ./pure-rust library export remains available. Long-term public API stability is a quality risk, not a packaging unfreeze blocker.",
+      "blockingForUnfreeze": false,
       "notes": [
-        "experimental-export-landed-2026-07-22"
+        "experimental-export-landed-2026-07-22",
+        "default-fail-closed-3.2.1-2026-07-23",
+        "reclassified-nonblocking-library-stability-2026-07-23"
       ]
     }
   ]

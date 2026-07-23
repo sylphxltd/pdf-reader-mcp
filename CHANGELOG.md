@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.1
+
+### Patch Changes
+
+- Corrective release after 3.2.0 packaging audit: default `dist/runtime-entry.js` is **fail-closed** when the pure-Rust native optional package is missing (no automatic TypeScript fallback). TypeScript remains explicit rollback via `./typescript` or force flags. Fix Rust `serverInfo`/instructions that still advertised experimental/3.0.14-only production guidance. Harden verified-candidate admission (evidence authorization, zero `blockingForUnfreeze`, optional exact-HEAD match). Honest productTruth: four distinct host runtime proofs; Darwin x64 package published but host-unverified.
+
 ## 3.2.0
 
 ### Minor Changes

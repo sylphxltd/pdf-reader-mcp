@@ -95,7 +95,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Enforce verified-candidate admission
-        run: bun scripts/check-verified-candidate-admission.ts
+        run: bun scripts/check-verified-candidate-admission.ts --require-exact-head
 
       - name: Download all native binaries
         uses: actions/download-artifact@v4

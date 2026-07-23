@@ -1,8 +1,8 @@
 /**
- * Experimental pure-Rust library surface for @sylphx/pdf-reader-mcp.
+ * Pure-Rust library surface for @sylphx/pdf-reader-mcp.
  *
- * Default package export remains TypeScript 3.0.14 (`dist/index.js`).
- * This module is opt-in. Registry publish is admission-gated; drop-in parity remains false.
+ * Default package export is `dist/runtime-entry.js` (native fail-closed).
+ * This module remains the explicit library client for pure-Rust process control.
  *
  * Import:
  *   import { createPureRustClient, resolvePureRustServerBinary } from '@sylphx/pdf-reader-mcp/pure-rust'
@@ -22,7 +22,7 @@ import {
 export type { NativePlatformId };
 
 export const PURE_RUST_EXPORT = {
-  status: 'default-with-typescript-fallback' as const,
+  status: 'default-fail-closed-explicit-typescript-rollback' as const,
   dropInFor3014: true,
   publishFreeze: false,
   engineMode: 'pure-rust' as const,
