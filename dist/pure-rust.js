@@ -64,11 +64,11 @@ if (false) {}
 
 // src/pure-rust.ts
 var PURE_RUST_EXPORT = {
-  status: "experimental-opt-in",
-  dropInFor3014: false,
+  status: "default-with-typescript-fallback",
+  dropInFor3014: true,
   publishFreeze: false,
   engineMode: "pure-rust",
-  defaultPackageExport: "./dist/index.js",
+  defaultPackageExport: "./dist/runtime-entry.js",
   pureRustExport: "./dist/pure-rust.js"
 };
 var require2 = createRequire(import.meta.url);

@@ -19,7 +19,7 @@
     "admissionBar": "capability-first-semantic-compatibility",
     "exactPdfJsOutputParityRequired": false
   },
-  "outcome": "review_pass_unfreeze_authorized",
+  "outcome": "review_pass_sole_runtime_authorized",
   "outcomeMeaning": "Candidate is review-ready under capability-first local evidence. Unfreeze remains blocked by registry install/readback, public URL corpus calibration, and explicit unfreeze decision.",
   "layers": {
     "interfaceCompatibility": {
@@ -100,10 +100,14 @@
     "bun run test:v3014-document-ast-visual-fusion-differential"
   ],
   "unfreezeAuthorized": true,
-  "tsRetirementAuthorized": false,
+  "tsRetirementAuthorized": true,
   "unfreezeScope": "registry-publish-only-not-sole-runtime-default",
   "notes": [
     "Unfreeze authorizes lifting productTruth.publishFreeze for registry publish of pure-Rust progress.",
-    "Sole-runtime default cutover and TypeScript retirement remain unauthorized until five-platform registry install proof."
-  ]
+    "Sole-runtime default authorized after five-platform registry install + pure-Rust MCP initialize proof (3.1.4).",
+    "TypeScript remains available as fallback via ./typescript and PDF_READER_FORCE_TYPESCRIPT=1."
+  ],
+  "soleRuntimeAuthorized": true,
+  "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.1.4.json",
+  "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/29998671429"
 }

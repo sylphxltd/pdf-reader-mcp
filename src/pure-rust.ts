@@ -22,11 +22,11 @@ import {
 export type { NativePlatformId };
 
 export const PURE_RUST_EXPORT = {
-  status: 'experimental-opt-in' as const,
-  dropInFor3014: false,
+  status: 'default-with-typescript-fallback' as const,
+  dropInFor3014: true,
   publishFreeze: false,
   engineMode: 'pure-rust' as const,
-  defaultPackageExport: './dist/index.js',
+  defaultPackageExport: './dist/runtime-entry.js',
   pureRustExport: './dist/pure-rust.js',
 };
 

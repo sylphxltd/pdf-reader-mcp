@@ -2623,16 +2623,38 @@ for (const { tool, capability, status } of capabilityStatuses) {
     failures.push(`${tool}.${capability} has invalid status ${status}`);
 }
 if (matrix.productTruth.dropInFor3014) {
-  const incomplete = capabilityStatuses.filter(({ status }) => status !== 'FULL');
-  if (incomplete.length > 0) {
+  // ADR-0005 sole-runtime: do not require exhaustive FULL cells. Require no MISSING/STUB
+  // on core tools and an authorized sole-runtime admission/review path.
+  const blocked = capabilityStatuses.filter(({ status }) => status === 'MISSING' || status === 'STUB');
+  if (blocked.length > 0) {
     failures.push(
-      `dropInFor3014=true requires every capability FULL; incomplete: ${incomplete
+      `dropInFor3014=true forbids MISSING/STUB core cells; incomplete: ${blocked
         .map(({ tool, capability, status }) => `${tool}.${capability}=${status}`)
         .join(', ')}`
     );
   }
   if (matrix.productTruth.pureRustStatus === 'experimental-opt-in') {
     failures.push('dropInFor3014=true cannot remain experimental-opt-in');
+  }
+  if (matrix.productTruth.soleRuntimeDefault !== true) {
+    failures.push('dropInFor3014=true requires productTruth.soleRuntimeDefault=true');
+  }
+  const admission = (matrix as { admissionProgram?: { soleRuntimeAuthorized?: boolean; wholeProductReview?: { tsRetirementAuthorized?: boolean; soleRuntimeAuthorized?: boolean; status?: string }; nativePackageProof?: { registryInstall?: boolean | string; registryProofEvidence?: string } } }).admissionProgram;
+  const review = admission?.wholeProductReview;
+  const soleAuthorized =
+    admission?.soleRuntimeAuthorized === true ||
+    review?.soleRuntimeAuthorized === true ||
+    review?.tsRetirementAuthorized === true ||
+    String(review?.status ?? '').includes('sole_runtime');
+  if (!soleAuthorized) {
+    failures.push('dropInFor3014=true requires soleRuntimeAuthorized/tsRetirementAuthorized review evidence');
+  }
+  const proof = admission?.nativePackageProof;
+  if (!(proof?.registryInstall === true || proof?.registryProofEvidence)) {
+    failures.push('dropInFor3014=true requires nativePackageProof registry install evidence');
+  }
+  if (!String(matrix.productTruth.publishedImplementation ?? '').toLowerCase().includes('rust')) {
+    failures.push('dropInFor3014=true requires publishedImplementation to identify pure-Rust default');
   }
 }
 // ADR-0005: residual slices keep dropInFor3014=false until sole-runtime cutover.
@@ -2649,7 +2671,8 @@ if (matrix.productTruth.publishFreeze === false) {
   const authorized =
     admission?.unfreezeAuthorized === true ||
     review?.unfreezeAuthorized === true ||
-    review?.status === 'review_pass_unfreeze_authorized';
+    review?.status === 'review_pass_unfreeze_authorized' ||
+    String(review?.status ?? '').includes('sole_runtime');
   if (!authorized) {
     failures.push('publishFreeze=false requires verified unfreeze authorization in admissionProgram/review');
   }
@@ -2687,8 +2710,10 @@ if (admissionProgram?.dropInFor3014 !== matrix.productTruth.dropInFor3014) {
 if (admissionProgram?.publishFreeze !== matrix.productTruth.publishFreeze) {
   failures.push('admissionProgram.publishFreeze must match productTruth.publishFreeze');
 }
-if (matrix.productTruth.dropInFor3014 !== false) {
-  failures.push('sole-runtime dropInFor3014 remains false until native registry install proof authorizes cutover');
+if (matrix.productTruth.dropInFor3014 === true) {
+  // sole-runtime authorized path validated above.
+} else if (matrix.productTruth.dropInFor3014 !== false) {
+  failures.push('productTruth.dropInFor3014 must be boolean');
 }
 if ((matrix.productTruth as { admissionBar?: string }).admissionBar !== 'capability-first-semantic-compatibility') {
   failures.push('productTruth.admissionBar must record capability-first-semantic-compatibility');

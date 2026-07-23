@@ -11,8 +11,8 @@ describe('architecture contract (published TS + experimental pure-Rust)', () => 
       exports?: Record<string, string>;
       version?: string;
     };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
-    expect(pkg.exports?.['.']).toBe('./dist/index.js');
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
     expect(pkg.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
   });
 

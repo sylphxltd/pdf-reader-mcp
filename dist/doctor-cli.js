@@ -23365,7 +23365,7 @@ class ChoiceWidgetAnnotationElement extends WidgetAnnotationElement {
     }
     if (this.data.combo) {
       this._setTextStyle(selectElement);
-    } else {}
+    }
     this._setBackgroundColor(selectElement);
     this._setDefaultPropertiesFromJS(selectElement);
     this.container.append(selectElement);

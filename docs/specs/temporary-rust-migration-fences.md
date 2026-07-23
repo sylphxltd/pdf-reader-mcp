@@ -1,89 +1,40 @@
 # Temporary Rust migration fences
 
-The published `3.0.14`-compatible TypeScript runtime remains the default MCP
-entrypoint until sole-runtime cutover. Pure-Rust uses **capability-first semantic compatibility**
-(ADR-0005) and may be published under verified-candidate admission without
-claiming exhaustive PDF.js JSON equality.
+Pure-Rust is the default package entry via `dist/runtime-entry.js` when the
+platform optional native package is installed. TypeScript remains available as:
 
-## Verified-candidate admission
+- `exports["./typescript"]` → `dist/index.js`
+- `PDF_READER_FORCE_TYPESCRIPT=1` or `PDF_READER_ENGINE_MODE=typescript`
 
-Registry publish is gated by:
+Admission bar: **capability-first semantic compatibility** (ADR-0005).
+
+## Sole-runtime cutover evidence
+
+1. Five-platform registry install + pure-Rust MCP initialize proof:
+   `verification/pdf-reader-registry-install-proof-3.1.4.json`
+   run: https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/29998671429
+2. Linux natives built on Ubuntu 22.04 with GLIBC <= 2.35 publish gate.
+3. Independent review sole-runtime authorization in
+   `verification/pdf-reader-whole-product-independent-review-f1a1626.json`.
+
+## Still retained
+
+- Frozen TS 3.0.14 residual differentials as regression assets
+- TypeScript fallback path for unsupported platforms / missing optional deps
+- Withdrawn range `3.0.15`–`3.1.1` must not be used
+
+## Publish gates
 
 ```bash
 bun scripts/check-verified-candidate-admission.ts
+bun run check:pure-rust-matrix
+bun run check:registry-install-proof -- --registry --version=<ver>
 ```
 
-wired into:
+## Related SSOT
 
-- `.github/workflows/release.yml`
-- `.github/workflows/publish-npm.yml`
+- `docs/adr/0005-capability-first-semantic-compatibility.md`
+- `docs/specs/capability-first-admission-contract.md`
+- `docs/specs/nonclaim-reclassification-ledger.json`
+- `docs/specs/pure-rust-capability-matrix.json`
 
-This replaces the historical hard-coded `exit 1` publish freeze.
-
-## Sole-runtime cutover (still fenced)
-
-Retire TS-default migration fences in the same candidate when every condition
-below is true:
-
-1. `docs/specs/pure-rust-capability-matrix.json` records
-   `productTruth.dropInFor3014: true` from complete **capability-first**
-   evidence (interface + semantic contracts + calibrated task-eval), not from
-   exhaustive PDF.js JSON equality;
-2. `bun run validate:pure-rust-claimed` passes on the exact candidate for the
-   claimed interface/security/semantic suites that remain in force;
-3. package smoke proves the installed default MCP entrypoint and public schemas
-   are drop-in compatible; and
-4. five-platform native optional packages are published and registry
-   install/readback is proven; and
-5. the published artifact readback identifies that exact candidate.
-
-Until sole-runtime cutover:
-
-- `productTruth.dropInFor3014` remains `false`
-- TypeScript remains the default package entry
-- pure-Rust remains opt-in via `PDF_READER_ENGINE_MODE=pure-rust`
-- TS 3.0.14 exact differential families remain frozen regression assets
-- new exact residual expansion is limited to contract breaks, semantic
-  regressions, and security/resource fail-closed gaps
-- open non-claims are tracked in
-  `docs/specs/nonclaim-reclassification-ledger.json`
-
-`productTruth.publishFreeze` may be `false` when verified-candidate admission
-authorizes registry publish of pure-Rust progress packages.
-
-The replacement proof is the executable package smoke, integration, contract,
-semantic, task-eval, differential, and registry-install suites. Do not replace
-these fences with new source-token checks after cutover.
-
-## Native optional packages (Stage B)
-
-Five platform packages under `packages/pdf-reader-mcp-*` are publishable optional
-dependencies of the main package:
-
-- manifests are version-synced by `bun run native:sync-manifests`
-- `prepublishOnly` refuses missing/empty binaries
-- multi-platform build + publish: `.github/workflows/publish-npm.yml`
-- local readiness: `bun run native:assert-ready`
-- registry proof: `bun run check:registry-install-proof -- --registry --version=<ver>`
-
-Until registry install/readback is green on all five platforms:
-
-- `productTruth.dropInFor3014` remains `false`
-- TypeScript remains the default package entry
-- pure-Rust remains opt-in
-
-## Published progress package (3.1.2)
-
-`@sylphx/pdf-reader-mcp@3.1.2` and the five native optional packages are
-published under verified-candidate admission. Default entry remains TypeScript.
-Withdrawn range `3.0.15`–`3.1.1` must not be used. Sole-runtime cutover still
-requires five-platform registry pure-Rust initialize proof before
-`dropInFor3014=true`.
-
-## Published progress package (3.1.3)
-
-Linux optional natives are built on Ubuntu 22.04/22.04-arm for broader glibc
-compatibility. Registry install + pure-Rust initialize proof runs via
-`scripts/check-registry-install-proof.ts` and
-`.github/workflows/registry-install-proof.yml`. Default entry remains
-TypeScript until sole-runtime cutover.

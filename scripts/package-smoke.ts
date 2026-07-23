@@ -390,6 +390,7 @@ export const validateExtractedPackage = async (
   const packageJson = await readJson(packageJsonPath);
   const tsEntryPath = path.join(packageDir, 'dist', 'index.js');
   const pureRustEntryPath = path.join(packageDir, 'dist', 'pure-rust.js');
+  const runtimeEntryPath = path.join(packageDir, 'dist', 'runtime-entry.js');
   const publicCorpusManifestPath = path.join(packageDir, 'corpus', 'public-url-corpus.json');
   const publicProviderManifestPath = path.join(
     packageDir,
@@ -417,20 +418,29 @@ export const validateExtractedPackage = async (
   );
   addCheck(
     checks,
-    'runtime:ts-bin-contract',
-    bin?.['pdf-reader-mcp'] === './dist/index.js' && exportsField?.['.'] === './dist/index.js',
-    'package bin/exports point at TypeScript dist/index.js (published 3.0.14 path)',
+    'runtime:default-bin-contract',
+    bin?.['pdf-reader-mcp'] === './dist/runtime-entry.js' &&
+      exportsField?.['.'] === './dist/runtime-entry.js' &&
+      (await fileExists(runtimeEntryPath)),
+    'package bin/exports prefer pure-Rust runtime-entry.js sole-runtime default',
     { bin: bin?.['pdf-reader-mcp'], exports: exportsField?.['.'] }
+  );
+  addCheck(
+    checks,
+    'runtime:typescript-fallback-export',
+    exportsField?.['./typescript'] === './dist/index.js' && (await fileExists(tsEntryPath)),
+    'package keeps TypeScript fallback export at ./typescript',
+    { export: exportsField?.['./typescript'], path: 'package/dist/index.js' }
   );
   addCheck(
     checks,
     'runtime:pure-rust-export-contract',
     exportsField?.['./pure-rust'] === './dist/pure-rust.js' && (await fileExists(pureRustEntryPath)),
-    'package exposes experimental pure-Rust library export at ./pure-rust without changing default TS entry',
+    'package exposes pure-Rust library export at ./pure-rust',
     {
       export: exportsField?.['./pure-rust'],
       path: 'package/dist/pure-rust.js',
-      productTruth: { dropInFor3014: false, publishFreeze: false },
+      productTruth: { dropInFor3014: true, publishFreeze: false },
     }
   );
   addCheck(

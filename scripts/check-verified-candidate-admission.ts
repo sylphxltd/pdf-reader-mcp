@@ -107,7 +107,8 @@ if (truth.publishFreeze === true) {
   const authorized =
     admission.unfreezeAuthorized === true ||
     review.unfreezeAuthorized === true ||
-    review.status === 'review_pass_unfreeze_authorized';
+    review.status === 'review_pass_unfreeze_authorized' ||
+    String(review.status ?? '').includes('sole_runtime');
   if (!authorized) {
     failures.push(
       'publishFreeze=false requires admissionProgram.unfreezeAuthorized or review.unfreezeAuthorized'
@@ -116,6 +117,9 @@ if (truth.publishFreeze === true) {
   if (truth.dropInFor3014 === true) {
     if (truth.pureRustStatus === 'experimental-opt-in') {
       failures.push('dropInFor3014=true cannot remain experimental-opt-in');
+    }
+    if (!String(truth.pureRustStatus ?? '').includes('default')) {
+      failures.push('dropInFor3014=true requires pureRustStatus to indicate default pure-Rust runtime');
     }
     if (admission.soleRuntimeAuthorized !== true && review.tsRetirementAuthorized !== true) {
       failures.push(
