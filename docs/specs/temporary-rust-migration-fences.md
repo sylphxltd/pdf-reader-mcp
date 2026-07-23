@@ -72,3 +72,11 @@ Until registry install/readback is green on all five platforms:
 - TypeScript remains the default package entry
 - pure-Rust remains opt-in
 
+## Published progress package (3.1.2)
+
+`@sylphx/pdf-reader-mcp@3.1.2` and the five native optional packages are
+published under verified-candidate admission. Default entry remains TypeScript.
+Withdrawn range `3.0.15`–`3.1.1` must not be used. Sole-runtime cutover still
+requires five-platform registry pure-Rust initialize proof before
+`dropInFor3014=true`.
+

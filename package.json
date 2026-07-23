@@ -2,7 +2,7 @@
   "name": "@sylphx/pdf-reader-mcp",
   "version": "3.1.2",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Evidence-first PDF MCP. Published stable is 3.0.14 (TypeScript). Pure-Rust cutover is experimental/unpublished; 3.0.15–3.1.1 are withdrawn.",
+  "description": "Evidence-first PDF MCP. Default entry is TypeScript. Pure-Rust is opt-in via PDF_READER_ENGINE_MODE=pure-rust / ./pure-rust export and optional native platform packages. dropInFor3014 remains false; withdrawn 3.0.15\u20133.1.1 must not be used.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/index.js"

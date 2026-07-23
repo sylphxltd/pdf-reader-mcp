@@ -3,8 +3,8 @@
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
   "updated": "2026-07-23",
   "productTruth": {
-    "publishedStable": "@sylphx/pdf-reader-mcp@3.0.14",
-    "publishedImplementation": "TypeScript dist/index.js",
+    "publishedStable": "@sylphx/pdf-reader-mcp@3.1.2",
+    "publishedImplementation": "TypeScript dist/index.js (default); pure-Rust optional native packages + ./pure-rust export",
     "pureRustStatus": "experimental-opt-in",
     "optIn": "PDF_READER_ENGINE_MODE=pure-rust",
     "dropInFor3014": false,
@@ -330,8 +330,7 @@
     "publishFreeze": false,
     "dropInFor3014": false,
     "nextActions": [
-      "Publish versioned main + five native optional packages via publish-npm / release:publish-with-natives",
-      "Run registry install/readback on all five platforms (check:registry-install-proof --registry)",
+      "Run five-platform registry install + pure-Rust MCP initialize readback for 3.1.2",
       "Only then set dropInFor3014=true / sole-runtime default and retire TypeScript entry"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
@@ -353,29 +352,33 @@
       ]
     },
     "nativePackageProof": {
-      "status": "publishable-optional-packages-and-multiplatform-publish-pipeline",
-      "registryInstall": false,
+      "status": "registry-published-optional-packages-host-install-proven",
+      "registryInstall": "host-proven-five-platform-runtime-pending",
       "packagesPublishable": true,
       "optionalDependenciesWired": true,
+      "publishedVersion": "3.1.2",
+      "publishedNatives": [
+        "@sylphx/pdf-reader-mcp-darwin-arm64@3.1.2",
+        "@sylphx/pdf-reader-mcp-darwin-x64@3.1.2",
+        "@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.1.2",
+        "@sylphx/pdf-reader-mcp-linux-x64-gnu@3.1.2",
+        "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.1.2"
+      ],
       "publishFreeze": false,
       "commands": [
-        "bun run native:sync-manifests",
-        "bun run native:assert-ready -- --manifests-only --all",
+        "bun run check:registry-install-proof -- --registry --version=3.1.2",
         "bun run smoke:native-launcher",
-        "bun run smoke:native-package-resolve",
-        "bun run check:registry-install-proof",
-        "bun run release:publish-with-natives -- --dry-run"
+        "bun run smoke:native-package-resolve"
       ],
       "workflow": ".github/workflows/native-package-scaffold.yml",
       "publishWorkflow": ".github/workflows/publish-npm.yml",
       "notes": [
-        "Native packages are no longer private scaffolds; prepublishOnly refuses empty binaries.",
-        "Main package declares optionalDependencies for all five platform packages.",
-        "Registry install/readback on all five platforms remains required before dropInFor3014=true."
+        "Main package and five native optional packages are published at 3.1.2.",
+        "Host registry install proof is green; full five-platform pure-Rust MCP initialize readback remains required before dropInFor3014=true."
       ]
     },
     "libraryExports": {
-      "status": "experimental-opt-in-contract",
+      "status": "published-experimental-opt-in",
       "exportPath": "./pure-rust",
       "artifact": "dist/pure-rust.js",
       "defaultStillTypescript": true,
