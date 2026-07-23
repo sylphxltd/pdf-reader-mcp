@@ -39,10 +39,19 @@ describe('published TypeScript production default', () => {
     const matrix = JSON.parse(
       readFileSync(path.join(repoRoot, 'docs/specs/pure-rust-capability-matrix.json'), 'utf8')
     ) as {
-      productTruth: { dropInFor3014: boolean; pureRustStatus: string; publishedStable: string };
+      productTruth: {
+        dropInFor3014: boolean;
+        pureRustStatus: string;
+        publishedStable: string;
+        publishedImplementation?: string;
+      };
     };
     expect(matrix.productTruth.dropInFor3014).toBe(false);
     expect(matrix.productTruth.pureRustStatus).toBe('experimental-opt-in');
-    expect(matrix.productTruth.publishedStable).toContain('3.0.14');
+    // May be 3.0.14 LKG or a later Stage B progress package (e.g. 3.1.3) that still defaults to TS.
+    expect(matrix.productTruth.publishedStable).toMatch(/@sylphx\/pdf-reader-mcp@\d+\.\d+\.\d+/);
+    expect(String(matrix.productTruth.publishedImplementation ?? 'TypeScript')).toMatch(
+      /TypeScript/i
+    );
   });
 });

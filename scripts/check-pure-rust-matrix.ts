@@ -2590,11 +2590,25 @@ const annotationTextMarkupWithApResidualWorkflow =
     : '';
 
 const failures: string[] = [];
-if (
-  !matrix.productTruth.dropInFor3014 &&
-  !String(matrix.productTruth.publishedStable).includes('3.0.14')
-) {
-  failures.push('publishedStable must reference 3.0.14 while Rust is not drop-in');
+if (!matrix.productTruth.dropInFor3014) {
+  const publishedStable = String(matrix.productTruth.publishedStable ?? '');
+  const publishedImplementation = String(matrix.productTruth.publishedImplementation ?? '');
+  // While not sole-runtime, published stable may remain TS 3.0.14 LKG or a later
+  // progress package that still defaults to TypeScript (e.g. 3.1.2 Stage B).
+  const okStable =
+    publishedStable.includes('3.0.14') ||
+    publishedStable.includes('@sylphx/pdf-reader-mcp@3.1.') ||
+    /@sylphx\/pdf-reader-mcp@\d+\.\d+\.\d+/.test(publishedStable);
+  if (!okStable) {
+    failures.push(
+      'publishedStable must identify a published @sylphx/pdf-reader-mcp version while Rust is not drop-in'
+    );
+  }
+  if (!publishedImplementation.toLowerCase().includes('typescript')) {
+    failures.push(
+      'publishedImplementation must still identify TypeScript default while dropInFor3014=false'
+    );
+  }
 }
 const capabilityStatuses = Object.entries(matrix.tools).flatMap(([tool, capabilities]) =>
   Object.entries(capabilities).map(([capability, status]) => ({
@@ -12586,6 +12600,7 @@ if (
   !matrix.claimedForDifferential.some(
     (entry: string) =>
       entry.includes('Stage B native optional package publish pipeline') ||
+      entry.includes('Stage B registry-published pure-Rust optional packages') ||
       entry.includes('five-platform npm native package scaffold')
   )
 ) {
@@ -12611,6 +12626,9 @@ if (!existsSync(join(root, 'scripts/release-publish-with-natives.ts'))) {
 }
 if (!existsSync(join(root, 'scripts/check-registry-install-proof.ts'))) {
   failures.push('registry install proof harness must exist');
+}
+if (!existsSync(join(root, '.github/workflows/registry-install-proof.yml'))) {
+  failures.push('registry-install-proof workflow must exist for five-platform registry runtime proof');
 }
 if (!nativeWorkflow.includes('smoke:native-launcher') || !nativeWorkflow.includes('smoke:native-package-resolve')) {
   failures.push('native package scaffold workflow must run host launcher and package-resolve smokes');
