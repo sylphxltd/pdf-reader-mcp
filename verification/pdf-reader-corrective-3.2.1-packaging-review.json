@@ -5,13 +5,13 @@
   "reviewer": "release-corrective-packaging-audit",
   "scope": "corrective-packaging-only",
   "candidate": {
-    "sha": "1247705b66ac1fbed650beb5c6e34513c2b93f74",
-    "versionTarget": "3.2.1",
+    "sha": "8d14bce5f905d756e6b70355abd0763d3ce7f41d",
+    "versionTarget": "3.2.2",
     "note": "Packaging SHA with publish exact-head CI fix. Descendants may only pin matrix/verification.",
     "mergedVia": "https://github.com/SylphxAI/pdf-reader-mcp/pull/572"
   },
   "productTruthSnapshot": {
-    "publishedStable": "@sylphx/pdf-reader-mcp@3.2.1",
+    "publishedStable": "@sylphx/pdf-reader-mcp@3.2.2",
     "pureRustStatus": "default-fail-closed",
     "dropInFor3014": true,
     "publishFreeze": false,
@@ -36,7 +36,8 @@
     "Rust SERVER_INSTRUCTIONS no longer points production users at 3.0.14 only",
     "productTruth.automaticTypescriptFallback=false",
     "admission gate requires evidence authorization and zero blockingForUnfreeze",
-    "admission gate can require exact git HEAD match at publish time"
+    "admission gate can require exact git HEAD match at publish time",
+    "serverInfo.description no longer experimental/not-published-npm-latest"
   ],
   "remainingBeforeGoalComplete": [
     "Independent whole-product review of the exact published 3.2.1 SHA",

@@ -416,8 +416,8 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
     "wholeProductReview": {
-      "status": "corrective_packaging_authorized_main_squash",
-      "candidateSha": "1247705b66ac1fbed650beb5c6e34513c2b93f74",
+      "status": "corrective_packaging_authorized_3_2_2_serverinfo",
+      "candidateSha": "8d14bce5f905d756e6b70355abd0763d3ce7f41d",
       "evidence": "verification/pdf-reader-corrective-3.2.1-packaging-review.json",
       "package": "docs/specs/whole-product-independent-review-package.md",
       "unfreezeAuthorized": true,
