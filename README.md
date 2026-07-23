@@ -134,7 +134,7 @@ Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 
 ## Quick Start
 
-### Published stable (npm — TypeScript 3.0.14)
+### Published stable (npm — sole-runtime 3.2.0)
 
 Install **3.2.0**. Default prefers pure-Rust native optional packages; TypeScript remains fallback.
 Requires **Node.js `>=22.13`**. The package runs `dist/runtime-entry.js` (pure-Rust preferred, TypeScript fallback).
@@ -163,7 +163,7 @@ Claude Desktop (`claude_desktop_config.json`):
 > **Do not install 3.0.15–3.1.1** — withdrawn incomplete pure-Rust cutover
 > (deprecated on npm). Registry `latest` is **3.2.0**.
 
-### Pure-Rust default + TypeScript fallback
+### Pure-Rust library export + TypeScript fallback
 
 Pure-Rust is **not** published as npm latest and is **not** a full drop-in.
 Do not `cargo install` experimental crates for production. To experiment from a
