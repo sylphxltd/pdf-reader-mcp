@@ -330,9 +330,8 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Publish 3.2.0 main + five native packages",
-      "Re-run registry-install-proof.yml for 3.2.0",
-      "Monitor TypeScript fallback rate and remaining PARTIAL capability depth"
+      "Monitor sole-runtime 3.2.0 adoption and TypeScript fallback usage",
+      "Optionally deepen PARTIAL capabilities under ADR-0005 task-eval corpus"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -353,22 +352,22 @@
       ]
     },
     "nativePackageProof": {
-      "status": "five-platform-registry-initialize-proven-for-3.1.4",
+      "status": "five-platform-registry-initialize-proven-for-3.2.0",
       "registryInstall": true,
       "packagesPublishable": true,
       "optionalDependenciesWired": true,
       "publishedVersion": "3.2.0",
       "publishedNatives": [
-        "@sylphx/pdf-reader-mcp-darwin-arm64@3.1.4",
-        "@sylphx/pdf-reader-mcp-darwin-x64@3.1.4",
-        "@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.1.4",
-        "@sylphx/pdf-reader-mcp-linux-x64-gnu@3.1.4",
-        "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.1.4"
+        "@sylphx/pdf-reader-mcp-darwin-arm64@3.2.0",
+        "@sylphx/pdf-reader-mcp-darwin-x64@3.2.0",
+        "@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.2.0",
+        "@sylphx/pdf-reader-mcp-linux-x64-gnu@3.2.0",
+        "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.2.0"
       ],
       "publishFreeze": false,
       "commands": [
-        "bun run check:registry-install-proof -- --registry --version=3.1.4",
-        "gh workflow run registry-install-proof.yml -f version=3.1.4"
+        "bun run check:registry-install-proof -- --registry --version=3.2.0",
+        "gh workflow run registry-install-proof.yml -f version=3.2.0"
       ],
       "workflow": ".github/workflows/native-package-scaffold.yml",
       "publishWorkflow": ".github/workflows/publish-npm.yml",
@@ -378,8 +377,8 @@
       ],
       "registryProofWorkflow": ".github/workflows/registry-install-proof.yml",
       "linuxBuildImage": "ubuntu-22.04 / ubuntu-22.04-arm",
-      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.1.4.json",
-      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/29998671429"
+      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.0.json",
+      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30008166478"
     },
     "libraryExports": {
       "status": "published-experimental-opt-in",
