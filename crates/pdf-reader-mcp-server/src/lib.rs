@@ -24,7 +24,7 @@ use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
 /// Experimental pure-Rust engine version — not the published npm product line.
-pub const SERVER_VERSION: &str = "0.0.0-pure-rust-experimental";
+pub const SERVER_VERSION: &str = "3.0.14-pure-rust-experimental";
 pub const SERVER_INSTRUCTIONS: &str =
     "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
 Supported depth: selectable-text read_pdf, search_pdf, and focused pdf_evidence operations. \
