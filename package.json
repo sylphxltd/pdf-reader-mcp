@@ -2,7 +2,7 @@
   "name": "@sylphx/pdf-reader-mcp",
   "version": "3.0.14",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Evidence-first PDF MCP. Published stable is 3.0.14 (TypeScript). Pure-Rust cutover is experimental/unpublished; 3.0.15–3.1.1 are withdrawn.",
+  "description": "Evidence-first PDF MCP. Published stable is 3.0.14 (TypeScript). Pure-Rust cutover is experimental/unpublished; 3.0.15\u20133.1.1 are withdrawn.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/index.js"
@@ -232,7 +232,8 @@
     "native:sync-manifests": "bun scripts/native/sync-native-package-manifests.ts",
     "native:assert-ready": "bun scripts/native/assert-native-packages-ready.ts",
     "native:stage-from-artifacts": "bun scripts/native/stage-native-artifacts.ts",
-    "release:publish-with-natives": "bun scripts/release-publish-with-natives.ts"
+    "release:publish-with-natives": "bun scripts/release-publish-with-natives.ts",
+    "sync:server-json": "bun scripts/sync-server-json.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
