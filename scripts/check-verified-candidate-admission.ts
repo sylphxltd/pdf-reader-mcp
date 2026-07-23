@@ -197,10 +197,12 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
         const allow = (rel: string) =>
           rel === 'docs/specs/pure-rust-capability-matrix.json' ||
           rel.startsWith('verification/');
-        const onlyPinPaths = changed.length > 0 && changed.every(allow);
-        if (ancestor.status !== 0 || !onlyPinPaths) {
+        // empty changed => identical trees; [].every(allow) is true.
+        // Non-empty changed must be pin-path only (matrix/verification).
+        const onlyPinPaths = changed.every(allow);
+        if (ancestor.status !== 0 || diff.status !== 0 || !onlyPinPaths) {
           failures.push(
-            `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a pin-path-only descendant; changed=${JSON.stringify(changed)}`
+            `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a pin-path-only descendant; ancestorStatus=${ancestor.status} diffStatus=${diff.status} changed=${JSON.stringify(changed)} stderr=${JSON.stringify((ancestor.stderr || '') + (diff.stderr || ''))}`
           );
         }
       }
