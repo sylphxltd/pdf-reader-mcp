@@ -9,23 +9,36 @@ Quality-parity corpus for capability-first admission.
 - Invented absolute percentage thresholds are forbidden.
 - Exact PDF.js JSON equality is not required.
 
-## Task classes (local)
+## Local tasks (default CI)
 
-- extract passage / table / search / fail-closed pages
+- extract / table / search / fail-closed
 - outline / forms / annotations
-- visual candidates (provider-independent)
-- OCR text layer (mock command provider)
-- visual enrichment + Document Map fusion (configured command provider)
-
-## Commands
+- visual candidates / OCR text layer / visual enrichment fusion
 
 ```bash
 bun run check:agent-task-corpus
 bun run test:agent-task-smoke
-bun run test:agent-task-eval:calibrate
 bun run test:agent-task-eval
 ```
 
+## Public URL tasks (opt-in)
+
+Source manifest: `corpus/public-url-corpus.json` (PDFs not vendored).
+
+```bash
+# download + measure TS baseline + compare pure-Rust
+bun run test:agent-task-public-eval:calibrate
+
+# compare pure-Rust using cached PDFs + committed public baseline
+bun run test:agent-task-public-eval
+```
+
+Requires:
+
+- `MCP_PDF_AGENT_TASK_PUBLIC=true` (or `--public`)
+- downloads: `MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true` (or `--allow-corpus-downloads`) when cache is cold
+
 ## Status
 
-`local-calibrated-with-ocr-visual`. Public URL corpus remains follow-on work before unfreeze.
+- local: calibrated
+- public-url: opt-in calibrating

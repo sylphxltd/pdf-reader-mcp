@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
-  "updated": "2026-07-22",
+  "updated": "2026-07-23",
   "productTruth": {
     "publishedStable": "@sylphx/pdf-reader-mcp@3.0.14",
     "publishedImplementation": "TypeScript dist/index.js",
@@ -75,7 +75,7 @@
   },
   "claimedForDifferential": [
     "capability-first semantic admission program accepted (ADR-0005): exact PDF.js output parity is no longer the whole-product bar; interface compatibility remains exact; semantic capability equivalence and calibrated agent-task quality are the release standards; TS 3.0.14 exact differentials remain frozen regression/coverage assets; dropInFor3014=false and publishFreeze=true until the new bar is met",
-    "capability-first agent-task corpus local calibration includes OCR and visual classes: extract/table/search/fail-closed/outline/forms/annotations plus visual candidates, OCR text-layer mock provider, and configured-command visual enrichment Document Map fusion; measured TS v3.0.14 baseline floors drive pure-Rust presence comparison; dropInFor3014=false and publishFreeze=true; public URL corpus remains unclaimed",
+    "capability-first public URL agent-task corpus opt-in calibration over corpus/public-url-corpus.json: six SHA256-verified public cases mapped to extract/search tasks, download-gated cache materialization, measured TS baseline artifact baselines/typescript-v3.0.14.public-url.json, pure-Rust presence comparison; default CI remains local-only; dropInFor3014=false and publishFreeze=true",
     "capability-first agent-task corpus scaffold: local-fixture task definitions for extract/table/search/failclosed classes with TS-baseline calibration policy and pure-Rust smoke predicates; broader public corpus thresholds remain future work; dropInFor3014=false and publishFreeze=true",
     "capability-first semantic contracts scaffold: active interface/semantic/security contracts under docs/specs/semantic-contracts with schema validation and matrix path linkage; exact PDF.js output equality remains non-required outside frozen residual families; dropInFor3014=false and publishFreeze=true",
     "exact 14-case immutable TS v3.0.14 behavior subset: full text, page selection/order/duplicates, metadata, literal search, case sensitivity, whole word, Unicode, UTF-16 offsets, uniformly estimated selectable-text match bounding boxes and levels, missing and malformed inputs, mixed-source partial success, inherited crop/media/rotation geometry with page UserUnit, an indirect Link/URI annotation, common catalog signals, a bounded AcroForm text/parent-widget/checkbox/listbox subset, and EmbeddedFiles metadata with distinct ASCII tree keys, path-normalized filenames, descriptions, fixture ordering, and unfiltered content sizes",
@@ -328,19 +328,24 @@
     "dropInFor3014": false,
     "nextActions": [
       "Complete npm registry native package install/readback proof after intentional unfreeze candidate decision",
-      "Expand public URL agent-task corpus beyond local fixtures",
       "Only after remaining blockers: set publishFreeze=false, retire TypeScript default, and prove registry install"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
     "agentTaskCalibration": {
-      "status": "local-baseline-measured-with-ocr-visual",
+      "status": "local-calibrated-public-opt-in",
       "baselineArtifact": "docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.local.json",
       "taskCount": 10,
       "commands": [
-        "bun run test:agent-task-eval:calibrate",
         "bun run test:agent-task-eval",
-        "bun run test:agent-task-smoke"
+        "bun run test:agent-task-public-eval:calibrate",
+        "bun run test:agent-task-public-eval"
+      ],
+      "localBaselineArtifact": "docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.local.json",
+      "publicBaselineArtifact": "docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.public-url.json",
+      "publicOptIn": [
+        "MCP_PDF_AGENT_TASK_PUBLIC=true",
+        "MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true"
       ]
     },
     "nativePackageProof": {

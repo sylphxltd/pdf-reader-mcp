@@ -11,15 +11,20 @@ import {
   evaluateAcceptance,
   extractMetrics,
   loadTasks,
+  materializePublicTaskInput,
+  publicDownloadsEnabled,
   publicPayload,
-  resolveInput,
+  publicTasksEnabled,
   resolveTaskEnv,
+  selectTaskFiles,
 } from './agent-task-shared.ts';
 
 const root = join(import.meta.dirname, '..');
 const manifest = JSON.parse(
   readFileSync(join(root, 'docs/specs/agent-task-corpus/manifest.json'), 'utf8')
-) as { taskFiles: string[] };
+) as { taskFiles: string[]; publicTaskFiles?: string[] };
+const includePublic = publicTasksEnabled();
+const allowDownloads = publicDownloadsEnabled();
 const serverPath = join(root, 'target/release/pdf-reader-mcp-server');
 
 if (!existsSync(serverPath)) {
@@ -33,8 +38,11 @@ if (!existsSync(serverPath)) {
   }
 }
 
-const tasks = loadTasks(root, manifest.taskFiles);
+const tasks = loadTasks(root, selectTaskFiles(manifest, includePublic));
 const failures: string[] = [];
+console.log(
+  `[agent-task-smoke] scope=${includePublic ? 'local+public-url' : 'local'} tasks=${tasks.length} downloads=${allowDownloads}`
+);
 
 for (const task of tasks) {
   try {
@@ -43,13 +51,14 @@ for (const task of tasks) {
       MCP_TRANSPORT: 'stdio',
       PDF_READER_ENGINE_MODE: 'pure-rust',
     });
+    const toolArgs = await materializePublicTaskInput(task, root, { allowDownloads });
     const response = await callMcpTool({
       command: serverPath,
       env,
       tool: task.tool,
-      toolArgs: resolveInput(task.input, root),
+      toolArgs,
       cwd: root,
-      timeoutMs: 60_000,
+      timeoutMs: 120_000,
     });
     const payload = publicPayload(response);
     const metrics = extractMetrics(response, payload);

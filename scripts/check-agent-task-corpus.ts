@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** Validate agent-task corpus scaffold for ADR-0005 quality parity. */
+/** Validate agent-task corpus for ADR-0005 quality parity. */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -13,7 +13,10 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
   calibration?: { inventedNumericThresholdsForbidden?: boolean };
   fixtures?: Record<string, string>;
   taskFiles?: string[];
+  publicTaskFiles?: string[];
   baselineArtifact?: string;
+  publicBaselineArtifact?: string;
+  publicCorpus?: { manifest?: string };
 };
 
 if (manifest.schemaVersion !== 1) failures.push('manifest schemaVersion must be 1');
@@ -26,24 +29,33 @@ for (const [name, fixture] of Object.entries(manifest.fixtures ?? {})) {
 }
 
 const taskFiles = manifest.taskFiles ?? [];
-if (taskFiles.length < 7) failures.push('manifest must reference at least seven tasks');
+const publicTaskFiles = manifest.publicTaskFiles ?? [];
+if (taskFiles.length < 7) failures.push('manifest must reference at least seven local tasks');
+if (publicTaskFiles.length < 3) {
+  failures.push('manifest must reference at least three public-url tasks');
+}
 if (manifest.baselineArtifact) {
   const baselinePath = join(root, 'docs/specs/agent-task-corpus', manifest.baselineArtifact);
   if (!existsSync(baselinePath)) {
     failures.push(`baselineArtifact missing: ${manifest.baselineArtifact}`);
   }
 }
+if (manifest.publicCorpus?.manifest && !existsSync(join(root, manifest.publicCorpus.manifest))) {
+  failures.push(`public corpus manifest missing: ${manifest.publicCorpus.manifest}`);
+}
 
 const ids = new Set<string>();
 const contractIds = new Set<string>();
-for (const rel of taskFiles) {
+const validateTaskFile = (rel: string, requirePublic: boolean) => {
   const path = join(root, 'docs/specs/agent-task-corpus', rel);
   if (!existsSync(path)) {
     failures.push(`task file missing: ${rel}`);
-    continue;
+    return;
   }
   const task = JSON.parse(readFileSync(path, 'utf8')) as {
     id?: string;
+    scope?: string;
+    publicCaseId?: string;
     tool?: string;
     fixture?: string;
     input?: unknown;
@@ -56,9 +68,6 @@ for (const rel of taskFiles) {
   if (!['read_pdf', 'search_pdf', 'pdf_evidence'].includes(String(task.tool))) {
     failures.push(`${rel} has invalid tool`);
   }
-  if (!task.fixture || !existsSync(join(root, task.fixture))) {
-    failures.push(`${rel} fixture missing`);
-  }
   if (!task.input || typeof task.input !== 'object') failures.push(`${rel} input must be object`);
   if (!task.acceptance || typeof task.acceptance !== 'object') {
     failures.push(`${rel} acceptance must be object`);
@@ -67,7 +76,16 @@ for (const rel of taskFiles) {
     failures.push(`${rel} must link contractIds`);
   }
   for (const id of task.contractIds ?? []) contractIds.add(id);
-}
+  if (requirePublic) {
+    if (task.scope !== 'public-url') failures.push(`${rel} must set scope=public-url`);
+    if (!task.publicCaseId) failures.push(`${rel} must set publicCaseId`);
+  } else if (task.fixture && !existsSync(join(root, task.fixture))) {
+    failures.push(`${rel} fixture missing`);
+  }
+};
+
+for (const rel of taskFiles) validateTaskFile(rel, false);
+for (const rel of publicTaskFiles) validateTaskFile(rel, true);
 
 for (const id of contractIds) {
   const contractPath = join(root, 'docs/specs/semantic-contracts', `${id}.json`);
@@ -84,9 +102,14 @@ const requiredTaskIds = [
 for (const requiredId of requiredTaskIds) {
   if (!ids.has(requiredId)) failures.push(`missing required task id: ${requiredId}`);
 }
+if (![...ids].some((id) => id.startsWith('public-'))) {
+  failures.push('missing public-url task ids');
+}
 
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
 }
-console.log(`[check-agent-task-corpus] PASS ${taskFiles.length} tasks under ADR-0005`);
+console.log(
+  `[check-agent-task-corpus] PASS ${taskFiles.length} local + ${publicTaskFiles.length} public-url tasks under ADR-0005`
+);

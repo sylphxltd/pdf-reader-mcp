@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "Nonclaim reclassification ledger for capability-first admission",
-  "updated": "2026-07-22",
+  "updated": "2026-07-23",
   "authority": "ADR-0005",
   "matrixPath": "docs/specs/pure-rust-capability-matrix.json",
   "matrixUpdated": "2026-07-22",
@@ -48,11 +48,13 @@
       "nonclaim": "calibrated public agent-task corpus thresholds and full quality-parity scorecard against TS baseline",
       "class": "quality_risk",
       "confidence": "reviewed",
-      "rationale": "Local measured TS baseline now covers OCR/visual task classes; public URL corpus calibration and full quality-parity scorecard remain before unfreeze.",
+      "rationale": "Public-url opt-in agent-task calibration with measured TS baseline now exists for downloadable cases; remaining unfreeze risk is broader public permanence/scorecard and sole-runtime registry proof, not total absence.",
       "blockingForUnfreeze": true,
       "notes": [
         "local-ocr-visual-baseline-2026-07-22",
-        "local-pass-public-corpus-still-blocking-f1a1626"
+        "local-pass-public-corpus-still-blocking-f1a1626",
+        "public-url-opt-in-calibration-2026-07-23",
+        "public-url-baseline-committed-2026-07-23"
       ]
     },
     {

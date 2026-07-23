@@ -223,7 +223,10 @@
     "test:agent-task-eval:baseline": "bun scripts/run-agent-task-eval.ts --runtime=typescript --write-baseline --no-compare",
     "smoke:native-package-resolve": "bun scripts/smoke-native-package-resolve.ts",
     "check:pure-rust-exports": "bun scripts/check-pure-rust-exports.ts",
-    "test:pure-rust-exports": "bun test test/pure-rust-exports.test.ts"
+    "test:pure-rust-exports": "bun test test/pure-rust-exports.test.ts",
+    "test:agent-task-public-smoke": "MCP_PDF_AGENT_TASK_PUBLIC=true bun scripts/run-agent-task-smoke.ts --public",
+    "test:agent-task-public-eval": "MCP_PDF_AGENT_TASK_PUBLIC=true bun scripts/run-agent-task-eval.ts --runtime=pure-rust --compare-baseline --public",
+    "test:agent-task-public-eval:calibrate": "MCP_PDF_AGENT_TASK_PUBLIC=true MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true bun scripts/run-agent-task-eval.ts --runtime=both --write-baseline --compare-baseline --public --allow-corpus-downloads"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
