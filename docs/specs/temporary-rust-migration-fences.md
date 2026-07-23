@@ -1,7 +1,8 @@
 # Temporary Rust migration fences
 
 Pure-Rust is the default package entry via `dist/runtime-entry.js` when the
-platform optional native package is installed. TypeScript remains available as:
+platform optional native package is installed. **TypeScript production default is
+retired** at 3.2.0. TypeScript remains available only as fallback:
 
 - `exports["./typescript"]` → `dist/index.js`
 - `PDF_READER_FORCE_TYPESCRIPT=1` or `PDF_READER_ENGINE_MODE=typescript`

@@ -13,7 +13,14 @@
     "exactPdfJsOutputParityRequired": false,
     "ts3014Role": "regression-baseline-coverage-discovery-compatibility-reference",
     "registryPublishAuthorized": true,
-    "soleRuntimeDefault": true
+    "soleRuntimeDefault": true,
+    "typescriptProductionDefault": "retired",
+    "typescriptFallback": true,
+    "typescriptFallbackExports": [
+      "./typescript",
+      "PDF_READER_FORCE_TYPESCRIPT=1",
+      "PDF_READER_ENGINE_MODE=typescript"
+    ]
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -331,7 +338,8 @@
     "dropInFor3014": true,
     "nextActions": [
       "Monitor sole-runtime 3.2.0 adoption and TypeScript fallback usage",
-      "Optionally deepen PARTIAL capabilities under ADR-0005 task-eval corpus"
+      "Optionally deepen PARTIAL capabilities under ADR-0005 task-eval corpus",
+      "Hard-delete TypeScript MCP surface only after sustained sole-runtime stability window"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -381,10 +389,10 @@
       "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30008166478"
     },
     "libraryExports": {
-      "status": "published-experimental-opt-in",
+      "status": "published-sole-runtime-default",
       "exportPath": "./pure-rust",
       "artifact": "dist/pure-rust.js",
-      "defaultStillTypescript": true,
+      "defaultStillTypescript": false,
       "publishFreeze": false
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",

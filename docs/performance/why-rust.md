@@ -29,8 +29,8 @@ Executable scaffolds now live under `docs/specs/semantic-contracts/` and
 `bun run check:agent-task-corpus`, and `bun run test:agent-task-smoke`.
 
 
-> **Status:** experimental. **Not** a full drop-in for TypeScript 3.0.14.
-> Published stable remains `@sylphx/pdf-reader-mcp@3.0.14`.
+> **Status:** sole-runtime default at `@sylphx/pdf-reader-mcp@3.2.0` (capability-first).
+> TypeScript production default is retired; TypeScript remains fallback-only.
 
 
 ## The product decision
@@ -154,7 +154,7 @@ paths fail closed; this is not TS 3.0.14 parity.
 
 ## Install
 
-Production: pin `@sylphx/pdf-reader-mcp@3.0.14` (TypeScript).  
+Production: pin `@sylphx/pdf-reader-mcp@3.2.0` (pure-Rust default, TypeScript fallback).  
 See [installation guide](../guide/installation.md). Pure-Rust remains experimental source-only.
 
 ### Configured-command visual enrichment fusion (bounded)
