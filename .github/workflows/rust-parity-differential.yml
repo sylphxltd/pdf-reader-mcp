@@ -241,8 +241,8 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_behavior_result"
-            .candidateSha == $sha and .pass == true
+            .profile == "pdf_reader_v3014_behavior_result" and
+            .candidateSha == $sha and .pass == true and
             .caseCount == 14 and .passed == 14 and .skipped == 0
           ' "$BEHAVIOR_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 behavior result is incomplete, failing, or not SHA-bound"
@@ -254,9 +254,9 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_text_layer_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 1 and .passed == 1 and .skipped == 0
+            .profile == "pdf_reader_v3014_text_layer_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 1 and .passed == 1 and .skipped == 0 and
             .geometryMutationSensitive == true
           ' "$TEXT_LAYER_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text-layer result is incomplete, failing, or not SHA-bound"
@@ -268,9 +268,9 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_citation_chunk_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 6 and .passed == 6 and .skipped == 0
+            .profile == "pdf_reader_v3014_citation_chunk_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
             .chunkMutationSensitive == true
           ' "$CITATION_CHUNK_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 citation-chunk result is incomplete, failing, or not SHA-bound"
@@ -282,12 +282,12 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_semantic_hint_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.role == true
-            .mutationSensitive.confidence == true
-            .mutationSensitive.signals == true
+            .profile == "pdf_reader_v3014_semantic_hint_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.role == true and
+            .mutationSensitive.confidence == true and
+            .mutationSensitive.signals == true and
             .mutationSensitive.level == true
           ' "$SEMANTIC_HINT_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 semantic-hint result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -299,18 +299,18 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_document_ast_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 6 and .passed == 6 and .skipped == 0
-            .subprocessNonzeroRejected == true
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "6a24391c42d4d6b7fd2e6007f0f807058a1aa78872dbb7f83ab6525752c40dfb"
-            .mutationSensitive.leafMutationCount == 2384
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 8
-            .mutationSensitive.unexpectedFieldProbeCount == 5
-            .mutationSensitive.requiredOmissionProbeCount == 4
-            .mutationSensitive.privateLeakProbeCount == 5
+            .profile == "pdf_reader_v3014_document_ast_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
+            .subprocessNonzeroRejected == true and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "6a24391c42d4d6b7fd2e6007f0f807058a1aa78872dbb7f83ab6525752c40dfb" and
+            .mutationSensitive.leafMutationCount == 2384 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 8 and
+            .mutationSensitive.unexpectedFieldProbeCount == 5 and
+            .mutationSensitive.requiredOmissionProbeCount == 4 and
+            .mutationSensitive.privateLeakProbeCount == 5 and
             .mutationSensitive.dependencyPresenceProbeCount == 10
           ' "$DOCUMENT_AST_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 document-AST result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -322,20 +322,20 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_document_map_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 8 and .passed == 8 and .skipped == 0
-            .subprocessNonzeroRejected == true
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "64c5d3ce6733c76d7c31f54577e6b3e73f060776b0898fbffbbef1075456390c"
-            .mutationSensitive.leafMutationCount == 3189
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 6
-            .mutationSensitive.unexpectedFieldProbeCount == 8
-            .mutationSensitive.requiredOmissionProbeCount == 6
-            .mutationSensitive.privateLeakProbeCount == 6
-            .mutationSensitive.dependencyPresenceProbeCount == 14
-            .mutationSensitive.hostileSpanBounded == true
+            .profile == "pdf_reader_v3014_document_map_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 8 and .passed == 8 and .skipped == 0 and
+            .subprocessNonzeroRejected == true and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "64c5d3ce6733c76d7c31f54577e6b3e73f060776b0898fbffbbef1075456390c" and
+            .mutationSensitive.leafMutationCount == 3189 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 6 and
+            .mutationSensitive.unexpectedFieldProbeCount == 8 and
+            .mutationSensitive.requiredOmissionProbeCount == 6 and
+            .mutationSensitive.privateLeakProbeCount == 6 and
+            .mutationSensitive.dependencyPresenceProbeCount == 14 and
+            .mutationSensitive.hostileSpanBounded == true and
             (.cacheIdentity | to_entries | all(.value == true))
           ' "$DOCUMENT_MAP_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 document-map result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -347,23 +347,23 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_trust_report_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 9 and .passed == 9 and .skipped == 0
-            .subprocessNonzeroRejected == true
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "28c02c6a9fa184c311fc06ddcb0cc21864f462c05d53447fc69fa019d6ec08e1"
-            .mutationSensitive.leafMutationCount == 1117
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 12
-            .mutationSensitive.unexpectedFieldProbeCount == 5
-            .mutationSensitive.requiredOmissionProbeCount == 12
-            .mutationSensitive.privateLeakProbeCount == 5
-            .mutationSensitive.dependencyPresenceProbeCount == 15
-            .hiddenDependencyBehavior == true and .selectedPageScope == true
-            (.redactionProof | to_entries | all(.value == true))
-            (.annotationProof | to_entries | all(.value == true))
-            (.dependencyReuse | to_entries | all(.value == true))
+            .profile == "pdf_reader_v3014_trust_report_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 9 and .passed == 9 and .skipped == 0 and
+            .subprocessNonzeroRejected == true and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "28c02c6a9fa184c311fc06ddcb0cc21864f462c05d53447fc69fa019d6ec08e1" and
+            .mutationSensitive.leafMutationCount == 1117 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 12 and
+            .mutationSensitive.unexpectedFieldProbeCount == 5 and
+            .mutationSensitive.requiredOmissionProbeCount == 12 and
+            .mutationSensitive.privateLeakProbeCount == 5 and
+            .mutationSensitive.dependencyPresenceProbeCount == 15 and
+            .hiddenDependencyBehavior == true and .selectedPageScope == true and
+            (.redactionProof | to_entries | all(.value == true)) and
+            (.annotationProof | to_entries | all(.value == true)) and
+            (.dependencyReuse | to_entries | all(.value == true)) and
             (.mapLinkage | to_entries | all(.value == true))
           ' "$TRUST_REPORT_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 trust-report result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -375,26 +375,26 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_selectable_table_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 6 and .passed == 6 and .skipped == 0
-            .subprocessNonzeroRejected == true
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "7ea2129614c89d9d50707d1f96a802bfe485f10ecc576989f9ac99be610df893"
-            .mutationSensitive.leafMutationCount == 1625
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 7
-            .mutationSensitive.unexpectedFieldProbeCount == 11
-            .mutationSensitive.requiredOmissionProbeCount == 7
-            .mutationSensitive.privateLeakProbeCount == 5
-            .mutationSensitive.dependencyPresenceProbeCount == 13
-            (.semanticProof | to_entries | all(.value == true))
-            (.continuationProof | to_entries | all(.value == true))
-            .resourceBoundProof.exactCapItemCount == 4096
-            .resourceBoundProof.itemCount == 4097
-            .resourceBoundProof.cap == 4096
-            .resourceBoundProof.exactCapAccepted == true
-            .resourceBoundProof.zeroTables == true
+            .profile == "pdf_reader_v3014_selectable_table_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
+            .subprocessNonzeroRejected == true and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "7ea2129614c89d9d50707d1f96a802bfe485f10ecc576989f9ac99be610df893" and
+            .mutationSensitive.leafMutationCount == 1625 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 7 and
+            .mutationSensitive.unexpectedFieldProbeCount == 11 and
+            .mutationSensitive.requiredOmissionProbeCount == 7 and
+            .mutationSensitive.privateLeakProbeCount == 5 and
+            .mutationSensitive.dependencyPresenceProbeCount == 13 and
+            (.semanticProof | to_entries | all(.value == true)) and
+            (.continuationProof | to_entries | all(.value == true)) and
+            .resourceBoundProof.exactCapItemCount == 4096 and
+            .resourceBoundProof.itemCount == 4097 and
+            .resourceBoundProof.cap == 4096 and
+            .resourceBoundProof.exactCapAccepted == true and
+            .resourceBoundProof.zeroTables == true and
             .resourceBoundProof.exactWarning == true
           ' "$SELECTABLE_TABLE_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 selectable-table result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -406,17 +406,17 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_caption_link_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 6 and .passed == 6 and .skipped == 0
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "4e7807a895abaaba895ccdcd7096d768d57c72a92674a530afb8c58e31cf8e54"
-            .mutationSensitive.leafMutationCount == 493
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5
-            .mutationSensitive.unexpectedFieldProbeCount == 4
-            .mutationSensitive.requiredOmissionProbeCount == 5
-            .mutationSensitive.privateLeakProbeCount == 5
+            .profile == "pdf_reader_v3014_caption_link_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "4e7807a895abaaba895ccdcd7096d768d57c72a92674a530afb8c58e31cf8e54" and
+            .mutationSensitive.leafMutationCount == 493 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
+            .mutationSensitive.unexpectedFieldProbeCount == 4 and
+            .mutationSensitive.requiredOmissionProbeCount == 5 and
+            .mutationSensitive.privateLeakProbeCount == 5 and
             .mutationSensitive.dependencyPresenceProbeCount == 12
           ' "$CAPTION_LINK_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 caption-link result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -428,18 +428,18 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_search_semantic_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 12 and .passed == 12 and .skipped == 0
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "b5f9aebf64bea4633376fdab137f57369d845173996ce21fb1b3bfe748c0481c"
-            .mutationSensitive.leafMutationCount == 171
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 4
-            .mutationSensitive.unexpectedFieldProbeCount == 2
-            .mutationSensitive.requiredOmissionProbeCount == 2
-            .omissionProof.noWarnings == true and .omissionProof.noTruncated == true
-            .nonclaim.utf16SplitSurrogateWireParity == false and .nonclaim.failClosedProof == true
+            .profile == "pdf_reader_v3014_search_semantic_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 12 and .passed == 12 and .skipped == 0 and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "b5f9aebf64bea4633376fdab137f57369d845173996ce21fb1b3bfe748c0481c" and
+            .mutationSensitive.leafMutationCount == 171 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 4 and
+            .mutationSensitive.unexpectedFieldProbeCount == 2 and
+            .mutationSensitive.requiredOmissionProbeCount == 2 and
+            .omissionProof.noWarnings == true and .omissionProof.noTruncated == true and
+            .nonclaim.utf16SplitSurrogateWireParity == false and .nonclaim.failClosedProof == true and
             .productTruth.dropInFor3014 == false
           ' "$SEARCH_SEMANTIC_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 search-semantic result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -451,20 +451,20 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_lowercase_index_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 6 and .passed == 6 and .skipped == 0
-            .localeContract.defaultLocale == "en-US"
-            .localeContract.sentinel == "İX" and .localeContract.lowercase == "i̇x"
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "ec260134fe80513ee741b5b02c47830a9e3cc409a6420fc9fd5020f0f4662ec4"
-            .mutationSensitive.leafMutationCount == 43
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5
-            .mutationSensitive.unexpectedFieldProbeCount == 2
-            .mutationSensitive.requiredOmissionProbeCount == 3
-            .omissionProof.noWarnings == true and .omissionProof.noTruncated == true
-            (.nonclaims | to_entries | all(.value == false))
+            .profile == "pdf_reader_v3014_lowercase_index_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 6 and .passed == 6 and .skipped == 0 and
+            .localeContract.defaultLocale == "en-US" and
+            .localeContract.sentinel == "İX" and .localeContract.lowercase == "i̇x" and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "ec260134fe80513ee741b5b02c47830a9e3cc409a6420fc9fd5020f0f4662ec4" and
+            .mutationSensitive.leafMutationCount == 43 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
+            .mutationSensitive.unexpectedFieldProbeCount == 2 and
+            .mutationSensitive.requiredOmissionProbeCount == 3 and
+            .omissionProof.noWarnings == true and .omissionProof.noTruncated == true and
+            (.nonclaims | to_entries | all(.value == false)) and
             .productTruth.dropInFor3014 == false
           ' "$LOWERCASE_INDEX_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 lowercase-index result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -476,30 +476,30 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_selectable_text_segmentation_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 4 and .passed == 4 and .skipped == 0
-            .corpusSha256 == "7ffb00b303ed6c69b892703b04ada8717d096eb4abe18c7df11d597595679fe7"
-            .oracleSha256 == "2cf463f36419ca7eb7f3f90f8eee25af9df1d5aae7cff5505934a9abffec206f"
-            .runnerSha256 == "3c98b1c2fd3b0e0cba0f4c6924f6b7f8566b6610eac0abeb5f826b2edcd559e1"
-            .projectionSha256 == "a8c48e183cb037d160c47797dd8eefba9b5f84702e087e20d5e16a215b1683dd"
-            .generatorSha256 == "35aec9a77916c437ba99e39d9352c66735736f6bc76e5d219e3a4f74057dd5f4"
-            .fixtureManifestSha256 == "c6144f7354b7c6c84b7a0b8c6e6b0d682ea8baea4925f229770c9d41ffb6eb7a"
-            .fixtureSha256 == "bb765fb7402107bf4d67805e8ec0e594f962bf51b386439316575358e341c9dd"
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "6f8733264fec378ec45b094225ea5fe026a9a75c81563a9dcead3722681e1bbe"
-            .mutationSensitive.leafMutationCount == 1043
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5
-            .mutationSensitive.unexpectedFieldProbeCount == 4
-            .mutationSensitive.requiredOmissionProbeCount == 5
-            .mutationSensitive.publicOmissionProbeCount == 4
-            .mutationSensitive.dependencyPresenceProbeCount == 5
-            (.semanticProof | to_entries | length == 10 and all(.value == true))
-            .pdfjsObservation.syntheticWhitespaceAt48 == false
-            .pdfjsObservation.syntheticWhitespaceAbove48 == false
-            .pdfjsObservation.directGapThresholdIsolatedByPdfFixture == true
-            (.nonclaims | to_entries | length == 7 and all(.value == false))
+            .profile == "pdf_reader_v3014_selectable_text_segmentation_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 4 and .passed == 4 and .skipped == 0 and
+            .corpusSha256 == "7ffb00b303ed6c69b892703b04ada8717d096eb4abe18c7df11d597595679fe7" and
+            .oracleSha256 == "2cf463f36419ca7eb7f3f90f8eee25af9df1d5aae7cff5505934a9abffec206f" and
+            .runnerSha256 == "3c98b1c2fd3b0e0cba0f4c6924f6b7f8566b6610eac0abeb5f826b2edcd559e1" and
+            .projectionSha256 == "a8c48e183cb037d160c47797dd8eefba9b5f84702e087e20d5e16a215b1683dd" and
+            .generatorSha256 == "35aec9a77916c437ba99e39d9352c66735736f6bc76e5d219e3a4f74057dd5f4" and
+            .fixtureManifestSha256 == "c6144f7354b7c6c84b7a0b8c6e6b0d682ea8baea4925f229770c9d41ffb6eb7a" and
+            .fixtureSha256 == "bb765fb7402107bf4d67805e8ec0e594f962bf51b386439316575358e341c9dd" and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "6f8733264fec378ec45b094225ea5fe026a9a75c81563a9dcead3722681e1bbe" and
+            .mutationSensitive.leafMutationCount == 1043 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
+            .mutationSensitive.unexpectedFieldProbeCount == 4 and
+            .mutationSensitive.requiredOmissionProbeCount == 5 and
+            .mutationSensitive.publicOmissionProbeCount == 4 and
+            .mutationSensitive.dependencyPresenceProbeCount == 5 and
+            (.semanticProof | to_entries | length == 10 and all(.value == true)) and
+            .pdfjsObservation.syntheticWhitespaceAt48 == false and
+            .pdfjsObservation.syntheticWhitespaceAbove48 == false and
+            .pdfjsObservation.directGapThresholdIsolatedByPdfFixture == true and
+            (.nonclaims | to_entries | length == 7 and all(.value == false)) and
             .productTruth.dropInFor3014 == false
           ' "$SELECTABLE_TEXT_SEGMENTATION_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 selectable-text-segmentation result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -511,34 +511,34 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_ocr_search_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 15 and .passed == 15 and .skipped == 0
-            .corpusSha256 == "e8024318166a68416d84e698a60f220e3bb4c33353d86a93f8db2ce2dcd60919"
-            .oracleSha256 == "9c34d8d0cf7447429f39cb965758d88e67853c6fb08a277041bca0e70d055bec"
-            .runnerSha256 == "904eaaec0db95e08c4a85c72624e017e5a90f6a0d6875fc2038d75f558714da0"
-            .projectionSha256 == "4728d9a8c9220c7da2a663351a3271aa0523987a2dc67c65df7bcc4d9e9a45c4"
-            .providerSha256 == "256e0430fe3039637f67a12f4845dbaf66c94730f4a792dbc1d22131862dadf7"
-            .fixtureSha256 == "3e2d9b9d96461359b489c76facafd00eea7bd18f03b6aae23c333340e892e89a"
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.leafMutationCount == 247
-            .schemaProof.includeOcrTextLayer == true
-            .envelopeProof.allInvalidIsToolError == true
-            .envelopeProof.protocolErrorRejected == true
-            .portabilityProof.relocatedFixtureRootReplay == true
-            .portabilityProof.windowsPathProjection == true
-            .portabilityProof.normalizedFixtureToken == "<fixture>"
-            .resourceProof.sourceCap32PreIoAnd33Rejected == true
-            .resourceProof.invalidGlobalOptionsRejectedPreIo == true
-            .resourceProof.invalidPageSpecSourceLocalPreIo == true
-            .resourceProof.derivedUtf16Cap2000000ExactAndPlusOne == true
-            .resourceProof.wordCap250000ExactAndPlusOne == true
-            .resourceProof.stickyExhaustion == true
-            .resourceProof.crossRuntimeHostileResourceParity == false
-            .nonclaims.firstFiveOfSixPageBoundary == false
-            .nonclaims.pageNumbersBeyondU32 == false
-            .nonclaims.selectableOcrInterleaving == false
-            .nonclaims.wholeProductParity == false
+            .profile == "pdf_reader_v3014_ocr_search_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 15 and .passed == 15 and .skipped == 0 and
+            .corpusSha256 == "e8024318166a68416d84e698a60f220e3bb4c33353d86a93f8db2ce2dcd60919" and
+            .oracleSha256 == "9c34d8d0cf7447429f39cb965758d88e67853c6fb08a277041bca0e70d055bec" and
+            .runnerSha256 == "904eaaec0db95e08c4a85c72624e017e5a90f6a0d6875fc2038d75f558714da0" and
+            .projectionSha256 == "4728d9a8c9220c7da2a663351a3271aa0523987a2dc67c65df7bcc4d9e9a45c4" and
+            .providerSha256 == "256e0430fe3039637f67a12f4845dbaf66c94730f4a792dbc1d22131862dadf7" and
+            .fixtureSha256 == "3e2d9b9d96461359b489c76facafd00eea7bd18f03b6aae23c333340e892e89a" and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.leafMutationCount == 247 and
+            .schemaProof.includeOcrTextLayer == true and
+            .envelopeProof.allInvalidIsToolError == true and
+            .envelopeProof.protocolErrorRejected == true and
+            .portabilityProof.relocatedFixtureRootReplay == true and
+            .portabilityProof.windowsPathProjection == true and
+            .portabilityProof.normalizedFixtureToken == "<fixture>" and
+            .resourceProof.sourceCap32PreIoAnd33Rejected == true and
+            .resourceProof.invalidGlobalOptionsRejectedPreIo == true and
+            .resourceProof.invalidPageSpecSourceLocalPreIo == true and
+            .resourceProof.derivedUtf16Cap2000000ExactAndPlusOne == true and
+            .resourceProof.wordCap250000ExactAndPlusOne == true and
+            .resourceProof.stickyExhaustion == true and
+            .resourceProof.crossRuntimeHostileResourceParity == false and
+            .nonclaims.firstFiveOfSixPageBoundary == false and
+            .nonclaims.pageNumbersBeyondU32 == false and
+            .nonclaims.selectableOcrInterleaving == false and
+            .nonclaims.wholeProductParity == false and
             .productTruth.dropInFor3014 == false
           ' "$OCR_SEARCH_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 OCR-search result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -550,23 +550,23 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_raster_image_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 14 and .passed == 14 and .skipped == 0
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "d331d3de0dd6405fc424a9dbc6264b23e9e48b03bc19bf43406007f645f9d494"
-            .mutationSensitive.leafMutationCount == 430
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5
-            .mutationSensitive.unexpectedFieldProbeCount == 3
-            .mutationSensitive.requiredOmissionProbeCount == 2
-            .decodedPixelProof.comparedCompressionBytes == false
-            .decodedPixelProof.maxPixelsPerImage == 4
-            .decodedPixelProof.repeatedPaintPixelIdentity == true
-            (.omissionProof | to_entries | all(.value == true))
-            .capabilityStatus.includeImages == "PARTIAL"
-            .capabilityStatus.visualEnrichments == "PARTIAL"
-            (.nonclaims | to_entries | all(.value == false))
+            .profile == "pdf_reader_v3014_raster_image_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 14 and .passed == 14 and .skipped == 0 and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "d331d3de0dd6405fc424a9dbc6264b23e9e48b03bc19bf43406007f645f9d494" and
+            .mutationSensitive.leafMutationCount == 430 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 5 and
+            .mutationSensitive.unexpectedFieldProbeCount == 3 and
+            .mutationSensitive.requiredOmissionProbeCount == 2 and
+            .decodedPixelProof.comparedCompressionBytes == false and
+            .decodedPixelProof.maxPixelsPerImage == 4 and
+            .decodedPixelProof.repeatedPaintPixelIdentity == true and
+            (.omissionProof | to_entries | all(.value == true)) and
+            .capabilityStatus.includeImages == "PARTIAL" and
+            .capabilityStatus.visualEnrichments == "PARTIAL" and
+            (.nonclaims | to_entries | all(.value == false)) and
             .productTruth.dropInFor3014 == false
           ' "$RASTER_IMAGE_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 raster-image result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -578,24 +578,24 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_visual_candidate_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 11 and .passed == 11 and .skipped == 0
-            .mutationSensitive.allClaimedFields == true
-            .mutationSensitive.manifestVersion == 1
-            .mutationSensitive.mutationManifestSha256 == "75763aa379f2db5558a9ce91b06bbc7f44df1839195e1b15ff86d1642ad2d70c"
-            .mutationSensitive.leafMutationCount == 362
-            .mutationSensitive.wrongPrimitiveTypeProbeCount == 4
-            .mutationSensitive.unexpectedFieldProbeCount == 2
-            .mutationSensitive.requiredOmissionProbeCount == 4
-            .mutationSensitive.publicOmissionProbeCount == 3
-            .mutationSensitive.privateLeakProbeCount == 2
-            .mutationSensitive.dependencyPresenceProbeCount == 6
-            .providerIndependentProof.providerNotConfigured == true
-            .providerIndependentProof.candidatesRetained == true
-            .providerIndependentProof.enrichmentsOmitted == true
-            .providerIndependentProof.internalElementsHidden == true
-            (.nonclaims | to_entries | all(.value == false))
+            .profile == "pdf_reader_v3014_visual_candidate_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 11 and .passed == 11 and .skipped == 0 and
+            .mutationSensitive.allClaimedFields == true and
+            .mutationSensitive.manifestVersion == 1 and
+            .mutationSensitive.mutationManifestSha256 == "75763aa379f2db5558a9ce91b06bbc7f44df1839195e1b15ff86d1642ad2d70c" and
+            .mutationSensitive.leafMutationCount == 362 and
+            .mutationSensitive.wrongPrimitiveTypeProbeCount == 4 and
+            .mutationSensitive.unexpectedFieldProbeCount == 2 and
+            .mutationSensitive.requiredOmissionProbeCount == 4 and
+            .mutationSensitive.publicOmissionProbeCount == 3 and
+            .mutationSensitive.privateLeakProbeCount == 2 and
+            .mutationSensitive.dependencyPresenceProbeCount == 6 and
+            .providerIndependentProof.providerNotConfigured == true and
+            .providerIndependentProof.candidatesRetained == true and
+            .providerIndependentProof.enrichmentsOmitted == true and
+            .providerIndependentProof.internalElementsHidden == true and
+            (.nonclaims | to_entries | all(.value == false)) and
             .productTruth.dropInFor3014 == false
           ' "$VISUAL_CANDIDATE_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 visual-candidate result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1288,14 +1288,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_info_extras_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 60
-            .providerProof.noRustOnlyInfoExtras == true
-            .providerProof.exactInfoKeySet == true
-            .providerProof.topLevelNumPagesPreserved == true
-            .capabilityStatus.includeMetadata == "PARTIAL"
+            .profile == "pdf_reader_v3014_info_extras_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 60 and
+            .providerProof.noRustOnlyInfoExtras == true and
+            .providerProof.exactInfoKeySet == true and
+            .providerProof.topLevelNumPagesPreserved == true and
+            .capabilityStatus.includeMetadata == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$INFO_EXTRAS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 info extras residual result is incomplete, failing, or not SHA-bound"
@@ -1307,14 +1307,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_encrypt_filter_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 18
-            .providerProof.encryptedStandardFilter == true
-            .providerProof.unencryptedNullFilter == true
-            .providerProof.topLevelNumPagesPreserved == true
-            .capabilityStatus.includeMetadata == "PARTIAL"
+            .profile == "pdf_reader_v3014_encrypt_filter_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 18 and
+            .providerProof.encryptedStandardFilter == true and
+            .providerProof.unencryptedNullFilter == true and
+            .providerProof.topLevelNumPagesPreserved == true and
+            .capabilityStatus.includeMetadata == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ENCRYPT_FILTER_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 encrypt filter residual result is incomplete, failing, or not SHA-bound"
@@ -1326,15 +1326,15 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_linearized_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 27
-            .providerProof.validLinearizedTrue == true
-            .providerProof.spuriousLinearizedFalse == true
-            .providerProof.absentLinearizedFalse == true
-            .providerProof.topLevelNumPagesPreserved == true
-            .capabilityStatus.includeMetadata == "PARTIAL"
+            .profile == "pdf_reader_v3014_linearized_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 27 and
+            .providerProof.validLinearizedTrue == true and
+            .providerProof.spuriousLinearizedFalse == true and
+            .providerProof.absentLinearizedFalse == true and
+            .providerProof.topLevelNumPagesPreserved == true and
+            .capabilityStatus.includeMetadata == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$LINEARIZED_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 linearized residual result is incomplete, failing, or not SHA-bound"
@@ -1346,15 +1346,15 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_flags_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 4 and .passed == 4 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 36
-            .providerProof.xfaOnlyAcroformFalse == true
-            .providerProof.collectionPresent == true
-            .providerProof.visibleSignaturesAcroformTrue == true
-            .providerProof.invisibleSignaturesAcroformFalse == true
-            .capabilityStatus.includeMetadata == "PARTIAL"
+            .profile == "pdf_reader_v3014_form_flags_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 4 and .passed == 4 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 36 and
+            .providerProof.xfaOnlyAcroformFalse == true and
+            .providerProof.collectionPresent == true and
+            .providerProof.visibleSignaturesAcroformTrue == true and
+            .providerProof.invisibleSignaturesAcroformFalse == true and
+            .capabilityStatus.includeMetadata == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$FORM_FLAGS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form flags residual result is incomplete, failing, or not SHA-bound"
@@ -1366,13 +1366,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_text_annotation_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 27
-            .providerProof.textNoAppearanceIconBox == true
-            .providerProof.freeTextRawRect == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_text_annotation_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 27 and
+            .providerProof.textNoAppearanceIconBox == true and
+            .providerProof.freeTextRawRect == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$TEXT_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text annotation residual result is incomplete, failing, or not SHA-bound"
@@ -1384,14 +1384,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_remote_action_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 42
-            .providerProof.launchStringFile == true
-            .providerProof.launchFileDictPrefersUf == true
-            .providerProof.gotorRemoteDestJson == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_remote_action_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.launchStringFile == true and
+            .providerProof.launchFileDictPrefersUf == true and
+            .providerProof.gotorRemoteDestJson == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$REMOTE_ACTION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 remote action residual result is incomplete, failing, or not SHA-bound"
@@ -1403,14 +1403,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_popup_annotation_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 36
-            .providerProof.popupInheritsParentTitleContents == true
-            .providerProof.parentTextIconBox == true
-            .providerProof.freeTextNoParentInherit == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_popup_annotation_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 36 and
+            .providerProof.popupInheritsParentTitleContents == true and
+            .providerProof.parentTextIconBox == true and
+            .providerProof.freeTextNoParentInherit == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$POPUP_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 popup annotation residual result is incomplete, failing, or not SHA-bound"
@@ -1422,14 +1422,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_popup_zero_size_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 42
-            .providerProof.popupZeroSizeNullsBoundingBox == true
-            .providerProof.popupNonzeroKeepsBoundingBox == true
-            .providerProof.popupZeroSizeStillInheritsParent == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_popup_zero_size_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.popupZeroSizeNullsBoundingBox == true and
+            .providerProof.popupNonzeroKeepsBoundingBox == true and
+            .providerProof.popupZeroSizeStillInheritsParent == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$POPUP_ZERO_SIZE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 popup zero-size residual result is incomplete, failing, or not SHA-bound"
@@ -1441,14 +1441,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_popup_group_irt_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 64
-            .providerProof.groupTextInheritsIrtTitleContents == true
-            .providerProof.groupPopupInheritsIrtTitleContents == true
-            .providerProof.nongroupPopupInheritsParent == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_popup_group_irt_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 64 and
+            .providerProof.groupTextInheritsIrtTitleContents == true and
+            .providerProof.groupPopupInheritsIrtTitleContents == true and
+            .providerProof.nongroupPopupInheritsParent == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$POPUP_GROUP_IRT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 popup group/IRT residual result is incomplete, failing, or not SHA-bound"
@@ -1460,13 +1460,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_text_appearance_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 28
-            .providerProof.textWithAppearanceKeepsRawRect == true
-            .providerProof.textEmptyAppearanceKeepsRawRect == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_text_appearance_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 28 and
+            .providerProof.textWithAppearanceKeepsRawRect == true and
+            .providerProof.textEmptyAppearanceKeepsRawRect == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$TEXT_APPEARANCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text appearance residual result is incomplete, failing, or not SHA-bound"
@@ -1478,13 +1478,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_text_named_appearance_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 28
-            .providerProof.namedAppearanceWithAsKeepsRawRect == true
-            .providerProof.namedAppearanceWithoutAsUsesIconBox == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_text_named_appearance_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 28 and
+            .providerProof.namedAppearanceWithAsKeepsRawRect == true and
+            .providerProof.namedAppearanceWithoutAsUsesIconBox == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$TEXT_NAMED_APPEARANCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text named appearance residual result is incomplete, failing, or not SHA-bound"
@@ -1496,13 +1496,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_text_inverted_rect_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 28
-            .providerProof.invertedTextNoAppearanceIconBox == true
-            .providerProof.ordinaryTextNoAppearanceIconBox == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_text_inverted_rect_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 28 and
+            .providerProof.invertedTextNoAppearanceIconBox == true and
+            .providerProof.ordinaryTextNoAppearanceIconBox == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$TEXT_INVERTED_RECT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text inverted-rect residual result is incomplete, failing, or not SHA-bound"
@@ -1514,14 +1514,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_remote_named_dest_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 42
-            .providerProof.gotorNamedStringDest == true
-            .providerProof.gotorNamedNameDest == true
-            .providerProof.gotorExplicitDestControl == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_remote_named_dest_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.gotorNamedStringDest == true and
+            .providerProof.gotorNamedNameDest == true and
+            .providerProof.gotorExplicitDestControl == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$REMOTE_NAMED_DEST_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 remote named dest residual result is incomplete, failing, or not SHA-bound"
@@ -1533,14 +1533,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_page_labels_kids_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 18
-            .providerProof.pageLabelsKidsNumberTree == true
-            .providerProof.pageLabelsMultiStyleControl == true
-            .providerProof.pageLabelsAbsentControl == true
-            .capabilityStatus.includePageLabels == "PARTIAL"
+            .profile == "pdf_reader_v3014_page_labels_kids_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 18 and
+            .providerProof.pageLabelsKidsNumberTree == true and
+            .providerProof.pageLabelsMultiStyleControl == true and
+            .providerProof.pageLabelsAbsentControl == true and
+            .capabilityStatus.includePageLabels == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$PAGE_LABELS_KIDS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page labels kids residual result is incomplete, failing, or not SHA-bound"
@@ -1554,14 +1554,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_button_array_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 68
-            .providerProof.checkboxRadioPushbuttonArrayV == true
-            .providerProof.plainStringButtonControl == true
-            .providerProof.dvArrayFallbackValue == true
-            .capabilityStatus.includeFormFields == "PARTIAL"
+            .profile == "pdf_reader_v3014_form_button_array_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 68 and
+            .providerProof.checkboxRadioPushbuttonArrayV == true and
+            .providerProof.plainStringButtonControl == true and
+            .providerProof.dvArrayFallbackValue == true and
+            .capabilityStatus.includeFormFields == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form button-array residual result is incomplete, failing, or not SHA-bound"
@@ -1576,13 +1576,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_button_default_off_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.checkboxApDefaultOff == true
-            .providerProof.radioApDefaultOff == true
-            .providerProof.checkboxNoApDefaultNull == true
+            .profile == "pdf_reader_v3014_form_button_default_off_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxApDefaultOff == true and
+            .providerProof.radioApDefaultOff == true and
+            .providerProof.checkboxNoApDefaultNull == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_BUTTON_DEFAULT_OFF_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form button-default-off residual result is incomplete, failing, or not SHA-bound"
@@ -1596,13 +1596,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_pushbutton_default_null_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.pushbuttonApDefaultNull == true
-            .providerProof.pushbuttonNoApDefaultNull == true
-            .providerProof.checkboxApDefaultOffRegression == true
+            .profile == "pdf_reader_v3014_form_pushbutton_default_null_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.pushbuttonApDefaultNull == true and
+            .providerProof.pushbuttonNoApDefaultNull == true and
+            .providerProof.checkboxApDefaultOffRegression == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_PUSHBUTTON_DEFAULT_NULL_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form pushbutton-default-null residual result is incomplete, failing, or not SHA-bound"
@@ -1616,13 +1616,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_checkbox_as_value_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.checkboxAsOverridesVOff == true
-            .providerProof.checkboxAsOverridesVYes == true
-            .providerProof.checkboxAsNoApKeepsV == true
+            .profile == "pdf_reader_v3014_form_checkbox_as_value_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxAsOverridesVOff == true and
+            .providerProof.checkboxAsOverridesVYes == true and
+            .providerProof.checkboxAsNoApKeepsV == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_AS_VALUE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-as-value residual result is incomplete, failing, or not SHA-bound"
@@ -1635,13 +1635,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_checkbox_export_normalize_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.checkboxInvalidExportOff == true
-            .providerProof.checkboxOnlyOffYes == true
-            .providerProof.checkboxOffExportOk == true
+            .profile == "pdf_reader_v3014_form_checkbox_export_normalize_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxInvalidExportOff == true and
+            .providerProof.checkboxOnlyOffYes == true and
+            .providerProof.checkboxOffExportOk == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_EXPORT_NORMALIZE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-export-normalize residual result is incomplete, failing, or not SHA-bound"
@@ -1654,13 +1654,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_radio_as_no_override_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.radioAsDoesNotOverrideV == true
-            .providerProof.radioAsInvalidKeepsV == true
-            .providerProof.checkboxAsOverrideRegression == true
+            .profile == "pdf_reader_v3014_form_radio_as_no_override_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.radioAsDoesNotOverrideV == true and
+            .providerProof.radioAsInvalidKeepsV == true and
+            .providerProof.checkboxAsOverrideRegression == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_AS_NO_OVERRIDE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-as-no-override residual result is incomplete, failing, or not SHA-bound"
@@ -1673,13 +1673,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_checkbox_multi_export_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.checkboxMultiExportFoo == true
-            .providerProof.checkboxMultiExportAsBar == true
-            .providerProof.checkboxMultiExportAsBazOff == true
+            .profile == "pdf_reader_v3014_form_checkbox_multi_export_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxMultiExportFoo == true and
+            .providerProof.checkboxMultiExportAsBar == true and
+            .providerProof.checkboxMultiExportAsBazOff == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-multi-export residual result is incomplete, failing, or not SHA-bound"
@@ -1692,13 +1692,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_checkbox_multi_export_many_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.checkboxMultiExportManyC == true
-            .providerProof.checkboxMultiExportManyA == true
-            .providerProof.checkboxMultiExportManyZOff == true
+            .profile == "pdf_reader_v3014_form_checkbox_multi_export_many_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxMultiExportManyC == true and
+            .providerProof.checkboxMultiExportManyA == true and
+            .providerProof.checkboxMultiExportManyZOff == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-multi-export-many residual result is incomplete, failing, or not SHA-bound"
@@ -1711,13 +1711,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_checkbox_export_empty_single_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.checkboxExportEmptyApYes == true
-            .providerProof.checkboxExportSingleFoo == true
-            .providerProof.checkboxExportSingleBarOff == true
+            .profile == "pdf_reader_v3014_form_checkbox_export_empty_single_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxExportEmptyApYes == true and
+            .providerProof.checkboxExportSingleFoo == true and
+            .providerProof.checkboxExportSingleBarOff == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_EXPORT_EMPTY_SINGLE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-export-empty-single residual result is incomplete, failing, or not SHA-bound"
@@ -1730,13 +1730,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_checkbox_malformed_ap_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.checkboxApStreamKeepsV == true
-            .providerProof.checkboxApnStreamKeepsV == true
-            .providerProof.checkboxApNamedAsOff == true
+            .profile == "pdf_reader_v3014_form_checkbox_malformed_ap_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.checkboxApStreamKeepsV == true and
+            .providerProof.checkboxApnStreamKeepsV == true and
+            .providerProof.checkboxApNamedAsOff == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_MALFORMED_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-malformed-ap residual result is incomplete, failing, or not SHA-bound"
@@ -1749,13 +1749,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_radio_malformed_ap_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.radioApStreamKeepsV == true
-            .providerProof.radioApnStreamKeepsV == true
-            .providerProof.radioApNamedKeepsV == true
+            .profile == "pdf_reader_v3014_form_radio_malformed_ap_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.radioApStreamKeepsV == true and
+            .providerProof.radioApnStreamKeepsV == true and
+            .providerProof.radioApNamedKeepsV == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_MALFORMED_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-malformed-ap residual result is incomplete, failing, or not SHA-bound"
@@ -1768,13 +1768,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_radio_parent_kids_ap_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 84
-            .providerProof.radioKidsApStream == true
-            .providerProof.radioKidsApnStream == true
-            .providerProof.radioKidsApNamed == true
+            .profile == "pdf_reader_v3014_form_radio_parent_kids_ap_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 84 and
+            .providerProof.radioKidsApStream == true and
+            .providerProof.radioKidsApnStream == true and
+            .providerProof.radioKidsApNamed == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-parent-kids-ap residual result is incomplete, failing, or not SHA-bound"
@@ -1787,13 +1787,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_radio_deeper_kids_ap_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 90
-            .providerProof.radioDeeperKidsApStream == true
-            .providerProof.radioDeeperKidsApnStream == true
-            .providerProof.radioDeeperKidsApNamed == true
+            .profile == "pdf_reader_v3014_form_radio_deeper_kids_ap_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 90 and
+            .providerProof.radioDeeperKidsApStream == true and
+            .providerProof.radioDeeperKidsApnStream == true and
+            .providerProof.radioDeeperKidsApNamed == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-deeper-kids-ap residual result is incomplete, failing, or not SHA-bound"
@@ -1806,13 +1806,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_radio_broken_parent_chain_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 24
-            .providerProof.radioBrokenParentApStream == true
-            .providerProof.radioBrokenParentApnStream == true
-            .providerProof.radioBrokenParentApNamed == true
+            .profile == "pdf_reader_v3014_form_radio_broken_parent_chain_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 24 and
+            .providerProof.radioBrokenParentApStream == true and
+            .providerProof.radioBrokenParentApnStream == true and
+            .providerProof.radioBrokenParentApNamed == true and
             .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_BROKEN_PARENT_CHAIN_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-broken-parent-chain residual result is incomplete, failing, or not SHA-bound"
@@ -1825,13 +1825,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_stamp_caret_file_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 42
-            .providerProof.stampBasic == true
-            .providerProof.caretBasic == true
-            .providerProof.fileAttachmentBasic == true
+            .profile == "pdf_reader_v3014_annotation_stamp_caret_file_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.stampBasic == true and
+            .providerProof.caretBasic == true and
+            .providerProof.fileAttachmentBasic == true and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_STAMP_CARET_FILE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation stamp/caret/file residual result is incomplete, failing, or not SHA-bound"
@@ -1844,13 +1844,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_square_circle_widget_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 41
-            .providerProof.squareInverted == true
-            .providerProof.circleInverted == true
-            .providerProof.widgetFieldTNotTitle == true
+            .profile == "pdf_reader_v3014_annotation_square_circle_widget_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 41 and
+            .providerProof.squareInverted == true and
+            .providerProof.circleInverted == true and
+            .providerProof.widgetFieldTNotTitle == true and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_SQUARE_CIRCLE_WIDGET_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation square/circle/widget residual result is incomplete, failing, or not SHA-bound"
@@ -1863,13 +1863,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_link_uri_normalize_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.linkUriDomain == true
-            .providerProof.linkUriPath == true
-            .providerProof.linkUriWww == true
+            .profile == "pdf_reader_v3014_annotation_link_uri_normalize_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.linkUriDomain == true and
+            .providerProof.linkUriPath == true and
+            .providerProof.linkUriWww == true and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-uri-normalize residual result is incomplete, failing, or not SHA-bound"
@@ -1882,13 +1882,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_freetext_rect_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 42
-            .providerProof.freetextInverted == true
-            .providerProof.freetextNormal == true
-            .providerProof.freetextZeroWidth == true
+            .profile == "pdf_reader_v3014_annotation_freetext_rect_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.freetextInverted == true and
+            .providerProof.freetextNormal == true and
+            .providerProof.freetextZeroWidth == true and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_FREETEXT_RECT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation freetext-rect residual result is incomplete, failing, or not SHA-bound"
@@ -1901,13 +1901,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_link_uri_name_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.linkUriName == true
-            .providerProof.linkUriJavascript == true
-            .providerProof.linkUriRelative == true
+            .profile == "pdf_reader_v3014_annotation_link_uri_name_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.linkUriName == true and
+            .providerProof.linkUriJavascript == true and
+            .providerProof.linkUriRelative == true and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_URI_NAME_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-uri-name residual result is incomplete, failing, or not SHA-bound"
@@ -1920,13 +1920,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_link_aa_action_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.linkAaUUri == true
-            .providerProof.linkAaDGoto == true
-            .providerProof.linkAWinsOverAa == true
+            .profile == "pdf_reader_v3014_annotation_link_aa_action_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.linkAaUUri == true and
+            .providerProof.linkAaDGoto == true and
+            .providerProof.linkAWinsOverAa == true and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_AA_ACTION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-aa-action residual result is incomplete, failing, or not SHA-bound"
@@ -1939,13 +1939,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_link_aa_precedence_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 38
-            .providerProof.linkAaEIgnored == true
-            .providerProof.linkDestOverAa == true
-            .providerProof.linkAaDOverU == true
+            .profile == "pdf_reader_v3014_annotation_link_aa_precedence_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 38 and
+            .providerProof.linkAaEIgnored == true and
+            .providerProof.linkDestOverAa == true and
+            .providerProof.linkAaDOverU == true and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_AA_PRECEDENCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-aa-precedence residual result is incomplete, failing, or not SHA-bound"
@@ -1958,14 +1958,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_attachment_odd_names_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 15
-            .providerProof.orphanOnlyOddNames == true
-            .providerProof.pairPlusOrphanKeepsCompletePair == true
-            .providerProof.trailingOrphanUnnamedNoSize == true
-            .capabilityStatus.includeAttachments == "PARTIAL"
+            .profile == "pdf_reader_v3014_attachment_odd_names_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 15 and
+            .providerProof.orphanOnlyOddNames == true and
+            .providerProof.pairPlusOrphanKeepsCompletePair == true and
+            .providerProof.trailingOrphanUnnamedNoSize == true and
+            .capabilityStatus.includeAttachments == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ATTACHMENT_ODD_NAMES_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 attachment odd-names residual result is incomplete, failing, or not SHA-bound"
@@ -1978,14 +1978,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_attachment_dupkids_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 15
-            .providerProof.controlAttachmentPresent == true
-            .providerProof.duplicateKidsOmitted == true
-            .providerProof.cycleKidsOmitted == true
-            .capabilityStatus.includeAttachments == "PARTIAL"
+            .profile == "pdf_reader_v3014_attachment_dupkids_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 15 and
+            .providerProof.controlAttachmentPresent == true and
+            .providerProof.duplicateKidsOmitted == true and
+            .providerProof.cycleKidsOmitted == true and
+            .capabilityStatus.includeAttachments == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ATTACHMENT_DUPKIDS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 attachment dupkids residual result is incomplete, failing, or not SHA-bound"
@@ -1999,14 +1999,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_utf16_text_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 52
-            .providerProof.utf16BeValidBom == true
-            .providerProof.utf16BeOddLengthDropsTrailingByte == true
-            .providerProof.utf8BomAndPdfDocEncodingControls == true
-            .capabilityStatus.includeFormFields == "PARTIAL"
+            .profile == "pdf_reader_v3014_form_utf16_text_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 52 and
+            .providerProof.utf16BeValidBom == true and
+            .providerProof.utf16BeOddLengthDropsTrailingByte == true and
+            .providerProof.utf8BomAndPdfDocEncodingControls == true and
+            .capabilityStatus.includeFormFields == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$FORM_UTF16_TEXT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form utf16-text residual result is incomplete, failing, or not SHA-bound"
@@ -2019,14 +2019,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_form_text_multiline_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 45
-            .providerProof.escapedLfPreserved == true
-            .providerProof.escapedCrlfPreserved == true
-            .providerProof.rawLfPreserved == true
-            .capabilityStatus.includeFormFields == "PARTIAL"
+            .profile == "pdf_reader_v3014_form_text_multiline_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 45 and
+            .providerProof.escapedLfPreserved == true and
+            .providerProof.escapedCrlfPreserved == true and
+            .providerProof.rawLfPreserved == true and
+            .capabilityStatus.includeFormFields == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form text-multiline residual result is incomplete, failing, or not SHA-bound"
@@ -2039,14 +2039,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_contents_multiline_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 42
-            .providerProof.freeTextEscapedLfPreserved == true
-            .providerProof.freeTextEscapedCrlfPreserved == true
-            .providerProof.textStickyEscapedLfPreserved == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_contents_multiline_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 42 and
+            .providerProof.freeTextEscapedLfPreserved == true and
+            .providerProof.freeTextEscapedCrlfPreserved == true and
+            .providerProof.textStickyEscapedLfPreserved == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation contents-multiline residual result is incomplete, failing, or not SHA-bound"
@@ -2059,14 +2059,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_outline_cycle_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 49
-            .providerProof.nextSelfCycleSuppressed == true
-            .providerProof.siblingNextCycleSuppressed == true
-            .providerProof.selfFirstCycleSuppressed == true
-            .capabilityStatus.includeOutline == "PARTIAL"
+            .profile == "pdf_reader_v3014_outline_cycle_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 49 and
+            .providerProof.nextSelfCycleSuppressed == true and
+            .providerProof.siblingNextCycleSuppressed == true and
+            .providerProof.selfFirstCycleSuppressed == true and
+            .capabilityStatus.includeOutline == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$OUTLINE_CYCLE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline cycle residual result is incomplete, failing, or not SHA-bound"
@@ -2079,14 +2079,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_outline_named_dest_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 33
-            .providerProof.namedDestStringPreserved == true
-            .providerProof.namedDestTokenPreserved == true
-            .providerProof.namedDestGotoActionPreserved == true
-            .capabilityStatus.includeOutline == "PARTIAL"
+            .profile == "pdf_reader_v3014_outline_named_dest_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 33 and
+            .providerProof.namedDestStringPreserved == true and
+            .providerProof.namedDestTokenPreserved == true and
+            .providerProof.namedDestGotoActionPreserved == true and
+            .capabilityStatus.includeOutline == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline named-dest residual result is incomplete, failing, or not SHA-bound"
@@ -2100,14 +2100,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_outline_gotor_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 36
-            .providerProof.gotorStringDestUrl == true
-            .providerProof.gotorNameDestUrl == true
-            .providerProof.gotorExplicitDestUrl == true
-            .capabilityStatus.includeOutline == "PARTIAL"
+            .profile == "pdf_reader_v3014_outline_gotor_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 36 and
+            .providerProof.gotorStringDestUrl == true and
+            .providerProof.gotorNameDestUrl == true and
+            .providerProof.gotorExplicitDestUrl == true and
+            .capabilityStatus.includeOutline == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$OUTLINE_GOTOR_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline GoToR residual result is incomplete, failing, or not SHA-bound"
@@ -2120,14 +2120,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_outline_launch_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 36
-            .providerProof.launchStringDestUrl == true
-            .providerProof.launchFilespecUfUrl == true
-            .providerProof.launchExplicitDestUrl == true
-            .capabilityStatus.includeOutline == "PARTIAL"
+            .profile == "pdf_reader_v3014_outline_launch_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 36 and
+            .providerProof.launchStringDestUrl == true and
+            .providerProof.launchFilespecUfUrl == true and
+            .providerProof.launchExplicitDestUrl == true and
+            .capabilityStatus.includeOutline == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$OUTLINE_LAUNCH_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline Launch residual result is incomplete, failing, or not SHA-bound"
@@ -2140,14 +2140,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_outline_relative_remote_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 33
-            .providerProof.relativeGotorDropped == true
-            .providerProof.relativeLaunchDropped == true
-            .providerProof.relativeLaunchDestSuppressed == true
-            .capabilityStatus.includeOutline == "PARTIAL"
+            .profile == "pdf_reader_v3014_outline_relative_remote_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 33 and
+            .providerProof.relativeGotorDropped == true and
+            .providerProof.relativeLaunchDropped == true and
+            .providerProof.relativeLaunchDestSuppressed == true and
+            .capabilityStatus.includeOutline == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline relative-remote residual result is incomplete, failing, or not SHA-bound"
@@ -2160,14 +2160,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_info_trapped_custom_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 48
-            .providerProof.trappedTrueName == true
-            .providerProof.trappedFalseName == true
-            .providerProof.customMixedValues == true
-            .capabilityStatus.includeMetadata == "PARTIAL"
+            .profile == "pdf_reader_v3014_info_trapped_custom_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 48 and
+            .providerProof.trappedTrueName == true and
+            .providerProof.trappedFalseName == true and
+            .providerProof.customMixedValues == true and
+            .capabilityStatus.includeMetadata == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 info trapped-custom residual result is incomplete, failing, or not SHA-bound"
@@ -2181,14 +2181,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_page_geometry_inheritance_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.inheritedMediaBoxRotate == true
-            .providerProof.inheritedMediaBoxPageCrop == true
-            .providerProof.negativeRightAngleRotate == true
-            .capabilityStatus.includePageGeometry == "PARTIAL"
+            .profile == "pdf_reader_v3014_page_geometry_inheritance_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.inheritedMediaBoxRotate == true and
+            .providerProof.inheritedMediaBoxPageCrop == true and
+            .providerProof.negativeRightAngleRotate == true and
+            .capabilityStatus.includePageGeometry == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page geometry inheritance residual result is incomplete, failing, or not SHA-bound"
@@ -2201,14 +2201,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_page_geometry_depth_clamp_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.deeperPagesInheritance == true
-            .providerProof.nonRightAngleClamp == true
-            .providerProof.partialCropIntersect == true
-            .capabilityStatus.includePageGeometry == "PARTIAL"
+            .profile == "pdf_reader_v3014_page_geometry_depth_clamp_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.deeperPagesInheritance == true and
+            .providerProof.nonRightAngleClamp == true and
+            .providerProof.partialCropIntersect == true and
+            .capabilityStatus.includePageGeometry == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page geometry depth-clamp residual result is incomplete, failing, or not SHA-bound"
@@ -2221,14 +2221,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_page_geometry_userunit_multipage_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 48
-            .providerProof.userUnitPagesNotInherited == true
-            .providerProof.multiPageGeometry == true
-            .providerProof.bleedTrimArtIgnored == true
-            .capabilityStatus.includePageGeometry == "PARTIAL"
+            .profile == "pdf_reader_v3014_page_geometry_userunit_multipage_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 48 and
+            .providerProof.userUnitPagesNotInherited == true and
+            .providerProof.multiPageGeometry == true and
+            .providerProof.bleedTrimArtIgnored == true and
+            .capabilityStatus.includePageGeometry == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$PAGE_GEOMETRY_USERUNIT_MULTIPAGE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page geometry userunit-multipage residual result is incomplete, failing, or not SHA-bound"
@@ -2241,14 +2241,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_utf16_text_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 41
-            .providerProof.annotTextOddUtf16 == true
-            .providerProof.freeTextOddUtf16 == true
-            .providerProof.catalogOutlineAndInfoOddUtf16 == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_utf16_text_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 41 and
+            .providerProof.annotTextOddUtf16 == true and
+            .providerProof.freeTextOddUtf16 == true and
+            .providerProof.catalogOutlineAndInfoOddUtf16 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$UTF16_TEXT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 utf16-text residual result is incomplete, failing, or not SHA-bound"
@@ -2261,13 +2261,13 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_text_invalid_as_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 2 and .passed == 2 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 28
-            .providerProof.invalidAsNameUsesIconBox == true
-            .providerProof.asNonstreamUsesIconBox == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_text_invalid_as_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 2 and .passed == 2 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 28 and
+            .providerProof.invalidAsNameUsesIconBox == true and
+            .providerProof.asNonstreamUsesIconBox == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$TEXT_INVALID_AS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text invalid-as residual result is incomplete, failing, or not SHA-bound"
@@ -2280,14 +2280,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_line_annotation_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.defaultBorderExpand == true
-            .providerProof.nonIntersectingRectUsesLBbox == true
-            .providerProof.borderWidth2Expand == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_line_annotation_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.defaultBorderExpand == true and
+            .providerProof.nonIntersectingRectUsesLBbox == true and
+            .providerProof.borderWidth2Expand == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$LINE_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 line annotation residual result is incomplete, failing, or not SHA-bound"
@@ -2300,14 +2300,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_polyline_polygon_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineNonIntersectingUsesVerticesBbox == true
-            .providerProof.polygonNonIntersectingUsesVerticesBbox == true
-            .providerProof.borderWidth2VerticesBbox == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_polyline_polygon_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineNonIntersectingUsesVerticesBbox == true and
+            .providerProof.polygonNonIntersectingUsesVerticesBbox == true and
+            .providerProof.borderWidth2VerticesBbox == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$POLYLINE_POLYGON_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 polyline/polygon residual result is incomplete, failing, or not SHA-bound"
@@ -2320,14 +2320,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_ink_annotation_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.inkNonIntersectingUsesInkListBbox == true
-            .providerProof.inkMultiStrokeUsesInkListBbox == true
-            .providerProof.borderWidth2InkListBbox == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_ink_annotation_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.inkNonIntersectingUsesInkListBbox == true and
+            .providerProof.inkMultiStrokeUsesInkListBbox == true and
+            .providerProof.borderWidth2InkListBbox == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$INK_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 ink annotation residual result is incomplete, failing, or not SHA-bound"
@@ -2340,14 +2340,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_border_width_clamp_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineTinyRectClampsBorderWidth == true
-            .providerProof.lineTinyRectClampsBorderWidth == true
-            .providerProof.inkTinyRectClampsBorderWidth == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_border_width_clamp_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineTinyRectClampsBorderWidth == true and
+            .providerProof.lineTinyRectClampsBorderWidth == true and
+            .providerProof.inkTinyRectClampsBorderWidth == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$BORDER_WIDTH_CLAMP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border-width clamp residual result is incomplete, failing, or not SHA-bound"
@@ -2360,14 +2360,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_border_array_width_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineBorderArrayWidth2 == true
-            .providerProof.lineBorderArrayWidth2 == true
-            .providerProof.inkBorderArrayWidth3 == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_border_array_width_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineBorderArrayWidth2 == true and
+            .providerProof.lineBorderArrayWidth2 == true and
+            .providerProof.inkBorderArrayWidth3 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border-array width residual result is incomplete, failing, or not SHA-bound"
@@ -2381,14 +2381,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_border_bs_preference_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineBorderBsPreferenceW2 == true
-            .providerProof.lineBorderBsPreferenceW2 == true
-            .providerProof.inkBorderBsPreferenceW3 == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_border_bs_preference_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineBorderBsPreferenceW2 == true and
+            .providerProof.lineBorderBsPreferenceW2 == true and
+            .providerProof.inkBorderBsPreferenceW3 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$BORDER_BS_PREFERENCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border BS preference residual result is incomplete, failing, or not SHA-bound"
@@ -2401,14 +2401,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_border_bs_nondict_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineBorderBsNondictW1 == true
-            .providerProof.lineBorderBsNondictW1 == true
-            .providerProof.inkBorderBsNondictW1 == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_border_bs_nondict_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineBorderBsNondictW1 == true and
+            .providerProof.lineBorderBsNondictW1 == true and
+            .providerProof.inkBorderBsNondictW1 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$BORDER_BS_NONDICT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border BS nondict residual result is incomplete, failing, or not SHA-bound"
@@ -2421,14 +2421,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_border_array_short_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineBorderArrayShortW1 == true
-            .providerProof.lineBorderArrayEmptyW1 == true
-            .providerProof.inkBorderArrayShortW1 == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_border_array_short_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineBorderArrayShortW1 == true and
+            .providerProof.lineBorderArrayEmptyW1 == true and
+            .providerProof.inkBorderArrayShortW1 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$BORDER_ARRAY_SHORT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border array short residual result is incomplete, failing, or not SHA-bound"
@@ -2441,14 +2441,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_border_bs_wrong_type_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineBorderBsWrongTypeW1 == true
-            .providerProof.lineBorderBsWrongTypeW1 == true
-            .providerProof.inkBorderBsWrongTypeW1 == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_border_bs_wrong_type_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineBorderBsWrongTypeW1 == true and
+            .providerProof.lineBorderBsWrongTypeW1 == true and
+            .providerProof.inkBorderBsWrongTypeW1 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$BORDER_BS_WRONG_TYPE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border BS wrong-type residual result is incomplete, failing, or not SHA-bound"
@@ -2461,14 +2461,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_border_zero_size_clamp_bypass_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineZeroHeightClampBypassW2 == true
-            .providerProof.lineZeroHeightClampBypassW2 == true
-            .providerProof.inkZeroWidthClampBypassW2 == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_border_zero_size_clamp_bypass_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineZeroHeightClampBypassW2 == true and
+            .providerProof.lineZeroHeightClampBypassW2 == true and
+            .providerProof.inkZeroWidthClampBypassW2 == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border zero-size clamp-bypass residual result is incomplete, failing, or not SHA-bound"
@@ -2481,14 +2481,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_appearance_bbox_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineAppearanceKeepsRawRect == true
-            .providerProof.lineAppearanceKeepsRawRect == true
-            .providerProof.inkAppearanceKeepsRawRect == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_appearance_bbox_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineAppearanceKeepsRawRect == true and
+            .providerProof.lineAppearanceKeepsRawRect == true and
+            .providerProof.inkAppearanceKeepsRawRect == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_APPEARANCE_BBOX_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation appearance bbox residual result is incomplete, failing, or not SHA-bound"
@@ -2501,14 +2501,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_ap_nonstream_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.lineApNNullExpandsGeometry == true
-            .providerProof.polylineApNNameExpandsGeometry == true
-            .providerProof.inkApNNullExpandsGeometry == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_ap_nonstream_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.lineApNNullExpandsGeometry == true and
+            .providerProof.polylineApNNameExpandsGeometry == true and
+            .providerProof.inkApNNullExpandsGeometry == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NONSTREAM_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP non-stream residual result is incomplete, failing, or not SHA-bound"
@@ -2521,14 +2521,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_ap_named_state_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.lineApAsOnKeepsRawRect == true
-            .providerProof.lineApAsMissingExpandsGeometry == true
-            .providerProof.lineApAsInvalidExpandsGeometry == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_ap_named_state_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.lineApAsOnKeepsRawRect == true and
+            .providerProof.lineApAsMissingExpandsGeometry == true and
+            .providerProof.lineApAsInvalidExpandsGeometry == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NAMED_STATE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP named-state residual result is incomplete, failing, or not SHA-bound"
@@ -2541,14 +2541,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_ap_named_state_polyline_ink_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.polylineApAsOnKeepsRawRect == true
-            .providerProof.inkApAsMissingExpandsGeometry == true
-            .providerProof.polylineApAsInvalidExpandsGeometry == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_ap_named_state_polyline_ink_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.polylineApAsOnKeepsRawRect == true and
+            .providerProof.inkApAsMissingExpandsGeometry == true and
+            .providerProof.polylineApAsInvalidExpandsGeometry == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NAMED_STATE_POLYLINE_INK_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP named-state polyline/ink residual result is incomplete, failing, or not SHA-bound"
@@ -2562,14 +2562,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_ap_named_state_square_circle_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.squareApAsOnKeepsRawRect == true
-            .providerProof.circleApAsMissingKeepsRawRect == true
-            .providerProof.squareApAsInvalidKeepsRawRect == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_ap_named_state_square_circle_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.squareApAsOnKeepsRawRect == true and
+            .providerProof.circleApAsMissingKeepsRawRect == true and
+            .providerProof.squareApAsInvalidKeepsRawRect == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NAMED_STATE_SQUARE_CIRCLE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP named-state square/circle residual result is incomplete, failing, or not SHA-bound"
@@ -2583,14 +2583,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_highlight_quadpoints_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.highlightQuadNoApUsesQuadpoints == true
-            .providerProof.highlightApNoExtUsesQuadpoints == true
-            .providerProof.highlightApExtKeepsRawRect == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_highlight_quadpoints_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.highlightQuadNoApUsesQuadpoints == true and
+            .providerProof.highlightApNoExtUsesQuadpoints == true and
+            .providerProof.highlightApExtKeepsRawRect == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_HIGHLIGHT_QUADPOINTS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation highlight quadpoints residual result is incomplete, failing, or not SHA-bound"
@@ -2604,14 +2604,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_text_markup_quadpoints_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.underlineQuadNoApUsesQuadpoints == true
-            .providerProof.squigglyQuadNoApUsesStripBbox == true
-            .providerProof.strikeoutQuadNoApUsesQuadpoints == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_text_markup_quadpoints_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.underlineQuadNoApUsesQuadpoints == true and
+            .providerProof.squigglyQuadNoApUsesStripBbox == true and
+            .providerProof.strikeoutQuadNoApUsesQuadpoints == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_TEXT_MARKUP_QUADPOINTS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation text-markup quadpoints residual result is incomplete, failing, or not SHA-bound"
@@ -2625,14 +2625,14 @@ jobs:
             exit 1
           fi
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_annotation_text_markup_with_ap_residual_result"
-            .candidateSha == $sha and .pass == true
-            .caseCount == 3 and .passed == 3 and .skipped == 0
-            .mutationSensitive.leafMutationCount == 39
-            .providerProof.underlineApKeepsRawRect == true
-            .providerProof.squigglyApKeepsRawRect == true
-            .providerProof.strikeoutApKeepsRawRect == true
-            .capabilityStatus.includeAnnotations == "PARTIAL"
+            .profile == "pdf_reader_v3014_annotation_text_markup_with_ap_residual_result" and
+            .candidateSha == $sha and .pass == true and
+            .caseCount == 3 and .passed == 3 and .skipped == 0 and
+            .mutationSensitive.leafMutationCount == 39 and
+            .providerProof.underlineApKeepsRawRect == true and
+            .providerProof.squigglyApKeepsRawRect == true and
+            .providerProof.strikeoutApKeepsRawRect == true and
+            .capabilityStatus.includeAnnotations == "PARTIAL" and
             .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_TEXT_MARKUP_WITH_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation text-markup with-appearance residual result is incomplete, failing, or not SHA-bound"
@@ -2647,8 +2647,8 @@ jobs:
 
 
           jq -e --arg sha "$CANDIDATE_SHA" '
-            .profile == "pdf_reader_v3014_visual_result"
-            .candidateSha == $sha and .pass == true
+            .profile == "pdf_reader_v3014_visual_result" and
+            .candidateSha == $sha and .pass == true and
             .caseCount == 16 and .passed == 16 and .skipped == 0
           ' "$VISUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 visual result is incomplete, failing, or not SHA-bound"
