@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.0
+
+### Minor Changes
+
+- Sole-runtime default: package bin/export prefer pure-Rust optional native MCP server via `dist/runtime-entry.js`, with TypeScript fallback (`./typescript`, force flags). Authorized after five-platform registry install + pure-Rust initialize proof for 3.1.4. Capability-first admission (ADR-0005); not exhaustive PDF.js output parity.
+
+
 ## 3.1.4
 
 ### Patch Changes

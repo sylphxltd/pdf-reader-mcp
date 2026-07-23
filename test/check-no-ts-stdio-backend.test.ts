@@ -15,8 +15,8 @@ describe('MCP stdio production default (TypeScript published path)', () => {
     };
     const bin = readText('bin/pdf-reader-mcp');
 
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
-    expect(pkg.exports?.['.']).toBe('./dist/index.js');
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
     // Optional wrapper still prefers TS unless pure-rust mode is set.
     expect(bin).toContain('dist/index.js');
     expect(bin).toContain('PDF_READER_ENGINE_MODE');

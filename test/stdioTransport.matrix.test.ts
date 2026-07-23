@@ -9,7 +9,7 @@ describe('MCP stdio transport routing', () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
     };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
   });
 
   it('optional bin wrapper defaults to TypeScript; pure-Rust is opt-in', () => {

@@ -163,12 +163,13 @@ const mcpInitialize = async (
           finish(new Error(`unexpected serverInfo.name=${serverName}`));
           return;
         }
-        if (!serverVersion.includes('experimental') && !serverVersion.startsWith('0.')) {
-          finish(
-            new Error(
-              `pure-Rust server version must remain experimental until sole-runtime; got ${serverVersion}`
-            )
-          );
+        // Pre-cutover: experimental marker. Sole-runtime: package version is allowed.
+        if (
+          !serverVersion.includes('experimental') &&
+          !serverVersion.startsWith('0.') &&
+          !/^\d+\.\d+\.\d+/.test(serverVersion)
+        ) {
+          finish(new Error(`unexpected pure-Rust server version: ${serverVersion}`));
           return;
         }
         finish(undefined, { serverName, serverVersion });

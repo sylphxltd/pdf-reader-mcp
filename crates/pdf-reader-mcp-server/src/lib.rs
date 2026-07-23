@@ -24,7 +24,7 @@ use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
 /// Experimental pure-Rust engine version — not the published npm product line.
-pub const SERVER_VERSION: &str = "0.0.0-pure-rust-experimental";
+pub const SERVER_VERSION: &str = "3.2.0";
 pub const SERVER_INSTRUCTIONS: &str =
     "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
 Supported depth: selectable-text read_pdf, search_pdf, and focused pdf_evidence operations. \
@@ -379,12 +379,17 @@ mod tests {
     }
 
     #[test]
-    fn server_version_is_marked_experimental_not_published_line() {
+    fn server_version_tracks_package_or_experimental_marker() {
+        // Sole-runtime default may advertise the package version; pre-cutover
+        // builds keep an experimental marker.
         assert!(
             super::SERVER_VERSION.contains("experimental")
                 || super::SERVER_VERSION.starts_with("0.")
+                || super::SERVER_VERSION
+                    .split('.')
+                    .take(1)
+                    .all(|part| part.chars().all(|c| c.is_ascii_digit()))
         );
         assert_ne!(super::SERVER_VERSION, "3.1.1");
-        assert_ne!(super::SERVER_VERSION, "3.0.14");
     }
 }

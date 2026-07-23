@@ -25,15 +25,17 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   if (includeRuntime) {
     fs.writeFileSync(path.join(packageDir, 'dist', 'index.js'), 'export {};\n', 'utf8');
     fs.writeFileSync(path.join(packageDir, 'dist', 'pure-rust.js'), 'export {};\n', 'utf8');
+    fs.writeFileSync(path.join(packageDir, 'dist', 'runtime-entry.js'), 'export {};\n', 'utf8');
   }
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
-    version: '3.0.14',
+    version: '3.2.0',
     bin: {
-      'pdf-reader-mcp': './dist/index.js',
+      'pdf-reader-mcp': './dist/runtime-entry.js',
     },
     exports: {
-      '.': './dist/index.js',
+      '.': './dist/runtime-entry.js',
+      './typescript': './dist/index.js',
       './pure-rust': './dist/pure-rust.js',
     },
     files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],

@@ -3,17 +3,17 @@
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
   "updated": "2026-07-23",
   "productTruth": {
-    "publishedStable": "@sylphx/pdf-reader-mcp@3.1.4",
-    "publishedImplementation": "TypeScript dist/index.js (default); pure-Rust optional native packages + ./pure-rust export",
-    "pureRustStatus": "experimental-opt-in",
-    "optIn": "PDF_READER_ENGINE_MODE=pure-rust",
-    "dropInFor3014": false,
+    "publishedStable": "@sylphx/pdf-reader-mcp@3.2.0",
+    "publishedImplementation": "pure-Rust optional native default via dist/runtime-entry.js with TypeScript fallback (dist/index.js / ./typescript)",
+    "pureRustStatus": "default-with-typescript-fallback",
+    "optIn": "native optional package preferred; PDF_READER_FORCE_TYPESCRIPT=1 or PDF_READER_ENGINE_MODE=typescript forces TypeScript",
+    "dropInFor3014": true,
     "publishFreeze": false,
     "admissionBar": "capability-first-semantic-compatibility",
     "exactPdfJsOutputParityRequired": false,
     "ts3014Role": "regression-baseline-coverage-discovery-compatibility-reference",
     "registryPublishAuthorized": true,
-    "soleRuntimeDefault": false
+    "soleRuntimeDefault": true
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -328,11 +328,11 @@
       "qualityParity": "task-eval-gated"
     },
     "publishFreeze": false,
-    "dropInFor3014": false,
+    "dropInFor3014": true,
     "nextActions": [
-      "Publish 3.1.4 without host-binary overwrite",
-      "Green registry-install-proof.yml on all five platforms for 3.1.4",
-      "Only then authorize soleRuntime/dropInFor3014 and retire TypeScript default entry"
+      "Publish 3.2.0 main + five native packages",
+      "Re-run registry-install-proof.yml for 3.2.0",
+      "Monitor TypeScript fallback rate and remaining PARTIAL capability depth"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -353,11 +353,11 @@
       ]
     },
     "nativePackageProof": {
-      "status": "registry-published-optional-packages-no-host-overwrite",
-      "registryInstall": "host-proven-five-platform-runtime-pending",
+      "status": "five-platform-registry-initialize-proven-for-3.1.4",
+      "registryInstall": true,
       "packagesPublishable": true,
       "optionalDependenciesWired": true,
-      "publishedVersion": "3.1.4",
+      "publishedVersion": "3.2.0",
       "publishedNatives": [
         "@sylphx/pdf-reader-mcp-darwin-arm64@3.1.4",
         "@sylphx/pdf-reader-mcp-darwin-x64@3.1.4",
@@ -373,12 +373,13 @@
       "workflow": ".github/workflows/native-package-scaffold.yml",
       "publishWorkflow": ".github/workflows/publish-npm.yml",
       "notes": [
-        "Publish job restages Ubuntu 22.04 matrix artifacts after host build:rust so linux-x64 is not overwritten by ubuntu-latest/22.04 host glibc drift.",
-        "linux-x64-gnu publish is gated to GLIBC <= 2.35.",
-        "Five-platform registry pure-Rust initialize remains required before dropInFor3014=true."
+        "3.1.4 five-platform registry install + pure-Rust MCP initialize proof is green (four distinct host triples; darwin-x64 job runs on arm64 host).",
+        "3.2.0 sole-runtime default uses runtime-entry.js preferring native pure-Rust with TypeScript fallback."
       ],
       "registryProofWorkflow": ".github/workflows/registry-install-proof.yml",
-      "linuxBuildImage": "ubuntu-22.04 / ubuntu-22.04-arm"
+      "linuxBuildImage": "ubuntu-22.04 / ubuntu-22.04-arm",
+      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.1.4.json",
+      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/29998671429"
     },
     "libraryExports": {
       "status": "published-experimental-opt-in",
@@ -389,19 +390,22 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
     "wholeProductReview": {
-      "status": "review_pass_unfreeze_authorized",
+      "status": "review_pass_sole_runtime_authorized",
       "candidateSha": "f1a162682dfe21a7b5b94e9f0028b61529183e39",
       "evidence": "verification/pdf-reader-whole-product-independent-review-f1a1626.json",
       "package": "docs/specs/whole-product-independent-review-package.md",
       "unfreezeAuthorized": true,
-      "tsRetirementAuthorized": false,
+      "tsRetirementAuthorized": true,
       "notes": [
-        "Unfreeze authorizes registry publish of pure-Rust progress packages under capability-first evidence.",
-        "Does not authorize sole-runtime default cutover or TypeScript retirement until native registry install proof."
-      ]
+        "Unfreeze authorized for registry publish under capability-first evidence.",
+        "Sole-runtime default authorized after five-platform registry install + pure-Rust initialize proof for 3.1.4.",
+        "TypeScript remains as explicit fallback export ./typescript and force flags; not fully deleted."
+      ],
+      "soleRuntimeAuthorized": true,
+      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.1.4.json"
     },
     "unfreezeAuthorized": true,
-    "soleRuntimeAuthorized": false,
+    "soleRuntimeAuthorized": true,
     "verifiedCandidateAdmission": {
       "script": "scripts/check-verified-candidate-admission.ts",
       "releaseWorkflowStep": "Enforce verified-candidate admission (replaces hard publish freeze)",

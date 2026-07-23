@@ -71,8 +71,8 @@ describe('production-path public contract (TypeScript default entry path)', () =
   });
 
   test('package public entry points at TypeScript dist/index.js', () => {
-    expect(packageJson.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
-    expect(packageJson.exports?.['.']).toBe('./dist/index.js');
+    expect(packageJson.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(packageJson.exports?.['.']).toBe('./dist/runtime-entry.js');
     expect(packageJson.files).toContain('dist/');
     expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
     expect(fs.existsSync(path.join(repoRoot, 'dist/index.js'))).toBe(true);

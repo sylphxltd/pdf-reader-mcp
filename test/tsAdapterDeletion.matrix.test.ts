@@ -10,15 +10,16 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
  * - Pure-Rust: experimental opt-in only
  * - Parity bridge remains deleted (no dual production default)
  */
-describe('published TypeScript production default', () => {
-  it('npm package bin points at TypeScript dist/index.js', () => {
+describe('published sole-runtime default with TypeScript fallback', () => {
+  it('npm package bin prefers pure-Rust runtime-entry with TypeScript export retained', () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
       exports?: Record<string, string>;
       version?: string;
     };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
-    expect(pkg.exports?.['.']).toBe('./dist/index.js');
+    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
+    expect(pkg.exports?.['./typescript']).toBe('./dist/index.js');
     expect(pkg.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
   });
 
@@ -35,7 +36,7 @@ describe('published TypeScript production default', () => {
     expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
   });
 
-  it('honest capability matrix documents experimental pure-Rust', () => {
+  it('honest capability matrix documents sole-runtime pure-Rust with TypeScript fallback', () => {
     const matrix = JSON.parse(
       readFileSync(path.join(repoRoot, 'docs/specs/pure-rust-capability-matrix.json'), 'utf8')
     ) as {
@@ -44,14 +45,15 @@ describe('published TypeScript production default', () => {
         pureRustStatus: string;
         publishedStable: string;
         publishedImplementation?: string;
+        soleRuntimeDefault?: boolean;
       };
     };
-    expect(matrix.productTruth.dropInFor3014).toBe(false);
-    expect(matrix.productTruth.pureRustStatus).toBe('experimental-opt-in');
-    // May be 3.0.14 LKG or a later Stage B progress package (e.g. 3.1.3) that still defaults to TS.
+    expect(matrix.productTruth.dropInFor3014).toBe(true);
+    expect(matrix.productTruth.soleRuntimeDefault).toBe(true);
+    expect(matrix.productTruth.pureRustStatus).toContain('default');
     expect(matrix.productTruth.publishedStable).toMatch(/@sylphx\/pdf-reader-mcp@\d+\.\d+\.\d+/);
-    expect(String(matrix.productTruth.publishedImplementation ?? 'TypeScript')).toMatch(
-      /TypeScript/i
+    expect(String(matrix.productTruth.publishedImplementation ?? '')).toMatch(
+      /pure-Rust|TypeScript/i
     );
   });
 });

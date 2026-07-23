@@ -19,11 +19,25 @@ const matrix = JSON.parse(
   explicitlyNotClaimed?: string[];
 };
 
-if (pkg.bin?.['pdf-reader-mcp'] !== './dist/index.js') {
-  failures.push('default bin must remain TypeScript dist/index.js while dropInFor3014 is false');
-}
-if (pkg.exports?.['.'] !== './dist/index.js') {
-  failures.push('default exports["."] must remain TypeScript dist/index.js while dropInFor3014 is false');
+const defaultBin = pkg.bin?.['pdf-reader-mcp'];
+const defaultExport = pkg.exports?.['.'];
+if (matrix.productTruth?.dropInFor3014 === true) {
+  if (defaultBin !== './dist/runtime-entry.js') {
+    failures.push('default bin must be dist/runtime-entry.js when dropInFor3014=true');
+  }
+  if (defaultExport !== './dist/runtime-entry.js') {
+    failures.push('default exports["."] must be dist/runtime-entry.js when dropInFor3014=true');
+  }
+  if (pkg.exports?.['./typescript'] !== './dist/index.js') {
+    failures.push('exports["./typescript"] must keep TypeScript dist/index.js fallback');
+  }
+} else {
+  if (defaultBin !== './dist/index.js') {
+    failures.push('default bin must remain TypeScript dist/index.js while dropInFor3014 is false');
+  }
+  if (defaultExport !== './dist/index.js') {
+    failures.push('default exports["."] must remain TypeScript dist/index.js while dropInFor3014 is false');
+  }
 }
 if (pkg.exports?.['./pure-rust'] !== './dist/pure-rust.js') {
   failures.push('exports["./pure-rust"] must point at dist/pure-rust.js');
@@ -37,11 +51,14 @@ if (!existsSync(join(root, 'src/native/platform-package-map.ts'))) {
 if (!(pkg.scripts?.build ?? '').includes('src/pure-rust.ts')) {
   failures.push('build script must compile src/pure-rust.ts');
 }
-if (matrix.productTruth?.dropInFor3014 !== false) {
-  failures.push('productTruth.dropInFor3014 must remain false until sole-runtime cutover');
-}
 const pureRustSource = readFileSync(join(root, 'src/pure-rust.ts'), 'utf8');
-if (!pureRustSource.includes('dropInFor3014: false')) {
+if (matrix.productTruth?.dropInFor3014 === true) {
+  if (!pureRustSource.includes('dropInFor3014: true')) {
+    failures.push('src/pure-rust.ts must set dropInFor3014: true for sole-runtime cutover');
+  }
+} else if (matrix.productTruth?.dropInFor3014 !== false) {
+  failures.push('productTruth.dropInFor3014 must be boolean');
+} else if (!pureRustSource.includes('dropInFor3014: false')) {
   failures.push('src/pure-rust.ts must keep dropInFor3014: false until sole-runtime cutover');
 }
 if (matrix.productTruth?.publishFreeze === false) {
