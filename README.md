@@ -165,15 +165,10 @@ Claude Desktop (`claude_desktop_config.json`):
 
 ### Pure-Rust library export + TypeScript fallback
 
-Pure-Rust is **not** published as npm latest and is **not** a full drop-in.
-Do not `cargo install` experimental crates for production. To experiment from a
-git checkout:
+Default package entry (`dist/runtime-entry.js`) prefers the platform optional
+pure-Rust native binary when installed. TypeScript remains fallback-only.
 
-```bash
-bun run build:rust
-PDF_READER_ENGINE_MODE=pure-rust ./bin/pdf-reader-mcp
-
-Pure-Rust **library** import (`./pure-rust`). Default package entry already prefers pure-Rust when natives are installed:
+Library import:
 
 ```ts
 import { createPureRustClient } from '@sylphx/pdf-reader-mcp/pure-rust';
@@ -184,6 +179,18 @@ const result = await client.readPdf({
   include_full_text: true,
 });
 ```
+
+Force TypeScript fallback:
+
+```bash
+PDF_READER_FORCE_TYPESCRIPT=1 npx @sylphx/pdf-reader-mcp@3.2.0
+```
+
+Local source development:
+
+```bash
+bun run build:rust
+PDF_READER_ENGINE_MODE=pure-rust ./bin/pdf-reader-mcp
 ```
 
 ### Docker
