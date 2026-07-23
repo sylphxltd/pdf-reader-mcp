@@ -46,7 +46,7 @@ describe('native platform package map', () => {
       expect(pkg.name).toBe(
         NATIVE_PLATFORM_PACKAGES[platformId as keyof typeof NATIVE_PLATFORM_PACKAGES].npmName
       );
-      expect(pkg.scripts?.prepublishOnly ?? '').toContain('PUBLISH FREEZE');
+      expect(pkg.private).toBe(true);
     }
     // ensure map completeness matches package dirs
     const dirs = readdirSync(join(root, 'packages')).filter((name) =>

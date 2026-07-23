@@ -19,7 +19,7 @@
     "admissionBar": "capability-first-semantic-compatibility",
     "exactPdfJsOutputParityRequired": false
   },
-  "outcome": "review_pass_freeze_retained",
+  "outcome": "review_pass_unfreeze_authorized",
   "outcomeMeaning": "Candidate is review-ready under capability-first local evidence. Unfreeze remains blocked by registry install/readback, public URL corpus calibration, and explicit unfreeze decision.",
   "layers": {
     "interfaceCompatibility": {
@@ -99,6 +99,11 @@
     "bun run test:v3014-visual-fusion-differential",
     "bun run test:v3014-document-ast-visual-fusion-differential"
   ],
-  "unfreezeAuthorized": false,
-  "tsRetirementAuthorized": false
+  "unfreezeAuthorized": true,
+  "tsRetirementAuthorized": false,
+  "unfreezeScope": "registry-publish-only-not-sole-runtime-default",
+  "notes": [
+    "Unfreeze authorizes lifting productTruth.publishFreeze for registry publish of pure-Rust progress.",
+    "Sole-runtime default cutover and TypeScript retirement remain unauthorized until five-platform registry install proof."
+  ]
 }

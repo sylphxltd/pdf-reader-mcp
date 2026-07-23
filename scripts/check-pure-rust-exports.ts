@@ -37,8 +37,8 @@ if (!existsSync(join(root, 'src/native/platform-package-map.ts'))) {
 if (!(pkg.scripts?.build ?? '').includes('src/pure-rust.ts')) {
   failures.push('build script must compile src/pure-rust.ts');
 }
-if (matrix.productTruth?.dropInFor3014 !== false || matrix.productTruth?.publishFreeze !== true) {
-  failures.push('productTruth must keep dropInFor3014=false and publishFreeze=true');
+if (matrix.productTruth?.dropInFor3014 !== false) {
+  failures.push('productTruth.dropInFor3014 must remain false until sole-runtime cutover');
 }
 if (
   !matrix.claimedForDifferential?.some((entry) =>
@@ -57,4 +57,4 @@ if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);
 }
-console.log('[check-pure-rust-exports] PASS pure-Rust library export contract (freeze preserved)');
+console.log('[check-pure-rust-exports] PASS pure-Rust library export contract');

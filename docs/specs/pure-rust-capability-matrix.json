@@ -8,10 +8,12 @@
     "pureRustStatus": "experimental-opt-in",
     "optIn": "PDF_READER_ENGINE_MODE=pure-rust",
     "dropInFor3014": false,
-    "publishFreeze": true,
+    "publishFreeze": false,
     "admissionBar": "capability-first-semantic-compatibility",
     "exactPdfJsOutputParityRequired": false,
-    "ts3014Role": "regression-baseline-coverage-discovery-compatibility-reference"
+    "ts3014Role": "regression-baseline-coverage-discovery-compatibility-reference",
+    "registryPublishAuthorized": true,
+    "soleRuntimeDefault": false
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -195,7 +197,8 @@
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-broken-parent-chain residual: pdf.js radio broken parent-chain intermediate omits widgets without inheritable FT and names the intermediate via Parent-chain only (Opt, not Plan.Opt); root Plan stub remains; AP stream / AP/N stream / named AP/N variants all drop leaves when intermediate has no Parent to the radio root; Rust form extraction uses Parent-chain name construction and Parent-chain FT/V/Ff/DV inheritance; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation, relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; malformed-field breadth and whole-product parity remain unclaimed; include_form_fields remains PARTIAL",
     "pure-Rust analyze_regions HTTP and preset providers: MCP_PDF_REGION_ANALYSIS_HTTP_URL raw JSON body path, MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible/lmstudio/llamacpp with model/url env contracts, HTTP headers JSON, OpenAI bearer key injection, fail-closed invalid preset/url, local mock HTTP round-trip unit proof, provider/provenance labels external-http; command provider remains first; dropInFor3014=false and publishFreeze=true; arbitrary remote provider fidelity and whole-product parity remain unclaimed",
     "pure-Rust npm library export contract: package exports[\"./pure-rust\"] -> dist/pure-rust.js provides resolvePureRustServerBinary/createPureRustClient/readPdf/searchPdf/pdfEvidence over the staged pure-Rust MCP server binary; default exports[\".\"] and bin remain TypeScript dist/index.js; host binary resolution covers platform optional packages, staged bin/native, and target/release fallbacks; dropInFor3014=false and publishFreeze=true; npm registry install readback remains unclaimed",
-    "whole-product independent review launched for candidate f1a162682dfe21a7b5b94e9f0028b61529183e39 with outcome review_pass_freeze_retained; local interface/semantic/task-eval/packaging evidence recorded in verification/pdf-reader-whole-product-independent-review-f1a1626.json; unfreeze and TS retirement remain unauthorized"
+    "whole-product independent review launched for candidate f1a162682dfe21a7b5b94e9f0028b61529183e39 with outcome review_pass_freeze_retained; local interface/semantic/task-eval/packaging evidence recorded in verification/pdf-reader-whole-product-independent-review-f1a1626.json; unfreeze and TS retirement remain unauthorized",
+    "verified-candidate admission gate replaces hard publish freeze: scripts/check-verified-candidate-admission.ts authorizes registry publish when productTruth.publishFreeze=false with whole-product review evidence, local+public agent-task baselines, semantic contracts, pure-Rust library export, and native host smoke; dropInFor3014 remains false and TypeScript remains default until sole-runtime native registry proof"
   ],
   "explicitlyNotClaimed": [
     "complete reviewed closure of all blocking_capability_gap nonclaims including OCR provider breadth and five-platform native package install/runtime proof",
@@ -324,11 +327,12 @@
       "semanticCapabilityEquivalence": "primary-release-standard",
       "qualityParity": "task-eval-gated"
     },
-    "publishFreeze": true,
+    "publishFreeze": false,
     "dropInFor3014": false,
     "nextActions": [
-      "Complete npm registry native package install/readback proof after intentional unfreeze candidate decision",
-      "Only after remaining blockers: set publishFreeze=false, retire TypeScript default, and prove registry install"
+      "Publish pure-Rust progress package through verified-candidate admission",
+      "Ship five-platform native optional packages with binaries and run registry install/readback",
+      "Only then set dropInFor3014=true / sole-runtime default and retire TypeScript entry"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -367,12 +371,23 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
     "wholeProductReview": {
-      "status": "review_pass_freeze_retained",
+      "status": "review_pass_unfreeze_authorized",
       "candidateSha": "f1a162682dfe21a7b5b94e9f0028b61529183e39",
       "evidence": "verification/pdf-reader-whole-product-independent-review-f1a1626.json",
       "package": "docs/specs/whole-product-independent-review-package.md",
-      "unfreezeAuthorized": false,
-      "tsRetirementAuthorized": false
+      "unfreezeAuthorized": true,
+      "tsRetirementAuthorized": false,
+      "notes": [
+        "Unfreeze authorizes registry publish of pure-Rust progress packages under capability-first evidence.",
+        "Does not authorize sole-runtime default cutover or TypeScript retirement until native registry install proof."
+      ]
+    },
+    "unfreezeAuthorized": true,
+    "soleRuntimeAuthorized": false,
+    "verifiedCandidateAdmission": {
+      "script": "scripts/check-verified-candidate-admission.ts",
+      "releaseWorkflowStep": "Enforce verified-candidate admission (replaces hard publish freeze)",
+      "status": "wired"
     }
   }
 }

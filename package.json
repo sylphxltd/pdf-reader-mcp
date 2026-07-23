@@ -226,7 +226,9 @@
     "test:pure-rust-exports": "bun test test/pure-rust-exports.test.ts",
     "test:agent-task-public-smoke": "MCP_PDF_AGENT_TASK_PUBLIC=true bun scripts/run-agent-task-smoke.ts --public",
     "test:agent-task-public-eval": "MCP_PDF_AGENT_TASK_PUBLIC=true bun scripts/run-agent-task-eval.ts --runtime=pure-rust --compare-baseline --public",
-    "test:agent-task-public-eval:calibrate": "MCP_PDF_AGENT_TASK_PUBLIC=true MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true bun scripts/run-agent-task-eval.ts --runtime=both --write-baseline --compare-baseline --public --allow-corpus-downloads"
+    "test:agent-task-public-eval:calibrate": "MCP_PDF_AGENT_TASK_PUBLIC=true MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true bun scripts/run-agent-task-eval.ts --runtime=both --write-baseline --compare-baseline --public --allow-corpus-downloads",
+    "check:verified-candidate-admission": "bun scripts/check-verified-candidate-admission.ts",
+    "check:registry-install-proof": "bun scripts/check-registry-install-proof.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

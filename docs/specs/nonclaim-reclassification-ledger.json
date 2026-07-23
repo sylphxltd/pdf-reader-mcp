@@ -41,7 +41,8 @@
       "rationale": "Meta-blocker listing remaining sole-runtime publish gaps under ADR-0005.",
       "blockingForUnfreeze": true,
       "notes": [
-        "independent-review-pass-freeze-retained-f1a1626"
+        "independent-review-pass-freeze-retained-f1a1626",
+        "verified-candidate-admission-wired-2026-07-23"
       ]
     },
     {
@@ -268,7 +269,8 @@
       "blockingForUnfreeze": true,
       "notes": [
         "host-runtime-smoke-five-ci-2026-07-22",
-        "registry-install-unproven"
+        "registry-install-unproven",
+        "publish-freeze-lifted-registry-publish-authorized-2026-07-23"
       ]
     },
     {

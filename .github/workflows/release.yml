@@ -98,10 +98,8 @@ jobs:
       # Keep this as a standalone shell boundary. changesets/action executes
       # `publish` directly, so shell operators embedded in that input do not
       # enforce a failing freeze.
-      - name: Enforce Rust replacement publish freeze
-        run: |
-          echo "PUBLISH FREEZE: verified-candidate artifact admission is not wired yet" >&2
-          exit 1
+      - name: Enforce verified-candidate admission (replaces hard publish freeze)
+        run: bun scripts/check-verified-candidate-admission.ts
 
       - name: Create release PR
         id: changesets
