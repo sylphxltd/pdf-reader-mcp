@@ -101,6 +101,13 @@ jobs:
       - name: Enforce verified-candidate admission (replaces hard publish freeze)
         run: bun scripts/check-verified-candidate-admission.ts
 
+      - name: Normalize tracked dist permissions before version PR
+        run: |
+          if [ -d dist ]; then
+            find dist -type f \( -name '*.js' -o -name '*.mjs' \) -exec chmod a-x {} +
+            ls -la dist || true
+          fi
+
       - name: Create release PR
         id: changesets
         uses: changesets/action@v1
@@ -108,13 +115,7 @@ jobs:
           # Use node entrypoint (bun package-bin arg parsing is brittle here).
           # Sync native optional package manifests + server.json after version bump.
           # Clear executable bits on tracked dist/*.js so github-api commitMode accepts them.
-          version: |
-            node node_modules/@changesets/cli/bin.js version
-            bun run native:sync-manifests
-            bun run sync:server-json
-            if [ -d dist ]; then
-              find dist -type f \( -name '*.js' -o -name '*.mjs' \) -exec chmod a-x {} +
-            fi
+          version: bash scripts/release-version.sh
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
           createGithubReleases: true
