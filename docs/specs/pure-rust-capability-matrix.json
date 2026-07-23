@@ -31,12 +31,27 @@
     "darwinX64RuntimeProof": "package-published-host-unverified",
     "correctiveRelease": "3.2.2-serverinfo-and-channel-push",
     "githubRelease": "v3.2.2",
-    "mcpRegistryStatus": "stale-pre-3.2.2-publish-pending",
+    "mcpRegistryStatus": "3.2.2-latest-active",
     "cratesStatus": "not-admitted-product-channel",
     "npmIntegrity": "sha512-xcxeg4O/7lGQvI4s3vdT8iUOAGRYVqUIxV6LoDYfQ2GtLTVY4UjHULVvCCEzxEh4T6u2sHhJq3MHc1PFxqxJHg==",
     "npmSignaturesPresent": true,
     "npmProvenanceAttestationPresent": false,
-    "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json"
+    "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json",
+    "mcpRegistryReadback": {
+      "name": "io.github.SylphxAI/pdf-reader-mcp",
+      "latestVersion": "3.2.2",
+      "isLatest": true,
+      "status": "active",
+      "updatedAt": "2026-07-23T22:58:15.206376Z",
+      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30051674578",
+      "staleActiveVersionsStillListed": [
+        "3.0.15",
+        "3.0.16",
+        "3.0.17",
+        "3.0.18",
+        "3.1.0"
+      ]
+    }
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -353,11 +368,11 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Publish MCP Registry metadata for 3.2.2 and read back isLatest",
-      "Decide crates: retire as product channel or version-align and publish under admission",
+      "Optionally mark withdrawn MCP Registry versions 3.0.15-3.1.0 as deleted/deprecated if publisher supports it",
       "Prove Darwin x64 on real x86_64 host or keep permanently labeled host-unverified",
+      "Keep crates as non-product channel unless ADR admits version-aligned publish",
       "Record npm provenance policy (signatures present; attestations absent)",
-      "Only after above, consider goal-complete review"
+      "Only after remaining gaps, consider goal-complete review"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -432,8 +447,8 @@
       "soleRuntimeAuthorized": true,
       "goalCompleteAuthorized": false,
       "notes": [
-        "Published 3.2.2 packaging corrective authorized with npm+GitHub channel proof.",
-        "Goal complete blocked on MCP Registry sync, Darwin x64 host proof, crates decision, and provenance policy."
+        "Published 3.2.2 packaging corrective authorized with npm + GitHub + MCP Registry channel proof.",
+        "Goal complete still blocked on Darwin x64 host proof, crates decision (non-channel), provenance policy, and any remaining capability quality bar."
       ],
       "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json"
     },
@@ -447,7 +462,8 @@
     "multiChannelTruth": {
       "npmLatest": "3.2.2",
       "githubReleaseLatest": "v3.2.2",
-      "mcpRegistryLatestObserved": "stale",
+      "mcpRegistryLatestObserved": "3.2.2",
+      "mcpRegistryIsLatest": true,
       "cratesAdmitted": false
     }
   }
