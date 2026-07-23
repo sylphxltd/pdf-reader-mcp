@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.4
+
+### Patch Changes
+
+- Fix publish pipeline overwriting Ubuntu 22.04 linux-x64 native artifacts with the publish-job host `build:rust` binary (which reintroduced GLIBC_2.39). Restage matrix artifacts after host smoke and gate linux-x64 publish on GLIBC <= 2.35. TypeScript remains default; dropInFor3014=false.
+
+
 ## 3.1.3
 
 ### Patch Changes
