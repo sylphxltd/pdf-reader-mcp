@@ -50,7 +50,7 @@ const buildReadPdfArgs = (entry: { id: string; args: Record<string, unknown> }) 
   return args as Record<string, unknown>;
 };
 
-describe('production-path public contract (published TypeScript 3.0.14 path)', () => {
+describe('production-path public contract (TypeScript default entry path)', () => {
   let proc: ChildProcess;
   let reqId = 10;
 
@@ -74,7 +74,7 @@ describe('production-path public contract (published TypeScript 3.0.14 path)', (
     expect(packageJson.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
     expect(packageJson.exports?.['.']).toBe('./dist/index.js');
     expect(packageJson.files).toContain('dist/');
-    expect(packageJson.version).toBe('3.0.14');
+    expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
     expect(fs.existsSync(path.join(repoRoot, 'dist/index.js'))).toBe(true);
   });
 

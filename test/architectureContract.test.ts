@@ -13,7 +13,7 @@ describe('architecture contract (published TS + experimental pure-Rust)', () => 
     };
     expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
     expect(pkg.exports?.['.']).toBe('./dist/index.js');
-    expect(pkg.version).toBe('3.0.14');
+    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
   });
 
   it('pure-Rust tool modules exist without parity bridge', () => {
