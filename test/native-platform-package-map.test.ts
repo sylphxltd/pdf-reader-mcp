@@ -34,21 +34,32 @@ describe('native platform package map', () => {
     );
   });
 
-  test('package metadata stays freeze-blocked and private', async () => {
+  test('package metadata is publishable and binary-gated (Stage B)', async () => {
     const { readdirSync, readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
     const root = join(import.meta.dir, '..');
+    const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+      version: string;
+      optionalDependencies?: Record<string, string>;
+    };
     for (const platformId of Object.keys(NATIVE_PLATFORM_PACKAGES)) {
+      const meta = NATIVE_PLATFORM_PACKAGES[platformId as keyof typeof NATIVE_PLATFORM_PACKAGES];
       const pkg = JSON.parse(
         readFileSync(join(root, `packages/pdf-reader-mcp-${platformId}/package.json`), 'utf8')
-      ) as { private?: boolean; scripts?: { prepublishOnly?: string }; name?: string };
-      expect(pkg.private).toBe(true);
-      expect(pkg.name).toBe(
-        NATIVE_PLATFORM_PACKAGES[platformId as keyof typeof NATIVE_PLATFORM_PACKAGES].npmName
-      );
-      expect(pkg.private).toBe(true);
+      ) as {
+        private?: boolean;
+        name?: string;
+        version?: string;
+        pdfReaderMcpNativeBinary?: string;
+        scripts?: { prepublishOnly?: string };
+      };
+      expect(pkg.private).not.toBe(true);
+      expect(pkg.name).toBe(meta.npmName);
+      expect(pkg.version).toBe(rootPkg.version);
+      expect(pkg.pdfReaderMcpNativeBinary).toBe(`bin/${meta.binaryName}`);
+      expect(pkg.scripts?.prepublishOnly ?? '').toContain('REFUSE PUBLISH');
+      expect(rootPkg.optionalDependencies?.[meta.npmName]).toBe(rootPkg.version);
     }
-    // ensure map completeness matches package dirs
     const dirs = readdirSync(join(root, 'packages')).filter((name) =>
       name.startsWith('pdf-reader-mcp-')
     );

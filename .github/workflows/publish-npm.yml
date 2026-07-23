@@ -1,8 +1,7 @@
 name: Publish npm
 
-# Admission-gated one-shot publish. dropInFor3014 remains false until sole-runtime proof.
-
-# One-shot pure-Rust package publish for already-versioned package.json.
+# Admission-gated multi-platform native optional package + main package publish.
+# dropInFor3014 remains false until sole-runtime registry proof.
 # Uses secrets.NPM_TOKEN. Does not re-run the heavy changesets release matrix.
 on:
   workflow_dispatch:
@@ -12,36 +11,117 @@ on:
         required: true
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
-  publish:
-    name: Publish @sylphx/pdf-reader-mcp
-    runs-on: ubuntu-latest
+  build-native:
+    name: build-native (${{ matrix.platformId }})
     if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_USER_IMPACT' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platformId: linux-x64-gnu
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - platformId: linux-arm64-gnu
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - platformId: darwin-arm64
+            runner: macos-14
+            target: aarch64-apple-darwin
+          - platformId: darwin-x64
+            runner: macos-14
+            target: x86_64-apple-darwin
+          - platformId: win32-x64-msvc
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build release server for ${{ matrix.platformId }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+          if [[ "${{ matrix.platformId }}" == "win32-x64-msvc" ]]; then
+            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server.exe"
+            dest="bin/native/${{ matrix.platformId }}/pdf-reader-mcp-server.exe"
+          else
+            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server"
+            dest="bin/native/${{ matrix.platformId }}/pdf-reader-mcp-server"
+          fi
+          mkdir -p "$(dirname "$dest")"
+          cp "$src" "$dest"
+          if [[ "${{ matrix.platformId }}" != "win32-x64-msvc" ]]; then
+            chmod +x "$dest"
+          fi
+          ls -la "$dest"
+      - name: Upload staged native binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-reader-mcp-server-${{ matrix.platformId }}
+          path: bin/native/${{ matrix.platformId }}/**
+          if-no-files-found: error
+
+  publish:
+    name: Publish natives + main
+    needs: build-native
+    if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_USER_IMPACT' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.12'
+          bun-version: 1.3.14
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Enforce verified-candidate admission
         run: bun scripts/check-verified-candidate-admission.ts
 
-      - name: Set up Rust
+      - name: Download all native binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: native-artifacts
+          pattern: pdf-reader-mcp-server-*
+          merge-multiple: false
+
+      - name: Stage native binaries into packages
+        run: bun run native:stage-from-artifacts -- --artifact-root=native-artifacts
+
+      - name: Sync manifests and assert all platforms ready
+        run: |
+          bun run native:sync-manifests
+          bun run native:assert-ready -- --all
+
+      - name: Set up Rust (main package build)
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build and stage pure-Rust MCP binary
-        run: bun run build:rust
+      - name: Build package (TS + host rust staging)
+        run: |
+          bun run build
+          bun run build:rust
+          bun run package:smoke
 
-      - name: Production contract
-        run: bun run check:production-contract
-
-      - name: Package smoke
-        run: bun run package:smoke
-
-      - name: Publish to npm
+      - name: Publish natives then main
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -49,5 +129,13 @@ jobs:
           set -euo pipefail
           test -n "${NPM_TOKEN:-}"
           printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
-          npm publish --access public
-          npm view @sylphx/pdf-reader-mcp version
+          bun run release:publish-with-natives
+
+      - name: Registry readback (main + host optional)
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r .version package.json)"
+          npm view "@sylphx/pdf-reader-mcp@$VERSION" version
+          npm view "@sylphx/pdf-reader-mcp-linux-x64-gnu@$VERSION" version
+          bun run check:registry-install-proof -- --registry --version="$VERSION" || true
+          # Host-only registry proof in this job; full five-platform proof remains a dedicated matrix.

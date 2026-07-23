@@ -7,6 +7,8 @@ on:
       - 'packages/**'
       - 'scripts/native/**'
       - 'scripts/stage-rust-mcp.ts'
+      - 'scripts/release-publish-with-natives.ts'
+      - 'package.json'
       - 'scripts/smoke-native-launcher.ts'
       - 'scripts/smoke-native-package-resolve.ts'
       - 'bin/pdf-reader-mcp'
@@ -20,6 +22,8 @@ on:
       - 'packages/**'
       - 'scripts/native/**'
       - 'scripts/stage-rust-mcp.ts'
+      - 'scripts/release-publish-with-natives.ts'
+      - 'package.json'
       - 'scripts/smoke-native-launcher.ts'
       - 'scripts/smoke-native-package-resolve.ts'
       - 'bin/pdf-reader-mcp'
@@ -44,13 +48,15 @@ jobs:
         run: |
           matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-latest","target":"x86_64-unknown-linux-gnu"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu"},{"platformId":"darwin-arm64","runner":"macos-14","target":"aarch64-apple-darwin"},{"platformId":"darwin-x64","runner":"macos-14","target":"x86_64-apple-darwin"},{"platformId":"win32-x64-msvc","runner":"windows-latest","target":"x86_64-pc-windows-msvc"}]'
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-      - name: Verify package map and freeze posture
+      - name: Verify package map and Stage B publishable posture
         run: |
           bun test test/native-platform-package-map.test.ts
           test "$(jq -r '.productTruth.dropInFor3014' docs/specs/pure-rust-capability-matrix.json)" = "false"
-          # Native optional packages remain private until sole-runtime registry cutover.
+          bun run native:sync-manifests
+          bun run native:assert-ready -- --manifests-only --all
+          # Packages are publishable (not private) but still not sole-runtime defaults.
           for pkg in packages/pdf-reader-mcp-*/package.json; do
-            jq -e '.private == true' "$pkg" >/dev/null
+            jq -e '(.private != true) and (.pdfReaderMcpNativeBinary != null)' "$pkg" >/dev/null
           done
 
   build:
@@ -111,3 +117,4 @@ jobs:
           fi
           bun run smoke:native-launcher
           bun run smoke:native-package-resolve
+          bun run native:assert-ready

@@ -12537,6 +12537,7 @@ if (
 
 
 const nativeWorkflow = readFileSync(join(root, '.github/workflows/native-package-scaffold.yml'), 'utf8');
+const publishNpmWorkflow = readFileSync(join(root, '.github/workflows/publish-npm.yml'), 'utf8');
 const platformMap = readFileSync(join(root, 'src/native/platform-package-map.ts'), 'utf8');
 const packageDirs = [
   'packages/pdf-reader-mcp-darwin-arm64',
@@ -12553,18 +12554,42 @@ for (const platform of ['darwin-arm64', 'darwin-x64', 'linux-arm64-gnu', 'linux-
     failures.push(`native platform map must include ${platform}`);
   }
 }
+const rootPkgForNative = JSON.parse(packageJsonText) as {
+  version?: string;
+  optionalDependencies?: Record<string, string>;
+};
 for (const dir of packageDirs) {
   const manifest = JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')) as {
     private?: boolean;
+    name?: string;
+    version?: string;
+    pdfReaderMcpNativeBinary?: string;
     scripts?: { prepublishOnly?: string };
   };
-  if (manifest.private !== true) failures.push(`${dir} must remain private while publish freeze is enabled`);
-  if (!manifest.scripts?.prepublishOnly?.includes('PUBLISH FREEZE')) {
-    failures.push(`${dir} must fail closed on prepublish while freeze is enabled`);
+  if (manifest.private === true) {
+    failures.push(`${dir} must be publishable in Stage B (private:true no longer allowed)`);
+  }
+  if (!manifest.pdfReaderMcpNativeBinary) {
+    failures.push(`${dir} must declare pdfReaderMcpNativeBinary`);
+  }
+  if (!manifest.scripts?.prepublishOnly?.includes('REFUSE PUBLISH')) {
+    failures.push(`${dir} must refuse publish when native binary is missing/empty`);
+  }
+  if (manifest.version !== rootPkgForNative.version) {
+    failures.push(`${dir} version must match root package version`);
+  }
+  if (!manifest.name || rootPkgForNative.optionalDependencies?.[manifest.name] !== rootPkgForNative.version) {
+    failures.push(`root optionalDependencies must pin ${manifest.name}@${rootPkgForNative.version}`);
   }
 }
-if (!matrix.claimedForDifferential.some((entry: string) => entry.includes('five-platform npm native package scaffold'))) {
-  failures.push('capability matrix must claim the five-platform native package scaffold honestly');
+if (
+  !matrix.claimedForDifferential.some(
+    (entry: string) =>
+      entry.includes('Stage B native optional package publish pipeline') ||
+      entry.includes('five-platform npm native package scaffold')
+  )
+) {
+  failures.push('capability matrix must claim the five-platform native optional package pipeline honestly');
 }
 if (!existsSync(join(root, 'scripts/smoke-native-launcher.ts'))) {
   failures.push('native launcher smoke script must exist');
@@ -12572,17 +12597,47 @@ if (!existsSync(join(root, 'scripts/smoke-native-launcher.ts'))) {
 if (!existsSync(join(root, 'scripts/smoke-native-package-resolve.ts'))) {
   failures.push('native package resolve smoke script must exist');
 }
+if (!existsSync(join(root, 'scripts/native/sync-native-package-manifests.ts'))) {
+  failures.push('native manifest sync script must exist');
+}
+if (!existsSync(join(root, 'scripts/native/assert-native-packages-ready.ts'))) {
+  failures.push('native package assert-ready script must exist');
+}
+if (!existsSync(join(root, 'scripts/native/stage-native-artifacts.ts'))) {
+  failures.push('native artifact staging script must exist');
+}
+if (!existsSync(join(root, 'scripts/release-publish-with-natives.ts'))) {
+  failures.push('release-publish-with-natives script must exist');
+}
+if (!existsSync(join(root, 'scripts/check-registry-install-proof.ts'))) {
+  failures.push('registry install proof harness must exist');
+}
 if (!nativeWorkflow.includes('smoke:native-launcher') || !nativeWorkflow.includes('smoke:native-package-resolve')) {
   failures.push('native package scaffold workflow must run host launcher and package-resolve smokes');
 }
 if (nativeWorkflow.includes("if: matrix.platformId == 'linux-x64-gnu'")) {
   failures.push('native package scaffold workflow must not limit runtime smoke to linux-x64-gnu only');
 }
+if (!publishNpmWorkflow.includes('release:publish-with-natives') || !publishNpmWorkflow.includes('native:stage-from-artifacts')) {
+  failures.push('publish-npm workflow must stage and publish five-platform native packages under admission');
+}
 if (!packageJsonText.includes('smoke:native-launcher')) {
   failures.push('package.json must wire smoke:native-launcher');
 }
 if (!packageJsonText.includes('smoke:native-package-resolve')) {
   failures.push('package.json must wire smoke:native-package-resolve');
+}
+if (!packageJsonText.includes('native:sync-manifests') || !packageJsonText.includes('release:publish-with-natives')) {
+  failures.push('package.json must wire Stage B native sync/assert/publish scripts');
+}
+if (matrix.admissionProgram?.nativePackageProof?.registryInstall === true && matrix.productTruth.dropInFor3014 !== true) {
+  // allow registryInstall true only as evidence; sole-runtime still separate
+}
+if (matrix.admissionProgram?.nativePackageProof?.packagesPublishable !== true) {
+  failures.push('admissionProgram.nativePackageProof.packagesPublishable must be true in Stage B');
+}
+if (matrix.admissionProgram?.nativePackageProof?.optionalDependenciesWired !== true) {
+  failures.push('admissionProgram.nativePackageProof.optionalDependenciesWired must be true in Stage B');
 }
 
 

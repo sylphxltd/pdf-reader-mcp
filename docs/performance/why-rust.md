@@ -624,9 +624,9 @@ Pure-Rust tools/list intentionally exposes `search_pdf.prefer_speed` as a post-3
 
 A frozen two-case public-stdio `search_pdf` tesseract-tsv OCR subset is admitted over `v3014-visual-v1.pdf`: valid TSV level-5 words produce image-to-PDF `ocr_word` geometry on the search match, and malformed TSV soft-falls back to raw text without geometry. Leaf-mutation count is frozen at 34 with relocated fixture-root replay. `include_ocr_text_layer` remains `PARTIAL`; real tesseract binary health checks, selectable/OCR interleaving, URL single-fetch, and whole-product parity remain unclaimed. `dropInFor3014` stays false and publish freeze remains enabled.
 
-### Cross-platform native package scaffold (bounded)
+### Cross-platform native optional packages (Stage B)
 
-Optional native packages and a platform-scoped `bin/native/<platform>/` layout are scaffolded for `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. CI builds and uploads host binaries, but packages remain private and prepublish-blocked while `publishFreeze=true`. Default npm `latest` remains TypeScript 3.0.14; clean registry install/runtime verification and TS retirement remain unclaimed.
+Optional native packages and a platform-scoped `bin/native/<platform>/` layout cover `darwin-arm64`, `darwin-x64`, `linux-arm64-gnu`, `linux-x64-gnu`, and `win32-x64-msvc`. Packages are publishable with binary-gated `prepublishOnly`, declared from the main package via `optionalDependencies`, and built/published through the multi-platform publish workflow under verified-candidate admission. Default npm entry remains TypeScript until sole-runtime cutover; clean five-platform registry install/runtime verification and TS retirement remain unclaimed.
 
 Local pure-Rust launcher smoke (`bun run smoke:native-launcher`) verifies staged platform-path binary resolution and MCP initialize on the host. This is not registry install proof.
 
