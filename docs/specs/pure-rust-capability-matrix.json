@@ -195,7 +195,7 @@
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_form_fields form radio-broken-parent-chain residual: pdf.js radio broken parent-chain intermediate omits widgets without inheritable FT and names the intermediate via Parent-chain only (Opt, not Plan.Opt); root Plan stub remains; AP stream / AP/N stream / named AP/N variants all drop leaves when intermediate has no Parent to the radio root; Rust form extraction uses Parent-chain name construction and Parent-chain FT/V/Ff/DV inheritance; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation, relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; malformed-field breadth and whole-product parity remain unclaimed; include_form_fields remains PARTIAL",
     "pure-Rust analyze_regions HTTP and preset providers: MCP_PDF_REGION_ANALYSIS_HTTP_URL raw JSON body path, MCP_PDF_REGION_ANALYSIS_PRESET=ollama/openai-compatible/lmstudio/llamacpp with model/url env contracts, HTTP headers JSON, OpenAI bearer key injection, fail-closed invalid preset/url, local mock HTTP round-trip unit proof, provider/provenance labels external-http; command provider remains first; dropInFor3014=false and publishFreeze=true; arbitrary remote provider fidelity and whole-product parity remain unclaimed",
     "pure-Rust npm library export contract: package exports[\"./pure-rust\"] -> dist/pure-rust.js provides resolvePureRustServerBinary/createPureRustClient/readPdf/searchPdf/pdfEvidence over the staged pure-Rust MCP server binary; default exports[\".\"] and bin remain TypeScript dist/index.js; host binary resolution covers platform optional packages, staged bin/native, and target/release fallbacks; dropInFor3014=false and publishFreeze=true; npm registry install readback remains unclaimed",
-    "whole-product independent review package drafted under ADR-0005: docs/specs/whole-product-independent-review-package.md records exact-SHA review layers, local agent-task/OCR-visual evidence, native host smoke, pure-Rust library export contract, and remaining unfreeze blockers; dropInFor3014=false and publishFreeze=true until review + remaining gates close"
+    "whole-product independent review launched for candidate f1a162682dfe21a7b5b94e9f0028b61529183e39 with outcome review_pass_freeze_retained; local interface/semantic/task-eval/packaging evidence recorded in verification/pdf-reader-whole-product-independent-review-f1a1626.json; unfreeze and TS retirement remain unauthorized"
   ],
   "explicitlyNotClaimed": [
     "complete reviewed closure of all blocking_capability_gap nonclaims including OCR provider breadth and five-platform native package install/runtime proof",
@@ -327,9 +327,9 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Complete npm registry native package install/readback proof after unfreeze candidate is chosen",
+      "Complete npm registry native package install/readback proof after intentional unfreeze candidate decision",
       "Expand public URL agent-task corpus beyond local fixtures",
-      "Whole-product independent review of one exact candidate before unfreeze"
+      "Only after remaining blockers: set publishFreeze=false, retire TypeScript default, and prove registry install"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -360,6 +360,14 @@
       "defaultStillTypescript": true,
       "publishFreeze": true
     },
-    "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md"
+    "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
+    "wholeProductReview": {
+      "status": "review_pass_freeze_retained",
+      "candidateSha": "f1a162682dfe21a7b5b94e9f0028b61529183e39",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-f1a1626.json",
+      "package": "docs/specs/whole-product-independent-review-package.md",
+      "unfreezeAuthorized": false,
+      "tsRetirementAuthorized": false
+    }
   }
 }
