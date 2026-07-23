@@ -3,7 +3,7 @@
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
   "updated": "2026-07-23",
   "productTruth": {
-    "publishedStable": "@sylphx/pdf-reader-mcp@3.2.1",
+    "publishedStable": "@sylphx/pdf-reader-mcp@3.2.2",
     "publishedImplementation": "pure-Rust optional native default via dist/runtime-entry.js; fail-closed when native missing; TypeScript only via ./typescript or force flags",
     "pureRustStatus": "default-fail-closed",
     "optIn": "native optional package required for default entry; PDF_READER_FORCE_TYPESCRIPT=1 or PDF_READER_ENGINE_MODE=typescript or ./typescript for explicit TypeScript rollback",
@@ -29,7 +29,7 @@
       "win32-x64-msvc"
     ],
     "darwinX64RuntimeProof": "package-published-host-unverified",
-    "correctiveRelease": "3.2.1-fail-closed-after-3.2.0-silent-fallback"
+    "correctiveRelease": "3.2.2-serverinfo-description-after-3.2.1"
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",

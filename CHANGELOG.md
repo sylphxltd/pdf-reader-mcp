@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.2
+
+### Patch Changes
+
+- Fix pure-Rust `serverInfo.description` still advertising experimental / not-published-npm-latest after 3.2.1. Instructions were already corrected; description now matches the published pure-Rust fail-closed default.
+
 ## 3.2.1
 
 ### Patch Changes

@@ -10,7 +10,7 @@
 
 The most-starred PDF MCP server on GitHub.
 
-> **Published stable target: `@sylphx/pdf-reader-mcp@3.2.1`.**  
+> **Published stable target: `@sylphx/pdf-reader-mcp@3.2.2`.**  
 > Default entry uses the **pure-Rust** platform native binary via `dist/runtime-entry.js` and is **fail-closed** when the native package is missing.  
 > TypeScript is **explicit rollback only** (`./typescript`, force flags) — no automatic silent fallback.  
 > Versions `3.0.15`–`3.1.1` are **WITHDRAWN**. Admission bar is capability-first semantic compatibility (ADR-0005), not exact PDF.js JSON equality.
@@ -24,7 +24,7 @@ The most-starred PDF MCP server on GitHub.
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](#docker)
 
-**Local-first** · **3.2.1 pure-Rust fail-closed default** · **Explicit TypeScript rollback** · **Capability-first**
+**Local-first** · **3.2.2 pure-Rust fail-closed default** · **Explicit TypeScript rollback** · **Capability-first**
 
 [⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
 · [Quick start](#quick-start) · [See it work](#see-it-work) · [Roadmap](docs/roadmap/sota-family-roadmap.md) · [Why not plain text?](#why-not-a-plain-text-dump)
@@ -62,7 +62,7 @@ Full capability matrix: [comparison guide](docs/comparison/index.md).
 **Install once. Call once.**
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.2.1
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.2.2
 ```
 
 ```json
@@ -134,17 +134,17 @@ Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 
 ## Quick Start
 
-### Published stable (npm — pure-Rust fail-closed default 3.2.1)
+### Published stable (npm — pure-Rust fail-closed default 3.2.2)
 
-Install **3.2.1**. Default requires pure-Rust native optional packages (fail-closed if missing); TypeScript is explicit rollback only.
+Install **3.2.2**. Default requires pure-Rust native optional packages (fail-closed if missing); TypeScript is explicit rollback only.
 Requires **Node.js `>=22.13`**. The package runs `dist/runtime-entry.js` (pure-Rust fail-closed default; TypeScript only via explicit rollback).
 
 ```bash
 # Claude Code
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.2.1
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.2.2
 
 # Any MCP client (stdio)
-npx @sylphx/pdf-reader-mcp@3.2.1
+npx @sylphx/pdf-reader-mcp@3.2.2
 ```
 
 Claude Desktop (`claude_desktop_config.json`):
@@ -154,14 +154,14 @@ Claude Desktop (`claude_desktop_config.json`):
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp@3.2.1"]
+      "args": ["@sylphx/pdf-reader-mcp@3.2.2"]
     }
   }
 }
 ```
 
 > **Do not install 3.0.15–3.1.1** — withdrawn incomplete pure-Rust cutover
-> (deprecated on npm). Registry `latest` target is **3.2.1** (corrective over 3.2.0 silent TypeScript fallback).
+> (deprecated on npm). Registry `latest` target is **3.2.2** (corrective over 3.2.0 silent fallback; 3.2.2 fixes serverInfo description).
 
 ### Pure-Rust library export + explicit TypeScript rollback
 
@@ -183,7 +183,7 @@ const result = await client.readPdf({
 Force explicit TypeScript rollback:
 
 ```bash
-PDF_READER_FORCE_TYPESCRIPT=1 npx @sylphx/pdf-reader-mcp@3.2.1
+PDF_READER_FORCE_TYPESCRIPT=1 npx @sylphx/pdf-reader-mcp@3.2.2
 ```
 
 Local source development:
@@ -220,7 +220,7 @@ Pure-Rust is a **work in progress**, not the published product.
 | Evidence OCR / analyze | Partial: bounded opt-in command adapters; OCR TSV and analyze HTTP/presets are not yet available |
 | `read_pdf` OCR fusion | Partial: command-provider OCR layer plus boxed-word table projection into elements/chunks/Markdown/HTML/AST/map; TSV, mixed-table continuation, and broad Twin parity remain open |
 | Cross-platform npm binary | **Not yet** |
-| Drop-in for 3.0.14 | **Yes (capability-first pure-Rust fail-closed default 3.2.1)** |
+| Drop-in for 3.0.14 | **Yes (capability-first pure-Rust fail-closed default 3.2.2)** |
 
 See [docs/performance/why-rust.md](docs/performance/why-rust.md). Speedups are exploratory only.
 
