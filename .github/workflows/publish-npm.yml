@@ -23,10 +23,10 @@ jobs:
       matrix:
         include:
           - platformId: linux-x64-gnu
-            runner: ubuntu-latest
+            runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
           - platformId: linux-arm64-gnu
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
           - platformId: darwin-arm64
             runner: macos-14

@@ -1,0 +1,69 @@
+name: Registry install proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published npm version to prove (e.g. 3.1.2)'
+        required: true
+        default: '3.1.2'
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":"macos-14"},{"platformId":"darwin-x64","runner":"macos-14"},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  proof:
+    needs: map
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.map.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install repo tooling deps
+        run: bun install --frozen-lockfile
+
+      - name: Registry install + pure-Rust initialize proof (${{ matrix.platformId }})
+        shell: bash
+        env:
+          PROOF_VERSION: ${{ inputs.version || github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION="${PROOF_VERSION}"
+          test -n "$VERSION"
+          echo "Proving @sylphx/pdf-reader-mcp@$VERSION on ${{ matrix.platformId }} / $(uname -s)-$(uname -m)"
+          # darwin-x64 job runs on arm64 runners; still install and prove host native package.
+          # The host triple decides which optional package npm installs.
+          bun scripts/check-registry-install-proof.ts --registry --version="$VERSION"
+
+  pass:
+    needs: proof
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "five-platform registry install/runtime proof matrix completed"

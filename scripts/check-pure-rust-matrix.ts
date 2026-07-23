@@ -12600,6 +12600,7 @@ if (
   !matrix.claimedForDifferential.some(
     (entry: string) =>
       entry.includes('Stage B native optional package publish pipeline') ||
+      entry.includes('Stage B registry-published pure-Rust optional packages') ||
       entry.includes('five-platform npm native package scaffold')
   )
 ) {
@@ -12625,6 +12626,9 @@ if (!existsSync(join(root, 'scripts/release-publish-with-natives.ts'))) {
 }
 if (!existsSync(join(root, 'scripts/check-registry-install-proof.ts'))) {
   failures.push('registry install proof harness must exist');
+}
+if (!existsSync(join(root, '.github/workflows/registry-install-proof.yml'))) {
+  failures.push('registry-install-proof workflow must exist for five-platform registry runtime proof');
 }
 if (!nativeWorkflow.includes('smoke:native-launcher') || !nativeWorkflow.includes('smoke:native-package-resolve')) {
   failures.push('native package scaffold workflow must run host launcher and package-resolve smokes');

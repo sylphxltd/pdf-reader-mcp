@@ -80,3 +80,10 @@ Withdrawn range `3.0.15`–`3.1.1` must not be used. Sole-runtime cutover still
 requires five-platform registry pure-Rust initialize proof before
 `dropInFor3014=true`.
 
+## Published progress package (3.1.3)
+
+Linux optional natives are built on Ubuntu 22.04/22.04-arm for broader glibc
+compatibility. Registry install + pure-Rust initialize proof runs via
+`scripts/check-registry-install-proof.ts` and
+`.github/workflows/registry-install-proof.yml`. Default entry remains
+TypeScript until sole-runtime cutover.

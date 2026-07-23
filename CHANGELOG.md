@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.3
+
+### Patch Changes
+
+- Rebuild Linux optional native packages on Ubuntu 22.04 so pure-Rust binaries do not require GLIBC_2.39. Keep TypeScript as default entry and dropInFor3014=false. Add five-platform registry install + pure-Rust initialize proof workflow.
+
+
 ## 3.1.2
 
 ### Patch Changes

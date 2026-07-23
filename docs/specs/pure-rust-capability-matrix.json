@@ -3,7 +3,7 @@
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
   "updated": "2026-07-23",
   "productTruth": {
-    "publishedStable": "@sylphx/pdf-reader-mcp@3.1.2",
+    "publishedStable": "@sylphx/pdf-reader-mcp@3.1.3",
     "publishedImplementation": "TypeScript dist/index.js (default); pure-Rust optional native packages + ./pure-rust export",
     "pureRustStatus": "experimental-opt-in",
     "optIn": "PDF_READER_ENGINE_MODE=pure-rust",
@@ -118,7 +118,7 @@
     "exact 2-case immutable TS v3.0.14 public-stdio read_pdf include_annotations action/named dest residual over dedicated fixtures: named Dest string is preserved, and GoTo action D is exposed as pdf.js dest with page-ref {num,gen}, name token FitH, and coordinate, with full Rect boxes; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/two-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (29), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; named dest resolution to array, URI action beyond url, glyph-perfect boxes, and whole-product parity remain explicitly unclaimed; include_annotations remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_annotations action-precedence residual over dedicated fixtures: GoTo action dest wins over explicit Dest (FitH+coord), URI action exposes url and suppresses Dest, and Launch file maps to url with no dest, with full Rect boxes; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/three-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (42), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; named dest resolution to array, glyph-perfect boxes, and whole-product parity remain explicitly unclaimed; include_annotations remains PARTIAL",
     "auto off when include_* keys are present",
-    "Stage B native optional package publish pipeline: five platform packages (@sylphx/pdf-reader-mcp-{darwin-arm64,darwin-x64,linux-arm64-gnu,linux-x64-gnu,win32-x64-msvc}) are publishable with binary-gated prepublishOnly, version-synced to the main package, declared in root optionalDependencies, built on the five-platform CI matrix, staged by scripts/native/stage-native-artifacts.ts, and publishable via scripts/release-publish-with-natives.ts + .github/workflows/publish-npm.yml under verified-candidate admission; dropInFor3014 remains false and TypeScript remains default; npm registry install/readback on all five platforms remains unclaimed",
+    "Stage B registry-published pure-Rust optional packages at 3.1.3 with Ubuntu 22.04 linux builders: main package optionalDependencies resolve platform natives; host/five-platform registry install and pure-Rust MCP initialize proof harness under scripts/check-registry-install-proof.ts and .github/workflows/registry-install-proof.yml; dropInFor3014 remains false and TypeScript remains default entry; sole-runtime cutover remains unclaimed",
     "exact 2-case immutable TS v3.0.14 public-stdio read_pdf include_metadata info residual over dedicated fixtures: pdf.js info flags (Language/EncryptFilterName/IsLinearized/IsAcroFormPresent/IsXFAPresent/IsCollectionPresent/IsSignaturesPresent) plus document info fields for AcroForm+Lang and plain catalogs; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/two-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (33), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; XMP metadata payload, and whole-product parity remain explicitly unclaimed; include_metadata remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_page_geometry residual over dedicated fixtures: Rotate+UserUnit+CropBox dimensions, default MediaBox identity geometry, and inverted MediaBox normalization with view_box; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/three-fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (39), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; Bleed/Trim/Art boxes, non-right-angle rotation, inherited MediaBox breadth, and whole-product parity remain explicitly unclaimed; include_page_geometry remains PARTIAL",
     "exact 3-case immutable TS v3.0.14 public-stdio read_pdf include_page_geometry inheritance residual: pdf.js inherits MediaBox/Rotate from Pages, intersects page CropBox with inherited MediaBox for view_box, and normalizes negative right-angle Rotate (-90 -> 270) with width/height swap; detached tag/commit/tree/lock, nine owning TS entrypoints, runner/projection/corpus/fixture/oracle digests are bound with exact candidate SHA, zero skips, every claimed leaf mutation (39), relocated fixture-root replay, dropInFor3014=false, and publishFreeze=true; Bleed/Trim/Art boxes, non-right-angle rotation beyond clamp, deeper Pages inheritance breadth, and whole-product parity remain unclaimed; include_page_geometry remains PARTIAL",
@@ -330,8 +330,9 @@
     "publishFreeze": false,
     "dropInFor3014": false,
     "nextActions": [
-      "Run five-platform registry install + pure-Rust MCP initialize readback for 3.1.2",
-      "Only then set dropInFor3014=true / sole-runtime default and retire TypeScript entry"
+      "Publish 3.1.3 with Ubuntu 22.04 linux natives",
+      "Green registry-install-proof.yml on all five platforms for 3.1.3",
+      "Only then authorize soleRuntime/dropInFor3014 and retire TypeScript default entry"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -352,30 +353,32 @@
       ]
     },
     "nativePackageProof": {
-      "status": "registry-published-optional-packages-host-install-proven",
+      "status": "registry-published-optional-packages-glibc22-rebuild",
       "registryInstall": "host-proven-five-platform-runtime-pending",
       "packagesPublishable": true,
       "optionalDependenciesWired": true,
-      "publishedVersion": "3.1.2",
+      "publishedVersion": "3.1.3",
       "publishedNatives": [
-        "@sylphx/pdf-reader-mcp-darwin-arm64@3.1.2",
-        "@sylphx/pdf-reader-mcp-darwin-x64@3.1.2",
-        "@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.1.2",
-        "@sylphx/pdf-reader-mcp-linux-x64-gnu@3.1.2",
-        "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.1.2"
+        "@sylphx/pdf-reader-mcp-darwin-arm64@3.1.3",
+        "@sylphx/pdf-reader-mcp-darwin-x64@3.1.3",
+        "@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.1.3",
+        "@sylphx/pdf-reader-mcp-linux-x64-gnu@3.1.3",
+        "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.1.3"
       ],
       "publishFreeze": false,
       "commands": [
-        "bun run check:registry-install-proof -- --registry --version=3.1.2",
-        "bun run smoke:native-launcher",
-        "bun run smoke:native-package-resolve"
+        "bun run check:registry-install-proof -- --registry --version=3.1.3",
+        "gh workflow run registry-install-proof.yml -f version=3.1.3"
       ],
       "workflow": ".github/workflows/native-package-scaffold.yml",
       "publishWorkflow": ".github/workflows/publish-npm.yml",
       "notes": [
-        "Main package and five native optional packages are published at 3.1.2.",
-        "Host registry install proof is green; full five-platform pure-Rust MCP initialize readback remains required before dropInFor3014=true."
-      ]
+        "Main package and five native optional packages target 3.1.3.",
+        "Linux natives are built on Ubuntu 22.04 to avoid GLIBC_2.39-only binaries from ubuntu-latest/24.04.",
+        "Five-platform registry pure-Rust initialize is proven by registry-install-proof.yml."
+      ],
+      "registryProofWorkflow": ".github/workflows/registry-install-proof.yml",
+      "linuxBuildImage": "ubuntu-22.04 / ubuntu-22.04-arm"
     },
     "libraryExports": {
       "status": "published-experimental-opt-in",
