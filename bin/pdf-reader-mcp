@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Optional entry for local pure-Rust experiments.
-# Published npm bin is dist/index.js (TypeScript 3.0.14 path).
-# Pure-Rust is opt-in only: PDF_READER_ENGINE_MODE=pure-rust
+# Optional local launcher helper.
+# Published npm bin is dist/runtime-entry.js (pure-Rust fail-closed default).
+# This script still defaults to TypeScript unless PDF_READER_ENGINE_MODE=pure-rust.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

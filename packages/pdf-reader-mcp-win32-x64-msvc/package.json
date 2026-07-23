@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp-win32-x64-msvc",
-  "version": "3.2.0",
-  "description": "Optional pure-Rust MCP server binary for win32-x64-msvc. Installed as an optionalDependency of @sylphx/pdf-reader-mcp; default package entry remains TypeScript until sole-runtime cutover.",
+  "version": "3.2.1",
+  "description": "Optional pure-Rust MCP server binary for win32-x64-msvc. Installed as an optionalDependency of @sylphx/pdf-reader-mcp; consumed by @sylphx/pdf-reader-mcp default runtime-entry (fail-closed when missing).",
   "license": "MIT",
   "os": [
     "win32"

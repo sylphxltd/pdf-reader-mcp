@@ -4,8 +4,8 @@ import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
-describe('architecture contract (published TS + experimental pure-Rust)', () => {
-  it('published package points at TypeScript dist/index.js', () => {
+describe('architecture contract (pure-Rust default + explicit TS rollback)', () => {
+  it('published package points at pure-Rust runtime-entry', () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
       exports?: Record<string, string>;

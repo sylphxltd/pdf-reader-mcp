@@ -23,13 +23,12 @@ use crate::schema::{PdfEvidenceArgs, PdfEvidenceOperation, ReadPdfArgs, SearchPd
 use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
-/// Experimental pure-Rust engine version — not the published npm product line.
-pub const SERVER_VERSION: &str = "3.2.0";
+/// Pure-Rust MCP server version — tracks the published npm product line when default.
+pub const SERVER_VERSION: &str = "3.2.1";
 pub const SERVER_INSTRUCTIONS: &str =
-    "Experimental pure-Rust PDF MCP engine (not the published npm latest). \
-Supported depth: selectable-text read_pdf, search_pdf, and focused pdf_evidence operations. \
-Bounded Hayro render/crop and opt-in command-provider OCR/region analysis are available. \
-For production drop-in use @sylphx/pdf-reader-mcp@3.0.14 (TypeScript).";
+    "@sylphx/pdf-reader-mcp pure-Rust MCP server (npm default via platform native package). \
+Capability-first semantic compatibility with TypeScript 3.0.14 interface contracts (ADR-0005). \
+Explicit TypeScript rollback: @sylphx/pdf-reader-mcp/typescript or PDF_READER_FORCE_TYPESCRIPT=1.";
 
 fn omit_absent_optional_fields(value: Value) -> Value {
     match value {
@@ -73,7 +72,7 @@ impl Default for PdfReaderMcp {
 #[tool_router]
 impl PdfReaderMcp {
     #[tool(
-        description = "Primary PDF reader. Pure-Rust experimental: selectable text, markdown, chunks, and best-effort twin fields. Not full 3.0.14 geometry/evidence parity."
+        description = "Primary PDF reader. Pure-Rust default: selectable text, markdown, chunks, tables, search, and evidence-oriented twin fields under capability-first semantic compatibility (ADR-0005)."
     )]
     pub async fn read_pdf(
         &self,

@@ -64,7 +64,7 @@ if (false) {}
 
 // src/pure-rust.ts
 var PURE_RUST_EXPORT = {
-  status: "default-with-typescript-fallback",
+  status: "default-fail-closed-explicit-typescript-rollback",
   dropInFor3014: true,
   publishFreeze: false,
   engineMode: "pure-rust",

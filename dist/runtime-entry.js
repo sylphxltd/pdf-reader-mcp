@@ -90,8 +90,33 @@ var resolveNativeBinary = () => {
   return null;
 };
 var forceTs = process.env["PDF_READER_ENGINE_MODE"] === "typescript" || process.env["PDF_READER_ENGINE_MODE"] === "ts" || process.env["PDF_READER_FORCE_TYPESCRIPT"] === "1";
-var nativeBinary = forceTs ? null : resolveNativeBinary();
-if (nativeBinary) {
+var loadTypeScriptRuntime = async () => {
+  const tsEntry = join(here, "index.js");
+  if (!existsSync(tsEntry)) {
+    console.error("[pdf-reader-mcp] TypeScript runtime requested, but dist/index.js is not available");
+    process.exit(1);
+  }
+  await import(pathToFileURL(tsEntry).href);
+};
+if (forceTs) {
+  await loadTypeScriptRuntime();
+} else {
+  const nativeBinary = resolveNativeBinary();
+  if (!nativeBinary) {
+    const platformId = resolveNativePlatformId();
+    const platformLabel = platformId ?? `${process.platform}/${process.arch}`;
+    console.error([
+      `[pdf-reader-mcp] pure-Rust native binary not found for ${platformLabel}.`,
+      "Default entry is fail-closed (no automatic TypeScript fallback).",
+      "Install the matching optional native package, or use an explicit TypeScript rollback:",
+      "  - node node_modules/@sylphx/pdf-reader-mcp/dist/index.js",
+      '  - import/require "@sylphx/pdf-reader-mcp/typescript"',
+      "  - PDF_READER_FORCE_TYPESCRIPT=1",
+      "  - PDF_READER_ENGINE_MODE=typescript"
+    ].join(`
+`));
+    process.exit(1);
+  }
   const child = spawn(nativeBinary, process.argv.slice(2), {
     stdio: "inherit",
     env: {
@@ -107,11 +132,4 @@ if (nativeBinary) {
     }
     process.exit(code ?? 1);
   });
-} else {
-  const tsEntry = join(here, "index.js");
-  if (!existsSync(tsEntry)) {
-    console.error("[pdf-reader-mcp] neither pure-Rust native binary nor TypeScript dist/index.js is available");
-    process.exit(1);
-  }
-  await import(pathToFileURL(tsEntry).href);
 }
