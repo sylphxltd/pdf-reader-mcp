@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp-linux-x64-gnu",
-  "version": "3.0.14",
+  "version": "3.0.15",
   "description": "Optional pure-Rust MCP server binary for linux-x64-gnu. Installed as an optionalDependency of @sylphx/pdf-reader-mcp; default package entry remains TypeScript until sole-runtime cutover.",
   "license": "MIT",
   "os": [

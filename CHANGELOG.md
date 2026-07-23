@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.15
+
+### Patch Changes
+
+- [#554](https://github.com/SylphxAI/pdf-reader-mcp/pull/554) [`3391f59`](https://github.com/SylphxAI/pdf-reader-mcp/commit/3391f59b1635eb76688f5001d32698bb08accfcb) Thanks [@shtse8](https://github.com/shtse8)! - Prepare five-platform pure-Rust optional native packages for admission-gated publish while keeping TypeScript as the default entry. Wire optionalDependencies, binary-gated prepublish, multi-platform publish pipeline, and registry install proof harness. dropInFor3014 remains false.
+
 ## Recovery (2026-07-17, source only — no registry publish)
 
 - Restore published product path on main to TypeScript **3.0.14** surface
@@ -37,7 +43,6 @@
 
 - Withdrawn pure-Rust cutover. Incomplete capability surface vs 3.0.14.
 
-
 ## 3.1.1
 
 ### Patch Changes
@@ -50,7 +55,7 @@
     OCR/visual provider placeholders with warnings
   - New capability-parity production contract
     (`test/production/capabilityParity.contract.test.ts`) fails if any public
-    include_* field disappears
+    include\_\* field disappears
   - Pure-Rust benchmark harness (`bun run benchmark:pure-rust`) + industry write-up
     (`docs/performance/why-rust.md`)
   - crates.io packaging for `pdf-reader-core`, `pdf-reader-mcp-server`,
