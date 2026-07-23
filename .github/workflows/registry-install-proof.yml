@@ -46,8 +46,8 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install repo tooling deps
-        run: bun install --frozen-lockfile
+      # The proof script only needs Bun + Node + local TS sources (no package install).
+      # Avoid bun install --frozen-lockfile here: optionalDependencies churn breaks the lockfile gate.
 
       - name: Registry install + pure-Rust initialize proof (${{ matrix.platformId }})
         shell: bash
