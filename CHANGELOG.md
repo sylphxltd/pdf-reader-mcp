@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.3
+
+### Patch Changes
+
+- [#572](https://github.com/SylphxAI/pdf-reader-mcp/pull/572) [`af1516b`](https://github.com/SylphxAI/pdf-reader-mcp/commit/af1516b259c909d561148ba2a58ee59f5beebff2) Thanks [@shtse8](https://github.com/shtse8)! - Corrective fail-closed pure-Rust default: remove automatic TypeScript fallback from `dist/runtime-entry.js`, fix Rust serverInfo/instructions, harden verified-candidate admission, and rebaseline nonclaim unfreeze blockers under ADR-0005.
+
+- [`8d14bce`](https://github.com/SylphxAI/pdf-reader-mcp/commit/8d14bce5f905d756e6b70355abd0763d3ce7f41d) Thanks [@shtse8](https://github.com/shtse8)! - Fix pure-Rust serverInfo.description still advertising experimental/not-published-npm-latest after the 3.2.1 fail-closed corrective.
+
 ## 3.2.2
 
 ### Patch Changes
@@ -18,13 +26,11 @@
 
 - Sole-runtime default: package bin/export prefer pure-Rust optional native MCP server via `dist/runtime-entry.js`, with TypeScript fallback (`./typescript`, force flags). Authorized after five-platform registry install + pure-Rust initialize proof for 3.1.4. Capability-first admission (ADR-0005); not exhaustive PDF.js output parity.
 
-
 ## 3.1.4
 
 ### Patch Changes
 
 - Fix publish pipeline overwriting Ubuntu 22.04 linux-x64 native artifacts with the publish-job host `build:rust` binary (which reintroduced GLIBC_2.39). Restage matrix artifacts after host smoke and gate linux-x64 publish on GLIBC <= 2.35. TypeScript remains default; dropInFor3014=false.
-
 
 ## 3.1.3
 
@@ -32,13 +38,11 @@
 
 - Rebuild Linux optional native packages on Ubuntu 22.04 so pure-Rust binaries do not require GLIBC_2.39. Keep TypeScript as default entry and dropInFor3014=false. Add five-platform registry install + pure-Rust initialize proof workflow.
 
-
 ## 3.1.2
 
 ### Patch Changes
 
 - Stage B progress release after withdrawn 3.0.15–3.1.1 range: five-platform pure-Rust optional native packages with binary-gated publish, optionalDependencies wiring, and admission-gated multi-platform publish pipeline. TypeScript remains the default entry (`dropInFor3014=false`). Do not use withdrawn 3.0.15–3.1.1.
-
 
 ## 3.0.15
 
