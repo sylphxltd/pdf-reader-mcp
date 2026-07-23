@@ -20,6 +20,13 @@
         "typescript": "^7.0.2",
         "vitepress": "^1.6.4",
       },
+      "optionalDependencies": {
+        "@sylphx/pdf-reader-mcp-darwin-arm64": "3.1.4",
+        "@sylphx/pdf-reader-mcp-darwin-x64": "3.1.4",
+        "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "3.1.4",
+        "@sylphx/pdf-reader-mcp-linux-x64-gnu": "3.1.4",
+        "@sylphx/pdf-reader-mcp-win32-x64-msvc": "3.1.4",
+      },
     },
   },
   "overrides": {
@@ -415,6 +422,16 @@
     "@shikijs/types": ["@shikijs/types@2.5.0", "", { "dependencies": { "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.4" } }, "sha512-ygl5yhxki9ZLNuNpPitBWvcy9fsSKKaRuO4BAlMyagszQidxcpLAr0qiW/q43DtSIDxO6hEbtYLiFZNXO/hdGw=="],
 
     "@shikijs/vscode-textmate": ["@shikijs/vscode-textmate@10.0.2", "", {}, "sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg=="],
+
+    "@sylphx/pdf-reader-mcp-darwin-arm64": ["@sylphx/pdf-reader-mcp-darwin-arm64@3.1.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-B+S3BQSuV8Ef7O34cS4cxka78M6wR8prWEsfCCi51pD6XKMxVoDoDMac5QO7djOg8VTddH8L9On94UmAZoXpTw=="],
+
+    "@sylphx/pdf-reader-mcp-darwin-x64": ["@sylphx/pdf-reader-mcp-darwin-x64@3.1.4", "", { "os": "darwin", "cpu": "x64" }, "sha512-D923uwc/mNPtds5fGzSE9WGNq1bfW1PZF7W+7QPpS9T/tmaJGoFoYm7xxXRdrNZK+YnItm9exEwnoWG2WlMxqQ=="],
+
+    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": ["@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.1.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-+kJpkvBhSxBoZjWU++iYc42tEONtE5eD1WGfv+8Boo6vqyZij7Q3WCBcAkbQR145lWn2yux2K2oSdMg2K+WXeQ=="],
+
+    "@sylphx/pdf-reader-mcp-linux-x64-gnu": ["@sylphx/pdf-reader-mcp-linux-x64-gnu@3.1.4", "", { "os": "linux", "cpu": "x64" }, "sha512-QdGWBuj3foWVjG4XxXHVcSRi4j1OlB+jv8g23QTkdBh9nddTfqlXvUJPdwpx9j1Mbt64wl7u2IAUzNkrmvmT+g=="],
+
+    "@sylphx/pdf-reader-mcp-win32-x64-msvc": ["@sylphx/pdf-reader-mcp-win32-x64-msvc@3.1.4", "", { "os": "win32", "cpu": "x64" }, "sha512-oKYX/ZTGH7JKOsyRAl4OEiDfQ6olKhzNfWtRoz/s/6QL/GyWQxWOpbHwqEBkqvPNqWe1aXtyTz5dsGhCazO0vg=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 
