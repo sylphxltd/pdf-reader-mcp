@@ -282,12 +282,19 @@ try {
   if (mainPkg.version !== versionArg) {
     fail(`installed version ${mainPkg.version} != requested ${versionArg}`);
   }
-  if (mainPkg.bin?.['pdf-reader-mcp'] !== 'dist/index.js' && mainPkg.bin?.['pdf-reader-mcp'] !== './dist/index.js') {
-    // tolerate either form; still must be TypeScript default entry
-    const bin = mainPkg.bin?.['pdf-reader-mcp'] ?? '';
-    if (!bin.includes('dist/index.js')) {
-      fail(`default bin must remain TypeScript dist/index.js; got ${bin}`);
+  const bin = mainPkg.bin?.['pdf-reader-mcp'] ?? '';
+  const soleRuntime =
+    bin.includes('runtime-entry.js') ||
+    String(mainPkg.exports?.['.'] ?? '').includes('runtime-entry.js');
+  if (soleRuntime) {
+    if (!bin.includes('runtime-entry.js')) {
+      fail(`sole-runtime default bin must be runtime-entry.js; got ${bin}`);
     }
+    if (!(mainPkg.exports?.['./typescript'] ?? '').includes('index.js')) {
+      fail('sole-runtime package must keep ./typescript TypeScript fallback export');
+    }
+  } else if (!bin.includes('dist/index.js')) {
+    fail(`default bin must be TypeScript dist/index.js or sole-runtime runtime-entry.js; got ${bin}`);
   }
   if (!(mainPkg.exports?.['./pure-rust'] ?? '').includes('pure-rust')) {
     fail('published package must expose ./pure-rust export');
