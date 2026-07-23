@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp-linux-arm64-gnu",
-  "version": "0.0.0-packaging-scaffold",
-  "description": "Optional native pdf-reader-mcp binary for linux-arm64-gnu. Not published while publishFreeze=true.",
+  "version": "3.0.14",
+  "description": "Optional pure-Rust MCP server binary for linux-arm64-gnu. Installed as an optionalDependency of @sylphx/pdf-reader-mcp; default package entry remains TypeScript until sole-runtime cutover.",
   "license": "MIT",
   "os": [
     "linux"
@@ -17,10 +17,19 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": true,
   "scripts": {
-    "prepublishOnly": "node -e \"console.error('PUBLISH FREEZE: native packages are scaffold-only until whole-product parity and unfreeze'); process.exit(1)\""
+    "prepublishOnly": "node -e \"const fs=require('fs');const p=require('./package.json');const bin=p.pdfReaderMcpNativeBinary;if(!bin||!fs.existsSync(bin)||fs.statSync(bin).size<1024){console.error('REFUSE PUBLISH: native binary missing or empty at',bin);process.exit(1)}console.log('native binary present:',bin,'bytes',fs.statSync(bin).size);\""
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SylphxAI/pdf-reader-mcp.git",
+    "directory": "packages/pdf-reader-mcp-linux-arm64-gnu"
+  },
+  "homepage": "https://github.com/SylphxAI/pdf-reader-mcp#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "pdfReaderMcpNativeBinary": "bin/pdf-reader-mcp-server",
   "libc": [
     "glibc"
   ]

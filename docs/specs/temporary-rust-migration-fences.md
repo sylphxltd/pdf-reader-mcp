@@ -54,3 +54,21 @@ authorizes registry publish of pure-Rust progress packages.
 The replacement proof is the executable package smoke, integration, contract,
 semantic, task-eval, differential, and registry-install suites. Do not replace
 these fences with new source-token checks after cutover.
+
+## Native optional packages (Stage B)
+
+Five platform packages under `packages/pdf-reader-mcp-*` are publishable optional
+dependencies of the main package:
+
+- manifests are version-synced by `bun run native:sync-manifests`
+- `prepublishOnly` refuses missing/empty binaries
+- multi-platform build + publish: `.github/workflows/publish-npm.yml`
+- local readiness: `bun run native:assert-ready`
+- registry proof: `bun run check:registry-install-proof -- --registry --version=<ver>`
+
+Until registry install/readback is green on all five platforms:
+
+- `productTruth.dropInFor3014` remains `false`
+- TypeScript remains the default package entry
+- pure-Rust remains opt-in
+
