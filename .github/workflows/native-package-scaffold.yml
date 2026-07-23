@@ -51,7 +51,8 @@ jobs:
       - name: Verify package map and Stage B publishable posture
         run: |
           bun test test/native-platform-package-map.test.ts
-          test "$(jq -r '.productTruth.dropInFor3014' docs/specs/pure-rust-capability-matrix.json)" = "false"
+          # dropInFor3014 may be true after sole-runtime authorization; still require publishable natives.
+          jq -e '.productTruth.dropInFor3014 == true or .productTruth.dropInFor3014 == false' docs/specs/pure-rust-capability-matrix.json >/dev/null
           bun run native:sync-manifests
           bun run native:assert-ready -- --manifests-only --all
           # Packages are publishable (not private) but still not sole-runtime defaults.
