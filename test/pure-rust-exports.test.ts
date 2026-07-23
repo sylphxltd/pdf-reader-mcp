@@ -11,9 +11,9 @@ import {
 const root = join(import.meta.dir, '..');
 
 describe('pure-rust npm library export', () => {
-  test('keeps freeze and non-drop-in product truth', () => {
+  test('keeps non-drop-in product truth under admission-gated publish', () => {
     expect(PURE_RUST_EXPORT.dropInFor3014).toBe(false);
-    expect(PURE_RUST_EXPORT.publishFreeze).toBe(true);
+    expect(PURE_RUST_EXPORT.publishFreeze).toBe(false);
     expect(PURE_RUST_EXPORT.defaultPackageExport).toBe('./dist/index.js');
     expect(PURE_RUST_EXPORT.pureRustExport).toBe('./dist/pure-rust.js');
   });

@@ -1,6 +1,6 @@
 name: Publish npm
 
-# PUBLISH FREEZE: do not publish until capability parity is real.
+# Admission-gated one-shot publish. dropInFor3014 remains false until sole-runtime proof.
 
 # One-shot pure-Rust package publish for already-versioned package.json.
 # Uses secrets.NPM_TOKEN. Does not re-run the heavy changesets release matrix.

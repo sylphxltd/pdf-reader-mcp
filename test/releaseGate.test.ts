@@ -30,17 +30,24 @@ describe('pdf reader SOTA release gate golden probes', () => {
     { timeout: 30_000 }
   );
 
-  it('hard-fails the release workflow before changesets can publish', () => {
+  it('enforces verified-candidate admission before changesets can publish', () => {
     const workflow = readFileSync(
       path.join(import.meta.dirname, '..', '.github/workflows/release.yml'),
       'utf8'
     );
-    const freeze = workflow.indexOf('- name: Enforce Rust replacement publish freeze');
+    const admission = workflow.indexOf(
+      '- name: Enforce verified-candidate admission (replaces hard publish freeze)'
+    );
     const changesets = workflow.indexOf('uses: changesets/action@v1');
 
-    expect(freeze).toBeGreaterThan(-1);
-    expect(workflow.slice(freeze, changesets)).toContain('exit 1');
-    expect(freeze).toBeLessThan(changesets);
+    expect(admission).toBeGreaterThan(-1);
+    expect(workflow.slice(admission, changesets)).toContain(
+      'bun scripts/check-verified-candidate-admission.ts'
+    );
+    expect(admission).toBeLessThan(changesets);
+    // Stage A authorizes registry publish under admission; keep TS default by not
+    // wiring a direct npm publish step into the release workflow.
     expect(workflow).not.toContain('publish:');
+    expect(workflow).not.toContain('Enforce Rust replacement publish freeze');
   });
 });

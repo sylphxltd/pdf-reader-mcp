@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** Freeze-safe pure-Rust npm library export contract checks. */
+/** Pure-Rust npm library export contract checks (drop-in remains false until sole-runtime). */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -20,10 +20,10 @@ const matrix = JSON.parse(
 };
 
 if (pkg.bin?.['pdf-reader-mcp'] !== './dist/index.js') {
-  failures.push('default bin must remain TypeScript dist/index.js while freeze is enabled');
+  failures.push('default bin must remain TypeScript dist/index.js while dropInFor3014 is false');
 }
 if (pkg.exports?.['.'] !== './dist/index.js') {
-  failures.push('default exports["."] must remain TypeScript dist/index.js while freeze is enabled');
+  failures.push('default exports["."] must remain TypeScript dist/index.js while dropInFor3014 is false');
 }
 if (pkg.exports?.['./pure-rust'] !== './dist/pure-rust.js') {
   failures.push('exports["./pure-rust"] must point at dist/pure-rust.js');
@@ -39,6 +39,19 @@ if (!(pkg.scripts?.build ?? '').includes('src/pure-rust.ts')) {
 }
 if (matrix.productTruth?.dropInFor3014 !== false) {
   failures.push('productTruth.dropInFor3014 must remain false until sole-runtime cutover');
+}
+const pureRustSource = readFileSync(join(root, 'src/pure-rust.ts'), 'utf8');
+if (!pureRustSource.includes('dropInFor3014: false')) {
+  failures.push('src/pure-rust.ts must keep dropInFor3014: false until sole-runtime cutover');
+}
+if (matrix.productTruth?.publishFreeze === false) {
+  if (!pureRustSource.includes('publishFreeze: false')) {
+    failures.push('src/pure-rust.ts publishFreeze must match productTruth.publishFreeze=false');
+  }
+} else if (matrix.productTruth?.publishFreeze === true) {
+  if (!pureRustSource.includes('publishFreeze: true')) {
+    failures.push('src/pure-rust.ts publishFreeze must match productTruth.publishFreeze=true');
+  }
 }
 if (
   !matrix.claimedForDifferential?.some((entry) =>
