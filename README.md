@@ -405,7 +405,7 @@ it in your MCP client setup, team wiki, or agent stack README.
 | Channel | Status |
 | --- | --- |
 | [Glama MCP directory](https://glama.ai/mcp/servers/SylphxAI/pdf-reader-mcp) | Listed — [claim server](https://glama.ai/mcp/servers/SylphxAI/pdf-reader-mcp/admin) for full discoverability |
-| [Official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.SylphxAI/pdf-reader-mcp) | Listed — `io.github.SylphxAI/pdf-reader-mcp` @ v3.1.0 |
+| [Official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.SylphxAI/pdf-reader-mcp) | Listed — sync target `io.github.SylphxAI/pdf-reader-mcp` @ **v3.2.2** (npm/GitHub already on 3.2.2; registry publish workflow re-enabled) |
 | [TensorBlock MCP Index PR #1113](https://github.com/TensorBlock/awesome-mcp-servers/pull/1113) | Open — multimedia/document processing listing |
 | [MCP servers community issue #4500](https://github.com/modelcontextprotocol/servers/issues/4500) | Open — community server highlight |
 | [mcp.so listing issue #3068](https://github.com/chatmcp/mcpso/issues/3068) | Open — directory submission request |

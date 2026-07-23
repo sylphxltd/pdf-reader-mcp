@@ -1,7 +1,8 @@
 # Publish pure-Rust crates to crates.io (pdf-reader-core, pdf-reader-mcp-server, pdf-reader-cli).
 name: Publish crates.io
 
-# PUBLISH FREEZE: do not publish until capability parity is real.
+# Crates are not an admitted product distribution channel for 3.2.x.
+# npm + native optional packages are the supported install path. Do not publish until versions are aligned to the npm product line and admission passes.
 
 on:
   workflow_dispatch:
@@ -36,9 +37,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Enforce publish freeze
+      - name: Enforce crates non-product-channel gate
         run: |
-          echo "PUBLISH FREEZE: verified exact-candidate admission is not implemented"
+          echo "crates.io is not an admitted product distribution channel for pdf-reader-mcp 3.2.x."
+          echo "Primary product path: npm @sylphx/pdf-reader-mcp + optional native packages."
+          echo "Refuse crates publish until an explicit ADR admits crates and versions match npm."
           exit 1
 
       - name: Cargo test crates (unit + golden; differential when bun present)

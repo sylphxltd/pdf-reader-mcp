@@ -29,7 +29,14 @@
       "win32-x64-msvc"
     ],
     "darwinX64RuntimeProof": "package-published-host-unverified",
-    "correctiveRelease": "3.2.2-serverinfo-description-after-3.2.1"
+    "correctiveRelease": "3.2.2-serverinfo-and-channel-push",
+    "githubRelease": "v3.2.2",
+    "mcpRegistryStatus": "stale-pre-3.2.2-publish-pending",
+    "cratesStatus": "not-admitted-product-channel",
+    "npmIntegrity": "sha512-xcxeg4O/7lGQvI4s3vdT8iUOAGRYVqUIxV6LoDYfQ2GtLTVY4UjHULVvCCEzxEh4T6u2sHhJq3MHc1PFxqxJHg==",
+    "npmSignaturesPresent": true,
+    "npmProvenanceAttestationPresent": false,
+    "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json"
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -346,11 +353,11 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Publish 3.2.1 natives + main with fail-closed default entry",
-      "Run independent whole-product review on the exact 3.2.1 release SHA",
-      "Prove Darwin x64 on a real x86_64 host or keep marked host-unverified",
-      "Sync GitHub Release + MCP Registry (+ crates if still a channel) to 3.2.1",
-      "Deprecate or supersede 3.2.0 messaging about automatic TypeScript fallback"
+      "Publish MCP Registry metadata for 3.2.2 and read back isLatest",
+      "Decide crates: retire as product channel or version-align and publish under admission",
+      "Prove Darwin x64 on real x86_64 host or keep permanently labeled host-unverified",
+      "Record npm provenance policy (signatures present; attestations absent)",
+      "Only after above, consider goal-complete review"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -371,18 +378,18 @@
       ]
     },
     "nativePackageProof": {
-      "status": "four-host-runtime-proof-five-packages-published-pending-3.2.1",
+      "status": "four-host-registry-initialize-proven-for-3.2.2",
       "registryInstall": true,
       "packagesPublishable": true,
       "optionalDependenciesWired": true,
-      "publishedVersion": "3.2.0",
-      "targetVersion": "3.2.1",
+      "publishedVersion": "3.2.2",
+      "targetVersion": "3.2.2",
       "publishedNatives": [
-        "@sylphx/pdf-reader-mcp-darwin-arm64@3.2.0",
-        "@sylphx/pdf-reader-mcp-darwin-x64@3.2.0",
-        "@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.2.0",
-        "@sylphx/pdf-reader-mcp-linux-x64-gnu@3.2.0",
-        "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.2.0"
+        "@sylphx/pdf-reader-mcp-darwin-arm64@3.2.2",
+        "@sylphx/pdf-reader-mcp-darwin-x64@3.2.2",
+        "@sylphx/pdf-reader-mcp-linux-arm64-gnu@3.2.2",
+        "@sylphx/pdf-reader-mcp-linux-x64-gnu@3.2.2",
+        "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.2.2"
       ],
       "distinctHostTriplesProven": [
         "linux-x64-gnu",
@@ -393,19 +400,19 @@
       "darwinX64RuntimeProof": "package-published-host-unverified",
       "publishFreeze": false,
       "commands": [
-        "bun run check:registry-install-proof -- --registry --version=3.2.1",
-        "gh workflow run registry-install-proof.yml -f version=3.2.1"
+        "bun run check:registry-install-proof -- --registry --version=3.2.2",
+        "gh workflow run registry-install-proof.yml -f version=3.2.2"
       ],
       "workflow": ".github/workflows/native-package-scaffold.yml",
       "publishWorkflow": ".github/workflows/publish-npm.yml",
       "notes": [
-        "3.2.0 published five native packages and proved four distinct host triples; Darwin x64 job re-proved arm64 on macos-14.",
-        "3.2.1 default entry is fail-closed when native missing; TypeScript is explicit rollback only."
+        "3.2.2 natives+main published; registry install proof green on five jobs / four distinct host triples.",
+        "Default entry is fail-closed pure-Rust; TypeScript explicit rollback only."
       ],
       "registryProofWorkflow": ".github/workflows/registry-install-proof.yml",
       "linuxBuildImage": "ubuntu-22.04 / ubuntu-22.04-arm",
-      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.0.json",
-      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30008166478"
+      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json",
+      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30028791465"
     },
     "libraryExports": {
       "status": "published-default-fail-closed",
@@ -416,20 +423,19 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
     "wholeProductReview": {
-      "status": "corrective_packaging_authorized_3_2_2_serverinfo",
-      "candidateSha": "8d14bce5f905d756e6b70355abd0763d3ce7f41d",
-      "evidence": "verification/pdf-reader-corrective-3.2.1-packaging-review.json",
+      "status": "review_pass_corrective_publish_authorized_goal_incomplete",
+      "candidateSha": "9ec2130dfc76979716755060723a493689366137",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-3.2.2.json",
       "package": "docs/specs/whole-product-independent-review-package.md",
       "unfreezeAuthorized": true,
       "tsRetirementAuthorized": true,
       "soleRuntimeAuthorized": true,
+      "goalCompleteAuthorized": false,
       "notes": [
-        "Authorizes corrective 3.2.1 packaging merged via #572 squash af1516b lineage.",
-        "Fail-closed native default, fixed serverInfo/instructions, honest productTruth, hardened admission.",
-        "Does not authorize overall goal complete; publish + multi-channel registry readback + independent whole-product review of published artifacts remain."
+        "Published 3.2.2 packaging corrective authorized with npm+GitHub channel proof.",
+        "Goal complete blocked on MCP Registry sync, Darwin x64 host proof, crates decision, and provenance policy."
       ],
-      "priorReviewEvidence": "verification/pdf-reader-whole-product-independent-review-f1a1626.json",
-      "priorReviewScope": "capability-first local evidence under publish freeze; not exact-SHA authority for 3.2.0/3.2.1 packaging"
+      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json"
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,
@@ -437,6 +443,12 @@
       "script": "scripts/check-verified-candidate-admission.ts",
       "releaseWorkflowStep": "Enforce verified-candidate admission (replaces hard publish freeze)",
       "status": "wired"
+    },
+    "multiChannelTruth": {
+      "npmLatest": "3.2.2",
+      "githubReleaseLatest": "v3.2.2",
+      "mcpRegistryLatestObserved": "stale",
+      "cratesAdmitted": false
     }
   }
 }

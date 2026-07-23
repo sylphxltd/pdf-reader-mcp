@@ -3,6 +3,12 @@ name: Publish to MCP Registry
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 3.2.2). Defaults to package.json version.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -43,10 +49,21 @@ jobs:
 
       - name: Sync server.json version with release tag
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            if [[ -z "$VERSION" ]]; then
+              VERSION="$(jq -r .version package.json)"
+            fi
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          VERSION="${VERSION#v}"
+          echo "Publishing MCP Registry metadata for version=$VERSION"
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp
           mv server.tmp server.json
           cat server.json
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Validate server.json
         run: ./mcp-publisher validate
@@ -66,5 +83,5 @@ jobs:
             echo "server.json already aligned on main"
             exit 0
           fi
-          git commit -m "chore(registry): sync server.json to ${GITHUB_REF_NAME}"
+          git commit -m "chore(registry): sync server.json to v${VERSION}"
           git push origin HEAD:main
