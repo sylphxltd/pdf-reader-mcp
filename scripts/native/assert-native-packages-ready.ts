@@ -17,6 +17,9 @@ import {
 const root = join(import.meta.dirname, '../..');
 const all = process.argv.includes('--all');
 const manifestsOnly = process.argv.includes('--manifests-only');
+const platformArg = process.argv.find((arg) => arg.startsWith('--platform='))?.slice('--platform='.length) as
+  | NativePlatformId
+  | undefined;
 const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
   version: string;
   optionalDependencies?: Record<string, string>;
@@ -25,7 +28,13 @@ const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as 
 const failures: string[] = [];
 const platformIds = (all
   ? (Object.keys(NATIVE_PLATFORM_PACKAGES) as NativePlatformId[])
-  : ([resolveNativePlatformId()].filter(Boolean) as NativePlatformId[]));
+  : platformArg
+    ? [platformArg]
+    : ([resolveNativePlatformId()].filter(Boolean) as NativePlatformId[]));
+
+if (platformArg && !NATIVE_PLATFORM_PACKAGES[platformArg]) {
+  failures.push(`unknown --platform=${platformArg}`);
+}
 
 if (!platformIds.length) {
   failures.push(`unsupported host platform ${process.platform}/${process.arch}`);
@@ -78,7 +87,13 @@ console.log(
     {
       profile: 'native_packages_ready',
       pass: true,
-      mode: manifestsOnly ? 'manifests-only' : all ? 'all-platforms-with-binaries' : 'host-with-binary',
+      mode: manifestsOnly
+        ? 'manifests-only'
+        : all
+          ? 'all-platforms-with-binaries'
+          : platformArg
+            ? 'explicit-platform-with-binary'
+            : 'host-with-binary',
       version: rootPkg.version,
       platforms: platformIds,
     },

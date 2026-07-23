@@ -117,4 +117,5 @@ jobs:
           fi
           bun run smoke:native-launcher
           bun run smoke:native-package-resolve
-          bun run native:assert-ready
+          # Assert the matrix target package we staged (may differ from host triple, e.g. darwin-x64 on arm64 runner).
+          bun scripts/native/assert-native-packages-ready.ts --platform=${{ matrix.platformId }}
