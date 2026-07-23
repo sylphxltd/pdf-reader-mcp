@@ -146,11 +146,11 @@ try {
             serverName: serverInfo?.name,
             serverVersion: serverInfo?.version,
             packagePrivate: packageJson.private === true,
-            productTruth: { dropInFor3014: false, publishFreeze: true },
+            productTruth: { dropInFor3014: false, publishFreeze: false },
             notes: [
               'Simulated node_modules optional-package resolution only.',
               'Not npm registry publish/install proof.',
-              'publishFreeze remains true.',
+              'publishFreeze may be false under verified-candidate admission.',
             ],
             pass: true,
           },

@@ -430,7 +430,7 @@ export const validateExtractedPackage = async (
     {
       export: exportsField?.['./pure-rust'],
       path: 'package/dist/pure-rust.js',
-      productTruth: { dropInFor3014: false, publishFreeze: true },
+      productTruth: { dropInFor3014: false, publishFreeze: false },
     }
   );
   addCheck(

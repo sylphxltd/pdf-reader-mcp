@@ -87,7 +87,7 @@ child.stdout.on('data', (chunk: Buffer) => {
           resolutionOrder: [staged, packageBin, legacy],
           serverName: serverInfo?.name,
           serverVersion: serverInfo?.version,
-          productTruth: { dropInFor3014: false, publishFreeze: true },
+          productTruth: { dropInFor3014: false, publishFreeze: false },
           pass: true,
         },
         null,

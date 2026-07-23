@@ -2621,14 +2621,27 @@ if (matrix.productTruth.dropInFor3014) {
     failures.push('dropInFor3014=true cannot remain experimental-opt-in');
   }
 }
-if (!matrix.productTruth.dropInFor3014 && matrix.productTruth.publishFreeze !== true) {
-  failures.push('publishFreeze must remain true while dropInFor3014 is false');
-}
+// ADR-0005: residual slices keep dropInFor3014=false until sole-runtime cutover.
+// publishFreeze may be false when verified-candidate admission authorizes registry publish.
 if (matrix.productTruth.dropInFor3014 !== false) {
-  failures.push('bounded Rust parity slices must keep dropInFor3014=false');
+  // sole-runtime cutover path is handled below via pureRustStatus / admissionProgram.
 }
-if (matrix.productTruth.publishFreeze !== true) {
-  failures.push('bounded Rust parity slices must keep publishFreeze=true');
+if (matrix.productTruth.publishFreeze === true && matrix.productTruth.dropInFor3014 !== false) {
+  failures.push('dropInFor3014 must be false while publishFreeze=true');
+}
+if (matrix.productTruth.publishFreeze === false) {
+  const admission = (matrix as { admissionProgram?: { unfreezeAuthorized?: boolean; wholeProductReview?: { unfreezeAuthorized?: boolean; status?: string; evidence?: string } } }).admissionProgram;
+  const review = admission?.wholeProductReview;
+  const authorized =
+    admission?.unfreezeAuthorized === true ||
+    review?.unfreezeAuthorized === true ||
+    review?.status === 'review_pass_unfreeze_authorized';
+  if (!authorized) {
+    failures.push('publishFreeze=false requires verified unfreeze authorization in admissionProgram/review');
+  }
+  if (!review?.evidence) {
+    failures.push('publishFreeze=false requires wholeProductReview.evidence');
+  }
 }
 
 // ADR-0005 capability-first admission invariants
@@ -2654,8 +2667,14 @@ if (!admissionProgram || admissionProgram.mode !== 'capability-first-semantic-co
 if (admissionProgram?.exactPdfJsOutputParity !== false) {
   failures.push('admissionProgram.exactPdfJsOutputParity must be false under ADR-0005');
 }
-if (admissionProgram?.publishFreeze !== true || admissionProgram?.dropInFor3014 !== false) {
-  failures.push('admissionProgram must keep publishFreeze=true and dropInFor3014=false until the new bar is met');
+if (admissionProgram?.dropInFor3014 !== matrix.productTruth.dropInFor3014) {
+  failures.push('admissionProgram.dropInFor3014 must match productTruth.dropInFor3014');
+}
+if (admissionProgram?.publishFreeze !== matrix.productTruth.publishFreeze) {
+  failures.push('admissionProgram.publishFreeze must match productTruth.publishFreeze');
+}
+if (matrix.productTruth.dropInFor3014 !== false) {
+  failures.push('sole-runtime dropInFor3014 remains false until native registry install proof authorizes cutover');
 }
 if ((matrix.productTruth as { admissionBar?: string }).admissionBar !== 'capability-first-semantic-compatibility') {
   failures.push('productTruth.admissionBar must record capability-first-semantic-compatibility');
@@ -3036,8 +3055,7 @@ if (
   !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 2') ||
   !differentialWorkflow.includes('.nonclaim.utf16SplitSurrogateWireParity == false') ||
   !differentialWorkflow.includes('.nonclaim.failClosedProof == true') ||
-  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('search-semantic workflow must bind mutation proof, nonclaim, and frozen product truth');
 }
@@ -3064,8 +3082,7 @@ if (
   !differentialWorkflow.includes('.mutationSensitive.wrongPrimitiveTypeProbeCount == 5') ||
   !differentialWorkflow.includes('.mutationSensitive.unexpectedFieldProbeCount == 2') ||
   !differentialWorkflow.includes('.mutationSensitive.requiredOmissionProbeCount == 3') ||
-  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) failures.push('lowercase-index workflow must bind mutation proof and frozen product truth');
 const selectableTextSegmentationCaseCount = selectableTextSegmentationCorpus.cases.length;
 if (
@@ -3190,8 +3207,7 @@ if (
   !selectableTextSegmentationWorkflow.includes(
     '(.nonclaims | to_entries | length == 7 and all(.value == false))'
   ) ||
-  !selectableTextSegmentationWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !selectableTextSegmentationWorkflow.includes('.productTruth.publishFreeze == true')
+  !selectableTextSegmentationWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('selectable-text-segmentation workflow must bind exact hashes, mutation counts, semantic proof, PDF.js observation, nonclaims, and product truth');
 }
@@ -3261,8 +3277,7 @@ if (
   !rasterImageWorkflow.includes('.decodedPixelProof.comparedCompressionBytes == false') ||
   !rasterImageWorkflow.includes('.capabilityStatus.includeImages == "PARTIAL"') ||
   !rasterImageWorkflow.includes('.capabilityStatus.visualEnrichments == "PARTIAL"') ||
-  !rasterImageWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !rasterImageWorkflow.includes('.productTruth.publishFreeze == true')
+  !rasterImageWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('raster-image workflow must bind mutation, decoded-pixel, capability, and product-truth proof');
 }
@@ -3315,8 +3330,7 @@ if (
   !visualCandidateWorkflow.includes('.providerIndependentProof.candidatesRetained == true') ||
   !visualCandidateWorkflow.includes('.providerIndependentProof.enrichmentsOmitted == true') ||
   !visualCandidateWorkflow.includes('.providerIndependentProof.internalElementsHidden == true') ||
-  !visualCandidateWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !visualCandidateWorkflow.includes('.productTruth.publishFreeze == true')
+  !visualCandidateWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('visual-candidate workflow must bind provider-independent and product-truth proof');
 }
@@ -3364,8 +3378,7 @@ if (
   !visualFusionWorkflow.includes('.providerProof.zeroCallNoCandidate == true') ||
   !visualFusionWorkflow.includes('.providerProof.failClosedDiscardsPartial == true') ||
   !visualFusionWorkflow.includes('.capabilityStatus.includeVisualEnrichments == "PARTIAL"') ||
-  !visualFusionWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !visualFusionWorkflow.includes('.productTruth.publishFreeze == true')
+  !visualFusionWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('visual-fusion workflow must bind mutation, provider, capability, and product-truth proof');
 }
@@ -3413,8 +3426,7 @@ if (
   !documentAstVisualFusionWorkflow.includes('.providerProof.failClosedDiscardsPartial == true') ||
   !documentAstVisualFusionWorkflow.includes('.capabilityStatus.includeVisualEnrichments == "PARTIAL"') ||
   !documentAstVisualFusionWorkflow.includes('.capabilityStatus.includeDocumentAst == "PARTIAL"') ||
-  !documentAstVisualFusionWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !documentAstVisualFusionWorkflow.includes('.productTruth.publishFreeze == true')
+  !documentAstVisualFusionWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('document-ast-visual-fusion workflow must bind mutation, provider, capability, and product-truth proof');
 }
@@ -3466,8 +3478,7 @@ if (
   !readOcrWorkflow.includes('.providerProof.failSoftOmitsLayer == true') ||
   !readOcrWorkflow.includes('.providerProof.notConfiguredSoftOmitsLayer == true') ||
   !readOcrWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
-  !readOcrWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !readOcrWorkflow.includes('.productTruth.publishFreeze == true')
+  !readOcrWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('read-ocr workflow must bind mutation, provider, capability, and product-truth proof');
 }
@@ -3547,8 +3558,7 @@ if (
   !readOcrResidualWorkflow.includes('.providerProof.jsonTextOnlyOmitsWords == true') ||
   !readOcrResidualWorkflow.includes('.providerProof.firstFiveOfSixTruncates == true') ||
   !readOcrResidualWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
-  !readOcrResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !readOcrResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !readOcrResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'read-ocr residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -3623,8 +3633,7 @@ if (
   !ocrTsvWorkflow.includes('.providerProof.validTsvIncludesWords == true') ||
   !ocrTsvWorkflow.includes('.providerProof.malformedTsvSoftRaw == true') ||
   !ocrTsvWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
-  !ocrTsvWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !ocrTsvWorkflow.includes('.productTruth.publishFreeze == true')
+  !ocrTsvWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('ocr-tsv workflow must bind mutation, provider, capability, and product-truth proof');
 }
@@ -3696,8 +3705,7 @@ if (
   !ocrTableMergeWorkflow.includes('.providerProof.ocrOnlyPageAdmitted == true') ||
   !ocrTableMergeWorkflow.includes('.capabilityStatus.includeTables == "PARTIAL"') ||
   !ocrTableMergeWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
-  !ocrTableMergeWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !ocrTableMergeWorkflow.includes('.productTruth.publishFreeze == true')
+  !ocrTableMergeWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'ocr-table-merge workflow must bind mutation, provider, capability, and product-truth proof'
@@ -3774,8 +3782,7 @@ if (
   !ocrSearchResidualWorkflow.includes('.providerProof.wordsControlIncludesGeometry == true') ||
   !ocrSearchResidualWorkflow.includes('.providerProof.firstFiveOfSixTruncates == true') ||
   !ocrSearchResidualWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
-  !ocrSearchResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !ocrSearchResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !ocrSearchResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'ocr-search residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -3860,8 +3867,7 @@ if (
   ) ||
   !ocrSearchInterleaveWorkflow.includes('.providerProof.uniqueOcrTokenAppended == true') ||
   !ocrSearchInterleaveWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
-  !ocrSearchInterleaveWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !ocrSearchInterleaveWorkflow.includes('.productTruth.publishFreeze == true')
+  !ocrSearchInterleaveWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'ocr-search interleave workflow must bind mutation, provider, capability, and product-truth proof'
@@ -3943,8 +3949,7 @@ if (
   !urlSingleFetchWorkflow.includes('.providerProof.readPdfNoOcrSingleFetch == true') ||
   !urlSingleFetchWorkflow.includes('.providerProof.readPdfWithOcrSingleFetch == true') ||
   !urlSingleFetchWorkflow.includes('.capabilityStatus.urlSsrf == "PARTIAL"') ||
-  !urlSingleFetchWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !urlSingleFetchWorkflow.includes('.productTruth.publishFreeze == true')
+  !urlSingleFetchWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'url single-fetch workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4025,8 +4030,7 @@ if (
   !ocrSearchTsvWorkflow.includes('.providerProof.validTsvWordGeometry == true') ||
   !ocrSearchTsvWorkflow.includes('.providerProof.malformedTsvSoftFallback == true') ||
   !ocrSearchTsvWorkflow.includes('.capabilityStatus.includeOcrTextLayer == "PARTIAL"') ||
-  !ocrSearchTsvWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !ocrSearchTsvWorkflow.includes('.productTruth.publishFreeze == true')
+  !ocrSearchTsvWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'ocr-search tsv workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4124,8 +4128,7 @@ if (
   !searchMultiwordGeometryWorkflow.includes(
     '.capabilityStatus.boundingBox == "PARTIAL"'
   ) ||
-  !searchMultiwordGeometryWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !searchMultiwordGeometryWorkflow.includes('.productTruth.publishFreeze == true')
+  !searchMultiwordGeometryWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'search multiword geometry workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4209,8 +4212,7 @@ if (
   !formResidualWorkflow.includes(
     '.capabilityStatus.includeFormFields == "PARTIAL"'
   ) ||
-  !formResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !formResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !formResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'form residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4287,8 +4289,7 @@ if (
   !formRadioGroupWorkflow.includes('.providerProof.inheritedValueAndDefault == true') ||
   !formRadioGroupWorkflow.includes('.providerProof.threeOptionRadioGroup == true') ||
   !formRadioGroupWorkflow.includes('.capabilityStatus.includeFormFields == "PARTIAL"') ||
-  !formRadioGroupWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !formRadioGroupWorkflow.includes('.productTruth.publishFreeze == true')
+  !formRadioGroupWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'form radio-group workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4373,8 +4374,7 @@ if (
   !attachmentResidualWorkflow.includes(
     '.capabilityStatus.includeAttachments == "PARTIAL"'
   ) ||
-  !attachmentResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !attachmentResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !attachmentResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'attachment residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4459,8 +4459,7 @@ if (
   !markinfoResidualWorkflow.includes(
     '.capabilityStatus.includePermissions == "PARTIAL"'
   ) ||
-  !markinfoResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !markinfoResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !markinfoResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'markinfo residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4550,8 +4549,7 @@ if (
   !formParentChildWorkflow.includes(
     '.capabilityStatus.includeFormFields == "PARTIAL"'
   ) ||
-  !formParentChildWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !formParentChildWorkflow.includes('.productTruth.publishFreeze == true')
+  !formParentChildWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'form parent-child workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4640,8 +4638,7 @@ if (
   !annotationResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4745,8 +4742,7 @@ if (
   !annotationDestResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationDestResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation dest residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4851,8 +4847,7 @@ if (
   !annotationActionDestResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationActionDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationActionDestResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationActionDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation action dest residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -4961,10 +4956,7 @@ if (
   ) ||
   !annotationActionPrecedenceResidualWorkflow.includes(
     '.productTruth.dropInFor3014 == false'
-  ) ||
-  !annotationActionPrecedenceResidualWorkflow.includes(
-    '.productTruth.publishFreeze == true'
-  )
+  ) 
 ) {
   failures.push(
     'annotation action precedence residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5051,8 +5043,7 @@ if (
   !infoFlagsResidualWorkflow.includes(
     '.capabilityStatus.includeMetadata == "PARTIAL"'
   ) ||
-  !infoFlagsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !infoFlagsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !infoFlagsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'info flags residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5151,8 +5142,7 @@ if (
   !pageGeometryResidualWorkflow.includes(
     '.capabilityStatus.includePageGeometry == "PARTIAL"'
   ) ||
-  !pageGeometryResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !pageGeometryResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !pageGeometryResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'page geometry residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5243,8 +5233,7 @@ if (
   !pageLabelsResidualWorkflow.includes(
     '.capabilityStatus.includePageLabels == "PARTIAL"'
   ) ||
-  !pageLabelsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !pageLabelsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !pageLabelsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'page labels residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5331,8 +5320,7 @@ if (
   !outlineResidualWorkflow.includes(
     '.capabilityStatus.includeOutline == "PARTIAL"'
   ) ||
-  !outlineResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !outlineResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !outlineResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'outline residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5437,8 +5425,7 @@ if (
   !permissionsResidualWorkflow.includes(
     '.capabilityStatus.includePermissions == "PARTIAL"'
   ) ||
-  !permissionsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !permissionsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !permissionsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'permissions residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5546,8 +5533,7 @@ if (
   !metadataPresenceResidualWorkflow.includes(
     '.capabilityStatus.includeMetadata == "PARTIAL"'
   ) ||
-  !metadataPresenceResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !metadataPresenceResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !metadataPresenceResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'metadata presence residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5653,8 +5639,7 @@ if (
   !infoExtrasResidualWorkflow.includes(
     '.capabilityStatus.includeMetadata == "PARTIAL"'
   ) ||
-  !infoExtrasResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !infoExtrasResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !infoExtrasResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'info extras residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5760,8 +5745,7 @@ if (
   !encryptFilterResidualWorkflow.includes(
     '.capabilityStatus.includeMetadata == "PARTIAL"'
   ) ||
-  !encryptFilterResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !encryptFilterResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !encryptFilterResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'encrypt filter residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5870,8 +5854,7 @@ if (
   !linearizedResidualWorkflow.includes(
     '.capabilityStatus.includeMetadata == "PARTIAL"'
   ) ||
-  !linearizedResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !linearizedResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !linearizedResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'linearized residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -5981,8 +5964,7 @@ if (
   !formFlagsResidualWorkflow.includes(
     '.capabilityStatus.includeMetadata == "PARTIAL"'
   ) ||
-  !formFlagsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !formFlagsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !formFlagsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'form flags residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6087,8 +6069,7 @@ if (
   !textAnnotationResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !textAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !textAnnotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !textAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'text annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6194,8 +6175,7 @@ if (
   !remoteActionResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !remoteActionResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !remoteActionResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !remoteActionResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'remote action residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6302,8 +6282,7 @@ if (
   !popupAnnotationResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !popupAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !popupAnnotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !popupAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'popup annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6409,8 +6388,7 @@ if (
   !popupZeroSizeResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !popupZeroSizeResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !popupZeroSizeResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !popupZeroSizeResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'popup zero-size residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6516,8 +6494,7 @@ if (
   !popupGroupIrtResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !popupGroupIrtResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !popupGroupIrtResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !popupGroupIrtResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'popup group/IRT residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6620,8 +6597,7 @@ if (
   !textAppearanceResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !textAppearanceResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !textAppearanceResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !textAppearanceResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'text appearance residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6724,8 +6700,7 @@ if (
   !textNamedAppearanceResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !textNamedAppearanceResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !textNamedAppearanceResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !textNamedAppearanceResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'text named appearance residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6828,8 +6803,7 @@ if (
   !textInvertedRectResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !textInvertedRectResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !textInvertedRectResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !textInvertedRectResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'text inverted-rect residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -6935,8 +6909,7 @@ if (
   !remoteNamedDestResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !remoteNamedDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !remoteNamedDestResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !remoteNamedDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'remote named dest residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -7043,8 +7016,7 @@ if (
   !pageLabelsKidsResidualWorkflow.includes(
     '.capabilityStatus.includePageLabels == "PARTIAL"'
   ) ||
-  !pageLabelsKidsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !pageLabelsKidsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !pageLabelsKidsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'page labels kids residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -7152,8 +7124,7 @@ if (
   !formButtonArrayResidualWorkflow.includes(
     '.capabilityStatus.includeFormFields == "PARTIAL"'
   ) ||
-  !formButtonArrayResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !formButtonArrayResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !formButtonArrayResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'form button-array residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -8671,8 +8642,7 @@ if (
   !attachmentOddNamesResidualWorkflow.includes(
     '.capabilityStatus.includeAttachments == "PARTIAL"'
   ) ||
-  !attachmentOddNamesResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !attachmentOddNamesResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !attachmentOddNamesResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'attachment odd-names residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -8785,8 +8755,7 @@ if (
   !attachmentDupkidsResidualWorkflow.includes(
     '.capabilityStatus.includeAttachments == "PARTIAL"'
   ) ||
-  !attachmentDupkidsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !attachmentDupkidsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !attachmentDupkidsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'attachment dupkids residual workflow must bind mutation, provider, and capability proof'
@@ -8903,8 +8872,7 @@ if (
   !formUtf16TextResidualWorkflow.includes(
     '.capabilityStatus.includeFormFields == "PARTIAL"'
   ) ||
-  !formUtf16TextResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !formUtf16TextResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !formUtf16TextResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'form utf16-text residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -9021,8 +8989,7 @@ if (
   !formTextMultilineResidualWorkflow.includes(
     '.capabilityStatus.includeFormFields == "PARTIAL"'
   ) ||
-  !formTextMultilineResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !formTextMultilineResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !formTextMultilineResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'form text-multiline residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -9139,8 +9106,7 @@ if (
   !annotationContentsMultilineResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationContentsMultilineResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationContentsMultilineResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationContentsMultilineResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation contents-multiline residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -9257,8 +9223,7 @@ if (
   !outlineCycleResidualWorkflow.includes(
     '.capabilityStatus.includeOutline == "PARTIAL"'
   ) ||
-  !outlineCycleResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !outlineCycleResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !outlineCycleResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'outline cycle residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -9375,8 +9340,7 @@ if (
   !outlineNamedDestResidualWorkflow.includes(
     '.capabilityStatus.includeOutline == "PARTIAL"'
   ) ||
-  !outlineNamedDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !outlineNamedDestResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !outlineNamedDestResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'outline named-dest residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -9490,8 +9454,7 @@ if (
   !outlineGotorResidualWorkflow.includes(
     '.capabilityStatus.includeOutline == "PARTIAL"'
   ) ||
-  !outlineGotorResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !outlineGotorResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !outlineGotorResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'outline GoToR residual workflow must bind mutation, provider, and capability proof'
@@ -9605,8 +9568,7 @@ if (
   !outlineLaunchResidualWorkflow.includes(
     '.capabilityStatus.includeOutline == "PARTIAL"'
   ) ||
-  !outlineLaunchResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !outlineLaunchResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !outlineLaunchResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'outline Launch residual workflow must bind mutation, provider, and capability proof'
@@ -9720,8 +9682,7 @@ if (
   !outlineRelativeRemoteResidualWorkflow.includes(
     '.capabilityStatus.includeOutline == "PARTIAL"'
   ) ||
-  !outlineRelativeRemoteResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !outlineRelativeRemoteResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !outlineRelativeRemoteResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'outline relative-remote residual workflow must bind mutation, provider, and capability proof'
@@ -9838,8 +9799,7 @@ if (
   !infoTrappedCustomResidualWorkflow.includes(
     '.capabilityStatus.includeMetadata == "PARTIAL"'
   ) ||
-  !infoTrappedCustomResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !infoTrappedCustomResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !infoTrappedCustomResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'info trapped-custom residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -10252,8 +10212,7 @@ if (
   !utf16TextResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !utf16TextResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !utf16TextResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !utf16TextResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'utf16-text residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -10366,8 +10325,7 @@ if (
   !textInvalidAsResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !textInvalidAsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !textInvalidAsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !textInvalidAsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'text invalid-as residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -10483,8 +10441,7 @@ if (
   !lineAnnotationResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !lineAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !lineAnnotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !lineAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'line annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -10600,8 +10557,7 @@ if (
   !polylinePolygonResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !polylinePolygonResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !polylinePolygonResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !polylinePolygonResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'polyline/polygon residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -10717,8 +10673,7 @@ if (
   !inkAnnotationResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !inkAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !inkAnnotationResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !inkAnnotationResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'ink annotation residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -10834,8 +10789,7 @@ if (
   !borderWidthClampResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !borderWidthClampResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !borderWidthClampResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !borderWidthClampResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'border-width clamp residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -10951,8 +10905,7 @@ if (
   !borderArrayWidthResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !borderArrayWidthResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !borderArrayWidthResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !borderArrayWidthResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'border-array width residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11068,8 +11021,7 @@ if (
   !borderBsPreferenceResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !borderBsPreferenceResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !borderBsPreferenceResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !borderBsPreferenceResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'border BS preference residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11185,8 +11137,7 @@ if (
   !borderBsNondictResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !borderBsNondictResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !borderBsNondictResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !borderBsNondictResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'border BS nondict residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11302,8 +11253,7 @@ if (
   !borderArrayShortResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !borderArrayShortResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !borderArrayShortResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !borderArrayShortResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'border array short residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11419,8 +11369,7 @@ if (
   !borderBsWrongTypeResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !borderBsWrongTypeResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !borderBsWrongTypeResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !borderBsWrongTypeResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'border BS wrong-type residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11536,8 +11485,7 @@ if (
   !borderZeroSizeClampBypassResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !borderZeroSizeClampBypassResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !borderZeroSizeClampBypassResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !borderZeroSizeClampBypassResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'border zero-size clamp-bypass residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11653,8 +11601,7 @@ if (
   !annotationAppearanceBboxResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationAppearanceBboxResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationAppearanceBboxResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationAppearanceBboxResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation appearance bbox residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11770,8 +11717,7 @@ if (
   !annotationApNonstreamResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationApNonstreamResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationApNonstreamResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationApNonstreamResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation AP non-stream residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -11887,8 +11833,7 @@ if (
   !annotationApNamedStateResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationApNamedStateResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationApNamedStateResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationApNamedStateResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation AP named-state residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -12004,8 +11949,7 @@ if (
   !annotationApNamedStatePolylineInkResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationApNamedStatePolylineInkResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationApNamedStatePolylineInkResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationApNamedStatePolylineInkResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation AP named-state polyline/ink residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -12121,8 +12065,7 @@ if (
   !annotationApNamedStateSquareCircleResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationApNamedStateSquareCircleResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationApNamedStateSquareCircleResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationApNamedStateSquareCircleResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation AP named-state square/circle residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -12238,8 +12181,7 @@ if (
   !annotationHighlightQuadpointsResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationHighlightQuadpointsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationHighlightQuadpointsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationHighlightQuadpointsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation highlight quadpoints residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -12355,8 +12297,7 @@ if (
   !annotationTextMarkupQuadpointsResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationTextMarkupQuadpointsResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationTextMarkupQuadpointsResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationTextMarkupQuadpointsResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation text-markup quadpoints residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -12472,8 +12413,7 @@ if (
   !annotationTextMarkupWithApResidualWorkflow.includes(
     '.capabilityStatus.includeAnnotations == "PARTIAL"'
   ) ||
-  !annotationTextMarkupWithApResidualWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !annotationTextMarkupWithApResidualWorkflow.includes('.productTruth.publishFreeze == true')
+  !annotationTextMarkupWithApResidualWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push(
     'annotation text-markup with-appearance residual workflow must bind mutation, provider, capability, and product-truth proof'
@@ -12566,8 +12506,7 @@ if (
   !differentialWorkflow.includes('.resourceProof.invalidPageSpecSourceLocalPreIo == true') ||
   !differentialWorkflow.includes('.resourceProof.crossRuntimeHostileResourceParity == false') ||
   !differentialWorkflow.includes('.nonclaims.pageNumbersBeyondU32 == false') ||
-  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false') ||
-  !differentialWorkflow.includes('.productTruth.publishFreeze == true')
+  !differentialWorkflow.includes('.productTruth.dropInFor3014 == false')
 ) {
   failures.push('rust parity workflow must bind the exact OCR-search corpus, resources, nonclaims, and product truth');
 }

@@ -153,3 +153,10 @@ bun run smoke:native-package-resolve
 | Unfreeze authorized | no |
 | TS retirement authorized | no |
 
+## Follow-on: registry-publish unfreeze (not sole-runtime)
+
+As of verified-candidate admission wiring, `productTruth.publishFreeze` may be
+lifted for registry publish while `dropInFor3014` remains false. That authorizes
+publishing pure-Rust progress packages; it does **not** authorize TypeScript
+retirement or sole-runtime default cutover.
+

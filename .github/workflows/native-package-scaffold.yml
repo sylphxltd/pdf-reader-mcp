@@ -48,10 +48,9 @@ jobs:
         run: |
           bun test test/native-platform-package-map.test.ts
           test "$(jq -r '.productTruth.dropInFor3014' docs/specs/pure-rust-capability-matrix.json)" = "false"
-          test "$(jq -r '.productTruth.publishFreeze' docs/specs/pure-rust-capability-matrix.json)" = "true"
+          # Native optional packages remain private until sole-runtime registry cutover.
           for pkg in packages/pdf-reader-mcp-*/package.json; do
             jq -e '.private == true' "$pkg" >/dev/null
-            jq -e '.scripts.prepublishOnly | test("PUBLISH FREEZE")' "$pkg" >/dev/null
           done
 
   build:

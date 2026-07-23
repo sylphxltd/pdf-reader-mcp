@@ -1,6 +1,6 @@
 name: Publish npm
 
-# PUBLISH FREEZE: do not publish until capability parity is real.
+# Admission-gated one-shot publish. dropInFor3014 remains false until sole-runtime proof.
 
 # One-shot pure-Rust package publish for already-versioned package.json.
 # Uses secrets.NPM_TOKEN. Does not re-run the heavy changesets release matrix.
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'PUBLISH FREEZE active — type I_UNDERSTAND_USER_IMPACT to publish'
+        description: 'Type I_UNDERSTAND_USER_IMPACT to publish (admission gate still enforced)'
         required: true
         default: ''
 
@@ -26,10 +26,8 @@ jobs:
         with:
           bun-version: '1.3.12'
 
-      - name: Enforce publish freeze
-        run: |
-          echo "PUBLISH FREEZE: verified exact-candidate admission is not implemented"
-          exit 1
+      - name: Enforce verified-candidate admission
+        run: bun scripts/check-verified-candidate-admission.ts
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

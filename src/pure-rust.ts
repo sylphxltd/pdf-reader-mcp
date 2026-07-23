@@ -2,7 +2,7 @@
  * Experimental pure-Rust library surface for @sylphx/pdf-reader-mcp.
  *
  * Default package export remains TypeScript 3.0.14 (`dist/index.js`).
- * This module is opt-in and does not unfreeze publish or claim drop-in parity.
+ * This module is opt-in. Registry publish is admission-gated; drop-in parity remains false.
  *
  * Import:
  *   import { createPureRustClient, resolvePureRustServerBinary } from '@sylphx/pdf-reader-mcp/pure-rust'
@@ -24,7 +24,7 @@ export type { NativePlatformId };
 export const PURE_RUST_EXPORT = {
   status: 'experimental-opt-in' as const,
   dropInFor3014: false,
-  publishFreeze: true,
+  publishFreeze: false,
   engineMode: 'pure-rust' as const,
   defaultPackageExport: './dist/index.js',
   pureRustExport: './dist/pure-rust.js',

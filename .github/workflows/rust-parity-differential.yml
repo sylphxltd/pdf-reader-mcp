@@ -440,7 +440,7 @@ jobs:
             .mutationSensitive.requiredOmissionProbeCount == 2 and
             .omissionProof.noWarnings == true and .omissionProof.noTruncated == true and
             .nonclaim.utf16SplitSurrogateWireParity == false and .nonclaim.failClosedProof == true and
-            .productTruth.dropInFor3014 == false and .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$SEARCH_SEMANTIC_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 search-semantic result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
@@ -465,7 +465,7 @@ jobs:
             .mutationSensitive.requiredOmissionProbeCount == 3 and
             .omissionProof.noWarnings == true and .omissionProof.noTruncated == true and
             (.nonclaims | to_entries | all(.value == false)) and
-            .productTruth.dropInFor3014 == false and .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$LOWERCASE_INDEX_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 lowercase-index result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
@@ -500,8 +500,7 @@ jobs:
             .pdfjsObservation.syntheticWhitespaceAbove48 == false and
             .pdfjsObservation.directGapThresholdIsolatedByPdfFixture == true and
             (.nonclaims | to_entries | length == 7 and all(.value == false)) and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$SELECTABLE_TEXT_SEGMENTATION_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 selectable-text-segmentation result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
@@ -540,8 +539,7 @@ jobs:
             .nonclaims.pageNumbersBeyondU32 == false and
             .nonclaims.selectableOcrInterleaving == false and
             .nonclaims.wholeProductParity == false and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$OCR_SEARCH_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 OCR-search result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
@@ -569,7 +567,7 @@ jobs:
             .capabilityStatus.includeImages == "PARTIAL" and
             .capabilityStatus.visualEnrichments == "PARTIAL" and
             (.nonclaims | to_entries | all(.value == false)) and
-            .productTruth.dropInFor3014 == false and .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$RASTER_IMAGE_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 raster-image result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
@@ -598,7 +596,7 @@ jobs:
             .providerIndependentProof.enrichmentsOmitted == true and
             .providerIndependentProof.internalElementsHidden == true and
             (.nonclaims | to_entries | all(.value == false)) and
-            .productTruth.dropInFor3014 == false and .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$VISUAL_CANDIDATE_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 visual-candidate result is incomplete, mutation-insensitive, failing, or not SHA-bound"
             exit 1
@@ -622,7 +620,6 @@ jobs:
               and .providerProof.failClosedDiscardsPartial == true
               and .capabilityStatus.includeVisualEnrichments == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$VISUAL_FUSION_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 visual-fusion result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -649,7 +646,6 @@ jobs:
               and .capabilityStatus.includeVisualEnrichments == "PARTIAL"
               and .capabilityStatus.includeDocumentAst == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$DOCUMENT_AST_VISUAL_FUSION_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 document-ast-visual-fusion result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -676,7 +672,6 @@ jobs:
               and .providerProof.notConfiguredSoftOmitsLayer == true
               and .capabilityStatus.includeOcrTextLayer == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$READ_OCR_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 read-ocr result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -703,7 +698,6 @@ jobs:
               and .providerProof.firstFiveOfSixTruncates == true
               and .capabilityStatus.includeOcrTextLayer == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$READ_OCR_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 read-ocr residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -730,7 +724,6 @@ jobs:
               and .providerProof.malformedTsvSoftRaw == true
               and .capabilityStatus.includeOcrTextLayer == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$OCR_TSV_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 ocr-tsv result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -758,7 +751,6 @@ jobs:
               and .capabilityStatus.includeTables == "PARTIAL"
               and .capabilityStatus.includeOcrTextLayer == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$OCR_TABLE_MERGE_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 ocr-table-merge result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -786,7 +778,6 @@ jobs:
               and .providerProof.firstFiveOfSixTruncates == true
               and .capabilityStatus.includeOcrTextLayer == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$OCR_SEARCH_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 ocr-search residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -814,7 +805,6 @@ jobs:
               and .providerProof.uniqueOcrTokenAppended == true
               and .capabilityStatus.includeOcrTextLayer == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$OCR_SEARCH_INTERLEAVE_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 ocr-search interleave result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -842,7 +832,6 @@ jobs:
               and .providerProof.readPdfWithOcrSingleFetch == true
               and .capabilityStatus.urlSsrf == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$URL_SINGLE_FETCH_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 url single-fetch result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -870,7 +859,6 @@ jobs:
               and .providerProof.malformedTsvSoftFallback == true
               and .capabilityStatus.includeOcrTextLayer == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$OCR_SEARCH_TSV_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 ocr-search tsv result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -898,7 +886,6 @@ jobs:
               and .providerProof.charEstimatedLevel == true
               and .capabilityStatus.boundingBox == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$SEARCH_MULTIWORD_GEOMETRY_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 search multiword geometry result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -925,7 +912,6 @@ jobs:
               and .providerProof.valueCoercionResidual == true
               and .capabilityStatus.includeFormFields == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$FORM_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 form residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -952,7 +938,6 @@ jobs:
               and .providerProof.threeOptionRadioGroup == true
               and .capabilityStatus.includeFormFields == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$FORM_RADIO_GROUP_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 form radio-group result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -979,7 +964,6 @@ jobs:
               and .providerProof.windowsPathBasename == true
               and .capabilityStatus.includeAttachments == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$ATTACHMENT_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 attachment residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1006,7 +990,6 @@ jobs:
               and .providerProof.emptyAllFalse == true
               and .capabilityStatus.includePermissions == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$MARKINFO_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 markinfo residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1033,7 +1016,6 @@ jobs:
               and .providerProof.readonlyParentEditableFalse == true
               and .capabilityStatus.includeFormFields == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$FORM_PARENT_CHILD_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 form parent-child result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1059,7 +1041,6 @@ jobs:
               and .providerProof.textContentTitleWithoutBoxes == true
               and .capabilityStatus.includeAnnotations == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 annotation residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1086,7 +1067,6 @@ jobs:
               and .providerProof.fullRectBoxes == true
               and .capabilityStatus.includeAnnotations == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$ANNOTATION_DEST_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 annotation dest residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1113,7 +1093,6 @@ jobs:
               and .providerProof.fullRectBoxes == true
               and .capabilityStatus.includeAnnotations == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$ANNOTATION_ACTION_DEST_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 annotation action dest residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1140,7 +1119,6 @@ jobs:
               and .providerProof.launchFileUrl == true
               and .capabilityStatus.includeAnnotations == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$ANNOTATION_ACTION_PRECEDENCE_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 annotation action precedence residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1167,7 +1145,6 @@ jobs:
               and .providerProof.documentInfoFields == true
               and .capabilityStatus.includeMetadata == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$INFO_FLAGS_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 info flags residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1194,7 +1171,6 @@ jobs:
               and .providerProof.invertedMediaBoxNormalized == true
               and .capabilityStatus.includePageGeometry == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$PAGE_GEOMETRY_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 page geometry residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1221,7 +1197,6 @@ jobs:
               and .providerProof.absentLabelsOmitted == true
               and .capabilityStatus.includePageLabels == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$PAGE_LABELS_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 page labels residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1248,7 +1223,6 @@ jobs:
               and .providerProof.absentOutlineOmitted == true
               and .capabilityStatus.includeOutline == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$OUTLINE_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 outline residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1276,7 +1250,6 @@ jobs:
               and .providerProof.unencryptedOmitsPermissions == true
               and .capabilityStatus.includePermissions == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$PERMISSIONS_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 permissions residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1303,7 +1276,6 @@ jobs:
               and .providerProof.infoStillPresent == true
               and .capabilityStatus.includeMetadata == "PARTIAL"
               and .productTruth.dropInFor3014 == false
-              and .productTruth.publishFreeze == true
               and .candidateSha == $sha
             ' "$METADATA_PRESENCE_RESIDUAL_ARTIFACT" >/dev/null; then
             echo "::error::v3.0.14 metadata presence residual result is incomplete, mutation-insensitive, failing, or not SHA-bound"
@@ -1324,8 +1296,7 @@ jobs:
             .providerProof.exactInfoKeySet == true and
             .providerProof.topLevelNumPagesPreserved == true and
             .capabilityStatus.includeMetadata == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$INFO_EXTRAS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 info extras residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1344,8 +1315,7 @@ jobs:
             .providerProof.unencryptedNullFilter == true and
             .providerProof.topLevelNumPagesPreserved == true and
             .capabilityStatus.includeMetadata == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ENCRYPT_FILTER_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 encrypt filter residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1365,8 +1335,7 @@ jobs:
             .providerProof.absentLinearizedFalse == true and
             .providerProof.topLevelNumPagesPreserved == true and
             .capabilityStatus.includeMetadata == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$LINEARIZED_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 linearized residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1386,8 +1355,7 @@ jobs:
             .providerProof.visibleSignaturesAcroformTrue == true and
             .providerProof.invisibleSignaturesAcroformFalse == true and
             .capabilityStatus.includeMetadata == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_FLAGS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form flags residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1405,8 +1373,7 @@ jobs:
             .providerProof.textNoAppearanceIconBox == true and
             .providerProof.freeTextRawRect == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$TEXT_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text annotation residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1425,8 +1392,7 @@ jobs:
             .providerProof.launchFileDictPrefersUf == true and
             .providerProof.gotorRemoteDestJson == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$REMOTE_ACTION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 remote action residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1445,8 +1411,7 @@ jobs:
             .providerProof.parentTextIconBox == true and
             .providerProof.freeTextNoParentInherit == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$POPUP_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 popup annotation residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1465,8 +1430,7 @@ jobs:
             .providerProof.popupNonzeroKeepsBoundingBox == true and
             .providerProof.popupZeroSizeStillInheritsParent == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$POPUP_ZERO_SIZE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 popup zero-size residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1485,8 +1449,7 @@ jobs:
             .providerProof.groupPopupInheritsIrtTitleContents == true and
             .providerProof.nongroupPopupInheritsParent == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$POPUP_GROUP_IRT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 popup group/IRT residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1504,8 +1467,7 @@ jobs:
             .providerProof.textWithAppearanceKeepsRawRect == true and
             .providerProof.textEmptyAppearanceKeepsRawRect == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$TEXT_APPEARANCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text appearance residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1523,8 +1485,7 @@ jobs:
             .providerProof.namedAppearanceWithAsKeepsRawRect == true and
             .providerProof.namedAppearanceWithoutAsUsesIconBox == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$TEXT_NAMED_APPEARANCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text named appearance residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1542,8 +1503,7 @@ jobs:
             .providerProof.invertedTextNoAppearanceIconBox == true and
             .providerProof.ordinaryTextNoAppearanceIconBox == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$TEXT_INVERTED_RECT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text inverted-rect residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1562,8 +1522,7 @@ jobs:
             .providerProof.gotorNamedNameDest == true and
             .providerProof.gotorExplicitDestControl == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$REMOTE_NAMED_DEST_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 remote named dest residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1582,8 +1541,7 @@ jobs:
             .providerProof.pageLabelsMultiStyleControl == true and
             .providerProof.pageLabelsAbsentControl == true and
             .capabilityStatus.includePageLabels == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$PAGE_LABELS_KIDS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page labels kids residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1604,8 +1562,7 @@ jobs:
             .providerProof.plainStringButtonControl == true and
             .providerProof.dvArrayFallbackValue == true and
             .capabilityStatus.includeFormFields == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_BUTTON_ARRAY_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form button-array residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1626,8 +1583,7 @@ jobs:
             .providerProof.checkboxApDefaultOff == true and
             .providerProof.radioApDefaultOff == true and
             .providerProof.checkboxNoApDefaultNull == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_BUTTON_DEFAULT_OFF_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form button-default-off residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1647,8 +1603,7 @@ jobs:
             .providerProof.pushbuttonApDefaultNull == true and
             .providerProof.pushbuttonNoApDefaultNull == true and
             .providerProof.checkboxApDefaultOffRegression == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_PUSHBUTTON_DEFAULT_NULL_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form pushbutton-default-null residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1668,8 +1623,7 @@ jobs:
             .providerProof.checkboxAsOverridesVOff == true and
             .providerProof.checkboxAsOverridesVYes == true and
             .providerProof.checkboxAsNoApKeepsV == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_AS_VALUE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-as-value residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1688,8 +1642,7 @@ jobs:
             .providerProof.checkboxInvalidExportOff == true and
             .providerProof.checkboxOnlyOffYes == true and
             .providerProof.checkboxOffExportOk == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_EXPORT_NORMALIZE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-export-normalize residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1708,8 +1661,7 @@ jobs:
             .providerProof.radioAsDoesNotOverrideV == true and
             .providerProof.radioAsInvalidKeepsV == true and
             .providerProof.checkboxAsOverrideRegression == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_AS_NO_OVERRIDE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-as-no-override residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1728,8 +1680,7 @@ jobs:
             .providerProof.checkboxMultiExportFoo == true and
             .providerProof.checkboxMultiExportAsBar == true and
             .providerProof.checkboxMultiExportAsBazOff == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_MULTI_EXPORT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-multi-export residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1748,8 +1699,7 @@ jobs:
             .providerProof.checkboxMultiExportManyC == true and
             .providerProof.checkboxMultiExportManyA == true and
             .providerProof.checkboxMultiExportManyZOff == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_MULTI_EXPORT_MANY_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-multi-export-many residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1768,8 +1718,7 @@ jobs:
             .providerProof.checkboxExportEmptyApYes == true and
             .providerProof.checkboxExportSingleFoo == true and
             .providerProof.checkboxExportSingleBarOff == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_EXPORT_EMPTY_SINGLE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-export-empty-single residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1788,8 +1737,7 @@ jobs:
             .providerProof.checkboxApStreamKeepsV == true and
             .providerProof.checkboxApnStreamKeepsV == true and
             .providerProof.checkboxApNamedAsOff == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_CHECKBOX_MALFORMED_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form checkbox-malformed-ap residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1808,8 +1756,7 @@ jobs:
             .providerProof.radioApStreamKeepsV == true and
             .providerProof.radioApnStreamKeepsV == true and
             .providerProof.radioApNamedKeepsV == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_MALFORMED_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-malformed-ap residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1828,8 +1775,7 @@ jobs:
             .providerProof.radioKidsApStream == true and
             .providerProof.radioKidsApnStream == true and
             .providerProof.radioKidsApNamed == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_PARENT_KIDS_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-parent-kids-ap residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1848,8 +1794,7 @@ jobs:
             .providerProof.radioDeeperKidsApStream == true and
             .providerProof.radioDeeperKidsApnStream == true and
             .providerProof.radioDeeperKidsApNamed == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_DEEPER_KIDS_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-deeper-kids-ap residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1868,8 +1813,7 @@ jobs:
             .providerProof.radioBrokenParentApStream == true and
             .providerProof.radioBrokenParentApnStream == true and
             .providerProof.radioBrokenParentApNamed == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_RADIO_BROKEN_PARENT_CHAIN_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form radio-broken-parent-chain residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1888,8 +1832,7 @@ jobs:
             .providerProof.stampBasic == true and
             .providerProof.caretBasic == true and
             .providerProof.fileAttachmentBasic == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_STAMP_CARET_FILE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation stamp/caret/file residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1908,8 +1851,7 @@ jobs:
             .providerProof.squareInverted == true and
             .providerProof.circleInverted == true and
             .providerProof.widgetFieldTNotTitle == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_SQUARE_CIRCLE_WIDGET_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation square/circle/widget residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1928,8 +1870,7 @@ jobs:
             .providerProof.linkUriDomain == true and
             .providerProof.linkUriPath == true and
             .providerProof.linkUriWww == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_URI_NORMALIZE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-uri-normalize residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1948,8 +1889,7 @@ jobs:
             .providerProof.freetextInverted == true and
             .providerProof.freetextNormal == true and
             .providerProof.freetextZeroWidth == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_FREETEXT_RECT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation freetext-rect residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1968,8 +1908,7 @@ jobs:
             .providerProof.linkUriName == true and
             .providerProof.linkUriJavascript == true and
             .providerProof.linkUriRelative == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_URI_NAME_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-uri-name residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -1988,8 +1927,7 @@ jobs:
             .providerProof.linkAaUUri == true and
             .providerProof.linkAaDGoto == true and
             .providerProof.linkAWinsOverAa == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_AA_ACTION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-aa-action residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2008,8 +1946,7 @@ jobs:
             .providerProof.linkAaEIgnored == true and
             .providerProof.linkDestOverAa == true and
             .providerProof.linkAaDOverU == true and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_LINK_AA_PRECEDENCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation link-aa-precedence residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2029,8 +1966,7 @@ jobs:
             .providerProof.pairPlusOrphanKeepsCompletePair == true and
             .providerProof.trailingOrphanUnnamedNoSize == true and
             .capabilityStatus.includeAttachments == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ATTACHMENT_ODD_NAMES_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 attachment odd-names residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2050,8 +1986,7 @@ jobs:
             .providerProof.duplicateKidsOmitted == true and
             .providerProof.cycleKidsOmitted == true and
             .capabilityStatus.includeAttachments == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ATTACHMENT_DUPKIDS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 attachment dupkids residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2072,8 +2007,7 @@ jobs:
             .providerProof.utf16BeOddLengthDropsTrailingByte == true and
             .providerProof.utf8BomAndPdfDocEncodingControls == true and
             .capabilityStatus.includeFormFields == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_UTF16_TEXT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form utf16-text residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2093,8 +2027,7 @@ jobs:
             .providerProof.escapedCrlfPreserved == true and
             .providerProof.rawLfPreserved == true and
             .capabilityStatus.includeFormFields == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$FORM_TEXT_MULTILINE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 form text-multiline residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2114,8 +2047,7 @@ jobs:
             .providerProof.freeTextEscapedCrlfPreserved == true and
             .providerProof.textStickyEscapedLfPreserved == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_CONTENTS_MULTILINE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation contents-multiline residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2135,8 +2067,7 @@ jobs:
             .providerProof.siblingNextCycleSuppressed == true and
             .providerProof.selfFirstCycleSuppressed == true and
             .capabilityStatus.includeOutline == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$OUTLINE_CYCLE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline cycle residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2156,8 +2087,7 @@ jobs:
             .providerProof.namedDestTokenPreserved == true and
             .providerProof.namedDestGotoActionPreserved == true and
             .capabilityStatus.includeOutline == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$OUTLINE_NAMED_DEST_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline named-dest residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2178,8 +2108,7 @@ jobs:
             .providerProof.gotorNameDestUrl == true and
             .providerProof.gotorExplicitDestUrl == true and
             .capabilityStatus.includeOutline == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$OUTLINE_GOTOR_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline GoToR residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2199,8 +2128,7 @@ jobs:
             .providerProof.launchFilespecUfUrl == true and
             .providerProof.launchExplicitDestUrl == true and
             .capabilityStatus.includeOutline == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$OUTLINE_LAUNCH_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline Launch residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2220,8 +2148,7 @@ jobs:
             .providerProof.relativeLaunchDropped == true and
             .providerProof.relativeLaunchDestSuppressed == true and
             .capabilityStatus.includeOutline == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$OUTLINE_RELATIVE_REMOTE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 outline relative-remote residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2241,8 +2168,7 @@ jobs:
             .providerProof.trappedFalseName == true and
             .providerProof.customMixedValues == true and
             .capabilityStatus.includeMetadata == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$INFO_TRAPPED_CUSTOM_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 info trapped-custom residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2263,8 +2189,7 @@ jobs:
             .providerProof.inheritedMediaBoxPageCrop == true and
             .providerProof.negativeRightAngleRotate == true and
             .capabilityStatus.includePageGeometry == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$PAGE_GEOMETRY_INHERITANCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page geometry inheritance residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2284,8 +2209,7 @@ jobs:
             .providerProof.nonRightAngleClamp == true and
             .providerProof.partialCropIntersect == true and
             .capabilityStatus.includePageGeometry == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$PAGE_GEOMETRY_DEPTH_CLAMP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page geometry depth-clamp residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2305,8 +2229,7 @@ jobs:
             .providerProof.multiPageGeometry == true and
             .providerProof.bleedTrimArtIgnored == true and
             .capabilityStatus.includePageGeometry == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$PAGE_GEOMETRY_USERUNIT_MULTIPAGE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 page geometry userunit-multipage residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2326,8 +2249,7 @@ jobs:
             .providerProof.freeTextOddUtf16 == true and
             .providerProof.catalogOutlineAndInfoOddUtf16 == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$UTF16_TEXT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 utf16-text residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2346,8 +2268,7 @@ jobs:
             .providerProof.invalidAsNameUsesIconBox == true and
             .providerProof.asNonstreamUsesIconBox == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$TEXT_INVALID_AS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 text invalid-as residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2367,8 +2288,7 @@ jobs:
             .providerProof.nonIntersectingRectUsesLBbox == true and
             .providerProof.borderWidth2Expand == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$LINE_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 line annotation residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2388,8 +2308,7 @@ jobs:
             .providerProof.polygonNonIntersectingUsesVerticesBbox == true and
             .providerProof.borderWidth2VerticesBbox == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$POLYLINE_POLYGON_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 polyline/polygon residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2409,8 +2328,7 @@ jobs:
             .providerProof.inkMultiStrokeUsesInkListBbox == true and
             .providerProof.borderWidth2InkListBbox == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$INK_ANNOTATION_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 ink annotation residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2430,8 +2348,7 @@ jobs:
             .providerProof.lineTinyRectClampsBorderWidth == true and
             .providerProof.inkTinyRectClampsBorderWidth == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$BORDER_WIDTH_CLAMP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border-width clamp residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2451,8 +2368,7 @@ jobs:
             .providerProof.lineBorderArrayWidth2 == true and
             .providerProof.inkBorderArrayWidth3 == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$BORDER_ARRAY_WIDTH_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border-array width residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2473,8 +2389,7 @@ jobs:
             .providerProof.lineBorderBsPreferenceW2 == true and
             .providerProof.inkBorderBsPreferenceW3 == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$BORDER_BS_PREFERENCE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border BS preference residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2494,8 +2409,7 @@ jobs:
             .providerProof.lineBorderBsNondictW1 == true and
             .providerProof.inkBorderBsNondictW1 == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$BORDER_BS_NONDICT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border BS nondict residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2515,8 +2429,7 @@ jobs:
             .providerProof.lineBorderArrayEmptyW1 == true and
             .providerProof.inkBorderArrayShortW1 == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$BORDER_ARRAY_SHORT_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border array short residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2536,8 +2449,7 @@ jobs:
             .providerProof.lineBorderBsWrongTypeW1 == true and
             .providerProof.inkBorderBsWrongTypeW1 == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$BORDER_BS_WRONG_TYPE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border BS wrong-type residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2557,8 +2469,7 @@ jobs:
             .providerProof.lineZeroHeightClampBypassW2 == true and
             .providerProof.inkZeroWidthClampBypassW2 == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$BORDER_ZERO_SIZE_CLAMP_BYPASS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 border zero-size clamp-bypass residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2578,8 +2489,7 @@ jobs:
             .providerProof.lineAppearanceKeepsRawRect == true and
             .providerProof.inkAppearanceKeepsRawRect == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_APPEARANCE_BBOX_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation appearance bbox residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2599,8 +2509,7 @@ jobs:
             .providerProof.polylineApNNameExpandsGeometry == true and
             .providerProof.inkApNNullExpandsGeometry == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NONSTREAM_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP non-stream residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2620,8 +2529,7 @@ jobs:
             .providerProof.lineApAsMissingExpandsGeometry == true and
             .providerProof.lineApAsInvalidExpandsGeometry == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NAMED_STATE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP named-state residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2641,8 +2549,7 @@ jobs:
             .providerProof.inkApAsMissingExpandsGeometry == true and
             .providerProof.polylineApAsInvalidExpandsGeometry == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NAMED_STATE_POLYLINE_INK_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP named-state polyline/ink residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2663,8 +2570,7 @@ jobs:
             .providerProof.circleApAsMissingKeepsRawRect == true and
             .providerProof.squareApAsInvalidKeepsRawRect == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_AP_NAMED_STATE_SQUARE_CIRCLE_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation AP named-state square/circle residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2685,8 +2591,7 @@ jobs:
             .providerProof.highlightApNoExtUsesQuadpoints == true and
             .providerProof.highlightApExtKeepsRawRect == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_HIGHLIGHT_QUADPOINTS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation highlight quadpoints residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2707,8 +2612,7 @@ jobs:
             .providerProof.squigglyQuadNoApUsesStripBbox == true and
             .providerProof.strikeoutQuadNoApUsesQuadpoints == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_TEXT_MARKUP_QUADPOINTS_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation text-markup quadpoints residual result is incomplete, failing, or not SHA-bound"
             exit 1
@@ -2729,8 +2633,7 @@ jobs:
             .providerProof.squigglyApKeepsRawRect == true and
             .providerProof.strikeoutApKeepsRawRect == true and
             .capabilityStatus.includeAnnotations == "PARTIAL" and
-            .productTruth.dropInFor3014 == false and
-            .productTruth.publishFreeze == true
+            .productTruth.dropInFor3014 == false
           ' "$ANNOTATION_TEXT_MARKUP_WITH_AP_RESIDUAL_ARTIFACT" >/dev/null || {
             echo "::error::v3.0.14 annotation text-markup with-appearance residual result is incomplete, failing, or not SHA-bound"
             exit 1
