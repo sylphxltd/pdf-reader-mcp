@@ -41,11 +41,12 @@ run('bun', ['scripts/check-verified-candidate-admission.ts']);
 const matrix = JSON.parse(
   readFileSync(join(root, 'docs/specs/pure-rust-capability-matrix.json'), 'utf8')
 ) as { productTruth?: { dropInFor3014?: boolean; publishFreeze?: boolean; version?: string } };
+// dropInFor3014=true is allowed for sole-runtime default publishes after
+// check-verified-candidate-admission passes (requires soleRuntimeAuthorized).
 if (matrix.productTruth?.dropInFor3014 === true) {
-  console.error(
-    '[release-publish-with-natives] dropInFor3014=true requires sole-runtime path, not progress publish helper'
+  console.log(
+    '[release-publish-with-natives] sole-runtime publish path (dropInFor3014=true)'
   );
-  process.exit(1);
 }
 
 run('bun', ['scripts/native/sync-native-package-manifests.ts']);
