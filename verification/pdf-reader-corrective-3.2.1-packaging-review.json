@@ -5,9 +5,9 @@
   "reviewer": "release-corrective-packaging-audit",
   "scope": "corrective-packaging-only",
   "candidate": {
-    "sha": "af1516b259c909d561148ba2a58ee59f5beebff2",
+    "sha": "ac48fb82ec72df3455d6add75b2107303faf83b5",
     "versionTarget": "3.2.1",
-    "note": "Main squash-merge commit of #572 packaging corrective. Publish exact-head should match this SHA or a pin-path-only descendant.",
+    "note": "Packaging commit including publish exact-head CI fixes. Pin-path-only descendants of this SHA may publish.",
     "mergedVia": "https://github.com/SylphxAI/pdf-reader-mcp/pull/572"
   },
   "productTruthSnapshot": {
