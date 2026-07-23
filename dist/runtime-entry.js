@@ -65,7 +65,7 @@ var require2 = createRequire(import.meta.url);
 var here = dirname(fileURLToPath(import.meta.url));
 var packageRoot = join(here, "..");
 var resolveNativeBinary = () => {
-  const forced = process.env.PDF_READER_MCP_RUST_BIN;
+  const forced = process.env["PDF_READER_MCP_RUST_BIN"];
   if (forced && existsSync(forced))
     return forced;
   const platformId = resolveNativePlatformId();
@@ -89,15 +89,15 @@ var resolveNativeBinary = () => {
   }
   return null;
 };
-var forceTs = process.env.PDF_READER_ENGINE_MODE === "typescript" || process.env.PDF_READER_ENGINE_MODE === "ts" || process.env.PDF_READER_FORCE_TYPESCRIPT === "1";
+var forceTs = process.env["PDF_READER_ENGINE_MODE"] === "typescript" || process.env["PDF_READER_ENGINE_MODE"] === "ts" || process.env["PDF_READER_FORCE_TYPESCRIPT"] === "1";
 var nativeBinary = forceTs ? null : resolveNativeBinary();
 if (nativeBinary) {
   const child = spawn(nativeBinary, process.argv.slice(2), {
     stdio: "inherit",
     env: {
       ...process.env,
-      PDF_READER_ENGINE_MODE: process.env.PDF_READER_ENGINE_MODE || "pure-rust",
-      MCP_TRANSPORT: process.env.MCP_TRANSPORT || "stdio"
+      PDF_READER_ENGINE_MODE: process.env["PDF_READER_ENGINE_MODE"] || "pure-rust",
+      MCP_TRANSPORT: process.env["MCP_TRANSPORT"] || "stdio"
     }
   });
   child.on("exit", (code, signal) => {

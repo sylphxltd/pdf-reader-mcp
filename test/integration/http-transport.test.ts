@@ -193,8 +193,7 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
     ).toBe('pdf-reader-mcp');
     const serverVersion = (response.result as { serverInfo?: { version?: string } })?.serverInfo
       ?.version;
-    expect(serverVersion).toBe('0.0.0-pure-rust-experimental');
-    expect(serverVersion).not.toBe(packageJson.version);
+    expect(serverVersion).toBe(packageJson.version);
   });
 
   it('should list available tools over HTTP', async () => {

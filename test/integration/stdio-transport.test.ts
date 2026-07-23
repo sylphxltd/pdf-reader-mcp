@@ -212,8 +212,8 @@ describe('MCP Server stdio Transport Integration (Rust rmcp)', () => {
 
     expect(response.id).toBe(101);
     expect(response.result?.serverInfo?.name).toBe('pdf-reader-mcp');
-    expect(response.result?.serverInfo?.version).toBe('0.0.0-pure-rust-experimental');
-    expect(response.result?.serverInfo?.version).not.toBe(packageJson.version);
+    expect(response.result?.serverInfo?.version).toBe(packageJson.version);
+    // sole-runtime may advertise package version
     freshProc.kill('SIGTERM');
   });
 
