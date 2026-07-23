@@ -5,9 +5,9 @@
   "reviewer": "release-corrective-packaging-audit",
   "scope": "corrective-packaging-only",
   "candidate": {
-    "sha": "93095e9ca69ea3ff7076f360b5377fa1aecbd3c8",
+    "sha": "b75bd2905ffcdaf358868a72e24038c2a2f8949a",
     "versionTarget": "3.2.1",
-    "note": "Source packaging commit for 3.2.1 fail-closed corrective. Later pin-only commits may update matrix/review pointers; publish exact-head allows ancestor with pin-path-only diffs."
+    "note": "Packaging commit including fail-closed default and admission hardening. Publish exact-head allows this SHA or a pin-path-only descendant (matrix/verification only)."
   },
   "productTruthSnapshot": {
     "publishedStable": "@sylphx/pdf-reader-mcp@3.2.1",
