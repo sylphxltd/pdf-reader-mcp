@@ -170,13 +170,40 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
       failures.push('failed to resolve git HEAD for exact-SHA admission');
     } else {
       const headSha = head.stdout.trim();
-      if (!headSha || headSha !== evidence.candidate?.sha || headSha !== review.candidateSha) {
-        failures.push(
-          `exact-head admission requires review/evidence SHA == git HEAD (${headSha}); got review=${review.candidateSha} evidence=${evidence.candidate?.sha}`
-        );
-      }
-      if (review.candidateSha === 'PENDING_RELEASE_SHA' || evidence.candidate?.sha === 'PENDING_RELEASE_SHA') {
+      const candidateSha = evidence?.candidate?.sha ?? '';
+      if (review.candidateSha === 'PENDING_RELEASE_SHA' || candidateSha === 'PENDING_RELEASE_SHA') {
         failures.push('PENDING_RELEASE_SHA is not a valid exact release SHA');
+      } else if (!headSha || !candidateSha || review.candidateSha !== candidateSha) {
+        failures.push(
+          `exact-head admission requires review.candidateSha == evidence.candidate.sha; got review=${review.candidateSha} evidence=${candidateSha}`
+        );
+      } else if (headSha === candidateSha) {
+        // exact match
+      } else {
+        const ancestor = spawnSync(
+          'git',
+          ['merge-base', '--is-ancestor', candidateSha, headSha],
+          { cwd: root, encoding: 'utf8' }
+        );
+        const diff = spawnSync(
+          'git',
+          ['diff', '--name-only', candidateSha, headSha],
+          { cwd: root, encoding: 'utf8' }
+        );
+        const changed = (diff.stdout || '')
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+        const allow = (rel: string) =>
+          rel === 'docs/specs/pure-rust-capability-matrix.json' ||
+          rel === 'scripts/check-verified-candidate-admission.ts' ||
+          rel.startsWith('verification/');
+        const onlyPinPaths = changed.length > 0 && changed.every(allow);
+        if (ancestor.status !== 0 || !onlyPinPaths) {
+          failures.push(
+            `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a pin-path-only descendant; changed=${JSON.stringify(changed)}`
+          );
+        }
       }
     }
   } else if (

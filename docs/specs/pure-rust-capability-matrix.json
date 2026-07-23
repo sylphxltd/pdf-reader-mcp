@@ -417,7 +417,7 @@
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
     "wholeProductReview": {
       "status": "corrective_packaging_authorized_pending_exact_sha_revalidation",
-      "candidateSha": "PENDING_RELEASE_SHA",
+      "candidateSha": "93095e9ca69ea3ff7076f360b5377fa1aecbd3c8",
       "evidence": "verification/pdf-reader-corrective-3.2.1-packaging-review.json",
       "package": "docs/specs/whole-product-independent-review-package.md",
       "unfreezeAuthorized": true,
