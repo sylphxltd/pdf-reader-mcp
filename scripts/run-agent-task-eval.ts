@@ -13,9 +13,12 @@ import {
   evaluateAcceptance,
   extractMetrics,
   loadTasks,
+  materializePublicTaskInput,
+  publicDownloadsEnabled,
   publicPayload,
-  resolveInput,
+  publicTasksEnabled,
   resolveTaskEnv,
+  selectTaskFiles,
   type Metrics,
   type RuntimeId,
   type Task,
@@ -25,7 +28,14 @@ import {
 const root = join(import.meta.dirname, '..');
 const corpusDir = join(root, 'docs/specs/agent-task-corpus');
 const manifestPath = join(corpusDir, 'manifest.json');
-const baselinePath = join(corpusDir, 'baselines/typescript-v3.0.14.local.json');
+const includePublic = publicTasksEnabled();
+const allowDownloads = publicDownloadsEnabled();
+const baselinePath = join(
+  corpusDir,
+  includePublic
+    ? 'baselines/typescript-v3.0.14.public-url.json'
+    : 'baselines/typescript-v3.0.14.local.json'
+);
 const rustServerPath = join(root, 'target/release/pdf-reader-mcp-server');
 const tsServerPath = join(root, 'dist/index.js');
 
@@ -42,6 +52,7 @@ const runtimes: RuntimeId[] = args.includes('--runtime=typescript')
 
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
   taskFiles: string[];
+  publicTaskFiles?: string[];
   calibration?: { inventedNumericThresholdsForbidden?: boolean };
 };
 
@@ -85,24 +96,27 @@ const measureRuntime = async (runtime: RuntimeId, tasks: Task[]): Promise<TaskMe
               PDF_READER_ENGINE_MODE: '',
             };
       const env = resolveTaskEnv(task, root, baseEnv);
+      const toolArgs = await materializePublicTaskInput(task, root, {
+        allowDownloads,
+      });
       const response =
         runtime === 'pure-rust'
           ? await callMcpTool({
               command: rustServerPath,
               env,
               tool: task.tool,
-              toolArgs: resolveInput(task.input, root),
+              toolArgs,
               cwd: root,
-              timeoutMs: 60_000,
+              timeoutMs: 120_000,
             })
           : await callMcpTool({
               command: process.execPath,
               args: [tsServerPath],
               env,
               tool: task.tool,
-              toolArgs: resolveInput(task.input, root),
+              toolArgs,
               cwd: root,
-              timeoutMs: 60_000,
+              timeoutMs: 120_000,
             });
       const payload = publicPayload(response);
       const metrics = extractMetrics(response, payload);
@@ -138,6 +152,8 @@ const measureRuntime = async (runtime: RuntimeId, tasks: Task[]): Promise<TaskMe
           visualEnrichmentCount: 0,
           ocrTextChars: 0,
           hasDocumentMap: false,
+          containsTextHits: 0,
+          fullTextPreview: '',
         },
         acceptancePass: false,
         acceptanceFailures: [error instanceof Error ? error.message : String(error)],
@@ -159,7 +175,15 @@ const compareMetricFloor = (
   return null;
 };
 
-const tasks = loadTasks(root, manifest.taskFiles);
+const taskFiles = selectTaskFiles(manifest, includePublic);
+if (includePublic && !(manifest.publicTaskFiles?.length)) {
+  console.error('[agent-task-eval] public tasks requested but manifest.publicTaskFiles is empty');
+  process.exit(1);
+}
+const tasks = loadTasks(root, taskFiles);
+console.log(
+  `[agent-task-eval] scope=${includePublic ? 'local+public-url' : 'local'} tasks=${tasks.length} downloads=${allowDownloads}`
+);
 if (runtimes.includes('pure-rust')) ensureRustServer();
 if (runtimes.includes('typescript')) ensureTsServer();
 

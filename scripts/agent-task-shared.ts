@@ -1,14 +1,21 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  DEFAULT_PDF_URL_CACHE_DIR,
+  resolveVerifiedPdfUrl,
+  sha256Hex,
+} from './pdf-url-cache.ts';
 
 export type RuntimeId = 'typescript' | 'pure-rust';
 
 export type Task = {
   id: string;
   class?: string;
+  scope?: 'local' | 'public-url';
   tool: string;
   fixture?: string;
+  publicCaseId?: string;
   input: Record<string, unknown>;
   acceptance: Record<string, unknown>;
   contractIds?: string[];
@@ -34,6 +41,8 @@ export type Metrics = {
   visualEnrichmentCount: number;
   ocrTextChars: number;
   hasDocumentMap: boolean;
+  containsTextHits: number;
+  fullTextPreview: string;
 };
 
 export type TaskMeasurement = {
@@ -221,6 +230,8 @@ export const extractMetrics = (
     visualEnrichmentCount: Math.max(visualEnrichments.length, mapEnrichments.length),
     ocrTextChars,
     hasDocumentMap: Boolean(documentMap),
+    containsTextHits: 0,
+    fullTextPreview: fullText.slice(0, 50_000),
   };
 };
 
@@ -305,6 +316,23 @@ export const evaluateAcceptance = (
   }
   if (acceptance.requireDocumentMap === true && !metrics.hasDocumentMap) {
     failures.push('document_map missing');
+  }
+  if (Array.isArray(acceptance.containsText) && acceptance.containsText.length > 0) {
+    const haystack = metrics.fullTextPreview.toLowerCase();
+    const compactHaystack = haystack.replace(/[^a-z0-9]+/giu, '');
+    let hits = 0;
+    for (const needle of acceptance.containsText) {
+      if (typeof needle !== 'string' || !needle.trim()) continue;
+      const n = needle.toLowerCase();
+      const compactNeedle = n.replace(/[^a-z0-9]+/giu, '');
+      // Capability-first: accept equivalent whitespace/punctuation collapse.
+      if (haystack.includes(n) || (compactNeedle && compactHaystack.includes(compactNeedle))) {
+        hits += 1;
+      } else {
+        failures.push(`containsText missing: ${needle}`);
+      }
+    }
+    metrics.containsTextHits = hits;
   }
   if (acceptance.forbidInventedFullText === true && metrics.fullTextChars > 200) {
     metrics.inventedFullTextRisk = true;
@@ -391,3 +419,72 @@ export const loadTasks = (root: string, taskFiles: string[]): Task[] =>
     if (!existsSync(path)) throw new Error(`task missing: ${rel}`);
     return JSON.parse(readFileSync(path, 'utf8')) as Task;
   });
+
+export type PublicCorpusCase = {
+  id: string;
+  url: string;
+  sha256: string;
+};
+
+export const publicTasksEnabled = (
+  argv: string[] = process.argv.slice(2),
+  env: NodeJS.ProcessEnv = process.env
+): boolean =>
+  argv.includes('--public') ||
+  argv.includes('--include-public') ||
+  /^(1|true|yes)$/iu.test(String(env.MCP_PDF_AGENT_TASK_PUBLIC ?? '').trim());
+
+export const publicDownloadsEnabled = (
+  argv: string[] = process.argv.slice(2),
+  env: NodeJS.ProcessEnv = process.env
+): boolean =>
+  argv.includes('--allow-corpus-downloads') ||
+  /^(1|true|yes)$/iu.test(String(env.MCP_PDF_CORPUS_ALLOW_DOWNLOADS ?? '').trim());
+
+export const loadPublicCorpusCases = (root: string): Map<string, PublicCorpusCase> => {
+  const path = join(root, 'corpus/public-url-corpus.json');
+  const data = JSON.parse(readFileSync(path, 'utf8')) as { cases: PublicCorpusCase[] };
+  return new Map(data.cases.map((entry) => [entry.id, entry]));
+};
+
+export const materializePublicTaskInput = async (
+  task: Task,
+  root: string,
+  options: { allowDownloads: boolean; cacheDir?: string } 
+): Promise<Record<string, unknown>> => {
+  const input = resolveInput(task.input, root);
+  if (task.scope !== 'public-url' || !task.publicCaseId) return input;
+  const corpus = loadPublicCorpusCases(root);
+  const entry = corpus.get(task.publicCaseId);
+  if (!entry) throw new Error(`public corpus case missing: ${task.publicCaseId}`);
+  const sha256 = sha256Hex(entry.sha256);
+  if (!sha256) throw new Error(`public corpus case ${entry.id} has invalid sha256`);
+  const cacheDir = options.cacheDir ?? process.env.MCP_PDF_CORPUS_CACHE_DIR ?? DEFAULT_PDF_URL_CACHE_DIR;
+  const resolved = await resolveVerifiedPdfUrl({
+    id: entry.id,
+    url: entry.url,
+    sha256,
+    allowDownloads: options.allowDownloads,
+    allowPrivateIps: false,
+    cacheDir,
+    caseLabel: 'Public agent-task case',
+    downloadHint:
+      'Pass --allow-corpus-downloads or set MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true (and MCP_PDF_AGENT_TASK_PUBLIC=true).',
+  });
+  if (Array.isArray(input.sources)) {
+    for (const source of input.sources as Array<Record<string, unknown>>) {
+      delete source.url;
+      source.path = resolved.path;
+    }
+  }
+  return input;
+};
+
+export const selectTaskFiles = (
+  manifest: { taskFiles?: string[]; publicTaskFiles?: string[] },
+  includePublic: boolean
+): string[] => {
+  const local = manifest.taskFiles ?? [];
+  if (!includePublic) return local;
+  return [...local, ...(manifest.publicTaskFiles ?? [])];
+};

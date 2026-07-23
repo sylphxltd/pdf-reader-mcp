@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "title": "Agent-task corpus for capability-first quality parity",
-  "updated": "2026-07-22",
+  "updated": "2026-07-23",
   "authority": "ADR-0005",
-  "status": "local-calibrated-with-ocr-visual",
+  "status": "local-and-public-calibrating",
   "baselineRuntime": "typescript-v3.0.14",
   "candidateRuntime": "pure-rust-opt-in",
   "calibration": {
@@ -34,10 +34,32 @@
     "tasks/visual-enrichment-fusion.json"
   ],
   "notes": [
-    "Local corpus under ADR-0005 quality parity, including OCR and visual task classes.",
-    "Thresholds are measured from TS baseline via scripts/run-agent-task-eval.ts --write-baseline.",
-    "Invented absolute percentage thresholds are forbidden; comparison uses measured capability presence floors.",
-    "Public URL corpus remains follow-on work before unfreeze."
+    "Local corpus is the default CI agent-task surface.",
+    "Public URL tasks are opt-in via MCP_PDF_AGENT_TASK_PUBLIC=true and downloads via MCP_PDF_CORPUS_ALLOW_DOWNLOADS=true.",
+    "Thresholds come from measured TS baseline; invented absolute percentages are forbidden.",
+    "Public URL PDFs are not vendored; SHA256-verified cache is used when available."
   ],
-  "baselineArtifact": "baselines/typescript-v3.0.14.local.json"
+  "baselineArtifact": "baselines/typescript-v3.0.14.local.json",
+  "publicTaskFiles": [
+    "tasks/public/public-access-board-passenger-loading-zones-guide.json",
+    "tasks/public/public-arxiv-attention-is-all-you-need-v7.json",
+    "tasks/public/public-irs-w9-2024-form-search.json",
+    "tasks/public/public-irs-w9-2024-form.json",
+    "tasks/public/public-nasa-ntrs-19940006471-technical-report.json"
+  ],
+  "publicCorpus": {
+    "manifest": "corpus/public-url-corpus.json",
+    "optInEnv": [
+      "MCP_PDF_AGENT_TASK_PUBLIC",
+      "MCP_PDF_CORPUS_ALLOW_DOWNLOADS"
+    ],
+    "cacheDirEnv": "MCP_PDF_CORPUS_CACHE_DIR",
+    "status": "calibrating",
+    "activeCaseFilter": "downloadable-from-ci-environment-2026-07-23",
+    "blockedCases": [
+      "loc-cataloging-newsline-2005-public-domain",
+      "cdc-nchs-db508-obesity-data-brief"
+    ]
+  },
+  "publicBaselineArtifact": "baselines/typescript-v3.0.14.public-url.json"
 }
