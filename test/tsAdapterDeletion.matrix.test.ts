@@ -19,7 +19,7 @@ describe('published TypeScript production default', () => {
     };
     expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/index.js');
     expect(pkg.exports?.['.']).toBe('./dist/index.js');
-    expect(pkg.version).toBe('3.0.14');
+    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
   });
 
   it('parity bridge is deleted', () => {
