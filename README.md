@@ -10,21 +10,21 @@
 
 The most-starred PDF MCP server on GitHub.
 
-> **Published stable: `@sylphx/pdf-reader-mcp@3.0.14` (TypeScript path).**  
-> Pure-Rust cutover is **in progress and not published**. Versions `3.0.15`–`3.1.1`
-> are **WITHDRAWN** (deprecated on npm). Do not install them.  
-> **Publish freeze** until capability-first semantic compatibility is proven (ADR-0005) — not exact PDF.js JSON equality, and no premature releases.
+> **Published stable: `@sylphx/pdf-reader-mcp@3.2.0`.**  
+> Default entry prefers the **pure-Rust** platform native binary via `dist/runtime-entry.js`.  
+> TypeScript remains an explicit **fallback** (`./typescript`, force flags) for unsupported platforms / missing optional natives.  
+> Versions `3.0.15`–`3.1.1` are **WITHDRAWN**. Admission bar is capability-first semantic compatibility (ADR-0005), not exact PDF.js JSON equality.
 
 [![GitHub stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=for-the-badge&logo=github)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI/CD)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/SylphxAI/pdf-reader-mcp?style=flat-square)](https://codecov.io/gh/SylphxAI/pdf-reader-mcp)
-[![Rust](https://img.shields.io/badge/Rust-experimental-orange.svg?style=flat-square)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-default-orange.svg?style=flat-square)](https://www.rust-lang.org/)
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](#docker)
 
-**Local-first** · **Published: TS 3.0.14** · **Pure-Rust experimental** · **Publish freeze**
+**Local-first** · **Published: 3.2.0 pure-Rust default** · **TypeScript fallback** · **Capability-first**
 
 [⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
 · [Quick start](#quick-start) · [See it work](#see-it-work) · [Roadmap](docs/roadmap/sota-family-roadmap.md) · [Why not plain text?](#why-not-a-plain-text-dump)
@@ -62,7 +62,7 @@ Full capability matrix: [comparison guide](docs/comparison/index.md).
 **Install once. Call once.**
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.0.14
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.2.0
 ```
 
 ```json
@@ -136,15 +136,15 @@ Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 
 ### Published stable (npm — TypeScript 3.0.14)
 
-Pin **3.0.14** explicitly. This is the only supported cross-platform drop-in.
-Requires **Node.js `>=22.13`**. The package runs `dist/index.js` (TypeScript MCP).
+Install **3.2.0**. Default prefers pure-Rust native optional packages; TypeScript remains fallback.
+Requires **Node.js `>=22.13`**. The package runs `dist/runtime-entry.js` (pure-Rust preferred, TypeScript fallback).
 
 ```bash
 # Claude Code
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.0.14
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.2.0
 
 # Any MCP client (stdio)
-npx @sylphx/pdf-reader-mcp@3.0.14
+npx @sylphx/pdf-reader-mcp@3.2.0
 ```
 
 Claude Desktop (`claude_desktop_config.json`):
@@ -154,16 +154,16 @@ Claude Desktop (`claude_desktop_config.json`):
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp@3.0.14"]
+      "args": ["@sylphx/pdf-reader-mcp@3.2.0"]
     }
   }
 }
 ```
 
 > **Do not install 3.0.15–3.1.1** — withdrawn incomplete pure-Rust cutover
-> (deprecated on npm). Registry `latest` is **3.0.14**.
+> (deprecated on npm). Registry `latest` is **3.2.0**.
 
-### Experimental pure-Rust (source only)
+### Pure-Rust default + TypeScript fallback
 
 Pure-Rust is **not** published as npm latest and is **not** a full drop-in.
 Do not `cargo install` experimental crates for production. To experiment from a
@@ -173,7 +173,7 @@ git checkout:
 bun run build:rust
 PDF_READER_ENGINE_MODE=pure-rust ./bin/pdf-reader-mcp
 
-Experimental pure-Rust **library** import (does not change the default TypeScript package entry; publish freeze remains):
+Pure-Rust **library** import (`./pure-rust`). Default package entry already prefers pure-Rust when natives are installed:
 
 ```ts
 import { createPureRustClient } from '@sylphx/pdf-reader-mcp/pure-rust';
@@ -213,7 +213,7 @@ Pure-Rust is a **work in progress**, not the published product.
 | Evidence OCR / analyze | Partial: bounded opt-in command adapters; OCR TSV and analyze HTTP/presets are not yet available |
 | `read_pdf` OCR fusion | Partial: command-provider OCR layer plus boxed-word table projection into elements/chunks/Markdown/HTML/AST/map; TSV, mixed-table continuation, and broad Twin parity remain open |
 | Cross-platform npm binary | **Not yet** |
-| Drop-in for 3.0.14 | **No** |
+| Drop-in for 3.0.14 | **Yes (capability-first sole-runtime 3.2.0)** |
 
 See [docs/performance/why-rust.md](docs/performance/why-rust.md). Speedups are exploratory only.
 
