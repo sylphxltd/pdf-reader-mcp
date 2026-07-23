@@ -50,6 +50,8 @@ describe('published TypeScript production default', () => {
     expect(matrix.productTruth.pureRustStatus).toBe('experimental-opt-in');
     // May be 3.0.14 LKG or a later Stage B progress package (e.g. 3.1.3) that still defaults to TS.
     expect(matrix.productTruth.publishedStable).toMatch(/@sylphx\/pdf-reader-mcp@\d+\.\d+\.\d+/);
-    expect(String(matrix.productTruth.publishedImplementation ?? 'TypeScript')).toMatch(/TypeScript/i);
+    expect(String(matrix.productTruth.publishedImplementation ?? 'TypeScript')).toMatch(
+      /TypeScript/i
+    );
   });
 });
