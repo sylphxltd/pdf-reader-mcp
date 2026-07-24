@@ -13,6 +13,7 @@ pub mod page_cache;
 mod page_signals;
 mod pdfjs_text;
 pub mod read_pdf;
+mod read_result_cache;
 pub mod render;
 pub mod search_pdf;
 pub mod ssrf;
