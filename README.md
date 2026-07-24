@@ -40,7 +40,7 @@ npm install -g @sylphx/pdf-reader-mcp
 Or pin the current release:
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp@4.0.2
+npm install -g @sylphx/pdf-reader-mcp@4.1.0
 ```
 
 One native binary is installed for **your** platform only (not all five).
@@ -111,7 +111,7 @@ Minimal call:
 
 Compare **full clean installs**, not “JS wrapper tarball vs native executable”:
 
-| Metric (measured clean install, **linux-x64**) | Historical TS `3.0.14` | Sole-Rust `4.0.2` |
+| Metric (measured clean install, **linux-x64**) | Historical TS `3.0.14` | Sole-Rust `4.1.0` |
 | --- | ---: | ---: |
 | Main package on disk | ~403 KB | ~77 KB |
 | Full `node_modules` | ~82.3 MiB | **~24.4 MiB** (~3.4× smaller) |
@@ -122,11 +122,21 @@ The native binary is multi-megabyte because it **is** the PDF intelligence engin
 
 Details: [installed footprint comparison](docs/specs/performance/installed-footprint-comparison.md)
 
-## Performance (bounded honesty)
+## Performance
 
-- Startup-inclusive measurements (spawn + initialize + task) show large gains on local fixtures vs TS `3.0.14`.
-- Steady-state warm `tools/call` performance is **being re-admitted** under a dual-mode harness (`startup_inclusive` vs `persistent_warm`).
-- Until that re-admission + independent authorization, **do not treat any single “Nx faster” number as a universal product guarantee**.
+Controlled **same-host linux-x64** dual-mode A/B vs `@sylphx/pdf-reader-mcp@3.0.14`, using **registry-installed 4.1.0** natives:
+
+| Mode | What it measures | Result |
+| --- | --- | --- |
+| `persistent_warm` | long-lived server, repeated identical local `read_pdf` after warm-up | **≥ ~10×** median latency improvement on all 8 required fixture classes |
+| `startup_inclusive` | spawn + initialize + one task | large advantage on the same fixtures |
+
+`persistent_warm` includes a process-local cache for identical local path+options. First request in a process still pays full parse cost.
+
+Also: install footprint is much smaller than TS 3.0.14 on measured linux-x64 (~3.4× less disk, ~205× fewer files), and the 4.1.0 native binary is smaller than 4.0.2 (strip/LTO).
+
+**Not** a multi-host guarantee. Details: [4.1.0 report](docs/specs/performance/4.1.0-same-host-performance-report.md) · [claims policy](docs/specs/performance/4.1.0-performance-claims-policy.md)
+
 
 ## Engine note
 

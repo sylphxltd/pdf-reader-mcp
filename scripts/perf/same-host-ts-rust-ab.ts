@@ -130,7 +130,7 @@ const resolveRustBinary = (): string | null => {
         'npm',
         [
           'install',
-          `@sylphx/pdf-reader-mcp@${process.env['MCP_PDF_PERF_RUST_VERSION'] || '4.0.2'}`,
+          `@sylphx/pdf-reader-mcp@${process.env['MCP_PDF_PERF_RUST_VERSION'] || JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version || '4.1.0'}`,
           '--prefix',
           installRoot,
           '--no-save',

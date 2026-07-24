@@ -58,7 +58,7 @@ Copy-ready examples live in [`examples/`](https://github.com/SylphxAI/pdf-reader
 
 Clean install on **linux-x64** (Node 24):
 
-| Metric | TS `3.0.14` | Sole-Rust `4.0.2` |
+| Metric | TS `3.0.14` | Sole-Rust `4.1.0` |
 | --- | ---: | ---: |
 | Full `node_modules` | ~82.3 MiB | **~24.4 MiB (~3.4× smaller)** |
 | Files | 4,101 | **20 (~205× fewer)** |
@@ -78,7 +78,7 @@ Do not collapse these into one “Nx faster” slogan:
 | Registry-installed exact binary | clean npm install of published natives | Required before formal marketing authorization |
 
 Policy: [same-host contract](/specs/performance/same-host-ab-contract) ·
-[claims policy](https://github.com/SylphxAI/pdf-reader-mcp/blob/main/docs/specs/performance/4.0.2-performance-claims-policy.md)
+[claims policy](https://github.com/SylphxAI/pdf-reader-mcp/blob/main/docs/specs/performance/4.1.0-performance-claims-policy.md)
 
 Until independent review sets `performanceClaimsAuthorized=true` against a
 registry-bound suite, treat speed numbers as **engineering evidence**, not a
