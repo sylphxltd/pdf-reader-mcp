@@ -390,11 +390,10 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Resolve PR #574 conflicts and obtain complete exact-candidate CI plus 5/5 arch-matched host-runtime proof with candidate SHA bound in durable evidence",
-      "Complete review of the 98 provisional_heuristic nonclaim reclassification entries required by ADR-0005 before unfreeze",
-      "Promote same-host A/B from measured_draft_not_admissible only if methodology and breadth satisfy the showhand bar",
-      "After a successor independent review explicitly sets unfreezeAuthorized=true, publish the exact 4.0.0 candidate across npm + GitHub + MCP Registry",
-      "Keep crates non-product channel unless re-admitted"
+      "Keep performanceClaimsAuthorized=false for 4.0.0 unless A/B becomes admissible_pass",
+      "Land green exact-tip CI + host-proof binding",
+      "Fresh independent re-review for freeze-lift decision",
+      "If unfreezeAuthorized, publish 4.0.0 multi-channel and read back"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -493,6 +492,7 @@
       "mcpRegistryIsLatest": true,
       "cratesAdmitted": false
     },
-    "soleRustAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md"
+    "soleRustAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
+    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md"
   }
 }
