@@ -91,7 +91,11 @@
       "fiveHostRegistryProof": true,
       "tsProductionAbsent": true,
       "performanceClaims": "withheld"
-    }
+    },
+    "independentReviewEvidence": "verification/pdf-reader-whole-product-independent-review-4.0.1-d6780a3.json",
+    "independentReviewCandidateSha": "d6780a3bd17919b5f9b67e078422778d2a4b0c5f",
+    "independentReviewOutcome": "review_pass_unfreeze_authorized_goal_incomplete",
+    "goalCompleteAuthorized": false
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -408,12 +412,11 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Land 4.0.1 production dependency-closure + oracle isolation + README cleanup",
-      "Restore real five-host proof standards (no deferred host-proof pass)",
-      "Publish 4.0.1 after independent exact-SHA review",
+      "Publish 4.0.1 from exact reviewed SHA d6780a3 (or pin-path-only descendant) via verified-candidate path",
       "Run five-host registry install proof on published 4.0.1",
+      "Capture npm + MCP registry + GitHub Release multi-channel readback for 4.0.1",
       "Complete admissible same-host TS 3.0.14 vs Rust A/B before any performance marketing",
-      "Do not claim goal complete until dependency closure, clean README, and performance evidence land"
+      "Do not claim goal complete until publish + multi-channel readback (and performance evidence if still required)"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -434,7 +437,7 @@
       ]
     },
     "nativePackageProof": {
-      "status": "five-host-registry-initialize-proven-for-4.0.0-pending-4.0.1-closure",
+      "status": "five-host-candidate-local-pack-proven-for-4.0.1-pending-registry-publish",
       "registryInstall": true,
       "packagesPublishable": true,
       "optionalDependenciesWired": true,
@@ -464,11 +467,16 @@
       "publishWorkflow": ".github/workflows/publish-npm.yml",
       "notes": [
         "4.0.0 natives+main published with five-host registry proof.",
-        "4.0.1 candidate removes production pdfjs-dist/MCP SDK/pngjs/zod install closure."
+        "4.0.1 candidate removes production pdfjs-dist/MCP SDK/pngjs/zod install closure.",
+        "PR #578 five-host local-pack initialize proofs green (incl. macos-14 darwin-arm64 and real darwin-x64).",
+        "Registry install proof for published 4.0.1 remains pending after publish."
       ],
       "registryProofWorkflow": ".github/workflows/registry-install-proof.yml",
       "registryProofEvidence": "verification/pdf-reader-registry-install-proof-4.0.0.json",
-      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30070323043"
+      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30070323043",
+      "candidateVersion": "4.0.1",
+      "candidateHostProofWorkflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30078550923",
+      "candidateHostProofEvidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.1-aggregate.json"
     },
     "libraryExports": {
       "status": "published-default-fail-closed",
@@ -480,30 +488,26 @@
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
       "status": "review_pass_unfreeze_authorized_goal_incomplete",
-      "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
-      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.0-f9a3154.json",
+      "candidateSha": "d6780a3bd17919b5f9b67e078422778d2a4b0c5f",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.1-d6780a3.json",
       "package": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
-      "runtimeEvidenceSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
-      "runtimeEvidenceRelationship": "exact-reviewed-implementation-candidate",
+      "runtimeEvidenceSha": "d6780a3bd17919b5f9b67e078422778d2a4b0c5f",
+      "runtimeEvidenceRelationship": "exact-reviewed-implementation-candidate-tree-identical-to-pr-head-f4fdcf4",
+      "hostProofWorkflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30078550923",
       "unfreezeAuthorized": true,
       "tsRetirementAuthorized": true,
       "soleRuntimeAuthorized": true,
       "performanceClaimsAuthorized": false,
       "goalCompleteAuthorized": false,
       "notes": [
-        "Independent successor re-review of exact tip f9a3154 after freeze-lift (d6fb4be) and stdio-gate alignment (f9a3154).",
-        "All required local gates and 20/20 CI checks passed; five-host host-proof workflow 30067554747 green including real darwin-x64 x86_64.",
-        "Nonclaim ledger 109/109 reviewed with zero blockingForUnfreeze.",
-        "Performance marketing claims remain withheld; no admissible_pass exists.",
-        "The 44 PARTIAL matrix cells remain explicit quality residuals and are not treated as FULL.",
-        "Goal completion remains unauthorized until exact 4.0.0 publish and npm/GitHub/MCP Registry plus five-host registry readback are proven.",
-        "Post-publish audit: 4.0.0 production dependency closure still pulled pdfjs-dist; goal complete remains false.",
-        "4.0.1 corrective candidate addresses install-graph and oracle isolation."
-      ],
-      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.0-9559abc.json",
-      "publishFreezeInReviewedCandidate": false,
-      "publishFreezeLiftAuthorized": true,
-      "freezeLiftCommitNote": "Mechanical publishFreeze=false / dropInFor3014=true is present on the reviewed candidate and re-authorized for exact f9a3154; performance claims remain withheld; goal complete requires multi-channel publish/readback."
+        "Independent whole-product review of exact tip d6780a3 (PR #578 squash; tree-identical to CI head f4fdcf4).",
+        "Production dependency closure empty; TS/PDF.js only via devDependencies + build:oracle-ts.",
+        "Local gates: prod-dependency-closure, ts-production-absence, production-contract, sole-rust-core, package-smoke all PASS.",
+        "Five-host host-proof workflow 30078550923 green including darwin-arm64 macos-14 and real darwin-x64 x86_64 Rosetta=false.",
+        "Matrix remains 1 FULL + 44 PARTIAL; nonclaim ledger 109/109 with zero blockingForUnfreeze.",
+        "Performance marketing claims remain withheld; same-host A/B status=measured_draft_not_admissible.",
+        "Goal complete unauthorized: 4.0.1 unpublished; live npm latest remains 4.0.0."
+      ]
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,
