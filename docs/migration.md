@@ -1,6 +1,6 @@
 # Migration and recovery notes
 
-This page holds historical engine-transition details. The main [README](../README.md) is product-facing.
+This page holds historical engine-transition details. The main product page is the repository [README](https://github.com/SylphxAI/pdf-reader-mcp#readme) / docs [home](/).
 
 ## Current production
 
