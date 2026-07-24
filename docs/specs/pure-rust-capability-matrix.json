@@ -4,7 +4,7 @@
   "updated": "2026-07-24",
   "productTruth": {
     "publishedStable": "@sylphx/pdf-reader-mcp@4.0.1",
-    "publishedImplementation": "4.0.1 dependency-closure published; linux-x64-gnu@4.0.1 tarball missing on registry (metadata-only); emergency 4.0.2 republishes all natives",
+    "publishedImplementation": "4.0.1 pure-Rust sole-runtime dependency-closure published, but linux-x64-gnu@4.0.1 native tarball is registry-tombstoned after unpublish; emergency pure-Rust 4.0.2 republishes all natives+main",
     "pureRustStatus": "sole-rust-production-default",
     "optIn": "native optional package required; PDF_READER_MCP_RUST_BIN override allowed; no TS production path",
     "dropInFor3014": true,
