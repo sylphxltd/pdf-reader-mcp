@@ -18,7 +18,7 @@ This package does **not** authorize publish by itself.
 | --- | --- |
 | Repository | `SylphxAI/pdf-reader-mcp` |
 | Branch | `codex/sole-rust-4.0.0-showhand` / PR #574 |
-| Candidate SHA | `50c39f50e9173339e5d1a41a5f58a4f1582dc044` |
+| Candidate SHA | `7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6` |
 | Candidate version | `4.0.0` (unpublished) |
 | Admission bar | capability-first semantic compatibility |
 | `soleRustProduction` | `true` |
@@ -90,7 +90,7 @@ Local result: PASS
 
 ## Required independent reviewer actions
 
-1. Check out exact SHA `50c39f50e9173339e5d1a41a5f58a4f1582dc044` (or successor clean tip after green CI) with clean worktree.
+1. Check out exact SHA `7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6` (or successor clean tip after green CI) with clean worktree.
 2. Re-run A–F from source (do not trust prior draft JSON alone).
 3. Inspect cumulative migration vs 3.2.2 transitional surface and 3.0.14 LKG.
 4. Verify tarball contents and launcher behavior (no TS production path).

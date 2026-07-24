@@ -34,7 +34,7 @@
     "sylphx-pdf-reader-mcp-4.0.0.tgz",
     "sylphx-pdf-reader-mcp-darwin-x64-4.0.0.tgz"
   ],
-  "nativeBinary": "/var/folders/0h/217ygk_d11jcgw6fthbjsz640000gp/T/pdf-reader-local-install-5WmNMN/node_modules/@sylphx/pdf-reader-mcp-darwin-x64/bin/pdf-reader-mcp-server",
+  "nativeBinary": "/var/folders/0h/217ygk_d11jcgw6fthbjsz640000gp/T/pdf-reader-local-install-5lMhFr/node_modules/@sylphx/pdf-reader-mcp-darwin-x64/bin/pdf-reader-mcp-server",
   "initialize": {
     "serverName": "pdf-reader-mcp",
     "serverVersion": "4.0.0"
@@ -42,6 +42,6 @@
   "runtimeProofValid": true,
   "note": "Local pack + install + pure-Rust MCP initialize on matching host. Not npm registry readback.",
   "pass": true,
-  "candidateSha": "6b76b893dc84a80fcf2497e77791cb8b74d3a377",
-  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30064817079"
+  "candidateSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
+  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093"
 }

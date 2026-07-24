@@ -63,7 +63,7 @@
     "transitionalNote": "3.2.2 remains published latest until sole-Rust 4.0.0 is independently admitted; do not market 3.2.2 as Sole Rust",
     "candidateHostRuntimeProof": {
       "status": "five-distinct-host-triples-proven-for-4.0.0-candidate",
-      "candidateSha": "6b76b893dc84a80fcf2497e77791cb8b74d3a377",
+      "candidateSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
       "distinctHostTriplesProven": [
         "darwin-arm64",
         "darwin-x64",
@@ -72,7 +72,7 @@
         "win32-x64-msvc"
       ],
       "evidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.0-aggregate.json",
-      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30064817079"
+      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093"
     }
   },
   "legend": {
@@ -493,6 +493,14 @@
       "cratesAdmitted": false
     },
     "soleRustAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
-    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md"
+    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md",
+    "exactTipCi": {
+      "sha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
+      "pr": 574,
+      "status": "green-on-7dddcb4",
+      "validate": "pass",
+      "hostProof": "pass",
+      "releaseEvidenceGate": "pass"
+    }
   }
 }
