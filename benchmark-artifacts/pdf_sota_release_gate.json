@@ -1,6 +1,6 @@
 {
   "profile": "pdf_sota_release_gate",
-  "generated_at": "2026-07-23T05:38:53.688Z",
+  "generated_at": "2026-07-24T19:02:37.183Z",
   "artifact_dir": "/home/runner/work/pdf-reader-mcp/pdf-reader-mcp/benchmark-artifacts",
   "status": "passed",
   "summary": {
@@ -138,9 +138,9 @@
       "message": "Rust MCP server (modelcontextprotocol/rust-sdk rmcp) is present"
     },
     {
-      "id": "mcp:rust_opt_in_boundary",
+      "id": "mcp:sole_rust_launcher_boundary",
       "status": "passed",
-      "message": "Published npm default remains TypeScript while the incomplete pure-Rust rmcp path is explicit opt-in"
+      "message": "Local/published launcher is sole-Rust native binary path without TypeScript PDF runtime"
     },
     {
       "id": "mcp:production_contract_suite",
@@ -150,7 +150,7 @@
     {
       "id": "mcp:rust_web_http_transport",
       "status": "passed",
-      "message": "Rust rmcp streamable HTTP remains available as opt-in engine (not production default)"
+      "message": "Rust rmcp streamable HTTP remains available via sole-Rust native server"
     },
     {
       "id": "mcp:http_transport_parity",
@@ -205,7 +205,7 @@
       "status": "passed",
       "message": "v3 Agent Document Twin scenario has a positive average latency",
       "evidence": {
-        "average_ms": 32.25
+        "average_ms": 30.32
       }
     },
     {
@@ -218,7 +218,7 @@
       "status": "passed",
       "message": "default balanced auto-read scenario has a positive average latency",
       "evidence": {
-        "average_ms": 42.83
+        "average_ms": 40.36
       }
     },
     {

@@ -7,13 +7,13 @@
     "url": "https://github.com/SylphxAI/pdf-reader-mcp",
     "source": "github"
   },
-  "version": "4.0.2",
+  "version": "4.1.0",
   "websiteUrl": "https://sylphxai.github.io/pdf-reader-mcp/",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@sylphx/pdf-reader-mcp",
-      "version": "4.0.2",
+      "version": "4.1.0",
       "transport": {
         "type": "stdio"
       }
