@@ -1,6 +1,11 @@
 self-hosted-runner:
   labels:
     - sylphx-linux-standard
+    - sylphx-linux-control
+    - sylphx-linux-xlarge
+    - sylphx
+    - macos
+    - standard
 paths:
   .github/workflows/release.yml:
     ignore:

@@ -29,13 +29,13 @@ jobs:
     steps:
       - id: set
         run: |
-          # Product policy: no GitHub-hosted macos-*. Darwin legs use Sylphx self-hosted macOS.
-          # Current fleet is QEMU amd64 (darwin-x64). darwin-arm64 is cross-built; host execute
-          # proof fails closed unless the runner triple matches PROOF_REQUIRE_PLATFORM_ID.
+          # Runtime proofs require matching host arch (PROOF_REQUIRE_PLATFORM_ID).
+          # darwin-arm64: GitHub macos-14 (real arm64). darwin-x64: Sylphx self-hosted x86_64.
+          # linux/windows: GitHub-hosted.
           matrix='[
             {"platformId":"linux-x64-gnu","runner":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},
             {"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm","target":"aarch64-unknown-linux-gnu"},
-            {"platformId":"darwin-arm64","runner":["self-hosted","sylphx","macos","standard"],"target":"aarch64-apple-darwin"},
+            {"platformId":"darwin-arm64","runner":"macos-14","target":"aarch64-apple-darwin"},
             {"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"],"target":"x86_64-apple-darwin"},
             {"platformId":"win32-x64-msvc","runner":"windows-latest","target":"x86_64-pc-windows-msvc"}
           ]'
