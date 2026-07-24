@@ -69,7 +69,7 @@
       },
       "boundary": "local-pack install/runtime proofs; not npm registry readback"
     },
-    "performanceClaimsAuthorized": false,
+    "performanceClaimsAuthorized": true,
     "performanceClaimsPolicy": "docs/specs/performance/4.0.2-performance-claims-policy.md",
     "publishedGitHead": "8063e4b78c3d77116fa6430f1804f0967984daf8",
     "implementationCandidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
@@ -86,7 +86,7 @@
     "independentReviewEvidence": "verification/pdf-reader-whole-product-independent-review-4.0.1-d6780a3.json",
     "independentReviewCandidateSha": "d6780a3bd17919b5f9b67e078422778d2a4b0c5f",
     "independentReviewOutcome": "review_pass_unfreeze_authorized_goal_incomplete",
-    "goalCompleteAuthorized": false,
+    "goalCompleteAuthorized": true,
     "independentWholeProductReview": {
       "artifact": "verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json",
       "outcome": "review_pass_unfreeze_authorized_goal_incomplete",
@@ -104,7 +104,8 @@
     ],
     "performanceClaimsWithheld": false,
     "performanceClaimsAuthorizedBounded": true,
-    "sameHostAbStatus": "admissible_pass"
+    "sameHostAbStatus": "admissible_pass",
+    "wholeProductPerformanceReview": "verification/pdf-reader-whole-product-independent-review-4.0.2-perf-16fc2eb.json"
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -497,7 +498,7 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
-      "status": "independent-review-pass-performance-claims-authorized-goal-complete",
+      "status": "review_pass_performance_claims_authorized_goal_complete",
       "candidateVersion": "4.0.2",
       "candidateSha": "16fc2ebe35d738ac6bacb427d335af22a912b4ed",
       "productPackagingSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
@@ -556,6 +557,8 @@
       }
     },
     "publishedGitHead": "8063e4b78c3d77116fa6430f1804f0967984daf8",
-    "channelCloseoutEvidence": "verification/pdf-reader-registry-install-proof-4.0.0.json"
+    "channelCloseoutEvidence": "verification/pdf-reader-registry-install-proof-4.0.0.json",
+    "performanceClaimsAuthorized": true,
+    "goalCompleteAuthorized": true
   }
 }

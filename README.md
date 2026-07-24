@@ -97,8 +97,15 @@ If the matching native package is missing, the server **fails closed** instead o
 
 ## Performance
 
-Controlled same-host benchmarks versus the historical TypeScript baseline are **in progress**.  
-Until those results are published, do **not** assume or advertise a specific speedup factor.
+On a controlled **same-host linux-x64** A/B versus immutable `@sylphx/pdf-reader-mcp@3.0.14`:
+
+- Task: MCP initialize + `read_pdf` (page 1, `include_full_text`)
+- Warm median latency improved by **at least ~6.2×** across all eight required fixture classes
+- Median of per-class warm median speedups was **~23.7×** on that host
+- Launcher package tarball is much smaller than the historical TypeScript package; the native binary is still multi-megabyte (optional dependency)
+
+Evidence: `docs/specs/performance/4.0.2-same-host-performance-report.md`  
+Authorized claims are **bounded** to that method/host/task set. They are **not** universal multi-host guarantees, and they do not cover OCR/provider external I/O paths.
 
 ## v4 notes
 
