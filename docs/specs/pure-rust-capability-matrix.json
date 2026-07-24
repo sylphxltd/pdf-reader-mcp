@@ -60,8 +60,9 @@
     "cratesAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
     "transitionalNote": "4.0.1 removed production TS/PDF.js dependencies and is MCP/GitHub published, but @sylphx/pdf-reader-mcp-linux-x64-gnu@4.0.1 registry tarball returns 404 despite metadata. 4.0.2 is an emergency republish of all natives+main so Linux x64 installs resolve. Performance claims remain withheld. Goal complete remains false until five-host registry proof on a fully installable release and admissible performance evidence.",
     "candidateHostRuntimeProof": {
-      "status": "five-distinct-host-triples-proven-for-4.0.0-candidate",
-      "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+      "status": "five-distinct-host-triples-proven-for-4.0.2-candidate",
+      "candidateSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
+      "ciHeadSha": "af51476359575ff4f51b0e83b1bfe98c4a8d488c",
       "distinctHostTriplesProven": [
         "darwin-arm64",
         "darwin-x64",
@@ -69,8 +70,8 @@
         "linux-x64-gnu",
         "win32-x64-msvc"
       ],
-      "evidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.0-aggregate.json",
-      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747",
+      "evidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.2-aggregate.json",
+      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30087577283",
       "darwinX64": {
         "unameMachine": "x86_64",
         "rosettaTranslated": false,
@@ -95,7 +96,14 @@
     "independentReviewEvidence": "verification/pdf-reader-whole-product-independent-review-4.0.1-d6780a3.json",
     "independentReviewCandidateSha": "d6780a3bd17919b5f9b67e078422778d2a4b0c5f",
     "independentReviewOutcome": "review_pass_unfreeze_authorized_goal_incomplete",
-    "goalCompleteAuthorized": false
+    "goalCompleteAuthorized": false,
+    "independentWholeProductReview": {
+      "artifact": "verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json",
+      "outcome": "review_pass_unfreeze_authorized_goal_incomplete",
+      "candidateSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
+      "performanceClaimsAuthorized": false,
+      "goalCompleteAuthorized": false
+    }
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -412,9 +420,9 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Publish 4.0.2 natives+main after independent exact-SHA review",
-      "Five-host registry install proof on published 4.0.2",
-      "Deprecate or document 4.0.1 linux-x64-gnu tarball defect",
+      "Publish 4.0.2 natives+main from exact reviewed SHA afb1aa3 or pin-path-only descendant via verified-candidate path",
+      "Five-host registry install proof on published 4.0.2 including installable linux-x64-gnu tarball",
+      "Document 4.0.1 linux-x64-gnu tarball defect / tombstone for operators",
       "Complete admissible same-host performance A/B before marketing claims",
       "Goal complete only after multi-channel readback + performance evidence if required"
     ],
@@ -437,12 +445,12 @@
       ]
     },
     "nativePackageProof": {
-      "status": "five-host-candidate-local-pack-proven-for-4.0.1-pending-registry-publish",
+      "status": "five-host-candidate-local-pack-proven-for-4.0.2-pending-registry-publish",
       "registryInstall": true,
       "packagesPublishable": true,
       "optionalDependenciesWired": true,
       "publishedVersion": "4.0.0",
-      "targetVersion": "4.0.1",
+      "targetVersion": "4.0.2",
       "publishedNatives": [
         "@sylphx/pdf-reader-mcp-darwin-arm64@4.0.0",
         "@sylphx/pdf-reader-mcp-darwin-x64@4.0.0",
@@ -469,14 +477,17 @@
         "4.0.0 natives+main published with five-host registry proof.",
         "4.0.1 candidate removes production pdfjs-dist/MCP SDK/pngjs/zod install closure.",
         "PR #578 five-host local-pack initialize proofs green (incl. macos-14 darwin-arm64 and real darwin-x64).",
-        "Registry install proof for published 4.0.1 remains pending after publish."
+        "Registry install proof for published 4.0.1 remains pending after publish.",
+        "4.0.1 main published but linux-x64-gnu@4.0.1 tarball tombstoned (404); cannot republish that native version.",
+        "PR #581 five-host local-pack initialize proofs green for 4.0.2 (incl. macos-14 darwin-arm64 and real darwin-x64).",
+        "Registry install proof for published 4.0.2 remains pending after publish."
       ],
       "registryProofWorkflow": ".github/workflows/registry-install-proof.yml",
       "registryProofEvidence": "verification/pdf-reader-registry-install-proof-4.0.0.json",
       "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30070323043",
-      "candidateVersion": "4.0.1",
-      "candidateHostProofWorkflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30078550923",
-      "candidateHostProofEvidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.1-aggregate.json"
+      "candidateVersion": "4.0.2",
+      "candidateHostProofWorkflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30087577283",
+      "candidateHostProofEvidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.2-aggregate.json"
     },
     "libraryExports": {
       "status": "published-default-fail-closed",
@@ -487,27 +498,22 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
-      "status": "review_pass_unfreeze_authorized_goal_incomplete",
-      "candidateSha": "d6780a3bd17919b5f9b67e078422778d2a4b0c5f",
-      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.1-d6780a3.json",
-      "package": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
-      "runtimeEvidenceSha": "d6780a3bd17919b5f9b67e078422778d2a4b0c5f",
-      "runtimeEvidenceRelationship": "exact-reviewed-implementation-candidate-tree-identical-to-pr-head-f4fdcf4",
-      "hostProofWorkflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30078550923",
+      "status": "independent-review-pass-unfreeze-authorized-goal-incomplete",
+      "candidateVersion": "4.0.2",
+      "candidateSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
+      "artifact": "verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json",
+      "outcome": "review_pass_unfreeze_authorized_goal_incomplete",
       "unfreezeAuthorized": true,
-      "tsRetirementAuthorized": true,
       "soleRuntimeAuthorized": true,
+      "tsRetirementAuthorized": true,
       "performanceClaimsAuthorized": false,
       "goalCompleteAuthorized": false,
-      "notes": [
-        "Independent whole-product review of exact tip d6780a3 (PR #578 squash; tree-identical to CI head f4fdcf4).",
-        "Production dependency closure empty; TS/PDF.js only via devDependencies + build:oracle-ts.",
-        "Local gates: prod-dependency-closure, ts-production-absence, production-contract, sole-rust-core, package-smoke all PASS.",
-        "Five-host host-proof workflow 30078550923 green including darwin-arm64 macos-14 and real darwin-x64 x86_64 Rosetta=false.",
-        "Matrix remains 1 FULL + 44 PARTIAL; nonclaim ledger 109/109 with zero blockingForUnfreeze.",
-        "Performance marketing claims remain withheld; same-host A/B status=measured_draft_not_admissible.",
-        "Goal complete unauthorized: 4.0.1 unpublished; live npm latest remains 4.0.0."
-      ]
+      "hostProofWorkflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30087577283",
+      "hostProofEvidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.2-aggregate.json",
+      "reviewedAt": "2026-07-24T11:12:39Z",
+      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.1-d6780a3.json",
+      "note": "Emergency 4.0.2 republish authorized after linux-x64-gnu@4.0.1 tarball tombstone. Publish multi-channel readback still required before goal complete.",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json"
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,

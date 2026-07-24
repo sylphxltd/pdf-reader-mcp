@@ -36,7 +36,7 @@ npm install -g @sylphx/pdf-reader-mcp
 Or pin a version:
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp@4.0.1
+npm install -g @sylphx/pdf-reader-mcp@4.0.2
 ```
 
 Supported native packages (installed automatically when available):
