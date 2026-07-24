@@ -229,11 +229,9 @@ pub async fn serve_http(config: HttpConfig) -> anyhow::Result<()> {
     let mcp_service = StreamableHttpService::new(
         || Ok(PdfReaderMcp::new()),
         LocalSessionManager::default().into(),
-        StreamableHttpServerConfig {
-            cancellation_token: cancellation.child_token(),
-            allowed_hosts: shared_config.allowed_hosts(),
-            ..Default::default()
-        },
+        StreamableHttpServerConfig::default()
+            .with_cancellation_token(cancellation.child_token())
+            .with_allowed_hosts(shared_config.allowed_hosts()),
     );
 
     let mcp_router = Router::new()

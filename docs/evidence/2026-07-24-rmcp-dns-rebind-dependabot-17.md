@@ -8,7 +8,7 @@
 - First patched: `1.4.0`
 
 ## Fix
-- Bump `rmcp` from `0.16.0` → `1.4.0` (includes Host-header validation for Streamable HTTP).
+- Bump `rmcp` from `0.16.0` → `1.8.0` (includes Host-header validation for Streamable HTTP).
 - Wire `StreamableHttpServerConfig.allowed_hosts` from bind host + loopbacks, with
   `MCP_ALLOWED_HOSTS` / `PDF_READER_MCP_ALLOWED_HOSTS` override for public deploys.
 

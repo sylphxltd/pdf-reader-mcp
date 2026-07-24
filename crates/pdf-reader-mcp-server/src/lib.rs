@@ -162,21 +162,15 @@ impl PdfReaderMcp {
 #[tool_handler]
 impl ServerHandler for PdfReaderMcp {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: rmcp::model::ProtocolVersion::default(),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: Implementation {
-                name: SERVER_NAME.into(),
-                title: None,
-                version: SERVER_VERSION.into(),
-                description: Some(
-                    "@sylphx/pdf-reader-mcp sole-Rust MCP server (native binary; no TypeScript PDF runtime)".into(),
-                ),
-                icons: None,
-                website_url: Some("https://sylphxai.github.io/pdf-reader-mcp/".into()),
-            },
-            instructions: Some(SERVER_INSTRUCTIONS.into()),
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(
+                Implementation::new(SERVER_NAME, SERVER_VERSION)
+                    .with_description(
+                        "@sylphx/pdf-reader-mcp sole-Rust MCP server (native binary; no TypeScript PDF runtime)",
+                    )
+                    .with_website_url("https://sylphxai.github.io/pdf-reader-mcp/"),
+            )
+            .with_instructions(SERVER_INSTRUCTIONS)
     }
 }
 
