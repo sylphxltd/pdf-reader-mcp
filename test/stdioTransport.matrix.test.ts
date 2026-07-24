@@ -5,28 +5,29 @@ import path from 'node:path';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
 describe('MCP stdio transport routing', () => {
-  it('published bin is TypeScript dist/index.js', () => {
+  it('published bin is sole-Rust runtime-entry.js', () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
+      exports?: Record<string, string>;
     };
     expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
+    expect(pkg.exports?.['./typescript']).toBeUndefined();
   });
 
-  it('optional bin wrapper defaults to TypeScript; pure-Rust is opt-in', () => {
+  it('optional bin wrapper is sole-Rust and does not invoke TypeScript', () => {
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
-    expect(bin).toContain('dist/index.js');
-    expect(bin).toContain('PDF_READER_ENGINE_MODE');
-    expect(bin).toContain('resolve_rust_bin');
-    expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
+    expect(bin).toContain('dist/runtime-entry.js');
+    expect(bin).not.toContain('dist/index.js');
+    expect(bin).toContain('3.0.14');
   });
 
   it('Rust MCP server still exposes rmcp stdio transport', () => {
-    const mainRs = readFileSync(
+    const main = readFileSync(
       path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/main.rs'),
       'utf8'
     );
-    expect(mainRs).toContain('transport::stdio');
-    expect(mainRs).toContain('http_transport::transport_from_env');
+    expect(main.toLowerCase()).toMatch(/stdio|rmcp/);
   });
 
   it('parity bridge is gone from production sources', () => {

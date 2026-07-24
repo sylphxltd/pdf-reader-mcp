@@ -1,19 +1,12 @@
 #!/usr/bin/env bash
-# Optional local launcher helper.
-# Published npm bin is dist/runtime-entry.js (pure-Rust fail-closed default).
-# This script still defaults to TypeScript unless PDF_READER_ENGINE_MODE=pure-rust.
+# Local helper wrapper. Published npm bin is dist/runtime-entry.js (sole-Rust).
+# Prefer pure-Rust native binary; do not invoke a TypeScript PDF runtime.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MODE="${PDF_READER_ENGINE_MODE:-}"
 
-if [[ "$MODE" != "pure-rust" && "$MODE" != "rust" ]]; then
-  if [[ -f "$ROOT/dist/index.js" ]]; then
-    exec node "$ROOT/dist/index.js" "$@"
-  fi
-  echo "[pdf-reader-mcp] TypeScript server not built. Run: bun run build" >&2
-  echo "[pdf-reader-mcp] (Pure-Rust is opt-in: PDF_READER_ENGINE_MODE=pure-rust bun run build:rust)" >&2
-  exit 1
+if [[ -f "$ROOT/dist/runtime-entry.js" ]]; then
+  exec node "$ROOT/dist/runtime-entry.js" "$@"
 fi
 
 map_platform_id() {
@@ -35,53 +28,18 @@ map_platform_id() {
   esac
 }
 
-resolve_rust_bin() {
-  if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
-    printf '%s\n' "${PDF_READER_MCP_RUST_BIN}"
-    return 0
-  fi
-
-  local platform_id binary_name candidate
-  platform_id="$(map_platform_id || true)"
-  if [[ -n "${platform_id}" ]]; then
-    if [[ "${platform_id}" == "win32-x64-msvc" ]]; then
-      binary_name="pdf-reader-mcp-server.exe"
-    else
-      binary_name="pdf-reader-mcp-server"
-    fi
-    for candidate in \
-      "$ROOT/bin/native/${platform_id}/${binary_name}" \
-      "$ROOT/packages/pdf-reader-mcp-${platform_id}/bin/${binary_name}" \
-      "$ROOT/node_modules/@sylphx/pdf-reader-mcp-${platform_id}/bin/${binary_name}"; do
-      if [[ -x "$candidate" ]]; then
-        printf '%s\n' "$candidate"
-        return 0
-      fi
-    done
-  fi
-
-  for candidate in \
-    "$ROOT/bin/native/pdf-reader-mcp-server" \
-    "$ROOT/target/release/pdf-reader-mcp-server" \
-    "$ROOT/target/debug/pdf-reader-mcp-server"; do
-    if [[ -x "$candidate" ]]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  done
-  return 1
-}
-
-if bin="$(resolve_rust_bin)"; then
-  transport="${PDF_READER_MCP_TRANSPORT:-${MCP_TRANSPORT:-stdio}}"
-  if [[ "$transport" == "http" ]]; then
-    export MCP_TRANSPORT=http
-    export PDF_READER_MCP_TRANSPORT=http
-  fi
-  exec "$bin" "$@"
+if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
+  exec "${PDF_READER_MCP_RUST_BIN}" "$@"
 fi
 
-echo "[pdf-reader-mcp] Pure-Rust binary not found or not runnable on this platform." >&2
-echo "Build for this host: bun run build:rust" >&2
-echo "Or use the published TypeScript path (default): unset PDF_READER_ENGINE_MODE && bun run build && node dist/index.js" >&2
+PLATFORM_ID="$(map_platform_id || true)"
+if [[ -n "${PLATFORM_ID}" ]]; then
+  CANDIDATE="$ROOT/bin/native/${PLATFORM_ID}/pdf-reader-mcp-server"
+  if [[ -x "$CANDIDATE" ]]; then
+    exec "$CANDIDATE" "$@"
+  fi
+fi
+
+echo "[pdf-reader-mcp] sole-Rust binary not found. Build with: bun run build:rust" >&2
+echo "[pdf-reader-mcp] Historical TypeScript LKG remains external: @sylphx/pdf-reader-mcp@3.0.14" >&2
 exit 1
