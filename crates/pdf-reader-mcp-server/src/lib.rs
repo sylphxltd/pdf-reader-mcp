@@ -332,10 +332,17 @@ mod tests {
             }
         }
 
+        // Provider-compat (#562): tools/list must not advertise exclusive path|url
+        // via oneOf + not/required — Fireworks/OpenCode reject that keyword shape.
+        // Runtime still enforces exactly-one-of via PdfSource::validate().
         let read_json = tool_schema("read_pdf").to_string();
         assert!(
-            read_json.contains("\"oneOf\""),
-            "source locator XOR must be machine-readable"
+            !read_json.contains("\"not\""),
+            "read_pdf inputSchema must not use JSON Schema not for path|url XOR (OpenCode/Fireworks)"
+        );
+        assert!(
+            !read_json.contains("\"oneOf\""),
+            "read_pdf inputSchema must not use oneOf for path|url XOR after #562"
         );
     }
 

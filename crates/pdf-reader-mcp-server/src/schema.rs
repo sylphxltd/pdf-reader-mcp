@@ -32,20 +32,21 @@ impl PageSpecifier {
     }
 }
 
+// Client-visible tools/list schema intentionally omits oneOf/not exclusive
+// constructs: OpenCode + Fireworks (and similar strict tool-schema validators)
+// reject `{"required":["path"],"not":{"required":["url"]}}` (issue #562).
+// Exactly-one-of path|url remains a hard runtime contract via `validate()`.
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-#[schemars(extend(
-    "oneOf" = [
-        {"required": ["path"], "not": {"required": ["url"]}},
-        {"required": ["url"], "not": {"required": ["path"]}}
-    ]
-))]
 pub struct PdfSource {
     #[schemars(
         length(min = 1),
-        description = "Path to the local PDF file (absolute or relative to cwd)."
+        description = "Path to the local PDF file (absolute or relative to cwd). Provide exactly one of path or url (not both)."
     )]
     pub path: Option<String>,
-    #[schemars(length(min = 1), description = "URL of the PDF file.")]
+    #[schemars(
+        length(min = 1),
+        description = "URL of the PDF file. Provide exactly one of path or url (not both)."
+    )]
     pub url: Option<String>,
     pub pages: Option<PageSpecifier>,
 }
@@ -237,17 +238,19 @@ impl PdfEvidenceRegion {
     }
 }
 
+// Same provider-compat policy as PdfSource (#562): no oneOf/not in tools/list;
+// exclusive path|url enforced at runtime by validate()/as_pdf_source().
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-#[schemars(extend(
-    "oneOf" = [
-        {"required": ["path"], "not": {"required": ["url"]}},
-        {"required": ["url"], "not": {"required": ["path"]}}
-    ]
-))]
 pub struct PdfEvidenceSource {
-    #[schemars(length(min = 1))]
+    #[schemars(
+        length(min = 1),
+        description = "Path to the local PDF file. Provide exactly one of path or url (not both)."
+    )]
     pub path: Option<String>,
-    #[schemars(length(min = 1))]
+    #[schemars(
+        length(min = 1),
+        description = "URL of the PDF file. Provide exactly one of path or url (not both)."
+    )]
     pub url: Option<String>,
     pub pages: Option<PageSpecifier>,
     pub regions: Option<Vec<PdfEvidenceRegion>>,
@@ -412,5 +415,58 @@ mod tests {
             let actual = accepts(tool, case["args"].clone());
             assert_eq!(actual, expected, "v3.0.14 contract case {id}");
         }
+    }
+}
+
+
+#[cfg(test)]
+mod provider_schema_compat_tests {
+    use super::*;
+    use schemars::schema_for;
+
+    #[test]
+    fn pdf_source_schema_omits_not_required_xor() {
+        let schema = schema_for!(PdfSource);
+        let json = serde_json::to_string(&schema).expect("serialize schema");
+        assert!(
+            !json.contains("\"not\""),
+            "PdfSource tools/list schema must not emit not/required XOR for provider compat (#562): {json}"
+        );
+        assert!(
+            !json.contains("\"oneOf\""),
+            "PdfSource tools/list schema must not emit oneOf XOR for provider compat (#562): {json}"
+        );
+    }
+
+    #[test]
+    fn pdf_source_runtime_still_enforces_exactly_one_locator() {
+        assert!(PdfSource {
+            path: Some("a.pdf".into()),
+            url: None,
+            pages: None,
+        }
+        .validate()
+        .is_ok());
+        assert!(PdfSource {
+            path: None,
+            url: Some("https://example.com/a.pdf".into()),
+            pages: None,
+        }
+        .validate()
+        .is_ok());
+        assert!(PdfSource {
+            path: None,
+            url: None,
+            pages: None,
+        }
+        .validate()
+        .is_err());
+        assert!(PdfSource {
+            path: Some("a.pdf".into()),
+            url: Some("https://example.com/a.pdf".into()),
+            pages: None,
+        }
+        .validate()
+        .is_err());
     }
 }
