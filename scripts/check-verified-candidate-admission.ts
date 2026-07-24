@@ -83,6 +83,8 @@ const requiredFiles = [
   'docs/specs/semantic-contracts/semantic-public-url-corpus.json',
   'src/pure-rust.ts',
   'src/runtime-entry.ts',
+  'scripts/check-ts-production-absence.ts',
+  'docs/adr/0006-sole-rust-production-and-channel-authority.md',
   'scripts/smoke-native-launcher.ts',
   'scripts/smoke-native-package-resolve.ts',
 ];
@@ -141,12 +143,14 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
   ) {
     failures.push('review candidateSha does not match evidence artifact candidate.sha');
   }
-  // Evidence is the authorization source of truth.
-  if (evidence.unfreezeAuthorized !== true) {
-    failures.push('review evidence must set unfreezeAuthorized=true to lift publish freeze');
-  }
-  if (review.unfreezeAuthorized !== true) {
-    failures.push('admissionProgram.wholeProductReview.unfreezeAuthorized must be true when publishing');
+  // Evidence remains SSOT. Unfreeze flags are only required when publish is allowed.
+  if (truth.publishFreeze === false) {
+    if (evidence.unfreezeAuthorized !== true) {
+      failures.push('review evidence must set unfreezeAuthorized=true to lift publish freeze');
+    }
+    if (review.unfreezeAuthorized !== true) {
+      failures.push('admissionProgram.wholeProductReview.unfreezeAuthorized must be true when publishing');
+    }
   }
   if (review.unfreezeAuthorized === true && evidence.unfreezeAuthorized !== true) {
     failures.push('matrix review.unfreezeAuthorized cannot exceed evidence.unfreezeAuthorized');

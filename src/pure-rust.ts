@@ -1,8 +1,8 @@
 /**
- * Pure-Rust library surface for @sylphx/pdf-reader-mcp.
+ * Thin pure-Rust process client for @sylphx/pdf-reader-mcp.
  *
- * Default package export is `dist/runtime-entry.js` (native fail-closed).
- * This module remains the explicit library client for pure-Rust process control.
+ * Does not process PDFs in TypeScript. Spawns the platform native binary only.
+ * Production package default is dist/runtime-entry.js (sole-Rust; ADR-0006).
  *
  * Import:
  *   import { createPureRustClient, resolvePureRustServerBinary } from '@sylphx/pdf-reader-mcp/pure-rust'
@@ -22,9 +22,9 @@ import {
 export type { NativePlatformId };
 
 export const PURE_RUST_EXPORT = {
-  status: 'default-fail-closed-explicit-typescript-rollback' as const,
-  dropInFor3014: true,
-  publishFreeze: false,
+  status: 'sole-rust-production' as const,
+  dropInFor3014: false,
+  publishFreeze: true,
   engineMode: 'pure-rust' as const,
   defaultPackageExport: './dist/runtime-entry.js',
   pureRustExport: './dist/pure-rust.js',

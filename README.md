@@ -10,9 +10,10 @@
 
 The most-starred PDF MCP server on GitHub.
 
-> **Published stable target: `@sylphx/pdf-reader-mcp@3.2.2`.**  
-> Default entry uses the **pure-Rust** platform native binary via `dist/runtime-entry.js` and is **fail-closed** when the native package is missing.  
-> TypeScript is **explicit rollback only** (`./typescript`, force flags) — no automatic silent fallback.  
+> **Published latest (transitional): `@sylphx/pdf-reader-mcp@3.2.2`.**  
+> 3.2.2 is **Rust-default with bundled TypeScript rollback** — not Sole Rust.  
+> **In-repo candidate:** sole-Rust major **`4.0.0`** (ADR-0006): thin native launcher only; TypeScript PDF runtime removed from the production package.  
+> **Not published yet.** Keep `3.0.14` as immutable TypeScript LKG until 4.0.0 is independently admitted.  
 > Versions `3.0.15`–`3.1.1` are **WITHDRAWN**. Admission bar is capability-first semantic compatibility (ADR-0005), not exact PDF.js JSON equality.
 
 [![GitHub stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=for-the-badge&logo=github)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
@@ -24,7 +25,7 @@ The most-starred PDF MCP server on GitHub.
 [![Downloads](https://img.shields.io/npm/dm/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](#docker)
 
-**Local-first** · **3.2.2 pure-Rust fail-closed default** · **Explicit TypeScript rollback** · **Capability-first**
+**Local-first** · **Published 3.2.2 transitional** · **Candidate 4.0.0 sole-Rust** · **Capability-first**
 
 [⭐ Star this repo](https://github.com/SylphxAI/pdf-reader-mcp) if agents should cite PDFs with proof, not guess from plain text.
 · [Quick start](#quick-start) · [See it work](#see-it-work) · [Roadmap](docs/roadmap/sota-family-roadmap.md) · [Why not plain text?](#why-not-a-plain-text-dump)
@@ -134,9 +135,9 @@ Use the returned page and bounding box with `pdf_evidence` (`render_page` or
 
 ## Quick Start
 
-### Published stable (npm — pure-Rust fail-closed default 3.2.2)
+### Published latest (npm — transitional 3.2.2; sole-Rust 4.0.0 candidate in source)
 
-Install **3.2.2**. Default requires pure-Rust native optional packages (fail-closed if missing); TypeScript is explicit rollback only.
+Install **3.2.2** for the current published transitional line (Rust-default; TS still bundled for explicit rollback). Sole-Rust **4.0.0** is the in-repo candidate and is not `latest` until independent admission.
 Requires **Node.js `>=22.13`**. The package runs `dist/runtime-entry.js` (pure-Rust fail-closed default; TypeScript only via explicit rollback).
 
 ```bash

@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** Pure-Rust npm library export contract checks (drop-in remains false until sole-runtime). */
+/** Pure-Rust npm package export contract checks (sole-Rust production under ADR-0006). */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -9,36 +9,49 @@ const failures: string[] = [];
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
   exports?: Record<string, string>;
   bin?: Record<string, string>;
+  files?: string[];
   scripts?: Record<string, string>;
 };
 const matrix = JSON.parse(
   readFileSync(join(root, 'docs/specs/pure-rust-capability-matrix.json'), 'utf8')
 ) as {
-  productTruth?: { dropInFor3014?: boolean; publishFreeze?: boolean };
+  productTruth?: {
+    dropInFor3014?: boolean;
+    publishFreeze?: boolean;
+    soleRustProduction?: boolean;
+    typescriptProductionShipped?: boolean;
+  };
   claimedForDifferential?: string[];
-  explicitlyNotClaimed?: string[];
 };
 
 const defaultBin = pkg.bin?.['pdf-reader-mcp'];
 const defaultExport = pkg.exports?.['.'];
-if (matrix.productTruth?.dropInFor3014 === true) {
+const sole = matrix.productTruth?.soleRustProduction === true;
+
+if (sole || matrix.productTruth?.dropInFor3014 === true) {
   if (defaultBin !== './dist/runtime-entry.js') {
-    failures.push('default bin must be dist/runtime-entry.js when dropInFor3014=true');
+    failures.push('default bin must be dist/runtime-entry.js for pure-Rust production package');
   }
   if (defaultExport !== './dist/runtime-entry.js') {
-    failures.push('default exports["."] must be dist/runtime-entry.js when dropInFor3014=true');
-  }
-  if (pkg.exports?.['./typescript'] !== './dist/index.js') {
-    failures.push('exports["./typescript"] must keep TypeScript dist/index.js fallback');
+    failures.push('default exports["."] must be dist/runtime-entry.js for pure-Rust production package');
   }
 } else {
   if (defaultBin !== './dist/index.js') {
-    failures.push('default bin must remain TypeScript dist/index.js while dropInFor3014 is false');
+    failures.push('default bin must remain TypeScript dist/index.js while pure-Rust is not production');
   }
   if (defaultExport !== './dist/index.js') {
-    failures.push('default exports["."] must remain TypeScript dist/index.js while dropInFor3014 is false');
+    failures.push('default exports["."] must remain TypeScript dist/index.js while pure-Rust is not production');
   }
 }
+
+if (sole || matrix.productTruth?.typescriptProductionShipped === false) {
+  if (pkg.exports?.['./typescript']) {
+    failures.push('sole-Rust production must not export ./typescript');
+  }
+} else if (pkg.exports?.['./typescript'] !== './dist/index.js') {
+  failures.push('exports["./typescript"] must keep TypeScript dist/index.js fallback while TS is shipped');
+}
+
 if (pkg.exports?.['./pure-rust'] !== './dist/pure-rust.js') {
   failures.push('exports["./pure-rust"] must point at dist/pure-rust.js');
 }
@@ -48,18 +61,18 @@ if (!existsSync(join(root, 'src/pure-rust.ts'))) {
 if (!existsSync(join(root, 'src/native/platform-package-map.ts'))) {
   failures.push('src/native/platform-package-map.ts missing');
 }
-if (!(pkg.scripts?.build ?? '').includes('src/pure-rust.ts')) {
-  failures.push('build script must compile src/pure-rust.ts');
+if (!(pkg.scripts?.['build:package'] ?? pkg.scripts?.build ?? '').includes('src/pure-rust.ts')) {
+  failures.push('build:package (or build) must compile src/pure-rust.ts');
 }
 const pureRustSource = readFileSync(join(root, 'src/pure-rust.ts'), 'utf8');
 if (matrix.productTruth?.dropInFor3014 === true) {
   if (!pureRustSource.includes('dropInFor3014: true')) {
-    failures.push('src/pure-rust.ts must set dropInFor3014: true for sole-runtime cutover');
+    failures.push('src/pure-rust.ts must set dropInFor3014: true when productTruth.dropInFor3014=true');
   }
-} else if (matrix.productTruth?.dropInFor3014 !== false) {
-  failures.push('productTruth.dropInFor3014 must be boolean');
-} else if (!pureRustSource.includes('dropInFor3014: false')) {
-  failures.push('src/pure-rust.ts must keep dropInFor3014: false until sole-runtime cutover');
+} else if (matrix.productTruth?.dropInFor3014 === false) {
+  if (!pureRustSource.includes('dropInFor3014: false')) {
+    failures.push('src/pure-rust.ts must set dropInFor3014: false while productTruth.dropInFor3014=false');
+  }
 }
 if (matrix.productTruth?.publishFreeze === false) {
   if (!pureRustSource.includes('publishFreeze: false')) {
@@ -71,16 +84,16 @@ if (matrix.productTruth?.publishFreeze === false) {
   }
 }
 if (
-  !matrix.claimedForDifferential?.some((entry) =>
-    entry.includes('pure-Rust npm library export')
-  )
+  !matrix.claimedForDifferential?.some((entry) => entry.includes('pure-Rust npm library export'))
 ) {
   failures.push('matrix must claim pure-Rust npm library export contract honestly');
 }
 
-// Built artifact should exist after local build; if missing, attempt is optional for pure check of sources
 if (!existsSync(join(root, 'dist/pure-rust.js'))) {
-  failures.push('dist/pure-rust.js missing; run bun run build');
+  failures.push('dist/pure-rust.js missing; run bun run build:package');
+}
+if (!existsSync(join(root, 'dist/runtime-entry.js'))) {
+  failures.push('dist/runtime-entry.js missing; run bun run build:package');
 }
 
 if (failures.length) {

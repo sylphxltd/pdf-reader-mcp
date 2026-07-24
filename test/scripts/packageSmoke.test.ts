@@ -23,22 +23,21 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   fs.mkdirSync(path.join(packageDir, 'corpus'), { recursive: true });
   fs.mkdirSync(path.join(packageDir, 'dist'), { recursive: true });
   if (includeRuntime) {
-    fs.writeFileSync(path.join(packageDir, 'dist', 'index.js'), 'export {};\n', 'utf8');
+    // sole-Rust package must not ship dist/index.js
     fs.writeFileSync(path.join(packageDir, 'dist', 'pure-rust.js'), 'export {};\n', 'utf8');
     fs.writeFileSync(path.join(packageDir, 'dist', 'runtime-entry.js'), 'export {};\n', 'utf8');
   }
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
-    version: '3.2.0',
+    version: '4.0.0',
     bin: {
       'pdf-reader-mcp': './dist/runtime-entry.js',
     },
     exports: {
       '.': './dist/runtime-entry.js',
-      './typescript': './dist/index.js',
       './pure-rust': './dist/pure-rust.js',
     },
-    files: ['dist/', 'corpus/', 'README.md', 'LICENSE'],
+    files: ['dist/runtime-entry.js', 'dist/pure-rust.js', 'corpus/', 'README.md', 'LICENSE'],
   });
   writeJson(path.join(packageDir, 'corpus', 'public-url-corpus.json'), {
     cases: [
@@ -174,7 +173,8 @@ describe('package smoke', () => {
 
       const checks = await validateExtractedPackage(tempDir);
 
-      expect(checks.find((check) => check.id === 'runtime:ts-entry')?.status).toBe('failed');
+      expect(checks.find((check) => check.id === 'runtime:default-bin-contract')?.status).toBe('failed');
+      expect(checks.find((check) => check.id === 'runtime:ts-entry-absent')?.status).toBe('passed');
     });
   });
 

@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 // src/native/platform-package-map.ts
 var NATIVE_PLATFORM_PACKAGES = {
@@ -89,47 +89,40 @@ var resolveNativeBinary = () => {
   }
   return null;
 };
-var forceTs = process.env["PDF_READER_ENGINE_MODE"] === "typescript" || process.env["PDF_READER_ENGINE_MODE"] === "ts" || process.env["PDF_READER_FORCE_TYPESCRIPT"] === "1";
-var loadTypeScriptRuntime = async () => {
-  const tsEntry = join(here, "index.js");
-  if (!existsSync(tsEntry)) {
-    console.error("[pdf-reader-mcp] TypeScript runtime requested, but dist/index.js is not available");
-    process.exit(1);
-  }
-  await import(pathToFileURL(tsEntry).href);
-};
-if (forceTs) {
-  await loadTypeScriptRuntime();
-} else {
-  const nativeBinary = resolveNativeBinary();
-  if (!nativeBinary) {
-    const platformId = resolveNativePlatformId();
-    const platformLabel = platformId ?? `${process.platform}/${process.arch}`;
-    console.error([
-      `[pdf-reader-mcp] pure-Rust native binary not found for ${platformLabel}.`,
-      "Default entry is fail-closed (no automatic TypeScript fallback).",
-      "Install the matching optional native package, or use an explicit TypeScript rollback:",
-      "  - node node_modules/@sylphx/pdf-reader-mcp/dist/index.js",
-      '  - import/require "@sylphx/pdf-reader-mcp/typescript"',
-      "  - PDF_READER_FORCE_TYPESCRIPT=1",
-      "  - PDF_READER_ENGINE_MODE=typescript"
-    ].join(`
+if (process.env["PDF_READER_FORCE_TYPESCRIPT"] === "1" || process.env["PDF_READER_ENGINE_MODE"] === "typescript" || process.env["PDF_READER_ENGINE_MODE"] === "ts") {
+  console.error([
+    "[pdf-reader-mcp] TypeScript production runtime has been removed from this package.",
+    "Use the immutable historical LKG @sylphx/pdf-reader-mcp@3.0.14 for TypeScript rollback,",
+    "or install/run the pure-Rust native binary for this package version."
+  ].join(`
 `));
-    process.exit(1);
-  }
-  const child = spawn(nativeBinary, process.argv.slice(2), {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      PDF_READER_ENGINE_MODE: process.env["PDF_READER_ENGINE_MODE"] || "pure-rust",
-      MCP_TRANSPORT: process.env["MCP_TRANSPORT"] || "stdio"
-    }
-  });
-  child.on("exit", (code, signal) => {
-    if (signal) {
-      process.kill(process.pid, signal);
-      return;
-    }
-    process.exit(code ?? 1);
-  });
+  process.exit(2);
 }
+var nativeBinary = resolveNativeBinary();
+if (!nativeBinary) {
+  const platformId = resolveNativePlatformId();
+  const platformLabel = platformId ?? `${process.platform}/${process.arch}`;
+  console.error([
+    `[pdf-reader-mcp] pure-Rust native binary not found for ${platformLabel}.`,
+    "This package is sole-Rust: there is no bundled TypeScript PDF runtime.",
+    "Install the matching optional native package for your platform, or set PDF_READER_MCP_RUST_BIN.",
+    "Historical TypeScript LKG remains available only as @sylphx/pdf-reader-mcp@3.0.14 (external pin)."
+  ].join(`
+`));
+  process.exit(1);
+}
+var child = spawn(nativeBinary, process.argv.slice(2), {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    PDF_READER_ENGINE_MODE: process.env["PDF_READER_ENGINE_MODE"] || "pure-rust",
+    MCP_TRANSPORT: process.env["MCP_TRANSPORT"] || "stdio"
+  }
+});
+child.on("exit", (code, signal) => {
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 1);
+});

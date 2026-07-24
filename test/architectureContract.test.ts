@@ -4,8 +4,8 @@ import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
-describe('architecture contract (pure-Rust default + explicit TS rollback)', () => {
-  it('published package points at pure-Rust runtime-entry', () => {
+describe('architecture contract (sole-Rust production package)', () => {
+  it('published package points at sole-Rust runtime-entry only', () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
       exports?: Record<string, string>;
@@ -13,6 +13,7 @@ describe('architecture contract (pure-Rust default + explicit TS rollback)', () 
     };
     expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
+    expect(pkg.exports?.['./typescript']).toBeUndefined();
     expect(pkg.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
   });
 

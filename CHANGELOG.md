@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.0.0 (candidate — not published)
+
+### Major Changes
+
+- **Sole-Rust production package (ADR-0006):** remove public `./typescript` export and stop shipping TypeScript PDF runtime / PDF.js workers in the npm artifact. Default entry is thin native launcher only. Historical TypeScript LKG remains external `@sylphx/pdf-reader-mcp@3.0.14`.
+- **Publish freeze retained** until capability-first admission, same-host performance A/B, five real host proofs (incl. Darwin x64 on x86_64), and independent whole-product review authorize the exact candidate.
+- **crates.io** explicitly not an admitted product channel unless re-admitted by ADR.
+- Published **3.2.2 remains transitional** Rust-default with bundled TS rollback; do not market it as Sole Rust.
+
 ## 3.2.2
 
 ### Patch Changes

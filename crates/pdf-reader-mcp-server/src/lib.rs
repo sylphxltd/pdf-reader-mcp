@@ -24,11 +24,11 @@ use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
 /// Pure-Rust MCP server version — tracks the published npm product line when default.
-pub const SERVER_VERSION: &str = "3.2.2";
+pub const SERVER_VERSION: &str = "4.0.0";
 pub const SERVER_INSTRUCTIONS: &str =
-    "@sylphx/pdf-reader-mcp pure-Rust MCP server (npm default via platform native package). \
-Capability-first semantic compatibility with TypeScript 3.0.14 interface contracts (ADR-0005). \
-Explicit TypeScript rollback: @sylphx/pdf-reader-mcp/typescript or PDF_READER_FORCE_TYPESCRIPT=1.";
+    "@sylphx/pdf-reader-mcp sole-Rust MCP server (platform native binary). \
+Capability-first semantic compatibility with TypeScript 3.0.14 interface contracts (ADR-0005/0006). \
+No TypeScript PDF runtime is shipped in this package. Historical LKG: @sylphx/pdf-reader-mcp@3.0.14.";
 
 fn omit_absent_optional_fields(value: Value) -> Value {
     match value {
@@ -170,7 +170,7 @@ impl ServerHandler for PdfReaderMcp {
                 title: None,
                 version: SERVER_VERSION.into(),
                 description: Some(
-                    "@sylphx/pdf-reader-mcp pure-Rust MCP server (npm default via platform native package)".into(),
+                    "@sylphx/pdf-reader-mcp sole-Rust MCP server (native binary; no TypeScript PDF runtime)".into(),
                 ),
                 icons: None,
                 website_url: Some("https://sylphxai.github.io/pdf-reader-mcp/".into()),

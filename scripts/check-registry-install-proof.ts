@@ -290,8 +290,8 @@ try {
     if (!bin.includes('runtime-entry.js')) {
       fail(`sole-runtime default bin must be runtime-entry.js; got ${bin}`);
     }
-    if (!(mainPkg.exports?.['./typescript'] ?? '').includes('index.js')) {
-      fail('sole-runtime package must keep ./typescript TypeScript fallback export');
+    if (mainPkg.exports?.['./typescript']) {
+      fail('sole-Rust package must not export ./typescript');
     }
   } else if (!bin.includes('dist/index.js')) {
     fail(`default bin must be TypeScript dist/index.js or sole-runtime runtime-entry.js; got ${bin}`);
