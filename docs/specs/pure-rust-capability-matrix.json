@@ -60,10 +60,10 @@
     "historicalTypescriptLkg": "@sylphx/pdf-reader-mcp@3.0.14",
     "semverTarget": "4.0.0",
     "cratesAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
-    "transitionalNote": "Live latest remains 3.2.2 until 4.0.0 is published. 4.0.0 is sole-Rust production candidate authorized for freeze-lift by independent review 9559abc (goal complete still false until multi-channel readback).",
+    "transitionalNote": "Live latest remains 3.2.2 until 4.0.0 is published. 4.0.0 is sole-Rust production candidate re-authorized for freeze-lifted publication by independent review f9a3154 (goal complete still false until multi-channel readback).",
     "candidateHostRuntimeProof": {
       "status": "five-distinct-host-triples-proven-for-4.0.0-candidate",
-      "candidateSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
+      "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
       "distinctHostTriplesProven": [
         "darwin-arm64",
         "darwin-x64",
@@ -72,7 +72,13 @@
         "win32-x64-msvc"
       ],
       "evidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.0-aggregate.json",
-      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093"
+      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747",
+      "darwinX64": {
+        "unameMachine": "x86_64",
+        "rosettaTranslated": false,
+        "runtimeProofValid": true
+      },
+      "boundary": "local-pack install/runtime proofs; not npm registry readback"
     },
     "performanceClaimsAuthorized": false,
     "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md"
@@ -392,7 +398,7 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Merge PR #574 after green CI on freeze-lift tip",
+      "Merge PR #574 after pin-path review commit on f9a3154 remains green",
       "Publish exact 4.0.0 natives+main via publish-npm.yml with --require-exact-head",
       "GitHub Release v4.0.0 + MCP Registry publish/readback",
       "Post-release five-host registry install proof on published 4.0.0",
@@ -466,29 +472,28 @@
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
       "status": "review_pass_unfreeze_authorized_goal_incomplete",
-      "candidateSha": "9559abc87fb7f86da8101ff88583e2010d0eb822",
-      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.0-9559abc.json",
+      "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.0-f9a3154.json",
       "package": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
-      "runtimeEvidenceSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
-      "runtimeEvidenceRelationship": "immediate-docs-verification-only-parent",
+      "runtimeEvidenceSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+      "runtimeEvidenceRelationship": "exact-reviewed-implementation-candidate",
       "unfreezeAuthorized": true,
       "tsRetirementAuthorized": true,
       "soleRuntimeAuthorized": true,
       "performanceClaimsAuthorized": false,
       "goalCompleteAuthorized": false,
       "notes": [
-        "Independent exact-tip local re-review passed all required interface, semantic, capability, and package gates.",
-        "Committed five-host proof JSON binds immediate parent 7dddcb4; exact reviewed tip 9559abc also has 20/20 green CI and a successful five-host host-proof workflow, with only docs/verification delta from the parent.",
-        "Freeze-lift decision is authorized only for exact reviewed SHA 9559abc through verified-candidate admission; this review commit retains the mechanical freeze, and other deltas require successor review.",
-        "Nonclaim ledger is 109/109 reviewed with zero provisional, unclassified, blocking capability gaps, or unfreeze blockers.",
+        "Independent successor re-review of exact tip f9a3154 after freeze-lift (d6fb4be) and stdio-gate alignment (f9a3154).",
+        "All required local gates and 20/20 CI checks passed; five-host host-proof workflow 30067554747 green including real darwin-x64 x86_64.",
+        "Nonclaim ledger 109/109 reviewed with zero blockingForUnfreeze.",
         "Performance marketing claims remain withheld; no admissible_pass exists.",
         "The 44 PARTIAL matrix cells remain explicit quality residuals and are not treated as FULL.",
         "Goal completion remains unauthorized until exact 4.0.0 publish and npm/GitHub/MCP Registry plus five-host registry readback are proven."
       ],
-      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.0-c890441.json",
-      "publishFreezeInReviewCommit": true,
+      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.0-9559abc.json",
+      "publishFreezeInReviewedCandidate": false,
       "publishFreezeLiftAuthorized": true,
-      "freezeLiftCommitNote": "Mechanical publishFreeze=false / dropInFor3014=true applied after independent unfreeze authorization of 9559abc; performance claims remain withheld; goal complete requires multi-channel publish/readback."
+      "freezeLiftCommitNote": "Mechanical publishFreeze=false / dropInFor3014=true is present on the reviewed candidate and re-authorized for exact f9a3154; performance claims remain withheld; goal complete requires multi-channel publish/readback."
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,
@@ -507,18 +512,27 @@
     "soleRustAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
     "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md",
     "exactTipCi": {
-      "reviewedSha": "9559abc87fb7f86da8101ff88583e2010d0eb822",
-      "greenRuntimeParentSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
+      "reviewedSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
       "pr": 574,
-      "parentStatus": "20-of-20-check-runs-success",
-      "reviewedTipMergeable": true,
-      "docsAndVerificationOnlyDelta": true,
-      "runtimePackageWorkflowScriptTestCorpusTreesIdentical": true,
-      "validateOnReviewedTip": "pass",
-      "hostProofRun": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093",
       "reviewedTipStatus": "20-of-20-check-runs-success",
-      "reviewedTipMergeStateStatus": "CLEAN",
-      "exactTipHostProofRun": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30066153171"
+      "validateOnReviewedTip": "pass",
+      "releaseEvidenceGate": "pass",
+      "rustParityDifferential": "pass",
+      "nativePackageBuilds": "5-of-5-pass",
+      "hostProofRun": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747",
+      "hostProofPlatforms": [
+        "darwin-arm64",
+        "darwin-x64",
+        "linux-arm64-gnu",
+        "linux-x64-gnu",
+        "win32-x64-msvc"
+      ],
+      "darwinX64Host": {
+        "nodeArch": "x64",
+        "unameMachine": "x86_64",
+        "rosettaTranslated": false,
+        "runner": "self-hosted x86_64-apple-darwin"
+      }
     }
   }
 }

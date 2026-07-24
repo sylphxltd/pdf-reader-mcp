@@ -103,8 +103,8 @@
     }
   ],
   "pass": true,
-  "candidateSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
-  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093",
-  "recordedAt": "2026-07-24T04:11:33.372729+00:00",
-  "note": "Exact tip 7dddcb4 sole-Rust 4.0.0 candidate five-host local-pack runtime proofs with matching host architectures. Performance claims withheld. Freeze retained until independent re-review authorizes unfreeze."
+  "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747",
+  "recordedAt": "2026-07-24T05:00:00Z",
+  "note": "Exact tip f9a3154 sole-Rust 4.0.0 candidate five-host local-pack runtime proofs with matching host architectures. Performance claims withheld. Independent whole-product re-review artifact binds this tip."
 }

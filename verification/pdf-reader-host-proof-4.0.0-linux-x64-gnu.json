@@ -34,14 +34,15 @@
     "sylphx-pdf-reader-mcp-4.0.0.tgz",
     "sylphx-pdf-reader-mcp-linux-x64-gnu-4.0.0.tgz"
   ],
-  "nativeBinary": "/tmp/pdf-reader-local-install-HUFyZs/node_modules/@sylphx/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server",
+  "nativeBinary": "/tmp/pdf-reader-local-install-1h3tT0/node_modules/@sylphx/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server",
   "initialize": {
     "serverName": "pdf-reader-mcp",
     "serverVersion": "4.0.0"
   },
   "runtimeProofValid": true,
-  "note": "Local pack + install + pure-Rust MCP initialize on matching host. Not npm registry readback.",
+  "note": "Local pack + install + pure-Rust MCP initialize on matching host for exact tip f9a3154. Not npm registry readback.",
   "pass": true,
-  "candidateSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
-  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093"
+  "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747",
+  "recordedAt": "2026-07-24T05:00:00Z"
 }
