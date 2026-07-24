@@ -1,5 +1,7 @@
 # Whole-product independent review package — sole-Rust 4.0.0 candidate
 
+> **Post-publish audit (2026-07-24):** packaging Sole-Rust for 4.0.2 remains PASS; formal performanceClaimsAuthorized / goalCompleteAuthorized are reopened because the prior suite was startup-inclusive with a weak semantic gate. See `docs/specs/performance/4.0.2-performance-claims-policy.md`.
+
 Status: **ready for independent review input** (not an authorization)  
 Date: 2026-07-24  
 Authority: ADR-0005 capability-first; ADR-0006 sole-Rust production  

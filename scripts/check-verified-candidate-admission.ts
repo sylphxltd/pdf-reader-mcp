@@ -184,36 +184,46 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
       } else if (headSha === candidateSha) {
         // exact match
       } else {
-        const ancestor = spawnSync(
-          'git',
-          ['merge-base', '--is-ancestor', candidateSha, headSha],
-          { cwd: root, encoding: 'utf8' }
-        );
-        const diff = spawnSync(
-          'git',
-          ['diff', '--name-only', candidateSha, headSha],
-          { cwd: root, encoding: 'utf8' }
-        );
-        const changed = (diff.stdout || '')
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean);
-        const allow = (rel: string) =>
-          rel === 'docs/specs/pure-rust-capability-matrix.json' ||
-          rel === 'src/pure-rust.ts' ||
-          rel === 'dist/pure-rust.js' ||
-          rel === 'README.md' ||
-          rel === 'CHANGELOG.md' ||
-          rel === 'scripts/check-verified-candidate-admission.ts' ||
-          rel.startsWith('docs/specs/') ||
-          rel.startsWith('verification/');
-        // empty changed => identical trees; [].every(allow) is true.
-        // Non-empty changed must be pin-path only (matrix/verification).
-        const onlyPinPaths = changed.every(allow);
-        if (ancestor.status !== 0 || diff.status !== 0 || !onlyPinPaths) {
+        const objectType = spawnSync('git', ['cat-file', '-t', candidateSha], {
+          cwd: root,
+          encoding: 'utf8',
+        });
+        if (objectType.status !== 0 || objectType.stdout.trim() !== 'commit') {
           failures.push(
-            `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a pin-path-only descendant; ancestorStatus=${ancestor.status} diffStatus=${diff.status} changed=${JSON.stringify(changed)} stderr=${JSON.stringify((ancestor.stderr || '') + (diff.stderr || ''))}`
+            `exact-head admission cannot resolve candidate ${candidateSha} in this checkout (often a pre-squash PR tip not reachable from main). Publish from the reviewed release ref, or pin review.candidateSha to a commit reachable from HEAD. git cat-file stderr=${JSON.stringify(objectType.stderr || '')}`
           );
+        } else {
+          const ancestor = spawnSync(
+            'git',
+            ['merge-base', '--is-ancestor', candidateSha, headSha],
+            { cwd: root, encoding: 'utf8' }
+          );
+          const diff = spawnSync(
+            'git',
+            ['diff', '--name-only', candidateSha, headSha],
+            { cwd: root, encoding: 'utf8' }
+          );
+          const changed = (diff.stdout || '')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean);
+          const allow = (rel: string) =>
+            rel === 'docs/specs/pure-rust-capability-matrix.json' ||
+            rel === 'src/pure-rust.ts' ||
+            rel === 'dist/pure-rust.js' ||
+            rel === 'README.md' ||
+            rel === 'CHANGELOG.md' ||
+            rel === 'scripts/check-verified-candidate-admission.ts' ||
+            rel.startsWith('docs/specs/') ||
+            rel.startsWith('verification/');
+          // empty changed => identical trees; [].every(allow) is true.
+          // Non-empty changed must be pin-path only (matrix/verification).
+          const onlyPinPaths = changed.every(allow);
+          if (ancestor.status !== 0 || diff.status !== 0 || !onlyPinPaths) {
+            failures.push(
+              `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a pin-path-only descendant; ancestorStatus=${ancestor.status} diffStatus=${diff.status} changed=${JSON.stringify(changed)} stderr=${JSON.stringify((ancestor.stderr || '') + (diff.stderr || ''))}`
+            );
+          }
         }
       }
     }
