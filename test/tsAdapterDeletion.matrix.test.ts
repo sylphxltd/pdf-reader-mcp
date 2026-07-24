@@ -60,8 +60,8 @@ describe('published sole-Rust production package (no TS production runtime)', ()
     expect(matrix.productTruth.soleRustProduction).toBe(true);
     expect(matrix.productTruth.typescriptProductionShipped).toBe(false);
     expect(matrix.productTruth.automaticTypescriptFallback).toBe(false);
-    expect(matrix.productTruth.publishFreeze).toBe(true);
-    expect(matrix.productTruth.dropInFor3014).toBe(false);
+    expect(matrix.productTruth.publishFreeze).toBe(false);
+    expect(matrix.productTruth.dropInFor3014).toBe(true);
     expect(matrix.productTruth.pureRustStatus).toContain('sole-rust');
     expect(matrix.productTruth.candidateVersion).toMatch(/^4\./);
   });

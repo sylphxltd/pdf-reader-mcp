@@ -12,8 +12,8 @@ const root = join(import.meta.dir, '..');
 
 describe('pure-rust npm library export', () => {
   test('documents fail-closed pure-Rust default product truth', () => {
-    expect(PURE_RUST_EXPORT.dropInFor3014).toBe(false);
-    expect(PURE_RUST_EXPORT.publishFreeze).toBe(true);
+    expect(PURE_RUST_EXPORT.dropInFor3014).toBe(true);
+    expect(PURE_RUST_EXPORT.publishFreeze).toBe(false);
     expect(PURE_RUST_EXPORT.defaultPackageExport).toBe('./dist/runtime-entry.js');
     expect(PURE_RUST_EXPORT.pureRustExport).toBe('./dist/pure-rust.js');
   });
