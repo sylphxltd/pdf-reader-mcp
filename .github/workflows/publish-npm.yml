@@ -29,10 +29,10 @@ jobs:
             runner: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
           - platformId: darwin-arm64
-            runner: macos-14
+            runner: [self-hosted, sylphx, macos, standard]
             target: aarch64-apple-darwin
           - platformId: darwin-x64
-            runner: macos-14
+            runner: [self-hosted, sylphx, macos, standard]
             target: x86_64-apple-darwin
           - platformId: win32-x64-msvc
             runner: windows-latest
