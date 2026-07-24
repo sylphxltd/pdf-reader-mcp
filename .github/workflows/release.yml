@@ -98,8 +98,11 @@ jobs:
       # Keep this as a standalone shell boundary. changesets/action executes
       # `publish` directly, so shell operators embedded in that input do not
       # enforce a failing freeze.
-      - name: Enforce verified-candidate admission (replaces hard publish freeze)
-        run: bun scripts/check-verified-candidate-admission.ts --require-exact-head
+      - name: Enforce verified-candidate admission (trunk)
+        # Trunk Release is post-merge (often squash). Exact PR tip SHAs are not
+        # ancestors of squash commits, so require-exact-head belongs on publish-npm
+        # of an intentional release ref, not ordinary main pushes.
+        run: bun scripts/check-verified-candidate-admission.ts
 
       - name: Normalize tracked dist permissions before version PR
         run: |

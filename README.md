@@ -14,18 +14,18 @@ Read PDFs with page citations, tables, structure, OCR, and trust signals — not
 
 ## What it does
 
-`@sylphx/pdf-reader-mcp` is an MCP server that turns PDFs into agent-usable evidence:
+`@sylphx/pdf-reader-mcp` turns PDFs into agent-usable evidence:
 
-- **Text + structure** with page numbers and locations
-- **Tables** with cells and geometry
-- **Search** with snippets and page hits
-- **Document map / AST** for headings, lists, figures, reading order
-- **OCR** for scanned pages
-- **Forms, annotations, attachments**
-- **Trust / accessibility signals** when requested
-- **Crops and renders** for visual verification
+- Text and structure with page numbers and locations
+- Tables with cells and geometry
+- Search with snippets and page hits
+- Document map / AST for headings, lists, figures, reading order
+- OCR for scanned pages
+- Forms, annotations, attachments
+- Trust / accessibility signals when requested
+- Crops and renders for visual verification
 
-Version 4 runs a **native Rust engine** on supported platforms (thin Node launcher only).
+Version 4 uses a **native Rust engine** on supported platforms, launched by a thin Node wrapper.
 
 ## Install
 
@@ -33,57 +33,13 @@ Version 4 runs a **native Rust engine** on supported platforms (thin Node launch
 npm install -g @sylphx/pdf-reader-mcp
 ```
 
-Or pin a version:
+Pin a version:
 
 ```bash
 npm install -g @sylphx/pdf-reader-mcp@4.0.2
 ```
 
-Supported native packages (installed automatically when available):
-
-- macOS Apple Silicon / Intel
-- Linux x64 / arm64 (glibc)
-- Windows x64
-
-## Quick start
-
-### Claude Code / Claude Desktop style MCP config
-
-```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
-```
-
-### Stdio
-
-```bash
-pdf-reader-mcp
-```
-
-### HTTP transport
-
-```bash
-MCP_TRANSPORT=http pdf-reader-mcp
-```
-
-## Tools
-
-| Tool | Purpose |
-| --- | --- |
-| `read_pdf` | Read pages/regions; markdown, tables, OCR, structure, evidence |
-| `search_pdf` | Find matches with page + snippet context |
-| `pdf_evidence` | Inspect evidence, crops, renders, and related operations |
-
-### Minimal `read_pdf` call
-
-```json
-{
-  "sources": [{ "path": "/absolute/path/to/report.pdf" }]
-}
-```
-
-Typical result includes page count, extracted content, and citeable locations (page + bounding box) when geometry is available.
-
-## Platforms
+Optional native packages install automatically when available:
 
 | Platform | Package |
 | --- | --- |
@@ -93,34 +49,65 @@ Typical result includes page count, extracted content, and citeable locations (p
 | Linux arm64 | `@sylphx/pdf-reader-mcp-linux-arm64-gnu` |
 | Windows x64 | `@sylphx/pdf-reader-mcp-win32-x64-msvc` |
 
-If the matching native package is missing, the server **fails closed** instead of silently switching engines.
+If the matching native package is missing, the server fails closed.
+
+## Quick start
+
+```bash
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+```
+
+Stdio:
+
+```bash
+pdf-reader-mcp
+```
+
+HTTP:
+
+```bash
+MCP_TRANSPORT=http pdf-reader-mcp
+```
+
+## Tools
+
+| Tool | Purpose |
+| --- | --- |
+| `read_pdf` | Read pages/regions: markdown, tables, OCR, structure, evidence |
+| `search_pdf` | Find matches with page + snippet context |
+| `pdf_evidence` | Inspect evidence, crops, renders, related operations |
+
+Minimal `read_pdf` call:
+
+```json
+{
+  "sources": [{ "path": "/absolute/path/to/report.pdf" }]
+}
+```
 
 ## Performance
 
-On a controlled **same-host linux-x64** A/B versus immutable `@sylphx/pdf-reader-mcp@3.0.14`:
+Current published measurements are **startup-inclusive end-to-end** (spawn server + initialize + one `read_pdf`), not steady-state latency of an already-running server.
 
-- Task: MCP initialize + `read_pdf` (page 1, `include_full_text`)
-- Warm median latency improved by **at least ~6.2×** across all eight required fixture classes
-- Median of per-class warm median speedups was **~23.7×** on that host
-- Launcher package tarball is much smaller than the historical TypeScript package; the native binary is still multi-megabyte (optional dependency)
+On a controlled same-host **linux-x64** run versus `@sylphx/pdf-reader-mcp@3.0.14` for page-1 `include_full_text`:
 
-Evidence: `docs/specs/performance/4.0.2-same-host-performance-report.md`  
-Authorized claims are **bounded** to that method/host/task set. They are **not** universal multi-host guarantees, and they do not cover OCR/provider external I/O paths.
+- Preliminary suite reported large speedups on local fixtures
+- Formal product performance admission is being rebuilt with:
+  - separate startup vs persistent-server timings
+  - stronger semantic outcome checks
+  - capability-specific tasks (table/structure/search/geometry)
+  - registry-installed exact binaries and durable raw samples
 
-## v4 notes
+Until that re-admission lands, treat public speed numbers as **preliminary**, not a universal product guarantee.
 
-- Public default is the native Rust server via a thin launcher.
-- There is no bundled TypeScript PDF engine in the production package.
-- Breaking change from 3.x: the `./typescript` export and TypeScript production runtime are removed.
-- Historical TypeScript baseline remains available only as the immutable package `@sylphx/pdf-reader-mcp@3.0.14` if you need that exact engine for comparison or recovery.
+Details: [performance report](docs/specs/performance/4.0.2-same-host-performance-report.md) · [claims policy](docs/specs/performance/4.0.2-performance-claims-policy.md)
 
 ## Docs
 
 - [Comparison / capability overview](docs/comparison/index.md)
 - [Capability matrix](docs/specs/pure-rust-capability-matrix.json)
-- [ADR-0005 capability-first compatibility](docs/adr/0005-capability-first-semantic-compatibility.md)
-- [ADR-0006 sole-Rust production](docs/adr/0006-sole-rust-production-and-channel-authority.md)
-- [Migration / recovery notes](docs/specs/release-closeout-4.0.0.md)
+- [Migration / recovery notes](docs/migration.md)
+- [ADR-0005](docs/adr/0005-capability-first-semantic-compatibility.md) · [ADR-0006](docs/adr/0006-sole-rust-production-and-channel-authority.md)
 
 ## License
 

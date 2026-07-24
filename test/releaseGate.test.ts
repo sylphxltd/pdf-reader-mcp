@@ -37,16 +37,24 @@ describe('pdf reader SOTA release gate golden probes', () => {
       path.join(import.meta.dirname, '..', '.github/workflows/release.yml'),
       'utf8'
     );
-    const admission = workflow.indexOf(
-      '- name: Enforce verified-candidate admission (replaces hard publish freeze)'
+    const publishNpm = readFileSync(
+      path.join(import.meta.dirname, '..', '.github/workflows/publish-npm.yml'),
+      'utf8'
     );
+    // Trunk Release is post-merge (often squash); do not require exact PR tip SHA.
+    const admission = workflow.indexOf('- name: Enforce verified-candidate admission (trunk)');
     const changesets = workflow.indexOf('uses: changesets/action@v1');
 
     expect(admission).toBeGreaterThan(-1);
     expect(workflow.slice(admission, changesets)).toContain(
       'bun scripts/check-verified-candidate-admission.ts'
     );
+    expect(workflow.slice(admission, changesets)).not.toContain('--require-exact-head');
     expect(admission).toBeLessThan(changesets);
+    // Intentional package publish still pins exact reviewed head.
+    expect(publishNpm).toContain(
+      'bun scripts/check-verified-candidate-admission.ts --require-exact-head'
+    );
     // Stage A authorizes registry publish under admission; keep TS default by not
     // wiring a direct npm publish step into the release workflow.
     expect(workflow).not.toContain('publish:');
