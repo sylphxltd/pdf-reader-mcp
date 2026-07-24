@@ -16,7 +16,7 @@ jobs:
     runs-on: [self-hosted, sylphx-linux-standard]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -112,7 +112,7 @@ jobs:
     runs-on: [self-hosted, sylphx-linux-standard]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history for the new-commit range
       - name: Secret scan (ADR-6 security:secrets)
@@ -124,7 +124,7 @@ jobs:
     needs: validate
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
