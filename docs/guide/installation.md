@@ -1,21 +1,35 @@
 # Installation
 
-## Published stable (required for production)
+## Published stable
 
-Install from **npm**. Published stable is **TypeScript `@sylphx/pdf-reader-mcp@3.0.14`**.
+Install from **npm**. Current production is **`@sylphx/pdf-reader-mcp@4.0.2`** — a **sole-Rust** MCP server launched by a thin Node entrypoint.
 
-Pure-Rust cutover packages (`3.0.15`–`3.1.1`) are **withdrawn/deprecated**. Do not use them.
+```bash
+npm install -g @sylphx/pdf-reader-mcp
+# or pin
+npm install -g @sylphx/pdf-reader-mcp@4.0.2
+```
+
+npm installs:
+
+1. The thin launcher package
+2. **One** platform native package as an optional dependency (when available)
+
+There is **no** TypeScript PDF runtime in the production package. If the matching native binary is missing, the server **fails closed**.
 
 ## Requirements
 
-- **Node.js >= 22.13.0**
-- The published package runs the TypeScript MCP server at `dist/index.js`
-- Optional OCR / visual providers are opt-in (not required for core text + twin path)
+- **Node.js >= 22.13.0** (launcher only)
+- Supported platform for the native binary:
+  - macOS arm64 / x64
+  - Linux x64 gnu / arm64 gnu
+  - Windows x64
+- Optional OCR / visual providers are opt-in (not required for core text paths)
 
 ## Claude Code
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp@3.0.14
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
 ```
 
 ## Claude Desktop
@@ -27,7 +41,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp@3.0.14"]
+      "args": ["@sylphx/pdf-reader-mcp"]
     }
   }
 }
@@ -37,42 +51,53 @@ Add to your `claude_desktop_config.json`:
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-## Cursor
+## Cursor / VS Code / other MCP clients
+
+Use the same stdio command shape:
 
 ```json
 {
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp@3.0.14"]
+      "args": ["@sylphx/pdf-reader-mcp"]
     }
   }
 }
 ```
 
-## Other MCP clients
+## Run directly
 
 ```bash
-npx @sylphx/pdf-reader-mcp@3.0.14
+npx @sylphx/pdf-reader-mcp
+# or after global install
+pdf-reader-mcp
 ```
 
-## Experimental pure-Rust (developers only)
-
-Not a production install path. Build from source in this repository:
+HTTP transport:
 
 ```bash
-bun run build:rust
-PDF_READER_ENGINE_MODE=pure-rust ./bin/pdf-reader-mcp
+MCP_TRANSPORT=http pdf-reader-mcp
 ```
 
-Honest capability status: [`docs/specs/pure-rust-capability-matrix.json`](../specs/pure-rust-capability-matrix.json).
+## Platforms
 
-## Optional OCR Provider
+| Platform | Native package |
+| --- | --- |
+| macOS arm64 | `@sylphx/pdf-reader-mcp-darwin-arm64` |
+| macOS x64 | `@sylphx/pdf-reader-mcp-darwin-x64` |
+| Linux x64 | `@sylphx/pdf-reader-mcp-linux-x64-gnu` |
+| Linux arm64 | `@sylphx/pdf-reader-mcp-linux-arm64-gnu` |
+| Windows x64 | `@sylphx/pdf-reader-mcp-win32-x64-msvc` |
 
-`pdf_evidence` operation `ocr_pages` and `read_pdf` OCR fusion are disabled
-until a local OCR command or preset is configured. Set
-`MCP_PDF_OCR_PRESET=tesseract` for the plain-text Tesseract command template,
-or `MCP_PDF_OCR_PRESET=tesseract-tsv` when agents need normalized Tesseract
-word boxes and confidence. You can also set `MCP_PDF_OCR_COMMAND` to the OCR
-executable or wrapper you want the server to run.
+## Historical TypeScript baseline (not production)
+
+Immutable external comparison/recovery pin only:
+
+```bash
+npm install -g @sylphx/pdf-reader-mcp@3.0.14
+```
+
+See [Migration / recovery notes](/migration) for engine history. Do not use withdrawn intermediate cutover packages as production.

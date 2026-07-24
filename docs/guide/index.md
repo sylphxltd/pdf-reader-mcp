@@ -6,7 +6,7 @@ Twin: text layers, semantic structure, source visuals, region crops, OCR
 provenance, tables, citations, trust signals, accessibility signals, and
 provider-backed visual enrichments linked through stable IDs.
 
-The default package stays TypeScript-first and local-first. Selectable-text
+The production package is **sole-Rust** and local-first. Selectable-text
 PDFs, smart routing, search, rendering, crops, document maps, trust reports,
 accessibility reports, Markdown/HTML/JSON extraction, and safety signals work
 without heavy model downloads. Scanned OCR and visual table/chart/formula/figure

@@ -64,6 +64,6 @@ PDF Reader MCP exposes that as a compact V3 tool surface:
 ## Boundaries
 
 PDF Reader MCP does not bundle heavy OCR, vision, formula, or layout model
-weights. The default package stays TypeScript-first and local-first; advanced
+weights. The production package is sole-Rust and local-first; advanced
 OCR and visual understanding are enabled through explicit local providers and
 validated through provider benchmarks.

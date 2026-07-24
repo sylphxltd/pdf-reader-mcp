@@ -1,19 +1,24 @@
 # @sylphx/pdf-reader-mcp-linux-arm64-gnu
 
-Optional pure-Rust MCP server binary for `linux-arm64-gnu`.
+Platform native binary for `linux-arm64-gnu` used by `@sylphx/pdf-reader-mcp`.
 
 ## Status
 
-- Publishable optional package under verified-candidate admission (ADR-0005).
-- Consumed by `@sylphx/pdf-reader-mcp` via `optionalDependencies`.
-- Default package entry of the main package remains TypeScript until
-  `dropInFor3014=true` and sole-runtime cutover.
+- **Production path** for sole-Rust PDF Reader MCP on this platform
+- Installed automatically as an `optionalDependency` of `@sylphx/pdf-reader-mcp` when OS/CPU match
 - Binary path: `bin/pdf-reader-mcp-server`
-- Local host smoke: `bun run smoke:native-package-resolve`
-- Registry install proof: `bun run check:registry-install-proof -- --registry --version=<ver>`
+
+## Install
+
+Prefer the umbrella package (recommended):
+
+```bash
+npm install -g @sylphx/pdf-reader-mcp
+```
+
+You normally do **not** need to install this package directly. npm selects the matching platform package.
 
 ## Notes
 
-This package is not a standalone product surface. Prefer installing
-`@sylphx/pdf-reader-mcp` and opting into pure-Rust with
-`PDF_READER_ENGINE_MODE=pure-rust` (or the `./pure-rust` library export).
+This package is not a separate product surface. It is the native engine binary for one platform.
+There is no TypeScript PDF runtime and no engine “opt-in” flag for production.

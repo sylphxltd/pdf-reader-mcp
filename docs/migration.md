@@ -1,5 +1,7 @@
 # Migration and recovery notes
 
+This page is **secondary engineering history**. Product install docs live on the README and Installation guide.
+
 This page holds historical engine-transition details. The main product page is the repository [README](https://github.com/SylphxAI/pdf-reader-mcp#readme) / docs [home](/).
 
 ## Current production
