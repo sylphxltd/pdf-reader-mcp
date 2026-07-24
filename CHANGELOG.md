@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.1.1
+
+### Patch Changes
+
+- Sync npm README with authorized 4.1 dual-mode performance claims and product proof wording.
+
 ## 4.1.0
 
 ### Minor Changes
