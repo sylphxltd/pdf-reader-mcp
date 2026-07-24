@@ -241,7 +241,8 @@
     "perf:same-host-ab-suite": "bun scripts/perf/run-same-host-ab-suite.ts",
     "check:sole-rust-core": "bun scripts/check-sole-rust-core-admission.ts",
     "build:test": "bun run build:package && bun run build:oracle-ts",
-    "check:prod-dependency-closure": "bun scripts/check-prod-dependency-closure.ts"
+    "check:prod-dependency-closure": "bun scripts/check-prod-dependency-closure.ts",
+    "check:no-github-hosted-macos": "bun scripts/check-no-github-hosted-macos.ts"
   },
   "dependencies": {},
   "overrides": {
