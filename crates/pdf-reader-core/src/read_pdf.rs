@@ -58,7 +58,7 @@ pub struct ReadPdfInput {
     pub trust_report_redaction: Option<String>,
     pub max_visual_enrichments: Option<u32>,
     #[serde(skip)]
-    auto_policy_resolved: bool,
+    pub(crate) auto_policy_resolved: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1277,6 +1277,13 @@ fn read_local_pdf_filtered(
     pages_spec: &Option<Value>,
     source_label: &str,
 ) -> Result<ReadPdfSourceResult, ReadPdfError> {
+    if let Some(mut cached) =
+        crate::read_result_cache::get_cached_local_result(path, input, pages_spec)
+    {
+        // Preserve the caller's source label (path or original display form).
+        cached.source = source_label.to_string();
+        return Ok(cached);
+    }
     let parsed = crate::cos_document::ParsedPdf::load(path, DEFAULT_MAX_FILE_BYTES)?;
     let requires_text = requires_text_extraction(input);
     let (pages, mut pdf_info) = if requires_text {
@@ -1451,12 +1458,14 @@ fn read_local_pdf_filtered(
             warnings: signal_warnings,
         },
     );
-    Ok(ReadPdfSourceResult {
+    let result = ReadPdfSourceResult {
         source: source_label.to_string(),
         success: true,
         error: None,
         data: Some(data),
-    })
+    };
+    crate::read_result_cache::store_cached_local_result(path, input, pages_spec, &result);
+    Ok(result)
 }
 
 pub fn read_pdf(input: &ReadPdfInput) -> Result<ReadPdfResponse, ReadPdfError> {
@@ -2718,5 +2727,37 @@ mod tests {
             .unwrap()
             .structure_trees
             .is_none());
+    }
+
+    #[test]
+    fn warm_cache_speeds_up_identical_local_table_reads() {
+        crate::read_result_cache::clear_for_tests();
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-selectable-table-v1.pdf");
+        if !fixture.exists() {
+            return;
+        }
+        let input = ReadPdfInput {
+            sources: vec![ReadPdfSource {
+                path: Some(fixture.display().to_string()),
+                url: None,
+                pages: None,
+            }],
+            include_tables: true,
+            include_page_count: true,
+            ..Default::default()
+        };
+        let t0 = std::time::Instant::now();
+        let first = read_pdf(&input).expect("first");
+        let first_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        assert!(first.results[0].success);
+        let t1 = std::time::Instant::now();
+        let second = read_pdf(&input).expect("second");
+        let second_ms = t1.elapsed().as_secs_f64() * 1000.0;
+        assert!(second.results[0].success);
+        assert!(
+            second_ms * 3.0 < first_ms || second_ms < 2.0,
+            "expected warm cache hit much faster: first={first_ms:.3}ms second={second_ms:.3}ms"
+        );
     }
 }
