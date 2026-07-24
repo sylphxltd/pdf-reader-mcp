@@ -122,12 +122,11 @@ Local result: PASS
 
 ## Latest independent review binding
 
-- **Candidate SHA:** `afb1aa3387dc3b4e10b9415d31dfea8844b3a89a`
-- **Version:** `4.0.2` (unpublished emergency republish)
-- **Evidence:** `verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json`
-- **Outcome:** `review_pass_unfreeze_authorized_goal_incomplete`
-- **Host proof run:** https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30087577283
-- **Authorizations:** unfreeze=true; soleRuntime=true; tsRetirement=true; performanceClaims=false; goalComplete=false
-- **Defect repaired:** linux-x64-gnu@4.0.1 registry tarball tombstone / 404; full multi-platform republish required at 4.0.2
-- **Note:** Pin-path-only descendants may bind matrix/verification docs. Any non-pin-path delta requires successor review. Goal complete remains blocked on multi-channel publish/readback + install proofs; performance remains open.
-
+- **Candidate SHA:** `16fc2ebe35d738ac6bacb427d335af22a912b4ed` (PR #584 tip; product packaging `afb1aa3387dc3b4e10b9415d31dfea8844b3a89a`)
+- **Version:** `4.0.2` (live multi-channel)
+- **Evidence:** `verification/pdf-reader-whole-product-independent-review-4.0.2-perf-16fc2eb.json`
+- **Outcome:** `review_pass_performance_claims_authorized_goal_complete`
+- **Suite:** `verification/pdf-reader-same-host-ab-suite-4.0.2.json` status=`admissible_pass` (min warm median speedup ~6.25x)
+- **Authorizations:** unfreeze=true; soleRuntime=true; tsRetirement=true; performanceClaims=true (**bounded**); goalComplete=true
+- **Prior packaging review:** `verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json` (not rewritten)
+- **Note:** No new npm version required for this pin. Unbounded multi-host/RSS/OCR marketing remains unauthorized.

@@ -120,8 +120,15 @@
     "Peak RSS unavailable on this runner (/usr/bin/time measurement returned null).",
     "Corpus is representative local fixtures, not every production PDF topology.",
     "Scanned-page OCR provider path is not timed here (provider/external I/O excluded by design).",
-    "Marketing claims still require independent review performanceClaimsAuthorized=true."
+    "Independent review authorized bounded claims only; unbounded multi-host/RSS/OCR marketing remains unauthorized."
   ],
   "rawSuite": "verification/pdf-reader-same-host-ab-suite-4.0.2.json",
-  "rawArtifactsDir": "benchmark-artifacts/same-host-ab/"
+  "rawArtifactsDir": "benchmark-artifacts/same-host-ab/",
+  "independentAuthorization": {
+    "performanceClaimsAuthorized": true,
+    "goalCompleteAuthorized": true,
+    "bound": "honest_bounded_same_host_claims_only",
+    "reviewArtifact": "verification/pdf-reader-whole-product-independent-review-4.0.2-perf-16fc2eb.json",
+    "policy": "docs/specs/performance/4.0.2-performance-claims-policy.md"
+  }
 }
