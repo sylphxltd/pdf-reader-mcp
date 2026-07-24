@@ -258,6 +258,20 @@ const mcpInitializeAndRead = async (
   });
 };
 
+const measurePeakRssKb = (command: string, args: string[]): number | null => {
+  // Best-effort; not required for draft status.
+  const timeBin = existsSync('/usr/bin/time') ? '/usr/bin/time' : null;
+  if (!timeBin) return null;
+  const r = spawnSync(timeBin, ['-v', command, ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, MCP_TRANSPORT: 'stdio' },
+    input: '',
+  });
+  const text = `${r.stderr || ''}\n${r.stdout || ''}`;
+  const m = text.match(/Maximum resident set size \(kbytes\):\s*(\d+)/);
+  return m ? Number(m[1]) : null;
+};
+
 const percentile = (values: number[], p: number): number | null => {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -334,6 +348,11 @@ const main = async () => {
   if (ts) engines.push({ id: 'typescript-3.0.14', command: ts.command, args: ts.args });
   if (rustBin) engines.push({ id: 'rust-candidate', command: rustBin, args: [] });
 
+  const memory: Record<string, number | null> = {
+    typescriptPeakRssKb: ts ? measurePeakRssKb(ts.command, ts.args) : null,
+    rustPeakRssKb: rustBin ? measurePeakRssKb(rustBin, []) : null,
+  };
+
   // cold: one run each, order randomized
   const coldOrder = [...engines].sort(() => Math.random() - 0.5);
   for (const eng of coldOrder) {
@@ -404,6 +423,7 @@ const main = async () => {
     fixture,
     iterationsWarm,
     packageSizeBytes,
+    memory,
     host: {
       platform: process.platform,
       arch: process.arch,
