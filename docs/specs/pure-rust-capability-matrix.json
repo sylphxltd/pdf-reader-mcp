@@ -390,10 +390,12 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Keep performanceClaimsAuthorized=false for 4.0.0 unless A/B becomes admissible_pass",
-      "Land green exact-tip CI + host-proof binding",
-      "Fresh independent re-review for freeze-lift decision",
-      "If unfreezeAuthorized, publish 4.0.0 multi-channel and read back"
+      "Keep performanceClaimsAuthorized=false for 4.0.0 and omit marketing speedup claims",
+      "Consume the unfreeze authorization only for exact reviewed SHA 9559abc87fb7f86da8101ff88583e2010d0eb822 through verified-candidate admission",
+      "Do not carry the authorization across source, package, workflow, script, test, corpus, dependency, or runtime deltas; obtain successor review",
+      "Publish through the repository workflow, then read back npm umbrella plus five native packages, GitHub Release v4.0.0, MCP Registry 4.0.0, and five-host registry install/runtime",
+      "Keep goalCompleteAuthorized=false until multi-channel release and live readback are proven",
+      "Keep 44 PARTIAL matrix cells PARTIAL; they are explicit quality residuals, not silent FULL claims"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -461,25 +463,32 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
-      "status": "review_pass_freeze_retained",
-      "candidateSha": "c890441442524255bcfc31d0d7481e052731218d",
-      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.0-c890441.json",
+      "status": "review_pass_unfreeze_authorized_goal_incomplete",
+      "candidateSha": "9559abc87fb7f86da8101ff88583e2010d0eb822",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.0-9559abc.json",
       "package": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
-      "unfreezeAuthorized": false,
-      "tsRetirementAuthorized": false,
-      "soleRuntimeAuthorized": false,
+      "runtimeEvidenceSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
+      "runtimeEvidenceRelationship": "immediate-docs-verification-only-parent",
+      "unfreezeAuthorized": true,
+      "tsRetirementAuthorized": true,
+      "soleRuntimeAuthorized": true,
       "performanceClaimsAuthorized": false,
       "goalCompleteAuthorized": false,
       "notes": [
-        "Exact candidate local source, semantic, capability, and package-absence checks passed.",
-        "Freeze retained: PR #574 is conflicting and lacks complete exact-head admission plus SHA-bound 5/5 host runtime proof.",
-        "Freeze retained: nonclaim ledger remains mostly provisional and same-host A/B remains measured_draft_not_admissible.",
-        "3.2.2 remains published transitional latest; no 4.0.0 channel publish or goal-complete claim is authorized."
+        "Independent exact-tip local re-review passed all required interface, semantic, capability, and package gates.",
+        "Committed five-host proof JSON binds immediate parent 7dddcb4; exact reviewed tip 9559abc also has 20/20 green CI and a successful five-host host-proof workflow, with only docs/verification delta from the parent.",
+        "Freeze-lift decision is authorized only for exact reviewed SHA 9559abc through verified-candidate admission; this review commit retains the mechanical freeze, and other deltas require successor review.",
+        "Nonclaim ledger is 109/109 reviewed with zero provisional, unclassified, blocking capability gaps, or unfreeze blockers.",
+        "Performance marketing claims remain withheld; no admissible_pass exists.",
+        "The 44 PARTIAL matrix cells remain explicit quality residuals and are not treated as FULL.",
+        "Goal completion remains unauthorized until exact 4.0.0 publish and npm/GitHub/MCP Registry plus five-host registry readback are proven."
       ],
-      "priorTransitionalEvidence": "verification/pdf-reader-whole-product-independent-review-3.2.2.json"
+      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.0-c890441.json",
+      "publishFreezeInReviewCommit": true,
+      "publishFreezeLiftAuthorized": true
     },
-    "unfreezeAuthorized": false,
-    "soleRuntimeAuthorized": false,
+    "unfreezeAuthorized": true,
+    "soleRuntimeAuthorized": true,
     "verifiedCandidateAdmission": {
       "script": "scripts/check-verified-candidate-admission.ts",
       "releaseWorkflowStep": "Enforce verified-candidate admission (replaces hard publish freeze)",
@@ -495,12 +504,18 @@
     "soleRustAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
     "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md",
     "exactTipCi": {
-      "sha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
+      "reviewedSha": "9559abc87fb7f86da8101ff88583e2010d0eb822",
+      "greenRuntimeParentSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
       "pr": 574,
-      "status": "green-on-7dddcb4",
-      "validate": "pass",
-      "hostProof": "pass",
-      "releaseEvidenceGate": "pass"
+      "parentStatus": "20-of-20-check-runs-success",
+      "reviewedTipMergeable": true,
+      "docsAndVerificationOnlyDelta": true,
+      "runtimePackageWorkflowScriptTestCorpusTreesIdentical": true,
+      "validateOnReviewedTip": "pass",
+      "hostProofRun": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093",
+      "reviewedTipStatus": "20-of-20-check-runs-success",
+      "reviewedTipMergeStateStatus": "CLEAN",
+      "exactTipHostProofRun": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30066153171"
     }
   }
 }
