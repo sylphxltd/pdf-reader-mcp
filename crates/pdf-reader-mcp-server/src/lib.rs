@@ -24,7 +24,7 @@ use serde_json::Value;
 
 pub const SERVER_NAME: &str = "pdf-reader-mcp";
 /// Pure-Rust MCP server version — tracks the published npm product line when default.
-pub const SERVER_VERSION: &str = "4.0.2";
+pub const SERVER_VERSION: &str = "4.1.0";
 pub const SERVER_INSTRUCTIONS: &str =
     "@sylphx/pdf-reader-mcp sole-Rust MCP server (platform native binary). \
 Capability-first semantic compatibility with TypeScript 3.0.14 interface contracts (ADR-0005/0006). \

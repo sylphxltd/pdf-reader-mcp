@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.1.0
+
+### Minor Changes
+
+- [#591](https://github.com/SylphxAI/pdf-reader-mcp/pull/591) [`66e73cb`](https://github.com/SylphxAI/pdf-reader-mcp/commit/66e73cb33a8c79d8f268b5d358205b932ae13e00) Thanks [@shtse8](https://github.com/shtse8)! - Product performance release: process-local warm `read_pdf` cache for identical local requests, release binary strip/LTO profile, and product-facing proof/docs. Sole-Rust production remains the only engine path. Native optional packages are version-synced by the release script.
+
 ## 4.0.0
 
 ## 4.0.2
@@ -9,7 +15,6 @@
 - Emergency republish of all optional natives + main after `@sylphx/pdf-reader-mcp-linux-x64-gnu@4.0.1` registry metadata existed but tarball returned 404.
 - Same sole-Rust dependency-closure content as 4.0.1 (`dependencies: {}`).
 - Performance marketing remains withheld; goal complete remains unauthorized until full install proofs.
-
 
 ## 4.0.1
 
@@ -22,7 +27,6 @@
 - Rewrite README for users; keep migration internals out of the homepage.
 - Performance marketing remains withheld until admissible same-host A/B evidence exists.
 - Goal complete remains **false** until dependency-closure release + performance evidence + successor review.
-
 
 ### Major Changes
 
@@ -50,13 +54,11 @@
 
 - Sole-runtime default: package bin/export prefer pure-Rust optional native MCP server via `dist/runtime-entry.js`, with TypeScript fallback (`./typescript`, force flags). Authorized after five-platform registry install + pure-Rust initialize proof for 3.1.4. Capability-first admission (ADR-0005); not exhaustive PDF.js output parity.
 
-
 ## 3.1.4
 
 ### Patch Changes
 
 - Fix publish pipeline overwriting Ubuntu 22.04 linux-x64 native artifacts with the publish-job host `build:rust` binary (which reintroduced GLIBC_2.39). Restage matrix artifacts after host smoke and gate linux-x64 publish on GLIBC <= 2.35. TypeScript remains default; dropInFor3014=false.
-
 
 ## 3.1.3
 
@@ -64,13 +66,11 @@
 
 - Rebuild Linux optional native packages on Ubuntu 22.04 so pure-Rust binaries do not require GLIBC_2.39. Keep TypeScript as default entry and dropInFor3014=false. Add five-platform registry install + pure-Rust initialize proof workflow.
 
-
 ## 3.1.2
 
 ### Patch Changes
 
 - Stage B progress release after withdrawn 3.0.15–3.1.1 range: five-platform pure-Rust optional native packages with binary-gated publish, optionalDependencies wiring, and admission-gated multi-platform publish pipeline. TypeScript remains the default entry (`dropInFor3014=false`). Do not use withdrawn 3.0.15–3.1.1.
-
 
 ## 3.0.15
 
