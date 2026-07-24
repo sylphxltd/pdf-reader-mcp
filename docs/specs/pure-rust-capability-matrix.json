@@ -389,12 +389,10 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Complete capability-first proofs for all promised product surfaces or remove them from the public contract",
-      "Build same-host controlled TS 3.0.14 vs Rust 4.0.0 A/B performance harness with raw samples",
-      "Prove five real host runtimes including Darwin x64 on x86_64 hardware",
-      "Mechanical TS production absence in source/package/runtime gates (landed seed)",
-      "Fresh independent whole-product review of exact clean candidate before any stable publish",
-      "Only then publish 4.0.0 across npm + GitHub + MCP Registry; keep crates non-channel unless re-admitted"
+      "Independent whole-product review of exact clean candidate SHA using docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
+      "Promote same-host A/B from measured_draft_not_admissible only if methodology and breadth satisfy showhand bar",
+      "After review_pass with unfreezeAuthorized, publish exact 4.0.0 across npm + GitHub + MCP Registry",
+      "Keep crates non-product channel unless re-admitted"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -460,7 +458,7 @@
       "defaultStillTypescript": false,
       "publishFreeze": false
     },
-    "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
+    "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
       "status": "program_bootstrap_freeze_retained",
       "candidateSha": "PENDING_RELEASE_SHA",

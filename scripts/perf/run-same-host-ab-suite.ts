@@ -16,6 +16,9 @@ const fixtures = [
   join(root, 'test/fixtures/differential/v3014-behavior-v1.pdf'),
   join(root, 'test/fixtures/differential/v3014-page-geometry-inverted-mediabox-v1.pdf'),
   join(root, 'test/fixtures/differential/v3014-info-collection-present-v1.pdf'),
+  join(root, 'test/fixtures/differential/v3014-selectable-table-v1.pdf'),
+  join(root, 'test/fixtures/differential/v3014-selectable-text-segmentation-v1.pdf'),
+  join(root, 'test/fixtures/differential/v3014-structure-v1.pdf'),
 ].filter((f) => existsSync(f));
 
 const results: unknown[] = [];
