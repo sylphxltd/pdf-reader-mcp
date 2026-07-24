@@ -39,3 +39,11 @@ gh workflow run candidate-host-runtime-proof.yml
 ```
 
 This builds/stages natives per platform, local-packs the sole-Rust candidate, installs the tarballs, and runs MCP initialize with `PROOF_REQUIRE_PLATFORM_ID`.
+
+## Self-hosted macOS policy
+
+- Product Darwin CI must use Sylphx self-hosted labels `[self-hosted, sylphx, macos, standard]` only.
+- GitHub-hosted `macos-*` runners are forbidden for product Darwin build and host proof.
+- Current Sylphx macOS fleet is QEMU x86_64 (`darwin-x64`). That host proves `darwin-x64` only.
+- `darwin-arm64` host runtime proof requires Apple Silicon self-hosted capacity. Until then, cross-build on the x64 fleet is allowed as **build evidence only** and must not be claimed as host runtime proof.
+
