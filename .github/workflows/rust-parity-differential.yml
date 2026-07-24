@@ -2663,7 +2663,7 @@ jobs:
           echo "${{ needs.map-and-stale.outputs.stale_capabilities }}"
 
       - name: Upload verification artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pdf-reader-mcp-differential-${{ env.CANDIDATE_SHA }}
           path: |

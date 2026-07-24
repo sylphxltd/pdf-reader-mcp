@@ -68,7 +68,7 @@ jobs:
           fi
           ls -la "$dest"
       - name: Upload staged native binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pdf-reader-mcp-server-${{ matrix.platformId }}
           path: bin/native/${{ matrix.platformId }}/**
