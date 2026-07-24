@@ -61,7 +61,7 @@
     "document-processing"
   ],
   "scripts": {
-    "build": "bun run build:package",
+    "build": "bun run build:package && bun run build:oracle-ts",
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector dist/runtime-entry.js",
     "test": "bun test",
