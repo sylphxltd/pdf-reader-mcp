@@ -103,8 +103,8 @@
     }
   ],
   "pass": true,
-  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30063292557",
-  "candidateVersion": "4.0.0",
-  "recordedAt": "2026-07-24T03:16:06.273968+00:00",
-  "note": "Unpublished sole-Rust 4.0.0 candidate local-pack host runtime proofs with PROOF_REQUIRE_PLATFORM_ID fail-closed matching. Not a channel publish authorization."
+  "candidateSha": "6b76b893dc84a80fcf2497e77791cb8b74d3a377",
+  "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30064817079",
+  "recordedAt": "2026-07-24T03:53:30.508464+00:00",
+  "note": "Exact-tip sole-Rust 4.0.0 candidate local-pack host runtime proofs with matching host architectures. Not a publish authorization."
 }
