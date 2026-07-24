@@ -31,3 +31,11 @@ gh workflow run registry-install-proof.yml -f version=<candidate>
 ## Enforcement
 
 Set `PROOF_REQUIRE_PLATFORM_ID=<platformId>` so the proof script fails closed when the runner architecture cannot provide that host triple (including Rosetta-translated x86_64 on Apple Silicon).
+
+## Candidate (unpublished) multi-runner proof
+
+```bash
+gh workflow run candidate-host-runtime-proof.yml
+```
+
+This builds/stages natives per platform, local-packs the sole-Rust candidate, installs the tarballs, and runs MCP initialize with `PROOF_REQUIRE_PLATFORM_ID`.

@@ -24,9 +24,9 @@ jobs:
     steps:
       - id: set
         run: |
-          # darwin-x64 must run on a real x86_64 macOS host. Prefer macos-13 (Intel when available).
-          # If GitHub only provides arm64 there, the job fails closed as host-unverified (exit 3).
-          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":"macos-14"},{"platformId":"darwin-x64","runner":"macos-13"},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
+          # darwin-arm64: GitHub macos-14 (arm64). darwin-x64: Sylphx self-hosted macOS (x86_64).
+          # PROOF_REQUIRE_PLATFORM_ID fails closed on arch mismatch / Rosetta.
+          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":"macos-14"},{"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"]},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   proof:
