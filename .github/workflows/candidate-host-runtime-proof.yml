@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload host proof JSON
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: host-runtime-proof-${{ matrix.platformId }}
           path: host-proof-${{ matrix.platformId }}.json
@@ -177,7 +177,7 @@ jobs:
               sys.exit(1)
           PY
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: candidate-host-runtime-proof-aggregate

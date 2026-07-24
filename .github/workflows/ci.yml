@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload coverage reports
         if: ${{ !cancelled() && steps.coverage.outputs.available == 'true' }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload release benchmark artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: ci-release-benchmark-artifacts
           path: benchmark-artifacts/
