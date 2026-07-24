@@ -21,7 +21,9 @@
       ],
       "proofStatus": "claimed_full",
       "releaseDisposition": "matrix_full",
-      "evidenceRefs": []
+      "evidenceRefs": [
+        "matrix"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -45,9 +47,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -61,8 +65,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -76,8 +80,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -88,9 +92,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -104,8 +110,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -119,8 +125,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -134,8 +140,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -149,8 +155,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -164,8 +170,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -180,8 +186,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -195,8 +201,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -207,9 +213,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -220,9 +228,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -233,9 +243,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -246,9 +258,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -259,9 +273,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -272,9 +288,11 @@
         "semantic-outline-headings.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-outline-headings.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -285,9 +303,11 @@
         "semantic-annotations.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-annotations.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -298,9 +318,11 @@
         "semantic-form-fields.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-form-fields.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -311,9 +333,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -324,9 +348,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -337,9 +363,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -350,9 +378,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -363,9 +393,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -376,9 +408,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -390,11 +424,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "bounded_proven_keep_partial",
+      "releaseDisposition": "provider_dependent_bounded",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "semanticContracts"
+        "agentTaskEval"
       ]
     },
     {
@@ -405,9 +438,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "provider_dependent_bounded",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "agentTaskEval"
       ]
     },
     {
@@ -418,9 +452,11 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -431,9 +467,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "still_open_partial",
+      "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
-        "semantic-read-text-citation.json"
+        "capabilityParity",
+        "semantic-non-exact-bbox"
       ]
     },
     {
@@ -447,8 +484,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -462,8 +499,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -477,8 +514,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -492,8 +529,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -507,8 +544,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -522,8 +559,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -537,8 +574,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -550,11 +587,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "bounded_proven_keep_partial",
+      "releaseDisposition": "provider_dependent_bounded",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "agentTaskEval"
       ]
     },
     {
@@ -568,8 +604,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "agentTaskEval",
-        "tsVsRustText"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -583,7 +619,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "productionContract"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -597,7 +634,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "productionContract"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -611,7 +649,8 @@
       "releaseDisposition": "bounded_proven_keep_partial",
       "evidenceRefs": [
         "capabilityParity",
-        "productionContract"
+        "productionContract",
+        "agentTaskEval"
       ]
     },
     {
@@ -624,8 +663,8 @@
       "proofStatus": "unproven_partial",
       "releaseDisposition": "provider_dependent_bounded",
       "evidenceRefs": [
-        "capabilityParity_fail_closed_without_provider",
-        "agentTaskEval_ocr_mock"
+        "capabilityParity",
+        "agentTaskEval"
       ]
     },
     {
@@ -638,8 +677,8 @@
       "proofStatus": "unproven_partial",
       "releaseDisposition": "provider_dependent_bounded",
       "evidenceRefs": [
-        "capabilityParity_fail_closed_without_provider",
-        "agentTaskEval_ocr_mock"
+        "capabilityParity",
+        "agentTaskEval"
       ]
     }
   ],
@@ -673,9 +712,8 @@
   "dispositionCounts": {
     "matrix_full": 1,
     "bounded_proven_security": 1,
-    "still_open_partial": 19,
-    "bounded_proven_keep_partial": 22,
-    "provider_dependent_bounded": 2
+    "bounded_proven_keep_partial": 38,
+    "provider_dependent_bounded": 5
   },
   "coreAdmissionScript": "bun run check:sole-rust-core"
 }
