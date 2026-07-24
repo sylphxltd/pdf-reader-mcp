@@ -2,6 +2,19 @@
 
 ## 4.0.0
 
+## 4.0.1
+
+### Patch: production dependency closure + docs honesty
+
+- Remove `pdfjs-dist`, `@modelcontextprotocol/sdk`, `pngjs`, and `zod` from **production** `dependencies` (moved to devDependencies for test/oracle only).
+- Default `build` is launcher-only; `build:oracle-ts` is explicit test-only (`build:test`).
+- Add `check:prod-dependency-closure` gate and wire into `prepublishOnly`.
+- Restore real five-host proof standards (no deferred/cross-build pass).
+- Rewrite README for users; keep migration internals out of the homepage.
+- Performance marketing remains withheld until admissible same-host A/B evidence exists.
+- Goal complete remains **false** until dependency-closure release + performance evidence + successor review.
+
+
 ### Major Changes
 
 - **Freeze-lift authorized** by independent whole-product review (`review_pass_unfreeze_authorized_goal_incomplete`). Goal complete remains false until multi-channel publish/readback. **No marketing speedup claims.**

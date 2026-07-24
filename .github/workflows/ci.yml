@@ -48,7 +48,7 @@ jobs:
         run: bun run test:rust
 
       - name: Build package
-        run: bun run build
+        run: bun run build:test
 
       - name: Verify package tarball
         run: bun run package:smoke

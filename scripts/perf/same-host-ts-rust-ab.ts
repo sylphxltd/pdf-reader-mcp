@@ -2,7 +2,7 @@
 /**
  * Controlled same-host TypeScript 3.0.14 vs exact Rust candidate A/B harness.
  *
- * ADR-0006 / showhand bar:
+ * ADR-0006 / product performance bar:
  * - same host/corpus/inputs/config/task semantics
  * - semantic gate before timing
  * - interleave engine order

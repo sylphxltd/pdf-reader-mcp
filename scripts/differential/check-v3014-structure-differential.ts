@@ -68,8 +68,19 @@ if (corpus.cases.length !== 10)
 const packageJson = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8")
 );
-if (packageJson.dependencies?.["pdfjs-dist"] !== "^6.0.227") {
-  throw new Error("candidate pdfjs-dist dependency is not 6.0.227");
+// Oracle/test dependency only under sole-Rust production (ADR-0006 / 4.0.1).
+const declaredPdfjs =
+  packageJson.devDependencies?.["pdfjs-dist"] ??
+  packageJson.dependencies?.["pdfjs-dist"];
+if (declaredPdfjs !== "^6.0.227") {
+  throw new Error(
+    "candidate pdfjs-dist oracle dependency is not 6.0.227 (expected in devDependencies)"
+  );
+}
+if (packageJson.dependencies?.["pdfjs-dist"]) {
+  throw new Error(
+    "pdfjs-dist must not remain a production dependency under sole-Rust production packaging"
+  );
 }
 const installedPdfjs = JSON.parse(
   readFileSync(join(repoRoot, "node_modules/pdfjs-dist/package.json"), "utf8")

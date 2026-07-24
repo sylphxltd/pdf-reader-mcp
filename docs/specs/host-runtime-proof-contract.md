@@ -1,49 +1,30 @@
-# Five-host runtime proof contract (sole-Rust 4.0.0)
+# Host runtime proof contract
 
-## Required distinct host triples
+## Rule
 
-Runtime proof means the package was **installed and executed on that host architecture**, not merely cross-compiled.
+A platform is **runtime-proven** only when:
 
-| Platform id | Required host |
-|---|---|
-| `linux-x64-gnu` | Linux x86_64 |
-| `linux-arm64-gnu` | Linux aarch64 |
-| `darwin-arm64` | macOS arm64 |
-| `darwin-x64` | **macOS x86_64 (not arm64 under Rosetta job labels alone)** |
-| `win32-x64-msvc` | Windows x86_64 |
+1. the native binary for that platform is installed, and
+2. MCP `initialize` succeeds on a **matching host architecture**, and
+3. the proof artifact records `runtimeProofValid=true` with host identity.
 
-## Rules
+## Not accepted as host runtime proof
 
-1. Build success ≠ runtime proof.
-2. A job labeled `darwin-x64` that runs on `macos-14` arm64 and re-proves the arm64 package is **not** Darwin x64 host proof.
-3. Proof must include: npm/local install of matching optional native package, MCP initialize, and at least one successful `read_pdf`/`tools/list` call.
-4. Record `process.platform`, `process.arch` / `uname -m`, package id, binary path, and server version.
-5. Artifact: `verification/pdf-reader-host-runtime-proof-<version>.json` with `distinctHostTriplesProven`.
+- Cross-compilation alone
+- Installing/running an arm64 package on x64 (or vice versa)
+- Rosetta-translated execution claimed as native darwin-x64
+- Deferred / soft-skip legs that set `pass=true` without execute proof
+- Aggregate pass while any required platform is missing
 
-## Commands
+## Required platforms
 
-```bash
-bun run check:registry-install-proof -- --local-pack
-# multi-runner:
-gh workflow run registry-install-proof.yml -f version=<candidate>
-```
+- `linux-x64-gnu`
+- `linux-arm64-gnu`
+- `darwin-arm64` (real Apple Silicon host; GitHub `macos-14` is acceptable)
+- `darwin-x64` (real x86_64 macOS host; Sylphx self-hosted)
+- `win32-x64-msvc`
 
-## Enforcement
+## Workflows
 
-Set `PROOF_REQUIRE_PLATFORM_ID=<platformId>` so the proof script fails closed when the runner architecture cannot provide that host triple (including Rosetta-translated x86_64 on Apple Silicon).
-
-## Candidate (unpublished) multi-runner proof
-
-```bash
-gh workflow run candidate-host-runtime-proof.yml
-```
-
-This builds/stages natives per platform, local-packs the sole-Rust candidate, installs the tarballs, and runs MCP initialize with `PROOF_REQUIRE_PLATFORM_ID`.
-
-## Self-hosted macOS policy
-
-- Product Darwin CI must use Sylphx self-hosted labels `[self-hosted, sylphx, macos, standard]` only.
-- GitHub-hosted `macos-*` runners are forbidden for product Darwin build and host proof.
-- Current Sylphx macOS fleet is QEMU x86_64 (`darwin-x64`). That host proves `darwin-x64` only.
-- `darwin-arm64` host runtime proof requires Apple Silicon self-hosted capacity. Until then, cross-build on the x64 fleet is allowed as **build evidence only** and must not be claimed as host runtime proof.
-
+- Candidate (unpublished): `.github/workflows/candidate-host-runtime-proof.yml`
+- Published registry: `.github/workflows/registry-install-proof.yml`

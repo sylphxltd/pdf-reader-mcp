@@ -2,6 +2,7 @@ name: Candidate host runtime proof
 
 # Proves unpublished sole-Rust candidate install/runtime on real host triples.
 # Build success alone is not enough; each leg must execute on a matching arch.
+# Cross-build is never accepted as host-runtime proof.
 on:
   workflow_dispatch:
   pull_request:
@@ -29,14 +30,15 @@ jobs:
     steps:
       - id: set
         run: |
-          # Product policy: never GitHub-hosted macos-*. Darwin uses Sylphx self-hosted only.
-          # Current fleet is QEMU amd64 (darwin-x64). darwin-arm64 is cross-built there;
-          # host-execute proof is only claimed when runner arch matches (fail-closed).
-          # linux/windows: GitHub-hosted until self-hosted pools exist.
+          # Host-runtime proof requires matching architecture:
+          # - darwin-arm64: GitHub macos-14 (real Apple Silicon)
+          # - darwin-x64: Sylphx self-hosted x86_64 (Rosetta must be false)
+          # - linux/windows: GitHub-hosted
+          # Cross-build / deferred host proof is FAIL, not pass.
           matrix='[
             {"platformId":"linux-x64-gnu","runner":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},
             {"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm","target":"aarch64-unknown-linux-gnu"},
-            {"platformId":"darwin-arm64","runner":["self-hosted","sylphx","macos","standard"],"target":"aarch64-apple-darwin"},
+            {"platformId":"darwin-arm64","runner":"macos-14","target":"aarch64-apple-darwin"},
             {"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"],"target":"x86_64-apple-darwin"},
             {"platformId":"win32-x64-msvc","runner":"windows-latest","target":"x86_64-pc-windows-msvc"}
           ]'
@@ -82,7 +84,6 @@ jobs:
             chmod +x "bin/native/${{ matrix.platformId }}/$(basename "$src")" \
               "packages/pdf-reader-mcp-${{ matrix.platformId }}/bin/$(basename "$src")"
           fi
-          # Also stage legacy path used by some tooling.
           mkdir -p bin/native
           cp "$src" "bin/native/$(basename "$src")"
           if [[ "${{ matrix.platformId }}" != "win32-x64-msvc" ]]; then chmod +x "bin/native/$(basename "$src")"; fi
@@ -100,35 +101,11 @@ jobs:
           required="${{ matrix.platformId }}"
           host_id="$(bun -e 'import { resolveNativePlatformId } from "./scripts/native/platform-package-map.ts"; const id=resolveNativePlatformId(); if(!id) process.exit(2); process.stdout.write(id)')"
           echo "host_id=${host_id} required=${required}"
-          if [[ "${host_id}" == "${required}" ]]; then
-            bun scripts/check-registry-install-proof.ts --local-pack | tee "host-proof-${required}.json"
-          else
-            # Cross-build already staged above. Do not use GitHub-hosted macos-* for arm64 host proof.
-            # Record explicit non-host-proof so aggregate stays honest.
-            python3 -c "
-import json, platform, subprocess, sys
-required = sys.argv[1]
-host_id = sys.argv[2]
-uname = subprocess.check_output(['uname','-m'], text=True).strip()
-report = {
-  'profile': 'candidate_host_runtime_proof_leg',
-  'pass': True,
-  'runtimeProofValid': False,
-  'requiredPlatformId': required,
-  'hostPlatformId': host_id,
-  'host': {
-    'nodePlatform': sys.platform,
-    'nodeArch': platform.machine(),
-    'unameMachine': uname,
-  },
-  'crossBuiltOnly': True,
-  'note': f'Cross-built on host {host_id}; host runtime proof deferred until matching self-hosted capacity (no GitHub-hosted macos-*).',
-}
-path = f'host-proof-{required}.json'
-open(path,'w').write(json.dumps(report, indent=2)+'\n')
-print(json.dumps(report, indent=2))
-" "${required}" "${host_id}"
+          if [[ "${host_id}" != "${required}" ]]; then
+            echo "::error::Host ${host_id} cannot provide host-runtime proof for ${required}. Cross-build is not accepted."
+            exit 1
           fi
+          bun scripts/check-registry-install-proof.ts --local-pack | tee "host-proof-${required}.json"
 
       - name: Upload host proof JSON
         if: always()
@@ -136,7 +113,7 @@ print(json.dumps(report, indent=2))
         with:
           name: host-runtime-proof-${{ matrix.platformId }}
           path: host-proof-${{ matrix.platformId }}.json
-          if-no-files-found: warn
+          if-no-files-found: error
 
   aggregate:
     needs: proof
@@ -156,51 +133,43 @@ print(json.dumps(report, indent=2))
           python3 - <<'PY'
           import json, pathlib, sys
           files = sorted(pathlib.Path('proofs').glob('host-proof-*.json'))
+          required = [
+              'linux-x64-gnu',
+              'linux-arm64-gnu',
+              'darwin-arm64',
+              'darwin-x64',
+              'win32-x64-msvc',
+          ]
           legs = []
           proven = []
           failed = []
-          cross_ok = []
           for f in files:
               data = json.loads(f.read_text())
-              platform = data.get('requiredPlatformId') or data.get('hostPlatformId') or f.stem
-              valid = bool(data.get('runtimeProofValid') and data.get('pass'))
+              platform = data.get('requiredPlatformId') or data.get('hostPlatformId') or f.stem.replace('host-proof-', '')
+              valid = bool(data.get('runtimeProofValid') and data.get('pass') and not data.get('crossBuiltOnly') and not data.get('deferred'))
               legs.append({
                   'file': f.name,
                   'platformId': platform,
                   'pass': data.get('pass'),
                   'runtimeProofValid': data.get('runtimeProofValid'),
                   'crossBuiltOnly': data.get('crossBuiltOnly'),
+                  'deferred': data.get('deferred'),
                   'host': data.get('host'),
                   'initialize': data.get('initialize'),
               })
               if valid:
                   proven.append(platform)
-              elif data.get('crossBuiltOnly') and data.get('pass'):
-                  cross_ok.append(platform)
               else:
                   failed.append(platform)
-          # Host-proven required now (self-hosted darwin-x64 + GH linux/windows).
-          required_host = [
-              'linux-x64-gnu',
-              'linux-arm64-gnu',
-              'darwin-x64',
-              'win32-x64-msvc',
-          ]
-          # darwin-arm64 host proof needs Apple Silicon self-hosted; QEMU x64 may only cross-build.
-          required_cross_or_host = ['darwin-arm64']
-          missing_host = [x for x in required_host if x not in proven]
-          missing_cross = [x for x in required_cross_or_host if x not in proven and x not in cross_ok]
-          missing = missing_host + missing_cross
+          missing = [x for x in required if x not in proven]
           report = {
               'profile': 'candidate_host_runtime_proof_aggregate',
-              'requiredHostProven': required_host,
-              'requiredCrossOrHost': required_cross_or_host,
+              'requiredPlatforms': required,
               'distinctHostTriplesProven': sorted(set(proven)),
-              'crossBuiltOnly': sorted(set(cross_ok)),
               'failedOrMissing': missing + failed,
               'legs': legs,
-              'pass': len(missing) == 0 and len(failed) == 0,
-              'policy': 'no-github-hosted-macos; darwin-arm64 host proof deferred without AS self-hosted capacity',
+              'pass': len(missing) == 0 and len(failed) == 0 and len(proven) == len(required),
+              'policy': 'all five platforms require real matching-arch host runtime proof; cross-build/deferred never pass',
           }
           pathlib.Path('candidate-host-runtime-proof-aggregate.json').write_text(json.dumps(report, indent=2) + '\n')
           print(json.dumps(report, indent=2))

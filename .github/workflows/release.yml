@@ -54,7 +54,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build package
-        run: bun run build
+        run: bun run build:test
 
       - name: Build Rust MCP server
         run: bun run build:rust

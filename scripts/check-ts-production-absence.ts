@@ -15,11 +15,22 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
   exports?: Record<string, string>;
   files?: string[];
   scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
 };
 
 if (pkg.exports?.['./typescript']) {
   failures.push('package.json must not export ./typescript in sole-Rust production');
 }
+const prodDeps = Object.keys(pkg.dependencies ?? {});
+if (prodDeps.length > 0) {
+  failures.push(`package.json production dependencies must be empty; found: ${prodDeps.join(', ')}`);
+}
+for (const banned of ['pdfjs-dist', '@modelcontextprotocol/sdk', 'pngjs', 'zod']) {
+  if ((pkg.dependencies ?? {})[banned]) {
+    failures.push(`package.json must not declare production dependency ${banned}`);
+  }
+}
+
 if (pkg.bin?.['pdf-reader-mcp'] !== './dist/runtime-entry.js') {
   failures.push('bin pdf-reader-mcp must be ./dist/runtime-entry.js');
 }

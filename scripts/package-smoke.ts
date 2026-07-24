@@ -409,6 +409,26 @@ export const validateExtractedPackage = async (
     name: packageJson?.name,
     version: packageJson?.version,
   });
+  const productionDependencies = isRecord(packageJson?.dependencies) ? packageJson.dependencies : {};
+  const productionDependencyNames = Object.keys(productionDependencies);
+  const bannedProductionDependencies = productionDependencyNames.filter((name) =>
+    ['pdfjs-dist', '@modelcontextprotocol/sdk', 'pngjs', 'zod'].includes(name) ||
+    name.toLowerCase().includes('pdfjs')
+  );
+  addCheck(
+    checks,
+    'package-json:empty-production-dependencies',
+    productionDependencyNames.length === 0,
+    'published package declares no production npm dependencies (sole-Rust launcher)',
+    { productionDependencyNames }
+  );
+  addCheck(
+    checks,
+    'package-json:no-banned-production-dependencies',
+    bannedProductionDependencies.length === 0,
+    'published package does not declare pdfjs/MCP-TS-sdk/pngjs/zod production dependencies',
+    { bannedProductionDependencies }
+  );
   addCheck(
     checks,
     'runtime:ts-entry-absent',
