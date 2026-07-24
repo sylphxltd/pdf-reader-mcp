@@ -488,7 +488,8 @@
   "evidence": {
     "agentTaskEvalLocal": "verification/pdf-reader-agent-task-eval-pure-rust-local-draft.json",
     "sameHostAbSuiteDraft": "verification/pdf-reader-same-host-ab-suite-draft.json",
-    "semanticContracts": "bun run check:semantic-contracts PASS 12 contracts"
+    "semanticContracts": "bun run check:semantic-contracts PASS 12 contracts",
+    "productionContractSoleRust": "verification/pdf-reader-production-contract-sole-rust-draft.json"
   },
   "programStatus": "sole-rust-candidate-in-progress"
 }
