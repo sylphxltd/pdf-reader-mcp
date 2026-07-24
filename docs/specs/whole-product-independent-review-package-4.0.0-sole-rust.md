@@ -122,10 +122,12 @@ Local result: PASS
 
 ## Latest independent review binding
 
-- **Candidate SHA:** `f9a31541c7083eda6efe3fc828a6223a8c476342`
-- **Evidence:** `verification/pdf-reader-whole-product-independent-review-4.0.0-f9a3154.json`
+- **Candidate SHA:** `afb1aa3387dc3b4e10b9415d31dfea8844b3a89a`
+- **Version:** `4.0.2` (unpublished emergency republish)
+- **Evidence:** `verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json`
 - **Outcome:** `review_pass_unfreeze_authorized_goal_incomplete`
-- **Host proof run:** https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747
+- **Host proof run:** https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30087577283
 - **Authorizations:** unfreeze=true; soleRuntime=true; tsRetirement=true; performanceClaims=false; goalComplete=false
-- **Note:** Pin-path-only descendants may bind matrix/verification docs. Any non-pin-path delta requires successor review. Goal complete remains blocked on multi-channel publish/readback.
+- **Defect repaired:** linux-x64-gnu@4.0.1 registry tarball tombstone / 404; full multi-platform republish required at 4.0.2
+- **Note:** Pin-path-only descendants may bind matrix/verification docs. Any non-pin-path delta requires successor review. Goal complete remains blocked on multi-channel publish/readback + install proofs; performance remains open.
 
