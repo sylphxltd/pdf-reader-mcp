@@ -19,6 +19,9 @@ hero:
       text: Stop PDF Hallucinations
       link: /articles/stop-pdf-hallucinations
     - theme: alt
+      text: Product Proof
+      link: /guide/product-proof
+    - theme: alt
       text: Benchmark Proof
       link: /benchmark
 

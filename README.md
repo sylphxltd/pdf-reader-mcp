@@ -17,6 +17,9 @@ Plain-text PDF tools make agents guess. **PDF Reader MCP gives them evidence.**
 
 ## Why this exists
 
+![Plain text vs evidence](docs/public/before-after-evidence.svg)
+
+
 Most PDF tools dump text. Agents then invent page numbers, miss tables, and cite the wrong cell.
 
 PDF Reader MCP returns an **Agent Document Twin**: markdown + structure + geometry + provenance your agent can actually trust.
@@ -132,6 +135,11 @@ Version 4 runs a **native Rust engine** on supported platforms via a thin Node l
 > Local-first. Five platforms. One clean install.
 
 Engineering history, recovery pins, and ADRs live under [docs/migration.md](docs/migration.md) — not the product pitch.
+
+## Product proof
+
+- [Before/after + flagship workflows](docs/guide/product-proof.md)
+- [Example demos](examples/demo/README.md)
 
 ## Docs
 

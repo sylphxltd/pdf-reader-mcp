@@ -80,6 +80,7 @@ export default defineConfig({
           { text: 'Introduction', link: '/guide/' },
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Getting Started', link: '/guide/getting-started' },
+          { text: 'Product Proof', link: '/guide/product-proof' },
         ],
       },
       {
