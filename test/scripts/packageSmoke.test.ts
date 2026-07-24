@@ -29,7 +29,7 @@ const writeExtractedPackage = (packageDir: string, includeRuntime = true) => {
   }
   writeJson(path.join(packageDir, 'package.json'), {
     name: '@sylphx/pdf-reader-mcp',
-    version: '4.0.0',
+    version: '4.0.1',
     bin: {
       'pdf-reader-mcp': './dist/runtime-entry.js',
     },

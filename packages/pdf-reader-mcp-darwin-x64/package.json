@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp-darwin-x64",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Optional pure-Rust MCP server binary for darwin-x64. Installed as an optionalDependency of @sylphx/pdf-reader-mcp sole-Rust production package.",
   "license": "MIT",
   "os": [

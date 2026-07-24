@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
   "description": "Evidence-first PDF MCP. Sole-Rust production via platform native binary (thin JS launcher only). TypeScript PDF runtime is not shipped. Capability-first admission (ADR-0005/0006).",
   "type": "module",
@@ -61,7 +61,7 @@
     "document-processing"
   ],
   "scripts": {
-    "build": "bun run build:package && bun run build:oracle-ts",
+    "build": "bun run build:package",
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector dist/runtime-entry.js",
     "test": "bun test",
@@ -90,7 +90,7 @@
     "benchmark:release-gate": "bun scripts/sota-release-gate.ts",
     "package:smoke": "bun scripts/package-smoke.ts",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "bun run clean && bun run build:package && bun run package:smoke && bun run check:ts-production-absence",
+    "prepublishOnly": "bun run clean && bun run build:package && bun run package:smoke && bun run check:ts-production-absence && bun run check:prod-dependency-closure",
     "release:preflight": "bun run typecheck && bun run check && bun run build && bun run package:smoke && bun run test:cov && bun run docs:build && bun run benchmark:release-artifacts && MCP_PDF_BENCHMARK_OUTPUT_DIR=${MCP_PDF_BENCHMARK_OUTPUT_DIR:-benchmark-artifacts} bun run benchmark:release-gate",
     "release": "echo \"PUBLISH FREEZE: refusing release until capability parity is approved\" && exit 1",
     "build:rust": "cargo build --release -p pdf-reader-core -p pdf-reader-cli -p pdf-reader-mcp-server && bun scripts/stage-rust-mcp.ts",
@@ -239,14 +239,11 @@
     "check:ts-production-absence": "bun scripts/check-ts-production-absence.ts",
     "perf:same-host-ab": "bun scripts/perf/same-host-ts-rust-ab.ts",
     "perf:same-host-ab-suite": "bun scripts/perf/run-same-host-ab-suite.ts",
-    "check:sole-rust-core": "bun scripts/check-sole-rust-core-admission.ts"
+    "check:sole-rust-core": "bun scripts/check-sole-rust-core-admission.ts",
+    "build:test": "bun run build:package && bun run build:oracle-ts",
+    "check:prod-dependency-closure": "bun scripts/check-prod-dependency-closure.ts"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "pdfjs-dist": "^6.0.227",
-    "pngjs": "^7.0.0",
-    "zod": "^4.4.3"
-  },
+  "dependencies": {},
   "overrides": {
     "brace-expansion": "^5.0.6",
     "esbuild": "^0.28.1",
@@ -264,14 +261,18 @@
     "@types/pngjs": "^6.0.5",
     "bunup": "0.16.31",
     "typescript": "^7.0.2",
-    "vitepress": "^1.6.4"
+    "vitepress": "^1.6.4",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "pdfjs-dist": "^6.0.227",
+    "pngjs": "^7.0.0",
+    "zod": "^4.4.3"
   },
   "packageManager": "bun@1.3.14",
   "optionalDependencies": {
-    "@sylphx/pdf-reader-mcp-darwin-arm64": "4.0.0",
-    "@sylphx/pdf-reader-mcp-darwin-x64": "4.0.0",
-    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.0.0",
-    "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.0.0",
-    "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.0.0"
+    "@sylphx/pdf-reader-mcp-darwin-arm64": "4.0.1",
+    "@sylphx/pdf-reader-mcp-darwin-x64": "4.0.1",
+    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.0.1",
+    "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.0.1",
+    "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.0.1"
   }
 }

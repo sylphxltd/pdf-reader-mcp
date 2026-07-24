@@ -12,6 +12,7 @@ const steps = [
   ['bun', ['run', 'check:semantic-contracts']],
   ['bun', ['run', 'check:agent-task-corpus']],
   ['bun', ['run', 'check:ts-production-absence']],
+  ['bun', ['run', 'check:prod-dependency-closure']],
   ['bun', ['run', 'check:pure-rust-exports']],
   ['bun', ['run', 'package:smoke']],
   ['bun', ['run', 'check:production-contract']],
