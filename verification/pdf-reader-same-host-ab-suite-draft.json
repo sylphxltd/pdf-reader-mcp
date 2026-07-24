@@ -1,0 +1,166 @@
+{
+  "profile": "same_host_ts_rust_ab_suite",
+  "status": "measured_draft_not_admissible",
+  "generatedAt": "2026-07-24T01:58:18.683Z",
+  "fixtureCount": 4,
+  "results": [
+    {
+      "fixture": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/test/fixtures/sample.pdf",
+      "exitCode": 0,
+      "status": "measured_draft_not_admissible",
+      "summary": {
+        "typescriptCold": {
+          "n": 1,
+          "medianMs": 302.16382899999985,
+          "p95Ms": 302.16382899999985,
+          "meanMs": 302.16382899999985,
+          "semanticPassRate": 1
+        },
+        "rustCold": {
+          "n": 1,
+          "medianMs": 27.59424799999988,
+          "p95Ms": 27.59424799999988,
+          "meanMs": 27.59424799999988,
+          "semanticPassRate": 1
+        },
+        "typescriptWarm": {
+          "n": 3,
+          "medianMs": 297.4013659999998,
+          "p95Ms": 298.46072700000013,
+          "meanMs": 296.49896699999994,
+          "semanticPassRate": 1
+        },
+        "rustWarm": {
+          "n": 3,
+          "medianMs": 17.15841199999977,
+          "p95Ms": 18.523782999999867,
+          "meanMs": 16.593783999999914,
+          "semanticPassRate": 1
+        },
+        "warmMedianSpeedupTsOverRust": 17.33268591522361
+      },
+      "blockers": [
+        "broader multi-fixture corpus, memory/startup/package-size, and independent review still required for admissible_pass"
+      ]
+    },
+    {
+      "fixture": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/test/fixtures/differential/v3014-behavior-v1.pdf",
+      "exitCode": 0,
+      "status": "measured_draft_not_admissible",
+      "summary": {
+        "typescriptCold": {
+          "n": 1,
+          "medianMs": 284.179476,
+          "p95Ms": 284.179476,
+          "meanMs": 284.179476,
+          "semanticPassRate": 1
+        },
+        "rustCold": {
+          "n": 1,
+          "medianMs": 19.400870999999995,
+          "p95Ms": 19.400870999999995,
+          "meanMs": 19.400870999999995,
+          "semanticPassRate": 1
+        },
+        "typescriptWarm": {
+          "n": 3,
+          "medianMs": 285.45032499999996,
+          "p95Ms": 289.5908149999999,
+          "meanMs": 286.7061383333333,
+          "semanticPassRate": 1
+        },
+        "rustWarm": {
+          "n": 3,
+          "medianMs": 14.241701000000148,
+          "p95Ms": 18.39020199999993,
+          "meanMs": 15.154342000000023,
+          "semanticPassRate": 1
+        },
+        "warmMedianSpeedupTsOverRust": 20.043274676248082
+      },
+      "blockers": [
+        "broader multi-fixture corpus, memory/startup/package-size, and independent review still required for admissible_pass"
+      ]
+    },
+    {
+      "fixture": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/test/fixtures/differential/v3014-page-geometry-inverted-mediabox-v1.pdf",
+      "exitCode": 0,
+      "status": "measured_draft_not_admissible",
+      "summary": {
+        "typescriptCold": {
+          "n": 1,
+          "medianMs": 287.88802599999997,
+          "p95Ms": 287.88802599999997,
+          "meanMs": 287.88802599999997,
+          "semanticPassRate": 1
+        },
+        "rustCold": {
+          "n": 1,
+          "medianMs": 13.384033999999986,
+          "p95Ms": 13.384033999999986,
+          "meanMs": 13.384033999999986,
+          "semanticPassRate": 1
+        },
+        "typescriptWarm": {
+          "n": 3,
+          "medianMs": 290.554162,
+          "p95Ms": 309.32873200000006,
+          "meanMs": 295.44088833333336,
+          "semanticPassRate": 1
+        },
+        "rustWarm": {
+          "n": 3,
+          "medianMs": 11.203277000000071,
+          "p95Ms": 13.326276000000007,
+          "meanMs": 11.416490666666695,
+          "semanticPassRate": 1
+        },
+        "warmMedianSpeedupTsOverRust": 25.934747663562916
+      },
+      "blockers": [
+        "broader multi-fixture corpus, memory/startup/package-size, and independent review still required for admissible_pass"
+      ]
+    },
+    {
+      "fixture": "/home/codex/src/github.com/SylphxAI/pdf-reader-mcp/test/fixtures/differential/v3014-info-collection-present-v1.pdf",
+      "exitCode": 0,
+      "status": "measured_draft_not_admissible",
+      "summary": {
+        "typescriptCold": {
+          "n": 1,
+          "medianMs": 276.680131,
+          "p95Ms": 276.680131,
+          "meanMs": 276.680131,
+          "semanticPassRate": 1
+        },
+        "rustCold": {
+          "n": 1,
+          "medianMs": 11.905672000000038,
+          "p95Ms": 11.905672000000038,
+          "meanMs": 11.905672000000038,
+          "semanticPassRate": 1
+        },
+        "typescriptWarm": {
+          "n": 3,
+          "medianMs": 284.4664080000001,
+          "p95Ms": 309.48668899999996,
+          "meanMs": 290.7432756666667,
+          "semanticPassRate": 1
+        },
+        "rustWarm": {
+          "n": 3,
+          "medianMs": 7.753896000000054,
+          "p95Ms": 12.21245399999998,
+          "meanMs": 9.190741333333335,
+          "semanticPassRate": 1
+        },
+        "warmMedianSpeedupTsOverRust": 36.686900108022876
+      },
+      "blockers": [
+        "broader multi-fixture corpus, memory/startup/package-size, and independent review still required for admissible_pass"
+      ]
+    }
+  ],
+  "claimPolicy": "Suite draft only. admissible_pass requires broader corpus, memory/startup/package metrics, and independent review.",
+  "note": "Draft diagnostic only. Not admissible for marketing or showhand performance claims."
+}

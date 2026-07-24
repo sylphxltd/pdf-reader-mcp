@@ -292,14 +292,13 @@ export const buildSotaReleaseGateReport = async (
   );
   addCheck(
     checks,
-    'mcp:rust_opt_in_boundary',
-    binWrapper.includes('resolve_rust_bin') &&
+    'mcp:sole_rust_launcher_boundary',
+    binWrapper.includes('dist/runtime-entry.js') &&
       binWrapper.includes('pdf-reader-mcp-server') &&
-      binWrapper.includes('PDF_READER_ENGINE_MODE') &&
-      binWrapper.includes('exec node "$ROOT/dist/index.js"') &&
+      !binWrapper.includes('dist/index.js') &&
       !binWrapper.includes('legacy-engine-runtime') &&
       !fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs')),
-    'Published npm default remains TypeScript while the incomplete pure-Rust rmcp path is explicit opt-in'
+    'Local/published launcher is sole-Rust native binary path without TypeScript PDF runtime'
   );
   addCheck(
     checks,
@@ -322,9 +321,8 @@ export const buildSotaReleaseGateReport = async (
     'mcp:rust_web_http_transport',
     httpTransportSource.includes('StreamableHttpService') &&
       httpTransportSource.includes('/mcp/health') &&
-      binWrapper.includes('resolve_rust_bin') &&
-      binWrapper.includes('PDF_READER_MCP_TRANSPORT'),
-    'Rust rmcp streamable HTTP remains available as opt-in engine (not production default)'
+      (binWrapper.includes('MCP_TRANSPORT') || fs.readFileSync(path.join(repoRoot, 'src/runtime-entry.ts'), 'utf8').includes('MCP_TRANSPORT')),
+    'Rust rmcp streamable HTTP remains available via sole-Rust native server'
   );
 
   const httpIntegration = fs.readFileSync(

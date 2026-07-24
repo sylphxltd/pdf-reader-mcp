@@ -226,11 +226,18 @@ const runtimeEntry = existsSync(join(root, 'src/runtime-entry.ts'))
   : '';
 const failClosedMentioned =
   runtimeEntry.includes('fail-closed') ||
-  runtimeEntry.includes('no automatic TypeScript fallback');
+  runtimeEntry.includes('no automatic TypeScript fallback') ||
+  runtimeEntry.includes('sole-Rust') ||
+  runtimeEntry.includes('TypeScript production runtime has been removed');
+const soleRustNoTs =
+  runtimeEntry.includes('TypeScript production runtime has been removed') ||
+  runtimeEntry.includes('there is no bundled TypeScript PDF runtime') ||
+  runtimeEntry.includes('sole-Rust');
 const explicitOnlyTs =
-  runtimeEntry.includes("PDF_READER_FORCE_TYPESCRIPT") &&
-  runtimeEntry.includes('forceTs') &&
-  failClosedMentioned;
+  soleRustNoTs ||
+  (runtimeEntry.includes("PDF_READER_FORCE_TYPESCRIPT") &&
+    runtimeEntry.includes('forceTs') &&
+    failClosedMentioned);
 
 if (truth.publishFreeze === true) {
   if (truth.dropInFor3014 !== false) {
