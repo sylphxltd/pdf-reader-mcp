@@ -26,9 +26,16 @@ export const readPdfAutoDetailSchema = union(literal('fast'), literal('balanced'
 // cannot be bypassed by ambiguous path+URL payloads.
 export const pdfSourceSchema = object({
   path: optional(
-    str(min(1), description('Path to the local PDF file (absolute or relative to cwd).'))
+    str(
+      min(1),
+      description(
+        'Path to the local PDF file (absolute or relative to cwd). Provide exactly one of path or url (not both).'
+      )
+    )
   ),
-  url: optional(str(min(1), description('URL of the PDF file.'))),
+  url: optional(
+    str(min(1), description('URL of the PDF file. Provide exactly one of path or url (not both).'))
+  ),
   pages: optional(pageSpecifierSchema),
 }).refine((source) => Boolean(source.path) !== Boolean(source.url), {
   message: 'Provide exactly one of path or url for each PDF source.',
