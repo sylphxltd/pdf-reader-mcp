@@ -484,5 +484,11 @@
     "semantic-visual-region-analysis.json",
     "semantic-read-text-citation.json",
     "semantic-table-structure.json"
-  ]
+  ],
+  "evidence": {
+    "agentTaskEvalLocal": "verification/pdf-reader-agent-task-eval-pure-rust-local-draft.json",
+    "sameHostAbSuiteDraft": "verification/pdf-reader-same-host-ab-suite-draft.json",
+    "semanticContracts": "bun run check:semantic-contracts PASS 12 contracts"
+  },
+  "programStatus": "sole-rust-candidate-in-progress"
 }

@@ -1,0 +1,12 @@
+{
+  "profile": "agent_task_eval_pure_rust_local",
+  "generatedAt": "2026-07-24T02:10:07.847257Z",
+  "candidateBinary": "target/release/pdf-reader-mcp-server",
+  "baseline": "docs/specs/agent-task-corpus/baselines/typescript-v3.0.14.local.json",
+  "metaLines": [
+    "$ bun scripts/run-agent-task-eval.ts --runtime=pure-rust --compare-baseline"
+  ],
+  "failureCount": 0,
+  "results": [],
+  "note": "Local pure-Rust agent-task eval against measured TS 3.0.14 baseline. Necessary but not sufficient for showhand release."
+}
