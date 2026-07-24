@@ -389,9 +389,10 @@
     "publishFreeze": true,
     "dropInFor3014": false,
     "nextActions": [
-      "Independent whole-product review of exact clean candidate SHA using docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
-      "Promote same-host A/B from measured_draft_not_admissible only if methodology and breadth satisfy showhand bar",
-      "After review_pass with unfreezeAuthorized, publish exact 4.0.0 across npm + GitHub + MCP Registry",
+      "Resolve PR #574 conflicts and obtain complete exact-candidate CI plus 5/5 arch-matched host-runtime proof with candidate SHA bound in durable evidence",
+      "Complete review of the 98 provisional_heuristic nonclaim reclassification entries required by ADR-0005 before unfreeze",
+      "Promote same-host A/B from measured_draft_not_admissible only if methodology and breadth satisfy the showhand bar",
+      "After a successor independent review explicitly sets unfreezeAuthorized=true, publish the exact 4.0.0 candidate across npm + GitHub + MCP Registry",
       "Keep crates non-product channel unless re-admitted"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
@@ -460,17 +461,20 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
-      "status": "program_bootstrap_freeze_retained",
-      "candidateSha": "PENDING_RELEASE_SHA",
-      "evidence": "verification/pdf-reader-sole-rust-4.0.0-program-status.json",
-      "package": "docs/specs/whole-product-independent-review-package.md",
+      "status": "review_pass_freeze_retained",
+      "candidateSha": "c890441442524255bcfc31d0d7481e052731218d",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.0-c890441.json",
+      "package": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
       "unfreezeAuthorized": false,
       "tsRetirementAuthorized": false,
       "soleRuntimeAuthorized": false,
+      "performanceClaimsAuthorized": false,
       "goalCompleteAuthorized": false,
       "notes": [
-        "Sole-Rust 4.0.0 program bootstrap only.",
-        "3.2.2 remains published transitional latest; do not treat packaging review as sole-Rust authorization."
+        "Exact candidate local source, semantic, capability, and package-absence checks passed.",
+        "Freeze retained: PR #574 is conflicting and lacks complete exact-head admission plus SHA-bound 5/5 host runtime proof.",
+        "Freeze retained: nonclaim ledger remains mostly provisional and same-host A/B remains measured_draft_not_admissible.",
+        "3.2.2 remains published transitional latest; no 4.0.0 channel publish or goal-complete claim is authorized."
       ],
       "priorTransitionalEvidence": "verification/pdf-reader-whole-product-independent-review-3.2.2.json"
     },
