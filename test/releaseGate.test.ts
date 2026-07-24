@@ -12,7 +12,9 @@ describe('pdf reader SOTA release gate golden probes', () => {
       );
 
       expect(report.profile).toBe('pdf_sota_release_gate');
-      expect(report.checks.some((check) => check.id === 'mcp:rust_opt_in_boundary')).toBe(true);
+      expect(report.checks.some((check) => check.id === 'mcp:sole_rust_launcher_boundary')).toBe(
+        true
+      );
       expect(report.checks.some((check) => check.id === 'mcp:production_contract_suite')).toBe(
         true
       );

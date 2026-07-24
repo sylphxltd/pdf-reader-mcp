@@ -1,11 +1,9 @@
 /**
- * EXPERIMENTAL pure-Rust capability contract.
+ * Sole-Rust production capability contract (ADR-0005/0006).
  *
- * NOT the published product path. Requires PDF_READER_ENGINE_MODE=pure-rust.
- * Key-presence alone is insufficient for true parity; assertions below mix
- * presence + a few semantic checks. Full TS↔Rust golden differential is still TODO.
- *
- * Skip unless explicitly enabled so default CI exercises the published TS path.
+ * Exercises the production sole-Rust path (runtime-entry + native binary).
+ * Key-presence alone is insufficient for full showhand admission; assertions mix
+ * presence + selected semantic checks. Broader agent-task/quality closeout remains required.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -88,10 +86,9 @@ function deepHasKey(value: unknown, key: string): boolean {
   return false;
 }
 
-const pureRustEnabled =
-  process.env.PDF_READER_ENGINE_MODE === 'pure-rust' ||
-  process.env.PDF_READER_ENGINE_MODE === 'rust' ||
-  process.env.RUN_PURE_RUST_CAPABILITY === '1';
+// Sole-Rust is the production path; suite is on by default.
+// Set RUN_PURE_RUST_CAPABILITY=0 to skip in constrained environments.
+const pureRustEnabled = process.env.RUN_PURE_RUST_CAPABILITY !== '0';
 const signalPdf = join(import.meta.dir, '../fixtures/differential/v3014-behavior-v1.pdf');
 const structurePdf = join(import.meta.dir, '../fixtures/differential/v3014-structure-v1.pdf');
 const selectableTablePdf = join(
@@ -104,7 +101,7 @@ const visualCandidatePdf = join(
   '../fixtures/differential/v3014-visual-candidate-v1.pdf'
 );
 
-describe.skipIf(!pureRustEnabled)('experimental pure-Rust capability contract', () => {
+describe.skipIf(!pureRustEnabled)('sole-Rust production capability contract', () => {
   let proc: ChildProcess;
   let reqId = 100;
 

@@ -1,5 +1,5 @@
 /**
- * Fail-closed gate for star-project production readiness (pure-Rust path).
+ * Fail-closed gate for star-project production readiness (sole-Rust production path).
  */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -13,7 +13,7 @@ const env = {
   RUN_PURE_RUST_CAPABILITY: '',
 };
 
-// Published product path only (TypeScript 3.0.14). Pure-Rust capability suite is opt-in.
+// Sole-Rust production path public contract.
 const suites = ['test/production/productionPath.contract.test.ts'];
 
 for (const suite of suites) {
@@ -31,5 +31,5 @@ for (const suite of suites) {
 }
 
 console.log(
-  '[check-production-contract] PASS — published TypeScript production-path contract is green'
+  '[check-production-contract] PASS — sole-Rust production-path contract is green'
 );

@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
-  "updated": "2026-07-23",
+  "updated": "2026-07-24",
   "productTruth": {
     "publishedStable": "@sylphx/pdf-reader-mcp@3.2.2",
-    "publishedImplementation": "pure-Rust optional native default via dist/runtime-entry.js; fail-closed when native missing; TypeScript only via ./typescript or force flags",
-    "pureRustStatus": "default-fail-closed",
-    "optIn": "native optional package required for default entry; PDF_READER_FORCE_TYPESCRIPT=1 or PDF_READER_ENGINE_MODE=typescript or ./typescript for explicit TypeScript rollback",
+    "publishedImplementation": "3.2.2 transitional Rust-default with bundled TypeScript rollback (not Sole Rust)",
+    "pureRustStatus": "sole-rust-production-default",
+    "optIn": "native optional package required; PDF_READER_MCP_RUST_BIN override allowed; no TS production path",
     "dropInFor3014": true,
     "publishFreeze": false,
     "admissionBar": "capability-first-semantic-compatibility",
     "exactPdfJsOutputParityRequired": false,
-    "ts3014Role": "regression-baseline-coverage-discovery-compatibility-reference",
+    "ts3014Role": "immutable-external-lkg-and-test-oracle-only",
     "registryPublishAuthorized": true,
     "soleRuntimeDefault": true,
-    "typescriptProductionDefault": "retired-from-default-entry",
-    "typescriptFallback": "explicit-only",
+    "typescriptProductionDefault": "removed",
+    "typescriptFallback": false,
     "typescriptFallbackExports": [
       "./typescript",
       "PDF_READER_FORCE_TYPESCRIPT=1",
@@ -51,7 +51,37 @@
         "3.0.18",
         "3.1.0"
       ]
-    }
+    },
+    "candidateVersion": "4.0.0",
+    "candidateImplementation": "sole-Rust thin launcher dist/runtime-entry.js + optional natives; no TS PDF runtime in package",
+    "soleRustProduction": true,
+    "typescriptProductionShipped": false,
+    "typescriptExportRemoved": true,
+    "historicalTypescriptLkg": "@sylphx/pdf-reader-mcp@3.0.14",
+    "semverTarget": "4.0.0",
+    "cratesAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
+    "transitionalNote": "Live latest remains 3.2.2 until 4.0.0 is published. 4.0.0 is sole-Rust production candidate re-authorized for freeze-lifted publication by independent review f9a3154 (goal complete still false until multi-channel readback).",
+    "candidateHostRuntimeProof": {
+      "status": "five-distinct-host-triples-proven-for-4.0.0-candidate",
+      "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+      "distinctHostTriplesProven": [
+        "darwin-arm64",
+        "darwin-x64",
+        "linux-arm64-gnu",
+        "linux-x64-gnu",
+        "win32-x64-msvc"
+      ],
+      "evidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.0-aggregate.json",
+      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747",
+      "darwinX64": {
+        "unameMachine": "x86_64",
+        "rosettaTranslated": false,
+        "runtimeProofValid": true
+      },
+      "boundary": "local-pack install/runtime proofs; not npm registry readback"
+    },
+    "performanceClaimsAuthorized": false,
+    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md"
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -368,11 +398,12 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Optionally mark withdrawn MCP Registry versions 3.0.15-3.1.0 as deleted/deprecated if publisher supports it",
-      "Prove Darwin x64 on real x86_64 host or keep permanently labeled host-unverified",
-      "Keep crates as non-product channel unless ADR admits version-aligned publish",
-      "Record npm provenance policy (signatures present; attestations absent)",
-      "Only after remaining gaps, consider goal-complete review"
+      "Merge PR #574 after pin-path review commit on f9a3154 remains green",
+      "Publish exact 4.0.0 natives+main via publish-npm.yml with --require-exact-head",
+      "GitHub Release v4.0.0 + MCP Registry publish/readback",
+      "Post-release five-host registry install proof on published 4.0.0",
+      "Do not publish marketing speedup claims",
+      "Goal complete only after live multi-channel readback"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -407,12 +438,13 @@
         "@sylphx/pdf-reader-mcp-win32-x64-msvc@3.2.2"
       ],
       "distinctHostTriplesProven": [
-        "linux-x64-gnu",
-        "linux-arm64-gnu",
         "darwin-arm64",
+        "darwin-x64",
+        "linux-arm64-gnu",
+        "linux-x64-gnu",
         "win32-x64-msvc"
       ],
-      "darwinX64RuntimeProof": "package-published-host-unverified",
+      "darwinX64RuntimeProof": "host-matched-x86_64-self-hosted",
       "publishFreeze": false,
       "commands": [
         "bun run check:registry-install-proof -- --registry --version=3.2.2",
@@ -427,7 +459,8 @@
       "registryProofWorkflow": ".github/workflows/registry-install-proof.yml",
       "linuxBuildImage": "ubuntu-22.04 / ubuntu-22.04-arm",
       "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json",
-      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30028791465"
+      "registryProofRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30028791465",
+      "candidateHostRuntimeProof": "verification/pdf-reader-candidate-host-runtime-proof-4.0.0-aggregate.json"
     },
     "libraryExports": {
       "status": "published-default-fail-closed",
@@ -436,21 +469,31 @@
       "defaultStillTypescript": false,
       "publishFreeze": false
     },
-    "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package.md",
+    "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
-      "status": "review_pass_corrective_publish_authorized_goal_incomplete",
-      "candidateSha": "9ec2130dfc76979716755060723a493689366137",
-      "evidence": "verification/pdf-reader-whole-product-independent-review-3.2.2.json",
-      "package": "docs/specs/whole-product-independent-review-package.md",
+      "status": "review_pass_unfreeze_authorized_goal_incomplete",
+      "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.0-f9a3154.json",
+      "package": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
+      "runtimeEvidenceSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+      "runtimeEvidenceRelationship": "exact-reviewed-implementation-candidate",
       "unfreezeAuthorized": true,
       "tsRetirementAuthorized": true,
       "soleRuntimeAuthorized": true,
+      "performanceClaimsAuthorized": false,
       "goalCompleteAuthorized": false,
       "notes": [
-        "Published 3.2.2 packaging corrective authorized with npm + GitHub + MCP Registry channel proof.",
-        "Goal complete still blocked on Darwin x64 host proof, crates decision (non-channel), provenance policy, and any remaining capability quality bar."
+        "Independent successor re-review of exact tip f9a3154 after freeze-lift (d6fb4be) and stdio-gate alignment (f9a3154).",
+        "All required local gates and 20/20 CI checks passed; five-host host-proof workflow 30067554747 green including real darwin-x64 x86_64.",
+        "Nonclaim ledger 109/109 reviewed with zero blockingForUnfreeze.",
+        "Performance marketing claims remain withheld; no admissible_pass exists.",
+        "The 44 PARTIAL matrix cells remain explicit quality residuals and are not treated as FULL.",
+        "Goal completion remains unauthorized until exact 4.0.0 publish and npm/GitHub/MCP Registry plus five-host registry readback are proven."
       ],
-      "registryProofEvidence": "verification/pdf-reader-registry-install-proof-3.2.2.json"
+      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.0-9559abc.json",
+      "publishFreezeInReviewedCandidate": false,
+      "publishFreezeLiftAuthorized": true,
+      "freezeLiftCommitNote": "Mechanical publishFreeze=false / dropInFor3014=true is present on the reviewed candidate and re-authorized for exact f9a3154; performance claims remain withheld; goal complete requires multi-channel publish/readback."
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,
@@ -465,6 +508,31 @@
       "mcpRegistryLatestObserved": "3.2.2",
       "mcpRegistryIsLatest": true,
       "cratesAdmitted": false
+    },
+    "soleRustAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
+    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md",
+    "exactTipCi": {
+      "reviewedSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
+      "pr": 574,
+      "reviewedTipStatus": "20-of-20-check-runs-success",
+      "validateOnReviewedTip": "pass",
+      "releaseEvidenceGate": "pass",
+      "rustParityDifferential": "pass",
+      "nativePackageBuilds": "5-of-5-pass",
+      "hostProofRun": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30067554747",
+      "hostProofPlatforms": [
+        "darwin-arm64",
+        "darwin-x64",
+        "linux-arm64-gnu",
+        "linux-x64-gnu",
+        "win32-x64-msvc"
+      ],
+      "darwinX64Host": {
+        "nodeArch": "x64",
+        "unameMachine": "x86_64",
+        "rosettaTranslated": false,
+        "runner": "self-hosted x86_64-apple-darwin"
+      }
     }
   }
 }

@@ -5,31 +5,36 @@ import path from 'node:path';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
 /**
- * Product truth after 3.2.1 corrective packaging:
- * - Default entry: pure-Rust native via dist/runtime-entry.js, fail-closed if missing
- * - TypeScript: explicit rollback only (./typescript or force flags)
- * - Parity bridge remains deleted
+ * Sole-Rust production package truth (ADR-0006):
+ * - Default entry: pure-Rust native via dist/runtime-entry.js only
+ * - No ./typescript export and no bundled TS PDF runtime
+ * - Historical TS 3.0.14 remains external LKG only
  */
-describe('published pure-Rust default with explicit TypeScript rollback', () => {
-  it('npm package bin prefers pure-Rust runtime-entry with TypeScript export retained', () => {
+describe('published sole-Rust production package (no TS production runtime)', () => {
+  it('npm package bin is runtime-entry without typescript export', () => {
     const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
       bin?: Record<string, string>;
       exports?: Record<string, string>;
       version?: string;
+      files?: string[];
     };
     expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
-    expect(pkg.exports?.['./typescript']).toBe('./dist/index.js');
-    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
+    expect(pkg.exports?.['./typescript']).toBeUndefined();
+    expect(pkg.exports?.['./pure-rust']).toBe('./dist/pure-rust.js');
+    expect(pkg.files).toContain('dist/runtime-entry.js');
+    expect(pkg.files).toContain('dist/pure-rust.js');
+    expect(pkg.files).not.toContain('dist/');
+    expect(pkg.version).toMatch(/^4\./);
   });
 
-  it('runtime-entry is fail-closed without automatic TypeScript fallback', () => {
+  it('runtime-entry is sole-Rust and rejects force-TS flags', () => {
     const source = readFileSync(path.join(repoRoot, 'src/runtime-entry.ts'), 'utf8');
-    expect(source).toContain('fail-closed');
-    expect(source).toContain('PDF_READER_FORCE_TYPESCRIPT');
-    expect(source).toContain('no automatic TypeScript fallback');
+    expect(source).toContain('Sole-Rust');
+    expect(source).toContain('TypeScript production runtime has been removed');
+    expect(source).not.toContain("join(here, 'index.js')");
+    expect(source).not.toContain('// TypeScript fallback path');
     expect(source).not.toContain('Falls back to the TypeScript');
-    expect(source).not.toContain('// TypeScript fallback path.');
   });
 
   it('parity bridge is deleted', () => {
@@ -38,36 +43,26 @@ describe('published pure-Rust default with explicit TypeScript rollback', () => 
     ).toBe(false);
   });
 
-  it('optional pure-Rust launcher is opt-in only', () => {
-    const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
-    expect(bin).toContain('PDF_READER_ENGINE_MODE');
-    expect(bin).toContain('dist/index.js');
-    expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
-  });
-
-  it('honest capability matrix documents fail-closed pure-Rust default', () => {
+  it('honest capability matrix documents sole-Rust candidate without TS production ship', () => {
     const matrix = JSON.parse(
       readFileSync(path.join(repoRoot, 'docs/specs/pure-rust-capability-matrix.json'), 'utf8')
     ) as {
       productTruth: {
-        dropInFor3014: boolean;
-        pureRustStatus: string;
-        publishedStable: string;
-        publishedImplementation?: string;
-        soleRuntimeDefault?: boolean;
+        soleRustProduction?: boolean;
+        typescriptProductionShipped?: boolean;
         automaticTypescriptFallback?: boolean;
-        typescriptFallback?: string | boolean;
+        pureRustStatus: string;
+        publishFreeze?: boolean;
+        dropInFor3014?: boolean;
+        candidateVersion?: string;
       };
     };
-    expect(matrix.productTruth.dropInFor3014).toBe(true);
-    expect(matrix.productTruth.soleRuntimeDefault).toBe(true);
+    expect(matrix.productTruth.soleRustProduction).toBe(true);
+    expect(matrix.productTruth.typescriptProductionShipped).toBe(false);
     expect(matrix.productTruth.automaticTypescriptFallback).toBe(false);
-    expect(matrix.productTruth.typescriptFallback).toBe('explicit-only');
-    expect(matrix.productTruth.pureRustStatus).toContain('default');
-    expect(matrix.productTruth.pureRustStatus).toContain('fail-closed');
-    expect(matrix.productTruth.publishedStable).toMatch(/@sylphx\/pdf-reader-mcp@\d+\.\d+\.\d+/);
-    expect(String(matrix.productTruth.publishedImplementation ?? '')).toMatch(
-      /pure-Rust|fail-closed/i
-    );
+    expect(matrix.productTruth.publishFreeze).toBe(false);
+    expect(matrix.productTruth.dropInFor3014).toBe(true);
+    expect(matrix.productTruth.pureRustStatus).toContain('sole-rust');
+    expect(matrix.productTruth.candidateVersion).toMatch(/^4\./);
   });
 });

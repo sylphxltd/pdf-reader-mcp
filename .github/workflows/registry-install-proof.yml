@@ -24,9 +24,9 @@ jobs:
     steps:
       - id: set
         run: |
-          # darwin uses Sylphx self-hosted macOS. Host triple decides which optional package npm installs;
-          # both darwin matrix rows therefore prove the runner host package (currently darwin-x64 on QEMU).
-          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":["self-hosted","sylphx","macos","standard"]},{"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"]},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
+          # Runtime proofs require matching host arch (PROOF_REQUIRE_PLATFORM_ID).
+          # darwin-arm64: GitHub macos-14 arm64. darwin-x64: Sylphx self-hosted x86_64.
+          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":"macos-14"},{"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"]},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   proof:
@@ -59,13 +59,23 @@ jobs:
           set -euo pipefail
           VERSION="${PROOF_VERSION}"
           test -n "$VERSION"
-          echo "Proving @sylphx/pdf-reader-mcp@$VERSION on ${{ matrix.platformId }} / $(uname -s)-$(uname -m)"
-          # Host triple decides which optional package npm installs (self-hosted macOS is currently x64).
-          # Matrix platformId is retained for five-platform job coverage / labeling.
+          echo "Proving @sylphx/pdf-reader-mcp@$VERSION on required=${{ matrix.platformId }} host=$(uname -s)-$(uname -m) node=$(node -p 'process.arch')"
+          export PROOF_REQUIRE_PLATFORM_ID="${{ matrix.platformId }}"
           bun scripts/check-registry-install-proof.ts --registry --version="$VERSION"
 
   pass:
     needs: proof
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - run: echo "five-platform registry install/runtime proof matrix completed"
+      - name: Require all proof jobs green
+        run: |
+          set -euo pipefail
+          # needs.proof.result is success only when all matrix legs succeed
+          echo "proof result=${{ needs.proof.result }}"
+          if [[ "${{ needs.proof.result }}" != "success" ]]; then
+            echo "One or more host runtime proof legs failed or were host-unverified."
+            echo "Darwin x64 requires a real x86_64 macOS runner (see docs/specs/host-runtime-proof-contract.md)."
+            exit 1
+          fi
+          echo "All configured host runtime proof legs passed with matching host architecture."

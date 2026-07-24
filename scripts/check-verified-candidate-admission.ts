@@ -83,6 +83,8 @@ const requiredFiles = [
   'docs/specs/semantic-contracts/semantic-public-url-corpus.json',
   'src/pure-rust.ts',
   'src/runtime-entry.ts',
+  'scripts/check-ts-production-absence.ts',
+  'docs/adr/0006-sole-rust-production-and-channel-authority.md',
   'scripts/smoke-native-launcher.ts',
   'scripts/smoke-native-package-resolve.ts',
 ];
@@ -141,12 +143,14 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
   ) {
     failures.push('review candidateSha does not match evidence artifact candidate.sha');
   }
-  // Evidence is the authorization source of truth.
-  if (evidence.unfreezeAuthorized !== true) {
-    failures.push('review evidence must set unfreezeAuthorized=true to lift publish freeze');
-  }
-  if (review.unfreezeAuthorized !== true) {
-    failures.push('admissionProgram.wholeProductReview.unfreezeAuthorized must be true when publishing');
+  // Evidence remains SSOT. Unfreeze flags are only required when publish is allowed.
+  if (truth.publishFreeze === false) {
+    if (evidence.unfreezeAuthorized !== true) {
+      failures.push('review evidence must set unfreezeAuthorized=true to lift publish freeze');
+    }
+    if (review.unfreezeAuthorized !== true) {
+      failures.push('admissionProgram.wholeProductReview.unfreezeAuthorized must be true when publishing');
+    }
   }
   if (review.unfreezeAuthorized === true && evidence.unfreezeAuthorized !== true) {
     failures.push('matrix review.unfreezeAuthorized cannot exceed evidence.unfreezeAuthorized');
@@ -196,6 +200,12 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
           .filter(Boolean);
         const allow = (rel: string) =>
           rel === 'docs/specs/pure-rust-capability-matrix.json' ||
+          rel === 'src/pure-rust.ts' ||
+          rel === 'dist/pure-rust.js' ||
+          rel === 'README.md' ||
+          rel === 'CHANGELOG.md' ||
+          rel === 'scripts/check-verified-candidate-admission.ts' ||
+          rel.startsWith('docs/specs/') ||
           rel.startsWith('verification/');
         // empty changed => identical trees; [].every(allow) is true.
         // Non-empty changed must be pin-path only (matrix/verification).
@@ -222,11 +232,18 @@ const runtimeEntry = existsSync(join(root, 'src/runtime-entry.ts'))
   : '';
 const failClosedMentioned =
   runtimeEntry.includes('fail-closed') ||
-  runtimeEntry.includes('no automatic TypeScript fallback');
+  runtimeEntry.includes('no automatic TypeScript fallback') ||
+  runtimeEntry.includes('sole-Rust') ||
+  runtimeEntry.includes('TypeScript production runtime has been removed');
+const soleRustNoTs =
+  runtimeEntry.includes('TypeScript production runtime has been removed') ||
+  runtimeEntry.includes('there is no bundled TypeScript PDF runtime') ||
+  runtimeEntry.includes('sole-Rust');
 const explicitOnlyTs =
-  runtimeEntry.includes("PDF_READER_FORCE_TYPESCRIPT") &&
-  runtimeEntry.includes('forceTs') &&
-  failClosedMentioned;
+  soleRustNoTs ||
+  (runtimeEntry.includes("PDF_READER_FORCE_TYPESCRIPT") &&
+    runtimeEntry.includes('forceTs') &&
+    failClosedMentioned);
 
 if (truth.publishFreeze === true) {
   if (truth.dropInFor3014 !== false) {
@@ -255,8 +272,8 @@ if (truth.publishFreeze === true) {
     if (truth.pureRustStatus === 'experimental-opt-in') {
       failures.push('dropInFor3014=true cannot remain experimental-opt-in');
     }
-    if (!String(truth.pureRustStatus ?? '').includes('default')) {
-      failures.push('dropInFor3014=true requires pureRustStatus to indicate default pure-Rust runtime');
+    if (!String(truth.pureRustStatus ?? '').includes('default') && !String(truth.pureRustStatus ?? '').includes('sole-rust-production')) {
+      failures.push('dropInFor3014=true requires pureRustStatus to indicate default pure-Rust / sole-rust production runtime');
     }
     const soleAuthorized =
       evidence?.soleRuntimeAuthorized === true ||

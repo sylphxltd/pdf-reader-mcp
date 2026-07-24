@@ -7,8 +7,8 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 const readText = (relativePath: string): string =>
   readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-describe('MCP stdio production default (TypeScript published path)', () => {
-  it('default npm path is TypeScript dist/index.js', () => {
+describe('MCP stdio production default (sole-Rust package)', () => {
+  it('default npm path is sole-Rust runtime-entry.js', () => {
     const pkg = JSON.parse(readText('package.json')) as {
       bin?: Record<string, string>;
       exports?: Record<string, string>;
@@ -17,10 +17,9 @@ describe('MCP stdio production default (TypeScript published path)', () => {
 
     expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
-    // Optional wrapper still prefers TS unless pure-rust mode is set.
-    expect(bin).toContain('dist/index.js');
-    expect(bin).toContain('PDF_READER_ENGINE_MODE');
-    expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
+    expect(pkg.exports?.['./typescript']).toBeUndefined();
+    expect(bin).toContain('dist/runtime-entry.js');
+    expect(bin).not.toContain('dist/index.js');
   });
 
   it('parity bridge is removed from the pure-Rust server sources', () => {
@@ -30,8 +29,6 @@ describe('MCP stdio production default (TypeScript published path)', () => {
   });
 
   it('stdio integration harness remains present', () => {
-    const integration = readText('test/integration/stdio-transport.test.ts');
-    expect(integration).toContain('MCP Server stdio Transport Integration');
-    expect(integration).toContain('read_pdf');
+    expect(existsSync(path.join(repoRoot, 'test/stdioTransport.matrix.test.ts'))).toBe(true);
   });
 });

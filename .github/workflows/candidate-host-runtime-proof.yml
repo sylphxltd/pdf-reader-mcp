@@ -1,0 +1,172 @@
+name: Candidate host runtime proof
+
+# Proves unpublished sole-Rust candidate install/runtime on real host triples.
+# Build success alone is not enough; each leg must execute on a matching arch.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'packages/**'
+      - 'src/runtime-entry.ts'
+      - 'src/native/**'
+      - 'scripts/check-registry-install-proof.ts'
+      - 'scripts/stage-rust-mcp.ts'
+      - 'docs/specs/host-runtime-proof-contract.md'
+      - '.github/workflows/candidate-host-runtime-proof.yml'
+      - 'package.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+permissions:
+  contents: read
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          # Runtime proofs require matching host arch (PROOF_REQUIRE_PLATFORM_ID).
+          # darwin-arm64: GitHub macos-14 (real arm64). darwin-x64: Sylphx self-hosted x86_64.
+          # linux/windows: GitHub-hosted.
+          matrix='[
+            {"platformId":"linux-x64-gnu","runner":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},
+            {"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm","target":"aarch64-unknown-linux-gnu"},
+            {"platformId":"darwin-arm64","runner":"macos-14","target":"aarch64-apple-darwin"},
+            {"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"],"target":"x86_64-apple-darwin"},
+            {"platformId":"win32-x64-msvc","runner":"windows-latest","target":"x86_64-pc-windows-msvc"}
+          ]'
+          echo "matrix=$(echo "$matrix" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  proof:
+    needs: map
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.map.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build + stage native for ${{ matrix.platformId }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "host=$(uname -s)-$(uname -m) nodeArch=$(node -p 'process.arch') required=${{ matrix.platformId }}"
+          cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+          if [[ "${{ matrix.platformId }}" == "win32-x64-msvc" ]]; then
+            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server.exe"
+          else
+            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server"
+          fi
+          mkdir -p "bin/native/${{ matrix.platformId }}" "packages/pdf-reader-mcp-${{ matrix.platformId }}/bin"
+          cp "$src" "bin/native/${{ matrix.platformId }}/$(basename "$src")"
+          cp "$src" "packages/pdf-reader-mcp-${{ matrix.platformId }}/bin/$(basename "$src")"
+          if [[ "${{ matrix.platformId }}" != "win32-x64-msvc" ]]; then
+            chmod +x "bin/native/${{ matrix.platformId }}/$(basename "$src")" \
+              "packages/pdf-reader-mcp-${{ matrix.platformId }}/bin/$(basename "$src")"
+          fi
+          # Also stage legacy path used by some tooling.
+          mkdir -p bin/native
+          cp "$src" "bin/native/$(basename "$src")"
+          if [[ "${{ matrix.platformId }}" != "win32-x64-msvc" ]]; then chmod +x "bin/native/$(basename "$src")"; fi
+
+      - name: Build sole-Rust package launcher
+        shell: bash
+        run: bun run build:package
+
+      - name: Local-pack install + MCP initialize proof
+        shell: bash
+        env:
+          PROOF_REQUIRE_PLATFORM_ID: ${{ matrix.platformId }}
+        run: |
+          set -euo pipefail
+          bun scripts/check-registry-install-proof.ts --local-pack | tee "host-proof-${{ matrix.platformId }}.json"
+
+      - name: Upload host proof JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-runtime-proof-${{ matrix.platformId }}
+          path: host-proof-${{ matrix.platformId }}.json
+          if-no-files-found: warn
+
+  aggregate:
+    needs: proof
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: proofs
+          pattern: host-runtime-proof-*
+          merge-multiple: true
+
+      - name: Aggregate distinct host triples
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, sys
+          files = sorted(pathlib.Path('proofs').glob('host-proof-*.json'))
+          legs = []
+          proven = []
+          failed = []
+          for f in files:
+              data = json.loads(f.read_text())
+              platform = data.get('hostPlatformId') or data.get('requiredPlatformId') or f.stem
+              valid = bool(data.get('runtimeProofValid') and data.get('pass'))
+              legs.append({
+                  'file': f.name,
+                  'platformId': platform,
+                  'pass': data.get('pass'),
+                  'runtimeProofValid': data.get('runtimeProofValid'),
+                  'host': data.get('host'),
+                  'initialize': data.get('initialize'),
+              })
+              if valid:
+                  proven.append(platform)
+              else:
+                  failed.append(platform)
+          required = [
+              'linux-x64-gnu',
+              'linux-arm64-gnu',
+              'darwin-arm64',
+              'darwin-x64',
+              'win32-x64-msvc',
+          ]
+          missing = [p for p in required if p not in proven]
+          report = {
+              'profile': 'candidate_host_runtime_proof_aggregate',
+              'requiredPlatforms': required,
+              'distinctHostTriplesProven': sorted(set(proven)),
+              'failedOrMissing': missing + failed,
+              'legs': legs,
+              'pass': len(missing) == 0 and len(failed) == 0 and len(proven) == 5,
+          }
+          pathlib.Path('candidate-host-runtime-proof-aggregate.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          if not report['pass']:
+              sys.exit(1)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: candidate-host-runtime-proof-aggregate
+          path: candidate-host-runtime-proof-aggregate.json

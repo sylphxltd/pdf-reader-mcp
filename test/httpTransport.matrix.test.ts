@@ -4,26 +4,19 @@ import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
-describe('web MCP HTTP transport routing', () => {
-  it('optional pure-Rust launcher routes MCP_TRANSPORT=http when engine mode is pure-rust', () => {
+describe('MCP HTTP transport routing', () => {
+  it('sole-Rust runtime entry forwards MCP_TRANSPORT and native server owns HTTP', () => {
+    const runtime = readFileSync(path.join(repoRoot, 'src/runtime-entry.ts'), 'utf8');
     const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
-    expect(bin).toContain('MCP_TRANSPORT=http');
-    expect(bin).toContain('resolve_rust_bin');
-    expect(bin).toContain('PDF_READER_ENGINE_MODE');
-    expect(bin).not.toContain('PDF_READER_ENGINE_MODE=full');
-  });
-
-  it('Rust MCP server exposes streamable HTTP transport module', () => {
     const httpTransport = readFileSync(
       path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/http_transport.rs'),
       'utf8'
     );
-    const mainRs = readFileSync(
-      path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/main.rs'),
-      'utf8'
-    );
+
+    expect(runtime).toContain('MCP_TRANSPORT');
+    expect(bin).toContain('dist/runtime-entry.js');
+    expect(bin).not.toContain('dist/index.js');
     expect(httpTransport).toContain('StreamableHttpService');
-    expect(httpTransport).toContain('health_check');
-    expect(mainRs).toContain('http_transport::serve_http');
+    expect(httpTransport).toContain('/mcp/health');
   });
 });

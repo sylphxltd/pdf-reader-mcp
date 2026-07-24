@@ -411,9 +411,9 @@ export const validateExtractedPackage = async (
   });
   addCheck(
     checks,
-    'runtime:ts-entry',
-    await fileExists(tsEntryPath),
-    'published package contains TypeScript MCP entry dist/index.js',
+    'runtime:ts-entry-absent',
+    !(await fileExists(tsEntryPath)),
+    'published package does not ship TypeScript MCP entry dist/index.js',
     { path: 'package/dist/index.js' }
   );
   addCheck(
@@ -422,25 +422,25 @@ export const validateExtractedPackage = async (
     bin?.['pdf-reader-mcp'] === './dist/runtime-entry.js' &&
       exportsField?.['.'] === './dist/runtime-entry.js' &&
       (await fileExists(runtimeEntryPath)),
-    'package bin/exports prefer pure-Rust runtime-entry.js sole-runtime default',
+    'package bin/exports are sole-Rust runtime-entry.js only',
     { bin: bin?.['pdf-reader-mcp'], exports: exportsField?.['.'] }
   );
   addCheck(
     checks,
-    'runtime:typescript-fallback-export',
-    exportsField?.['./typescript'] === './dist/index.js' && (await fileExists(tsEntryPath)),
-    'package keeps TypeScript fallback export at ./typescript',
-    { export: exportsField?.['./typescript'], path: 'package/dist/index.js' }
+    'runtime:typescript-export-absent',
+    exportsField?.['./typescript'] === undefined,
+    'package does not export ./typescript production fallback',
+    { export: exportsField?.['./typescript'] }
   );
   addCheck(
     checks,
     'runtime:pure-rust-export-contract',
     exportsField?.['./pure-rust'] === './dist/pure-rust.js' && (await fileExists(pureRustEntryPath)),
-    'package exposes pure-Rust library export at ./pure-rust',
+    'package exposes thin pure-Rust spawn helper at ./pure-rust',
     {
       export: exportsField?.['./pure-rust'],
       path: 'package/dist/pure-rust.js',
-      productTruth: { dropInFor3014: true, publishFreeze: false },
+      productTruth: { soleRustProduction: true, typescriptProductionShipped: false },
     }
   );
   addCheck(
@@ -493,9 +493,12 @@ export const validateExtractedPackage = async (
   addCheck(
     checks,
     'package-json:files',
-    (files.includes('dist/') || files.includes('dist')) &&
-      (files.includes('corpus/') || files.includes('corpus')),
-    'package files allowlist includes dist and corpus',
+    files.includes('dist/runtime-entry.js') &&
+      files.includes('dist/pure-rust.js') &&
+      (files.includes('corpus/') || files.includes('corpus')) &&
+      !files.includes('dist/') &&
+      !files.includes('dist'),
+    'package files allowlist ships sole-Rust launcher artifacts and corpus only',
     { files }
   );
 
@@ -541,16 +544,24 @@ export const buildPackageSmokeReport = async (cwd = process.cwd()): Promise<Pack
     const tarballEntries = await listTarballEntries(tarballPath);
     addCheck(
       checks,
-      'tarball:ts-entry',
-      tarballEntries.includes('package/dist/index.js'),
-      'tarball includes package/dist/index.js',
-      { entries: tarballEntries.filter((e) => e.includes('dist/')).slice(0, 20) }
+      'tarball:ts-entry-absent',
+      !tarballEntries.includes('package/dist/index.js') &&
+        !tarballEntries.includes('package/dist/legacy-engine-runtime.js') &&
+        !tarballEntries.some((e) => e.includes('pdf.worker')),
+      'tarball excludes TypeScript MCP entry, legacy runtime, and PDF.js workers',
+      { entries: tarballEntries.filter((e) => e.includes('dist/')).slice(0, 40) }
+    );
+    addCheck(
+      checks,
+      'tarball:runtime-entry',
+      tarballEntries.includes('package/dist/runtime-entry.js'),
+      'tarball includes sole-Rust runtime-entry.js launcher'
     );
     addCheck(
       checks,
       'tarball:pure-rust-entry',
       tarballEntries.includes('package/dist/pure-rust.js'),
-      'tarball includes package/dist/pure-rust.js experimental library export'
+      'tarball includes thin pure-rust spawn helper export'
     );
     addCheck(
       checks,
