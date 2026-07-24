@@ -1,8 +1,8 @@
 /**
  * Star-project production contract suite.
  *
- * Published stable path is TypeScript 3.0.14 (`dist/index.js`).
- * Pure-Rust is opt-in only (PDF_READER_ENGINE_MODE=pure-rust) and not published.
+ * Sole-Rust production path: dist/runtime-entry.js + platform native binary (ADR-0006).
+ * TypeScript remains oracle/test-only and is not the production package entry.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -50,7 +50,7 @@ const buildReadPdfArgs = (entry: { id: string; args: Record<string, unknown> }) 
   return args as Record<string, unknown>;
 };
 
-describe('production-path public contract (TypeScript default entry path)', () => {
+describe('production-path public contract (sole-Rust production entry)', () => {
   let proc: ChildProcess;
   let reqId = 10;
 
@@ -70,12 +70,15 @@ describe('production-path public contract (TypeScript default entry path)', () =
     proc?.kill('SIGTERM');
   });
 
-  test('package public entry points at TypeScript dist/index.js', () => {
+  test('package public entry is sole-Rust runtime-entry without typescript export', () => {
     expect(packageJson.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
     expect(packageJson.exports?.['.']).toBe('./dist/runtime-entry.js');
-    expect(packageJson.files).toContain('dist/');
+    expect(packageJson.exports?.['./typescript']).toBeUndefined();
+    expect(packageJson.files).toContain('dist/runtime-entry.js');
+    expect(packageJson.files).toContain('dist/pure-rust.js');
+    expect(packageJson.files).not.toContain('dist/');
     expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
-    expect(fs.existsSync(path.join(repoRoot, 'dist/index.js'))).toBe(true);
+    expect(fs.existsSync(path.join(repoRoot, 'dist/runtime-entry.js'))).toBe(true);
   });
 
   test('initialize advertises pdf-reader-mcp and package version', async () => {
@@ -150,7 +153,7 @@ describe('production-path public contract (TypeScript default entry path)', () =
     expect(failures).toEqual([]);
   }, 300_000);
 
-  test('pdf_evidence public operations smoke on production path (TS)', async () => {
+  test('pdf_evidence public operations smoke on production path (sole-Rust)', async () => {
     const failures: string[] = [];
     for (const entry of matrix.pdfEvidenceCases) {
       const args = structuredClone(entry.args) as Record<string, unknown>;

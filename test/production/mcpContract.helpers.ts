@@ -1,7 +1,7 @@
 /**
  * Shared helpers for production-path MCP contract tests.
- * Default: published TypeScript path (dist/index.js).
- * Pure-Rust: set PDF_READER_ENGINE_MODE=pure-rust (experimental, not published).
+ * Sole-Rust production path: dist/runtime-entry.js + platform native binary.
+ * Historical TypeScript oracle remains buildable for tests, but is not the production entry.
  */
 import { type ChildProcess, execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -33,29 +33,58 @@ export const packageJson = JSON.parse(
   files?: string[];
 };
 
-export const ensureProductionArtifacts = (requestedMode?: 'pure-rust' | 'rust') => {
+const resolveStagedRustBinary = (): string | null => {
+  const forced = process.env.PDF_READER_MCP_RUST_BIN;
+  if (forced && fs.existsSync(forced)) return forced;
+  const candidates = [
+    path.join(repoRoot, 'target/release/pdf-reader-mcp-server'),
+    path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'),
+    path.join(repoRoot, 'bin/native/linux-x64-gnu/pdf-reader-mcp-server'),
+    path.join(repoRoot, 'bin/native/linux-arm64-gnu/pdf-reader-mcp-server'),
+    path.join(repoRoot, 'bin/native/darwin-arm64/pdf-reader-mcp-server'),
+    path.join(repoRoot, 'bin/native/darwin-x64/pdf-reader-mcp-server'),
+    path.join(repoRoot, 'bin/native/win32-x64-msvc/pdf-reader-mcp-server.exe'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+};
+
+export const ensureProductionArtifacts = (
+  requestedMode?: 'pure-rust' | 'rust' | 'typescript-oracle'
+) => {
   const mode = requestedMode ?? process.env.PDF_READER_ENGINE_MODE;
-  if (mode === 'pure-rust' || mode === 'rust') {
-    execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
-    if (!fs.existsSync(path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'))) {
-      throw new Error('missing staged Rust MCP server binary');
+  if (mode === 'typescript-oracle') {
+    execSync('bun run build:oracle-ts', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
+    if (!fs.existsSync(path.join(repoRoot, 'dist/index.js'))) {
+      throw new Error('missing dist/index.js — TypeScript oracle path not built');
     }
     return;
   }
-  execSync('bun run build', { cwd: repoRoot, stdio: 'pipe', timeout: 300_000 });
-  if (!fs.existsSync(path.join(repoRoot, 'dist/index.js'))) {
-    throw new Error('missing dist/index.js — TypeScript production path not built');
+  // Sole-Rust production path.
+  execSync('bun run build:package', { cwd: repoRoot, stdio: 'pipe', timeout: 120_000 });
+  execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 420_000 });
+  if (!fs.existsSync(path.join(repoRoot, 'dist/runtime-entry.js'))) {
+    throw new Error('missing dist/runtime-entry.js — sole-Rust launcher not built');
+  }
+  if (!resolveStagedRustBinary()) {
+    throw new Error('missing staged/release pure-Rust MCP server binary');
   }
 };
 
 export const productionEnv = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
   const env = { ...process.env, ...overrides };
-  // Default published path: do not force pure-rust
-  if (!overrides.PDF_READER_ENGINE_MODE) {
-    env.PDF_READER_ENGINE_MODE = undefined;
-  }
   env.NODE_ENV = env.NODE_ENV ?? 'test';
   env.MCP_TRANSPORT = env.MCP_TRANSPORT ?? 'stdio';
+  const rustBin = resolveStagedRustBinary();
+  if (rustBin && !env.PDF_READER_MCP_RUST_BIN) {
+    env.PDF_READER_MCP_RUST_BIN = rustBin;
+  }
+  // Sole-Rust production does not use TS engine mode flags.
+  if (!overrides.PDF_READER_ENGINE_MODE) {
+    delete env.PDF_READER_ENGINE_MODE;
+  }
   return env;
 };
 
@@ -80,7 +109,6 @@ export const readResponse = (proc: ChildProcess, timeoutMs = 45_000): Promise<Js
 
     const onData = (data: Buffer) => {
       buffer += data.toString();
-      // MCP SDK may use Content-Length framing or newline JSON.
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
       for (const line of lines) {
@@ -92,7 +120,6 @@ export const readResponse = (proc: ChildProcess, timeoutMs = 45_000): Promise<Js
         ) {
           continue;
         }
-        // strip header body separator empties
         if (trimmed === '') continue;
         try {
           const msg = JSON.parse(trimmed) as JsonRpcResponse;
@@ -126,15 +153,15 @@ export const readResponse = (proc: ChildProcess, timeoutMs = 45_000): Promise<Js
 
 export const spawnProductionMcp = (envOverrides: NodeJS.ProcessEnv = {}): ChildProcess => {
   const mode = envOverrides.PDF_READER_ENGINE_MODE ?? process.env.PDF_READER_ENGINE_MODE;
-  if (mode === 'pure-rust' || mode === 'rust') {
-    const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
-    return spawn(binWrapper, [], {
+  if (mode === 'typescript-oracle') {
+    return spawn(process.execPath, [path.join(repoRoot, 'dist/index.js')], {
       cwd: repoRoot,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: productionEnv({ ...envOverrides, PDF_READER_ENGINE_MODE: 'pure-rust' }),
+      env: productionEnv(envOverrides),
     });
   }
-  return spawn(process.execPath, [path.join(repoRoot, 'dist/index.js')], {
+  // Sole-Rust production entry.
+  return spawn(process.execPath, [path.join(repoRoot, 'dist/runtime-entry.js')], {
     cwd: repoRoot,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: productionEnv(envOverrides),
@@ -202,9 +229,6 @@ export const parseToolPayload = (
       structured: result.structuredContent,
     };
   }
-  const text = (result.content ?? [])
-    .filter((part) => part.type === 'text' || part.text)
-    .map((part) => part.text ?? '')
-    .join('\n');
+  const text = (result.content ?? []).map((part) => part.text ?? '').join('\n');
   return { isError: false, text };
 };
