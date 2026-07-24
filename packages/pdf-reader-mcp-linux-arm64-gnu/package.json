@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp-linux-arm64-gnu",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Optional pure-Rust MCP server binary for linux-arm64-gnu. Installed as an optionalDependency of @sylphx/pdf-reader-mcp sole-Rust production package.",
   "license": "MIT",
   "os": [

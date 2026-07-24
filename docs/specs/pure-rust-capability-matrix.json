@@ -3,8 +3,8 @@
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
   "updated": "2026-07-24",
   "productTruth": {
-    "publishedStable": "@sylphx/pdf-reader-mcp@4.0.0",
-    "publishedImplementation": "4.0.0 sole-Rust runtime cutover; production dependency closure incomplete until 4.0.1",
+    "publishedStable": "@sylphx/pdf-reader-mcp@4.0.1",
+    "publishedImplementation": "4.0.1 dependency-closure published; linux-x64-gnu@4.0.1 tarball missing on registry (metadata-only); emergency 4.0.2 republishes all natives",
     "pureRustStatus": "sole-rust-production-default",
     "optIn": "native optional package required; PDF_READER_MCP_RUST_BIN override allowed; no TS production path",
     "dropInFor3014": true,
@@ -26,7 +26,7 @@
       "win32-x64-msvc"
     ],
     "darwinX64RuntimeProof": "registry-install-proven-real-x86_64",
-    "correctiveRelease": "4.0.1-prod-dependency-closure",
+    "correctiveRelease": "4.0.2-linux-x64-gnu-tarball-repair",
     "githubRelease": "v4.0.0",
     "mcpRegistryStatus": "4.0.0-latest-active",
     "cratesStatus": "not-admitted-product-channel",
@@ -50,15 +50,15 @@
         "3.2.2"
       ]
     },
-    "candidateVersion": "4.0.1",
+    "candidateVersion": "4.0.2",
     "candidateImplementation": "sole-Rust thin launcher only; empty production dependency closure; no pdfjs-dist/MCP-TS-sdk/pngjs/zod in published install graph",
     "soleRustProduction": true,
     "typescriptProductionShipped": false,
     "typescriptExportRemoved": true,
     "historicalTypescriptLkg": "@sylphx/pdf-reader-mcp@3.0.14",
-    "semverTarget": "4.0.1",
+    "semverTarget": "4.0.2",
     "cratesAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
-    "transitionalNote": "4.0.0 cut over execution to sole-Rust but still declared TS/PDF.js production dependencies. 4.0.1 removes those production dependencies, isolates oracle TS build as test-only, and restores real multi-host proof standards. Performance marketing remains withheld until admissible same-host A/B shows material advantage. Historical TS LKG: @sylphx/pdf-reader-mcp@3.0.14. 3.2.2 remains transitional history (not Sole Rust).",
+    "transitionalNote": "4.0.1 removed production TS/PDF.js dependencies and is MCP/GitHub published, but @sylphx/pdf-reader-mcp-linux-x64-gnu@4.0.1 registry tarball returns 404 despite metadata. 4.0.2 is an emergency republish of all natives+main so Linux x64 installs resolve. Performance claims remain withheld. Goal complete remains false until five-host registry proof on a fully installable release and admissible performance evidence.",
     "candidateHostRuntimeProof": {
       "status": "five-distinct-host-triples-proven-for-4.0.0-candidate",
       "candidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
@@ -412,11 +412,11 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Publish 4.0.1 from exact reviewed SHA d6780a3 (or pin-path-only descendant) via verified-candidate path",
-      "Run five-host registry install proof on published 4.0.1",
-      "Capture npm + MCP registry + GitHub Release multi-channel readback for 4.0.1",
-      "Complete admissible same-host TS 3.0.14 vs Rust A/B before any performance marketing",
-      "Do not claim goal complete until publish + multi-channel readback (and performance evidence if still required)"
+      "Publish 4.0.2 natives+main after independent exact-SHA review",
+      "Five-host registry install proof on published 4.0.2",
+      "Deprecate or document 4.0.1 linux-x64-gnu tarball defect",
+      "Complete admissible same-host performance A/B before marketing claims",
+      "Goal complete only after multi-channel readback + performance evidence if required"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",

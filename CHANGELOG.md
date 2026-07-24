@@ -2,6 +2,15 @@
 
 ## 4.0.0
 
+## 4.0.2
+
+### Patch: repair linux-x64-gnu native tarball
+
+- Emergency republish of all optional natives + main after `@sylphx/pdf-reader-mcp-linux-x64-gnu@4.0.1` registry metadata existed but tarball returned 404.
+- Same sole-Rust dependency-closure content as 4.0.1 (`dependencies: {}`).
+- Performance marketing remains withheld; goal complete remains unauthorized until full install proofs.
+
+
 ## 4.0.1
 
 ### Patch: production dependency closure + docs honesty
