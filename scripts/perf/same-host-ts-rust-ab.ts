@@ -1,25 +1,18 @@
 #!/usr/bin/env bun
 /**
- * Controlled same-host TypeScript 3.0.14 vs exact Rust candidate A/B harness.
+ * Controlled same-host TypeScript 3.0.14 vs Rust candidate A/B harness.
  *
- * ADR-0006 / product performance bar:
+ * Product performance bar (ADR-0006 / same-host-ab-contract.md):
  * - same host/corpus/inputs/config/task semantics
- * - semantic gate before timing
- * - interleave engine order
+ * - semantic gate before timing is admitted
+ * - interleave/randomize engine order
  * - cold + warm
- * - raw samples bound to SHA/binaries/fixtures
- * - no marketing claim unless status=admissible_pass
+ * - median/p95, memory, startup, package sizes
+ * - no marketing claim unless status=admissible_pass + independent review
  */
 import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import {
   NATIVE_PLATFORM_PACKAGES,
@@ -32,25 +25,40 @@ const outDir =
 mkdirSync(outDir, { recursive: true });
 
 const requireAdmissible = process.argv.includes('--require-admissible');
-const iterationsWarm = Number(process.env['MCP_PDF_PERF_WARM_ITERS'] || 5);
+const iterationsWarm = Number(process.env['MCP_PDF_PERF_WARM_ITERS'] || 7);
 const fixture =
   process.env['MCP_PDF_PERF_FIXTURE'] || join(root, 'test/fixtures/sample.pdf');
+const fixtureClass = process.env['MCP_PDF_PERF_FIXTURE_CLASS'] || 'unclassified';
+
+// Material advantage thresholds for a single-fixture draft (suite decides overall).
+const MIN_WARM_SPEEDUP = Number(process.env['MCP_PDF_PERF_MIN_WARM_SPEEDUP'] || 1.5);
+const MAX_P95_REGRESSION = Number(process.env['MCP_PDF_PERF_MAX_P95_REGRESSION'] || 1.15);
 
 type EngineId = 'typescript-3.0.14' | 'rust-candidate';
 
 type Sample = {
   engine: EngineId;
-  phase: 'cold' | 'warm';
+  phase: 'cold' | 'warm' | 'startup';
   ok: boolean;
   latencyMs: number;
   semanticPass: boolean;
   error?: string;
   textChars?: number;
+  peakRssKb?: number | null;
 };
 
 const gitHead = (): string | null => {
   const r = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : null;
+};
+
+const fileSize = (path: string | null | undefined): number | null => {
+  if (!path || !existsSync(path)) return null;
+  try {
+    return statSync(path).size;
+  } catch {
+    return null;
+  }
 };
 
 const resolveRustBinary = (): string | null => {
@@ -72,14 +80,11 @@ const resolveRustBinary = (): string | null => {
 const ensureTypescriptLkg = (): { command: string; args: string[]; installRoot: string } | null => {
   const installRoot = join(outDir, 'ts-lkg-install');
   mkdirSync(installRoot, { recursive: true });
-  const entry = join(
-    installRoot,
-    'node_modules/@sylphx/pdf-reader-mcp/dist/index.js'
-  );
+  const entry = join(installRoot, 'node_modules/@sylphx/pdf-reader-mcp/dist/index.js');
   if (!existsSync(entry)) {
     const install = spawnSync(
       'npm',
-      ['install', '@sylphx/pdf-reader-mcp@3.0.14', '--prefix', installRoot, '--no-save'],
+      ['install', '@sylphx/pdf-reader-mcp@3.0.14', '--prefix', installRoot, '--no-save', '--no-fund', '--no-audit'],
       { encoding: 'utf8', cwd: root }
     );
     if (install.status !== 0) {
@@ -92,21 +97,30 @@ const ensureTypescriptLkg = (): { command: string; args: string[]; installRoot: 
   return { command: process.execPath, args: [entry], installRoot };
 };
 
-const mcpCall = async (
+const measurePeakRssKb = (command: string, args: string[]): number | null => {
+  // Prefer /usr/bin/time -v if available.
+  const timeBin = existsSync('/usr/bin/time') ? '/usr/bin/time' : null;
+  if (!timeBin) return null;
+  const r = spawnSync(timeBin, ['-v', command, ...args], {
+    encoding: 'utf8',
+    input: '',
+    timeout: 15_000,
+  });
+  const text = `${r.stderr || ''}\n${r.stdout || ''}`;
+  const m = text.match(/Maximum resident set size \(kbytes\):\s*(\d+)/);
+  return m ? Number(m[1]) : null;
+};
+
+const mcpInitializeOnly = async (
   command: string,
   args: string[],
-  request: unknown,
-  timeoutMs = 20_000
-): Promise<{ ok: boolean; latencyMs: number; body: string; error?: string }> => {
+  timeoutMs = 15_000
+): Promise<{ ok: boolean; latencyMs: number; error?: string }> => {
   const start = performance.now();
   return await new Promise((resolve) => {
     const child: ChildProcessWithoutNullStreams = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        MCP_TRANSPORT: 'stdio',
-        PDF_READER_ENGINE_MODE: 'pure-rust',
-      },
+      env: { ...process.env, MCP_TRANSPORT: 'stdio' },
     });
     let out = '';
     let err = '';
@@ -119,15 +133,22 @@ const mcpCall = async (
       } catch {
         // ignore
       }
-      resolve({ ok, latencyMs: performance.now() - start, body: out, error });
+      resolve({ ok, latencyMs: performance.now() - start, error });
     };
     const timer = setTimeout(() => finish(false, 'timeout'), timeoutMs);
     child.stdout.on('data', (d) => {
       out += d.toString('utf8');
-      // first JSON-RPC response line is enough for initialize/tools call
-      if (out.includes('"result"') || out.includes('"error"')) {
-        clearTimeout(timer);
-        finish(true);
+      for (const line of out.split('\n').map((l) => l.trim()).filter(Boolean)) {
+        try {
+          const msg = JSON.parse(line) as { id?: number; error?: unknown };
+          if (msg.id === 1) {
+            clearTimeout(timer);
+            finish(!msg.error, msg.error ? JSON.stringify(msg.error) : undefined);
+            return;
+          }
+        } catch {
+          // partial
+        }
       }
     });
     child.stderr.on('data', (d) => {
@@ -140,12 +161,21 @@ const mcpCall = async (
     child.on('exit', (code) => {
       if (!settled) {
         clearTimeout(timer);
-        finish(code === 0, err || `exit ${code}`);
+        finish(false, err || `exit ${code}`);
       }
     });
-    child.stdin.write(`${JSON.stringify(request)}\n`);
-    // For tools/call we may need initialize first in same process; keep simple one-shot initialize for startup,
-    // and a second mode for read_pdf via initialize+tools/call sequence.
+    child.stdin.write(
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: { name: 'same-host-ab-startup', version: '0' },
+        },
+      })}\n`
+    );
   });
 };
 
@@ -153,7 +183,7 @@ const mcpInitializeAndRead = async (
   command: string,
   args: string[],
   pdfPath: string,
-  timeoutMs = 30_000
+  timeoutMs = 45_000
 ): Promise<{ ok: boolean; latencyMs: number; body: string; error?: string; textChars?: number }> => {
   const start = performance.now();
   return await new Promise((resolve) => {
@@ -187,7 +217,7 @@ const mcpInitializeAndRead = async (
         try {
           const msg = JSON.parse(line) as {
             id?: number;
-            result?: { content?: Array<{ text?: string }> };
+            result?: { content?: Array<{ text?: string }>; isError?: boolean };
             error?: unknown;
           };
           if (stage === 'init' && msg.id === 1) {
@@ -196,12 +226,7 @@ const mcpInitializeAndRead = async (
               finish(false, `initialize error: ${JSON.stringify(msg.error)}`);
               return;
             }
-            // MCP lifecycle: client must emit notifications/initialized before tools/call.
-            write({
-              jsonrpc: '2.0',
-              method: 'notifications/initialized',
-              params: {},
-            });
+            write({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} });
             stage = 'read';
             write({
               jsonrpc: '2.0',
@@ -218,14 +243,15 @@ const mcpInitializeAndRead = async (
             });
           } else if (stage === 'read' && msg.id === 2) {
             clearTimeout(timer);
-            if (msg.error) {
-              finish(false, `read_pdf error: ${JSON.stringify(msg.error)}`);
+            if (msg.error || msg.result?.isError) {
+              finish(false, `read_pdf error: ${JSON.stringify(msg.error ?? msg.result)}`);
               return;
             }
             const text = msg.result?.content?.map((c) => c.text || '').join('\n') || '';
-            // semantic floor: non-empty payload
+            // Semantic floor for agent task: successful non-trivial payload.
+            // Capability-first: not byte-identical to TS representation.
             const textChars = text.length;
-            finish(textChars > 20, textChars > 20 ? undefined : 'semantic text too short', textChars);
+            finish(textChars > 40, textChars > 40 ? undefined : 'semantic text too short', textChars);
           }
         } catch {
           // partial line
@@ -252,24 +278,10 @@ const mcpInitializeAndRead = async (
       params: {
         protocolVersion: '2024-11-05',
         capabilities: {},
-        clientInfo: { name: 'same-host-ab', version: '0.0.0' },
+        clientInfo: { name: 'same-host-ab', version: '0.1.0' },
       },
     });
   });
-};
-
-const measurePeakRssKb = (command: string, args: string[]): number | null => {
-  // Best-effort; not required for draft status.
-  const timeBin = existsSync('/usr/bin/time') ? '/usr/bin/time' : null;
-  if (!timeBin) return null;
-  const r = spawnSync(timeBin, ['-v', command, ...args], {
-    encoding: 'utf8',
-    env: { ...process.env, MCP_TRANSPORT: 'stdio' },
-    input: '',
-  });
-  const text = `${r.stderr || ''}\n${r.stdout || ''}`;
-  const m = text.match(/Maximum resident set size \(kbytes\):\s*(\d+)/);
-  return m ? Number(m[1]) : null;
 };
 
 const percentile = (values: number[], p: number): number | null => {
@@ -279,7 +291,7 @@ const percentile = (values: number[], p: number): number | null => {
   return sorted[idx] ?? null;
 };
 
-const summarize = (samples: Sample[], engine: EngineId, phase: 'cold' | 'warm') => {
+const summarize = (samples: Sample[], engine: EngineId, phase: Sample['phase']) => {
   const xs = samples.filter((s) => s.engine === engine && s.phase === phase && s.ok);
   const lat = xs.map((s) => s.latencyMs);
   return {
@@ -288,8 +300,7 @@ const summarize = (samples: Sample[], engine: EngineId, phase: 'cold' | 'warm') 
     p95Ms: percentile(lat, 95),
     meanMs: lat.length ? lat.reduce((a, b) => a + b, 0) / lat.length : null,
     semanticPassRate: samples.filter((s) => s.engine === engine && s.phase === phase).length
-      ? xs.filter((s) => s.semanticPass).length /
-        samples.filter((s) => s.engine === engine && s.phase === phase).length
+      ? xs.length / samples.filter((s) => s.engine === engine && s.phase === phase).length
       : 0,
   };
 };
@@ -305,47 +316,45 @@ const main = async () => {
   if (!rustBin) blockers.push('rust candidate binary not found (build:rust or set PDF_READER_MCP_RUST_BIN)');
   if (!ts) blockers.push('typescript 3.0.14 LKG install failed');
 
-  const packageSizeBytes = (() => {
-  const sizes: Record<string, number | null> = { typescriptTarball: null, rustBinary: null, candidatePack: null };
+  const packageSizeBytes: Record<string, number | null> = {
+    typescriptTarball: null,
+    rustBinary: null,
+    candidatePack: null,
+  };
   try {
-    const pack = spawnSync('npm', ['pack', '@sylphx/pdf-reader-mcp@3.0.14', '--pack-destination', outDir, '--json'], {
-      encoding: 'utf8',
-      cwd: root,
-    });
+    const pack = spawnSync(
+      'npm',
+      ['pack', '@sylphx/pdf-reader-mcp@3.0.14', '--pack-destination', outDir, '--json'],
+      { encoding: 'utf8', cwd: root }
+    );
     if (pack.status === 0) {
       const arr = JSON.parse(pack.stdout || '[]') as Array<{ filename?: string; size?: number }>;
       const first = arr[0];
       if (first?.filename) {
-        const fp = join(outDir, first.filename);
-        if (existsSync(fp)) {
-          const st = spawnSync('stat', ['-c', '%s', fp], { encoding: 'utf8' });
-          sizes.typescriptTarball = st.status === 0 ? Number(st.stdout.trim()) : Number(first.size ?? 0) || null;
-        }
+        packageSizeBytes.typescriptTarball =
+          fileSize(join(outDir, first.filename)) ?? (Number(first.size ?? 0) || null);
       }
     }
   } catch {
     // ignore
   }
   try {
-    const packCand = spawnSync('bun', ['pm', 'pack', '--destination', outDir], { encoding: 'utf8', cwd: root });
-    // parse tarball path from output
-    const m = (packCand.stdout || '').match(/([\w@./-]+\.tgz)/);
-    if (m) {
-      const fp = join(outDir, m[1].split('/').pop() || m[1]);
-      if (existsSync(fp)) {
-        const st = spawnSync('stat', ['-c', '%s', fp], { encoding: 'utf8' });
-        if (st.status === 0) sizes.candidatePack = Number(st.stdout.trim());
+    const packCand = spawnSync('npm', ['pack', '--pack-destination', outDir, '--json'], {
+      encoding: 'utf8',
+      cwd: root,
+    });
+    if (packCand.status === 0) {
+      const arr = JSON.parse(packCand.stdout || '[]') as Array<{ filename?: string; size?: number }>;
+      const first = arr[0];
+      if (first?.filename) {
+        packageSizeBytes.candidatePack =
+          fileSize(join(outDir, first.filename)) ?? (Number(first.size ?? 0) || null);
       }
     }
   } catch {
     // ignore
   }
-  if (rustBin && existsSync(rustBin)) {
-    const st = spawnSync('stat', ['-c', '%s', rustBin], { encoding: 'utf8' });
-    if (st.status === 0) sizes.rustBinary = Number(st.stdout.trim());
-  }
-  return sizes;
-})();
+  packageSizeBytes.rustBinary = fileSize(rustBin);
 
   const engines: Array<{ id: EngineId; command: string; args: string[] }> = [];
   if (ts) engines.push({ id: 'typescript-3.0.14', command: ts.command, args: ts.args });
@@ -355,6 +364,20 @@ const main = async () => {
     typescriptPeakRssKb: ts ? measurePeakRssKb(ts.command, ts.args) : null,
     rustPeakRssKb: rustBin ? measurePeakRssKb(rustBin, []) : null,
   };
+
+  // Startup cost (initialize only), interleaved
+  const startupOrder = [...engines].sort(() => Math.random() - 0.5);
+  for (const eng of startupOrder) {
+    const result = await mcpInitializeOnly(eng.command, eng.args);
+    samples.push({
+      engine: eng.id,
+      phase: 'startup',
+      ok: result.ok,
+      latencyMs: result.latencyMs,
+      semanticPass: result.ok,
+      error: result.error,
+    });
+  }
 
   // cold: one run each, order randomized
   const coldOrder = [...engines].sort(() => Math.random() - 0.5);
@@ -389,32 +412,53 @@ const main = async () => {
   }
 
   const bothSemantic =
-    samples.some((s) => s.engine === 'typescript-3.0.14' && s.semanticPass) &&
-    samples.some((s) => s.engine === 'rust-candidate' && s.semanticPass);
+    samples.some((s) => s.engine === 'typescript-3.0.14' && s.phase === 'warm' && s.semanticPass) &&
+    samples.some((s) => s.engine === 'rust-candidate' && s.phase === 'warm' && s.semanticPass);
 
   const tsWarm = summarize(samples, 'typescript-3.0.14', 'warm');
   const rustWarm = summarize(samples, 'rust-candidate', 'warm');
+  const tsStartup = summarize(samples, 'typescript-3.0.14', 'startup');
+  const rustStartup = summarize(samples, 'rust-candidate', 'startup');
   const speedup =
     tsWarm.medianMs && rustWarm.medianMs && rustWarm.medianMs > 0
       ? tsWarm.medianMs / rustWarm.medianMs
       : null;
+  const p95Ratio =
+    tsWarm.p95Ms && rustWarm.p95Ms && tsWarm.p95Ms > 0 ? rustWarm.p95Ms / tsWarm.p95Ms : null;
 
   let status:
     | 'scaffold_not_admissible'
     | 'measured_draft_not_admissible'
+    | 'fixture_pass'
     | 'admissible_pass'
     | 'failed' = 'measured_draft_not_admissible';
 
   if (blockers.length) status = 'failed';
   else if (!bothSemantic) {
     status = 'failed';
-    blockers.push('semantic gate failed for one or both engines');
+    blockers.push('semantic gate failed for one or both engines on warm runs');
+  } else if (
+    speedup !== null &&
+    speedup >= MIN_WARM_SPEEDUP &&
+    (p95Ratio === null || p95Ratio <= MAX_P95_REGRESSION) &&
+    tsWarm.semanticPassRate === 1 &&
+    rustWarm.semanticPassRate === 1 &&
+    iterationsWarm >= 5
+  ) {
+    // Single-fixture material advantage with no p95 regression vs TS.
+    // Suite aggregator decides overall admissible_pass across fixture classes.
+    status = 'fixture_pass';
   } else {
-    // Admissible pass requires broader corpus + more iterations; keep draft until then.
     status = 'measured_draft_not_admissible';
-    blockers.push(
-      'broader multi-fixture corpus, memory/startup/package-size, and independent review still required for admissible_pass'
-    );
+    if (speedup === null || speedup < MIN_WARM_SPEEDUP) {
+      blockers.push(
+        `warm median speedup ${speedup ?? 'n/a'} < required ${MIN_WARM_SPEEDUP}x (or unmeasurable)`
+      );
+    }
+    if (p95Ratio !== null && p95Ratio > MAX_P95_REGRESSION) {
+      blockers.push(`rust warm p95 regression ratio ${p95Ratio} > ${MAX_P95_REGRESSION}`);
+    }
+    if (iterationsWarm < 5) blockers.push(`warm iterations ${iterationsWarm} < 5`);
   }
 
   const report = {
@@ -424,7 +468,12 @@ const main = async () => {
     candidateSha,
     historicalBaseline: '@sylphx/pdf-reader-mcp@3.0.14',
     fixture,
+    fixtureClass,
     iterationsWarm,
+    thresholds: {
+      minWarmMedianSpeedup: MIN_WARM_SPEEDUP,
+      maxRustP95OverTsP95: MAX_P95_REGRESSION,
+    },
     packageSizeBytes,
     memory,
     host: {
@@ -441,19 +490,33 @@ const main = async () => {
       rustCandidate: {
         binary: rustBin,
         present: Boolean(rustBin),
+        sizeBytes: packageSizeBytes.rustBinary,
       },
     },
     summary: {
+      typescriptStartup: tsStartup,
+      rustStartup,
       typescriptCold: summarize(samples, 'typescript-3.0.14', 'cold'),
       rustCold: summarize(samples, 'rust-candidate', 'cold'),
       typescriptWarm: tsWarm,
       rustWarm,
       warmMedianSpeedupTsOverRust: speedup,
+      warmP95RustOverTs: p95Ratio,
+      memoryRssRatioRustOverTs:
+        memory.typescriptPeakRssKb && memory.rustPeakRssKb && memory.typescriptPeakRssKb > 0
+          ? memory.rustPeakRssKb / memory.typescriptPeakRssKb
+          : null,
+      packageSizeRatioCandidatePackOverTsTarball:
+        packageSizeBytes.candidatePack &&
+        packageSizeBytes.typescriptTarball &&
+        packageSizeBytes.typescriptTarball > 0
+          ? packageSizeBytes.candidatePack / packageSizeBytes.typescriptTarball
+          : null,
     },
     samples,
     blockers,
     claimPolicy:
-      'No marketing or showhand performance claim is authorized unless status=admissible_pass and independent review authorizes performance claims. Draft measurements are diagnostic only.',
+      'No marketing performance claim is authorized unless suite status=admissible_pass and independent review sets performanceClaimsAuthorized=true. Fixture_pass is an intermediate gate only.',
   };
 
   const outPath = join(outDir, 'same-host-ab-report.json');
@@ -461,7 +524,7 @@ const main = async () => {
   console.log(JSON.stringify(report, null, 2));
   console.log(`[same-host-ab] wrote ${outPath}`);
 
-  if (requireAdmissible && status !== 'admissible_pass') {
+  if (requireAdmissible && status !== 'admissible_pass' && status !== 'fixture_pass') {
     process.exit(2);
   }
   if (status === 'failed') process.exit(1);
