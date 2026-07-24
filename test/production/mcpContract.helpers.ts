@@ -62,9 +62,14 @@ export const ensureProductionArtifacts = (
     }
     return;
   }
-  // Sole-Rust production path.
-  execSync('bun run build:package', { cwd: repoRoot, stdio: 'pipe', timeout: 120_000 });
-  execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 420_000 });
+  // Sole-Rust production path. Reuse existing release binary when present to avoid
+  // multi-suite rebuild thrash in CI (test:cov runs many production suites).
+  if (!fs.existsSync(path.join(repoRoot, 'dist/runtime-entry.js'))) {
+    execSync('bun run build:package', { cwd: repoRoot, stdio: 'pipe', timeout: 120_000 });
+  }
+  if (!resolveStagedRustBinary()) {
+    execSync('bun run build:rust', { cwd: repoRoot, stdio: 'pipe', timeout: 420_000 });
+  }
   if (!fs.existsSync(path.join(repoRoot, 'dist/runtime-entry.js'))) {
     throw new Error('missing dist/runtime-entry.js — sole-Rust launcher not built');
   }
