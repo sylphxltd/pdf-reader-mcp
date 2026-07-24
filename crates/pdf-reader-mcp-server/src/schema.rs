@@ -7,6 +7,15 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+fn option_bool_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    // Keep Option semantics (nullable) while guaranteeing a boolean type keyword for tools/list.
+    serde_json::from_value(serde_json::json!({
+        "type": ["boolean", "null"]
+    }))
+    .expect("option bool schema")
+}
+
+
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct PageNumber(#[schemars(range(min = 1))] pub u32);
@@ -163,6 +172,10 @@ pub struct SearchPdfArgs {
     pub context_chars: Option<u32>,
     /// When true, match the current TS prefer_speed route: omit match geometry and
     /// emit the rust-text-index speed-route warning (ignored when OCR is enabled).
+    #[schemars(
+        description = "Prefer faster text-index search (omit match geometry; ignored when OCR is enabled).",
+        schema_with = "option_bool_schema"
+    )]
     pub prefer_speed: Option<bool>,
 }
 
