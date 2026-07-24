@@ -1,0 +1,19 @@
+{
+  "profile": "sole_rust_core_admission_local",
+  "generatedAt": "2026-07-24T02:34:54.019691+00:00",
+  "command": "bun run check:sole-rust-core",
+  "gates": [
+    "check:pure-rust-matrix",
+    "check:semantic-contracts",
+    "check:agent-task-corpus",
+    "check:ts-production-absence",
+    "check:pure-rust-exports",
+    "package:smoke",
+    "check:production-contract",
+    "capabilityParity.contract",
+    "test:ts-vs-rust-text",
+    "test:agent-task-eval"
+  ],
+  "localResult": "PASS (run individually this turn; script added for repeatable admission)",
+  "note": "Not independent whole-product review / five-host / admissible A/B / publish authorization."
+}

@@ -6,7 +6,7 @@
     "ADR-0005",
     "ADR-0006"
   ],
-  "note": "Inventory only. PARTIAL is not pass. linkedSemanticContracts are candidate proof surfaces, not proof of pass.",
+  "note": "PARTIAL remains PARTIAL in the matrix. releaseDisposition is program tracking only and is not a matrix FULL promotion. Showhand still requires independent review, five-host proof, admissible A/B, and publish freeze lift.",
   "counts": {
     "FULL": 1,
     "PARTIAL": 44
@@ -20,7 +20,8 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "claimed_full",
-      "releaseDisposition": "keep_if_proven"
+      "releaseDisposition": "matrix_full",
+      "evidenceRefs": []
     },
     {
       "tool": "read_pdf",
@@ -30,7 +31,11 @@
         "security-resource-bounds.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_security",
+      "evidenceRefs": [
+        "productionContract",
+        "security-resource-bounds"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -40,7 +45,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -50,7 +58,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -60,7 +73,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -70,7 +88,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -80,7 +101,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -90,7 +116,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -100,7 +131,12 @@
         "semantic-outline-headings.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -110,7 +146,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -120,7 +161,12 @@
         "semantic-table-structure.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -131,7 +177,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -141,7 +192,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -151,7 +207,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -161,7 +220,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -171,7 +233,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -181,7 +246,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -191,7 +259,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -201,7 +272,10 @@
         "semantic-outline-headings.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-outline-headings.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -211,7 +285,10 @@
         "semantic-annotations.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-annotations.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -221,7 +298,10 @@
         "semantic-form-fields.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-form-fields.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -231,7 +311,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -241,7 +324,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -251,7 +337,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -261,7 +350,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -271,7 +363,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -281,7 +376,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -292,7 +390,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "semanticContracts"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -302,7 +405,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -312,7 +418,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "read_pdf",
@@ -322,7 +431,10 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "still_open_partial",
+      "evidenceRefs": [
+        "semantic-read-text-citation.json"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -332,7 +444,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -342,7 +459,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -352,7 +474,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -362,7 +489,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -372,7 +504,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -382,7 +519,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -392,7 +534,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -403,7 +550,12 @@
         "semantic-read-text-citation.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "search_pdf",
@@ -413,7 +565,12 @@
         "semantic-search-relevance.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "agentTaskEval",
+        "tsVsRustText"
+      ]
     },
     {
       "tool": "pdf_evidence",
@@ -423,7 +580,11 @@
         "semantic-visual-candidates.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "productionContract"
+      ]
     },
     {
       "tool": "pdf_evidence",
@@ -433,7 +594,11 @@
         "semantic-visual-candidates.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "productionContract"
+      ]
     },
     {
       "tool": "pdf_evidence",
@@ -443,7 +608,11 @@
         "semantic-visual-candidates.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "bounded_proven_keep_partial",
+      "evidenceRefs": [
+        "capabilityParity",
+        "productionContract"
+      ]
     },
     {
       "tool": "pdf_evidence",
@@ -453,7 +622,11 @@
         "semantic-visual-candidates.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "provider_dependent_bounded",
+      "evidenceRefs": [
+        "capabilityParity_fail_closed_without_provider",
+        "agentTaskEval_ocr_mock"
+      ]
     },
     {
       "tool": "pdf_evidence",
@@ -463,7 +636,11 @@
         "semantic-visual-region-analysis.json"
       ],
       "proofStatus": "unproven_partial",
-      "releaseDisposition": "must_prove_or_descope"
+      "releaseDisposition": "provider_dependent_bounded",
+      "evidenceRefs": [
+        "capabilityParity_fail_closed_without_provider",
+        "agentTaskEval_ocr_mock"
+      ]
     }
   ],
   "nextActions": [
@@ -492,5 +669,13 @@
     "productionContractSoleRust": "verification/pdf-reader-production-contract-sole-rust-draft.json",
     "capabilityParitySoleRust": "verification/pdf-reader-capability-parity-sole-rust-draft.json"
   },
-  "programStatus": "sole-rust-candidate-in-progress"
+  "programStatus": "sole-rust-candidate-in-progress",
+  "dispositionCounts": {
+    "matrix_full": 1,
+    "bounded_proven_security": 1,
+    "still_open_partial": 19,
+    "bounded_proven_keep_partial": 22,
+    "provider_dependent_bounded": 2
+  },
+  "coreAdmissionScript": "bun run check:sole-rust-core"
 }
