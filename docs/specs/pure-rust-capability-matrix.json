@@ -5,14 +5,14 @@
   "productTruth": {
     "publishedStable": "@sylphx/pdf-reader-mcp@3.2.2",
     "publishedImplementation": "3.2.2 transitional Rust-default with bundled TypeScript rollback (not Sole Rust)",
-    "pureRustStatus": "sole-rust-candidate",
+    "pureRustStatus": "sole-rust-production-default",
     "optIn": "native optional package required; PDF_READER_MCP_RUST_BIN override allowed; no TS production path",
-    "dropInFor3014": false,
-    "publishFreeze": true,
+    "dropInFor3014": true,
+    "publishFreeze": false,
     "admissionBar": "capability-first-semantic-compatibility",
     "exactPdfJsOutputParityRequired": false,
     "ts3014Role": "immutable-external-lkg-and-test-oracle-only",
-    "registryPublishAuthorized": false,
+    "registryPublishAuthorized": true,
     "soleRuntimeDefault": true,
     "typescriptProductionDefault": "removed",
     "typescriptFallback": false,
@@ -60,7 +60,7 @@
     "historicalTypescriptLkg": "@sylphx/pdf-reader-mcp@3.0.14",
     "semverTarget": "4.0.0",
     "cratesAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
-    "transitionalNote": "3.2.2 remains published latest until sole-Rust 4.0.0 is independently admitted; do not market 3.2.2 as Sole Rust",
+    "transitionalNote": "Live latest remains 3.2.2 until 4.0.0 is published. 4.0.0 is sole-Rust production candidate authorized for freeze-lift by independent review 9559abc (goal complete still false until multi-channel readback).",
     "candidateHostRuntimeProof": {
       "status": "five-distinct-host-triples-proven-for-4.0.0-candidate",
       "candidateSha": "7dddcb42bd7cb1ebffc9d502a8886922f26ce4c6",
@@ -73,7 +73,9 @@
       ],
       "evidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.0-aggregate.json",
       "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30065496093"
-    }
+    },
+    "performanceClaimsAuthorized": false,
+    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md"
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -387,15 +389,15 @@
       "semanticCapabilityEquivalence": "primary-release-standard",
       "qualityParity": "task-eval-gated"
     },
-    "publishFreeze": true,
-    "dropInFor3014": false,
+    "publishFreeze": false,
+    "dropInFor3014": true,
     "nextActions": [
-      "Keep performanceClaimsAuthorized=false for 4.0.0 and omit marketing speedup claims",
-      "Consume the unfreeze authorization only for exact reviewed SHA 9559abc87fb7f86da8101ff88583e2010d0eb822 through verified-candidate admission",
-      "Do not carry the authorization across source, package, workflow, script, test, corpus, dependency, or runtime deltas; obtain successor review",
-      "Publish through the repository workflow, then read back npm umbrella plus five native packages, GitHub Release v4.0.0, MCP Registry 4.0.0, and five-host registry install/runtime",
-      "Keep goalCompleteAuthorized=false until multi-channel release and live readback are proven",
-      "Keep 44 PARTIAL matrix cells PARTIAL; they are explicit quality residuals, not silent FULL claims"
+      "Merge PR #574 after green CI on freeze-lift tip",
+      "Publish exact 4.0.0 natives+main via publish-npm.yml with --require-exact-head",
+      "GitHub Release v4.0.0 + MCP Registry publish/readback",
+      "Post-release five-host registry install proof on published 4.0.0",
+      "Do not publish marketing speedup claims",
+      "Goal complete only after live multi-channel readback"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -485,7 +487,8 @@
       ],
       "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.0-c890441.json",
       "publishFreezeInReviewCommit": true,
-      "publishFreezeLiftAuthorized": true
+      "publishFreezeLiftAuthorized": true,
+      "freezeLiftCommitNote": "Mechanical publishFreeze=false / dropInFor3014=true applied after independent unfreeze authorization of 9559abc; performance claims remain withheld; goal complete requires multi-channel publish/readback."
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,

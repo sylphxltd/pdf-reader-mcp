@@ -1,9 +1,10 @@
 # Changelog
 
-## 4.0.0 (candidate — not published)
+## 4.0.0
 
 ### Major Changes
 
+- **Freeze-lift authorized** by independent whole-product review (`review_pass_unfreeze_authorized_goal_incomplete`). Goal complete remains false until multi-channel publish/readback. **No marketing speedup claims.**
 - **Sole-Rust production package (ADR-0006):** remove public `./typescript` export and stop shipping TypeScript PDF runtime / PDF.js workers in the npm artifact. Default entry is thin native launcher only. Historical TypeScript LKG remains external `@sylphx/pdf-reader-mcp@3.0.14`.
 - **Publish freeze retained** until capability-first admission, same-host performance A/B, five real host proofs (incl. Darwin x64 on x86_64), and independent whole-product review authorize the exact candidate.
 - **crates.io** explicitly not an admitted product channel unless re-admitted by ADR.

@@ -12,8 +12,8 @@ The most-starred PDF MCP server on GitHub.
 
 > **Published latest (transitional): `@sylphx/pdf-reader-mcp@3.2.2`.**  
 > 3.2.2 is **Rust-default with bundled TypeScript rollback** — not Sole Rust.  
-> **In-repo candidate:** sole-Rust major **`4.0.0`** (ADR-0006): thin native launcher only; TypeScript PDF runtime removed from the production package.  
-> **Not published yet.** Keep `3.0.14` as immutable TypeScript LKG until 4.0.0 is independently admitted.  
+> **In-repo release candidate:** sole-Rust major **`4.0.0`** (ADR-0006): thin native launcher only; TypeScript PDF runtime removed from the production package.  
+> Freeze-lift authorized by independent review; live `latest` remains **3.2.2** until 4.0.0 publish/readback. Keep `3.0.14` as immutable TypeScript LKG. **No marketing speedup claims.**  
 > Versions `3.0.15`–`3.1.1` are **WITHDRAWN**. Admission bar is capability-first semantic compatibility (ADR-0005), not exact PDF.js JSON equality.
 
 [![GitHub stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=for-the-badge&logo=github)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)

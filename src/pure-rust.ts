@@ -23,8 +23,8 @@ export type { NativePlatformId };
 
 export const PURE_RUST_EXPORT = {
   status: 'sole-rust-production' as const,
-  dropInFor3014: false,
-  publishFreeze: true,
+  dropInFor3014: true,
+  publishFreeze: false,
   engineMode: 'pure-rust' as const,
   defaultPackageExport: './dist/runtime-entry.js',
   pureRustExport: './dist/pure-rust.js',

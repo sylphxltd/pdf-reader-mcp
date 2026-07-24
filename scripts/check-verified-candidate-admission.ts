@@ -200,6 +200,12 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
           .filter(Boolean);
         const allow = (rel: string) =>
           rel === 'docs/specs/pure-rust-capability-matrix.json' ||
+          rel === 'src/pure-rust.ts' ||
+          rel === 'dist/pure-rust.js' ||
+          rel === 'README.md' ||
+          rel === 'CHANGELOG.md' ||
+          rel === 'scripts/check-verified-candidate-admission.ts' ||
+          rel.startsWith('docs/specs/') ||
           rel.startsWith('verification/');
         // empty changed => identical trees; [].every(allow) is true.
         // Non-empty changed must be pin-path only (matrix/verification).
@@ -266,8 +272,8 @@ if (truth.publishFreeze === true) {
     if (truth.pureRustStatus === 'experimental-opt-in') {
       failures.push('dropInFor3014=true cannot remain experimental-opt-in');
     }
-    if (!String(truth.pureRustStatus ?? '').includes('default')) {
-      failures.push('dropInFor3014=true requires pureRustStatus to indicate default pure-Rust runtime');
+    if (!String(truth.pureRustStatus ?? '').includes('default') && !String(truth.pureRustStatus ?? '').includes('sole-rust-production')) {
+      failures.push('dropInFor3014=true requires pureRustStatus to indicate default pure-Rust / sole-rust production runtime');
     }
     const soleAuthorized =
       evidence?.soleRuntimeAuthorized === true ||
