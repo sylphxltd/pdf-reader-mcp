@@ -5,7 +5,7 @@ export default defineConfig({
   cleanUrls: true,
   title: 'PDF Reader MCP',
   description:
-    'The most-starred PDF MCP server. Stop agent hallucinations on PDFs with evidence-first Agent Document Twin extraction, tables, trust reports, and source proof for Claude, Cursor, and any MCP client.',
+    'Give your AI agent eyes for PDFs. Structured text, tables, OCR, visual evidence, and page-level citations — local-first native engine for Claude, Cursor, VS Code, and any MCP client.',
 
   appearance: 'dark',
   lastUpdated: true,
@@ -20,7 +20,7 @@ export default defineConfig({
     ['meta', { property: 'og:type', content: 'website' }],
     [
       'meta',
-      { property: 'og:title', content: 'PDF Reader MCP - Stop PDF Hallucinations for AI Agents' },
+      { property: 'og:title', content: 'PDF Reader MCP — Give your AI agent eyes for PDFs' },
     ],
     [
       'meta',

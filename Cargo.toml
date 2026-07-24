@@ -14,3 +14,17 @@ repository = "https://github.com/SylphxAI/pdf-reader-mcp"
 homepage = "https://github.com/SylphxAI/pdf-reader-mcp"
 authors = ["Sylphx <contact@sylphx.com>"]
 readme = "README.md"
+
+# Production binaries: smaller artifacts without requiring runtime downloads.
+# Keep debuginfo available via separate tooling/dSYM workflows in CI when needed.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[profile.release-with-debug]
+inherits = "release"
+strip = "none"
+debug = true
+

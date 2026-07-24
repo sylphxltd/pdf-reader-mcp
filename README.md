@@ -2,46 +2,47 @@
 
 # PDF Reader MCP
 
-**Evidence-first PDF intelligence for AI agents**
+### Give your AI agent eyes for PDFs.
 
-Read PDFs with page citations, tables, structure, OCR, and trust signals — not a plain text dump.
+Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** — locally, with one MCP server.
+
+Plain-text PDF tools make agents guess. **PDF Reader MCP gives them evidence.**
 
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
+[![stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=flat-square)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
 
 </div>
 
-## What it does
+## Why this exists
 
-`@sylphx/pdf-reader-mcp` turns PDFs into agent-usable evidence:
+Most PDF tools dump text. Agents then invent page numbers, miss tables, and cite the wrong cell.
 
-- Text and structure with page numbers and locations
-- Tables with cells and geometry
-- Search with snippets and page hits
-- Document map / AST for headings, lists, figures, reading order
-- OCR for scanned pages
-- Forms, annotations, attachments
-- Trust / accessibility signals when requested
-- Crops and renders for visual verification
+PDF Reader MCP returns an **Agent Document Twin**: markdown + structure + geometry + provenance your agent can actually trust.
 
-Version 4 uses a **native Rust engine** on supported platforms, launched by a thin Node wrapper.
+| Without evidence | With PDF Reader MCP |
+| --- | --- |
+| “The revenue was about $12M” | “Page 14, Table 3, cell (row 4, col 2) = `$12.4M`” |
+| Lost table structure | Rows, columns, cells, bounding boxes |
+| Scanned PDF becomes noise | OCR path with page-linked evidence |
+| Hidden text / prompt injection ignored | Trust signals when requested |
 
-## Install
+## Install (30 seconds)
 
 ```bash
 npm install -g @sylphx/pdf-reader-mcp
 ```
 
-Pin a version:
+Or pin the current release:
 
 ```bash
 npm install -g @sylphx/pdf-reader-mcp@4.0.2
 ```
 
-Optional native packages install automatically when available:
+One native binary is installed for **your** platform only (not all five).
 
-| Platform | Package |
+| Platform | Native package (auto optionalDependency) |
 | --- | --- |
 | macOS arm64 | `@sylphx/pdf-reader-mcp-darwin-arm64` |
 | macOS x64 | `@sylphx/pdf-reader-mcp-darwin-x64` |
@@ -49,35 +50,47 @@ Optional native packages install automatically when available:
 | Linux arm64 | `@sylphx/pdf-reader-mcp-linux-arm64-gnu` |
 | Windows x64 | `@sylphx/pdf-reader-mcp-win32-x64-msvc` |
 
-If the matching native package is missing, the server fails closed.
+Missing native package → **fail closed** (no silent engine switch).
 
 ## Quick start
+
+**Claude Code**
 
 ```bash
 claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
 ```
 
-Stdio:
+**Claude Desktop / Cursor / VS Code / any MCP client**
+
+```json
+{
+  "mcpServers": {
+    "pdf-reader": {
+      "command": "npx",
+      "args": ["@sylphx/pdf-reader-mcp"]
+    }
+  }
+}
+```
+
+**Stdio / HTTP**
 
 ```bash
 pdf-reader-mcp
-```
-
-HTTP:
-
-```bash
 MCP_TRANSPORT=http pdf-reader-mcp
 ```
 
-## Tools
+## What you get
 
-| Tool | Purpose |
+Three tools. One product surface.
+
+| Tool | What agents use it for |
 | --- | --- |
-| `read_pdf` | Read pages/regions: markdown, tables, OCR, structure, evidence |
-| `search_pdf` | Find matches with page + snippet context |
-| `pdf_evidence` | Inspect evidence, crops, renders, related operations |
+| `read_pdf` | Smart default: markdown, tables, structure, OCR, citations |
+| `search_pdf` | Find page + snippet matches before deep reading |
+| `pdf_evidence` | Crops, renders, inspect, focused evidence ops |
 
-Minimal `read_pdf` call:
+Minimal call:
 
 ```json
 {
@@ -85,30 +98,52 @@ Minimal `read_pdf` call:
 }
 ```
 
-## Performance
+### Flagship use cases
 
-Current published measurements are **startup-inclusive end-to-end** (spawn server + initialize + one `read_pdf`), not steady-state latency of an already-running server.
+1. **Financial reports** — extract table cells agents can cite by page and geometry  
+2. **Research papers** — headings, reading order, page-level quotes  
+3. **Scanned documents** — OCR path with evidence, not a text soup  
 
-On a controlled same-host **linux-x64** run versus `@sylphx/pdf-reader-mcp@3.0.14` for page-1 `include_full_text`:
+## Install footprint (honest product comparison)
 
-- Preliminary suite reported large speedups on local fixtures
-- Formal product performance admission is being rebuilt with:
-  - separate startup vs persistent-server timings
-  - stronger semantic outcome checks
-  - capability-specific tasks (table/structure/search/geometry)
-  - registry-installed exact binaries and durable raw samples
+Compare **full clean installs**, not “JS wrapper tarball vs native executable”:
 
-Until that re-admission lands, treat public speed numbers as **preliminary**, not a universal product guarantee.
+| Metric (measured clean install, **linux-x64**) | Historical TS `3.0.14` | Sole-Rust `4.0.2` |
+| --- | ---: | ---: |
+| Main package on disk | ~403 KB | ~77 KB |
+| Full `node_modules` | ~82.3 MiB | **~24.4 MiB** (~3.4× smaller) |
+| Installed files | 4,101 | **20** (~205× fewer) |
+| Production npm dependency graph | PDF.js + MCP TS SDK + more | `{}` + **one** platform native |
 
-Details: [performance report](docs/specs/performance/4.0.2-same-host-performance-report.md) · [claims policy](docs/specs/performance/4.0.2-performance-claims-policy.md)
+The native binary is multi-megabyte because it **is** the PDF intelligence engine (parser, server, rendering/table/OCR routing). That is expected and still yields a **cleaner, smaller install** than shipping PDF.js + a JS dependency tree.
+
+Details: [installed footprint comparison](docs/specs/performance/installed-footprint-comparison.md)
+
+## Performance (bounded honesty)
+
+- Startup-inclusive measurements (spawn + initialize + task) show large gains on local fixtures vs TS `3.0.14`.
+- Steady-state warm `tools/call` performance is **being re-admitted** under a dual-mode harness (`startup_inclusive` vs `persistent_warm`).
+- Until that re-admission + independent authorization, **do not treat any single “Nx faster” number as a universal product guarantee**.
+
+## Engine note
+
+Version 4 runs a **native Rust engine** on supported platforms via a thin Node launcher.
+
+> Local-first. Five platforms. One clean install.
+
+Engineering history, recovery pins, and ADRs live under [docs/migration.md](docs/migration.md) — not the product pitch.
 
 ## Docs
 
-- [Comparison / capability overview](docs/comparison/index.md)
-- [Capability matrix](docs/specs/pure-rust-capability-matrix.json)
-- [Migration / recovery notes](docs/migration.md)
-- [ADR-0005](docs/adr/0005-capability-first-semantic-compatibility.md) · [ADR-0006](docs/adr/0006-sole-rust-production-and-channel-authority.md)
+- [Website / guide](https://sylphxai.github.io/pdf-reader-mcp/)
+- [Installation](docs/guide/installation.md)
+- [Comparison](docs/comparison/index.md)
+- [Migration / recovery (secondary)](docs/migration.md)
 
 ## License
 
 MIT
+
+---
+
+If this saves your agents from PDF hallucinations, **star the repo** and share a demo with your team.
