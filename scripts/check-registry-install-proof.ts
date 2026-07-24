@@ -35,6 +35,54 @@ const mode = process.argv.includes('--registry')
     : 'plan';
 
 const platformId = resolveNativePlatformId();
+
+const hostRuntimeFacts = () => {
+  const uname = spawnSync('uname', ['-m'], { encoding: 'utf8' });
+  const machine = (uname.status === 0 ? uname.stdout.trim() : '') || process.arch;
+  let rosettaTranslated: boolean | null = null;
+  if (process.platform === 'darwin') {
+    const translated = spawnSync('sysctl', ['-in', 'sysctl.proc_translated'], { encoding: 'utf8' });
+    if (translated.status === 0) {
+      rosettaTranslated = translated.stdout.trim() === '1';
+    }
+  }
+  return {
+    nodePlatform: process.platform,
+    nodeArch: process.arch,
+    unameMachine: machine,
+    rosettaTranslated,
+    resolvedPlatformId: platformId,
+  };
+};
+
+const hostMatchesPlatformId = (id: string | null): boolean => {
+  if (!id) return false;
+  const facts = hostRuntimeFacts();
+  const arch = facts.nodeArch;
+  const machine = facts.unameMachine;
+  if (id.startsWith('darwin-')) {
+    // Rosetta x86_64 userspace on Apple Silicon is not a Darwin x64 host proof.
+    if (facts.rosettaTranslated) return id.endsWith('arm64') ? false : false;
+    if (id.endsWith('arm64')) return arch === 'arm64' || machine === 'arm64';
+    if (id.endsWith('x64')) {
+      return (
+        !facts.rosettaTranslated &&
+        (arch === 'x64' || machine === 'x86_64') &&
+        arch !== 'arm64' &&
+        machine !== 'arm64'
+      );
+    }
+  }
+  if (id.startsWith('linux-')) {
+    if (id.includes('arm64')) return arch === 'arm64' || machine === 'aarch64' || machine === 'arm64';
+    if (id.includes('x64')) return arch === 'x64' || machine === 'x86_64';
+  }
+  if (id.startsWith('win32-')) {
+    return process.platform === 'win32' && (arch === 'x64' || machine === 'x86_64');
+  }
+  return false;
+};
+
 const versionArg = process.argv.find((arg) => arg.startsWith('--version='))?.slice('--version='.length);
 const skipInitialize = process.argv.includes('--install-only');
 const keepTemp = process.argv.includes('--keep-temp');
@@ -43,6 +91,8 @@ const plan = {
   profile: 'registry_install_proof',
   mode,
   hostPlatformId: platformId,
+  host: hostRuntimeFacts(),
+  hostMatchesResolvedPlatformId: hostMatchesPlatformId(platformId),
   requiredPlatforms: Object.keys(NATIVE_PLATFORM_PACKAGES),
   soleRuntimePrerequisite: [
     'productTruth.dropInFor3014=true',
@@ -210,6 +260,33 @@ if (!platformId) {
   fail(`unsupported host platform: ${process.platform}/${process.arch}`, 2);
 }
 
+const requiredPlatformId = process.env['PROOF_REQUIRE_PLATFORM_ID'] || '';
+if (requiredPlatformId) {
+  const facts = hostRuntimeFacts();
+  if (platformId !== requiredPlatformId || !hostMatchesPlatformId(requiredPlatformId)) {
+    console.log(
+      JSON.stringify(
+        {
+          profile: 'registry_install_proof',
+          mode,
+          pass: false,
+          runtimeProofValid: false,
+          requiredPlatformId,
+          host: facts,
+          resolvedPlatformId: platformId,
+          note: `Host runtime proof for ${requiredPlatformId} is unavailable on this runner (${facts.nodePlatform}/${facts.nodeArch}, uname=${facts.unameMachine}).`,
+        },
+        null,
+        2
+      )
+    );
+    fail(
+      `host does not provide runtime proof for required platform ${requiredPlatformId}; resolved=${platformId} arch=${facts.nodeArch}/${facts.unameMachine}`,
+      3
+    );
+  }
+}
+
 if (mode === 'local-pack') {
   const meta = NATIVE_PLATFORM_PACKAGES[platformId];
   const staged = join(root, 'packages', `pdf-reader-mcp-${platformId}`, 'bin', meta.binaryName);
@@ -231,20 +308,58 @@ if (mode === 'local-pack') {
       cwd: join(root, meta.packageDir),
       encoding: 'utf8',
     });
+    if (packNative.status !== 0) {
+      fail(packNative.stderr || packNative.stdout || 'npm pack native failed');
+    }
     const tarballs = `${packMain.stdout}\n${packNative.stdout || ''}`
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line.endsWith('.tgz'));
-    const result = {
-      ...plan,
-      mode: 'local-pack',
-      stagedBinary: staged,
-      tarballs,
-      note: 'Local pack proof only; not npm registry readback.',
-      pass: tarballs.length > 0 && existsSync(staged),
-    };
-    console.log(JSON.stringify(result, null, 2));
-    if (!result.pass) process.exit(1);
+    if (tarballs.length < 2) {
+      fail(`expected main+native tarballs, got: ${JSON.stringify(tarballs)}`);
+    }
+    const installRoot = mkdtempSync(join(tmpdir(), 'pdf-reader-local-install-'));
+    try {
+      const init = spawnSync('npm', ['init', '-y'], { cwd: installRoot, encoding: 'utf8' });
+      if (init.status !== 0) fail(init.stderr || 'npm init failed');
+      const tarballPaths = tarballs.map((name) => join(temp, name));
+      const install = spawnSync('npm', ['install', ...tarballPaths, '--no-fund', '--no-audit'], {
+        cwd: installRoot,
+        encoding: 'utf8',
+      });
+      if (install.status !== 0) {
+        fail(install.stderr || install.stdout || 'npm install local tarballs failed');
+      }
+      const nativeBinary = resolveNativeBinaryFromInstall(installRoot, platformId);
+      if (!nativeBinary) {
+        fail(`native binary missing after local tarball install for ${platformId}`);
+      }
+      let initialize:
+        | {
+            serverName: string;
+            serverVersion: string;
+          }
+        | undefined;
+      if (!skipInitialize) {
+        initialize = await mcpInitialize(nativeBinary, installRoot);
+      }
+      const result = {
+        ...plan,
+        mode: 'local-pack',
+        stagedBinary: staged,
+        tarballs,
+        nativeBinary,
+        initialize: initialize ?? null,
+        host: hostRuntimeFacts(),
+        hostMatchesResolvedPlatformId: hostMatchesPlatformId(platformId),
+        runtimeProofValid: hostMatchesPlatformId(platformId),
+        note: 'Local pack + install + pure-Rust MCP initialize on matching host. Not npm registry readback.',
+        pass: true,
+      };
+      console.log(JSON.stringify(result, null, 2));
+    } finally {
+      if (!keepTemp) rmSync(installRoot, { recursive: true, force: true });
+    }
   } finally {
     if (!keepTemp) rmSync(temp, { recursive: true, force: true });
   }
@@ -333,15 +448,20 @@ try {
         version: versionArg,
         installedPath: pkgDir,
         platformId,
+        host: hostRuntimeFacts(),
+        hostMatchesResolvedPlatformId: hostMatchesPlatformId(platformId),
         optionalPackage: meta.npmName,
         nativeBinary,
         initialize: initialize ?? null,
         defaultBin: mainPkg.bin?.['pdf-reader-mcp'] ?? null,
         pureRustExport: mainPkg.exports?.['./pure-rust'] ?? null,
         pass: true,
-        note: skipInitialize
-          ? 'Install + optional native binary presence only.'
-          : 'Registry install + optional native binary + pure-Rust MCP initialize succeeded on host platform.',
+        runtimeProofValid: hostMatchesPlatformId(platformId),
+        note: !hostMatchesPlatformId(platformId)
+          ? `Installed and executed native package for resolved host ${platformId}, but this does NOT prove a different matrix label if runner arch differs.`
+          : skipInitialize
+            ? 'Install + optional native binary presence only.'
+            : 'Registry install + optional native binary + pure-Rust MCP initialize succeeded on matching host platform.',
       },
       null,
       2

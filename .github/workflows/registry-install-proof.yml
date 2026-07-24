@@ -24,7 +24,9 @@ jobs:
     steps:
       - id: set
         run: |
-          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":"macos-14"},{"platformId":"darwin-x64","runner":"macos-14"},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
+          # darwin-x64 must run on a real x86_64 macOS host. Prefer macos-13 (Intel when available).
+          # If GitHub only provides arm64 there, the job fails closed as host-unverified (exit 3).
+          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":"macos-14"},{"platformId":"darwin-x64","runner":"macos-13"},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   proof:
@@ -57,13 +59,23 @@ jobs:
           set -euo pipefail
           VERSION="${PROOF_VERSION}"
           test -n "$VERSION"
-          echo "Proving @sylphx/pdf-reader-mcp@$VERSION on ${{ matrix.platformId }} / $(uname -s)-$(uname -m)"
-          # darwin-x64 job runs on arm64 runners; still install and prove host native package.
-          # The host triple decides which optional package npm installs.
+          echo "Proving @sylphx/pdf-reader-mcp@$VERSION on required=${{ matrix.platformId }} host=$(uname -s)-$(uname -m) node=$(node -p 'process.arch')"
+          export PROOF_REQUIRE_PLATFORM_ID="${{ matrix.platformId }}"
           bun scripts/check-registry-install-proof.ts --registry --version="$VERSION"
 
   pass:
     needs: proof
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - run: echo "five-platform registry install/runtime proof matrix completed"
+      - name: Require all proof jobs green
+        run: |
+          set -euo pipefail
+          # needs.proof.result is success only when all matrix legs succeed
+          echo "proof result=${{ needs.proof.result }}"
+          if [[ "${{ needs.proof.result }}" != "success" ]]; then
+            echo "One or more host runtime proof legs failed or were host-unverified."
+            echo "Darwin x64 requires a real x86_64 macOS runner (see docs/specs/host-runtime-proof-contract.md)."
+            exit 1
+          fi
+          echo "All configured host runtime proof legs passed with matching host architecture."

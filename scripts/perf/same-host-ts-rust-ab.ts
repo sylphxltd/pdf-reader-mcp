@@ -317,7 +317,10 @@ const main = async () => {
       const first = arr[0];
       if (first?.filename) {
         const fp = join(outDir, first.filename);
-        if (existsSync(fp)) sizes.typescriptTarball = Number(first.size ?? 0) || null;
+        if (existsSync(fp)) {
+          const st = spawnSync('stat', ['-c', '%s', fp], { encoding: 'utf8' });
+          sizes.typescriptTarball = st.status === 0 ? Number(st.stdout.trim()) : Number(first.size ?? 0) || null;
+        }
       }
     }
   } catch {

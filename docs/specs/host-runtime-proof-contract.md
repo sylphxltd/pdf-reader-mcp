@@ -27,3 +27,7 @@ bun run check:registry-install-proof -- --local-pack
 # multi-runner:
 gh workflow run registry-install-proof.yml -f version=<candidate>
 ```
+
+## Enforcement
+
+Set `PROOF_REQUIRE_PLATFORM_ID=<platformId>` so the proof script fails closed when the runner architecture cannot provide that host triple (including Rosetta-translated x86_64 on Apple Silicon).
