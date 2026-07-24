@@ -173,7 +173,9 @@ describe('package smoke', () => {
 
       const checks = await validateExtractedPackage(tempDir);
 
-      expect(checks.find((check) => check.id === 'runtime:default-bin-contract')?.status).toBe('failed');
+      expect(checks.find((check) => check.id === 'runtime:default-bin-contract')?.status).toBe(
+        'failed'
+      );
       expect(checks.find((check) => check.id === 'runtime:ts-entry-absent')?.status).toBe('passed');
     });
   });
