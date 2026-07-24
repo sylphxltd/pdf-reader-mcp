@@ -42,9 +42,7 @@ describe('pdf reader SOTA release gate golden probes', () => {
       'utf8'
     );
     // Trunk Release is post-merge (often squash); do not require exact PR tip SHA.
-    const admission = workflow.indexOf(
-      '- name: Enforce verified-candidate admission (trunk)'
-    );
+    const admission = workflow.indexOf('- name: Enforce verified-candidate admission (trunk)');
     const changesets = workflow.indexOf('uses: changesets/action@v1');
 
     expect(admission).toBeGreaterThan(-1);
