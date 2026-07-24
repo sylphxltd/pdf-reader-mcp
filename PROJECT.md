@@ -56,9 +56,12 @@ own ADR/spec and commercial controls.
 ## Delivery
 
 Pull requests use the legacy `Validate Code Quality` context on Sylphx
-self-hosted runners. Package release is Changesets-driven through the repo
-release workflow, which mints a GitHub App token before creating version PRs or
-publishing to npm.
+self-hosted runners. Darwin native package builds and registry proofs use
+`[self-hosted, sylphx, macos, standard]` only — never GitHub-hosted `macos-*`.
+Linux native ABI builds intentionally keep Ubuntu 22.04 images for GLIBC≤2.35;
+Windows natives remain on `windows-latest` until a self-hosted Windows pool exists.
+Package release is Changesets-driven through the repo release workflow, which
+mints a GitHub App token before creating version PRs or publishing to npm.
 
 Control Plane ADR-0014 retired the in-repository GroundAtlas package dogfood
 gate and assigned repository-intelligence ownership to Control Plane Repository

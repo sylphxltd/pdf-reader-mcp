@@ -46,7 +46,9 @@ jobs:
           bun-version: 1.3.14
       - id: set
         run: |
-          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm","target":"aarch64-unknown-linux-gnu"},{"platformId":"darwin-arm64","runner":"macos-14","target":"aarch64-apple-darwin"},{"platformId":"darwin-x64","runner":"macos-14","target":"x86_64-apple-darwin"},{"platformId":"win32-x64-msvc","runner":"windows-latest","target":"x86_64-pc-windows-msvc"}]'
+          # Product CI: darwin uses Sylphx self-hosted macOS only (no GitHub-hosted macos-*).
+          # linux/windows keep fixed GH images for published glibc/ABI and Windows MSVC coverage.
+          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm","target":"aarch64-unknown-linux-gnu"},{"platformId":"darwin-arm64","runner":["self-hosted","sylphx","macos","standard"],"target":"aarch64-apple-darwin"},{"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"],"target":"x86_64-apple-darwin"},{"platformId":"win32-x64-msvc","runner":"windows-latest","target":"x86_64-pc-windows-msvc"}]'
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
       - name: Verify package map and Stage B publishable posture
         run: |
@@ -116,7 +118,14 @@ jobs:
           if [[ "$platform" != "win32-x64-msvc" ]]; then
             chmod +x "$staged" "packages/pdf-reader-mcp-${platform}/bin/${bin_name}" "bin/native/${bin_name}"
           fi
-          bun run smoke:native-launcher
-          bun run smoke:native-package-resolve
-          # Assert the matrix target package we staged (may differ from host triple, e.g. darwin-x64 on arm64 runner).
+          # Host execute smoke is only valid when the matrix target matches the runner triple.
+          # Sylphx self-hosted macOS is currently QEMU amd64 (darwin-x64); aarch64-apple-darwin is
+          # still built/asserted here via cross-compile, but must not be executed on the x64 host.
+          host_platform="$(bun -e 'import { resolveNativePlatformId } from "./scripts/native/platform-package-map.ts"; const id=resolveNativePlatformId(); if(!id) process.exit(2); process.stdout.write(id)')"
+          if [[ "$host_platform" == "$platform" ]]; then
+            bun run smoke:native-launcher
+            bun run smoke:native-package-resolve
+          else
+            echo "Skipping host execute smoke for cross-target ${platform} on host ${host_platform}"
+          fi
           bun scripts/native/assert-native-packages-ready.ts --platform=${{ matrix.platformId }}

@@ -24,7 +24,9 @@ jobs:
     steps:
       - id: set
         run: |
-          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":"macos-14"},{"platformId":"darwin-x64","runner":"macos-14"},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
+          # darwin uses Sylphx self-hosted macOS. Host triple decides which optional package npm installs;
+          # both darwin matrix rows therefore prove the runner host package (currently darwin-x64 on QEMU).
+          matrix='[{"platformId":"linux-x64-gnu","runner":"ubuntu-22.04"},{"platformId":"linux-arm64-gnu","runner":"ubuntu-22.04-arm"},{"platformId":"darwin-arm64","runner":["self-hosted","sylphx","macos","standard"]},{"platformId":"darwin-x64","runner":["self-hosted","sylphx","macos","standard"]},{"platformId":"win32-x64-msvc","runner":"windows-latest"}]'
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   proof:
@@ -58,8 +60,8 @@ jobs:
           VERSION="${PROOF_VERSION}"
           test -n "$VERSION"
           echo "Proving @sylphx/pdf-reader-mcp@$VERSION on ${{ matrix.platformId }} / $(uname -s)-$(uname -m)"
-          # darwin-x64 job runs on arm64 runners; still install and prove host native package.
-          # The host triple decides which optional package npm installs.
+          # Host triple decides which optional package npm installs (self-hosted macOS is currently x64).
+          # Matrix platformId is retained for five-platform job coverage / labeling.
           bun scripts/check-registry-install-proof.ts --registry --version="$VERSION"
 
   pass:
