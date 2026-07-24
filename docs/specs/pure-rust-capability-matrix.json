@@ -3,7 +3,7 @@
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
   "updated": "2026-07-24",
   "productTruth": {
-    "publishedStable": "@sylphx/pdf-reader-mcp@4.0.1",
+    "publishedStable": "@sylphx/pdf-reader-mcp@4.0.2",
     "publishedImplementation": "4.0.1 pure-Rust sole-runtime dependency-closure published, but linux-x64-gnu@4.0.1 native tarball is registry-tombstoned after unpublish; emergency pure-Rust 4.0.2 republishes all natives+main",
     "pureRustStatus": "sole-rust-production-default",
     "optIn": "native optional package required; PDF_READER_MCP_RUST_BIN override allowed; no TS production path",
@@ -27,28 +27,18 @@
     ],
     "darwinX64RuntimeProof": "registry-install-proven-real-x86_64",
     "correctiveRelease": "4.0.2-linux-x64-gnu-tarball-repair",
-    "githubRelease": "v4.0.0",
-    "mcpRegistryStatus": "4.0.0-latest-active",
+    "githubRelease": "v4.0.2",
+    "mcpRegistryStatus": "4.0.2-latest-active",
     "cratesStatus": "not-admitted-product-channel",
     "npmIntegrity": "sha512-NdAP8urPJz3/uRhGW55TUTPGmUB2RhaO3eQY+Ki/cu0QHPxxQ8OlhtrjAaGThIP9wFmJdVB7PTiVf5LX18hfsA==",
     "npmSignaturesPresent": true,
     "npmProvenanceAttestationPresent": false,
-    "registryProofEvidence": "verification/pdf-reader-registry-install-proof-4.0.0.json",
+    "registryProofEvidence": "verification/pdf-reader-registry-install-proof-4.0.2.json",
     "mcpRegistryReadback": {
       "name": "io.github.SylphxAI/pdf-reader-mcp",
-      "latestVersion": "4.0.0",
+      "latestVersion": "4.0.2",
       "isLatest": true,
-      "status": "active",
-      "updatedAt": "2026-07-24T05:46:00.292865Z",
-      "workflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30070317979",
-      "staleActiveVersionsStillListed": [
-        "3.0.15",
-        "3.0.16",
-        "3.0.17",
-        "3.0.18",
-        "3.1.0",
-        "3.2.2"
-      ]
+      "status": "active"
     },
     "candidateVersion": "4.0.2",
     "candidateImplementation": "sole-Rust thin launcher only; empty production dependency closure; no pdfjs-dist/MCP-TS-sdk/pngjs/zod in published install graph",
@@ -111,7 +101,10 @@
       "Same-host suite admissible_pass on linux-x64 local runner vs TS 3.0.14",
       "Min warm median speedup >= 6x across 8 required fixture classes",
       "Marketing claims still require independent performanceClaimsAuthorized=true"
-    ]
+    ],
+    "performanceClaimsWithheld": false,
+    "performanceClaimsAuthorizedBounded": true,
+    "sameHostAbStatus": "admissible_pass"
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -428,11 +421,9 @@
     "publishFreeze": false,
     "dropInFor3014": true,
     "nextActions": [
-      "Publish 4.0.2 natives+main from exact reviewed SHA afb1aa3 or pin-path-only descendant via verified-candidate path",
-      "Five-host registry install proof on published 4.0.2 including installable linux-x64-gnu tarball",
-      "Document 4.0.1 linux-x64-gnu tarball defect / tombstone for operators",
-      "Complete admissible same-host performance A/B before marketing claims",
-      "Goal complete only after multi-channel readback + performance evidence if required"
+      "Keep public performance wording inside docs/specs/performance/4.0.2-performance-claims-policy.md bounds",
+      "Merge docs closeout / matrix multiChannelTruth projection hygiene if still open (not a live-channel blocker)",
+      "Optional follow-on: RSS measurement, multi-host perf matrix, OCR-provider path timing (not required for current goal)"
     ],
     "semanticContracts": "docs/specs/semantic-contracts/",
     "agentTaskCorpus": "docs/specs/agent-task-corpus/",
@@ -506,22 +497,24 @@
     },
     "wholeProductReviewPackage": "docs/specs/whole-product-independent-review-package-4.0.0-sole-rust.md",
     "wholeProductReview": {
-      "status": "independent-review-pass-unfreeze-authorized-goal-incomplete",
+      "status": "independent-review-pass-performance-claims-authorized-goal-complete",
       "candidateVersion": "4.0.2",
-      "candidateSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
-      "artifact": "verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json",
-      "outcome": "review_pass_unfreeze_authorized_goal_incomplete",
+      "candidateSha": "16fc2ebe35d738ac6bacb427d335af22a912b4ed",
+      "productPackagingSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
+      "artifact": "verification/pdf-reader-whole-product-independent-review-4.0.2-perf-16fc2eb.json",
+      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json",
+      "outcome": "review_pass_performance_claims_authorized_goal_complete",
       "unfreezeAuthorized": true,
       "soleRuntimeAuthorized": true,
       "tsRetirementAuthorized": true,
-      "performanceClaimsAuthorized": false,
-      "goalCompleteAuthorized": false,
-      "hostProofWorkflowRunUrl": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/30087577283",
-      "hostProofEvidence": "verification/pdf-reader-candidate-host-runtime-proof-4.0.2-aggregate.json",
-      "reviewedAt": "2026-07-24T11:12:39Z",
-      "priorReview": "verification/pdf-reader-whole-product-independent-review-4.0.1-d6780a3.json",
-      "note": "Emergency 4.0.2 republish authorized after linux-x64-gnu@4.0.1 tarball tombstone. Publish multi-channel readback still required before goal complete.",
-      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.2-afb1aa3.json"
+      "performanceClaimsAuthorized": true,
+      "goalCompleteAuthorized": true,
+      "performanceSuite": "verification/pdf-reader-same-host-ab-suite-4.0.2.json",
+      "performanceSuiteStatus": "admissible_pass",
+      "minWarmMedianSpeedup": 6.2486291559496605,
+      "reviewedAt": "2026-07-24T12:35:00Z",
+      "note": "Successor independent review after live multi-channel 4.0.2 + same-host suite admissible_pass. Bounded performance claims authorized; unbounded marketing still forbidden.",
+      "evidence": "verification/pdf-reader-whole-product-independent-review-4.0.2-perf-16fc2eb.json"
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,
@@ -531,14 +524,14 @@
       "status": "wired"
     },
     "multiChannelTruth": {
-      "npmLatest": "3.2.2",
-      "githubReleaseLatest": "v3.2.2",
-      "mcpRegistryLatestObserved": "3.2.2",
+      "npmLatest": "4.0.2",
+      "githubReleaseLatest": "v4.0.2",
+      "mcpRegistryLatestObserved": "4.0.2",
       "mcpRegistryIsLatest": true,
       "cratesAdmitted": false
     },
     "soleRustAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
-    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md",
+    "performanceClaimsPolicy": "docs/specs/performance/4.0.2-performance-claims-policy.md",
     "exactTipCi": {
       "reviewedSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
       "pr": 574,
