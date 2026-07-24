@@ -80,7 +80,7 @@
       "boundary": "local-pack install/runtime proofs; not npm registry readback"
     },
     "performanceClaimsAuthorized": false,
-    "performanceClaimsPolicy": "docs/specs/performance/4.0.0-performance-claims-policy.md",
+    "performanceClaimsPolicy": "docs/specs/performance/4.0.2-performance-claims-policy.md",
     "publishedGitHead": "8063e4b78c3d77116fa6430f1804f0967984daf8",
     "implementationCandidateSha": "f9a31541c7083eda6efe3fc828a6223a8c476342",
     "mainLandedSha": "096b0259e599b0a16e3c7ba2a3403cee974a4617",
@@ -103,7 +103,15 @@
       "candidateSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
       "performanceClaimsAuthorized": false,
       "goalCompleteAuthorized": false
-    }
+    },
+    "performanceSuiteEvidence": "verification/pdf-reader-same-host-ab-suite-4.0.2.json",
+    "performanceReport": "docs/specs/performance/4.0.2-same-host-performance-report.md",
+    "performanceSuiteStatus": "admissible_pass",
+    "performanceNotes": [
+      "Same-host suite admissible_pass on linux-x64 local runner vs TS 3.0.14",
+      "Min warm median speedup >= 6x across 8 required fixture classes",
+      "Marketing claims still require independent performanceClaimsAuthorized=true"
+    ]
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",

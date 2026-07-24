@@ -19,11 +19,11 @@
         "zod": "^4.4.3",
       },
       "optionalDependencies": {
-        "@sylphx/pdf-reader-mcp-darwin-arm64": "4.0.1",
-        "@sylphx/pdf-reader-mcp-darwin-x64": "4.0.1",
-        "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.0.1",
-        "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.0.1",
-        "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.0.1",
+        "@sylphx/pdf-reader-mcp-darwin-arm64": "4.0.2",
+        "@sylphx/pdf-reader-mcp-darwin-x64": "4.0.2",
+        "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.0.2",
+        "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.0.2",
+        "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.0.2",
       },
     },
   },
@@ -420,6 +420,16 @@
     "@shikijs/types": ["@shikijs/types@2.5.0", "", { "dependencies": { "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.4" } }, "sha512-ygl5yhxki9ZLNuNpPitBWvcy9fsSKKaRuO4BAlMyagszQidxcpLAr0qiW/q43DtSIDxO6hEbtYLiFZNXO/hdGw=="],
 
     "@shikijs/vscode-textmate": ["@shikijs/vscode-textmate@10.0.2", "", {}, "sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg=="],
+
+    "@sylphx/pdf-reader-mcp-darwin-arm64": ["@sylphx/pdf-reader-mcp-darwin-arm64@4.0.2", "", { "os": "darwin", "cpu": "arm64" }, "sha512-TBibe+0WlmltoHOTk47ihVA0WrziSNbPoHrbHlWkGdknvxRWWEfoGz191Bdg7mZBsQhs+NSBpzioZQEOl2SQCg=="],
+
+    "@sylphx/pdf-reader-mcp-darwin-x64": ["@sylphx/pdf-reader-mcp-darwin-x64@4.0.2", "", { "os": "darwin", "cpu": "x64" }, "sha512-YgqGl5tqzJM8v18n3aTdurC9GxRDVEB9PkxViUOXGa79DyDYKqwueCMTFtiv81h27ue7jwncuqMI33prkQYJIA=="],
+
+    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": ["@sylphx/pdf-reader-mcp-linux-arm64-gnu@4.0.2", "", { "os": "linux", "cpu": "arm64" }, "sha512-PeOBBPjoexqC5Fvt5+4Xxh9Yx+QHM5b0Tm4N0NC0Aa0ACZ+q/b9/xF7tVz06uo8G5mcYaoFLfq45BLjK7IqTPw=="],
+
+    "@sylphx/pdf-reader-mcp-linux-x64-gnu": ["@sylphx/pdf-reader-mcp-linux-x64-gnu@4.0.2", "", { "os": "linux", "cpu": "x64" }, "sha512-phuPyBozFTSAYfddduoA3W0r4BKObbFARuYxeBDcULE9uypG2RCVSvT8Gr6mUnps0p2myzp0plg5laOD5pO9vA=="],
+
+    "@sylphx/pdf-reader-mcp-win32-x64-msvc": ["@sylphx/pdf-reader-mcp-win32-x64-msvc@4.0.2", "", { "os": "win32", "cpu": "x64" }, "sha512-pNFnoiRrbr0/ZYRTu73vkFH6F8D9ROKSooda7EzCAS87+sQq6xQPTKslom5a3JoKXF7VBsKs5BjC9QonFS9QBA=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 
