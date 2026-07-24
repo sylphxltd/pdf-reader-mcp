@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout admission policy
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -39,7 +39,7 @@ jobs:
           permission-contents: write
 
       - name: Checkout repository with release token
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7
         with:
           token: ${{ steps.release-token.outputs.token }}
 
