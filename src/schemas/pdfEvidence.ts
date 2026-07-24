@@ -27,9 +27,14 @@ export const pdfEvidenceOperationSchema = union(
 
 export const pdfEvidenceSourceSchema = object({
   path: optional(
-    str(min(1), description('Path to the local PDF file. Provide exactly one of path or url (not both).'))
+    str(
+      min(1),
+      description('Path to the local PDF file. Provide exactly one of path or url (not both).')
+    )
   ),
-  url: optional(str(min(1), description('URL of the PDF file. Provide exactly one of path or url (not both).'))),
+  url: optional(
+    str(min(1), description('URL of the PDF file. Provide exactly one of path or url (not both).'))
+  ),
   pages: optional(pageSpecifierSchema),
   regions: optional(
     array(
