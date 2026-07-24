@@ -6,7 +6,7 @@
     "ADR-0005",
     "ADR-0006"
   ],
-  "note": "Inventory only. PARTIAL is not pass. Each promised surface needs task proof or explicit de-scope before 4.0.0 publish.",
+  "note": "Inventory only. PARTIAL is not pass. linkedSemanticContracts are candidate proof surfaces, not proof of pass.",
   "counts": {
     "FULL": 1,
     "PARTIAL": 44
@@ -15,232 +15,474 @@
     {
       "tool": "read_pdf",
       "capability": "source_locator",
-      "matrixStatus": "FULL"
+      "matrixStatus": "FULL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "claimed_full",
+      "releaseDisposition": "keep_if_proven"
     },
     {
       "tool": "read_pdf",
       "capability": "url_ssrf",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "security-resource-bounds.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_page_count",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_full_text",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_markdown",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_html",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_chunks",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_elements",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_semantic_hints",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-outline-headings.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_text_layer",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_tables",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-table-structure.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_document_map",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-public-url-corpus.json",
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_document_ast",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_safety_findings",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_layout_diagnostics",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_trust_report",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_accessibility_report",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_metadata",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_outline",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-outline-headings.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_annotations",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-annotations.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_form_fields",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-form-fields.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_attachments",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_structure_tree",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_page_labels",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_page_geometry",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_permissions",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_images",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_ocr_text_layer",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-ocr-text-layer.json",
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "include_visual_enrichments",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "auto_policy",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "read_pdf",
       "capability": "bounding_boxes",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "literal_search",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "case_sensitive",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "whole_word",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "context_chars",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "sources_pages_filter",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "match_start_end_snake_case",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "bounding_box",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "include_ocr_text_layer",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-ocr-text-layer.json",
+        "semantic-read-text-citation.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "search_pdf",
       "capability": "prefer_speed",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-search-relevance.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "pdf_evidence",
       "capability": "inspect",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-visual-candidates.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "pdf_evidence",
       "capability": "render_page",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-visual-candidates.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "pdf_evidence",
       "capability": "extract_regions",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-visual-candidates.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "pdf_evidence",
       "capability": "ocr_pages",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-visual-candidates.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     },
     {
       "tool": "pdf_evidence",
       "capability": "analyze_regions",
-      "matrixStatus": "PARTIAL"
+      "matrixStatus": "PARTIAL",
+      "linkedSemanticContracts": [
+        "semantic-visual-region-analysis.json"
+      ],
+      "proofStatus": "unproven_partial",
+      "releaseDisposition": "must_prove_or_descope"
     }
   ],
   "nextActions": [
     "Map FULL/claimed surfaces to executable semantic contracts and agent-task cases",
     "For each PARTIAL: either prove representative agent task or remove from promised product contract with coherent docs",
     "Do not reclassify PARTIAL to pass by declaration"
+  ],
+  "linkedContractsCatalog": [
+    "semantic-outline-headings.json",
+    "semantic-form-fields.json",
+    "semantic-public-url-corpus.json",
+    "semantic-visual-candidates.json",
+    "semantic-annotations.json",
+    "security-resource-bounds.json",
+    "semantic-ocr-text-layer.json",
+    "semantic-search-relevance.json",
+    "interface-mcp-surface.json",
+    "semantic-visual-region-analysis.json",
+    "semantic-read-text-citation.json",
+    "semantic-table-structure.json"
   ]
 }

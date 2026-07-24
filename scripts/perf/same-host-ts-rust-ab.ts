@@ -291,6 +291,45 @@ const main = async () => {
   if (!rustBin) blockers.push('rust candidate binary not found (build:rust or set PDF_READER_MCP_RUST_BIN)');
   if (!ts) blockers.push('typescript 3.0.14 LKG install failed');
 
+  const packageSizeBytes = (() => {
+  const sizes: Record<string, number | null> = { typescriptTarball: null, rustBinary: null, candidatePack: null };
+  try {
+    const pack = spawnSync('npm', ['pack', '@sylphx/pdf-reader-mcp@3.0.14', '--pack-destination', outDir, '--json'], {
+      encoding: 'utf8',
+      cwd: root,
+    });
+    if (pack.status === 0) {
+      const arr = JSON.parse(pack.stdout || '[]') as Array<{ filename?: string; size?: number }>;
+      const first = arr[0];
+      if (first?.filename) {
+        const fp = join(outDir, first.filename);
+        if (existsSync(fp)) sizes.typescriptTarball = Number(first.size ?? 0) || null;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const packCand = spawnSync('bun', ['pm', 'pack', '--destination', outDir], { encoding: 'utf8', cwd: root });
+    // parse tarball path from output
+    const m = (packCand.stdout || '').match(/([\w@./-]+\.tgz)/);
+    if (m) {
+      const fp = join(outDir, m[1].split('/').pop() || m[1]);
+      if (existsSync(fp)) {
+        const st = spawnSync('stat', ['-c', '%s', fp], { encoding: 'utf8' });
+        if (st.status === 0) sizes.candidatePack = Number(st.stdout.trim());
+      }
+    }
+  } catch {
+    // ignore
+  }
+  if (rustBin && existsSync(rustBin)) {
+    const st = spawnSync('stat', ['-c', '%s', rustBin], { encoding: 'utf8' });
+    if (st.status === 0) sizes.rustBinary = Number(st.stdout.trim());
+  }
+  return sizes;
+})();
+
   const engines: Array<{ id: EngineId; command: string; args: string[] }> = [];
   if (ts) engines.push({ id: 'typescript-3.0.14', command: ts.command, args: ts.args });
   if (rustBin) engines.push({ id: 'rust-candidate', command: rustBin, args: [] });
@@ -364,6 +403,7 @@ const main = async () => {
     historicalBaseline: '@sylphx/pdf-reader-mcp@3.0.14',
     fixture,
     iterationsWarm,
+    packageSizeBytes,
     host: {
       platform: process.platform,
       arch: process.arch,
