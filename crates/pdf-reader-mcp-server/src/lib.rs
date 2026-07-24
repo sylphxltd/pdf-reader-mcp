@@ -162,21 +162,15 @@ impl PdfReaderMcp {
 #[tool_handler]
 impl ServerHandler for PdfReaderMcp {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: rmcp::model::ProtocolVersion::default(),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: Implementation {
-                name: SERVER_NAME.into(),
-                title: None,
-                version: SERVER_VERSION.into(),
-                description: Some(
-                    "@sylphx/pdf-reader-mcp sole-Rust MCP server (native binary; no TypeScript PDF runtime)".into(),
-                ),
-                icons: None,
-                website_url: Some("https://sylphxai.github.io/pdf-reader-mcp/".into()),
-            },
-            instructions: Some(SERVER_INSTRUCTIONS.into()),
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(
+                Implementation::new(SERVER_NAME, SERVER_VERSION)
+                    .with_description(
+                        "@sylphx/pdf-reader-mcp sole-Rust MCP server (native binary; no TypeScript PDF runtime)",
+                    )
+                    .with_website_url("https://sylphxai.github.io/pdf-reader-mcp/"),
+            )
+            .with_instructions(SERVER_INSTRUCTIONS)
     }
 }
 
@@ -309,20 +303,28 @@ mod tests {
                     properties.contains_key(property),
                     "post-3.0.14 {tool} must expose additive property {property}"
                 );
-                let ty = properties[property]
+                let schema = &properties[property];
+                let is_boolean = schema
                     .get("type")
-                    .and_then(|value| value.as_str())
-                    .or_else(|| {
-                        properties[property]
-                            .get("anyOf")
-                            .and_then(|value| value.as_array())
-                            .and_then(|items| {
-                                items.iter().find_map(|item| item.get("type").and_then(|t| t.as_str()))
+                    .map(|value| match value {
+                        Value::String(ty) => ty == "boolean",
+                        Value::Array(items) => items.iter().any(|item| item.as_str() == Some("boolean")),
+                        _ => false,
+                    })
+                    .unwrap_or(false)
+                    || schema
+                        .get("anyOf")
+                        .or_else(|| schema.get("oneOf"))
+                        .and_then(|value| value.as_array())
+                        .map(|items| {
+                            items.iter().any(|item| {
+                                item.get("type").and_then(|ty| ty.as_str()) == Some("boolean")
                             })
-                    });
+                        })
+                        .unwrap_or(false);
                 assert!(
-                    matches!(ty, Some("boolean")),
-                    "post-3.0.14 {tool}.{property} must be boolean-typed, got {ty:?}"
+                    is_boolean,
+                    "post-3.0.14 {tool}.{property} must be boolean-typed, got {schema}"
                 );
             } else {
                 assert!(

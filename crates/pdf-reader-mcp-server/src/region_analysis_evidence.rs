@@ -1082,11 +1082,10 @@ fn run_provider(
 
 fn text_result(payload: Value) -> CallToolResult {
     let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
-    CallToolResult {
-        content: vec![Content::text(text)],
-        structured_content: Some(payload),
-        is_error: Some(false),
-        meta: None,
+    {
+        let mut result = CallToolResult::structured(payload);
+        result.content = vec![Content::text(text)];
+        result
     }
 }
 

@@ -75,6 +75,52 @@ impl HttpConfig {
             || self.host == "127.0.0.1"
             || self.host.starts_with("127.")
     }
+
+    /// Host authorities accepted by rmcp Streamable HTTP DNS-rebinding protection.
+    ///
+    /// Defaults: loopbacks + the configured bind host (and host:port). Override with
+    /// `MCP_ALLOWED_HOSTS` / `PDF_READER_MCP_ALLOWED_HOSTS` (comma-separated).
+    pub fn allowed_hosts(&self) -> Vec<String> {
+        if let Ok(raw) = std::env::var("MCP_ALLOWED_HOSTS")
+            .or_else(|_| std::env::var("PDF_READER_MCP_ALLOWED_HOSTS"))
+        {
+            let hosts: Vec<String> = raw
+                .split(',')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .collect();
+            if !hosts.is_empty() {
+                return hosts;
+            }
+        }
+
+        let mut hosts = vec![
+            "localhost".to_string(),
+            "127.0.0.1".to_string(),
+            "::1".to_string(),
+        ];
+        if !hosts.iter().any(|host| host == &self.host) {
+            hosts.push(self.host.clone());
+        }
+        let with_port = format!("{}:{}", self.host, self.port);
+        if !hosts.iter().any(|host| host == &with_port) {
+            hosts.push(with_port);
+        }
+        if self.is_loopback_host() {
+            for extra in [
+                "0.0.0.0".to_string(),
+                format!("0.0.0.0:{}", self.port),
+                format!("localhost:{}", self.port),
+                format!("127.0.0.1:{}", self.port),
+            ] {
+                if !hosts.iter().any(|host| host == &extra) {
+                    hosts.push(extra);
+                }
+            }
+        }
+        hosts
+    }
 }
 
 pub fn transport_from_env() -> Option<&'static str> {
@@ -183,10 +229,9 @@ pub async fn serve_http(config: HttpConfig) -> anyhow::Result<()> {
     let mcp_service = StreamableHttpService::new(
         || Ok(PdfReaderMcp::new()),
         LocalSessionManager::default().into(),
-        StreamableHttpServerConfig {
-            cancellation_token: cancellation.child_token(),
-            ..Default::default()
-        },
+        StreamableHttpServerConfig::default()
+            .with_cancellation_token(cancellation.child_token())
+            .with_allowed_hosts(shared_config.allowed_hosts()),
     );
 
     let mcp_router = Router::new()
@@ -254,5 +299,19 @@ mod tests {
         };
         assert!(config.is_loopback_host());
         assert_eq!(config.socket_addr().expect("addr").port(), 8080);
+    }
+
+    #[test]
+    fn allowed_hosts_include_bind_host_and_loopbacks() {
+        let config = HttpConfig {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            api_key: None,
+            cors_origin: None,
+        };
+        let hosts = config.allowed_hosts();
+        assert!(hosts.iter().any(|host| host == "127.0.0.1"));
+        assert!(hosts.iter().any(|host| host == "localhost"));
+        assert!(hosts.iter().any(|host| host == "127.0.0.1:8080"));
     }
 }

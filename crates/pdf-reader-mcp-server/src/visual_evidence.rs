@@ -153,11 +153,10 @@ fn tool_result(payload: Value, images: Vec<ImagePart>) -> CallToolResult {
             .into_iter()
             .map(|image| Content::image(image.data, image.mime_type)),
     );
-    CallToolResult {
-        content,
-        structured_content: Some(payload),
-        is_error: Some(false),
-        meta: None,
+    {
+        let mut result = CallToolResult::structured(payload);
+        result.content = content;
+        result
     }
 }
 
