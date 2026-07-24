@@ -1,6 +1,6 @@
 # Same-host TS 3.0.14 vs Rust candidate A/B contract
 
-Status: scaffold (not admissible for marketing or showhand performance claims)
+Status: scaffold (not admissible for marketing or public performance claims)
 
 ## Purpose
 
@@ -30,7 +30,7 @@ bun scripts/perf/same-host-ts-rust-ab.ts --require-admissible  # must fail until
 
 ## Admission
 
-Showhand performance claims require:
+Public performance claims require:
 
 - harness `status=admissible_pass`
 - independent review authorization of performance claims
