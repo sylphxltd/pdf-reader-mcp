@@ -1,16 +1,16 @@
 # Introduction
 
-PDF Reader MCP is a full-fidelity Model Context Protocol (MCP) server that
-turns PDFs into agent-readable evidence. It is built around an Agent Document
-Twin: text layers, semantic structure, source visuals, region crops, OCR
-provenance, tables, citations, trust signals, accessibility signals, and
-provider-backed visual enrichments linked through stable IDs.
+PDF Reader MCP gives AI agents **eyes for PDFs**.
 
-The production package is **sole-Rust** and local-first. Selectable-text
-PDFs, smart routing, search, rendering, crops, document maps, trust reports,
-accessibility reports, Markdown/HTML/JSON extraction, and safety signals work
-without heavy model downloads. Scanned OCR and visual table/chart/formula/figure
-understanding are enabled through configured local providers.
+It is a full-fidelity Model Context Protocol (MCP) server that turns PDFs into
+agent-readable evidence — not a plain-text dump. The core product surface is an
+**Agent Document Twin**: text, tables, structure, crops, OCR, citations, trust,
+and accessibility signals linked through stable IDs.
+
+The production package is **sole-Rust** and local-first (`@sylphx/pdf-reader-mcp@4.1.1`).
+Core extraction works without heavy model downloads. Scanned OCR and visual
+table/chart/formula/figure understanding are enabled through configured local
+providers when you need them.
 
 ## What It Does
 

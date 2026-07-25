@@ -29,6 +29,9 @@ features:
   - icon: "\U0001F441\uFE0F"
     title: Evidence, not text dumps
     details: Page numbers, bounding boxes, table cells, and provenance so agents can cite instead of invent.
+  - icon: "\u26A1"
+    title: Measured product proof
+    details: Cleaner install than historical TS 3.0.14 on measured linux-x64, and registry-bound dual-mode warm re-reads ≥ ~10× on required fixtures (method-bounded).
   - icon: "\U0001F4CA"
     title: Tables agents can trust
     details: Rows, cells, geometry, and confidence for financial reports and structured PDFs.

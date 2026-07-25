@@ -40,7 +40,7 @@ npm install -g @sylphx/pdf-reader-mcp
 Or pin the current release:
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp@4.1.0
+npm install -g @sylphx/pdf-reader-mcp@4.1.1
 ```
 
 One native binary is installed for **your** platform only (not all five).
@@ -124,7 +124,7 @@ Details: [installed footprint comparison](docs/specs/performance/installed-footp
 
 ## Performance
 
-Controlled **same-host linux-x64** dual-mode A/B vs `@sylphx/pdf-reader-mcp@3.0.14`, using **registry-installed 4.1.0** natives:
+Controlled **same-host linux-x64** dual-mode A/B vs `@sylphx/pdf-reader-mcp@3.0.14`, using **registry-installed 4.1.x** natives:
 
 | Mode | What it measures | Result |
 | --- | --- | --- |

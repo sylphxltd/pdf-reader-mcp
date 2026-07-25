@@ -2,25 +2,25 @@
 
 ## Published stable
 
-Install from **npm**. Current production is **`@sylphx/pdf-reader-mcp@4.0.2`** — a **sole-Rust** MCP server launched by a thin Node entrypoint.
+Install from **npm**. Current production is **`@sylphx/pdf-reader-mcp@4.1.1`** — a **sole-Rust** MCP server launched by a thin Node entrypoint.
 
 ```bash
 npm install -g @sylphx/pdf-reader-mcp
 # or pin
-npm install -g @sylphx/pdf-reader-mcp@4.0.2
+npm install -g @sylphx/pdf-reader-mcp@4.1.1
 ```
 
-npm installs:
+What you get:
 
-1. The thin launcher package
-2. **One** platform native package as an optional dependency (when available)
+1. Thin launcher package
+2. **One** platform native package as an optional dependency (auto-selected)
 
 There is **no** TypeScript PDF runtime in the production package. If the matching native binary is missing, the server **fails closed**.
 
 ## Requirements
 
 - **Node.js >= 22.13.0** (launcher only)
-- Supported platform for the native binary:
+- Supported platforms:
   - macOS arm64 / x64
   - Linux x64 gnu / arm64 gnu
   - Windows x64
@@ -34,7 +34,7 @@ claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
 
 ## Claude Desktop
 
-Add to your `claude_desktop_config.json`:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -50,12 +50,10 @@ Add to your `claude_desktop_config.json`:
 ### Config file locations
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Windows**: `%APPDATA%\\Claude\\claude_desktop_config.json`
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-## Cursor / VS Code / other MCP clients
-
-Use the same stdio command shape:
+## Cursor / VS Code / Codex / other MCP clients
 
 ```json
 {
@@ -92,6 +90,12 @@ MCP_TRANSPORT=http pdf-reader-mcp
 | Linux arm64 | `@sylphx/pdf-reader-mcp-linux-arm64-gnu` |
 | Windows x64 | `@sylphx/pdf-reader-mcp-win32-x64-msvc` |
 
+## Next
+
+- [Product proof](/guide/product-proof) — before/after, flagship workflows, performance bounds
+- [Getting started](/guide/getting-started) — tools and first calls
+- [Migration / recovery](/migration) — historical notes only
+
 ## Historical TypeScript baseline (not production)
 
 Immutable external comparison/recovery pin only:
@@ -99,5 +103,3 @@ Immutable external comparison/recovery pin only:
 ```bash
 npm install -g @sylphx/pdf-reader-mcp@3.0.14
 ```
-
-See [Migration / recovery notes](/migration) for engine history. Do not use withdrawn intermediate cutover packages as production.
