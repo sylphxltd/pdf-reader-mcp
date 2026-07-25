@@ -1,6 +1,6 @@
 # Getting Started
 
-PDF Reader MCP is the most-starred PDF MCP server on GitHub. If your agents
+PDF Reader MCP (`@sylphx/pdf-reader-mcp@4.1.1`) is the evidence-first PDF MCP server for AI agents. If your agents
 read contracts, filings, or reports, start here — one `read_pdf` call returns an
 Agent Document Twin with markdown, tables, and source evidence instead of a
 lossy text dump. New to the problem?

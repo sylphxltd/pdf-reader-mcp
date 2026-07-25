@@ -1,10 +1,28 @@
 # Performance
 
-PDF Reader MCP is optimized for speed, bounded local execution, and
-reproducible release evidence. Performance claims should stay tied to benchmark
-commands and artifacts, while quality claims are gated through deterministic
-fixtures, corpus cases, provider certification, package smoke checks, and the
-SOTA release gate.
+PDF Reader MCP is optimized for **agent workflow latency**, bounded local
+execution, and reproducible release evidence.
+
+## Product performance (4.1.x)
+
+On controlled same-host **linux-x64** dual-mode A/B vs historical TS `3.0.14`,
+using registry-installed **4.1.0/4.1.1** natives:
+
+| Mode | Result |
+| --- | --- |
+| `persistent_warm` (long-lived server, repeated identical local reads) | **≥ ~10×** on 8 required fixture classes |
+| `startup_inclusive` (spawn + initialize + task) | large advantage |
+
+Method bounds apply: first request still pays full parse cost; warm path may use
+process-local identical-request cache; not a multi-host guarantee.
+
+See [Product proof](/guide/product-proof) and the
+[4.1.0 report](https://github.com/SylphxAI/pdf-reader-mcp/blob/main/docs/specs/performance/4.1.0-same-host-performance-report.md).
+
+---
+
+Quality claims remain gated through deterministic fixtures, corpus cases,
+provider certification, package smoke checks, and the SOTA release gate.
 
 ## Release Proof Snapshot
 
@@ -407,7 +425,7 @@ Image extraction involves encoding to PNG and base64, which adds overhead:
 
 ### 7. Use The Document Map For Full Agent Navigation
 
-`include_document_map` builds the richest TypeScript-first response path. It
+`include_document_map` builds the richest structured response path. It
 links pages, elements, selectable text-layer and metadata coverage, chunks,
 layout diagnostics, safety findings, trust report routing and signal indexes,
 accessibility report routing and issue indexes, visual evidence routing, and page geometry without

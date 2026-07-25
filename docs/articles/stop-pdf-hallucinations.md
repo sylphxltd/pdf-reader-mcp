@@ -1,5 +1,10 @@
 # Stop Your Agent From Hallucinating on PDFs
 
+
+Plain-text PDF tools make agents invent citations. **PDF Reader MCP gives them evidence** — page numbers, table cells, crops, and provenance.
+
+Install: `npm install -g @sylphx/pdf-reader-mcp@4.1.1`
+
 You asked Claude to summarize a 40-page contract. It cited page 12. Page 12
 does not say what it claimed.
 

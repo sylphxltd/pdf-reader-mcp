@@ -1,5 +1,8 @@
 # Why Agents Need Evidence-First PDF Reading
 
+
+> Product: `@sylphx/pdf-reader-mcp@4.1.1` — sole-Rust MCP server for evidence-first PDF intelligence.
+
 AI agents that read PDFs face a fundamental problem: text extraction alone is
 not enough. An agent that extracts text and answers questions is working blind.
 It does not know where the text came from, whether it is trustworthy, whether a

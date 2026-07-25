@@ -1,16 +1,19 @@
 # Product proof
 
-This page is the acquisition-facing evidence board for PDF Reader MCP.
-Engineering history stays in [migration notes](/migration).
+This is the acquisition-facing evidence board for PDF Reader MCP.
 
-## Promise
+> **Give your AI agent eyes for PDFs.**
 
-> Give your AI agent eyes for PDFs.
-
-One MCP server returns structured text, tables, OCR paths, visual evidence, and
-page-level citations — local-first on five platforms.
+One local MCP server returns structured text, tables, OCR paths, visual evidence, and page-level citations.
 
 ![Before vs after](/before-after-evidence.svg)
+
+## Install now
+
+```bash
+npm install -g @sylphx/pdf-reader-mcp@4.1.1
+claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+```
 
 ## Three flagship workflows
 
@@ -25,7 +28,7 @@ page-level citations — local-first on five platforms.
 }
 ```
 
-Expected agent outcome: table cells with page + geometry, not a prose guess.
+**Outcome:** table cells with page + geometry — not a prose guess about revenue.
 
 ### 2. Research paper / citations
 
@@ -37,7 +40,7 @@ Expected agent outcome: table cells with page + geometry, not a prose guess.
 }
 ```
 
-Expected agent outcome: section/reading-order context and page-linked quotes.
+**Outcome:** reading-order structure and page-linked quotes agents can cite.
 
 ### 3. Scanned document / OCR
 
@@ -49,40 +52,48 @@ Expected agent outcome: section/reading-order context and page-linked quotes.
 }
 ```
 
-Expected agent outcome: OCR text kept separate from selectable text, with page
-evidence for verification.
+**Outcome:** OCR kept separate from selectable text, with page evidence for verification.
 
-Copy-ready examples live in [`examples/`](https://github.com/SylphxAI/pdf-reader-mcp/tree/main/examples).
+More copy-ready examples: [examples/demo](https://github.com/SylphxAI/pdf-reader-mcp/tree/main/examples/demo).
+
+## Why agents need more than text
+
+| Without evidence | With PDF Reader MCP |
+| --- | --- |
+| “Revenue was about $12M” | Page 14 · Table 3 · cell (4,2) = `$12.4M` |
+| Tables become paragraphs | Rows, columns, cells, geometry |
+| Scanned PDFs become noise | OCR path with page-linked evidence |
+| Hidden text ignored | Trust signals when requested |
 
 ## Install footprint (measured)
 
 Clean install on **linux-x64** (Node 24):
 
-| Metric | TS `3.0.14` | Sole-Rust `4.1.0` |
+| Metric | TS `3.0.14` | Sole-Rust `4.1.x` |
 | --- | ---: | ---: |
 | Full `node_modules` | ~82.3 MiB | **~24.4 MiB (~3.4× smaller)** |
 | Files | 4,101 | **20 (~205× fewer)** |
 | Production deps | PDF.js + MCP SDK + … | `{}` + one native package |
 
-Source: `verification/footprint/*-linux-x64.json`
+Native binary is multi-megabyte because it **is** the engine — and still yields a cleaner install than a JS dependency tree.
 
-## Performance surfaces (honest)
+## Performance (bounded, authorized)
 
-Do not collapse these into one “Nx faster” slogan:
+Controlled **same-host linux-x64** dual-mode A/B vs `@sylphx/pdf-reader-mcp@3.0.14` using **registry-installed 4.1.0/4.1.1** natives:
 
-| Surface | What it measures | Current draft status |
+| Mode | Measures | Result |
 | --- | --- | --- |
-| `startup_inclusive` | spawn + initialize + one task | Large Rust advantage on local fixtures |
-| `persistent_warm` | long-lived process, repeated identical local `read_pdf` | Local suite `admissible_pass` after process-local warm cache (min ~10× on 8 classes) |
-| First request in a process | full parse/extract | Still pays full cost |
-| Registry-installed exact binary | clean npm install of published natives | Required before formal marketing authorization |
+| `persistent_warm` | long-lived server, repeated identical local `read_pdf` after warm-up | **≥ ~10×** on all 8 required fixture classes |
+| `startup_inclusive` | spawn + initialize + one task | large advantage |
 
-Policy: [same-host contract](/specs/performance/same-host-ab-contract) ·
-[claims policy](https://github.com/SylphxAI/pdf-reader-mcp/blob/main/docs/specs/performance/4.1.0-performance-claims-policy.md)
+`persistent_warm` includes a process-local cache for identical local path+options. First request still pays full parse cost.
 
-Until independent review sets `performanceClaimsAuthorized=true` against a
-registry-bound suite, treat speed numbers as **engineering evidence**, not a
-universal product guarantee.
+**Not** a multi-host / RSS / OCR-provider guarantee.
+
+Details:
+
+- [4.1.0 performance report](https://github.com/SylphxAI/pdf-reader-mcp/blob/main/docs/specs/performance/4.1.0-same-host-performance-report.md)
+- [claims policy](https://github.com/SylphxAI/pdf-reader-mcp/blob/main/docs/specs/performance/4.1.0-performance-claims-policy.md)
 
 ## Engine
 
@@ -90,9 +101,8 @@ Version 4+ uses a **native Rust engine** via a thin Node launcher.
 
 - Five platforms
 - Fail closed if native binary missing
-- No TypeScript PDF runtime in the production package
+- No TypeScript PDF runtime shipped in production
 
-## What is still secondary
+## What stays secondary
 
-- Migration ledgers, residual PDF.js parity families, CI SHA archaeology
-- See [migration](/migration) and maintainer ADRs
+Migration ledgers, residual parity families, CI SHA archaeology → [migration notes](/migration).
