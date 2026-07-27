@@ -2,6 +2,8 @@
 
 # PDF Reader MCP
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.SylphxAI%2Fpdf-reader-mcp.svg)](https://mcptoplist.com/server/io.github.SylphxAI%2Fpdf-reader-mcp)
+
 ### Give your AI agent eyes for PDFs.
 
 Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** — locally, with one MCP server.
