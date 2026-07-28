@@ -76,6 +76,8 @@ claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
 }
 ```
 
+Dual-era hosts that send `server/discover` before `initialize` (e.g. Gemini Antigravity CLI) are supported on stdio — the server answers discovery and keeps the session open for the legacy handshake.
+
 **Stdio / HTTP**
 
 ```bash

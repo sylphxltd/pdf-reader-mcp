@@ -66,6 +66,15 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
+### Dual-era clients (Gemini Antigravity CLI)
+
+Some MCP hosts probe with SEP-2575 `server/discover` **before** the legacy
+`initialize` handshake (for example Gemini Antigravity CLI on Windows). The
+native server answers that discovery request on stdio without closing the
+transport, then completes `initialize` as usual. If an older published build
+fails with `expect initialized request` / `EOF` on plugin load, upgrade to a
+release that includes this fix.
+
 ## Run directly
 
 ```bash
