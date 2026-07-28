@@ -10,6 +10,10 @@ on:
   merge_group:
     types: [checks_requested]
 
+# Least privilege for GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions).
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate Code Quality
