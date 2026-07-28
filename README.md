@@ -12,6 +12,7 @@ Plain-text PDF tools make agents guess. **PDF Reader MCP gives them evidence.**
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
 [![stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=flat-square)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.SylphxAI%2Fpdf-reader-mcp.svg)](https://mcptoplist.com/server/io.github.SylphxAI%2Fpdf-reader-mcp)
 
 </div>
 

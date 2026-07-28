@@ -11,6 +11,9 @@ on:
         required: true
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   unpublish:
     runs-on: ubuntu-latest
