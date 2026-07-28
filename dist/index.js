@@ -32757,8 +32757,8 @@ var extractRegionsArgsSchema = object4({
 var pageSpecifierSchema = union3(array3(num(int2, gte(1))), str(min(1)));
 var readPdfAutoDetailSchema = union3(literal3("fast"), literal3("balanced"), literal3("full"));
 var pdfSourceSchema = object4({
-  path: optional3(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
-  url: optional3(str(min(1), description("URL of the PDF file."))),
+  path: optional3(str(min(1), description("Path to the local PDF file (absolute or relative to cwd). Provide exactly one of path or url (not both)."))),
+  url: optional3(str(min(1), description("URL of the PDF file. Provide exactly one of path or url (not both)."))),
   pages: optional3(pageSpecifierSchema)
 }).refine((source) => Boolean(source.path) !== Boolean(source.url), {
   message: "Provide exactly one of path or url for each PDF source."
@@ -32802,8 +32802,8 @@ var readPdfArgsSchema = object4({
 // src/schemas/pdfEvidence.ts
 var pdfEvidenceOperationSchema = union3(literal3("inspect"), literal3("render_page"), literal3("extract_regions"), literal3("ocr_pages"), literal3("analyze_regions"));
 var pdfEvidenceSourceSchema = object4({
-  path: optional3(str(min(1), description("Path to the local PDF file (absolute or relative to cwd)."))),
-  url: optional3(str(min(1), description("URL of the PDF file."))),
+  path: optional3(str(min(1), description("Path to the local PDF file. Provide exactly one of path or url (not both)."))),
+  url: optional3(str(min(1), description("URL of the PDF file. Provide exactly one of path or url (not both)."))),
   pages: optional3(pageSpecifierSchema),
   regions: optional3(array3(pdfRegionSchema, description("PDF-coordinate regions for extract_regions and analyze_regions operations.")))
 }).refine((source) => Boolean(source.path) !== Boolean(source.url), {

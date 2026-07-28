@@ -1,6 +1,6 @@
 {
   "profile": "pdf_provider_manifest_crop_benchmark",
-  "generated_at": "2026-07-24T19:02:35.193Z",
+  "generated_at": "2026-07-28T02:39:59.251Z",
   "status": "passed",
   "strict": true,
   "manifest_path": "/home/runner/work/pdf-reader-mcp/pdf-reader-mcp/test/fixtures/provider-crop-manifest.json",
@@ -95,7 +95,7 @@
         "full_page_crop",
         "render_provenance"
       ],
-      "duration_ms": 524.71,
+      "duration_ms": 515.28,
       "num_pages": 1,
       "region_count": 1,
       "assertion_count": 5,

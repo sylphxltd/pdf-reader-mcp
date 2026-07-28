@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pdf-reader-mcp-darwin-arm64",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "description": "Optional pure-Rust MCP server binary for darwin-arm64. Installed as an optionalDependency of @sylphx/pdf-reader-mcp; default package entry remains TypeScript until sole-runtime cutover.",
   "license": "MIT",
   "os": [

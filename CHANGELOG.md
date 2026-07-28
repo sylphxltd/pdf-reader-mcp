@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.1.2
+
+### Patch Changes
+
+- [#599](https://github.com/SylphxAI/pdf-reader-mcp/pull/599) [`4bc0801`](https://github.com/SylphxAI/pdf-reader-mcp/commit/4bc0801471f1eb3e89896c2858031363a930621d) Thanks [@shtse8](https://github.com/shtse8)! - Fix Gemini Antigravity / dual-era MCP clients that send `server/discover` before `initialize`: answer SEP-2575 discovery without closing stdio, then complete the legacy handshake (fixes [#598](https://github.com/SylphxAI/pdf-reader-mcp/issues/598)).
+
 ## 4.1.1
 
 ### Patch Changes
