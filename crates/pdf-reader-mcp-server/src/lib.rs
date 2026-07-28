@@ -1,4 +1,5 @@
 pub mod cli_bridge;
+pub mod discover_compat;
 mod command_provider;
 pub mod evidence;
 pub mod http_transport;
@@ -15,7 +16,8 @@ mod visual_evidence;
 use rmcp::{
     handler::server::router::tool::ToolRouter,
     handler::server::wrapper::Parameters,
-    model::{Implementation, ServerCapabilities, ServerInfo},
+    model::{CustomRequest, CustomResult, Implementation, ServerCapabilities, ServerInfo},
+    service::{RequestContext, RoleServer},
     tool, tool_handler, tool_router, ErrorData, ServerHandler,
 };
 
@@ -171,6 +173,27 @@ impl ServerHandler for PdfReaderMcp {
                     .with_website_url("https://sylphxai.github.io/pdf-reader-mcp/"),
             )
             .with_instructions(SERVER_INSTRUCTIONS)
+    }
+
+    /// Post-init `server/discover` (SEP-2575). Pre-init is handled by
+    /// [`discover_compat::DiscoverAwareTransport`].
+    fn on_custom_request(
+        &self,
+        request: CustomRequest,
+        _context: RequestContext<RoleServer>,
+    ) -> impl std::future::Future<Output = Result<CustomResult, ErrorData>> + Send + '_ {
+        async move {
+            if request.method == discover_compat::SERVER_DISCOVER_METHOD {
+                return Ok(CustomResult::new(discover_compat::discover_result_value(
+                    &self.get_info(),
+                )));
+            }
+            Err(ErrorData::new(
+                rmcp::model::ErrorCode::METHOD_NOT_FOUND,
+                request.method,
+                None,
+            ))
+        }
     }
 }
 

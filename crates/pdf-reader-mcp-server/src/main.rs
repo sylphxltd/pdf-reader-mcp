@@ -1,5 +1,8 @@
-use pdf_reader_mcp_server::{cli_bridge, http_transport, PdfReaderMcp, SERVER_VERSION};
-use rmcp::ServiceExt;
+use pdf_reader_mcp_server::{
+    cli_bridge, discover_compat, http_transport, PdfReaderMcp, SERVER_VERSION,
+};
+use rmcp::transport::async_rw::AsyncRwTransport;
+use rmcp::{ServerHandler, ServiceExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,7 +23,14 @@ async fn main() -> anyhow::Result<()> {
         return http_transport::serve_http(http_transport::HttpConfig::from_env()).await;
     }
 
-    let service = PdfReaderMcp::new().serve(rmcp::transport::stdio()).await?;
+    let server = PdfReaderMcp::new();
+    let discover_payload = discover_compat::discover_result_value(&server.get_info());
+    let (stdin, stdout) = rmcp::transport::stdio();
+    let transport = discover_compat::DiscoverAwareTransport::new(
+        AsyncRwTransport::new_server(stdin, stdout),
+        discover_payload,
+    );
+    let service = server.serve(transport).await?;
     service.waiting().await?;
     Ok(())
 }
