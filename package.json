@@ -1,8 +1,8 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Give AI agents eyes for PDFs \u2014 structured text, tables, OCR, visual evidence, and page-level citations via MCP. Native Rust engine, local-first, five platforms.",
+  "description": "Give AI agents eyes for PDFs — structured text, tables, OCR, visual evidence, and page-level citations via MCP. Native Rust engine, local-first, five platforms.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/runtime-entry.js"
@@ -275,10 +275,10 @@
   },
   "packageManager": "bun@1.3.14",
   "optionalDependencies": {
-    "@sylphx/pdf-reader-mcp-darwin-arm64": "4.1.1",
-    "@sylphx/pdf-reader-mcp-darwin-x64": "4.1.1",
-    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.1.1",
-    "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.1.1",
-    "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.1.1"
+    "@sylphx/pdf-reader-mcp-darwin-arm64": "4.1.2",
+    "@sylphx/pdf-reader-mcp-darwin-x64": "4.1.2",
+    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.1.2",
+    "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.1.2",
+    "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.1.2"
   }
 }
