@@ -1,6 +1,6 @@
 # ADR 0003: Dogfood GroundAtlas 0.1.3 Scorecard Gate
 
-> **Status: Retired.** GroundAtlas package/action dogfood is no longer an active CI gate (Control Plane ADR-0014). Skills/static standards SSOT is SylphxAI/skills; this ADR is historical only.
+> **Status: Retired.** GroundAtlas package/action dogfood is no longer an active CI gate (Control Plane ADR-0014). The `.doctrine/project.json` adapter is also retired as machine truth; Skills is static instruction SSOT and `project.manifest.json` is the repo fact authority. This ADR is historical only.
 
 ## Status
 
