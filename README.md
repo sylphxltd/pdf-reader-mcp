@@ -64,7 +64,7 @@ Missing native package → **fail closed** (no silent engine switch).
 claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
 ```
 
-**Claude Desktop / Cursor / VS Code / any MCP client**
+**Claude Desktop / Codex / Cursor / VS Code / any MCP client**
 
 ```json
 {
