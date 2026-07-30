@@ -10,17 +10,18 @@ evidence without becoming a hosted Sylphx Platform BaaS service.
 
 - Lifecycle: `production`
 - Layer: `tooling`
-- Static instruction SSOT: [SylphxAI/skills](https://github.com/SylphxAI/skills) (Doctrine residual is historical only)
-- Machine manifest: `.doctrine/project.json`
-- Vendor-neutral GroundAtlas manifest: `project.manifest.json`
-- Generated GroundAtlas reports: `.groundatlas*`, JSON reports, and Markdown
-  scorecards are evidence/read models only
+- Static instruction SSOT: [SylphxAI/skills](https://github.com/SylphxAI/skills)
+- Machine fact authority: `project.manifest.json` (project-manifest-standard v2)
+- Human projection: this file (`PROJECT.md`)
+- Agent local notes: `AGENTS.md`
+- Retired lineage (do not load as instruction or live state): Doctrine,
+  Mission Control, GroundAtlas package dogfood / adapters
 
 ## Goals
 
-- Own the public MCP tool schemas, handlers, parser/extractor adapters,
-  provenance model, provider-neutral optional OCR/vision interfaces, benchmarks,
-  docs, and release evidence.
+- Own the public MCP tool schemas, sole-Rust production runtime, provenance
+  model, provider-neutral optional OCR/vision interfaces, benchmarks, docs, and
+  release evidence.
 - Keep document processing local-first by default with explicit local-vs-remote
   provider behavior.
 - Preserve source/page/region provenance so downstream agents can cite and
@@ -37,23 +38,29 @@ evidence without becoming a hosted Sylphx Platform BaaS service.
 ## Boundaries
 
 PDF Reader MCP owns the local/open-source document-intelligence package and its
-public MCP contract. It does not own hosted customer accounts, billing, storage,
-tenant policy, Gateway routing, product audit, or durable state created after a
-tool is used. Hosted document intelligence must be a separate service with its
-own ADR/spec and commercial controls.
+public MCP contract. Production backend authority is the pure-Rust crates and
+native binary launched by the npm package entry. Residual TypeScript PDF trees
+are non-authoritative (oracle/history only).
+
+It does not own hosted customer accounts, billing, storage, tenant policy,
+Gateway routing, product audit, or durable state created after a tool is used.
+Hosted document intelligence must be a separate service with its own ADR/spec
+and commercial controls.
 
 ## Public Surfaces
 
-- MCP package and CLI: `package.json`
-- Public docs: `README.md`
-- Boundary ADR:
-  `docs/adr/0001-2027-sota-document-intelligence-boundary.md`
+- MCP package and CLI: `package.json` → `dist/runtime-entry.js` (native only)
+- Rust core / server: `crates/pdf-reader-core`, `crates/pdf-reader-mcp-server`
+- Public docs: `README.md`, `docs/`
+- Boundary ADR: `docs/adr/0001-2027-sota-document-intelligence-boundary.md`
 - Tool/spec docs: `docs/specs/`
-- SOTA family roadmap: `docs/roadmap/sota-family-roadmap.md`
-- CI workflow: `.github/workflows/ci.yml`
-- Release workflow: `.github/workflows/release.yml`
+- CI: `.github/workflows/ci.yml`
+- Release: Changesets + `.github/workflows/release.yml`
 
 ## Delivery
+
+Terminal delivery is **npm package release** (main package + platform optional
+native packages) with registry readback — not a hosted app deploy.
 
 Pull requests use the legacy `Validate Code Quality` context on Sylphx
 self-hosted runners. Darwin native package builds and registry proofs use
@@ -63,12 +70,11 @@ Windows natives remain on `windows-latest` until a self-hosted Windows pool exis
 Package release is Changesets-driven through the repo release workflow, which
 mints a GitHub App token before creating version PRs or publishing to npm.
 
-Control Plane ADR-0014 retired the in-repository GroundAtlas package dogfood
-gate and assigned repository-intelligence ownership to Control Plane Repository
-Ingestion. `project.manifest.json` remains the vendor-neutral control file and
-`.doctrine/project.json` remains the Sylphx Doctrine adapter. This repository
-does not treat the ownership decision as proof of a live central ingestion
-receipt; generated inventory and reports remain read models only.
+Control Plane ADR-0014 retired in-repository GroundAtlas package dogfood.
+Doctrine adapters and Mission Control are retired historical lineage and must
+not be restored as machine truth. Adoption status is recorded as typed gaps in
+`project.manifest.json` and must not be hand-authored as complete while gaps
+remain.
 
 Docs-only boundary changes do not alter runtime behavior, provider dispatch,
 credentials, package output, npm release, or customer data handling. MCP schema,
@@ -82,3 +88,14 @@ through clean packaging, benchmarks, trust, compatibility, and separately owned
 hosted/enterprise products. Pricing, hosted document intelligence, enterprise
 packaging, or roadmap changes require decision records backed by market and
 customer analysis.
+
+## Verification (narrow → wide)
+
+```bash
+bun install --frozen-lockfile
+bun test test/project-control.test.ts
+bun run typecheck
+bun run check
+bun run check:ts-production-absence
+bun run package:smoke
+```

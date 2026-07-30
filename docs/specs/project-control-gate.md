@@ -1,29 +1,34 @@
-# Project Control Ingestion
+# Project Control
 
-PDF Reader MCP keeps project-control facts in two source files:
+PDF Reader MCP keeps project-control facts in one machine file plus a human
+projection:
 
-- `project.manifest.json` is the vendor-neutral GroundAtlas project control
-  file.
-- `.doctrine/project.json` is the Sylphx Doctrine adapter and local governance
-  catalog.
+- `project.manifest.json` — machine fact authority (project-manifest-standard v2)
+- `PROJECT.md` — short human projection of the same facts
+- `AGENTS.md` — local agent hazards and commands only
 
-Generated inventory and reports are evidence/read models only. They must not be
-edited or treated as source of truth.
+Static instruction SSOT is [SylphxAI/skills](https://github.com/SylphxAI/skills).
+Doctrine, Mission Control, and GroundAtlas package/action dogfood are retired
+historical lineage and must not be restored as machine truth or CI gates.
+
+Generated inventory, verification JSON under `verification/`, and Markdown
+scorecards are evidence/read models only. They must not be edited as source of
+truth.
 
 ## Current Control
 
 Control Plane ADR-0014 retired the repository-local GroundAtlas package dogfood
-job and assigned repository-intelligence ownership to Control Plane Repository
-Ingestion. Do not re-add a required GroundAtlas package/action job to this
-repository. The ownership decision is not a live central ingestion receipt.
+job. This repository additionally retires any Doctrine adapter file as a live
+control surface.
 
 The local contract is:
 
-- keep both manifest files valid JSON and semantically aligned through focused
-  local readback;
-- keep `project.manifest.json` vendor-neutral;
-- keep `.doctrine/project.json` as the Sylphx Doctrine adapter;
-- fail tests if the retired package gate is reintroduced.
+- keep `project.manifest.json` valid against the active project-manifest schema
+  shape used by this repo (schemaVersion 2);
+- keep `PROJECT.md` / `AGENTS.md` pointing only at Skills + that manifest;
+- fail tests if a Doctrine machine-truth path or GroundAtlas package dogfood CI
+  job is reintroduced;
+- record adoption as typed gaps — never author `adopted` while gaps remain.
 
 ## Validation
 
