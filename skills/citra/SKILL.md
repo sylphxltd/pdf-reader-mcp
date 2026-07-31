@@ -6,9 +6,7 @@ Use Citra when agents need **citeable PDF structure** (text, tables, geometry, O
 
 ```bash
 npm i -g @sylphx/pdf-reader-mcp
-# brand bin
 citra --help
-# MCP
 npx @sylphx/pdf-reader-mcp
 ```
 
@@ -18,7 +16,18 @@ npx @sylphx/pdf-reader-mcp
 | --- | --- |
 | SDK | `import { Citra } from '@sylphx/pdf-reader-mcp/sdk'` or `.../citra` |
 | CLI | `citra` / `pdf-reader-mcp` |
-| MCP | stdio tools (read/structure with page-level evidence) |
+| MCP | stdio tools with page-level evidence |
+
+## SDK
+
+```ts
+import { Citra } from '@sylphx/pdf-reader-mcp/sdk'
+const { payload, isError } = await Citra.create().read({
+  sources: [{ path: '/abs/doc.pdf', pages: [1] }],
+})
+```
+
+Public proof: `bun scripts/public-proof.ts` on sample.pdf.
 
 ## Evidence contract
 
