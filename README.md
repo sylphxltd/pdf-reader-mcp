@@ -1,12 +1,15 @@
 <div align="center">
 
-# PDF Reader MCP
+# Citra
 
 ### Give your AI agent eyes for PDFs.
 
-Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** — locally, with one MCP server.
+**Citra** is the PDF instrument in [Sylphx Instruments](docs/portfolio/SYLPHX_INSTRUMENTS.md) — local-first, fast, and citeable.
 
-Plain-text PDF tools make agents guess. **PDF Reader MCP gives them evidence.**
+Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** — locally — via **SDK, CLI, or MCP**.
+
+Plain-text PDF tools make agents guess. **Citra returns proof.**  
+Package (transition): `@sylphx/pdf-reader-mcp` · bin `pdf-reader-mcp`
 
 [![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -23,9 +26,9 @@ Plain-text PDF tools make agents guess. **PDF Reader MCP gives them evidence.**
 
 Most PDF tools dump text. Agents then invent page numbers, miss tables, and cite the wrong cell.
 
-PDF Reader MCP returns an **Agent Document Twin**: markdown + structure + geometry + provenance your agent can actually trust.
+Citra returns an **Agent Document Twin**: markdown + structure + geometry + provenance your agent can actually trust.
 
-| Without evidence | With PDF Reader MCP |
+| Without evidence | With Citra |
 | --- | --- |
 | “The revenue was about $12M” | “Page 14, Table 3, cell (row 4, col 2) = `$12.4M`” |
 | Lost table structure | Rows, columns, cells, bounding boxes |
@@ -85,6 +88,42 @@ Dual-era hosts that send `server/discover` before `initialize` (e.g. Gemini Anti
 pdf-reader-mcp
 MCP_TRANSPORT=http pdf-reader-mcp
 ```
+
+
+## SDK (programmatic)
+
+Citra is not MCP-only. Apps and internal dogfood can call the same engine without a chat client.
+
+**TypeScript — spawn the native server as a client**
+
+```ts
+import { createPureRustClient } from '@sylphx/pdf-reader-mcp/pure-rust';
+
+const client = createPureRustClient();
+const { payload, isError } = await client.readPdf({
+  sources: [{ path: '/absolute/path/to/doc.pdf' }],
+  // auto defaults on when you omit include_* flags
+});
+if (isError) throw new Error(JSON.stringify(payload));
+console.log(payload);
+// each call spawns/closes a native stdio session today
+```
+
+- Export: `@sylphx/pdf-reader-mcp/pure-rust` → `createPureRustClient`, `resolvePureRustServerBinary`, `PureRustClient`
+- Tools (same as MCP): `read_pdf` · `search_pdf` · `pdf_evidence`
+- Requires the platform optional native package (same as MCP install)
+- **Roadmap:** idiomatic high-level `@sylphx/citra` package name + richer typed SDK; semantics stay isomorphic with CLI/MCP
+
+**CLI**
+
+```bash
+npx pdf-reader-mcp --help   # transitional bin
+# doctor / read paths: see package bin and docs/guide
+```
+
+**MCP** — see Quick start above (`npx @sylphx/pdf-reader-mcp`).
+
+Family constitution: [Sylphx Instruments SSOT](https://github.com/SylphxAI/architecture-reader-mcp/blob/main/docs/portfolio/sylphx-instruments-ssot.md).
 
 ## What you get
 
