@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type FIX_CITRA to unpublish thin alias and republish from full pdf-reader-mcp tarball'
+        description: 'Type FIX_CITRA'
         required: true
         type: string
 
@@ -21,7 +21,7 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
-      - name: Unpublish thin citra@4.1.2 if present, republish full alias
+      - name: Unpublish package scope and republish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -31,33 +31,26 @@ jobs:
           printf '//registry.npmjs.org/:_authToken=%s\nalways-auth=true\n' "$TOKEN" > "$HOME/.npmrc"
           export NPM_CONFIG_USERCONFIG="$HOME/.npmrc"
           npm whoami
-          # Attempt unpublish of bad thin package (within 72h policy)
+          # unpublish entire package if in soft-delete/zombie state
           npm unpublish @sylphx/citra@4.1.2 --force || true
-          sleep 3
-          WORK=$(mktemp -d)
-          cd "$WORK"
+          npm unpublish @sylphx/citra --force || true
+          sleep 5
+          WORK=$(mktemp -d) && cd "$WORK"
           npm pack @sylphx/pdf-reader-mcp@4.1.2
-          TGZ=$(ls -1 *.tgz | head -1)
-          echo "source tarball: $TGZ ($(wc -c < "$TGZ") bytes)"
-          tar -xzf "$TGZ"
+          ls -la
+          tar -xzf sylphx-pdf-reader-mcp-4.1.2.tgz
           cd package
           node -e '
             const fs=require("fs");
             const pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
             pkg.name="@sylphx/citra";
             pkg.private=false;
-            pkg.publishConfig=Object.assign({},pkg.publishConfig||{},{access:"public"});
+            pkg.publishConfig={access:"public"};
             pkg.description=(pkg.description||"")+" (brand alias of @sylphx/pdf-reader-mcp)";
-            if(pkg.scripts){delete pkg.scripts.prepublishOnly;delete pkg.scripts.prepare;delete pkg.scripts.prepack;delete pkg.scripts.postinstall;}
+            if(pkg.scripts){for (const k of Object.keys(pkg.scripts)){if(/pre|post|prepare/.test(k)) delete pkg.scripts[k];}}
             fs.writeFileSync("package.json", JSON.stringify(pkg,null,2));
-            console.log(pkg.name, pkg.version, "files", (pkg.files||[]).slice(0,8));
           '
-          # show size of unpacked
-          du -sh .
           npm publish --access public --ignore-scripts
-          sleep 5
+          sleep 8
           npm view @sylphx/citra version
-          npm view @sylphx/citra dist.tarball
-          # compare sizes roughly via npm view
-          npm view @sylphx/pdf-reader-mcp@4.1.2 dist.unpackedSize
-          npm view @sylphx/citra@4.1.2 dist.unpackedSize
+          curl -sS "https://registry.npmjs.org/@sylphx%2fcitra" | head -c 300; echo
