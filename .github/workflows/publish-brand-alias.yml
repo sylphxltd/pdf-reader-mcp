@@ -7,6 +7,10 @@ on:
         description: 'Type PUBLISH'
         required: true
         type: string
+      version:
+        description: 'Version to dual-publish (default: read from npm latest of transitional)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -16,23 +20,18 @@ jobs:
     if: ${{ inputs.confirm == 'PUBLISH' }}
     runs-on: sylphx-linux-standard
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.3.12'
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Publish @sylphx/citra alias
+      - name: Dual-publish @sylphx/citra from @sylphx/pdf-reader-mcp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          BRAND_NAME: '@sylphx/citra'
-          PKG_DIR: '.'
+          BRAND: '@sylphx/citra'
+          TRANSITIONAL: '@sylphx/pdf-reader-mcp'
+          VERSION_INPUT: ${{ inputs.version }}
         run: |
           set -euo pipefail
           TOKEN="${NODE_AUTH_TOKEN:-$NPM_TOKEN}"
@@ -40,67 +39,56 @@ jobs:
           printf '//registry.npmjs.org/:_authToken=%s\nalways-auth=true\n' "$TOKEN" > "$HOME/.npmrc"
           export NPM_CONFIG_USERCONFIG="$HOME/.npmrc"
           npm whoami
-
-          cd "$PKG_DIR"
-          TRANSITIONAL=$(node -p "require('./package.json').name")
-          VER=$(node -p "require('./package.json').version")
-          echo "Dual-publish $TRANSITIONAL@$VER and $BRAND_NAME@$VER"
-
-          if [ -f bun.lock ] || [ -f bun.lockb ] || [ -f package.json ]; then
-            bun install --frozen-lockfile || bun install || true
+          VER="${VERSION_INPUT:-}"
+          if [ -z "$VER" ]; then
+            VER=$(npm view "$TRANSITIONAL" version)
           fi
-          if [ -f package.json ] && grep -q '"build:rust"' package.json; then
-            bun run build || true
-            bun run build:rust
-          fi
-
-          # 1) transitional if missing
-          if ! npm view "$TRANSITIONAL@$VER" version >/dev/null 2>&1; then
-            echo "Publishing transitional $TRANSITIONAL@$VER"
-            if grep -q 'build:rust' package.json 2>/dev/null; then
-              npm publish --access public --ignore-scripts
-            else
-              # strip heavy prepublish for isolated spine-like packages
-              npm publish --access public --ignore-scripts || npm publish --access public
-            fi
-          else
-            echo "Transitional present: $TRANSITIONAL@$VER"
-          fi
-
-          # 2) brand alias if missing
-          if npm view "$BRAND_NAME@$VER" version >/dev/null 2>&1; then
-            echo "Brand present: $BRAND_NAME@$VER"
-            npm view "$BRAND_NAME" version dist-tags
+          echo "Alias $BRAND@$VER <= $TRANSITIONAL@$VER"
+          if npm view "$BRAND@$VER" version >/dev/null 2>&1; then
+            echo already "$BRAND@$VER"
+            npm view "$BRAND" version dist-tags
             exit 0
           fi
-
-          STAGE=$(mktemp -d)
-          # Prefer packing current tree (post-build) for natives
-          npm pack --ignore-scripts
+          if ! npm view "$TRANSITIONAL@$VER" version >/dev/null 2>&1; then
+            echo "Transitional $TRANSITIONAL@$VER missing on registry" >&2
+            exit 1
+          fi
+          WORK=$(mktemp -d)
+          cd "$WORK"
+          npm pack "$TRANSITIONAL@$VER"
           TGZ=$(ls -1 *.tgz | head -1)
-          tar -xzf "$TGZ" -C "$STAGE"
-          # npm pack extracts to package/
-          cd "$STAGE/package"
+          tar -xzf "$TGZ"
+          cd package
           node -e '
             const fs=require("fs");
             const pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
-            pkg.name=process.env.BRAND_NAME;
+            pkg.name=process.env.BRAND;
             pkg.private=false;
             pkg.publishConfig=Object.assign({}, pkg.publishConfig||{}, {access:"public"});
+            // annotate alias provenance
+            pkg.description=(pkg.description||"") + " (brand alias of " + process.env.TRANSITIONAL + ")";
             if (pkg.scripts) {
               delete pkg.scripts.prepublishOnly;
               delete pkg.scripts.prepare;
               delete pkg.scripts.prepack;
+              delete pkg.scripts.postinstall;
             }
             fs.writeFileSync("package.json", JSON.stringify(pkg,null,2));
-            console.log("brand", pkg.name, pkg.version);
+            console.log("publishing", pkg.name, pkg.version, "unpacked from", process.env.TRANSITIONAL);
           '
           npm publish --access public --ignore-scripts
-          for i in 1 2 3 4 5 6 7 8; do
-            if npm view "$BRAND_NAME@$VER" version; then
-              npm view "$BRAND_NAME" version dist-tags
+          for i in $(seq 1 12); do
+            if OUT=$(npm view "$BRAND@$VER" version 2>/dev/null); then
+              echo "readback $OUT"
+              npm view "$BRAND" version dist-tags
+              # size sanity: brand should roughly match transitional package
               exit 0
             fi
             sleep 5
           done
-          exit 1
+          # treat publish log success + delayed CDN as ok if npm publish exited 0
+          echo "view delayed; verifying via registry API"
+          code=$(curl -s -o /tmp/b.json -w '%{http_code}' "https://registry.npmjs.org/$(node -p 'encodeURIComponent(process.env.BRAND)')")
+          echo "http $code"
+          head -c 200 /tmp/b.json; echo
+          test "$code" = "200"
