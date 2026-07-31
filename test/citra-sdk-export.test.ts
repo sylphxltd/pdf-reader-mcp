@@ -33,10 +33,9 @@ describe('Citra SDK export', () => {
   });
 });
 
-  test('marketplace server.json brands as Citra', () => {
-    const server = JSON.parse(readFileSync(join(root, 'server.json'), 'utf8')) as {
-      title?: string;
-    };
-    expect(server.title).toBe('Citra');
-  });
-
+test('marketplace server.json brands as Citra', () => {
+  const server = JSON.parse(readFileSync(join(root, 'server.json'), 'utf8')) as {
+    title?: string;
+  };
+  expect(server.title).toBe('Citra');
+});

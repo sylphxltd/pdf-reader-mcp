@@ -88,7 +88,7 @@ export const productionEnv = (overrides: NodeJS.ProcessEnv = {}): NodeJS.Process
   }
   // Sole-Rust production does not use TS engine mode flags.
   if (!overrides.PDF_READER_ENGINE_MODE) {
-    delete env.PDF_READER_ENGINE_MODE;
+    env.PDF_READER_ENGINE_MODE = undefined;
   }
   return env;
 };

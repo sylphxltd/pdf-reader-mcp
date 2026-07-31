@@ -1,18 +1,22 @@
-# Evidence contract
+# Evidence contract — product-specific
 
-**Evidence First** means tool **results** carry citeable structure — not a tool named `evidence_first`.
+**Evidence First** means results carry citeable structure. There is **no** MCP tool named `evidence_first`.
 
-## What agents get
+## Locators and honesty for this product
 
-- **Locators**: page / time / bbox / file:line / URL span as applicable
-- **Routes**: which local engine path produced the payload
-- **Warnings**: honesty when OCR/ conf / network / partial parse limits apply
-- **No generative rewrite** as the default authority
+- page number
+- table/cell indices when extracted
+- bbox / region when visual/OCR
+- source path + document hash when available
+- warnings for OCR/ conf / partial parse
 
-## What Evidence First is not
+## Always include when applicable
 
-- Not a separate MCP tool agents must call
-- Not marketing-only language without locators
-- Not requiring a cloud model to “confirm” local facts
+- **route**: which local engine path produced the payload
+- **warnings**: missing binaries, partial parse, network/adapter limits
+- raw facts over generative rewrite as authority
 
-This product owns its evidence envelope in-repo.
+## Non-goals
+
+- Requiring a cloud model to “confirm” local facts
+- Over-marketing Evidence First without locators on the wire

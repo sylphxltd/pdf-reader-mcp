@@ -13,14 +13,14 @@
  */
 import {
   createPureRustClient,
-  PureRustClient,
   type PureRustCallResult,
+  PureRustClient,
   type PureRustClientOptions,
   resolvePureRustServerBinary,
 } from './pure-rust.js';
 
 export type { PureRustCallResult, PureRustClientOptions };
-export { resolvePureRustServerBinary, createPureRustClient, PureRustClient };
+export { createPureRustClient, PureRustClient, resolvePureRustServerBinary };
 
 export type PdfSource = {
   path?: string;
@@ -78,7 +78,7 @@ export class Citra {
   /** Escape hatch for raw tool names. */
   call(
     tool: 'read_pdf' | 'search_pdf' | 'pdf_evidence',
-    args: Record<string, unknown>,
+    args: Record<string, unknown>
   ): Promise<PureRustCallResult> {
     return this.client.callTool(tool, args);
   }
