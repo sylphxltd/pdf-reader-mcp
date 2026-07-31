@@ -2,7 +2,7 @@
   "name": "@sylphx/pdf-reader-mcp",
   "version": "4.1.2",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Give AI agents eyes for PDFs — structured text, tables, OCR, visual evidence, and page-level citations via MCP. Native Rust engine, local-first, five platforms.",
+  "description": "Citra \u2014 PDF evidence for agents (Sylphx Instruments). Local-first structured text, tables, OCR, visual evidence, citations via MCP/CLI/SDK. Package id transitional: @sylphx/pdf-reader-mcp.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/runtime-entry.js"
@@ -13,11 +13,14 @@
     "examples/",
     "corpus/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "dist/sdk.js"
   ],
   "exports": {
     ".": "./dist/runtime-entry.js",
-    "./pure-rust": "./dist/pure-rust.js"
+    "./pure-rust": "./dist/pure-rust.js",
+    "./sdk": "./dist/sdk.js",
+    "./citra": "./dist/sdk.js"
   },
   "publishConfig": {
     "access": "public"
@@ -238,7 +241,7 @@
     "native:stage-from-artifacts": "bun scripts/native/stage-native-artifacts.ts",
     "release:publish-with-natives": "bun scripts/release-publish-with-natives.ts",
     "sync:server-json": "bun scripts/sync-server-json.ts",
-    "build:package": "bun build src/runtime-entry.ts --outdir dist --target node && bun build src/pure-rust.ts --outdir dist --target node",
+    "build:package": "bun build src/runtime-entry.ts --outdir dist --target node && bun build src/pure-rust.ts --outdir dist --target node && bun build src/sdk.ts --outdir dist --target node",
     "build:oracle-ts": "bun build src/index.ts --outdir dist --target node && bun build src/doctor-cli.ts --outdir dist --target node && bun build src/legacy-engine-runtime.ts --outdir dist --target node && bun build src/pure-rust.ts --outdir dist --target node && bun build src/runtime-entry.ts --outdir dist --target node && bun scripts/stage-pdfjs-worker.ts",
     "check:ts-production-absence": "bun scripts/check-ts-production-absence.ts",
     "perf:same-host-ab": "bun scripts/perf/same-host-ts-rust-ab.ts",

@@ -97,18 +97,20 @@ Citra is not MCP-only. Apps and internal dogfood can call the same engine withou
 **TypeScript — spawn the native server as a client**
 
 ```ts
-import { createPureRustClient } from '@sylphx/pdf-reader-mcp/pure-rust';
+import { Citra } from '@sylphx/pdf-reader-mcp/sdk';
 
-const client = createPureRustClient();
-const { payload, isError } = await client.readPdf({
+const citra = Citra.create();
+const { payload, isError } = await citra.read({
   sources: [{ path: '/absolute/path/to/doc.pdf' }],
   // auto defaults on when you omit include_* flags
 });
 if (isError) throw new Error(JSON.stringify(payload));
 console.log(payload);
-// each call spawns/closes a native stdio session today
 ```
 
+Low-level escape hatch: `@sylphx/pdf-reader-mcp/pure-rust` (`createPureRustClient`).
+
+- Export: `@sylphx/pdf-reader-mcp/sdk` → `Citra` (`read` / `search` / `evidence`)
 - Export: `@sylphx/pdf-reader-mcp/pure-rust` → `createPureRustClient`, `resolvePureRustServerBinary`, `PureRustClient`
 - Tools (same as MCP): `read_pdf` · `search_pdf` · `pdf_evidence`
 - Requires the platform optional native package (same as MCP install)
