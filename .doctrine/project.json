@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "repo": "SylphxAI/pdf-reader-mcp",
+    "name": "Citra (PDF Reader MCP)",
+    "lifecycle": "production",
+    "layer": "tooling",
+    "policyPool": "sylphx-skills",
+    "summary": "Local-first PDF evidence for agents: structured text, tables, OCR, visual evidence, page-level citations via SDK/CLI/MCP.",
+    "goals": [
+      "Own local PDF intelligence with citeable page/region evidence.",
+      "Ship SDK, CLI (citra), and MCP without required cloud API keys.",
+      "Keep package release evidence honest on npm + natives."
+    ],
+    "nonGoals": [
+      "Multi-product monorepo shipping",
+      "Central Instruments hub authority",
+      "Generative summary as sole evidence authority"
+    ],
+    "links": [
+      {
+        "type": "homepage",
+        "url": "https://sylphxai.github.io/pdf-reader-mcp/",
+        "title": "Docs"
+      },
+      {
+        "type": "npm",
+        "url": "https://www.npmjs.com/package/@sylphx/pdf-reader-mcp",
+        "title": "npm"
+      }
+    ]
+  }
+}
