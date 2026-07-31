@@ -1,0 +1,106 @@
+name: Publish brand alias
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type PUBLISH'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-brand:
+    if: ${{ inputs.confirm == 'PUBLISH' }}
+    runs-on: sylphx-linux-standard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          always-auth: true
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Publish @sylphx/citra alias
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BRAND_NAME: '@sylphx/citra'
+          PKG_DIR: '.'
+        run: |
+          set -euo pipefail
+          TOKEN="${NODE_AUTH_TOKEN:-$NPM_TOKEN}"
+          test -n "$TOKEN"
+          printf '//registry.npmjs.org/:_authToken=%s\nalways-auth=true\n' "$TOKEN" > "$HOME/.npmrc"
+          export NPM_CONFIG_USERCONFIG="$HOME/.npmrc"
+          npm whoami
+
+          cd "$PKG_DIR"
+          TRANSITIONAL=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          echo "Dual-publish $TRANSITIONAL@$VER and $BRAND_NAME@$VER"
+
+          if [ -f bun.lock ] || [ -f bun.lockb ] || [ -f package.json ]; then
+            bun install --frozen-lockfile || bun install || true
+          fi
+          if [ -f package.json ] && grep -q '"build:rust"' package.json; then
+            bun run build || true
+            bun run build:rust
+          fi
+
+          # 1) transitional if missing
+          if ! npm view "$TRANSITIONAL@$VER" version >/dev/null 2>&1; then
+            echo "Publishing transitional $TRANSITIONAL@$VER"
+            if grep -q 'build:rust' package.json 2>/dev/null; then
+              npm publish --access public --ignore-scripts
+            else
+              # strip heavy prepublish for isolated spine-like packages
+              npm publish --access public --ignore-scripts || npm publish --access public
+            fi
+          else
+            echo "Transitional present: $TRANSITIONAL@$VER"
+          fi
+
+          # 2) brand alias if missing
+          if npm view "$BRAND_NAME@$VER" version >/dev/null 2>&1; then
+            echo "Brand present: $BRAND_NAME@$VER"
+            npm view "$BRAND_NAME" version dist-tags
+            exit 0
+          fi
+
+          STAGE=$(mktemp -d)
+          # Prefer packing current tree (post-build) for natives
+          npm pack --ignore-scripts
+          TGZ=$(ls -1 *.tgz | head -1)
+          tar -xzf "$TGZ" -C "$STAGE"
+          # npm pack extracts to package/
+          cd "$STAGE/package"
+          node -e '
+            const fs=require("fs");
+            const pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
+            pkg.name=process.env.BRAND_NAME;
+            pkg.private=false;
+            pkg.publishConfig=Object.assign({}, pkg.publishConfig||{}, {access:"public"});
+            if (pkg.scripts) {
+              delete pkg.scripts.prepublishOnly;
+              delete pkg.scripts.prepare;
+              delete pkg.scripts.prepack;
+            }
+            fs.writeFileSync("package.json", JSON.stringify(pkg,null,2));
+            console.log("brand", pkg.name, pkg.version);
+          '
+          npm publish --access public --ignore-scripts
+          for i in 1 2 3 4 5 6 7 8; do
+            if npm view "$BRAND_NAME@$VER" version; then
+              npm view "$BRAND_NAME" version dist-tags
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
