@@ -29,9 +29,9 @@ describe('project control (Skills + project manifest v2)', () => {
 
     expect(project).toContain('project.manifest.json');
     expect(project).toContain('SylphxAI/skills');
-    expect(project).not.toMatch(/Machine manifest:\s*`\.doctrine\//);
+    // Product may publish a thin portfolio-compatible .doctrine/project.json, but
+    // project.manifest.json remains the product machine fact authority.
     expect(agents).toContain('project.manifest.json');
-    expect(agents).not.toContain('.doctrine/project.json');
   });
 
   it('does not restore Doctrine adapter or GroundAtlas package dogfood', () => {
@@ -41,7 +41,13 @@ describe('project control (Skills + project manifest v2)', () => {
     const historicalAdr = readText('docs/adr/0003-groundatlas-013-scorecard-gate.md');
     const manifest = readJson('project.manifest.json');
 
-    expect(existsSync('.doctrine/project.json')).toBe(false);
+    // Thin portfolio catalog manifest is allowed; GroundAtlas/doctrine dogfood is not.
+    if (existsSync('.doctrine/project.json')) {
+      const doctrine = readJson('.doctrine/project.json');
+      expect(doctrine.schemaVersion).toBe(1);
+      expect(doctrine.project.repo).toBe('SylphxAI/pdf-reader-mcp');
+      expect(JSON.stringify(doctrine)).not.toMatch(/groundatlas/i);
+    }
     expect(workflow).not.toContain('SylphxAI/groundatlas');
     expect(workflow).not.toContain('groundatlas-package-dogfood');
     expect(project).toContain('Control Plane ADR-0014');
@@ -55,6 +61,5 @@ describe('project control (Skills + project manifest v2)', () => {
     // Retired lineage may be named in gaps/forbiddens; must not be schema or adapter path.
     expect(manifest.$schema).toContain('project-manifest-standard');
     expect(manifest.$schema).not.toContain('groundatlas');
-    expect(JSON.stringify(manifest)).not.toContain('.doctrine/');
   });
 });
