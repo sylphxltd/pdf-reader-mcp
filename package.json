@@ -2,7 +2,7 @@
   "name": "@sylphx/pdf-reader-mcp",
   "version": "4.1.2",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Citra \u2014 PDF evidence for agents (Sylphx Instruments). Local-first structured text, tables, OCR, visual evidence, citations via MCP/CLI/SDK. Package id transitional: @sylphx/pdf-reader-mcp.",
+  "description": "Citra \u2014 PDF evidence for agents (Sylphx). Local-first structured text, tables, OCR, visual evidence, citations via MCP/CLI/SDK. Package id transitional: @sylphx/pdf-reader-mcp.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/runtime-entry.js",

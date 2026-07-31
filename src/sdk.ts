@@ -1,5 +1,5 @@
 /**
- * Citra SDK — programmatic PDF evidence API (Sylphx Instruments).
+ * Citra SDK — programmatic PDF evidence API (Sylphx).
  *
  * Today this is a typed façade over the pure-Rust MCP server client.
  * Semantics match MCP tools: read_pdf, search_pdf, pdf_evidence.

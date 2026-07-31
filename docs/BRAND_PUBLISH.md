@@ -14,7 +14,7 @@
 
 1. Ship/publish `@sylphx/pdf-reader-mcp` from this repo (existing CI/release train).
 2. Optional second publish of `@sylphx/citra` **from this same repo** (same artifacts, renamed package.json at pack time).
-3. Never publish brand packages from `SylphxAI/instruments` (docs-only).
+3. Never publish brand packages from any other repository.
 
 ## Dry-run (no npm auth required)
 
@@ -31,6 +31,6 @@ npm pack --dry-run
 - Changeset/version alignment with transitional package
 - Registry readback proof after publish
 
-## Family
+## Authority
 
-https://github.com/SylphxAI/instruments
+Publish and brand packages only from **this repository**. No central Instruments monorepo.

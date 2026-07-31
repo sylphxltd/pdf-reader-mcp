@@ -4,7 +4,7 @@
 
 ### Give your AI agent eyes for PDFs.
 
-**Citra** is the PDF instrument in [Sylphx Instruments](docs/portfolio/SYLPHX_INSTRUMENTS.md) — local-first, fast, and citeable.
+**Citra** is a local-first PDF evidence product for agents — fast, citeable, owned entirely in this repository.
 
 Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** — locally — via **SDK, CLI, or MCP**.
 
@@ -129,7 +129,7 @@ npx pdf-reader-mcp --help   # transitional bin
 
 **MCP** — see Quick start above (`npx @sylphx/pdf-reader-mcp`).
 
-Family constitution: [Sylphx Instruments SSOT](https://github.com/SylphxAI/architecture-reader-mcp/blob/main/docs/portfolio/sylphx-instruments-ssot.md).
+Independence: [this product only](docs/portfolio/SYLPHX_INSTRUMENTS.md). No central Instruments monorepo.
 
 ## What you get
 

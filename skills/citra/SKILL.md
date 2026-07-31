@@ -37,4 +37,7 @@ Results include page/cell/bbox locators and honesty warnings. There is **no** `e
 
 1. Local-first; native binary for the current platform; fail closed if missing.
 2. Prefer structure + evidence over prose summaries.
-3. Family knowledge (docs only): https://github.com/SylphxAI/instruments
+
+## Independence
+
+This repository is product SSOT. No central Instruments monorepo.
