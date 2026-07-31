@@ -35,6 +35,10 @@ Citra returns an **Agent Document Twin**: markdown + structure + geometry + prov
 | Scanned PDF becomes noise | OCR path with page-linked evidence |
 | Hidden text / prompt injection ignored | Trust signals when requested |
 
+## Agent skill surface
+
+See [`skills/citra/SKILL.md`](./skills/citra/SKILL.md).
+
 ## Install (30 seconds)
 
 ```bash

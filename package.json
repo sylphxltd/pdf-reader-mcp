@@ -251,7 +251,8 @@
     "build:test": "bun run build:package && bun run build:oracle-ts",
     "check:prod-dependency-closure": "bun scripts/check-prod-dependency-closure.ts",
     "check:no-github-hosted-macos": "bun scripts/check-no-github-hosted-macos.ts",
-    "perf:installed-footprint": "bun scripts/perf/measure-installed-footprint.ts"
+    "perf:installed-footprint": "bun scripts/perf/measure-installed-footprint.ts",
+    "brand:pack-plan": "bun scripts/brand-pack-plan.ts"
   },
   "dependencies": {},
   "overrides": {
