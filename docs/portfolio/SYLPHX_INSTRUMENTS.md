@@ -1,14 +1,13 @@
-# Sylphx Instruments (pointer)
+# Sylphx Instruments (product family note)
 
-**Citra** is the PDF member of **Sylphx Instruments**.
+This repository is **one independent product** in the Sylphx Instruments family
+(composable positioning at the company level).
 
-Canonical portfolio SSOT (brands, constraints, goals, Spine/Lookout targets):
+It is **not** a monorepo of all instruments. Marketplace listing, releases, and
+stars for this product are owned **here only**.
 
-→ [SylphxAI/architecture-reader-mcp `docs/portfolio/sylphx-instruments-ssot.md`](https://github.com/SylphxAI/architecture-reader-mcp/blob/main/docs/portfolio/sylphx-instruments-ssot.md)
+Other instruments live in their own GitHub repositories (Citra/PDF, Iris/image,
+Cue/video, Prism/smart-reader, Spine/architecture, Lookout/web).
 
-Naming ADR:
-
-→ [ADR-3](https://github.com/SylphxAI/architecture-reader-mcp/blob/main/docs/adr/ADR-3-sylphx-instruments-naming.md)
-
-This package remains `@sylphx/pdf-reader-mcp` during the Citra dual-name transition.
-Public product language should prefer **Citra — PDF evidence for agents**.
+Company Instruments knowledge is shared context for agents — not import-work
+hosted inside a sibling product repo.
