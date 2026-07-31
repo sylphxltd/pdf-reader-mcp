@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Citra } from '../src/sdk.ts';
 
@@ -11,15 +11,23 @@ describe('Citra SDK export', () => {
     expect(typeof Citra.create).toBe('function');
   });
 
-  test('dist/sdk.js is produced when package build includes sdk entry', () => {
-    // Soft check: if dist exists after local build, it should include sdk.
+  test('package.json exports sdk and citra alias and citra bin', () => {
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+      exports?: Record<string, string>;
+      bin?: Record<string, string>;
+      files?: string[];
+    };
+    expect(pkg.exports?.['./sdk']).toBe('./dist/sdk.js');
+    expect(pkg.exports?.['./citra']).toBe('./dist/sdk.js');
+    expect(pkg.bin?.citra).toBeTruthy();
+    expect(pkg.files ?? []).toContain('dist/sdk.js');
+  });
+
+  test('dist/sdk.js exists after package build', () => {
     const sdkDist = join(root, 'dist/sdk.js');
+    // ensure source always available
+    expect(existsSync(join(root, 'src/sdk.ts'))).toBe(true);
     if (existsSync(join(root, 'dist/pure-rust.js'))) {
-      // After build:package with sdk, this should exist; if only partial dist, skip hard fail.
-      // We assert module can be imported from source regardless.
-      expect(true).toBe(true);
-    }
-    if (existsSync(sdkDist)) {
       expect(existsSync(sdkDist)).toBe(true);
     }
   });
