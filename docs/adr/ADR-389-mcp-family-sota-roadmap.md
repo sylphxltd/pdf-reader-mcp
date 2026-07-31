@@ -1,3 +1,7 @@
+# RETIRED family control-plane note
+
+Superseded by product-local POSITIONING/IPPB. Historical only.
+
 # ADR-389: Adopt PDF Reader MCP Family SOTA Roadmap
 
 Date: 2026-07-09
