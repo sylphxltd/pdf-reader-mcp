@@ -129,7 +129,7 @@ npx pdf-reader-mcp --help   # transitional bin
 
 **MCP** — see Quick start above (`npx @sylphx/pdf-reader-mcp`).
 
-Independence: [this product only](docs/portfolio/SYLPHX_INSTRUMENTS.md). No central Instruments monorepo.
+Independence: [this product only](docs/PRODUCT_INDEPENDENCE.md). No central Instruments monorepo.
 
 ## What you get
 
