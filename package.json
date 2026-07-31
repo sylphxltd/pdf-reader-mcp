@@ -252,7 +252,8 @@
     "check:prod-dependency-closure": "bun scripts/check-prod-dependency-closure.ts",
     "check:no-github-hosted-macos": "bun scripts/check-no-github-hosted-macos.ts",
     "perf:installed-footprint": "bun scripts/perf/measure-installed-footprint.ts",
-    "brand:pack-plan": "bun scripts/brand-pack-plan.ts"
+    "brand:pack-plan": "bun scripts/brand-pack-plan.ts",
+    "benchmark:public-proof": "bun scripts/public-proof.ts"
   },
   "dependencies": {},
   "overrides": {
