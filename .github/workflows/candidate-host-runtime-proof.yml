@@ -111,36 +111,35 @@ jobs:
             bun scripts/check-registry-install-proof.ts --local-pack | tee "host-proof-${required}.json"
           else
             # Cross-build already staged above. Do not use GitHub-hosted macos-* for arm64 host proof.
-            # Soft-skip only the known QEMU x64 vs darwin-arm64 gap; all other mismatches fail closed.
+            # Soft-skip is applied inside python; other mismatch paths fail closed.
             if [[ "${required}" != "darwin-arm64" || "${host_id}" != "darwin-x64" ]]; then
               echo "::error::Host ${host_id} cannot provide host-runtime proof for ${required}."
               exit 1
             fi
-            python3 - <<'PY' "${required}" "${host_id}"
-                import json, platform, subprocess, sys
-                required = sys.argv[1]
-                host_id = sys.argv[2]
-                uname = subprocess.check_output(['uname','-m'], text=True).strip()
-                report = {
-                  'profile': 'candidate_host_runtime_proof_leg',
-                  'pass': True,
-                  'runtimeProofValid': False,
-                  'requiredPlatformId': required,
-                  'hostPlatformId': host_id,
-                  'host': {
-                    'nodePlatform': sys.platform,
-                    'nodeArch': platform.machine(),
-                    'unameMachine': uname,
-                  },
-                  'crossBuiltOnly': True,
-                  'note': f'Cross-built on host {host_id}; host runtime proof deferred until matching self-hosted capacity (no GitHub-hosted macos-*).',
-                }
-                path = f'host-proof-{required}.json'
-                open(path,'w').write(json.dumps(report, indent=2)+'\n')
-                print(json.dumps(report, indent=2))
-                PY
-            fi
-
+          python3 - <<'PY' "${required}" "${host_id}"
+          import json, platform, subprocess, sys
+          required = sys.argv[1]
+          host_id = sys.argv[2]
+          uname = subprocess.check_output(['uname','-m'], text=True).strip()
+          report = {
+            'profile': 'candidate_host_runtime_proof_leg',
+            'pass': True,
+            'runtimeProofValid': False,
+            'requiredPlatformId': required,
+            'hostPlatformId': host_id,
+            'host': {
+              'nodePlatform': sys.platform,
+              'nodeArch': platform.machine(),
+              'unameMachine': uname,
+            },
+            'crossBuiltOnly': True,
+            'note': f'Cross-built on host {host_id}; host runtime proof deferred until matching self-hosted capacity (no GitHub-hosted macos-*).',
+          }
+          path = f'host-proof-{required}.json'
+          open(path,'w').write(json.dumps(report, indent=2)+'\n')
+          print(json.dumps(report, indent=2))
+          PY
+          fi
       - name: Upload host proof JSON
         if: always()
         uses: actions/upload-artifact@v7
