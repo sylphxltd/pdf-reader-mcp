@@ -1,8 +1,8 @@
 {
   "name": "@sylphx/pdf-reader-mcp",
-  "version": "4.1.2",
+  "version": "4.1.3",
   "mcpName": "io.github.SylphxAI/pdf-reader-mcp",
-  "description": "Citra \u2014 PDF evidence for agents (Sylphx). Local-first structured text, tables, OCR, visual evidence, citations via MCP/CLI/SDK. Package id transitional: @sylphx/pdf-reader-mcp.",
+  "description": "Citra — PDF evidence for agents (Sylphx). Local-first structured text, tables, OCR, visual evidence, citations via MCP/CLI/SDK. Package id transitional: @sylphx/pdf-reader-mcp.",
   "type": "module",
   "bin": {
     "pdf-reader-mcp": "./dist/runtime-entry.js",
@@ -281,10 +281,10 @@
   },
   "packageManager": "bun@1.3.14",
   "optionalDependencies": {
-    "@sylphx/pdf-reader-mcp-darwin-arm64": "4.1.2",
-    "@sylphx/pdf-reader-mcp-darwin-x64": "4.1.2",
-    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.1.2",
-    "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.1.2",
-    "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.1.2"
+    "@sylphx/pdf-reader-mcp-darwin-arm64": "4.1.3",
+    "@sylphx/pdf-reader-mcp-darwin-x64": "4.1.3",
+    "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.1.3",
+    "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.1.3",
+    "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.1.3"
   }
 }

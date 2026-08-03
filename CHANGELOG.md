@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.1.3
+
+### Patch Changes
+
+- [#609](https://github.com/SylphxAI/pdf-reader-mcp/pull/609) [`0096f4c`](https://github.com/SylphxAI/pdf-reader-mcp/commit/0096f4c4d2e77413c34b4ab957127c2ccdd329f3) Thanks [@shtse8](https://github.com/shtse8)! - Fix a whole-process crash when reading PDFs whose ToUnicode CMaps contain malformed destinations (pdfTeX 1-byte `beginbfrange` like `<C5> <D6> <C5>`). Vendor a patched `adobe-cmap-parser` that skips destinations that are not valid UTF-16BE instead of panicking, keep multi-code (6/8-byte) ligature destinations working, and build with panic-unwind so no malformed document can abort the MCP server from a worker-thread panic (fixes [#608](https://github.com/SylphxAI/pdf-reader-mcp/issues/608)).
+
 ## 4.1.2
 
 ### Patch Changes

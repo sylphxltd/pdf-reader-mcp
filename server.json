@@ -2,18 +2,18 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SylphxAI/pdf-reader-mcp",
   "title": "Citra",
-  "description": "Citra \u2014 local-first PDF evidence for agents (structure, tables, OCR, citations). SDK \u00b7 CLI \u00b7 MCP. by Sylphx.",
+  "description": "Citra — local-first PDF evidence for agents (structure, tables, OCR, citations). SDK · CLI · MCP. by Sylphx.",
   "repository": {
     "url": "https://github.com/SylphxAI/pdf-reader-mcp",
     "source": "github"
   },
-  "version": "4.1.2",
+  "version": "4.1.3",
   "websiteUrl": "https://sylphxai.github.io/pdf-reader-mcp/",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@sylphx/pdf-reader-mcp",
-      "version": "4.1.2",
+      "version": "4.1.3",
       "transport": {
         "type": "stdio"
       }
