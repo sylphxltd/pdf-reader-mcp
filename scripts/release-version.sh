@@ -9,6 +9,12 @@ cd "$root"
 echo "[release-version] bump package versions from changesets"
 node node_modules/@changesets/cli/bin.js version
 
+# Version bumps drift bun.lock's bundled optional-package versions/optionalDependencies
+# (the bot's version PR otherwise fails CI's `bun install --frozen-lockfile`). Refresh
+# the lockfile here so the version PR ships a consistent lock (mirrors the manual
+# "refresh bun.lock" commits that were previously pushed to each release PR).
+bun install
+
 echo "[release-version] sync native optional package manifests to root version"
 bun run native:sync-manifests
 
