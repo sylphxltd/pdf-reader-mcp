@@ -60,7 +60,7 @@ Evidence:
 - `verification/footprint/3.0.14-linux-x64.json`
 - `verification/footprint/4.0.2-linux-x64.json`
 
-Release binary optimization note: with workspace `[profile.release]` (`strip=symbols`, thin LTO, `codegen-units=1`), local linux-x64 `pdf-reader-mcp-server` built to **~14.9 MiB**. Published 4.0.2 natives may still be pre-optimization until the next binary rebuild/publish.
+Release binary optimization note: with workspace `[profile.release]` (`strip=symbols`, thin LTO, `codegen-units=1`), local linux-x64 `pdf-reader-mcp-server` built to **~15.0 MiB**. Crashing on malformed PDFs is a real bug class for an MCP server, so the release profile is deliberately built **panic-unwind** (worker-thread panics degrade to a failed request instead of aborting the whole process; see issue #608). Unwinding adds roughly **+1.3 MiB (~+9%)** to the server binary versus `panic=abort` — the installed-footprint story vs TS remains intact. Measured on the issue-608 fix tree (linux-x64, `strip=symbols`, thin LTO): `panic=abort` ~15.01 MiB vs `panic=unwind` ~16.36 MiB. Published 4.0.2 natives may still be pre-optimization until the next binary rebuild/publish.
 
 ## How to reproduce
 

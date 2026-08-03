@@ -205,6 +205,11 @@ Version 4 runs a **native Rust engine** on supported platforms via a thin Node l
 
 > Local-first. Five platforms. One clean install.
 
+Unusually formed or broken ToUnicode CMaps are handled without crashing, and
+the release binary is built panic-unwind so a worker-thread panic fails the
+affected request instead of aborting the whole process
+([#608](https://github.com/SylphxAI/pdf-reader-mcp/issues/608)).
+
 Engineering history, recovery pins, and ADRs live under [docs/migration.md](docs/migration.md) — not the product pitch.
 
 ## Product proof

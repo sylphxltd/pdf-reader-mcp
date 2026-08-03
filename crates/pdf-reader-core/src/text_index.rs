@@ -2252,4 +2252,26 @@ mod tests {
         let snip2 = build_snippet(short, &short_projection, 0, 5, 10).unwrap();
         assert_eq!(snip2, "short");
     }
+
+    #[test]
+    fn extraction_survives_cid_cmap_with_odd_length_bfrange_destination() {
+        // Regression for SylphxAI/pdf-reader-mcp#608. pdfTeX files ship ToUnicode
+        // CMaps with 1-byte beginbfrange destinations (e.g. <C5> <D6> <C5>), which
+        // made the upstream adobe-cmap-parser panic with "bad length of hexstring".
+        // pdf-extract unwraps that Result, so the panic used to abort the whole
+        // pdf-reader-mcp process. This fixture reproduces the exact crashing
+        // construct and must extract without panicking.
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-bug608-cid-bfrange-odd-v1.pdf");
+        let extracted = extract_pdf_text(&fixture, 256 * 1024 * 1024)
+            .expect("malformed CMap must not abort extraction");
+        assert_eq!(extracted.pages.len(), 1);
+        assert_eq!(extracted.info.format_version, "1.4");
+
+        // The search path is the same one exposed over MCP; it must complete.
+        let search = search_pdf_text(&fixture, 256 * 1024 * 1024, "a", false, false, 100, 50, 120)
+            .expect("malformed CMap must not abort search");
+        assert_eq!(search.num_pages, 1);
+        assert_eq!(search.truncated, false);
+    }
 }
