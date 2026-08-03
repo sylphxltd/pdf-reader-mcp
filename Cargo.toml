@@ -3,6 +3,7 @@ members = [
     "crates/pdf-reader-core",
     "crates/pdf-reader-cli",
     "crates/pdf-reader-mcp-server",
+    "vendor/adobe-cmap-parser",
 ]
 resolver = "2"
 
@@ -17,11 +18,18 @@ readme = "README.md"
 
 # Production binaries: smaller artifacts without requiring runtime downloads.
 # Keep debuginfo available via separate tooling/dSYM workflows in CI when needed.
+
+# pdf-extract depends on adobe-cmap-parser 0.4.1, which panics on malformed
+# CMap destinations (see SylphxAI/pdf-reader-mcp#608). Vendor a patched copy
+# so arbitrary PDFs can never abort the server from a CMap parse panic.
+[patch.crates-io]
+adobe-cmap-parser = { path = "vendor/adobe-cmap-parser" }
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
-panic = "abort"
+panic = "unwind"
 
 [profile.release-with-debug]
 inherits = "release"

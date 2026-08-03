@@ -1,0 +1,16 @@
+[package]
+name = "adobe-cmap-parser"
+version = "0.4.1"
+edition = "2018"
+authors = ["Jeff Muizelaar <jmuizelaar@mozilla.com>"]
+description = "Vendored adobe-cmap-parser 0.4.1 with malformed-CMap crash fixes"
+license = "MIT"
+repository = "https://github.com/jrmuizel/adobe-cmap-parser"
+readme = "README.md"
+
+[lib]
+name = "adobe_cmap_parser"
+path = "src/lib.rs"
+
+[dependencies.pom]
+version = "1.0.1"

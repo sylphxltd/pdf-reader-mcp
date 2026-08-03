@@ -372,6 +372,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn search_pdf_handles_malformed_cid_cmap_fixture_without_aborting() {
+        // Regression for SylphxAI/pdf-reader-mcp#608: a pdfTeX ToUnicode CMap
+        // using 1-byte beginbfrange destinations (like <C5> <D6> <C5>) made the
+        // upstream adobe-cmap-parser panic with "bad length of hexstring",
+        // aborting the whole MCP server. The tool entrypoint must return a
+        // structured result instead.
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-bug608-cid-bfrange-odd-v1.pdf");
+        let server = PdfReaderMcp::new();
+        let search = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": fixture}],
+            "query": "a"
+        }))
+        .expect("structurally valid search args");
+        let result = server
+            .search_pdf(Parameters(search))
+            .await
+            .expect("search_pdf must complete on a malformed CMap PDF");
+        assert!(
+            !result.content.is_empty(),
+            "expected a structured search_pdf result"
+        );
+
+        let read = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": fixture}]
+        }))
+        .expect("structurally valid read args");
+        let result = server
+            .read_pdf(Parameters(read))
+            .await
+            .expect("read_pdf must complete on a malformed CMap PDF");
+        assert!(
+            !result.content.is_empty(),
+            "expected a structured read_pdf result"
+        );
+    }
+
+    #[tokio::test]
     async fn tool_entrypoints_reject_values_outside_v3_0_14_runtime_bounds() {
         let server = PdfReaderMcp::new();
         let read = serde_json::from_value(serde_json::json!({
