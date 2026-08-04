@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build:
     name: Build Docs Site
-    runs-on: ubuntu-latest
+    runs-on: sylphx-linux-standard
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -45,7 +45,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: sylphx-linux-standard
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

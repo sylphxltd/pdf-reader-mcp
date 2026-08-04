@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   unpublish:
-    runs-on: ubuntu-latest
+    runs-on: sylphx-linux-standard
     if: ${{ github.event.inputs.confirm == 'UNPUBLISH' }}
     steps:
       - name: Setup Node
