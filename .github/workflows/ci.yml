@@ -145,11 +145,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install provider certification tools
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
           tesseract --version
+          rustc --version
+          cargo --version
 
       - name: Build strict release benchmark artifacts
         env:
