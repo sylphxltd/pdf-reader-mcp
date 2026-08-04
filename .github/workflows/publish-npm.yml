@@ -53,7 +53,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+          case "${{ matrix.platformId }}" in
+            linux-arm64-gnu)
+              sudo apt-get update -y
+              sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+              export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+              export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+              export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+              cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+              ;;
+            win32-x64-msvc)
+              cargo install cargo-xwin --locked --version 0.18.4 || cargo install cargo-xwin --locked
+              cargo xwin build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+              ;;
+            *)
+              cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+              ;;
+          esac
           if [[ "${{ matrix.platformId }}" == "win32-x64-msvc" ]]; then
             src="target/${{ matrix.target }}/release/pdf-reader-mcp-server.exe"
             dest="bin/native/${{ matrix.platformId }}/pdf-reader-mcp-server.exe"

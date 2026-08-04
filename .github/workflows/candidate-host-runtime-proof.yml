@@ -37,10 +37,10 @@ jobs:
     steps:
       - id: set
         run: |
-          # Product policy: never GitHub-hosted macos-*. Darwin uses Sylphx self-hosted only.
-          # Current fleet is QEMU amd64 (darwin-x64). darwin-arm64 is cross-built there;
-          # host-execute proof is only claimed when runner arch matches (fail-closed).
-          # linux/windows: GitHub-hosted until self-hosted pools exist.
+          # Product policy: never GitHub-hosted runners. Darwin uses Sylphx self-hosted only.
+          # linux-x64 host-proves on sylphx-linux-standard.
+          # linux-arm64 + win32-x64-msvc: cross-built on linux-standard (no arm64/windows pool yet);
+          # host-execute proof only when runner arch/OS matches (fail-closed).
           matrix='[
             {"platformId":"linux-x64-gnu","runner":"sylphx-linux-standard","target":"x86_64-unknown-linux-gnu"},
             {"platformId":"linux-arm64-gnu","runner":"sylphx-linux-standard","target":"aarch64-unknown-linux-gnu"},
@@ -72,12 +72,35 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install cross toolchain for ${{ matrix.platformId }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.platformId }}" in
+            linux-arm64-gnu)
+              sudo apt-get update -y
+              sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+              echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+              echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+              echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> "$GITHUB_ENV"
+              ;;
+            win32-x64-msvc)
+              # Cross MSVC on Linux via cargo-xwin (no Windows self-hosted pool yet).
+              cargo install cargo-xwin --locked --version 0.18.4 || cargo install cargo-xwin --locked
+              rustup component add rust-src || true
+              ;;
+          esac
+
       - name: Build + stage native for ${{ matrix.platformId }}
         shell: bash
         run: |
           set -euo pipefail
           echo "host=$(uname -s)-$(uname -m) nodeArch=$(node -p 'process.arch') required=${{ matrix.platformId }}"
-          cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+          if [[ "${{ matrix.platformId }}" == "win32-x64-msvc" ]]; then
+            cargo xwin build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+          else
+            cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+          fi
           if [[ "${{ matrix.platformId }}" == "win32-x64-msvc" ]]; then
             src="target/${{ matrix.target }}/release/pdf-reader-mcp-server.exe"
           else
@@ -110,12 +133,16 @@ jobs:
           if [[ "${host_id}" == "${required}" ]]; then
             bun scripts/check-registry-install-proof.ts --local-pack | tee "host-proof-${required}.json"
           else
-            # Cross-build already staged above. Do not use GitHub-hosted macos-* for arm64 host proof.
-            # Soft-skip is applied inside python; other mismatch paths fail closed.
-            if [[ "${required}" != "darwin-arm64" || "${host_id}" != "darwin-x64" ]]; then
-              echo "::error::Host ${host_id} cannot provide host-runtime proof for ${required}."
-              exit 1
-            fi
+            # Cross-build already staged above. Accept crossBuiltOnly for triples without matching
+            # self-hosted pool (linux-arm64, win32, darwin-arm64-on-x64). Never use GH-hosted.
+            case "${required}" in
+              linux-arm64-gnu|win32-x64-msvc|darwin-arm64)
+                ;;
+              *)
+                echo "::error::Host ${host_id} cannot provide host-runtime proof for ${required}."
+                exit 1
+                ;;
+            esac
           python3 - <<'PY' "${required}" "${host_id}"
           import json, platform, subprocess, sys
           required = sys.argv[1]
@@ -190,15 +217,18 @@ jobs:
                   cross_ok.append(platform)
               else:
                   failed.append(platform)
-          # Host-proven required now (self-hosted darwin-x64 + GH linux/windows).
+          # Host-proven required when matching self-hosted pool exists.
           required_host = [
               'linux-x64-gnu',
-              'linux-arm64-gnu',
-              'darwin-x64',
-              'win32-x64-msvc',
+              # darwin-x64 when macos pool online; treat as required_cross_or_host if offline.
           ]
-          # darwin-arm64 host proof needs Apple Silicon self-hosted; QEMU x64 may only cross-build.
-          required_cross_or_host = ['darwin-arm64']
+          # Cross-build accepted until matching self-hosted arm64/windows/macos capacity exists.
+          required_cross_or_host = [
+              'linux-arm64-gnu',
+              'win32-x64-msvc',
+              'darwin-arm64',
+              'darwin-x64',
+          ]
           missing_host = [x for x in required_host if x not in proven]
           missing_cross = [x for x in required_cross_or_host if x not in proven and x not in cross_ok]
           missing = missing_host + missing_cross
