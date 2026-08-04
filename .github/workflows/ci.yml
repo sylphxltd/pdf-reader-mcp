@@ -131,7 +131,7 @@ jobs:
 
   release-evidence:
     name: Release Evidence Gate
-    runs-on: ubuntu-latest
+    runs-on: sylphx-linux-standard
     needs: validate
     steps:
       - name: Checkout repository

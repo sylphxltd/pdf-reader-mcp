@@ -28,10 +28,10 @@ jobs:
       matrix:
         include:
           - platformId: linux-x64-gnu
-            runner: ubuntu-22.04
+            runner: sylphx-linux-standard
             target: x86_64-unknown-linux-gnu
           - platformId: linux-arm64-gnu
-            runner: ubuntu-22.04-arm
+            runner: sylphx-linux-standard
             target: aarch64-unknown-linux-gnu
           - platformId: darwin-arm64
             runner: [self-hosted, sylphx, macos, standard]
@@ -40,7 +40,7 @@ jobs:
             runner: [self-hosted, sylphx, macos, standard]
             target: x86_64-apple-darwin
           - platformId: win32-x64-msvc
-            runner: windows-latest
+            runner: sylphx-linux-standard
             target: x86_64-pc-windows-msvc
     steps:
       - name: Only run selected platform
