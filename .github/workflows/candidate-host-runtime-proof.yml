@@ -86,6 +86,17 @@ jobs:
               ;;
             win32-x64-msvc)
               # Cross MSVC on Linux via cargo-xwin (no Windows self-hosted pool yet).
+              sudo apt-get update -y
+              sudo apt-get install -y --no-install-recommends clang lld llvm
+              if ! command -v clang-cl >/dev/null 2>&1; then
+                sudo ln -sf "$(command -v clang)" /usr/local/bin/clang-cl
+              fi
+              if ! command -v lld-link >/dev/null 2>&1; then
+                sudo ln -sf "$(command -v lld)" /usr/local/bin/lld-link
+              fi
+              if ! command -v llvm-lib >/dev/null 2>&1 && command -v llvm-ar >/dev/null 2>&1; then
+                sudo ln -sf "$(command -v llvm-ar)" /usr/local/bin/llvm-lib
+              fi
               cargo install cargo-xwin --locked --version 0.18.4 || cargo install cargo-xwin --locked
               rustup component add rust-src || true
               ;;
