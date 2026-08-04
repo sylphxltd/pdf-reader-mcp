@@ -16,7 +16,7 @@ jobs:
   proof-linux-x64:
     runs-on: sylphx-linux-standard
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
@@ -36,7 +36,7 @@ jobs:
   proof-linux-arm64:
     runs-on: sylphx-linux-standard
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
@@ -55,7 +55,7 @@ jobs:
   proof-darwin:
     runs-on: [self-hosted, sylphx, macos, standard]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
@@ -74,7 +74,7 @@ jobs:
   proof-windows:
     runs-on: [self-hosted, Windows, X64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
