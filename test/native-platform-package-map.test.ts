@@ -60,9 +60,7 @@ describe('native platform package map', () => {
       expect(pkg.scripts?.prepublishOnly ?? '').toContain('REFUSE PUBLISH');
       expect(rootPkg.optionalDependencies?.[meta.npmName]).toBe(rootPkg.version);
     }
-    const dirs = readdirSync(join(root, 'packages')).filter((name) =>
-      name.startsWith('citra-')
-    );
+    const dirs = readdirSync(join(root, 'packages')).filter((name) => name.startsWith('citra-'));
     expect(dirs.sort()).toEqual(
       Object.keys(NATIVE_PLATFORM_PACKAGES)
         .map((id) => `citra-${id}`)
