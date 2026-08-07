@@ -99,7 +99,7 @@ describe('MCP Server Integration', () => {
     };
 
     expect(response.id).toBe(1);
-    expect(response.result?.serverInfo?.name).toBe('pdf-reader-mcp');
+    expect(response.result?.serverInfo?.name).toBe('citra');
   });
 
   mcpIt('should list available tools', async () => {

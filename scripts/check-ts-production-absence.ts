@@ -37,7 +37,7 @@ for (const banned of ['pdfjs-dist', '@modelcontextprotocol/sdk', 'pngjs', 'zod']
   }
 }
 
-if (pkg.bin?.['pdf-reader-mcp'] !== './dist/runtime-entry.js') {
+if (pkg.bin?.citra !== './dist/runtime-entry.js') {
   failures.push('bin citra must be ./dist/runtime-entry.js');
 }
 if (pkg.exports?.['.'] !== './dist/runtime-entry.js') {
@@ -114,7 +114,7 @@ console.log(
       profile: 'ts_production_absence',
       pass: true,
       version: pkg.version ?? null,
-      bin: pkg.bin?.['pdf-reader-mcp'] ?? null,
+      bin: pkg.bin?.citra ?? null,
       exports: pkg.exports ?? null,
       files,
     },

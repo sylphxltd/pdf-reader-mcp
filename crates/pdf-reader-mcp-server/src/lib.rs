@@ -24,11 +24,11 @@ use rmcp::{
 use crate::schema::{PdfEvidenceArgs, PdfEvidenceOperation, ReadPdfArgs, SearchPdfArgs};
 use serde_json::Value;
 
-pub const SERVER_NAME: &str = "pdf-reader-mcp";
+pub const SERVER_NAME: &str = "citra";
 /// Pure-Rust MCP server version — tracks the published npm product line when default.
 pub const SERVER_VERSION: &str = "4.1.3";
 pub const SERVER_INSTRUCTIONS: &str =
-    "@sylphx/pdf-reader-mcp sole-Rust MCP server (platform native binary). \
+    "@sylphx/citra sole-Rust MCP server (platform native binary). \
 Capability-first semantic compatibility with TypeScript 3.0.14 interface contracts (ADR-0005/0006). \
 No TypeScript PDF runtime is shipped in this package. Historical LKG: @sylphx/pdf-reader-mcp@3.0.14.";
 
@@ -168,7 +168,7 @@ impl ServerHandler for PdfReaderMcp {
             .with_server_info(
                 Implementation::new(SERVER_NAME, SERVER_VERSION)
                     .with_description(
-                        "@sylphx/pdf-reader-mcp sole-Rust MCP server (native binary; no TypeScript PDF runtime)",
+                        "@sylphx/citra sole-Rust MCP server (native binary; no TypeScript PDF runtime)",
                     )
                     .with_website_url("https://sylphxai.github.io/pdf-reader-mcp/"),
             )

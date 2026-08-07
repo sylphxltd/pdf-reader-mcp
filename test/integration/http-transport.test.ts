@@ -190,7 +190,7 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
     expect(response.id).toBe(1);
     expect(
       (response.result as { serverInfo?: { name?: string; version?: string } })?.serverInfo?.name
-    ).toBe('pdf-reader-mcp');
+    ).toBe('citra');
     const serverVersion = (response.result as { serverInfo?: { version?: string } })?.serverInfo
       ?.version;
     expect(serverVersion).toBe(packageJson.version);
@@ -582,7 +582,7 @@ describe('MCP Server HTTP Transport Authentication (Rust rmcp)', () => {
     expect(response.status).toBe(200);
     const data = await parseMcpResponse(response);
     expect((data.result as { serverInfo?: { name?: string } })?.serverInfo?.name).toBe(
-      'pdf-reader-mcp'
+      'citra'
     );
   });
 

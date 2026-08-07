@@ -28,15 +28,7 @@
         "title": "Static instruction SSOT"
       }
     ],
-    "tags": [
-      "mcp",
-      "pdf",
-      "document-intelligence",
-      "tooling",
-      "local-first",
-      "citra",
-      "instrument"
-    ]
+    "tags": ["mcp", "pdf", "document-intelligence", "tooling", "local-first", "citra", "instrument"]
   },
   "intent": {
     "goals": [
@@ -136,21 +128,13 @@
       "project-manifest-standard",
       "repo-adoption-standard"
     ],
-    "capabilities": [
-      "document-intelligence-mcp-contract",
-      "local-document-processing-engine"
-    ],
+    "capabilities": ["document-intelligence-mcp-contract", "local-document-processing-engine"],
     "components": {
       "pdf-reader-core": {
         "role": "domain-core",
         "implementation": "rust-crate",
         "backendOwner": null,
-        "ownedEffects": [
-          "parse-pdf",
-          "extract-text",
-          "search",
-          "provenance"
-        ]
+        "ownedEffects": ["parse-pdf", "extract-text", "search", "provenance"]
       },
       "pdf-reader-mcp-server": {
         "role": "mcp-server",
@@ -159,11 +143,7 @@
           "repository": "https://github.com/SylphxAI/pdf-reader-mcp",
           "componentId": "pdf-reader-core"
         },
-        "ownedEffects": [
-          "mcp-stdio",
-          "mcp-http",
-          "tool-dispatch"
-        ]
+        "ownedEffects": ["mcp-stdio", "mcp-http", "tool-dispatch"]
       },
       "npm-runtime-entry": {
         "role": "package-launcher",
@@ -172,10 +152,7 @@
           "repository": "https://github.com/SylphxAI/pdf-reader-mcp",
           "componentId": "pdf-reader-mcp-server"
         },
-        "ownedEffects": [
-          "resolve-native-binary",
-          "fail-closed-missing-native"
-        ]
+        "ownedEffects": ["resolve-native-binary", "fail-closed-missing-native"]
       }
     },
     "adoptionStatus": "migrating",
@@ -239,10 +216,7 @@
     "packageRelease": {
       "producer": true,
       "strategy": "changesets",
-      "artifactKinds": [
-        "npm-package",
-        "native-optional-dependency"
-      ],
+      "artifactKinds": ["npm-package", "native-optional-dependency"],
       "registryRefs": [
         "https://www.npmjs.com/package/@sylphx/pdf-reader-mcp",
         "https://www.npmjs.com/org/sylphx"

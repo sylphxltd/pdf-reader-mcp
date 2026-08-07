@@ -97,7 +97,7 @@ const plan = {
   soleRuntimePrerequisite: [
     'productTruth.dropInFor3014=true',
     'native optional packages published with platform binaries',
-    'npm install @sylphx/pdf-reader-mcp@<version> resolves optional native package',
+    'npm install @sylphx/citra@<version> resolves optional native package',
     'MCP initialize succeeds with pure-Rust native binary on each platform',
   ],
   commands: {
@@ -397,7 +397,7 @@ try {
   if (mainPkg.version !== versionArg) {
     fail(`installed version ${mainPkg.version} != requested ${versionArg}`);
   }
-  const bin = mainPkg.bin?.['pdf-reader-mcp'] ?? '';
+  const bin = mainPkg.bin?.citra ?? '';
   const soleRuntime =
     bin.includes('runtime-entry.js') ||
     String(mainPkg.exports?.['.'] ?? '').includes('runtime-entry.js');
@@ -453,7 +453,7 @@ try {
         optionalPackage: meta.npmName,
         nativeBinary,
         initialize: initialize ?? null,
-        defaultBin: mainPkg.bin?.['pdf-reader-mcp'] ?? null,
+        defaultBin: mainPkg.bin?.citra ?? null,
         pureRustExport: mainPkg.exports?.['./pure-rust'] ?? null,
         pass: true,
         runtimeProofValid: hostMatchesPlatformId(platformId),

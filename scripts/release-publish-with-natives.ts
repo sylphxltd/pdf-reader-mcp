@@ -71,7 +71,7 @@ if (!mainOnly) {
 
 if (!skipMain) {
   run('npm', ['publish', '--access', 'public'], root, { allowDryRunSkip: true });
-  run('npm', ['view', '@sylphx/pdf-reader-mcp', 'version']);
+  run('npm', ['view', '@sylphx/citra', 'version']);
 }
 
 console.log(
