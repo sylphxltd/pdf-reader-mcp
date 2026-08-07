@@ -581,9 +581,7 @@ describe('MCP Server HTTP Transport Authentication (Rust rmcp)', () => {
     const response = await initialize({ 'X-API-Key': API_KEY });
     expect(response.status).toBe(200);
     const data = await parseMcpResponse(response);
-    expect((data.result as { serverInfo?: { name?: string } })?.serverInfo?.name).toBe(
-      'citra'
-    );
+    expect((data.result as { serverInfo?: { name?: string } })?.serverInfo?.name).toBe('citra');
   });
 
   it('does not list tools to an unauthenticated caller', async () => {
