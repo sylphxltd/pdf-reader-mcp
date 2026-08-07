@@ -39,7 +39,7 @@ for (const [path, expected] of Object.entries(baseline.entrypointSha256)) {
 }
 if (sha256(git('show', `${commit}:bun.lock`)) !== baseline.bunLockSha256) throw new Error('popup zero-size residual bun.lock digest drift');
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], { cwd: repoRoot, encoding: 'utf8' });
+  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], { cwd: repoRoot, encoding: 'utf8' });
   if (build.status !== 0) throw new Error(build.stderr || 'release server build failed');
 }
 const invoke = async (entry: Case, root: string): Promise<Json> => {

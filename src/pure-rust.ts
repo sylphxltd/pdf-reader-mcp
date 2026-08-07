@@ -10,7 +10,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   NATIVE_PLATFORM_PACKAGES,
@@ -59,9 +59,16 @@ const pushPlatformCandidates = (
 };
 
 const pushFallbackCandidates = (candidates: string[], packageRoot: string) => {
+  const targetDir = process.env.CARGO_TARGET_DIR?.trim()
+    ? resolve(process.env.CARGO_TARGET_DIR)
+    : join(packageRoot, 'target');
   candidates.push(
     join(packageRoot, 'bin/native/citra-mcp-server'),
     join(packageRoot, 'bin/native/citra-mcp-server.exe'),
+    join(targetDir, 'release/citra-mcp-server'),
+    join(targetDir, 'release/citra-mcp-server.exe'),
+    join(targetDir, 'debug/citra-mcp-server'),
+    join(targetDir, 'debug/citra-mcp-server.exe'),
     join(packageRoot, 'target/release/citra-mcp-server'),
     join(packageRoot, 'target/release/citra-mcp-server.exe'),
     join(packageRoot, 'target/debug/citra-mcp-server'),

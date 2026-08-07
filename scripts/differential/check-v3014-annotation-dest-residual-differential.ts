@@ -91,7 +91,7 @@ if (sha256(git('show', `${commit}:bun.lock`)) !== baseline.bunLockSha256) {
   throw new Error('annotation dest residual bun.lock digest drift');
 }
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });

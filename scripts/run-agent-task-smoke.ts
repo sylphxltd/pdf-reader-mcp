@@ -28,7 +28,7 @@ const allowDownloads = publicDownloadsEnabled();
 const serverPath = join(root, 'target/release/citra-mcp-server');
 
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
     cwd: root,
     stdio: 'inherit',
   });

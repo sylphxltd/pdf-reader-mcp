@@ -28,18 +28,38 @@ map_platform_id() {
   esac
 }
 
-if [[ -n "${PDF_READER_MCP_RUST_BIN:-}" && -x "${PDF_READER_MCP_RUST_BIN}" ]]; then
-  exec "${PDF_READER_MCP_RUST_BIN}" "$@"
+# Brand env override (CITRA_RUST_BIN only; no legacy PDF_READER_MCP_RUST_BIN).
+if [[ -n "${CITRA_RUST_BIN:-}" && -x "${CITRA_RUST_BIN}" ]]; then
+  exec "${CITRA_RUST_BIN}" "$@"
 fi
 
 PLATFORM_ID="$(map_platform_id || true)"
 if [[ -n "${PLATFORM_ID}" ]]; then
-  CANDIDATE="$ROOT/bin/native/${PLATFORM_ID}/pdf-reader-mcp-server"
-  if [[ -x "$CANDIDATE" ]]; then
-    exec "$CANDIDATE" "$@"
-  fi
+  for CANDIDATE in \
+    "$ROOT/bin/native/${PLATFORM_ID}/citra-mcp-server" \
+    "$ROOT/bin/native/${PLATFORM_ID}/citra-mcp-server.exe" \
+    "$ROOT/packages/citra-${PLATFORM_ID}/bin/citra-mcp-server" \
+    "$ROOT/packages/citra-${PLATFORM_ID}/bin/citra-mcp-server.exe"
+  do
+    if [[ -x "${CANDIDATE}" ]]; then
+      exec "${CANDIDATE}" "$@"
+    fi
+  done
 fi
 
-echo "[pdf-reader-mcp] sole-Rust binary not found. Build with: bun run build:rust" >&2
-echo "[pdf-reader-mcp] Historical TypeScript LKG remains external: @sylphx/pdf-reader-mcp@3.0.14" >&2
+for CANDIDATE in \
+  "$ROOT/bin/native/citra-mcp-server" \
+  "$ROOT/bin/native/citra-mcp-server.exe" \
+  "$ROOT/target/release/citra-mcp-server" \
+  "$ROOT/target/release/citra-mcp-server.exe" \
+  "$ROOT/target/debug/citra-mcp-server" \
+  "$ROOT/target/debug/citra-mcp-server.exe"
+do
+  if [[ -x "${CANDIDATE}" ]]; then
+    exec "${CANDIDATE}" "$@"
+  fi
+done
+
+echo "[citra] sole-Rust binary not found. Build with: bun run build:rust" >&2
+echo "[citra] Or install the matching optional native package (@sylphx/citra-<platform>)." >&2
 exit 1

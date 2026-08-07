@@ -63,7 +63,7 @@ if (manifest.calibration?.inventedNumericThresholdsForbidden !== true) {
 
 const ensureRustServer = () => {
   if (existsSync(rustServerPath)) return;
-  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
     cwd: root,
     stdio: 'inherit',
   });
