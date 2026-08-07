@@ -11,15 +11,20 @@ describe('Citra SDK export', () => {
     expect(typeof Citra.create).toBe('function');
   });
 
-  test('package.json exports sdk and citra alias and citra bin', () => {
+  test('package.json exports brand SDK surface and citra bin only', () => {
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+      name?: string;
       exports?: Record<string, string>;
       bin?: Record<string, string>;
       files?: string[];
     };
+    expect(pkg.name).toBe('@sylphx/citra');
     expect(pkg.exports?.['./sdk']).toBe('./dist/sdk.js');
-    expect(pkg.exports?.['./citra']).toBe('./dist/sdk.js');
+    // Brand-sole: no transitional ./citra alias export.
+    expect(pkg.exports?.['./citra']).toBeUndefined();
     expect(pkg.bin?.citra).toBeTruthy();
+    expect(pkg.bin?.['pdf-reader-mcp']).toBeUndefined();
+    expect(Object.keys(pkg.bin ?? {})).toEqual(['citra']);
     expect(pkg.files ?? []).toContain('dist/sdk.js');
   });
 

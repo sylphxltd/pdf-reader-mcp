@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-border-array-width-residual-projec
 const polylineBorderArrayFixture = join(fixtureDir, 'v3014-annotation-polyline-border-array-w2-v1.pdf');
 const lineBorderArrayFixture = join(fixtureDir, 'v3014-annotation-line-border-array-w2-v1.pdf');
 const inkBorderArrayFixture = join(fixtureDir, 'v3014-annotation-ink-border-array-w3-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

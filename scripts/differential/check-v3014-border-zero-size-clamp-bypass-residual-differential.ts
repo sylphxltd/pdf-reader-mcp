@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-border-zero-size-clamp-bypass-resi
 const polylineZeroHeightClampBypassFixture = join(fixtureDir, 'v3014-annotation-polyline-zero-h-w2-v1.pdf');
 const lineZeroHeightClampBypassFixture = join(fixtureDir, 'v3014-annotation-line-zero-h-w2-v1.pdf');
 const inkZeroWidthClampBypassFixture = join(fixtureDir, 'v3014-annotation-ink-zero-w-w2-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

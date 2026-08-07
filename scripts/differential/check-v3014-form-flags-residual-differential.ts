@@ -22,7 +22,7 @@ const xfaFixture = join(fixtureDir, 'v3014-info-xfa-present-v1.pdf');
 const collectionFixture = join(fixtureDir, 'v3014-info-collection-present-v1.pdf');
 const signaturesVisibleFixture = join(fixtureDir, 'v3014-info-signatures-present-v1.pdf');
 const signaturesInvisibleFixture = join(fixtureDir, 'v3014-info-signatures-invisible-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

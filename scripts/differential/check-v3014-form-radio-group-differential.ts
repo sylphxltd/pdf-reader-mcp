@@ -17,7 +17,7 @@ const runnerPath = join(scriptDir, 'v3014-form-radio-group-baseline-runner.ts');
 const projectionPath = join(scriptDir, 'v3014-form-radio-group-projection.ts');
 const groupFixture = join(fixtureDir, 'v3014-form-radio-group-v1.pdf');
 const threeFixture = join(fixtureDir, 'v3014-form-radio-group-three-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

@@ -101,9 +101,9 @@ const probeSamplePdf = async (): Promise<DoctorCheck> => {
 
 const probeRustMcpServer = (): DoctorCheck => {
   const candidates = [
-    path.join(packageRoot, 'bin/native/pdf-reader-mcp-server'),
-    path.join(packageRoot, 'target/release/pdf-reader-mcp-server'),
-    path.join(packageRoot, 'target/debug/pdf-reader-mcp-server'),
+    path.join(packageRoot, 'bin/native/citra-mcp-server'),
+    path.join(packageRoot, 'target/release/citra-mcp-server'),
+    path.join(packageRoot, 'target/debug/citra-mcp-server'),
   ];
   const native = candidates.find((candidate) => existsSync(candidate));
   if (native) {

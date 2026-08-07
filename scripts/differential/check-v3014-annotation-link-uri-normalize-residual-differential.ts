@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-annotation-link-uri-normalize-resi
 const domainFixture = join(fixtureDir, 'v3014-annotation-link-uri-domain-v1.pdf');
 const pathFixture = join(fixtureDir, 'v3014-annotation-link-uri-path-v1.pdf');
 const wwwFixture = join(fixtureDir, 'v3014-annotation-link-uri-www-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

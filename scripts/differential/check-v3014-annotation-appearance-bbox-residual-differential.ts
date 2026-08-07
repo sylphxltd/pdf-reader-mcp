@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-annotation-appearance-bbox-residua
 const polylineAppearanceBboxFixture = join(fixtureDir, 'v3014-annotation-polyline-ap-bbox-v1.pdf');
 const lineAppearanceBboxFixture = join(fixtureDir, 'v3014-annotation-line-ap-bbox-v1.pdf');
 const inkAppearanceBboxFixture = join(fixtureDir, 'v3014-annotation-ink-ap-bbox-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

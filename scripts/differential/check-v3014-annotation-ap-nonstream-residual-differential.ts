@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-annotation-ap-nonstream-residual-p
 const polylineApNNullFixture = join(fixtureDir, 'v3014-annotation-polyline-ap-n-name-v1.pdf');
 const lineApNNullFixture = join(fixtureDir, 'v3014-annotation-line-ap-n-null-v1.pdf');
 const inkApNNullFixture = join(fixtureDir, 'v3014-annotation-ink-ap-n-null-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

@@ -82,11 +82,11 @@ jobs:
               ;;
           esac
           if [[ "${{ matrix.platformId }}" == "win32-x64-msvc" ]]; then
-            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server.exe"
-            dest="bin/native/${{ matrix.platformId }}/pdf-reader-mcp-server.exe"
+            src="target/${{ matrix.target }}/release/citra-mcp-server.exe"
+            dest="bin/native/${{ matrix.platformId }}/citra-mcp-server.exe"
           else
-            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server"
-            dest="bin/native/${{ matrix.platformId }}/pdf-reader-mcp-server"
+            src="target/${{ matrix.target }}/release/citra-mcp-server"
+            dest="bin/native/${{ matrix.platformId }}/citra-mcp-server"
           fi
           mkdir -p "$(dirname "$dest")"
           cp "$src" "$dest"
@@ -97,7 +97,7 @@ jobs:
       - name: Upload staged native binary
         uses: actions/upload-artifact@v7
         with:
-          name: pdf-reader-mcp-server-${{ matrix.platformId }}
+          name: citra-mcp-server-${{ matrix.platformId }}
           path: bin/native/${{ matrix.platformId }}/**
           if-no-files-found: error
 
@@ -133,7 +133,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: native-artifacts
-          pattern: pdf-reader-mcp-server-*
+          pattern: citra-mcp-server-*
           merge-multiple: false
 
       - name: Set up Rust (for package smoke only)
@@ -150,13 +150,13 @@ jobs:
         run: |
           set -euo pipefail
           # Critical: build:rust stages the publish-job host binary into
-          # packages/pdf-reader-mcp-<host>/bin and would overwrite the
+          # packages/citra-<host>/bin and would overwrite the
           # Ubuntu 22.04 artifact with a newer-glibc binary. Restage all
           # matrix artifacts immediately before publish.
           bun run native:stage-from-artifacts -- --artifact-root=native-artifacts
           bun run native:sync-manifests
           bun run native:assert-ready -- --all
-          bin="packages/pdf-reader-mcp-linux-x64-gnu/bin/pdf-reader-mcp-server"
+          bin="packages/citra-linux-x64-gnu/bin/citra-mcp-server"
           test -f "$bin"
           if command -v objdump >/dev/null 2>&1; then
             mapfile -t vers < <(objdump -T "$bin" | sed -n 's/.*GLIBC_\([0-9][0-9.]*\).*/\1/p' | sort -u)
@@ -189,7 +189,7 @@ jobs:
           VERSION="$(jq -r .version package.json)"
           # npm registry can lag briefly after publish; retry views before failing the job.
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            if npm view "@sylphx/pdf-reader-mcp@$VERSION" version               && npm view "@sylphx/pdf-reader-mcp-linux-x64-gnu@$VERSION" version; then
+            if npm view "@sylphx/citra@$VERSION" version               && npm view "@sylphx/citra-linux-x64-gnu@$VERSION" version; then
               break
             fi
             if [ "$i" -eq 10 ]; then

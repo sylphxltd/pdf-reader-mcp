@@ -12,7 +12,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(__dirname, '../..');
-const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
+const binWrapper = path.join(repoRoot, 'bin/citra');
 const fixturesRoot = path.join(repoRoot, 'test/fixtures');
 const goldenPath = path.join(fixturesRoot, 'read-pdf-golden.json');
 const samplePdf = path.join(fixturesRoot, 'sample.pdf');

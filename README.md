@@ -64,11 +64,11 @@ One native binary is installed for **your** platform only (not all five). Brand-
 
 | Platform | Native package (auto optionalDependency) |
 | --- | --- |
-| macOS arm64 | `@sylphx/pdf-reader-mcp-darwin-arm64` |
-| macOS x64 | `@sylphx/pdf-reader-mcp-darwin-x64` |
-| Linux x64 | `@sylphx/pdf-reader-mcp-linux-x64-gnu` |
-| Linux arm64 | `@sylphx/pdf-reader-mcp-linux-arm64-gnu` |
-| Windows x64 | `@sylphx/pdf-reader-mcp-win32-x64-msvc` |
+| macOS arm64 | `@sylphx/citra-darwin-arm64` |
+| macOS x64 | `@sylphx/citra-darwin-x64` |
+| Linux x64 | `@sylphx/citra-linux-x64-gnu` |
+| Linux arm64 | `@sylphx/citra-linux-arm64-gnu` |
+| Windows x64 | `@sylphx/citra-win32-x64-msvc` |
 
 Missing native package → **fail closed** (no silent engine switch).
 

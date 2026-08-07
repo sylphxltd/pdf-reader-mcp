@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-outline-relative-remote-residual-p
 const gotorFixture = join(fixtureDir, 'v3014-outline-relative-gotor-v1.pdf');
 const launchFixture = join(fixtureDir, 'v3014-outline-relative-launch-v1.pdf');
 const launchDestFixture = join(fixtureDir, 'v3014-outline-relative-launch-dest-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

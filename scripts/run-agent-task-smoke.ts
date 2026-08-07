@@ -25,7 +25,7 @@ const manifest = JSON.parse(
 ) as { taskFiles: string[]; publicTaskFiles?: string[] };
 const includePublic = publicTasksEnabled();
 const allowDownloads = publicDownloadsEnabled();
-const serverPath = join(root, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(root, 'target/release/citra-mcp-server');
 
 if (!existsSync(serverPath)) {
   const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {

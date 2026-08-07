@@ -20,7 +20,7 @@ const runnerPath = join(scriptDir, 'v3014-attachment-residual-baseline-runner.ts
 const projectionPath = join(scriptDir, 'v3014-attachment-residual-projection.ts');
 const kidsFixture = join(fixtureDir, 'v3014-attachment-kids-v1.pdf');
 const filenameFixture = join(fixtureDir, 'v3014-attachment-filename-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

@@ -15,7 +15,7 @@ describe('Web MCP HTTP (sole-Rust production package)', () => {
   });
 
   it('sole-Rust launcher and HTTP transport remain available', () => {
-    const bin = readText('bin/pdf-reader-mcp');
+    const bin = readText('bin/citra');
     const runtime = readText('src/runtime-entry.ts');
     const httpTransport = readText('crates/pdf-reader-mcp-server/src/http_transport.rs');
 

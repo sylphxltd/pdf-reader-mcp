@@ -16,10 +16,14 @@ describe('MCP stdio transport routing', () => {
   });
 
   it('optional bin wrapper is sole-Rust and does not invoke TypeScript', () => {
-    const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
+    const bin = readFileSync(path.join(repoRoot, 'bin/citra'), 'utf8');
     expect(bin).toContain('dist/runtime-entry.js');
     expect(bin).not.toContain('dist/index.js');
-    expect(bin).toContain('3.0.14');
+    expect(bin).toContain('citra-mcp-server');
+    expect(bin).toContain('CITRA_RUST_BIN');
+    expect(bin).not.toContain('PDF_READER_MCP_RUST_BIN');
+    expect(bin).not.toContain('pdf-reader-mcp-server');
+    expect(bin).not.toContain('legacy-engine-runtime');
   });
 
   it('Rust MCP server still exposes rmcp stdio transport', () => {

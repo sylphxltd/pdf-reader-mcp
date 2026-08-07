@@ -8,37 +8,37 @@ import { fileURLToPath } from "node:url";
 // src/native/platform-package-map.ts
 var NATIVE_PLATFORM_PACKAGES = {
   "darwin-arm64": {
-    npmName: "@sylphx/pdf-reader-mcp-darwin-arm64",
-    packageDir: "packages/pdf-reader-mcp-darwin-arm64",
-    binaryName: "pdf-reader-mcp-server",
+    npmName: "@sylphx/citra-darwin-arm64",
+    packageDir: "packages/citra-darwin-arm64",
+    binaryName: "citra-mcp-server",
     os: "darwin",
     cpu: "arm64"
   },
   "darwin-x64": {
-    npmName: "@sylphx/pdf-reader-mcp-darwin-x64",
-    packageDir: "packages/pdf-reader-mcp-darwin-x64",
-    binaryName: "pdf-reader-mcp-server",
+    npmName: "@sylphx/citra-darwin-x64",
+    packageDir: "packages/citra-darwin-x64",
+    binaryName: "citra-mcp-server",
     os: "darwin",
     cpu: "x64"
   },
   "linux-arm64-gnu": {
-    npmName: "@sylphx/pdf-reader-mcp-linux-arm64-gnu",
-    packageDir: "packages/pdf-reader-mcp-linux-arm64-gnu",
-    binaryName: "pdf-reader-mcp-server",
+    npmName: "@sylphx/citra-linux-arm64-gnu",
+    packageDir: "packages/citra-linux-arm64-gnu",
+    binaryName: "citra-mcp-server",
     os: "linux",
     cpu: "arm64"
   },
   "linux-x64-gnu": {
-    npmName: "@sylphx/pdf-reader-mcp-linux-x64-gnu",
-    packageDir: "packages/pdf-reader-mcp-linux-x64-gnu",
-    binaryName: "pdf-reader-mcp-server",
+    npmName: "@sylphx/citra-linux-x64-gnu",
+    packageDir: "packages/citra-linux-x64-gnu",
+    binaryName: "citra-mcp-server",
     os: "linux",
     cpu: "x64"
   },
   "win32-x64-msvc": {
-    npmName: "@sylphx/pdf-reader-mcp-win32-x64-msvc",
-    packageDir: "packages/pdf-reader-mcp-win32-x64-msvc",
-    binaryName: "pdf-reader-mcp-server.exe",
+    npmName: "@sylphx/citra-win32-x64-msvc",
+    packageDir: "packages/citra-win32-x64-msvc",
+    binaryName: "citra-mcp-server.exe",
     os: "win32",
     cpu: "x64"
   }
@@ -79,11 +79,11 @@ var pushPlatformCandidates = (candidates, packageRoot, platformId) => {
   } catch {}
 };
 var pushFallbackCandidates = (candidates, packageRoot) => {
-  candidates.push(join(packageRoot, "bin/native/pdf-reader-mcp-server"), join(packageRoot, "bin/native/pdf-reader-mcp-server.exe"), join(packageRoot, "target/release/pdf-reader-mcp-server"), join(packageRoot, "target/release/pdf-reader-mcp-server.exe"), join(packageRoot, "target/debug/pdf-reader-mcp-server"), join(packageRoot, "target/debug/pdf-reader-mcp-server.exe"));
+  candidates.push(join(packageRoot, "bin/native/citra-mcp-server"), join(packageRoot, "bin/native/citra-mcp-server.exe"), join(packageRoot, "target/release/citra-mcp-server"), join(packageRoot, "target/release/citra-mcp-server.exe"), join(packageRoot, "target/debug/citra-mcp-server"), join(packageRoot, "target/debug/citra-mcp-server.exe"));
 };
 var resolvePureRustServerBinary = (options) => {
   const env = options?.env ?? process.env;
-  const explicit = env["PDF_READER_MCP_RUST_BIN"]?.trim();
+  const explicit = env["CITRA_RUST_BIN"]?.trim();
   if (explicit && existsSync(explicit))
     return explicit;
   const packageRoot = options?.packageRoot ?? packageRootFromThisModule();
@@ -153,7 +153,7 @@ class PureRustClient {
       resolveOptions.env = options.env;
     const binaryPath = options.binaryPath ?? resolvePureRustServerBinary(resolveOptions);
     if (!binaryPath) {
-      throw new Error("Pure-Rust MCP server binary not found. Build/stage with `bun run build:rust` or set PDF_READER_MCP_RUST_BIN.");
+      throw new Error("Pure-Rust MCP server binary not found. Build/stage with `bun run build:rust` or set CITRA_RUST_BIN.");
     }
     this.binaryPath = binaryPath;
     this.timeoutMs = options.timeoutMs ?? 45000;

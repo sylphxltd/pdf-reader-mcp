@@ -20,7 +20,7 @@ const runnerPath = join(scriptDir, 'v3014-annotation-residual-baseline-runner.ts
 const projectionPath = join(scriptDir, 'v3014-annotation-residual-projection.ts');
 const linkFreeTextFixture = join(fixtureDir, 'v3014-annotation-link-freetext-v1.pdf');
 const textContentFixture = join(fixtureDir, 'v3014-annotation-text-content-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

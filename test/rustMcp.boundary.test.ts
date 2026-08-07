@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
-const rustServerBin = path.join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const rustServerBin = path.join(repoRoot, 'target/release/citra-mcp-server');
 const rustCliBin = path.join(repoRoot, 'target/release/pdf-reader-cli');
-const stagedRustBin = path.join(repoRoot, 'bin/native/pdf-reader-mcp-server');
+const stagedRustBin = path.join(repoRoot, 'bin/native/citra-mcp-server');
 const samplePdf = path.join(repoRoot, 'test/fixtures/sample.pdf');
 
 describe('MCP transport boundary (pure-Rust)', () => {

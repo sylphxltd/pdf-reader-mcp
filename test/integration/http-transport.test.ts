@@ -10,7 +10,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(__dirname, '../..');
-const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
+const binWrapper = path.join(repoRoot, 'bin/citra');
 const ocrProvider = path.join(repoRoot, 'scripts/differential/reference-ocr-provider.ts');
 const regionProvider = path.join(
   repoRoot,

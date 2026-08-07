@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-page-labels-kids-residual-projecti
 const kidsFixture = join(fixtureDir, 'v3014-page-labels-kids-v1.pdf');
 const multiFixture = join(fixtureDir, 'v3014-page-labels-multi-v1.pdf');
 const noneFixture = join(fixtureDir, 'v3014-page-labels-none-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>

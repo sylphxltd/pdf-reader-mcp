@@ -285,7 +285,7 @@ export const buildSotaReleaseGateReport = async (
     'Rust MCP server (modelcontextprotocol/rust-sdk rmcp) is present'
   );
 
-  const binWrapper = fs.readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
+  const binWrapper = fs.readFileSync(path.join(repoRoot, 'bin/citra'), 'utf8');
   const cliBridge = fs.readFileSync(
     path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/cli_bridge.rs'),
     'utf8'
@@ -294,7 +294,7 @@ export const buildSotaReleaseGateReport = async (
     checks,
     'mcp:sole_rust_launcher_boundary',
     binWrapper.includes('dist/runtime-entry.js') &&
-      binWrapper.includes('pdf-reader-mcp-server') &&
+      binWrapper.includes('citra-mcp-server') &&
       !binWrapper.includes('dist/index.js') &&
       !binWrapper.includes('legacy-engine-runtime') &&
       !fs.existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs')),

@@ -59,7 +59,7 @@ for (const [name] of Object.entries(peer)) {
 
 // optional must only be native platform packages
 for (const name of Object.keys(optional)) {
-  if (!name.startsWith('@sylphx/pdf-reader-mcp-')) {
+  if (!name.startsWith('@sylphx/citra-')) {
     failures.push(`optionalDependency must be native platform package only: ${name}`);
   }
 }
