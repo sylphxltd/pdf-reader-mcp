@@ -126,7 +126,7 @@ const resolveNativeBinaryFromInstall = (
       installRoot,
       'node_modules',
       '@sylphx',
-      'pdf-reader-mcp',
+      'citra',
       'node_modules',
       meta.npmName,
       'bin',
@@ -209,7 +209,7 @@ const mcpInitialize = async (
         const serverInfo = result?.serverInfo as Record<string, unknown> | undefined;
         const serverName = String(serverInfo?.name ?? '');
         const serverVersion = String(serverInfo?.version ?? '');
-        if (serverName !== 'pdf-reader-mcp') {
+        if (serverName !== 'citra') {
           finish(new Error(`unexpected serverInfo.name=${serverName}`));
           return;
         }
@@ -378,14 +378,14 @@ try {
 
   const install = spawnSync(
     'npm',
-    ['install', `@sylphx/pdf-reader-mcp@${versionArg}`, '--no-fund', '--no-audit'],
+    ['install', `@sylphx/citra@${versionArg}`, '--no-fund', '--no-audit'],
     { cwd: temp, encoding: 'utf8', env: process.env }
   );
   if (install.status !== 0) {
     fail(install.stderr || install.stdout || 'npm install failed');
   }
 
-  const pkgDir = join(temp, 'node_modules', '@sylphx', 'pdf-reader-mcp');
+  const pkgDir = join(temp, 'node_modules', '@sylphx', 'citra');
   if (!existsSync(pkgDir)) fail('installed package directory missing');
 
   const mainPkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')) as {

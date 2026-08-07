@@ -172,7 +172,7 @@ mod tests {
             value["_meta"][SERVER_INFO_META_KEY]["name"],
             "citra"
         );
-        assert_eq!(value["_meta"][SERVER_INFO_META_KEY]["version"], "4.1.1");
+        assert_eq!(value["_meta"][SERVER_INFO_META_KEY]["version"], "5.0.0");
         assert_eq!(value["instructions"], "test instructions");
     }
 
