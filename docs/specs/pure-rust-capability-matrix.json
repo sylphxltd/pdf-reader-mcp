@@ -40,15 +40,15 @@
       "isLatest": true,
       "status": "active"
     },
-    "candidateVersion": "4.1.2",
+    "candidateVersion": "5.0.0",
     "candidateImplementation": "sole-Rust thin launcher only; empty production dependency closure; no pdfjs-dist/MCP-TS-sdk/pngjs/zod in published install graph",
     "soleRustProduction": true,
     "typescriptProductionShipped": false,
     "typescriptExportRemoved": true,
     "historicalTypescriptLkg": "@sylphx/pdf-reader-mcp@3.0.14",
-    "semverTarget": "4.1.2",
+    "semverTarget": "5.0.0",
     "cratesAuthority": "docs/adr/0006-sole-rust-production-and-channel-authority.md",
-    "transitionalNote": "Live npm latest remains 4.1.1 until 4.1.2 publish completes. 4.1.2 admits SEP-2575 server/discover pre-init dual-era compatibility.",
+    "transitionalNote": "Brand-sole hard cut: @sylphx/citra is canonical. Transitional @sylphx/pdf-reader-mcp is deprecated install CTA. Live registry may still show older transitional latest until 5.0.0 publish.",
     "candidateHostRuntimeProof": {
       "status": "five-distinct-host-triples-proven-for-4.0.2-candidate",
       "candidateSha": "afb1aa3387dc3b4e10b9415d31dfea8844b3a89a",
@@ -106,7 +106,13 @@
     "performanceClaimsWithheld": false,
     "performanceClaimsAuthorizedBounded": true,
     "sameHostAbStatus": "admissible_pass",
-    "wholeProductPerformanceReview": "verification/pdf-reader-whole-product-independent-review-4.0.2-perf-16fc2eb.json"
+    "wholeProductPerformanceReview": "verification/pdf-reader-whole-product-independent-review-4.0.2-perf-16fc2eb.json",
+    "brandSolePackage": "@sylphx/citra",
+    "mcpRegistryTarget": {
+      "name": "io.github.SylphxAI/citra",
+      "package": "@sylphx/citra",
+      "version": "5.0.0"
+    }
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
