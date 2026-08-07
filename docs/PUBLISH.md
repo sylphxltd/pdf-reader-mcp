@@ -2,19 +2,26 @@
 
 | Field | Value |
 | --- | --- |
-| Transitional npm | `@sylphx/pdf-reader-mcp` |
-| Brand npm | `@sylphx/citra` |
-| Version | `4.1.2` |
-| Registry | **live** (dual expand–contract where brand ≠ transitional) |
-| Auth | GitHub org `NPM_TOKEN` via publish workflows |
+| **Canonical npm** | `@sylphx/citra` |
+| **Canonical bin** | `citra` |
+| **MCP registry name** | `io.github.SylphxAI/citra` |
+| Source tip version | `5.0.0` (this repository) |
+| Registry (live) | may lag tip — verify with `npm view @sylphx/citra version` |
+| Deprecated install CTA | `@sylphx/pdf-reader-mcp` (do not document as primary) |
+| Auth | GitHub org `NPM_TOKEN` via protected release workflows |
 
-## Install
+## Install (canonical)
 
 ```bash
-# preferred brand
 npm i -g @sylphx/citra
-# transitional still valid during expand
-npm i -g @sylphx/pdf-reader-mcp
+# or
+npx @sylphx/citra
 ```
 
-Workflows: `publish-npm-package.yml`, `publish-brand-alias.yml`.
+## Deprecate transitional (operator, requires auth)
+
+```bash
+npm deprecate @sylphx/pdf-reader-mcp@"*" "Use @sylphx/citra (brand-sole). Same engine."
+```
+
+Workflows: `release.yml`, `publish-npm.yml`, brand-sole publish path (not dual-product expand).

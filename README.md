@@ -9,13 +9,13 @@
 Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** — locally — via **SDK, CLI, or MCP**.
 
 Plain-text PDF tools make agents guess. **Citra returns proof.**  
-Package (transition): `@sylphx/pdf-reader-mcp` · bin `pdf-reader-mcp`
+Canonical package: **`@sylphx/citra`** · bin **`citra`** · MCP `io.github.SylphxAI/citra`
 
 [![npm version](https://img.shields.io/npm/v/@sylphx/citra?style=flat-square)](https://www.npmjs.com/package/@sylphx/citra)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
 [![stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=flat-square)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
-[![MCP Toplist](https://mcptoplist.com/badge/io.github.SylphxAI%2Fpdf-reader-mcp.svg)](https://mcptoplist.com/server/io.github.SylphxAI%2Fpdf-reader-mcp)
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.SylphxAI%2Fcitra.svg)](https://mcptoplist.com/server/io.github.SylphxAI%2Fcitra)
 
 </div>
 
@@ -55,14 +55,10 @@ See [`skills/citra/SKILL.md`](./skills/citra/SKILL.md).
 ## Install (30 seconds)
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp
+npm install -g @sylphx/citra
 ```
 
-Or pin the current release:
-
-```bash
-npm install -g @sylphx/citra@5.0.0
-```
+Source tip version is `5.0.0` (registry may lag until release publish).
 
 One native binary is installed for **your** platform only (not all five). Brand-sole package: `@sylphx/citra@5.0.0`.
 
@@ -81,7 +77,7 @@ Missing native package → **fail closed** (no silent engine switch).
 **Claude Code**
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+claude mcp add citra -- npx @sylphx/citra
 ```
 
 **Claude Desktop / Codex / Cursor / VS Code / any MCP client**
@@ -89,9 +85,9 @@ claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
 ```json
 {
   "mcpServers": {
-    "pdf-reader": {
+    "citra": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["@sylphx/citra"]
     }
   }
 }
@@ -102,8 +98,8 @@ Dual-era hosts that send `server/discover` before `initialize` (e.g. Gemini Anti
 **Stdio / HTTP**
 
 ```bash
-pdf-reader-mcp
-MCP_TRANSPORT=http pdf-reader-mcp
+citra
+MCP_TRANSPORT=http citra
 ```
 
 
@@ -125,22 +121,22 @@ if (isError) throw new Error(JSON.stringify(payload));
 console.log(payload);
 ```
 
-Low-level escape hatch: `@sylphx/pdf-reader-mcp/pure-rust` (`createPureRustClient`).
+Low-level escape hatch: `@sylphx/citra/pure-rust` (`createPureRustClient`).
 
 - Export: `@sylphx/citra/sdk` → `Citra` (`read` / `search` / `evidence`)
-- Export: `@sylphx/pdf-reader-mcp/pure-rust` → `createPureRustClient`, `resolvePureRustServerBinary`, `PureRustClient`
+- Export: `@sylphx/citra/pure-rust` → `createPureRustClient`, `resolvePureRustServerBinary`, `PureRustClient`
 - Tools (same as MCP): `read_pdf` · `search_pdf` · `pdf_evidence`
 - Requires the platform optional native package (same as MCP install)
-- **Roadmap:** idiomatic high-level `@sylphx/citra` package name + richer typed SDK; semantics stay isomorphic with CLI/MCP
+- **Roadmap:** richer typed SDK depth; package name is already brand-sole `@sylphx/citra`
 
 **CLI**
 
 ```bash
-npx pdf-reader-mcp --help   # transitional bin
+npx citra --help
 # doctor / read paths: see package bin and docs/guide
 ```
 
-**MCP** — see Quick start above (`npx @sylphx/pdf-reader-mcp`).
+**MCP** — see Quick start above (`npx @sylphx/citra`).
 
 Independence: [this product only](docs/PRODUCT_INDEPENDENCE.md). No central Instruments monorepo.
 
