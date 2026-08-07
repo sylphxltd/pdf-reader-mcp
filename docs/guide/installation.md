@@ -5,9 +5,9 @@
 Install from **npm**. Current production is **`@sylphx/pdf-reader-mcp@4.1.1`** — a **sole-Rust** MCP server launched by a thin Node entrypoint.
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp
+npm install -g @sylphx/citra
 # or pin
-npm install -g @sylphx/pdf-reader-mcp@4.1.1
+npm install -g @sylphx/citra
 ```
 
 What you get:
@@ -29,7 +29,7 @@ There is **no** TypeScript PDF runtime in the production package. If the matchin
 ## Claude Code
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+claude mcp add pdf-reader -- npx @sylphx/citra
 ```
 
 ## Claude Desktop
@@ -78,7 +78,7 @@ release that includes this fix.
 ## Run directly
 
 ```bash
-npx @sylphx/pdf-reader-mcp
+npx @sylphx/citra
 # or after global install
 pdf-reader-mcp
 ```
@@ -110,5 +110,5 @@ MCP_TRANSPORT=http pdf-reader-mcp
 Immutable external comparison/recovery pin only:
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp@3.0.14
+npm install -g @sylphx/citra@3.0.14
 ```

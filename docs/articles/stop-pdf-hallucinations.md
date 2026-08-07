@@ -3,7 +3,7 @@
 
 Plain-text PDF tools make agents invent citations. **PDF Reader MCP gives them evidence** — page numbers, table cells, crops, and provenance.
 
-Install: `npm install -g @sylphx/pdf-reader-mcp@4.1.1`
+Install: `npm install -g @sylphx/citra`
 
 You asked Claude to summarize a 40-page contract. It cited page 12. Page 12
 does not say what it claimed.
@@ -50,7 +50,7 @@ with coordinates**, not from a lossy text dump.
 ## Try the fix in 30 seconds
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+claude mcp add pdf-reader -- npx @sylphx/citra
 ```
 
 ```json

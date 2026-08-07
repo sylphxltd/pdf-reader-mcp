@@ -11,8 +11,8 @@ One local MCP server returns structured text, tables, OCR paths, visual evidence
 ## Install now
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp@4.1.1
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+npm install -g @sylphx/citra
+claude mcp add pdf-reader -- npx @sylphx/citra
 ```
 
 ## Three flagship workflows
