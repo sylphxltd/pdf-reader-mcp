@@ -3,7 +3,7 @@
   "title": "Pure-Rust capability matrix (capability-first semantic admission SSOT)",
   "updated": "2026-07-24",
   "productTruth": {
-    "publishedStable": "@sylphx/citra@5.0.0",
+    "publishedStable": "5.0.0",
     "publishedImplementation": "4.1.2 pure-Rust sole-runtime live (#598); 4.1.3 candidate admits #608 cmap-crash fix + panic-unwind hardening",
     "pureRustStatus": "sole-rust-production-default",
     "optIn": "native optional package required; PDF_READER_MCP_RUST_BIN override allowed; no TS production path",
@@ -112,7 +112,16 @@
       "name": "io.github.SylphxAI/citra",
       "package": "@sylphx/citra",
       "version": "5.0.0"
-    }
+    },
+    "hostInstallRuntimeProofLinuxX64": {
+      "status": "pass",
+      "version": "5.0.0",
+      "package": "@sylphx/citra",
+      "evidence": "verification/citra-host-install-runtime-proof-5.0.0-linux-x64-gnu.json",
+      "serverInfoName": "citra",
+      "boundary": "linux-x64-gnu host install + MCP initialize/tools.list only; not five-platform matrix"
+    },
+    "npmLatestObserved": "5.0.0"
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
