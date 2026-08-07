@@ -289,7 +289,7 @@ if (requiredPlatformId) {
 
 if (mode === 'local-pack') {
   const meta = NATIVE_PLATFORM_PACKAGES[platformId];
-  const staged = join(root, 'packages', `pdf-reader-mcp-${platformId}`, 'bin', meta.binaryName);
+  const staged = join(root, 'packages', `citra-${platformId}`, 'bin', meta.binaryName);
   if (!existsSync(staged)) {
     fail(
       `missing staged package binary at ${staged}; run bun run build:rust && bun scripts/stage-rust-mcp.ts`
