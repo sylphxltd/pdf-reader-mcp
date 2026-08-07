@@ -28,7 +28,7 @@ map_platform_id() {
   esac
 }
 
-# Brand env override (CITRA_RUST_BIN only; no legacy PDF_READER_MCP_RUST_BIN).
+# Brand env override: CITRA_RUST_BIN only.
 if [[ -n "${CITRA_RUST_BIN:-}" && -x "${CITRA_RUST_BIN}" ]]; then
   exec "${CITRA_RUST_BIN}" "$@"
 fi
