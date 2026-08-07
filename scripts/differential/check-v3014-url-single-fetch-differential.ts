@@ -25,7 +25,7 @@ const projectionPath = join(scriptDir, 'v3014-url-single-fetch-projection.ts');
 const providerPath = join(scriptDir, 'reference-ocr-provider.ts');
 const serverScriptPath = join(scriptDir, 'url-single-fetch-fixture-server.ts');
 const fixturePath = join(fixtureDir, 'v3014-visual-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>
@@ -97,7 +97,7 @@ if (sha256(git('show', `${commit}:bun.lock`)) !== baseline.bunLockSha256) {
   throw new Error('url single-fetch bun.lock digest drift');
 }
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });

@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { Citra } from '@sylphx/pdf-reader-mcp/sdk'
+ * import { Citra } from '@sylphx/citra/sdk'
  * const citra = Citra.create()
  * const { payload, isError } = await citra.read({ sources: [{ path: '/abs/doc.pdf' }] })
  * ```

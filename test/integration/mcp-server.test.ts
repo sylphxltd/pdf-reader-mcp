@@ -8,7 +8,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(__dirname, '../..');
-const binWrapper = path.join(repoRoot, 'bin/pdf-reader-mcp');
+const binWrapper = path.join(repoRoot, 'bin/citra');
 
 // JSON-RPC message helpers
 const createRequest = (id: number, method: string, params?: unknown) => ({

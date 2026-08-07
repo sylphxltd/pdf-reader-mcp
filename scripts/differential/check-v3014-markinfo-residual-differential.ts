@@ -23,7 +23,7 @@ const fixtures = {
   'v3014-markinfo-alltrue-v1.pdf': join(fixtureDir, 'v3014-markinfo-alltrue-v1.pdf'),
   'v3014-markinfo-empty-v1.pdf': join(fixtureDir, 'v3014-markinfo-empty-v1.pdf'),
 } as const;
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>
@@ -87,7 +87,7 @@ if (sha256(git('show', `${commit}:bun.lock`)) !== baseline.bunLockSha256) {
   throw new Error('markinfo residual bun.lock digest drift');
 }
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });

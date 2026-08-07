@@ -16,7 +16,7 @@ describe('MCP stdio transport routing', () => {
   });
 
   it('optional bin wrapper is sole-Rust and does not invoke TypeScript', () => {
-    const bin = readFileSync(path.join(repoRoot, 'bin/pdf-reader-mcp'), 'utf8');
+    const bin = readFileSync(path.join(repoRoot, 'bin/citra'), 'utf8');
     expect(bin).toContain('dist/runtime-entry.js');
     expect(bin).not.toContain('dist/index.js');
     expect(bin).toContain('3.0.14');

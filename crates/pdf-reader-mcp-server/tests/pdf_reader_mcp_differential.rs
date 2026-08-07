@@ -112,7 +112,7 @@ fn resolve_transport(env: &Value) -> String {
 
 fn surface_file(surface: &str) -> PathBuf {
     match surface {
-        "bin" => repo_root().join("bin/pdf-reader-mcp"),
+        "bin" => repo_root().join("bin/citra"),
         "stdio" => repo_root().join("crates/pdf-reader-mcp-server/src/main.rs"),
         other => panic!("unknown surface {other}"),
     }
@@ -180,16 +180,16 @@ fn parse_rmcp_structured(result: &rmcp::model::CallToolResult) -> Value {
 
 fn resolve_mcp_binary() -> PathBuf {
     for relative in [
-        "bin/native/pdf-reader-mcp-server",
-        "target/release/pdf-reader-mcp-server",
-        "target/debug/pdf-reader-mcp-server",
+        "bin/native/citra-mcp-server",
+        "target/release/citra-mcp-server",
+        "target/debug/citra-mcp-server",
     ] {
         let candidate = repo_root().join(relative);
         if candidate.is_file() {
             return candidate;
         }
     }
-    panic!("pdf-reader-mcp-server is not built; run `bun run build:rust`");
+    panic!("citra-mcp-server is not built; run `bun run build:rust`");
 }
 
 struct StdioMcpClient {

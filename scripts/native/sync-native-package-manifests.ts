@@ -20,7 +20,7 @@ if (!version) {
 }
 
 const prepublishOnly =
-  "node -e \"const fs=require('fs');const p=require('./package.json');const bin=p.pdfReaderMcpNativeBinary;if(!bin||!fs.existsSync(bin)||fs.statSync(bin).size<1024){console.error('REFUSE PUBLISH: native binary missing or empty at',bin);process.exit(1)}console.log('native binary present:',bin,'bytes',fs.statSync(bin).size);\"";
+  "node -e \"const fs=require('fs');const p=require('./package.json');const bin=p.citraNativeBinary;if(!bin||!fs.existsSync(bin)||fs.statSync(bin).size<1024){console.error('REFUSE PUBLISH: native binary missing or empty at',bin);process.exit(1)}console.log('native binary present:',bin,'bytes',fs.statSync(bin).size);\"";
 
 for (const [platformId, meta] of Object.entries(NATIVE_PLATFORM_PACKAGES)) {
   const pkgPath = join(root, meta.packageDir, 'package.json');
@@ -33,14 +33,13 @@ for (const [platformId, meta] of Object.entries(NATIVE_PLATFORM_PACKAGES)) {
   pkg.version = version;
   pkg.description =
     `Optional pure-Rust MCP server binary for ${platformId}. ` +
-    'Installed as an optionalDependency of @sylphx/citra; ' +
-    'default package entry remains TypeScript until sole-runtime cutover.';
+    'Installed as an optionalDependency of @sylphx/citra. Sole-Rust; fail-closed if missing.';
   pkg.license = 'MIT';
   pkg.os = [meta.os];
   pkg.cpu = [meta.cpu];
   pkg.files = ['bin/', 'README.md', 'package.json'];
   pkg.publishConfig = { access: 'public' };
-  pkg.pdfReaderMcpNativeBinary = `bin/${meta.binaryName}`;
+  pkg.citraNativeBinary = `bin/${meta.binaryName}`;
   pkg.scripts = { ...(typeof pkg.scripts === 'object' && pkg.scripts ? pkg.scripts : {}), prepublishOnly };
   pkg.repository = {
     type: 'git',
@@ -72,8 +71,8 @@ writeFileSync(rootPkgPath, `${JSON.stringify(rootRaw, null, 2)}\n`);
 console.log(`[native:sync-manifests] root optionalDependencies -> ${version}`);
 
 // Sanity: package dirs match map.
-const dirs = readdirSync(join(root, 'packages')).filter((name) => name.startsWith('pdf-reader-mcp-'));
-const expected = Object.keys(NATIVE_PLATFORM_PACKAGES).map((id) => `pdf-reader-mcp-${id}`);
+const dirs = readdirSync(join(root, 'packages')).filter((name) => name.startsWith('citra-'));
+const expected = Object.keys(NATIVE_PLATFORM_PACKAGES).map((id) => `citra-${id}`);
 if (dirs.sort().join() !== expected.sort().join()) {
   console.error('[native:sync-manifests] package dirs drift from platform map', { dirs, expected });
   process.exit(1);

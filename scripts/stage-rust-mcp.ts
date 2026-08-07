@@ -11,8 +11,8 @@ const binaryName =
   platformIdEarly != null
     ? path.basename(nativeBinaryRelativePath(platformIdEarly))
     : process.platform === 'win32'
-      ? 'pdf-reader-mcp-server.exe'
-      : 'pdf-reader-mcp-server';
+      ? 'citra-mcp-server.exe'
+      : 'citra-mcp-server';
 const source = path.join(repoRoot, 'target/release', binaryName);
 const legacyTargetDir = path.join(repoRoot, 'bin/native');
 const legacyTarget = path.join(legacyTargetDir, binaryName);
@@ -54,7 +54,7 @@ if (platformId) {
   // Also stage into the optional package bin/ for local packaging smoke.
   const packageBinary = path.join(
     repoRoot,
-    `packages/pdf-reader-mcp-${platformId}/bin`,
+    `packages/citra-${platformId}/bin`,
     path.basename(platformTarget)
   );
   stageCopy(packageBinary);

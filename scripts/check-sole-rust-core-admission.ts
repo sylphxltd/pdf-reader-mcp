@@ -30,9 +30,9 @@ for (const [cmd, args] of steps) {
     stdio: 'inherit',
     env: {
       ...process.env,
-      PDF_READER_MCP_RUST_BIN:
-        process.env.PDF_READER_MCP_RUST_BIN ||
-        join(root, 'target/release/pdf-reader-mcp-server'),
+      CITRA_RUST_BIN:
+        process.env.CITRA_RUST_BIN ||
+        join(root, 'target/release/citra-mcp-server'),
     },
   });
   const ok = r.status === 0;

@@ -27,10 +27,10 @@ describe('native platform package map', () => {
 
   test('uses platform-scoped staged binary paths', () => {
     expect(nativeBinaryRelativePath('linux-x64-gnu')).toBe(
-      'bin/native/linux-x64-gnu/pdf-reader-mcp-server'
+      'bin/native/linux-x64-gnu/citra-mcp-server'
     );
     expect(nativeBinaryRelativePath('win32-x64-msvc')).toBe(
-      'bin/native/win32-x64-msvc/pdf-reader-mcp-server.exe'
+      'bin/native/win32-x64-msvc/citra-mcp-server.exe'
     );
   });
 
@@ -45,27 +45,27 @@ describe('native platform package map', () => {
     for (const platformId of Object.keys(NATIVE_PLATFORM_PACKAGES)) {
       const meta = NATIVE_PLATFORM_PACKAGES[platformId as keyof typeof NATIVE_PLATFORM_PACKAGES];
       const pkg = JSON.parse(
-        readFileSync(join(root, `packages/pdf-reader-mcp-${platformId}/package.json`), 'utf8')
+        readFileSync(join(root, `packages/citra-${platformId}/package.json`), 'utf8')
       ) as {
         private?: boolean;
         name?: string;
         version?: string;
-        pdfReaderMcpNativeBinary?: string;
+        citraNativeBinary?: string;
         scripts?: { prepublishOnly?: string };
       };
       expect(pkg.private).not.toBe(true);
       expect(pkg.name).toBe(meta.npmName);
       expect(pkg.version).toBe(rootPkg.version);
-      expect(pkg.pdfReaderMcpNativeBinary).toBe(`bin/${meta.binaryName}`);
+      expect(pkg.citraNativeBinary).toBe(`bin/${meta.binaryName}`);
       expect(pkg.scripts?.prepublishOnly ?? '').toContain('REFUSE PUBLISH');
       expect(rootPkg.optionalDependencies?.[meta.npmName]).toBe(rootPkg.version);
     }
     const dirs = readdirSync(join(root, 'packages')).filter((name) =>
-      name.startsWith('pdf-reader-mcp-')
+      name.startsWith('citra-')
     );
     expect(dirs.sort()).toEqual(
       Object.keys(NATIVE_PLATFORM_PACKAGES)
-        .map((id) => `pdf-reader-mcp-${id}`)
+        .map((id) => `citra-${id}`)
         .sort()
     );
   });

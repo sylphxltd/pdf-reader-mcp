@@ -34,16 +34,16 @@ export const packageJson = JSON.parse(
 };
 
 const resolveStagedRustBinary = (): string | null => {
-  const forced = process.env.PDF_READER_MCP_RUST_BIN;
+  const forced = process.env.CITRA_RUST_BIN;
   if (forced && fs.existsSync(forced)) return forced;
   const candidates = [
-    path.join(repoRoot, 'target/release/pdf-reader-mcp-server'),
-    path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'),
-    path.join(repoRoot, 'bin/native/linux-x64-gnu/pdf-reader-mcp-server'),
-    path.join(repoRoot, 'bin/native/linux-arm64-gnu/pdf-reader-mcp-server'),
-    path.join(repoRoot, 'bin/native/darwin-arm64/pdf-reader-mcp-server'),
-    path.join(repoRoot, 'bin/native/darwin-x64/pdf-reader-mcp-server'),
-    path.join(repoRoot, 'bin/native/win32-x64-msvc/pdf-reader-mcp-server.exe'),
+    path.join(repoRoot, 'target/release/citra-mcp-server'),
+    path.join(repoRoot, 'bin/native/citra-mcp-server'),
+    path.join(repoRoot, 'bin/native/linux-x64-gnu/citra-mcp-server'),
+    path.join(repoRoot, 'bin/native/linux-arm64-gnu/citra-mcp-server'),
+    path.join(repoRoot, 'bin/native/darwin-arm64/citra-mcp-server'),
+    path.join(repoRoot, 'bin/native/darwin-x64/citra-mcp-server'),
+    path.join(repoRoot, 'bin/native/win32-x64-msvc/citra-mcp-server.exe'),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
@@ -83,8 +83,8 @@ export const productionEnv = (overrides: NodeJS.ProcessEnv = {}): NodeJS.Process
   env.NODE_ENV = env.NODE_ENV ?? 'test';
   env.MCP_TRANSPORT = env.MCP_TRANSPORT ?? 'stdio';
   const rustBin = resolveStagedRustBinary();
-  if (rustBin && !env.PDF_READER_MCP_RUST_BIN) {
-    env.PDF_READER_MCP_RUST_BIN = rustBin;
+  if (rustBin && !env.CITRA_RUST_BIN) {
+    env.CITRA_RUST_BIN = rustBin;
   }
   // Sole-Rust production does not use TS engine mode flags.
   if (!overrides.PDF_READER_ENGINE_MODE) {

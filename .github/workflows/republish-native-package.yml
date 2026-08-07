@@ -114,11 +114,11 @@ jobs:
               ;;
           esac
           if [[ "$PLATFORM" == "win32-x64-msvc" ]]; then
-            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server.exe"
-            dest="packages/pdf-reader-mcp-${PLATFORM}/bin/pdf-reader-mcp-server.exe"
+            src="target/${{ matrix.target }}/release/citra-mcp-server.exe"
+            dest="packages/citra-${PLATFORM}/bin/citra-mcp-server.exe"
           else
-            src="target/${{ matrix.target }}/release/pdf-reader-mcp-server"
-            dest="packages/pdf-reader-mcp-${PLATFORM}/bin/pdf-reader-mcp-server"
+            src="target/${{ matrix.target }}/release/citra-mcp-server"
+            dest="packages/citra-${PLATFORM}/bin/citra-mcp-server"
           fi
           mkdir -p "$(dirname "$dest")"
           cp "$src" "$dest"
@@ -126,13 +126,13 @@ jobs:
           ls -la "$dest"
           bun run native:sync-manifests
           # Best-effort unpublish of broken tarball version (allowed within 72h for many packages).
-          npm unpublish "@sylphx/pdf-reader-mcp-${PLATFORM}@${VERSION}" --force || true
+          npm unpublish "@sylphx/citra-${PLATFORM}@${VERSION}" --force || true
           # Brief pause for registry consistency
           sleep 5
-          (cd "packages/pdf-reader-mcp-${PLATFORM}" && npm publish --access public)
+          (cd "packages/citra-${PLATFORM}" && npm publish --access public)
           # Verify tarball fetchable
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            if npm pack "@sylphx/pdf-reader-mcp-${PLATFORM}@${VERSION}" >/tmp/pack.out 2>/tmp/pack.err; then
+            if npm pack "@sylphx/citra-${PLATFORM}@${VERSION}" >/tmp/pack.out 2>/tmp/pack.err; then
               echo "pack ok"
               cat /tmp/pack.out
               exit 0

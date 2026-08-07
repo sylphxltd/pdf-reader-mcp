@@ -20,9 +20,9 @@ import { performance } from 'node:perf_hooks';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const samplePdf = path.join(repoRoot, 'test/fixtures/sample.pdf');
 const rustBinCandidates = [
-  process.env.PDF_READER_MCP_RUST_BIN,
-  path.join(repoRoot, 'bin/native/pdf-reader-mcp-server'),
-  path.join(repoRoot, 'target/release/pdf-reader-mcp-server'),
+  process.env.CITRA_RUST_BIN,
+  path.join(repoRoot, 'bin/native/citra-mcp-server'),
+  path.join(repoRoot, 'target/release/citra-mcp-server'),
 ].filter(Boolean) as string[];
 
 const args = process.argv.slice(2);

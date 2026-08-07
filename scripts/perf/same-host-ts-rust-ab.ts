@@ -109,7 +109,7 @@ const normalizeText = (s: string): string =>
     .trim();
 
 const resolveRustBinary = (): string | null => {
-  const forced = process.env['PDF_READER_MCP_RUST_BIN'];
+  const forced = process.env['CITRA_RUST_BIN'];
   if (forced && existsSync(forced)) return forced;
 
   if (useRegistryRust) {
@@ -130,7 +130,7 @@ const resolveRustBinary = (): string | null => {
         'npm',
         [
           'install',
-          `@sylphx/pdf-reader-mcp@${process.env['MCP_PDF_PERF_RUST_VERSION'] || JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version || '4.1.0'}`,
+          `@sylphx/citra@${process.env['MCP_PDF_PERF_RUST_VERSION'] || JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version || '4.1.0'}`,
           '--prefix',
           installRoot,
           '--no-save',
@@ -151,7 +151,7 @@ const resolveRustBinary = (): string | null => {
   if (!platformId) return null;
   const meta = NATIVE_PLATFORM_PACKAGES[platformId];
   const candidates = [
-    join(root, 'target/release/pdf-reader-mcp-server'),
+    join(root, 'target/release/citra-mcp-server'),
     join(root, 'bin/native', platformId, meta.binaryName),
     join(root, meta.packageDir, 'bin', meta.binaryName),
     join(root, 'node_modules', meta.npmName, 'bin', meta.binaryName),

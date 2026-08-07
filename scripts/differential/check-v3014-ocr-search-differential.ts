@@ -16,7 +16,7 @@ const runnerPath = join(scriptDir, 'v3014-ocr-search-baseline-runner.ts');
 const projectionPath = join(scriptDir, 'v3014-ocr-search-projection.ts');
 const providerPath = join(scriptDir, 'reference-ocr-provider.ts');
 const fixturePath = join(fixtureDir, 'v3014-visual-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string => createHash('sha256').update(value).digest('hex');
@@ -76,11 +76,11 @@ for (const [id, expectation] of Object.entries(oracle.expectations)) for (const 
 
 const coreProof = spawnSync('cargo', ['test', '-p', 'pdf-reader-core', 'search_pdf::tests::ocr_search_budget_accepts_exact_caps_and_sticks_after_plus_one'], { cwd: repoRoot, encoding: 'utf8' });
 if (coreProof.status !== 0) throw new Error(coreProof.stderr || 'OCR-search fusion resource proof failed');
-const serverProof = spawnSync('cargo', ['test', '-p', 'pdf-reader-mcp-server', 'search::tests::rejects_ocr_source_cap_plus_one_before_source_io'], { cwd: repoRoot, encoding: 'utf8' });
+const serverProof = spawnSync('cargo', ['test', '-p', 'citra-mcp-server', 'search::tests::rejects_ocr_source_cap_plus_one_before_source_io'], { cwd: repoRoot, encoding: 'utf8' });
 if (serverProof.status !== 0) throw new Error(serverProof.stderr || 'OCR-search pre-I/O source proof failed');
-const optionsPreIoProof = spawnSync('cargo', ['test', '-p', 'pdf-reader-mcp-server', 'search::tests::rejects_global_options_before_source_io'], { cwd: repoRoot, encoding: 'utf8' });
+const optionsPreIoProof = spawnSync('cargo', ['test', '-p', 'citra-mcp-server', 'search::tests::rejects_global_options_before_source_io'], { cwd: repoRoot, encoding: 'utf8' });
 if (optionsPreIoProof.status !== 0) throw new Error(optionsPreIoProof.stderr || 'OCR-search global-option pre-I/O proof failed');
-const pageSpecPreIoProof = spawnSync('cargo', ['test', '-p', 'pdf-reader-mcp-server', 'search::tests::keeps_invalid_page_spec_source_local_before_materialization'], { cwd: repoRoot, encoding: 'utf8' });
+const pageSpecPreIoProof = spawnSync('cargo', ['test', '-p', 'citra-mcp-server', 'search::tests::keeps_invalid_page_spec_source_local_before_materialization'], { cwd: repoRoot, encoding: 'utf8' });
 if (pageSpecPreIoProof.status !== 0) throw new Error(pageSpecPreIoProof.stderr || 'OCR-search source-local page-spec pre-I/O proof failed');
 const candidateSha = git('rev-parse', 'HEAD').toString().trim();
 if (process.env.CANDIDATE_SHA && process.env.CANDIDATE_SHA !== candidateSha) throw new Error(`candidate SHA mismatch: ${process.env.CANDIDATE_SHA} != ${candidateSha}`);

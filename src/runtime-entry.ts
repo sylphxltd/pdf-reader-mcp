@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sole-Rust production package entry for @sylphx/pdf-reader-mcp.
+ * Sole-Rust production package entry for @sylphx/citra.
  *
  * Launches the platform optional pure-Rust MCP server binary only.
  * There is no TypeScript PDF processing fallback in the production package.
@@ -20,7 +20,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(here, '..');
 
 const resolveNativeBinary = (): string | null => {
-  const forced = process.env['PDF_READER_MCP_RUST_BIN'];
+  const forced = process.env['CITRA_RUST_BIN'];
   if (forced && existsSync(forced)) return forced;
 
   const platformId = resolveNativePlatformId();
@@ -68,7 +68,7 @@ if (!nativeBinary) {
     [
       `[citra] pure-Rust native binary not found for ${platformLabel}.`,
       'Citra is sole-Rust: there is no bundled TypeScript PDF runtime.',
-      'Install the matching optional native package for your platform, or set PDF_READER_MCP_RUST_BIN.',
+      'Install the matching optional native package for your platform, or set CITRA_RUST_BIN.',
       'Historical TypeScript LKG remains available only as @sylphx/pdf-reader-mcp@3.0.14 (external pin).',
     ].join('\n')
   );

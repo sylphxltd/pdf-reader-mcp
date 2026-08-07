@@ -18,7 +18,7 @@ const projectionPath = join(scriptDir, 'v3014-form-text-multiline-residual-proje
 const lfFixture = join(fixtureDir, 'v3014-form-text-multiline-lf-v1.pdf');
 const crlfFixture = join(fixtureDir, 'v3014-form-text-multiline-crlf-v1.pdf');
 const rawlfFixture = join(fixtureDir, 'v3014-form-text-multiline-rawlf-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>
@@ -82,7 +82,7 @@ if (sha256(git('show', `${commit}:bun.lock`)) !== baseline.bunLockSha256) {
   throw new Error('form text-multiline residual bun.lock digest drift');
 }
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });

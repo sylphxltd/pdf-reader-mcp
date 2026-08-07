@@ -22,9 +22,9 @@ fn repo_root() -> PathBuf {
 
 fn resolve_mcp_binary() -> PathBuf {
     for relative in [
-        "bin/native/pdf-reader-mcp-server",
-        "target/release/pdf-reader-mcp-server",
-        "target/debug/pdf-reader-mcp-server",
+        "bin/native/citra-mcp-server",
+        "target/release/citra-mcp-server",
+        "target/debug/citra-mcp-server",
     ] {
         let candidate = repo_root().join(relative);
         if candidate.is_file() {
@@ -32,10 +32,10 @@ fn resolve_mcp_binary() -> PathBuf {
         }
     }
     // Fall back to cargo-built test binary next to this test via CARGO_BIN_EXE
-    if let Ok(path) = std::env::var("CARGO_BIN_EXE_pdf-reader-mcp-server") {
+    if let Ok(path) = std::env::var("CARGO_BIN_EXE_citra-mcp-server") {
         return PathBuf::from(path);
     }
-    panic!("pdf-reader-mcp-server binary not found; run cargo build -p pdf-reader-mcp-server");
+    panic!("citra-mcp-server binary not found; run cargo build -p pdf-reader-mcp-server");
 }
 
 struct StdioClient {

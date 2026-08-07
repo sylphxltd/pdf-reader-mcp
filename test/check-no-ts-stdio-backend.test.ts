@@ -13,7 +13,7 @@ describe('MCP stdio production default (sole-Rust package)', () => {
       bin?: Record<string, string>;
       exports?: Record<string, string>;
     };
-    const bin = readText('bin/pdf-reader-mcp');
+    const bin = readText('bin/citra');
 
     expect(pkg.bin?.citra).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');

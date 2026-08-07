@@ -36,7 +36,7 @@ const baselinePath = join(
     ? 'baselines/typescript-v3.0.14.public-url.json'
     : 'baselines/typescript-v3.0.14.local.json'
 );
-const rustServerPath = join(root, 'target/release/pdf-reader-mcp-server');
+const rustServerPath = join(root, 'target/release/citra-mcp-server');
 const tsServerPath = join(root, 'dist/index.js');
 
 const args = process.argv.slice(2);
@@ -63,7 +63,7 @@ if (manifest.calibration?.inventedNumericThresholdsForbidden !== true) {
 
 const ensureRustServer = () => {
   if (existsSync(rustServerPath)) return;
-  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
     cwd: root,
     stdio: 'inherit',
   });

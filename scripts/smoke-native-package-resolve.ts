@@ -4,7 +4,7 @@
  *
  * This is NOT registry publish proof and does not unfreeze publish.
  * It proves the optional package layout + node_modules resolution path used by
- * bin/pdf-reader-mcp and packaging docs can locate and run the pure-Rust binary.
+ * bin/citra and packaging docs can locate and run the pure-Rust binary.
  */
 import { spawn } from 'node:child_process';
 import {

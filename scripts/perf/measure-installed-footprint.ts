@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const version = (process.argv.find((a) => a.startsWith('--version=')) || '--version=4.0.2').split('=')[1]!;
-const pkg = `@sylphx/pdf-reader-mcp@${version}`;
+const pkg = `@sylphx/citra@${version}`;
 const root = mkdtempSync(join(tmpdir(), `pdf-footprint-${version}-`));
 
 function run(cmd: string, args: string[], cwd = root) {

@@ -21,7 +21,7 @@ const projectionPath = join(scriptDir, 'v3014-page-geometry-depth-clamp-residual
 const deeperInheritFixture = join(fixtureDir, 'v3014-page-geometry-deeper-inherit-v1.pdf');
 const nonRightAngleFixture = join(fixtureDir, 'v3014-page-geometry-non-right-angle-v1.pdf');
 const cropIntersectFixture = join(fixtureDir, 'v3014-page-geometry-crop-intersect-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>
@@ -97,7 +97,7 @@ if (sha256(git('show', `${commit}:bun.lock`)) !== baseline.bunLockSha256) {
   throw new Error('page geometry depth-clamp residual bun.lock digest drift');
 }
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });

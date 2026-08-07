@@ -20,7 +20,7 @@ const runnerPath = join(scriptDir, 'v3014-text-inverted-rect-residual-baseline-r
 const projectionPath = join(scriptDir, 'v3014-text-inverted-rect-residual-projection.ts');
 const invertedFixture = join(fixtureDir, 'v3014-annotation-text-inverted-v1.pdf');
 const noApFixture = join(fixtureDir, 'v3014-annotation-text-noap-v1.pdf');
-const serverPath = join(repoRoot, 'target/release/pdf-reader-mcp-server');
+const serverPath = join(repoRoot, 'target/release/citra-mcp-server');
 const outputIndex = process.argv.indexOf('--output');
 const outputPath = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
 const sha256 = (value: Uint8Array | string): string =>
@@ -83,7 +83,7 @@ if (sha256(git('show', `${commit}:bun.lock`)) !== baseline.bunLockSha256) {
   throw new Error('text inverted-rect residual bun.lock digest drift');
 }
 if (!existsSync(serverPath)) {
-  const build = spawnSync('cargo', ['build', '-p', 'pdf-reader-mcp-server', '--release'], {
+  const build = spawnSync('cargo', ['build', '-p', 'citra-mcp-server', '--release'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
