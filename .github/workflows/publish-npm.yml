@@ -49,6 +49,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      # cargo-zigbuild needs zig on PATH for portable linux glibc natives
+      - uses: mlugg/setup-zig@v2
+        if: ${{ matrix.platformId == 'linux-x64-gnu' || matrix.platformId == 'linux-arm64-gnu' }}
+        with:
+          version: 0.14.1
       - name: Build release server for ${{ matrix.platformId }}
         shell: bash
         run: |
