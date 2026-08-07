@@ -25,6 +25,23 @@ fn normalize_path_label(path: &str) -> String {
 fn normalize_structured(mut value: Value) -> Value {
     if let Some(object) = value.as_object_mut() {
         object.remove("evidence");
+        // Family envelope v1 fields are MCP-boundary additions, not core payload.
+        for key in [
+            "envelope_version",
+            "status",
+            "tool",
+            "product",
+            "product_version",
+            "route",
+            "warnings",
+            "gaps",
+            "confidence",
+            "source",
+            "operation",
+            "payload",
+        ] {
+            object.remove(key);
+        }
         if let Some(results) = object.get_mut("results").and_then(Value::as_array_mut) {
             for result in results {
                 if let Some(result_object) = result.as_object_mut() {
@@ -92,6 +109,21 @@ fn rmcp_read_pdf_structured_content_matches_core_payload() {
     assert_eq!(
         normalize_structured(structured.clone()),
         normalize_structured(serde_json::to_value(core).expect("core payload"))
+    );
+
+    assert_eq!(
+        structured.get("envelope_version").and_then(Value::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        structured.get("product").and_then(Value::as_str),
+        Some("citra")
+    );
+    assert_eq!(
+        structured
+            .pointer("/route/engine")
+            .and_then(Value::as_str),
+        Some("rust-core")
     );
 
     let evidence = structured.get("evidence").cloned().expect("rmcp evidence");
