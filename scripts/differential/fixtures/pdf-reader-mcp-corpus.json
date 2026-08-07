@@ -73,7 +73,7 @@
     {
       "id": "stdio-initialize",
       "kind": "initialize",
-      "expect": { "serverName": "pdf-reader-mcp" }
+      "expect": { "serverName": "citra" }
     },
     {
       "id": "stdio-tools-list",

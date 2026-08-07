@@ -164,7 +164,7 @@ fn server_discover_before_initialize_keeps_session_alive() {
             // JSON Pointer escapes '/' in key names as ~1
             .pointer("/result/_meta/io.modelcontextprotocol~1serverInfo/name")
             .and_then(Value::as_str),
-        Some("pdf-reader-mcp")
+        Some("citra")
     );
 
     // Legacy initialize must still succeed on the same connection.
@@ -184,7 +184,7 @@ fn server_discover_before_initialize_keeps_session_alive() {
         initialize
             .pointer("/result/serverInfo/name")
             .and_then(Value::as_str),
-        Some("pdf-reader-mcp")
+        Some("citra")
     );
 
     client.send_notification("notifications/initialized", json!({}));

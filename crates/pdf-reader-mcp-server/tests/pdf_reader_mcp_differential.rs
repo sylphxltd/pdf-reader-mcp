@@ -299,7 +299,7 @@ impl StdioMcpClient {
             .unwrap_or_default();
         assert_eq!(
             server_name, SERVER_NAME,
-            "initialize must identify pdf-reader-mcp rmcp server"
+            "initialize must identify citra rmcp server"
         );
 
         self.send_notification("notifications/initialized", json!({}));
