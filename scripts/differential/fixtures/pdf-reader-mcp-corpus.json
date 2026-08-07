@@ -1,22 +1,32 @@
 {
   "corpusVersion": 1,
-  "description": "read_pdf + stdio transport differential corpus — frozen golden baseline via pdf-reader-cli oracle (rej-010)",
+  "description": "read_pdf + stdio transport differential corpus \u2014 frozen golden baseline via pdf-reader-cli oracle (rej-010)",
   "goldenFixture": "test/fixtures/read-pdf-golden.json",
   "transportContractCases": [
     {
       "id": "transport-default-stdio",
       "env": {},
-      "expect": { "transport": "stdio" }
+      "expect": {
+        "transport": "stdio"
+      }
     },
     {
       "id": "transport-mcp-http",
-      "env": { "MCP_TRANSPORT": "http" },
-      "expect": { "transport": "http" }
+      "env": {
+        "MCP_TRANSPORT": "http"
+      },
+      "expect": {
+        "transport": "http"
+      }
     },
     {
       "id": "transport-pdf-reader-http",
-      "env": { "PDF_READER_MCP_TRANSPORT": "http" },
-      "expect": { "transport": "http" }
+      "env": {
+        "PDF_READER_MCP_TRANSPORT": "http"
+      },
+      "expect": {
+        "transport": "http"
+      }
     },
     {
       "id": "transport-pdf-reader-precedence",
@@ -24,24 +34,38 @@
         "PDF_READER_MCP_TRANSPORT": "stdio",
         "MCP_TRANSPORT": "http"
       },
-      "expect": { "transport": "stdio" }
+      "expect": {
+        "transport": "stdio"
+      }
     },
     {
       "id": "transport-ts-opt-in",
-      "env": { "PDF_READER_MCP_TRANSPORT": "ts" },
-      "expect": { "transport": "ts" }
+      "env": {
+        "PDF_READER_MCP_TRANSPORT": "ts"
+      },
+      "expect": {
+        "transport": "ts"
+      }
     }
   ],
   "surfaceContractCases": [
     {
       "id": "surface-bin-rmcp",
       "surface": "bin",
-      "markers": ["resolve_rust_bin", "resolve_transport", "exec \"$bin\"", "MCP_TRANSPORT=http"]
+      "markers": [
+        "resolve_rust_bin",
+        "resolve_transport",
+        "exec \"$bin\"",
+        "MCP_TRANSPORT=http"
+      ]
     },
     {
       "id": "surface-stdio-rmcp",
       "surface": "stdio",
-      "markers": ["transport::stdio", "http_transport::transport_from_env"]
+      "markers": [
+        "transport::stdio",
+        "http_transport::transport_from_env"
+      ]
     }
   ],
   "toolRouteCases": [
@@ -62,23 +86,49 @@
     }
   ],
   "readPdfCases": [
-    { "id": "tool-sample-metadata-on", "goldenId": "sample-metadata-on" },
-    { "id": "tool-sample-minimal-route", "goldenId": "sample-minimal-route" },
-    { "id": "tool-sample-full-text", "goldenId": "sample-full-text" },
-    { "id": "tool-missing-file", "goldenId": "missing-file" },
-    { "id": "tool-empty-sources", "goldenId": "empty-sources" },
-    { "id": "tool-url-source", "goldenId": "url-source" }
+    {
+      "id": "tool-sample-metadata-on",
+      "goldenId": "sample-metadata-on"
+    },
+    {
+      "id": "tool-sample-minimal-route",
+      "goldenId": "sample-minimal-route"
+    },
+    {
+      "id": "tool-sample-full-text",
+      "goldenId": "sample-full-text"
+    },
+    {
+      "id": "tool-missing-file",
+      "goldenId": "missing-file"
+    },
+    {
+      "id": "tool-empty-sources",
+      "goldenId": "empty-sources"
+    },
+    {
+      "id": "tool-url-source",
+      "goldenId": "url-source"
+    }
   ],
   "stdioProbeCases": [
     {
       "id": "stdio-initialize",
       "kind": "initialize",
-      "expect": { "serverName": "citra" }
+      "expect": {
+        "serverName": "citra"
+      }
     },
     {
       "id": "stdio-tools-list",
       "kind": "toolsList",
-      "expect": { "tools": ["read_pdf", "search_pdf", "pdf_evidence"] }
+      "expect": {
+        "tools": [
+          "read_pdf",
+          "search_pdf",
+          "pdf_evidence"
+        ]
+      }
     },
     {
       "id": "stdio-read-pdf-metadata",
@@ -119,7 +169,11 @@
     }
   ],
   "serverContract": {
-    "name": "pdf-reader-mcp",
-    "tools": ["read_pdf", "search_pdf", "pdf_evidence"]
+    "name": "citra",
+    "tools": [
+      "read_pdf",
+      "search_pdf",
+      "pdf_evidence"
+    ]
   }
 }
