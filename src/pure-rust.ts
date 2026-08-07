@@ -59,8 +59,9 @@ const pushPlatformCandidates = (
 };
 
 const pushFallbackCandidates = (candidates: string[], packageRoot: string) => {
-  const targetDir = process.env.CARGO_TARGET_DIR?.trim()
-    ? resolve(process.env.CARGO_TARGET_DIR)
+  const cargoTargetDir = process.env['CARGO_TARGET_DIR']?.trim();
+  const targetDir = cargoTargetDir
+    ? resolve(cargoTargetDir)
     : join(packageRoot, 'target');
   candidates.push(
     join(packageRoot, 'bin/native/citra-mcp-server'),
