@@ -91,7 +91,7 @@ var resolveNativeBinary = () => {
 };
 if (process.env["PDF_READER_FORCE_TYPESCRIPT"] === "1" || process.env["PDF_READER_ENGINE_MODE"] === "typescript" || process.env["PDF_READER_ENGINE_MODE"] === "ts") {
   console.error([
-    "[pdf-reader-mcp] TypeScript production runtime has been removed from this package.",
+    "[citra] TypeScript production runtime has been removed from this package.",
     "Use the immutable historical LKG @sylphx/pdf-reader-mcp@3.0.14 for TypeScript rollback,",
     "or install/run the pure-Rust native binary for this package version."
   ].join(`
@@ -103,8 +103,8 @@ if (!nativeBinary) {
   const platformId = resolveNativePlatformId();
   const platformLabel = platformId ?? `${process.platform}/${process.arch}`;
   console.error([
-    `[pdf-reader-mcp] pure-Rust native binary not found for ${platformLabel}.`,
-    "This package is sole-Rust: there is no bundled TypeScript PDF runtime.",
+    `[citra] pure-Rust native binary not found for ${platformLabel}.`,
+    "Citra is sole-Rust: there is no bundled TypeScript PDF runtime.",
     "Install the matching optional native package for your platform, or set PDF_READER_MCP_RUST_BIN.",
     "Historical TypeScript LKG remains available only as @sylphx/pdf-reader-mcp@3.0.14 (external pin)."
   ].join(`

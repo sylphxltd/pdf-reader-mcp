@@ -15,7 +15,7 @@ describe('MCP stdio production default (sole-Rust package)', () => {
     };
     const bin = readText('bin/pdf-reader-mcp');
 
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(pkg.bin?.citra).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['./typescript']).toBeUndefined();
     expect(bin).toContain('dist/runtime-entry.js');

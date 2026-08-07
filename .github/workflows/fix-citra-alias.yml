@@ -1,56 +1,19 @@
 name: Fix citra brand alias
 
+# RETIRED workflow posture: brand is sole (@sylphx/citra). Do not dual-publish
+# transitional packages as aliases of each other.
+
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type FIX_CITRA'
+        description: 'Type DISABLED'
         required: true
         type: string
 
-permissions:
-  contents: read
-
 jobs:
-  fix:
-    if: ${{ inputs.confirm == 'FIX_CITRA' }}
+  disabled:
+    if: ${{ inputs.confirm == 'DISABLED' }}
     runs-on: sylphx-linux-standard
     steps:
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-          always-auth: true
-      - name: Unpublish package scope and republish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          TOKEN="${NODE_AUTH_TOKEN:-$NPM_TOKEN}"
-          printf '//registry.npmjs.org/:_authToken=%s\nalways-auth=true\n' "$TOKEN" > "$HOME/.npmrc"
-          export NPM_CONFIG_USERCONFIG="$HOME/.npmrc"
-          npm whoami
-          # unpublish entire package if in soft-delete/zombie state
-          npm unpublish @sylphx/citra@4.1.2 --force || true
-          npm unpublish @sylphx/citra --force || true
-          sleep 5
-          WORK=$(mktemp -d) && cd "$WORK"
-          npm pack @sylphx/pdf-reader-mcp@4.1.2
-          ls -la
-          tar -xzf sylphx-pdf-reader-mcp-4.1.2.tgz
-          cd package
-          node -e '
-            const fs=require("fs");
-            const pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
-            pkg.name="@sylphx/citra";
-            pkg.private=false;
-            pkg.publishConfig={access:"public"};
-            pkg.description=(pkg.description||"")+" (brand alias of @sylphx/pdf-reader-mcp)";
-            if(pkg.scripts){for (const k of Object.keys(pkg.scripts)){if(/pre|post|prepare/.test(k)) delete pkg.scripts[k];}}
-            fs.writeFileSync("package.json", JSON.stringify(pkg,null,2));
-          '
-          npm publish --access public --ignore-scripts
-          sleep 8
-          npm view @sylphx/citra version
-          curl -sS "https://registry.npmjs.org/@sylphx%2fcitra" | head -c 300; echo
+      - run: echo "Brand-sole hard cut: use release.yml to publish @sylphx/citra only."

@@ -33,7 +33,7 @@ for (const [platformId, meta] of Object.entries(NATIVE_PLATFORM_PACKAGES)) {
   pkg.version = version;
   pkg.description =
     `Optional pure-Rust MCP server binary for ${platformId}. ` +
-    'Installed as an optionalDependency of @sylphx/pdf-reader-mcp; ' +
+    'Installed as an optionalDependency of @sylphx/citra; ' +
     'default package entry remains TypeScript until sole-runtime cutover.';
   pkg.license = 'MIT';
   pkg.os = [meta.os];

@@ -18,14 +18,14 @@ describe('published sole-Rust production package (no TS production runtime)', ()
       version?: string;
       files?: string[];
     };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(pkg.bin?.citra).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['./typescript']).toBeUndefined();
     expect(pkg.exports?.['./pure-rust']).toBe('./dist/pure-rust.js');
     expect(pkg.files).toContain('dist/runtime-entry.js');
     expect(pkg.files).toContain('dist/pure-rust.js');
     expect(pkg.files).not.toContain('dist/');
-    expect(pkg.version).toMatch(/^4\./);
+    expect(pkg.version).toMatch(/^5\./);
   });
 
   it('runtime-entry is sole-Rust and rejects force-TS flags', () => {
@@ -63,6 +63,6 @@ describe('published sole-Rust production package (no TS production runtime)', ()
     expect(matrix.productTruth.publishFreeze).toBe(false);
     expect(matrix.productTruth.dropInFor3014).toBe(true);
     expect(matrix.productTruth.pureRustStatus).toContain('sole-rust');
-    expect(matrix.productTruth.candidateVersion).toMatch(/^4\./);
+    expect(matrix.productTruth.candidateVersion).toMatch(/^5\./);
   });
 });

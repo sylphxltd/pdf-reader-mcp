@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pdf-reader-mcp-darwin-x64",
-  "version": "4.1.3",
-  "description": "Optional pure-Rust MCP server binary for darwin-x64. Installed as an optionalDependency of @sylphx/pdf-reader-mcp; default package entry remains TypeScript until sole-runtime cutover.",
+  "version": "5.0.0",
+  "description": "Optional pure-Rust MCP server binary for darwin-x64. Installed as an optionalDependency of @sylphx/pdf-reader-mcp; Sole-Rust native binary optionalDependency of @sylphx/citra.",
   "license": "MIT",
   "os": [
     "darwin"

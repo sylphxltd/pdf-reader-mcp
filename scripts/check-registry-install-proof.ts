@@ -97,7 +97,7 @@ const plan = {
   soleRuntimePrerequisite: [
     'productTruth.dropInFor3014=true',
     'native optional packages published with platform binaries',
-    'npm install @sylphx/pdf-reader-mcp@<version> resolves optional native package',
+    'npm install @sylphx/citra@<version> resolves optional native package',
     'MCP initialize succeeds with pure-Rust native binary on each platform',
   ],
   commands: {
@@ -126,7 +126,7 @@ const resolveNativeBinaryFromInstall = (
       installRoot,
       'node_modules',
       '@sylphx',
-      'pdf-reader-mcp',
+      'citra',
       'node_modules',
       meta.npmName,
       'bin',
@@ -209,7 +209,7 @@ const mcpInitialize = async (
         const serverInfo = result?.serverInfo as Record<string, unknown> | undefined;
         const serverName = String(serverInfo?.name ?? '');
         const serverVersion = String(serverInfo?.version ?? '');
-        if (serverName !== 'pdf-reader-mcp') {
+        if (serverName !== 'citra') {
           finish(new Error(`unexpected serverInfo.name=${serverName}`));
           return;
         }
@@ -378,14 +378,14 @@ try {
 
   const install = spawnSync(
     'npm',
-    ['install', `@sylphx/pdf-reader-mcp@${versionArg}`, '--no-fund', '--no-audit'],
+    ['install', `@sylphx/citra@${versionArg}`, '--no-fund', '--no-audit'],
     { cwd: temp, encoding: 'utf8', env: process.env }
   );
   if (install.status !== 0) {
     fail(install.stderr || install.stdout || 'npm install failed');
   }
 
-  const pkgDir = join(temp, 'node_modules', '@sylphx', 'pdf-reader-mcp');
+  const pkgDir = join(temp, 'node_modules', '@sylphx', 'citra');
   if (!existsSync(pkgDir)) fail('installed package directory missing');
 
   const mainPkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')) as {
@@ -397,7 +397,7 @@ try {
   if (mainPkg.version !== versionArg) {
     fail(`installed version ${mainPkg.version} != requested ${versionArg}`);
   }
-  const bin = mainPkg.bin?.['pdf-reader-mcp'] ?? '';
+  const bin = mainPkg.bin?.citra ?? '';
   const soleRuntime =
     bin.includes('runtime-entry.js') ||
     String(mainPkg.exports?.['.'] ?? '').includes('runtime-entry.js');
@@ -453,7 +453,7 @@ try {
         optionalPackage: meta.npmName,
         nativeBinary,
         initialize: initialize ?? null,
-        defaultBin: mainPkg.bin?.['pdf-reader-mcp'] ?? null,
+        defaultBin: mainPkg.bin?.citra ?? null,
         pureRustExport: mainPkg.exports?.['./pure-rust'] ?? null,
         pass: true,
         runtimeProofValid: hostMatchesPlatformId(platformId),

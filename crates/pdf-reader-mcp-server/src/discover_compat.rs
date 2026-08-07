@@ -151,7 +151,7 @@ mod tests {
     fn sample_info() -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(
-                Implementation::new("pdf-reader-mcp", "4.1.1")
+                Implementation::new("citra", "5.0.0")
                     .with_description("test description")
                     .with_website_url("https://example.test/"),
             )
@@ -170,9 +170,9 @@ mod tests {
         assert!(value["capabilities"]["tools"].is_object());
         assert_eq!(
             value["_meta"][SERVER_INFO_META_KEY]["name"],
-            "pdf-reader-mcp"
+            "citra"
         );
-        assert_eq!(value["_meta"][SERVER_INFO_META_KEY]["version"], "4.1.1");
+        assert_eq!(value["_meta"][SERVER_INFO_META_KEY]["version"], "5.0.0");
         assert_eq!(value["instructions"], "test instructions");
     }
 

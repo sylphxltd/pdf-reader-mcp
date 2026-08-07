@@ -439,11 +439,11 @@ export const validateExtractedPackage = async (
   addCheck(
     checks,
     'runtime:default-bin-contract',
-    bin?.['pdf-reader-mcp'] === './dist/runtime-entry.js' &&
+    bin?.citra === './dist/runtime-entry.js' &&
       exportsField?.['.'] === './dist/runtime-entry.js' &&
       (await fileExists(runtimeEntryPath)),
     'package bin/exports are sole-Rust runtime-entry.js only',
-    { bin: bin?.['pdf-reader-mcp'], exports: exportsField?.['.'] }
+    { bin: bin?.citra, exports: exportsField?.['.'] }
   );
   addCheck(
     checks,

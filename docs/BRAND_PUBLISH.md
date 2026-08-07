@@ -1,30 +1,32 @@
-# Citra — brand npm publish (expand–contract)
+# Citra — brand-sole publish (hard cut)
 
 **Publish authority:** this repository only.
 
 | Field | Value |
 | --- | --- |
 | Brand | **Citra** |
-| Canonical brand npm id | `@sylphx/citra` |
-| Transitional npm id | `@sylphx/pdf-reader-mcp` |
-| Marketplace title | Citra (`server.json`) |
+| **Canonical npm** | `@sylphx/citra` |
+| **Canonical bin** | `citra` |
+| **MCP registry name** | `io.github.SylphxAI/citra` |
+| Deprecated alias | `@sylphx/pdf-reader-mcp` (do not publish new as primary) |
 
-## Policy (expand → contract)
+## Policy (clean break)
 
-1. **One codebase / one version** — never two products.
-2. **Expand:** dual-publish `@sylphx/pdf-reader-mcp@X.Y.Z` and `@sylphx/citra@X.Y.Z` (same artifacts).
-3. **Contract (later):** `npm deprecate` transitional toward brand; keep bins as long as cheap.
-4. Workflow: `.github/workflows/publish-brand-alias.yml` (org `NPM_TOKEN`).
+1. **One product / one identity:** `@sylphx/citra` is the only supported install path.
+2. Transitional `@sylphx/pdf-reader-mcp` must not be the README primary CTA.
+3. If a transitional alias package is ever published, it is a thin re-export deprecation stub only — never a second engine.
+4. Native optionalDependencies may still use historical package names until the native rename train lands; versions **must** match Citra version.
 
 ## User install
 
 ```bash
-# preferred
 npm i -g @sylphx/citra
-# transitional still valid during expand
-npm i -g @sylphx/pdf-reader-mcp
+# or
+npx @sylphx/citra
 ```
 
-## Authority
+## Deprecate transitional (registry auth required)
 
-No central Instruments monorepo. Brand alias ships only from this product repo.
+```bash
+npm deprecate @sylphx/pdf-reader-mcp@"*" "Use @sylphx/citra (brand-sole). Same engine."
+```

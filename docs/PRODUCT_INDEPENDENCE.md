@@ -1,13 +1,12 @@
-# Product independence
+# Product independence — Citra
 
-**Citra** (`pdf-reader-mcp`) is an **independent product**.
+**Citra** is an independent Instrument. This repository is product SSOT.
 
-This repository is the only source of truth for marketplace listing, release train,
-package/CLI/MCP/SDK contracts, docs, tests, and stars.
-
+- Canonical identity: brand **Citra** / `@sylphx/citra`
 - No multi-product monorepo shipping
 - No `SylphxAI/instruments` authority (retired)
-- No archived `@sylphx/reader-evidence` control package
-- Composition with siblings is via **public contracts** only
+- **Prism retired** — do not depend on smart-reader-mcp
+- Composition with siblings via public contracts / host only
+- Family law: `SylphxAI/skills` apply-instrument-family
 
-Company private thin map (internal): `SylphxAI/portfolio`.
+Company map (private): `SylphxAI/portfolio`.

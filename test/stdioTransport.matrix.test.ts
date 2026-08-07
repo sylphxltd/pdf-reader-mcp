@@ -10,7 +10,7 @@ describe('MCP stdio transport routing', () => {
       bin?: Record<string, string>;
       exports?: Record<string, string>;
     };
-    expect(pkg.bin?.['pdf-reader-mcp']).toBe('./dist/runtime-entry.js');
+    expect(pkg.bin?.citra).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['.']).toBe('./dist/runtime-entry.js');
     expect(pkg.exports?.['./typescript']).toBeUndefined();
   });

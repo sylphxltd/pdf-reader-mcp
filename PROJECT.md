@@ -1,10 +1,16 @@
-# PDF Reader MCP Project
+# Citra (pdf-reader-mcp repository)
 
 PDF Reader MCP is a local-first public Model Context Protocol package for PDF
 and document intelligence. It gives agents typed tools for PDF inspection,
 search, rendering, region crops, OCR routing, extraction, document maps, trust
 signals, accessibility reports, provenance, benchmarks, and package release
 evidence without becoming a hosted Sylphx Platform BaaS service.
+
+## Identity
+
+- Brand: **Citra**
+- Canonical npm: `@sylphx/citra`
+- Repository may retain historical GitHub name `pdf-reader-mcp`.
 
 ## Lifecycle
 

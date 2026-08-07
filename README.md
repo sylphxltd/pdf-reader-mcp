@@ -11,7 +11,7 @@ Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level c
 Plain-text PDF tools make agents guess. **Citra returns proof.**  
 Package (transition): `@sylphx/pdf-reader-mcp` · bin `pdf-reader-mcp`
 
-[![npm version](https://img.shields.io/npm/v/@sylphx/pdf-reader-mcp?style=flat-square)](https://www.npmjs.com/package/@sylphx/pdf-reader-mcp)
+[![npm version](https://img.shields.io/npm/v/@sylphx/citra?style=flat-square)](https://www.npmjs.com/package/@sylphx/citra)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/SylphxAI/pdf-reader-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/SylphxAI/pdf-reader-mcp/actions/workflows/ci.yml)
 [![stars](https://img.shields.io/github/stars/SylphxAI/pdf-reader-mcp?style=flat-square)](https://github.com/SylphxAI/pdf-reader-mcp/stargazers)
@@ -61,10 +61,10 @@ npm install -g @sylphx/pdf-reader-mcp
 Or pin the current release:
 
 ```bash
-npm install -g @sylphx/pdf-reader-mcp@4.1.1
+npm install -g @sylphx/citra@5.0.0
 ```
 
-One native binary is installed for **your** platform only (not all five).
+One native binary is installed for **your** platform only (not all five). Brand-sole package: `@sylphx/citra@5.0.0`.
 
 | Platform | Native package (auto optionalDependency) |
 | --- | --- |
@@ -114,7 +114,7 @@ Citra is not MCP-only. Apps and internal dogfood can call the same engine withou
 **TypeScript — spawn the native server as a client**
 
 ```ts
-import { Citra } from '@sylphx/pdf-reader-mcp/sdk';
+import { Citra } from '@sylphx/citra/sdk';
 
 const citra = Citra.create();
 const { payload, isError } = await citra.read({
@@ -127,7 +127,7 @@ console.log(payload);
 
 Low-level escape hatch: `@sylphx/pdf-reader-mcp/pure-rust` (`createPureRustClient`).
 
-- Export: `@sylphx/pdf-reader-mcp/sdk` → `Citra` (`read` / `search` / `evidence`)
+- Export: `@sylphx/citra/sdk` → `Citra` (`read` / `search` / `evidence`)
 - Export: `@sylphx/pdf-reader-mcp/pure-rust` → `createPureRustClient`, `resolvePureRustServerBinary`, `PureRustClient`
 - Tools (same as MCP): `read_pdf` · `search_pdf` · `pdf_evidence`
 - Requires the platform optional native package (same as MCP install)

@@ -1,18 +1,24 @@
-# Tool surface — this product
+# Tool surface — Citra
 
-Policy: **few, powerful, obvious** tools. Prefer the primary read tool first.
+Policy: **few, powerful, obvious** tools.
 
-| Tool / op | Role |
+| Tool | Role |
 | --- | --- |
 | `read_pdf` | Primary structured PDF read (text, tables, map, citations) |
-| `render_page` | Page render evidence |
-| `ocr_pages` | OCR evidence for scanned pages |
-| CLI `citra` / `pdf-reader-mcp` | Human/script surface |
-| SDK `@sylphx/pdf-reader-mcp/sdk` | Programmatic API |
+| `search_pdf` | Literal retrieval with page/bbox locators |
+| `pdf_evidence` | Follow-up ops: inspect / render / crop / OCR / regions (`op` enum) |
+
+## Surfaces
+
+| Surface | Role |
+| --- | --- |
+| MCP | Agent tools over stdio |
+| CLI | `citra` |
+| SDK | `@sylphx/citra/sdk` |
 
 ## Rules
 
-1. Do not add near-duplicate tools that only differ by vanity naming.
-2. Advanced tools must be labeled advanced in README/skill.
-3. Schema fields should be agent-obvious; fail closed on unsafe input.
-4. Composition with sibling products is via public contracts, not monorepo imports.
+1. No near-duplicate vanity tools.
+2. Advanced ops live inside `pdf_evidence`, not new tool names.
+3. Fail closed on unsafe input / missing native.
+4. Composition with siblings via host/public contracts only (Prism retired).

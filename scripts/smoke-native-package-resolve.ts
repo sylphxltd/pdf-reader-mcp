@@ -128,7 +128,7 @@ try {
       if (response.id !== 1) continue;
       const result = response.result as Record<string, unknown> | undefined;
       const serverInfo = result?.serverInfo as Record<string, unknown> | undefined;
-      if (serverInfo?.name !== 'pdf-reader-mcp') {
+      if (serverInfo?.name !== 'citra') {
         fail(`unexpected serverInfo: ${JSON.stringify(serverInfo)}`);
       }
       clearTimeout(timer);

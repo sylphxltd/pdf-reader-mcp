@@ -24,7 +24,7 @@ const matrix = JSON.parse(
   claimedForDifferential?: string[];
 };
 
-const defaultBin = pkg.bin?.['pdf-reader-mcp'];
+const defaultBin = pkg.bin?.citra;
 const defaultExport = pkg.exports?.['.'];
 const sole = matrix.productTruth?.soleRustProduction === true;
 
