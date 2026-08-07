@@ -18,6 +18,12 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
   dependencies?: Record<string, string>;
 };
 
+if (pkg.name !== '@sylphx/citra') {
+  failures.push('package name must be @sylphx/citra (brand-sole)');
+}
+if (pkg.bin?.['citra'] !== './dist/runtime-entry.js') {
+  failures.push('bin citra must be ./dist/runtime-entry.js');
+}
 if (pkg.exports?.['./typescript']) {
   failures.push('package.json must not export ./typescript in sole-Rust production');
 }
@@ -32,7 +38,7 @@ for (const banned of ['pdfjs-dist', '@modelcontextprotocol/sdk', 'pngjs', 'zod']
 }
 
 if (pkg.bin?.['pdf-reader-mcp'] !== './dist/runtime-entry.js') {
-  failures.push('bin pdf-reader-mcp must be ./dist/runtime-entry.js');
+  failures.push('bin citra must be ./dist/runtime-entry.js');
 }
 if (pkg.exports?.['.'] !== './dist/runtime-entry.js') {
   failures.push('exports["."] must be ./dist/runtime-entry.js');

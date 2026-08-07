@@ -5,8 +5,8 @@
   "project": {
     "id": "pdf-reader-mcp",
     "repository": "https://github.com/SylphxAI/pdf-reader-mcp",
-    "name": "PDF Reader MCP",
-    "summary": "Local-first public MCP package for PDF and document intelligence: typed tools, provenance, OCR routing, trust reports, benchmarks, and npm native package release evidence.",
+    "name": "Citra",
+    "summary": "Citra — local-first PDF evidence Instrument for agents (SDK/CLI/MCP). Brand package @sylphx/citra.",
     "lifecycle": "production",
     "layer": "tooling",
     "visibility": "public",
@@ -19,8 +19,8 @@
       },
       {
         "type": "npm",
-        "url": "https://www.npmjs.com/package/@sylphx/pdf-reader-mcp",
-        "title": "npm package"
+        "url": "https://www.npmjs.com/package/@sylphx/citra",
+        "title": "npm @sylphx/citra"
       },
       {
         "type": "skills",
@@ -28,7 +28,15 @@
         "title": "Static instruction SSOT"
       }
     ],
-    "tags": ["mcp", "pdf", "document-intelligence", "tooling", "local-first"]
+    "tags": [
+      "mcp",
+      "pdf",
+      "document-intelligence",
+      "tooling",
+      "local-first",
+      "citra",
+      "instrument"
+    ]
   },
   "intent": {
     "goals": [
@@ -64,15 +72,15 @@
     "publicSurfaces": [
       {
         "type": "cli",
-        "name": "pdf-reader-mcp CLI",
+        "name": "citra CLI",
         "location": "package.json bin + dist/runtime-entry.js",
-        "description": "npm package entry that fail-closes unless the platform native binary is present."
+        "description": "Brand bin launching sole-Rust native binary (fail-closed if missing)."
       },
       {
         "type": "package",
-        "name": "@sylphx/pdf-reader-mcp",
+        "name": "@sylphx/citra",
         "location": "package.json",
-        "description": "Public npm package and optional native platform packages."
+        "description": "Canonical brand npm package and optional native platform packages."
       },
       {
         "type": "binary",
@@ -128,13 +136,21 @@
       "project-manifest-standard",
       "repo-adoption-standard"
     ],
-    "capabilities": ["document-intelligence-mcp-contract", "local-document-processing-engine"],
+    "capabilities": [
+      "document-intelligence-mcp-contract",
+      "local-document-processing-engine"
+    ],
     "components": {
       "pdf-reader-core": {
         "role": "domain-core",
         "implementation": "rust-crate",
         "backendOwner": null,
-        "ownedEffects": ["parse-pdf", "extract-text", "search", "provenance"]
+        "ownedEffects": [
+          "parse-pdf",
+          "extract-text",
+          "search",
+          "provenance"
+        ]
       },
       "pdf-reader-mcp-server": {
         "role": "mcp-server",
@@ -143,7 +159,11 @@
           "repository": "https://github.com/SylphxAI/pdf-reader-mcp",
           "componentId": "pdf-reader-core"
         },
-        "ownedEffects": ["mcp-stdio", "mcp-http", "tool-dispatch"]
+        "ownedEffects": [
+          "mcp-stdio",
+          "mcp-http",
+          "tool-dispatch"
+        ]
       },
       "npm-runtime-entry": {
         "role": "package-launcher",
@@ -152,7 +172,10 @@
           "repository": "https://github.com/SylphxAI/pdf-reader-mcp",
           "componentId": "pdf-reader-mcp-server"
         },
-        "ownedEffects": ["resolve-native-binary", "fail-closed-missing-native"]
+        "ownedEffects": [
+          "resolve-native-binary",
+          "fail-closed-missing-native"
+        ]
       }
     },
     "adoptionStatus": "migrating",
@@ -178,11 +201,26 @@
     ]
   },
   "documentation": {
-    "adrs": { "location": "docs/adr/", "status": "present" },
-    "specs": { "location": "docs/specs/", "status": "present" },
-    "catalog": { "location": "PROJECT.md", "status": "present" },
-    "runbooks": { "location": "AGENTS.md", "status": "present" },
-    "generatedReferences": { "location": "verification/", "status": "present" }
+    "adrs": {
+      "location": "docs/adr/",
+      "status": "present"
+    },
+    "specs": {
+      "location": "docs/specs/",
+      "status": "present"
+    },
+    "catalog": {
+      "location": "PROJECT.md",
+      "status": "present"
+    },
+    "runbooks": {
+      "location": "AGENTS.md",
+      "status": "present"
+    },
+    "generatedReferences": {
+      "location": "verification/",
+      "status": "present"
+    }
   },
   "delivery": {
     "lane": "package-release",
@@ -201,7 +239,10 @@
     "packageRelease": {
       "producer": true,
       "strategy": "changesets",
-      "artifactKinds": ["npm-package", "native-optional-dependency"],
+      "artifactKinds": [
+        "npm-package",
+        "native-optional-dependency"
+      ],
       "registryRefs": [
         "https://www.npmjs.com/package/@sylphx/pdf-reader-mcp",
         "https://www.npmjs.com/org/sylphx"

@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.0.0
+
+### Breaking
+
+- Brand-sole package identity: `@sylphx/citra` is canonical (bin `citra`, MCP `io.github.SylphxAI/citra`).
+- Transitional `@sylphx/pdf-reader-mcp` is no longer the install CTA.
+- Family Evidence Envelope v1 adopted as wire law (skills schema).
+- Prism composition product retired; host routes media.
+
+
 ## 4.1.3
 
 ### Patch Changes

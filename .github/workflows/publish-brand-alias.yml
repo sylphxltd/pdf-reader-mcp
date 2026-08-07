@@ -1,4 +1,8 @@
-name: Publish brand alias
+name: Publish brand package
+
+# Clean break: @sylphx/citra is the canonical package built from this repo.
+# Transitional @sylphx/pdf-reader-mcp must not be dual-published as a second product.
+# Optional: deprecate transitional via workflow_dispatch with DEPRECATE_TRANSITIONAL=true.
 
 on:
   workflow_dispatch:
@@ -7,88 +11,41 @@ on:
         description: 'Type PUBLISH'
         required: true
         type: string
-      version:
-        description: 'Version to dual-publish (default: read from npm latest of transitional)'
+      deprecate_transitional:
+        description: 'Also npm deprecate @sylphx/pdf-reader-mcp (true/false)'
         required: false
+        default: 'false'
         type: string
 
 permissions:
   contents: read
 
 jobs:
-  publish-brand:
+  publish-citra:
     if: ${{ inputs.confirm == 'PUBLISH' }}
     runs-on: sylphx-linux-standard
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
-      - name: Dual-publish @sylphx/citra from @sylphx/pdf-reader-mcp
+      - name: Assert brand-sole package.json
+        run: |
+          node -e 'const p=require("./package.json"); if(p.name!=="@sylphx/citra") process.exit(1); if(!p.bin.citra) process.exit(1); console.log(p.name,p.version)'
+      - name: Publish @sylphx/citra (existing release train preferred)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          BRAND: '@sylphx/citra'
-          TRANSITIONAL: '@sylphx/pdf-reader-mcp'
-          VERSION_INPUT: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          TOKEN="${NODE_AUTH_TOKEN:-$NPM_TOKEN}"
-          test -n "$TOKEN"
-          printf '//registry.npmjs.org/:_authToken=%s\nalways-auth=true\n' "$TOKEN" > "$HOME/.npmrc"
-          export NPM_CONFIG_USERCONFIG="$HOME/.npmrc"
-          npm whoami
-          VER="${VERSION_INPUT:-}"
-          if [ -z "$VER" ]; then
-            VER=$(npm view "$TRANSITIONAL" version)
-          fi
-          echo "Alias $BRAND@$VER <= $TRANSITIONAL@$VER"
-          if npm view "$BRAND@$VER" version >/dev/null 2>&1; then
-            echo already "$BRAND@$VER"
-            npm view "$BRAND" version dist-tags
-            exit 0
-          fi
-          if ! npm view "$TRANSITIONAL@$VER" version >/dev/null 2>&1; then
-            echo "Transitional $TRANSITIONAL@$VER missing on registry" >&2
-            exit 1
-          fi
-          WORK=$(mktemp -d)
-          cd "$WORK"
-          npm pack "$TRANSITIONAL@$VER"
-          TGZ=$(ls -1 *.tgz | head -1)
-          tar -xzf "$TGZ"
-          cd package
-          node -e '
-            const fs=require("fs");
-            const pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
-            pkg.name=process.env.BRAND;
-            pkg.private=false;
-            pkg.publishConfig=Object.assign({}, pkg.publishConfig||{}, {access:"public"});
-            // annotate alias provenance
-            pkg.description=(pkg.description||"") + " (brand alias of " + process.env.TRANSITIONAL + ")";
-            if (pkg.scripts) {
-              delete pkg.scripts.prepublishOnly;
-              delete pkg.scripts.prepare;
-              delete pkg.scripts.prepack;
-              delete pkg.scripts.postinstall;
-            }
-            fs.writeFileSync("package.json", JSON.stringify(pkg,null,2));
-            console.log("publishing", pkg.name, pkg.version, "unpacked from", process.env.TRANSITIONAL);
-          '
-          npm publish --access public --ignore-scripts
-          for i in $(seq 1 12); do
-            if OUT=$(npm view "$BRAND@$VER" version 2>/dev/null); then
-              echo "readback $OUT"
-              npm view "$BRAND" version dist-tags
-              # size sanity: brand should roughly match transitional package
-              exit 0
-            fi
-            sleep 5
-          done
-          # treat publish log success + delayed CDN as ok if npm publish exited 0
-          echo "view delayed; verifying via registry API"
-          code=$(curl -s -o /tmp/b.json -w '%{http_code}' "https://registry.npmjs.org/$(node -p 'encodeURIComponent(process.env.BRAND)')")
-          echo "http $code"
-          head -c 200 /tmp/b.json; echo
-          test "$code" = "200"
+          echo "Prefer the protected release.yml path for full native matrix publish."
+          echo "This workflow only documents brand-sole identity; do not dual-publish transitional."
+          npm whoami || true
+      - name: Deprecate transitional id
+        if: ${{ inputs.deprecate_transitional == 'true' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm deprecate "@sylphx/pdf-reader-mcp@*" "Use @sylphx/citra (brand-sole). Same engine family." || true
