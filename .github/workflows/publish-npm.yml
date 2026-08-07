@@ -54,13 +54,11 @@ jobs:
         run: |
           set -euo pipefail
           case "${{ matrix.platformId }}" in
-            linux-arm64-gnu)
-              sudo apt-get update -y
-              sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-              export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-              export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-              export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
-              cargo build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
+            linux-x64-gnu|linux-arm64-gnu)
+              # Publish gate requires GLIBC <= 2.35. Host cargo on modern runners
+              # can link newer glibc (e.g. 2.39). Use cargo-zigbuild for portable 2.17.
+              cargo install cargo-zigbuild --version 0.23.0 --locked
+              cargo zigbuild --release -p pdf-reader-mcp-server --target ${{ matrix.target }}.2.17
               ;;
             win32-x64-msvc)
               sudo apt-get update -y
