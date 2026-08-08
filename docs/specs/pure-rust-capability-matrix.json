@@ -121,7 +121,22 @@
       "serverInfoName": "citra",
       "boundary": "linux-x64-gnu host install + MCP initialize/tools.list only; not five-platform matrix"
     },
-    "npmLatestObserved": "5.0.0"
+    "npmLatestObserved": "5.0.0",
+    "registryInstallRuntimeProof": {
+      "status": "partial_linux_x64_and_darwin_x64",
+      "version": "5.0.0",
+      "evidence": "verification/citra-registry-install-runtime-proof-5.0.0-multi-host.json",
+      "workflowRun": "https://github.com/SylphxAI/pdf-reader-mcp/actions/runs/31230084759",
+      "passedHosts": [
+        "linux-x64-gnu",
+        "darwin-x64"
+      ],
+      "unavailableHosts": [
+        "linux-arm64-gnu",
+        "win32-x64-msvc"
+      ],
+      "goalCompleteAuthorized": false
+    }
   },
   "legend": {
     "FULL": "Production-usable capability for agent tasks in this slice under the capability-first semantic contract (not exact PDF.js JSON equality)",
@@ -511,7 +526,8 @@
       "performanceClaimsAuthorized": true,
       "goalCompleteAuthorized": false,
       "reviewedAt": "2026-08-07T22:16:47Z",
-      "note": "5.0.0 brand-sole re-pin after #630 setup-zig on main c93b30f; registry publish still required."
+      "note": "5.0.0 brand-sole re-pin after #630 setup-zig on main c93b30f; registry publish still required.",
+      "hostRuntimeProofNote": "linux-x64 + darwin-x64 host runtime pass for 5.0.0; arm64/win host pools unavailable"
     },
     "unfreezeAuthorized": true,
     "soleRuntimeAuthorized": true,
