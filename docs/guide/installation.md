@@ -2,7 +2,7 @@
 
 ## Published stable
 
-Install from **npm**. Current production is **`@sylphx/pdf-reader-mcp@4.1.1`** — a **sole-Rust** MCP server launched by a thin Node entrypoint.
+Install from **npm**. Current production is **`@sylphx/citra@5.0.0`** — a **sole-Rust** MCP server launched by a thin Node entrypoint.
 
 ```bash
 npm install -g @sylphx/citra
@@ -29,7 +29,7 @@ There is **no** TypeScript PDF runtime in the production package. If the matchin
 ## Claude Code
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/citra
+claude mcp add citra -- npx @sylphx/citra
 ```
 
 ## Claude Desktop
@@ -39,9 +39,9 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "pdf-reader": {
+    "citra": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["@sylphx/citra"]
     }
   }
 }
@@ -58,9 +58,9 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "pdf-reader": {
+    "citra": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["@sylphx/citra"]
     }
   }
 }
@@ -80,24 +80,24 @@ release that includes this fix.
 ```bash
 npx @sylphx/citra
 # or after global install
-pdf-reader-mcp
+citra
 ```
 
 HTTP transport:
 
 ```bash
-MCP_TRANSPORT=http pdf-reader-mcp
+MCP_TRANSPORT=http citra
 ```
 
 ## Platforms
 
 | Platform | Native package |
 | --- | --- |
-| macOS arm64 | `@sylphx/pdf-reader-mcp-darwin-arm64` |
-| macOS x64 | `@sylphx/pdf-reader-mcp-darwin-x64` |
-| Linux x64 | `@sylphx/pdf-reader-mcp-linux-x64-gnu` |
-| Linux arm64 | `@sylphx/pdf-reader-mcp-linux-arm64-gnu` |
-| Windows x64 | `@sylphx/pdf-reader-mcp-win32-x64-msvc` |
+| macOS arm64 | `@sylphx/citra-darwin-arm64` |
+| macOS x64 | `@sylphx/citra-darwin-x64` |
+| Linux x64 | `@sylphx/citra-linux-x64-gnu` |
+| Linux arm64 | `@sylphx/citra-linux-arm64-gnu` |
+| Windows x64 | `@sylphx/citra-win32-x64-msvc` |
 
 ## Next
 
@@ -107,8 +107,10 @@ MCP_TRANSPORT=http pdf-reader-mcp
 
 ## Historical TypeScript baseline (not production)
 
-Immutable external comparison/recovery pin only:
+Immutable external comparison/recovery pin only (transitional package id; **not** install CTA):
 
 ```bash
-npm install -g @sylphx/citra@3.0.14
+npm install -g @sylphx/pdf-reader-mcp@3.0.14
 ```
+
+Production install CTA remains **`@sylphx/citra@5.0.0`** only.
