@@ -25,3 +25,11 @@ Default path uses local native runtime; no cloud API key required for core read.
 - Becoming a cloud SaaS wrapper as the default path
 - Multi-product monorepo for star aggregation
 - Generative summaries as the sole evidence authority
+
+## Zero-config CTA
+
+```bash
+npx -y @sylphx/citra
+```
+
+Bare invoke starts brand-sole MCP on stdio. Live: `@sylphx/citra@5.0.0`.

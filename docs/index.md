@@ -2,15 +2,15 @@
 layout: home
 
 hero:
-  name: PDF Reader MCP
-  text: Give your AI agent eyes for PDFs.
-  tagline: "Turn PDFs into structured text, tables, OCR, visual evidence, and page-level citations — locally, with one MCP server. Plain-text tools make agents guess. PDF Reader MCP gives them evidence."
+  name: Citra
+  text: Give your AI agent eyes for PDFs — with proof.
+  tagline: "Zero-config local PDF evidence for agents. `npx -y @sylphx/citra` → structured text, tables, OCR, page-level citations. Plain-text tools make agents guess. Citra returns proof."
   image:
     src: /logo.svg
-    alt: PDF Reader MCP Logo
+    alt: Citra Logo
   actions:
     - theme: brand
-      text: Install in 30s
+      text: Zero-config npx
       link: /guide/installation
     - theme: alt
       text: Star on GitHub
@@ -26,6 +26,10 @@ hero:
       link: /benchmark
 
 features:
+  - icon: "🚀"
+    title: Zero-config
+    details: "`npx -y @sylphx/citra` starts a brand-sole MCP server on stdio. No Docker, no API key, no global install."
+
   - icon: "\U0001F441\uFE0F"
     title: Evidence, not text dumps
     details: Page numbers, bounding boxes, table cells, and provenance so agents can cite instead of invent.

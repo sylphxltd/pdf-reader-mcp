@@ -2,14 +2,25 @@
 
 # Citra
 
-### Give your AI agent eyes for PDFs.
+### Give your AI agent eyes for PDFs — with proof.
 
-**Citra** is a local-first PDF evidence product for agents — fast, citeable, owned entirely in this repository.
+**Citra** turns PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** your agent can defend — **locally**, with **zero config**.
 
-Turn PDFs into **structured text, tables, OCR, visual evidence, and page-level citations** — locally — via **SDK, CLI, or MCP**.
+```bash
+npx -y @sylphx/citra
+```
 
-Plain-text PDF tools make agents guess. **Citra returns proof.**  
-Canonical package: **`@sylphx/citra`** · bin **`citra`** · MCP `io.github.SylphxAI/citra`
+Plain-text PDF tools make agents **guess**. Citra returns an **Agent Document Twin** they can **cite**.
+
+| | Typical PDF dump | **Citra** |
+| --- | --- | --- |
+| Page / cell citations | ❌ invented or missing | ✅ page + geometry + provenance |
+| Tables | flattened soup | rows · columns · cells · bboxes |
+| Scanned PDFs | noise | OCR path, evidence-linked |
+| Setup | install, config, hope | **`npx -y` — done** |
+| Engine honesty | silent fallbacks | **fail closed** if native missing |
+
+Canonical: **`@sylphx/citra@5.0.0`** · bin **`citra`** · MCP `io.github.SylphxAI/citra` · sole-Rust production runtime.
 
 [![npm version](https://img.shields.io/npm/v/@sylphx/citra?style=flat-square)](https://www.npmjs.com/package/@sylphx/citra)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -32,6 +43,14 @@ Canonical package: **`@sylphx/citra`** · bin **`citra`** · MCP `io.github.Sylp
 | [docs/IPPB.md](docs/IPPB.md) | Independent public product bar |
 | [docs/PUBLISH.md](docs/PUBLISH.md) | npm/git publish status |
 
+## Why agents actually finish the job
+
+1. **Zero-config MCP** — `npx -y @sylphx/citra` works without a prior install (stdio MCP).
+2. **Evidence, not vibes** — page numbers, boxes, tables, trust signals on the result.
+3. **Local-first** — your PDFs stay on the machine; no required cloud vision API.
+4. **One brand, one bin** — `@sylphx/citra` / `citra` only (no dual package confusion).
+5. **Family ready** — compose with Iris (images), Cue (video), Spine, Lookout, Locus.
+
 ## Why this exists
 
 ![Plain text vs evidence](docs/public/before-after-evidence.svg)
@@ -52,15 +71,24 @@ Citra returns an **Agent Document Twin**: markdown + structure + geometry + prov
 
 See [`skills/citra/SKILL.md`](./skills/citra/SKILL.md).
 
-## Install (30 seconds)
+## Zero-config (no install)
 
 ```bash
-npm install -g @sylphx/citra
+npx -y @sylphx/citra
 ```
 
-Source tip version is `5.0.0` (registry may lag until release publish).
+That’s it. No Docker, no API key, no global install. Agents spawn the MCP server on **stdio** immediately.
 
-One native binary is installed for **your** platform only (not all five). Brand-sole package: `@sylphx/citra@5.0.0`.
+| Setup style | Command |
+| --- | --- |
+| **Zero-config (recommended)** | `npx -y @sylphx/citra` |
+| Global install | `npm i -g @sylphx/citra` then `citra` |
+| Claude Code | `claude mcp add citra -- npx -y @sylphx/citra` |
+| Claude Desktop / Cursor | `"command": "npx", "args": ["-y", "@sylphx/citra"]` |
+
+**Live registry:** `@sylphx/citra@5.0.0` · bin `citra` only · optional native for **your** platform only.
+
+One native binary is pulled for **your** host (not all five). Missing native → **fail closed** (no silent engine switch).
 
 | Platform | Native package (auto optionalDependency) |
 | --- | --- |
