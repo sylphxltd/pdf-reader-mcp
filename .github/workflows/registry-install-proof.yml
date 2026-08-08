@@ -1,10 +1,9 @@
 name: Registry install proof
 
 # Host-runtime proof for a published @sylphx/citra version.
-# Each job requires a matching native host (PROOF_REQUIRE_PLATFORM_ID).
-# There is currently no owned linux-arm64 or Windows self-hosted pool for
-# runtime proof (see candidate-host-runtime-proof.yml). Do not fake those
-# platforms on x64 linux runners.
+# Required host proofs (must pass): linux-x64-gnu, darwin (actual triple of owned mac runner).
+# Residual host pools (reported, not claimed): linux-arm64-gnu, win32-x64-msvc.
+# Never run an arm64/win proof on an x64 linux runner and claim success.
 
 on:
   workflow_dispatch:
@@ -57,8 +56,6 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${PROOF_VERSION}"
-          # Require whichever darwin triple this owned mac runner actually is.
-          # Rosetta x64 userspace on arm64 is rejected by hostMatchesPlatformId.
           ARCH="$(uname -m)"
           if [ "$ARCH" = "arm64" ]; then
             export PROOF_REQUIRE_PLATFORM_ID=darwin-arm64
@@ -68,25 +65,22 @@ jobs:
           echo "PROOF_REQUIRE_PLATFORM_ID=$PROOF_REQUIRE_PLATFORM_ID"
           bun scripts/check-registry-install-proof.ts --registry --version="$VERSION"
 
-  # Explicit unavailable jobs: keep the matrix visible without false green.
-  proof-linux-arm64-unavailable:
+  residual-hosts:
+    needs: [proof-linux-x64, proof-darwin]
+    if: always()
     runs-on: sylphx-linux-standard
     steps:
-      - name: No owned linux-arm64 runtime host pool
+      - name: Report host-pool residuals (not false green)
         run: |
           set -euo pipefail
-          echo "::error::linux-arm64-gnu host runtime proof is unavailable: no owned arm64 runner pool."
-          echo "Natives may still be published (@sylphx/citra-linux-arm64-gnu) via cross-build."
-          echo "Do not run registry install proof on x64 and claim arm64."
-          exit 1
-
-  proof-windows-unavailable:
-    runs-on: sylphx-linux-standard
-    steps:
-      - name: No owned Windows runtime host pool
-        run: |
-          set -euo pipefail
-          echo "::error::win32-x64-msvc host runtime proof is unavailable: no owned Windows runner pool."
-          echo "Natives may still be published (@sylphx/citra-win32-x64-msvc) via cross-build."
-          echo "Removed [self-hosted, Windows, X64] queue sink that never started."
-          exit 1
+          echo "## Registry install host matrix for @sylphx/citra@${{ inputs.version }}"
+          echo "required linux-x64: ${{ needs.proof-linux-x64.result }}"
+          echo "required darwin: ${{ needs.proof-darwin.result }}"
+          echo "residual linux-arm64-gnu: UNAVAILABLE (no owned arm64 runtime host pool; do not prove on x64)"
+          echo "residual win32-x64-msvc: UNAVAILABLE (no owned Windows runtime host pool)"
+          echo "Packaging natives for residual platforms may still exist on npm; packaging != host runtime."
+          if [ "${{ needs.proof-linux-x64.result }}" != "success" ] || [ "${{ needs.proof-darwin.result }}" != "success" ]; then
+            echo "::error::required host proofs failed"
+            exit 1
+          fi
+          echo "Required host proofs passed. Residual platforms remain open."
