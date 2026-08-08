@@ -19,11 +19,11 @@
         "zod": "^4.4.3",
       },
       "optionalDependencies": {
-        "@sylphx/pdf-reader-mcp-darwin-arm64": "4.1.3",
-        "@sylphx/pdf-reader-mcp-darwin-x64": "4.1.3",
-        "@sylphx/pdf-reader-mcp-linux-arm64-gnu": "4.1.3",
-        "@sylphx/pdf-reader-mcp-linux-x64-gnu": "4.1.3",
-        "@sylphx/pdf-reader-mcp-win32-x64-msvc": "4.1.3",
+        "@sylphx/citra-darwin-arm64": "5.0.0",
+        "@sylphx/citra-darwin-x64": "5.0.0",
+        "@sylphx/citra-linux-arm64-gnu": "5.0.0",
+        "@sylphx/citra-linux-x64-gnu": "5.0.0",
+        "@sylphx/citra-win32-x64-msvc": "5.0.0",
       },
     },
   },
@@ -420,6 +420,16 @@
     "@shikijs/types": ["@shikijs/types@2.5.0", "", { "dependencies": { "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.4" } }, "sha512-ygl5yhxki9ZLNuNpPitBWvcy9fsSKKaRuO4BAlMyagszQidxcpLAr0qiW/q43DtSIDxO6hEbtYLiFZNXO/hdGw=="],
 
     "@shikijs/vscode-textmate": ["@shikijs/vscode-textmate@10.0.2", "", {}, "sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg=="],
+
+    "@sylphx/citra-darwin-arm64": ["@sylphx/citra-darwin-arm64@5.0.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-112ZUfZQQRk60egLWRRkM3/we0fukFKTh7ZDd+r13MMNhZzf1TJaL1f4DZJpMiJKSOfkrHM2KQY++KFEq6UQWQ=="],
+
+    "@sylphx/citra-darwin-x64": ["@sylphx/citra-darwin-x64@5.0.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-vvhZZkbcgfDtTBXlUGjtkylQrrvroouVBsfx803HFEsKsU0+usL8VHpXFXex1yBtV6BmImNsN3sCZMN9Ew0V4A=="],
+
+    "@sylphx/citra-linux-arm64-gnu": ["@sylphx/citra-linux-arm64-gnu@5.0.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-WVrw310Qa+f+KBD7voeVpP2crrMgCLvKcIojwXvyTqW6nFvCeyXBy/V+axGAZrR8THNX3lTjzrA8r55Mvr+qHw=="],
+
+    "@sylphx/citra-linux-x64-gnu": ["@sylphx/citra-linux-x64-gnu@5.0.0", "", { "os": "linux", "cpu": "x64" }, "sha512-wDuOhHYy8dfJA/NghS84UMj2+pIFCMQQfUT97S0hsByNlwdj240Gm0dT9fjGl2Grfk6tywlm31XHghCiEv7+zw=="],
+
+    "@sylphx/citra-win32-x64-msvc": ["@sylphx/citra-win32-x64-msvc@5.0.0", "", { "os": "win32", "cpu": "x64" }, "sha512-Hs+47LKUx+kFTYecXfRyj6AfpNoBe8BpDXvHo6x2E6JPrYGgEa1RZBRDfMI0EKy7UBzrNXRhVyw9/QMpqrc7Bg=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 
