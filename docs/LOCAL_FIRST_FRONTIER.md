@@ -17,3 +17,11 @@ See product README + EVIDENCE_CONTRACT for surfaces.
 3. Few tools; primary path documented in TOOL_SURFACE.md  
 4. Cloud / LLM only optional and non-authority  
 5. Product SSOT is this repository only (no instruments monorepo)
+
+## Zero-config CTA
+
+```bash
+npx -y @sylphx/citra
+```
+
+Bare invoke starts brand-sole MCP on stdio. Live: `@sylphx/citra@5.0.0`.

@@ -1,5 +1,14 @@
 # Installation
 
+## Zero-config (recommended)
+
+```bash
+npx -y @sylphx/citra
+```
+
+Agents and MCP hosts should prefer **npx** so users never install anything globally. Live package: **`@sylphx/citra@5.0.0`**.
+
+
 ## Published stable
 
 Install from **npm**. Current production is **`@sylphx/citra@5.0.0`** — a **sole-Rust** MCP server launched by a thin Node entrypoint.
