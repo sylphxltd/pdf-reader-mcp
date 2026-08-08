@@ -7,7 +7,7 @@ on:
         description: Published npm version to prove
         required: true
         type: string
-        default: "4.1.2"
+        default: "5.0.0"
 
 permissions:
   contents: read

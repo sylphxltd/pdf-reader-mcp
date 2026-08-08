@@ -1,8 +1,8 @@
 name: Publish brand package
 
 # Clean break: @sylphx/citra is the canonical package built from this repo.
-# Transitional @sylphx/citra must not be dual-published as a second product.
-# Optional: deprecate transitional via workflow_dispatch with DEPRECATE_TRANSITIONAL=true.
+# Transitional @sylphx/pdf-reader-mcp must not be dual-published as a second product.
+# Prefer deprecate-transitional-npm.yml for @sylphx/pdf-reader-mcp retirement.
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       deprecate_transitional:
-        description: 'Also npm deprecate @sylphx/citra (true/false)'
+        description: 'Also npm deprecate @sylphx/pdf-reader-mcp (true/false)'
         required: false
         default: 'false'
         type: string
@@ -48,4 +48,4 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          npm deprecate "@sylphx/citra@*" "Use @sylphx/citra (brand-sole). Same engine family." || true
+          npm deprecate "@sylphx/pdf-reader-mcp@*" "Use @sylphx/citra (brand-sole Citra). This transitional package id is retired as install CTA." || true
