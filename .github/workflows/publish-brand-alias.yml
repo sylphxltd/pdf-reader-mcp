@@ -1,51 +1,27 @@
 name: Publish brand package
 
-# Clean break: @sylphx/citra is the canonical package built from this repo.
-# Transitional @sylphx/pdf-reader-mcp must not be dual-published as a second product.
-# Prefer deprecate-transitional-npm.yml for @sylphx/pdf-reader-mcp retirement.
+# RETIRED path. Canonical publish is "Publish npm" (admission-gated multiarch).
+# Brand-sole package is @sylphx/citra. Do not dual-publish transitional.
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type PUBLISH'
+        description: 'Type RETIRED (workflow intentionally fails closed)'
         required: true
-        type: string
-      deprecate_transitional:
-        description: 'Also npm deprecate @sylphx/pdf-reader-mcp (true/false)'
-        required: false
-        default: 'false'
         type: string
 
 permissions:
   contents: read
 
 jobs:
-  publish-citra:
-    if: ${{ inputs.confirm == 'PUBLISH' }}
+  retired:
     runs-on: sylphx-linux-standard
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-          always-auth: true
-      - name: Assert brand-sole package.json
-        run: |
-          node -e 'const p=require("./package.json"); if(p.name!=="@sylphx/citra") process.exit(1); if(!p.bin.citra) process.exit(1); console.log(p.name,p.version)'
-      - name: Publish @sylphx/citra (existing release train preferred)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Brand-sole — use Publish npm only
         run: |
           set -euo pipefail
-          echo "Prefer the protected release.yml path for full native matrix publish."
-          echo "This workflow only documents brand-sole identity; do not dual-publish transitional."
-          npm whoami || true
-      - name: Deprecate transitional id
-        if: ${{ inputs.deprecate_transitional == 'true' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          npm deprecate "@sylphx/pdf-reader-mcp@*" "Use @sylphx/citra (brand-sole Citra). This transitional package id is retired as install CTA." || true
+          echo "::error::publish-brand-alias is retired. Canonical package is @sylphx/citra."
+          echo "Use workflow 'Publish npm' with confirm=I_UNDERSTAND_USER_IMPACT."
+          echo "Deprecate transitional via 'Deprecate transitional npm id'."
+          exit 1
