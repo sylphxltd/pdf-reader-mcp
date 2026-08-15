@@ -17,7 +17,7 @@ evidence without becoming a hosted Sylphx Platform BaaS service.
 - Lifecycle: `production`
 - Layer: `tooling`
 - Static instruction SSOT: [SylphxAI/skills](https://github.com/SylphxAI/skills)
-- Machine fact authority: `project.manifest.json` (project-manifest-standard v2)
+- Machine fact authority: `` (project-manifest-standard v2)
 - Human projection: this file (`PROJECT.md`)
 - Agent local notes: `AGENTS.md`
 - Retired lineage (do not load as instruction or live state): Doctrine,
@@ -79,7 +79,7 @@ mints a GitHub App token before creating version PRs or publishing to npm.
 Control Plane ADR-0014 retired in-repository GroundAtlas package dogfood.
 Doctrine adapters and Mission Control are retired historical lineage and must
 not be restored as machine truth. Adoption status is recorded as typed gaps in
-`project.manifest.json` and must not be hand-authored as complete while gaps
+`` and must not be hand-authored as complete while gaps
 remain.
 
 Docs-only boundary changes do not alter runtime behavior, provider dispatch,

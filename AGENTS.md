@@ -9,7 +9,7 @@ authority.
 Local truth:
 
 - `PROJECT.md` — human projection
-- `project.manifest.json` — machine fact authority (project-manifest-standard)
+- `` — machine fact authority (project-manifest-standard)
 
 ## Boundary hazards
 
@@ -45,7 +45,7 @@ bun run check:ts-production-absence
 - Prefer the **narrowest** affected check before full workspace runs.
 - Report layers honestly: local diff · trunk land · package publish · registry
   readback (do not collapse).
-- Adoption gaps live in `project.manifest.json`; do not claim `adopted` while
+- Adoption gaps live in ``; do not claim `adopted` while
   residual TS, version skew, or trunk CI gaps remain open.
 
 ## Backend false-authority fence
