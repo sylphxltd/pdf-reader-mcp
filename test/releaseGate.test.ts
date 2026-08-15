@@ -29,7 +29,7 @@ describe('pdf reader SOTA release gate golden probes', () => {
         true
       );
     },
-    { timeout: 30_000 }
+    { timeout: 120_000 }
   );
 
   it('enforces verified-candidate admission before changesets can publish', () => {

@@ -8,14 +8,16 @@
 | **Canonical npm** | `@sylphx/citra` |
 | **Canonical bin** | `citra` |
 | **MCP registry name** | `io.github.SylphxAI/citra` |
-| Deprecated alias | `@sylphx/citra` (do not publish new as primary) |
+| Retired package ID | `@sylphx/pdf-reader-mcp` (historical pins only) |
 
 ## Policy (clean break)
 
 1. **One product / one identity:** `@sylphx/citra` is the only supported install path.
-2. Transitional `@sylphx/citra` must not be the README primary CTA.
-3. If a transitional alias package is ever published, it is a thin re-export deprecation stub only — never a second engine.
-4. Native optionalDependencies may still use historical package names until the native rename train lands; versions **must** match Citra version.
+2. Retired `@sylphx/pdf-reader-mcp` must not be a current install CTA or publish target.
+3. Do not create or publish an alias package. Git history and immutable historical
+   registry versions preserve migration evidence without a second product path.
+4. Native optional dependencies use the Citra package family and their versions
+   **must** match the Citra umbrella version.
 
 ## User install
 
@@ -28,5 +30,6 @@ npx @sylphx/citra
 ## Deprecate transitional (registry auth required)
 
 ```bash
-npm deprecate @sylphx/citra@"*" "Use @sylphx/citra (brand-sole). Same engine."
+npm deprecate @sylphx/pdf-reader-mcp@"*" \
+  "Retired install CTA. Use @sylphx/citra (bin: citra)."
 ```

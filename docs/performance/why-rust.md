@@ -5,7 +5,7 @@ title: Why a native Rust engine
 
 # Why a native Rust engine
 
-> **Product status:** `@sylphx/pdf-reader-mcp@4.1.1` is **sole-Rust production** on supported platforms (thin Node launcher + one platform native binary).  
+> **Product status:** `@sylphx/citra@5.0.0` is the brand-sole **sole-Rust production** package for the five published native targets (thin Node launcher + one platform native binary).
 > Users should not need to “opt in” to Rust. Missing natives fail closed.  
 > Engineering residual catalogs below are **maintainer history**, not the product pitch.
 
@@ -42,7 +42,7 @@ See `docs/adr/0005-capability-first-semantic-compatibility.md` and
 
 The sections after this banner preserve historical residual notes and migration
 context for maintainers. They are **not** acquisition copy. Live product install
-truth is sole-Rust 4.1.1 — see [migration notes](/migration).
+truth is Citra 5.0.0 — see [migration notes](/migration).
 
 ---
 
@@ -168,8 +168,9 @@ paths fail closed; this is not TS 3.0.14 parity.
 
 ## Install
 
-Production: pin `@sylphx/pdf-reader-mcp@4.1.1` (sole-Rust production; no TypeScript production runtime).  
-See [installation guide](../guide/installation.md). Pure-Rust remains experimental source-only.
+Production: pin `@sylphx/citra@5.0.0` (sole-Rust production; no TypeScript production runtime).
+See [installation guide](../guide/installation.md). The parity residuals below are
+historical engineering evidence, not an alternate production runtime.
 
 ### Configured-command visual enrichment fusion (bounded)
 

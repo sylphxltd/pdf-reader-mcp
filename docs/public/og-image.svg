@@ -113,6 +113,6 @@
   <!-- Badge: npm -->
   <g transform="translate(980, 560)">
     <rect x="0" y="0" width="140" height="36" rx="6" fill="#1a1f2e" stroke="#2a3447" stroke-width="1"/>
-    <text x="70" y="24" font-family="monospace" font-size="14" font-weight="700" fill="#f9fafb" text-anchor="middle">@sylphx/pdf-reader-mcp</text>
+    <text x="70" y="24" font-family="monospace" font-size="14" font-weight="700" fill="#f9fafb" text-anchor="middle">@sylphx/citra</text>
   </g>
 </svg>

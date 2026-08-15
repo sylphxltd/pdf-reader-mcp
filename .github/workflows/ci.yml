@@ -26,6 +26,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Validate GitHub Actions workflows
+        run: bash scripts/check-github-actions.sh
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
