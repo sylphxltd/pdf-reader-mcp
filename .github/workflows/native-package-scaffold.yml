@@ -105,7 +105,7 @@ jobs:
               if ! command -v llvm-lib >/dev/null 2>&1 && command -v llvm-ar >/dev/null 2>&1; then
                 sudo ln -sf "$(command -v llvm-ar)" /usr/local/bin/llvm-lib
               fi
-              cargo install cargo-xwin --locked --version 0.18.4 || cargo install cargo-xwin --locked
+          cargo install cargo-xwin --locked --version '=0.18.4'
               rustup component add rust-src || true
               ;;
           esac

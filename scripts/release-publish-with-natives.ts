@@ -14,7 +14,8 @@
  *   bun scripts/release-publish-with-natives.ts --main-only
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NATIVE_PLATFORM_PACKAGES } from '../src/native/platform-package-map.ts';
 
@@ -35,8 +36,73 @@ const run = (cmd: string, args: string[], cwd = root, options?: { allowDryRunSki
   }
 };
 
-// Admission gate first.
-run('bun', ['scripts/check-verified-candidate-admission.ts']);
+const packageIdentity = (cwd: string): { name: string; version: string } => {
+  const manifest = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf8')) as {
+    name?: string;
+    version?: string;
+  };
+  if (!manifest.name || !manifest.version) {
+    throw new Error(`package identity missing in ${cwd}`);
+  }
+  return { name: manifest.name, version: manifest.version };
+};
+
+const localTarballIntegrity = (cwd: string): string => {
+  const destination = mkdtempSync(join(tmpdir(), 'citra-publish-integrity-'));
+  try {
+    const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', destination], {
+      cwd,
+      encoding: 'utf8',
+      env: process.env,
+    });
+    if (packed.status !== 0) {
+      throw new Error(packed.stderr || packed.stdout || `npm pack failed in ${cwd}`);
+    }
+    const result = JSON.parse(packed.stdout) as Array<{ integrity?: string }>;
+    const integrity = result[0]?.integrity;
+    if (!integrity) throw new Error(`npm pack returned no integrity in ${cwd}`);
+    return integrity;
+  } finally {
+    rmSync(destination, { recursive: true, force: true });
+  }
+};
+
+const publishOrVerify = (cwd: string) => {
+  if (dryRun) {
+    run('npm', ['publish', '--access', 'public', '--provenance'], cwd, {
+      allowDryRunSkip: true,
+    });
+    return;
+  }
+
+  const { name, version } = packageIdentity(cwd);
+  const spec = `${name}@${version}`;
+  const registry = spawnSync('npm', ['view', spec, 'dist.integrity', '--json'], {
+    cwd,
+    encoding: 'utf8',
+    env: process.env,
+  });
+  if (registry.status === 0 && registry.stdout.trim()) {
+    const registryIntegrity = String(JSON.parse(registry.stdout));
+    const localIntegrity = localTarballIntegrity(cwd);
+    if (registryIntegrity !== localIntegrity) {
+      console.error(
+        `[release-publish-with-natives] immutable ${spec} already exists with different integrity: registry=${registryIntegrity} local=${localIntegrity}`
+      );
+      process.exit(1);
+    }
+    console.log(
+      `[release-publish-with-natives] ${spec} already published with matching integrity; skipping immutable republish`
+    );
+    return;
+  }
+
+  run('npm', ['publish', '--access', 'public', '--provenance'], cwd);
+};
+
+// A publish command must be bound to the reviewed release commit. Non-publishing
+// trunk checks may use the looser admission mode, but this mutation path may not.
+run('bun', ['scripts/check-verified-candidate-admission.ts', '--require-exact-head']);
 
 const matrix = JSON.parse(
   readFileSync(join(root, 'docs/specs/pure-rust-capability-matrix.json'), 'utf8')
@@ -65,12 +131,12 @@ if (!mainOnly) {
       console.error(`missing ${cwd}/package.json`);
       process.exit(1);
     }
-    run('npm', ['publish', '--access', 'public'], cwd, { allowDryRunSkip: true });
+    publishOrVerify(cwd);
   }
 }
 
 if (!skipMain) {
-  run('npm', ['publish', '--access', 'public'], root, { allowDryRunSkip: true });
+  publishOrVerify(root);
   run('npm', ['view', '@sylphx/citra', 'version']);
 }
 

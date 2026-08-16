@@ -35,6 +35,8 @@ describe('published sole-Rust production package (no TS production runtime)', ()
     expect(source).not.toContain("join(here, 'index.js')");
     expect(source).not.toContain('// TypeScript fallback path');
     expect(source).not.toContain('Falls back to the TypeScript');
+    expect(source).not.toContain("process.env['CITRA_RUST_BIN']");
+    expect(source).toContain('nativeVersion !== packageVersion');
   });
 
   it('parity bridge is deleted', () => {

@@ -13,7 +13,6 @@ on:
         description: Published npm version to prove
         required: true
         type: string
-        default: "5.0.0"
 
 permissions:
   contents: read
@@ -38,7 +37,15 @@ jobs:
           set -euo pipefail
           VERSION="${PROOF_VERSION}"
           test -n "$VERSION"
-          bun scripts/check-registry-install-proof.ts --registry --version="$VERSION"
+          bun scripts/check-registry-install-proof.ts --registry --version="$VERSION" \
+            | tee registry-install-proof-linux-x64-gnu.json
+      - name: Retain Linux x64 registry proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: registry-install-proof-linux-x64-gnu-${{ inputs.version }}
+          path: registry-install-proof-linux-x64-gnu.json
+          if-no-files-found: error
 
   proof-darwin:
     runs-on: [self-hosted, sylphx, macos, standard]
@@ -66,7 +73,15 @@ jobs:
             export PROOF_REQUIRE_PLATFORM_ID=darwin-x64
           fi
           echo "PROOF_REQUIRE_PLATFORM_ID=$PROOF_REQUIRE_PLATFORM_ID"
-          bun scripts/check-registry-install-proof.ts --registry --version="$VERSION"
+          bun scripts/check-registry-install-proof.ts --registry --version="$VERSION" \
+            | tee "registry-install-proof-${PROOF_REQUIRE_PLATFORM_ID}.json"
+      - name: Retain Darwin registry proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: registry-install-proof-darwin-${{ inputs.version }}
+          path: registry-install-proof-darwin-*.json
+          if-no-files-found: error
 
   # Explicit unavailable jobs: keep the matrix visible without false green.
   proof-linux-arm64-unavailable:

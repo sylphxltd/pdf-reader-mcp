@@ -11,7 +11,7 @@ on:
         default: ''
 
 permissions:
-  contents: write
+  contents: read
   id-token: write
 
 jobs:
@@ -28,26 +28,33 @@ jobs:
           bun-version: '1.3.12'
 
       - name: Enforce verified-candidate admission
-        run: bun scripts/check-verified-candidate-admission.ts
+        run: bun scripts/check-verified-candidate-admission.ts --require-exact-head
 
-      - name: Create release bot token
-        id: release-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          permission-contents: write
-
-      - name: Checkout repository with release token
-        uses: actions/checkout@v7
-        with:
-          token: ${{ steps.release-token.outputs.token }}
-
-      - name: Install mcp-publisher
+      - name: Install pinned mcp-publisher
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          set -euo pipefail
+          PUBLISHER_VERSION='v1.8.1'
+          case "$(uname -s)-$(uname -m)" in
+            Linux-x86_64)
+              ASSET='mcp-publisher_linux_amd64.tar.gz'
+              SHA256='a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc'
+              ;;
+            Linux-aarch64|Linux-arm64)
+              ASSET='mcp-publisher_linux_arm64.tar.gz'
+              SHA256='8dd75a6cf6845688b5d4e46df58d3ca26d5c8d233bb0626606e1db82c5e883e4'
+              ;;
+            *)
+              echo "Unsupported publisher host: $(uname -s)-$(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+          ARCHIVE="$RUNNER_TEMP/$ASSET"
+          curl --proto '=https' --tlsv1.2 -fsSLo "$ARCHIVE" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${PUBLISHER_VERSION}/${ASSET}"
+          echo "$SHA256  $ARCHIVE" | sha256sum -c -
+          tar -xzf "$ARCHIVE" mcp-publisher
 
-      - name: Sync server.json version with release tag
+      - name: Verify source and npm versions
         run: |
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -59,29 +66,84 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           fi
           VERSION="${VERSION#v}"
-          echo "Publishing MCP Registry metadata for version=$VERSION"
-          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp
-          mv server.tmp server.json
-          cat server.json
+          test "$(jq -r .version package.json)" = "$VERSION"
+          test "$(jq -r .version server.json)" = "$VERSION"
+          test "$(jq -r '.packages[0].version' server.json)" = "$VERSION"
+          test "$(jq -r '.packages[0].identifier' server.json)" = '@sylphx/citra'
+          test "$(npm view "@sylphx/citra@$VERSION" version)" = "$VERSION"
+          while IFS= read -r package_name; do
+            test "$(npm view "${package_name}@${VERSION}" version)" = "$VERSION"
+          done < <(jq -r '.optionalDependencies | keys[]' package.json)
+          echo "Publishing source-bound MCP Registry metadata for version=$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Validate server.json
         run: ./mcp-publisher validate
 
+      - name: Check canonical registry state
+        id: canonical-state
+        run: |
+          set -euo pipefail
+          URL='https://registry.modelcontextprotocol.io/v0.1/servers/io.github.SylphxAI%2Fcitra/versions/latest'
+          if curl -fsS "$URL" > "$RUNNER_TEMP/citra-before.json" && \
+            jq -e --arg version "$VERSION" \
+              '.server.name == "io.github.SylphxAI/citra" and .server.version == $version and .server.packages[0].identifier == "@sylphx/citra" and .server.packages[0].version == $version' \
+              "$RUNNER_TEMP/citra-before.json" >/dev/null; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+            echo "status=$(jq -r '._meta[\"io.modelcontextprotocol.registry/official\"].status' "$RUNNER_TEMP/citra-before.json")" >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+            echo 'status=missing' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Authenticate to MCP Registry
         run: ./mcp-publisher login github-oidc
 
+      - name: Restore canonical active status
+        if: ${{ steps.canonical-state.outputs.exists == 'true' && steps.canonical-state.outputs.status != 'active' }}
+        run: |
+          ./mcp-publisher status --status active io.github.SylphxAI/citra "$VERSION"
+
       - name: Publish server to MCP Registry
+        if: ${{ steps.canonical-state.outputs.exists != 'true' }}
         run: ./mcp-publisher publish
 
-      - name: Commit synced server.json to main
+      - name: Read back canonical Citra identity
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.json
-          if git diff --staged --quiet; then
-            echo "server.json already aligned on main"
-            exit 0
-          fi
-          git commit -m "chore(registry): sync server.json to v${VERSION}"
-          git push origin HEAD:main
+          set -euo pipefail
+          URL='https://registry.modelcontextprotocol.io/v0.1/servers/io.github.SylphxAI%2Fcitra/versions/latest'
+          for attempt in $(seq 1 36); do
+            if curl -fsS "$URL" > "$RUNNER_TEMP/citra-registry.json" && \
+              jq -e --arg version "$VERSION" \
+                '.server.name == "io.github.SylphxAI/citra" and .server.version == $version and .server.packages[0].identifier == "@sylphx/citra" and .server.packages[0].version == $version and ._meta["io.modelcontextprotocol.registry/official"].status == "active"' \
+                "$RUNNER_TEMP/citra-registry.json" >/dev/null; then
+              cat "$RUNNER_TEMP/citra-registry.json"
+              exit 0
+            fi
+            echo "MCP Registry readback wait $attempt for Citra $VERSION"
+            sleep 5
+          done
+          echo "Canonical Citra registry readback failed" >&2
+          exit 1
+
+      - name: Deprecate retired MCP Registry identity
+        run: |
+          set -euo pipefail
+          ./mcp-publisher status \
+            --status deprecated \
+            --all-versions \
+            --message 'Retired identity. Use io.github.SylphxAI/citra.' \
+            io.github.SylphxAI/pdf-reader-mcp
+          URL='https://registry.modelcontextprotocol.io/v0.1/servers/io.github.SylphxAI%2Fpdf-reader-mcp/versions/latest'
+          for attempt in $(seq 1 24); do
+            if curl -fsS "$URL" > "$RUNNER_TEMP/retired-registry.json" && \
+              jq -e '._meta["io.modelcontextprotocol.registry/official"].status == "deprecated"' \
+                "$RUNNER_TEMP/retired-registry.json" >/dev/null; then
+              cat "$RUNNER_TEMP/retired-registry.json"
+              exit 0
+            fi
+            echo "MCP Registry deprecation readback wait $attempt"
+            sleep 5
+          done
+          echo "Retired registry identity deprecation readback failed" >&2
+          exit 1

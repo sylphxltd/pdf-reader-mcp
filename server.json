@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SylphxAI/citra",
   "title": "Citra",
-  "description": "Citra — local-first PDF evidence for agents (structure, tables, OCR, citations). SDK · CLI · MCP. by Sylphx.",
+  "description": "Local-first PDF evidence for agents: structure, tables, OCR, and citations. SDK · CLI · MCP.",
   "repository": {
     "url": "https://github.com/SylphxAI/pdf-reader-mcp",
     "source": "github"

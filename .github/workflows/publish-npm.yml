@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build-native:
@@ -77,7 +78,7 @@ jobs:
               if ! command -v llvm-lib >/dev/null 2>&1 && command -v llvm-ar >/dev/null 2>&1; then
                 sudo ln -sf "$(command -v llvm-ar)" /usr/local/bin/llvm-lib
               fi
-              cargo install cargo-xwin --locked --version 0.18.4 || cargo install cargo-xwin --locked
+              cargo install cargo-xwin --locked --version '=0.18.4'
               cargo xwin build --release -p pdf-reader-mcp-server --target ${{ matrix.target }}
               ;;
             *)
@@ -110,10 +111,19 @@ jobs:
     if: ${{ github.event.inputs.confirm == 'I_UNDERSTAND_USER_IMPACT' }}
     runs-on: sylphx-linux-standard
     steps:
+      - name: Create release bot token
+        id: release-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.release-token.outputs.token }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -176,6 +186,13 @@ jobs:
             echo "linux-x64-gnu GLIBC requirement OK (<= 2.35)"
           fi
 
+      - name: Capture previous customer version
+        run: |
+          set -euo pipefail
+          PREVIOUS_VERSION="$(npm view @sylphx/citra version)"
+          test -n "$PREVIOUS_VERSION"
+          echo "PREVIOUS_VERSION=$PREVIOUS_VERSION" >> "$GITHUB_ENV"
+
       - name: Publish natives then main
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -220,5 +237,23 @@ jobs:
             npm view "@sylphx/citra-linux-x64-gnu@$VERSION" version || true
           fi
           # Install proof is the stronger oracle than raw npm view for this job host.
-          bun run check:registry-install-proof -- --registry --version="$VERSION"
+          bun run check:registry-install-proof -- \
+            --registry \
+            --from-version="$PREVIOUS_VERSION" \
+            --version="$VERSION"
           # Host-only registry proof in this job; full five-platform pure-Rust initialize remains a dedicated matrix.
+
+      - name: Create source-bound GitHub release
+        env:
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r .version package.json)"
+          TAG="v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            tag_sha="$(git rev-list -n 1 "$TAG")"
+            test "$tag_sha" = "$GITHUB_SHA"
+            echo "GitHub release $TAG already binds $GITHUB_SHA"
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --generate-notes --title "$TAG"
+          fi

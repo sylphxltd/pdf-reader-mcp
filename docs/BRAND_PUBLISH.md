@@ -18,6 +18,8 @@
    registry versions preserve migration evidence without a second product path.
 4. Native optional dependencies use the Citra package family and their versions
    **must** match the Citra umbrella version.
+5. The GitHub release, npm provenance, installed-launcher proof, and MCP Registry
+   record must bind the same version and source SHA before release closeout.
 
 ## User install
 

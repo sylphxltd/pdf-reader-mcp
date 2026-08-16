@@ -1,8 +1,8 @@
-name: Candidate host runtime proof
+name: Candidate native build evidence
 
-# Proves unpublished sole-Rust candidate install/runtime on real host triples.
-# Build success alone is not enough; each leg must execute on a matching arch.
-# Product Darwin: Sylphx self-hosted only — never GitHub-hosted macos-*.
+# Proves the native builds available on the current fleet. A matching host also
+# executes the installed launcher, but cross-build success is never reported as
+# runtime parity. Product Darwin remains Sylphx self-hosted only.
 on:
   workflow_dispatch:
   push:
@@ -19,7 +19,6 @@ on:
       - 'docs/specs/host-runtime-proof-contract.md'
       - '.github/workflows/candidate-host-runtime-proof.yml'
       - '.github/workflows/registry-install-proof.yml'
-      - '.github/workflows/republish-native-package.yml'
       - '.github/workflows/publish-npm.yml'
       - '.github/workflows/native-package-scaffold.yml'
       - 'package.json'
@@ -97,8 +96,8 @@ jobs:
               if ! command -v llvm-lib >/dev/null 2>&1 && command -v llvm-ar >/dev/null 2>&1; then
                 sudo ln -sf "$(command -v llvm-ar)" /usr/local/bin/llvm-lib
               fi
-              cargo install cargo-xwin --locked --version 0.18.4 || cargo install cargo-xwin --locked
-              rustup component add rust-src || true
+              cargo install cargo-xwin --locked --version '=0.18.4'
+              rustup component add rust-src
               ;;
           esac
 
@@ -132,7 +131,7 @@ jobs:
         shell: bash
         run: bun run build:package
 
-      - name: Local-pack install + MCP initialize proof
+      - name: Record build evidence and matching-host launcher proof
         shell: bash
         env:
           PROOF_REQUIRE_PLATFORM_ID: ${{ matrix.platformId }}
@@ -142,7 +141,7 @@ jobs:
           host_id="$(bun -e 'import { resolveNativePlatformId } from "./scripts/native/platform-package-map.ts"; const id=resolveNativePlatformId(); if(!id) process.exit(2); process.stdout.write(id)')"
           echo "host_id=${host_id} required=${required}"
           if [[ "${host_id}" == "${required}" ]]; then
-            bun scripts/check-registry-install-proof.ts --local-pack | tee "host-proof-${required}.json"
+            bun scripts/check-registry-install-proof.ts --local-pack | tee "candidate-evidence-${required}.json"
           else
             # Cross-build already staged above. Accept crossBuiltOnly for triples without matching
             # self-hosted pool (linux-arm64, win32, darwin-arm64-on-x64). Never use GH-hosted.
@@ -160,7 +159,7 @@ jobs:
           host_id = sys.argv[2]
           uname = subprocess.check_output(['uname','-m'], text=True).strip()
           report = {
-            'profile': 'candidate_host_runtime_proof_leg',
+            'profile': 'candidate_native_build_evidence_leg',
             'pass': True,
             'runtimeProofValid': False,
             'requiredPlatformId': required,
@@ -173,17 +172,17 @@ jobs:
             'crossBuiltOnly': True,
             'note': f'Cross-built on host {host_id}; host runtime proof deferred until matching self-hosted capacity (no GitHub-hosted macos-*).',
           }
-          path = f'host-proof-{required}.json'
+          path = f'candidate-evidence-{required}.json'
           open(path,'w').write(json.dumps(report, indent=2)+'\n')
           print(json.dumps(report, indent=2))
           PY
           fi
-      - name: Upload host proof JSON
+      - name: Upload candidate evidence JSON
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: host-runtime-proof-${{ matrix.platformId }}
-          path: host-proof-${{ matrix.platformId }}.json
+          name: candidate-native-evidence-${{ matrix.platformId }}
+          path: candidate-evidence-${{ matrix.platformId }}.json
           if-no-files-found: warn
 
   aggregate:
@@ -194,16 +193,16 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: proofs
-          pattern: host-runtime-proof-*
+          pattern: candidate-native-evidence-*
           merge-multiple: true
 
-      - name: Aggregate distinct host triples
+      - name: Aggregate build coverage and runtime facts
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json, pathlib, sys
-          files = sorted(pathlib.Path('proofs').glob('host-proof-*.json'))
+          files = sorted(pathlib.Path('proofs').glob('candidate-evidence-*.json'))
           legs = []
           proven = []
           failed = []
@@ -228,32 +227,35 @@ jobs:
                   cross_ok.append(platform)
               else:
                   failed.append(platform)
-          # Host-proven required when matching self-hosted pool exists.
-          required_host = [
+          all_platforms = [
               'linux-x64-gnu',
-              # darwin-x64 when macos pool online; treat as required_cross_or_host if offline.
-          ]
-          # Cross-build accepted until matching self-hosted arm64/windows/macos capacity exists.
-          required_cross_or_host = [
               'linux-arm64-gnu',
+              'darwin-x64',
+              'darwin-arm64',
               'win32-x64-msvc',
-              # darwin-arm64/darwin-x64 deferred: macos self-hosted pool offline
           ]
-          missing_host = [x for x in required_host if x not in proven]
-          missing_cross = [x for x in required_cross_or_host if x not in proven and x not in cross_ok]
-          missing = missing_host + missing_cross
+          build_scope = ['linux-x64-gnu', 'linux-arm64-gnu', 'win32-x64-msvc']
+          built = sorted(set(proven + cross_ok))
+          missing_build_scope = [x for x in build_scope if x not in built]
+          runtime_missing = [x for x in all_platforms if x not in proven]
           report = {
-              'profile': 'candidate_host_runtime_proof_aggregate',
-              'requiredHostProven': required_host,
-              'requiredCrossOrHost': required_cross_or_host,
+              'profile': 'candidate_native_build_evidence_aggregate',
+              'allProductPlatforms': all_platforms,
+              'buildCoverageScope': build_scope,
+              'buildCovered': built,
+              'unbuiltProductPlatforms': [x for x in all_platforms if x not in built],
               'distinctHostTriplesProven': sorted(set(proven)),
+              'runtimeParityMissing': runtime_missing,
               'crossBuiltOnly': sorted(set(cross_ok)),
-              'failedOrMissing': missing + failed,
+              'failedOrMissingInBuildScope': missing_build_scope + failed,
               'legs': legs,
-              'pass': len(missing) == 0 and len(failed) == 0,
-              'policy': 'no-github-hosted-macos; darwin-arm64 host proof deferred without AS self-hosted capacity',
+              'buildCoveragePass': len(missing_build_scope) == 0 and len(failed) == 0,
+              'runtimeParityPass': len(runtime_missing) == 0,
+              'pass': len(missing_build_scope) == 0 and len(failed) == 0,
+              'status': 'complete' if len(runtime_missing) == 0 else 'partial',
+              'policy': 'green means the declared three-platform build scope succeeded; only runtimeParityPass=true means five-host parity',
           }
-          pathlib.Path('candidate-host-runtime-proof-aggregate.json').write_text(json.dumps(report, indent=2) + '\n')
+          pathlib.Path('candidate-native-build-evidence-aggregate.json').write_text(json.dumps(report, indent=2) + '\n')
           print(json.dumps(report, indent=2))
           if not report['pass']:
               sys.exit(1)
@@ -262,5 +264,5 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: candidate-host-runtime-proof-aggregate
-          path: candidate-host-runtime-proof-aggregate.json
+          name: candidate-native-build-evidence-aggregate
+          path: candidate-native-build-evidence-aggregate.json
