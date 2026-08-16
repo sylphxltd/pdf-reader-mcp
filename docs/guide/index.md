@@ -1,13 +1,13 @@
 # Introduction
 
-PDF Reader MCP gives AI agents **eyes for PDFs**.
+Citra gives AI agents **eyes for PDFs**.
 
 It is a full-fidelity Model Context Protocol (MCP) server that turns PDFs into
 agent-readable evidence — not a plain-text dump. The core product surface is an
 **Agent Document Twin**: text, tables, structure, crops, OCR, citations, trust,
 and accessibility signals linked through stable IDs.
 
-The production package is **sole-Rust** and local-first (`@sylphx/pdf-reader-mcp@4.1.1`).
+The production package is **sole-Rust** and local-first (`@sylphx/citra@5.0.0`).
 Core extraction works without heavy model downloads. Scanned OCR and visual
 table/chart/formula/figure understanding are enabled through configured local
 providers when you need them.

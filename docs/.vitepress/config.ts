@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
   base: '/pdf-reader-mcp/',
   cleanUrls: true,
-  title: 'PDF Reader MCP',
+  title: 'Citra',
   description:
     'Give your AI agent eyes for PDFs. Structured text, tables, OCR, visual evidence, and page-level citations — local-first native engine for Claude, Cursor, VS Code, and any MCP client.',
 
@@ -20,7 +20,7 @@ export default defineConfig({
     ['meta', { property: 'og:type', content: 'website' }],
     [
       'meta',
-      { property: 'og:title', content: 'PDF Reader MCP — Give your AI agent eyes for PDFs' },
+      { property: 'og:title', content: 'Citra — Give your AI agent eyes for PDFs' },
     ],
     [
       'meta',
@@ -31,9 +31,9 @@ export default defineConfig({
       },
     ],
     ['meta', { property: 'og:url', content: 'https://sylphxai.github.io/pdf-reader-mcp/' }],
-    ['meta', { property: 'og:site_name', content: 'PDF Reader MCP' }],
+    ['meta', { property: 'og:site_name', content: 'Citra' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'PDF Reader MCP' }],
+    ['meta', { name: 'twitter:title', content: 'Citra' }],
     [
       'meta',
       {
@@ -50,7 +50,7 @@ export default defineConfig({
       {
         name: 'keywords',
         content:
-          'mcp, pdf, reader, ai, claude, model context protocol, typescript, rag, citations, pdf inspection, pdf intelligence, agent document twin, visual evidence, ocr provenance, trust report, accessibility report, layout analysis, reading order',
+          'mcp, pdf, reader, ai, claude, model context protocol, rust, rag, citations, pdf inspection, pdf intelligence, agent document twin, visual evidence, ocr provenance, trust report, accessibility report, layout analysis, reading order',
       },
     ],
     ['meta', { name: 'author', content: 'Sylphx' }],
@@ -61,7 +61,7 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/logo.svg',
-    siteTitle: 'PDF Reader MCP',
+    siteTitle: 'Citra',
 
     nav: [
       { text: 'Home', link: '/' },
@@ -130,7 +130,7 @@ export default defineConfig({
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/SylphxAI/pdf-reader-mcp' },
-      { icon: 'npm', link: 'https://www.npmjs.com/package/@sylphx/pdf-reader-mcp' },
+      { icon: 'npm', link: 'https://www.npmjs.com/package/@sylphx/citra' },
     ],
 
     editLink: {

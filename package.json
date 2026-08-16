@@ -78,6 +78,7 @@
     "format": "biome format --write .",
     "check-format": "biome format .",
     "check": "biome check .",
+    "check:github-actions": "bash scripts/check-github-actions.sh",
     "check:fix": "biome check --write .",
     "validate": "bun run check && bun run test",
     "docs:dev": "vitepress dev docs",

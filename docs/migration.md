@@ -4,19 +4,22 @@ This page is **secondary engineering history**. Product install lives on the [In
 
 ## Current production
 
-- Latest: `@sylphx/pdf-reader-mcp@4.1.1`
+- Current production identity: `@sylphx/citra@5.0.0`
 - Engine: native Rust via thin Node launcher
 - No TypeScript PDF runtime in the production package
 - No `./typescript` export
 - Missing native package fails closed
 
-## Prefer
+## Install
 
-Use **4.1.1** (or latest 4.1.x).
+Use the brand-sole Citra package:
 
-- Prefer 4.1.1 over 4.1.0 for the synced product README.
-- Prefer 4.1.x over 4.0.2 for warm-cache + smaller strip/LTO natives.
-- Do not prefer 4.0.1 on Linux x64: `linux-x64-gnu@4.0.1` was tombstoned.
+```bash
+npx -y @sylphx/citra
+```
+
+The retired `@sylphx/pdf-reader-mcp` package ID is historical evidence and a
+comparison pin, not a current install or publish path.
 
 ## Historical TypeScript baseline
 
@@ -34,8 +37,11 @@ npm install -g @sylphx/pdf-reader-mcp@3.0.14
 - `4.0.2`: Sole-Rust dependency-closure with installable five-platform natives
 - `4.1.0`: warm read cache + strip/LTO natives + product performance evidence
 - `4.1.1`: npm README / claims sync of the authorized 4.1 narrative
+- `5.0.0`: hard cut to the brand-sole `@sylphx/citra` package, `citra` command,
+  Citra native package family, and `io.github.SylphxAI/citra` MCP identity
 
 ## Performance admission status
 
-Registry-bound dual-mode suite for published 4.1.0: `admissible_pass` on linux-x64.
-Bounded claims authorized; see product proof and 4.1.0 performance report.
+Registry-bound dual-mode evidence for the 4.1 lineage remains historical and
+method-bounded. It does not by itself prove current Citra target coverage; see
+the current host-runtime and registry-install proof workflows.

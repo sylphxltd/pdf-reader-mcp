@@ -7,7 +7,7 @@
 | **MCP registry name** | `io.github.SylphxAI/citra` |
 | Source tip version | `5.0.0` (this repository) |
 | Registry (live) | may lag tip — verify with `npm view @sylphx/citra version` |
-| Deprecated install CTA | `@sylphx/citra` (do not document as primary) |
+| Retired install CTA | `@sylphx/pdf-reader-mcp` (historical pins only) |
 | Auth | GitHub org `NPM_TOKEN` via protected release workflows |
 
 ## Install (canonical)
@@ -21,7 +21,9 @@ npx @sylphx/citra
 ## Deprecate transitional (operator, requires auth)
 
 ```bash
-npm deprecate @sylphx/citra@"*" "Use @sylphx/citra (brand-sole). Same engine."
+npm deprecate @sylphx/pdf-reader-mcp@"*" \
+  "Retired install CTA. Use @sylphx/citra (bin: citra)."
 ```
 
-Workflows: `release.yml`, `publish-npm.yml`, brand-sole publish path (not dual-product expand).
+Publish authority: Changesets through `release.yml`, then the admission-gated
+`publish-npm.yml` artifact path. There is no alias-publish workflow.

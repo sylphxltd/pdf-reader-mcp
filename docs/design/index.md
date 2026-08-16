@@ -1,17 +1,19 @@
 # Design Philosophy
 
-PDF Reader MCP is designed as an Agent Document Twin engine for MCP clients. The
+Citra is designed as an Agent Document Twin engine for MCP clients. The
 core design goal is to preserve source evidence and routing signals across text,
 visual, semantic, trust, accessibility, OCR, and provider-enriched layers while
-keeping the default package TypeScript-first and local-first.
+keeping one sole-Rust production engine local-first.
 
 It is built on these core principles:
 
 ## 1. Performance First
 
 - **Concurrent Processing** - Multiple PDF sources are processed in parallel
-- **Efficient Parsing** - Uses pdfjs-dist for reliable, fast PDF parsing
-- **Minimal Overhead** - Direct stdio communication with no HTTP overhead
+- **Efficient Parsing** - Uses the native Rust core for bounded PDF parsing,
+  rendering, structure, and evidence extraction
+- **Minimal Overhead** - Direct stdio by default, with an explicit optional
+  authenticated HTTP transport
 - **Batch Operations** - Process multiple files in a single request
 
 ## 2. Comprehensive Extraction
@@ -90,9 +92,9 @@ It is built on these core principles:
 
 ## Technical Stack
 
-- **Runtime**: Node.js 22+
-- **PDF Parsing**: pdfjs-dist
-- **Image Encoding**: pngjs
-- **Schema Validation**: Zod
-- **MCP SDK**: Official Model Context Protocol TypeScript SDK
-- **Build Tool**: bunup
+- **Runtime**: native Rust MCP server; Node.js 22+ is the thin npm launcher only
+- **PDF parsing and rendering**: `pdf-extract`, `lopdf`, and `hayro`
+- **Image encoding**: Rust `image` crate with PNG support
+- **Schema validation**: Rust `schemars` and `serde`
+- **MCP SDK**: Rust `rmcp`
+- **Package build**: Bun for the thin launcher and SDK surfaces
