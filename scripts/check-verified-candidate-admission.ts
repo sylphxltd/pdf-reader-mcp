@@ -19,6 +19,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { isPermittedReviewedDescendantPath } from './release-admission-paths.ts';
 
 const root = join(import.meta.dirname, '..');
 const failures: string[] = [];
@@ -207,21 +208,13 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
             .split('\n')
             .map((line) => line.trim())
             .filter(Boolean);
-          const allow = (rel: string) =>
-            rel === 'docs/specs/pure-rust-capability-matrix.json' ||
-            rel === 'src/pure-rust.ts' ||
-            rel === 'dist/pure-rust.js' ||
-            rel === 'README.md' ||
-            rel === 'CHANGELOG.md' ||
-            rel === 'scripts/check-verified-candidate-admission.ts' ||
-            rel.startsWith('docs/specs/') ||
-            rel.startsWith('verification/');
-          // empty changed => identical trees; [].every(allow) is true.
-          // Non-empty changed must be pin-path only (matrix/verification).
-          const onlyPinPaths = changed.every(allow);
-          if (ancestor.status !== 0 || diff.status !== 0 || !onlyPinPaths) {
+          // An exact reviewed source candidate may be followed by admission
+          // metadata pins or the generated release files only. Runtime/source
+          // changes require a new review candidate SHA.
+          const permittedDescendant = changed.every(isPermittedReviewedDescendantPath);
+          if (ancestor.status !== 0 || diff.status !== 0 || !permittedDescendant) {
             failures.push(
-              `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a pin-path-only descendant; ancestorStatus=${ancestor.status} diffStatus=${diff.status} changed=${JSON.stringify(changed)} stderr=${JSON.stringify((ancestor.stderr || '') + (diff.stderr || ''))}`
+              `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a reviewed-metadata/release-only descendant; ancestorStatus=${ancestor.status} diffStatus=${diff.status} changed=${JSON.stringify(changed)} stderr=${JSON.stringify((ancestor.stderr || '') + (diff.stderr || ''))}`
             );
           }
         }

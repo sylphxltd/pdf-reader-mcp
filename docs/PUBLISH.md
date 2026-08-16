@@ -29,6 +29,12 @@ Publish authority: Changesets through `release.yml`, then the admission-gated
 `publish-npm.yml` artifact path. There is no alias, republish, or unpublish
 workflow.
 
+Release admission binds publication to an exact reviewed source candidate. A
+later release/version commit is accepted only when it descends from that
+candidate and changes generated release metadata or evidence; runtime/source
+changes require a new review pin. This keeps versioning from becoming a second
+implementation authority.
+
 A release is closed only after all five native packages and the umbrella package
 are read back at one exact version, the installed `citra` launcher initializes
 with that version, the N-1 → N update and uninstall checks pass, and a GitHub
