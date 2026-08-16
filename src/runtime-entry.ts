@@ -6,7 +6,7 @@
  * There is no TypeScript PDF processing fallback in the production package.
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,24 +18,59 @@ import {
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(here, '..');
+const packageVersion = String(
+  (JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as { version?: string })
+    .version ?? ''
+);
+
+const versionedPackageBinary = (nativePackageRoot: string, binaryName: string): string | null => {
+  const binary = join(nativePackageRoot, 'bin', binaryName);
+  if (!existsSync(binary)) return null;
+  try {
+    const nativeVersion = String(
+      (
+        JSON.parse(readFileSync(join(nativePackageRoot, 'package.json'), 'utf8')) as {
+          version?: string;
+        }
+      ).version ?? ''
+    );
+    if (nativeVersion !== packageVersion) {
+      console.error(
+        `[citra] refusing native package version ${nativeVersion || 'unknown'}; wrapper version is ${packageVersion || 'unknown'}.`
+      );
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return binary;
+};
 
 const resolveNativeBinary = (): string | null => {
-  const forced = process.env['CITRA_RUST_BIN'];
-  if (forced && existsSync(forced)) return forced;
-
   const platformId = resolveNativePlatformId();
   if (!platformId) return null;
   const meta = NATIVE_PLATFORM_PACKAGES[platformId];
-  const candidates = [
-    join(packageRoot, meta.packageDir, 'bin', meta.binaryName),
-    join(packageRoot, 'bin/native', platformId, meta.binaryName),
-    join(packageRoot, 'node_modules', meta.npmName, 'bin', meta.binaryName),
-  ];
+  const candidates: string[] = [];
+  const workspacePackage = versionedPackageBinary(
+    join(packageRoot, meta.packageDir),
+    meta.binaryName
+  );
+  if (workspacePackage) candidates.push(workspacePackage);
+
+  // Source-checkout staging path. This directory is excluded from the npm package.
+  candidates.push(join(packageRoot, 'bin/native', platformId, meta.binaryName));
+
+  const installedPackage = versionedPackageBinary(
+    join(packageRoot, 'node_modules', meta.npmName),
+    meta.binaryName
+  );
+  if (installedPackage) candidates.push(installedPackage);
   try {
     const pkgJson = require.resolve(`${meta.npmName}/package.json`, {
       paths: [packageRoot],
     });
-    candidates.push(join(dirname(pkgJson), 'bin', meta.binaryName));
+    const resolvedPackage = versionedPackageBinary(dirname(pkgJson), meta.binaryName);
+    if (resolvedPackage) candidates.push(resolvedPackage);
   } catch {
     // optional dependency not installed
   }
@@ -68,7 +103,7 @@ if (!nativeBinary) {
     [
       `[citra] pure-Rust native binary not found for ${platformLabel}.`,
       'Citra is sole-Rust: there is no bundled TypeScript PDF runtime.',
-      'Install the matching optional native package for your platform, or set CITRA_RUST_BIN.',
+      'Install the matching optional native package at the same Citra version.',
       'Historical TypeScript LKG remains available only as @sylphx/pdf-reader-mcp@3.0.14 (external pin).',
     ].join('\n')
   );

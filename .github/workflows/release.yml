@@ -121,7 +121,6 @@ jobs:
           version: bash scripts/release-version.sh
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
-          createGithubReleases: true
           commitMode: github-api
           github-token: ${{ steps.release-token.outputs.token }}
         env:
