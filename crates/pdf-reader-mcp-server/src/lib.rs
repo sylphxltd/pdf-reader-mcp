@@ -1,6 +1,5 @@
-pub mod cli_bridge;
-pub mod discover_compat;
 mod command_provider;
+pub mod discover_compat;
 pub mod evidence;
 pub mod http_transport;
 mod ocr_evidence;
@@ -10,6 +9,7 @@ pub mod read_pdf;
 mod region_analysis_evidence;
 pub mod schema;
 pub mod search;
+pub mod source_access;
 pub mod tool_routes;
 mod visual_evidence;
 
@@ -22,6 +22,7 @@ use rmcp::{
 };
 
 use crate::schema::{PdfEvidenceArgs, PdfEvidenceOperation, ReadPdfArgs, SearchPdfArgs};
+use crate::source_access::SourceAccessPolicy;
 use serde_json::Value;
 
 pub const SERVER_NAME: &str = "citra";
@@ -55,12 +56,18 @@ fn omit_absent_optional_fields(value: Value) -> Value {
 #[derive(Clone)]
 pub struct PdfReaderMcp {
     pub tool_router: ToolRouter<Self>,
+    source_access: SourceAccessPolicy,
 }
 
 impl PdfReaderMcp {
     pub fn new() -> Self {
+        Self::with_source_access(SourceAccessPolicy::unrestricted())
+    }
+
+    pub fn with_source_access(source_access: SourceAccessPolicy) -> Self {
         Self {
             tool_router: Self::tool_router(),
+            source_access,
         }
     }
 }
@@ -78,9 +85,12 @@ impl PdfReaderMcp {
     )]
     pub async fn read_pdf(
         &self,
-        Parameters(args): Parameters<ReadPdfArgs>,
+        Parameters(mut args): Parameters<ReadPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
+            .map_err(|message| ErrorData::invalid_params(message, None))?;
+        self.source_access
+            .admit_pdf_sources(&mut args.sources)
             .map_err(|message| ErrorData::invalid_params(message, None))?;
         let provider_operation = args.include_ocr_text_layer == Some(true);
         let value = serde_json::to_value(args)
@@ -104,9 +114,12 @@ impl PdfReaderMcp {
     )]
     pub async fn search_pdf(
         &self,
-        Parameters(args): Parameters<SearchPdfArgs>,
+        Parameters(mut args): Parameters<SearchPdfArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
+            .map_err(|message| ErrorData::invalid_params(message, None))?;
+        self.source_access
+            .admit_pdf_sources(&mut args.sources)
             .map_err(|message| ErrorData::invalid_params(message, None))?;
         let provider_operation = args.include_ocr_text_layer == Some(true);
         let value = serde_json::to_value(args)
@@ -133,9 +146,12 @@ impl PdfReaderMcp {
     )]
     pub async fn pdf_evidence(
         &self,
-        Parameters(args): Parameters<PdfEvidenceArgs>,
+        Parameters(mut args): Parameters<PdfEvidenceArgs>,
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
+            .map_err(|message| ErrorData::invalid_params(message, None))?;
+        self.source_access
+            .admit_evidence_sources(&mut args.sources)
             .map_err(|message| ErrorData::invalid_params(message, None))?;
         let provider_operation = matches!(
             args.operation,
@@ -331,7 +347,9 @@ mod tests {
                     .get("type")
                     .map(|value| match value {
                         Value::String(ty) => ty == "boolean",
-                        Value::Array(items) => items.iter().any(|item| item.as_str() == Some("boolean")),
+                        Value::Array(items) => {
+                            items.iter().any(|item| item.as_str() == Some("boolean"))
+                        }
                         _ => false,
                     })
                     .unwrap_or(false)
@@ -434,6 +452,55 @@ mod tests {
         }))
         .expect("structurally valid evidence args");
         assert!(server.pdf_evidence(Parameters(evidence)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn all_tool_entrypoints_reject_paths_outside_the_native_allowlist() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let allowed = temp.path().join("allowed");
+        std::fs::create_dir(&allowed).expect("allowed root");
+        let outside = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/sample.pdf")
+            .canonicalize()
+            .expect("outside fixture");
+        let policy = crate::source_access::SourceAccessPolicy::restricted_for_test(
+            temp.path().to_path_buf(),
+            &allowed,
+        )
+        .expect("restricted policy");
+        let server = PdfReaderMcp::with_source_access(policy);
+
+        let read = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": outside}]
+        }))
+        .expect("read args");
+        let read_error = server
+            .read_pdf(Parameters(read))
+            .await
+            .expect_err("read_pdf must reject outside path");
+        assert!(read_error.message.contains("Access denied"));
+
+        let search = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": outside}],
+            "query": "needle"
+        }))
+        .expect("search args");
+        let search_error = server
+            .search_pdf(Parameters(search))
+            .await
+            .expect_err("search_pdf must reject outside path");
+        assert!(search_error.message.contains("Access denied"));
+
+        let evidence = serde_json::from_value(serde_json::json!({
+            "operation": "inspect",
+            "sources": [{"path": outside}]
+        }))
+        .expect("evidence args");
+        let evidence_error = server
+            .pdf_evidence(Parameters(evidence))
+            .await
+            .expect_err("pdf_evidence must reject outside path");
+        assert!(evidence_error.message.contains("Access denied"));
     }
 
     #[test]

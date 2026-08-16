@@ -23365,7 +23365,7 @@ class ChoiceWidgetAnnotationElement extends WidgetAnnotationElement {
     }
     if (this.data.combo) {
       this._setTextStyle(selectElement);
-    } else {}
+    }
     this._setBackgroundColor(selectElement);
     this._setDefaultPropertiesFromJS(selectElement);
     this.container.append(selectElement);
@@ -32395,9 +32395,9 @@ var probeSamplePdf = async () => {
 };
 var probeRustMcpServer = () => {
   const candidates = [
-    path4.join(packageRoot, "bin/native/pdf-reader-mcp-server"),
-    path4.join(packageRoot, "target/release/pdf-reader-mcp-server"),
-    path4.join(packageRoot, "target/debug/pdf-reader-mcp-server")
+    path4.join(packageRoot, "bin/native/citra-mcp-server"),
+    path4.join(packageRoot, "target/release/citra-mcp-server"),
+    path4.join(packageRoot, "target/debug/citra-mcp-server")
   ];
   const native = candidates.find((candidate) => existsSync2(candidate));
   if (native) {

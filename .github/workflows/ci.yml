@@ -55,6 +55,9 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Audit Rust dependencies
+        run: bash scripts/check-cargo-advisories.sh
+
       - name: Build Rust core and MCP server
         run: bun run build:rust
 

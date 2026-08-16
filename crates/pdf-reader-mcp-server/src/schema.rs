@@ -7,6 +7,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub const MAX_SOURCES_PER_REQUEST: usize = 32;
+
 fn option_bool_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     // Keep Option semantics (nullable) while guaranteeing a boolean type keyword for tools/list.
     serde_json::from_value(serde_json::json!({
@@ -14,7 +16,6 @@ fn option_bool_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     }))
     .expect("option bool schema")
 }
-
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(transparent)]
@@ -145,6 +146,7 @@ pub struct ReadPdfArgs {
 
 impl ReadPdfArgs {
     pub fn validate(&self) -> Result<(), String> {
+        validate_source_count(&self.sources)?;
         for source in &self.sources {
             source.validate()?;
         }
@@ -181,6 +183,7 @@ pub struct SearchPdfArgs {
 
 impl SearchPdfArgs {
     pub fn validate(&self) -> Result<(), String> {
+        validate_source_count(&self.sources)?;
         for source in &self.sources {
             source.validate()?;
         }
@@ -332,6 +335,7 @@ pub struct PdfEvidenceArgs {
 
 impl PdfEvidenceArgs {
     pub fn validate(&self) -> Result<(), String> {
+        validate_source_count(&self.sources)?;
         for source in &self.sources {
             source.validate()?;
         }
@@ -347,6 +351,16 @@ impl PdfEvidenceArgs {
         )?;
         validate_u32_range("timeout_ms", self.timeout_ms, 1_000, 300_000)?;
         validate_u32_range("max_output_chars", self.max_output_chars, 1_000, 1_000_000)
+    }
+}
+
+fn validate_source_count<T>(sources: &[T]) -> Result<(), String> {
+    if sources.len() > MAX_SOURCES_PER_REQUEST {
+        Err(format!(
+            "Request accepts at most {MAX_SOURCES_PER_REQUEST} sources."
+        ))
+    } else {
+        Ok(())
     }
 }
 
@@ -430,7 +444,6 @@ mod tests {
         }
     }
 }
-
 
 #[cfg(test)]
 mod provider_schema_compat_tests {

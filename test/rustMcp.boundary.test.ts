@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { execSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
@@ -27,24 +26,10 @@ describe('MCP transport boundary (pure-Rust)', () => {
     ).toBe(false);
   });
 
-  it('delegates read_pdf through pdf-reader-cli without spawning Node', () => {
-    const probeDir = mkdtempSync(path.join(os.tmpdir(), 'pdf-reader-read-pdf-probe-'));
-    const nodeInvokeLog = path.join(probeDir, 'node-invoke.log');
-    const fakeNode = path.join(probeDir, 'node');
-    writeFileSync(
-      fakeNode,
-      `#!/usr/bin/env bash\nprintf '%s\\n' "$@" >> "${nodeInvokeLog}"\nexit 99\n`
-    );
-    chmodSync(fakeNode, 0o755);
-
+  it('executes read_pdf through the sole-Rust CLI', () => {
     const cliProbe = spawnSync(rustCliBin, [], {
       cwd: repoRoot,
       encoding: 'utf8',
-      env: {
-        ...process.env,
-        PDF_READER_NODE: fakeNode,
-        PDF_READER_ALLOW_LEGACY_ENGINE: '',
-      },
       input: JSON.stringify({
         tool: 'read_pdf',
         input: {
@@ -58,7 +43,6 @@ describe('MCP transport boundary (pure-Rust)', () => {
     });
 
     expect(cliProbe.status).toBe(0);
-    expect(existsSync(nodeInvokeLog)).toBe(false);
 
     const cliEnvelope = JSON.parse(cliProbe.stdout) as {
       status?: string;
@@ -99,6 +83,6 @@ describe('MCP transport boundary (pure-Rust)', () => {
 
     const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
     expect(output).toContain('Rust MCP server');
-    expect(output).toContain('engine cli');
+    expect(output).toContain('sole-Rust citra-mcp-server');
   });
 });

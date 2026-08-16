@@ -286,10 +286,6 @@ export const buildSotaReleaseGateReport = async (
   );
 
   const binWrapper = fs.readFileSync(path.join(repoRoot, 'bin/citra'), 'utf8');
-  const cliBridge = fs.readFileSync(
-    path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/cli_bridge.rs'),
-    'utf8'
-  );
   addCheck(
     checks,
     'mcp:sole_rust_launcher_boundary',
@@ -393,10 +389,7 @@ export const buildSotaReleaseGateReport = async (
     {
       cwd: repoRoot,
       encoding: 'utf8',
-      env: {
-        ...process.env,
-        PDF_READER_ALLOW_LEGACY_ENGINE: '',
-      },
+      env: process.env,
       timeout: 300_000,
     }
   );
