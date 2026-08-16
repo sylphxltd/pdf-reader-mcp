@@ -1,6 +1,3 @@
-mod legacy_runtime;
-
-use legacy_runtime::{handle_legacy_v3_tool, LegacyToolSuccessEnvelope};
 use pdf_reader_core::read_pdf_from_value;
 use pdf_reader_core::text_index::{extract_page_texts, search_pdf_text, TextIndexErrorCode};
 use pdf_reader_core::{
@@ -39,6 +36,15 @@ struct ErrorEnvelope {
     code: String,
     message: String,
     next_action: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct ToolSuccessEnvelope {
+    status: &'static str,
+    engine: &'static str,
+    version: &'static str,
+    tool: String,
+    result: serde_json::Value,
 }
 
 fn policy_code(code: pdf_reader_core::HashErrorCode) -> &'static str {
@@ -191,26 +197,7 @@ fn handle_pdf_hash(input: &serde_json::Value) -> Result<HashSuccessEnvelope, Err
     }
 }
 
-fn handle_search_pdf(
-    input: &serde_json::Value,
-) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
-    if input
-        .get("include_ocr_text_layer")
-        .and_then(|value| value.as_bool())
-        .unwrap_or(false)
-        && legacy_runtime::legacy_engine_allowed()
-    {
-        return match handle_legacy_v3_tool("search_pdf", input) {
-            Ok(success) => Ok(success),
-            Err(error) => Err(ErrorEnvelope {
-                status: "error",
-                code: error.code,
-                message: error.message,
-                next_action: error.next_action,
-            }),
-        };
-    }
-
+fn handle_search_pdf(input: &serde_json::Value) -> Result<ToolSuccessEnvelope, ErrorEnvelope> {
     let response = search_pdf_from_value(input).map_err(|error| ErrorEnvelope {
         status: "error",
         code: search_pdf_error_code(error.code).into(),
@@ -218,7 +205,7 @@ fn handle_search_pdf(
         next_action: "Provide readable local PDF sources and a non-empty query.".into(),
     })?;
 
-    Ok(LegacyToolSuccessEnvelope {
+    Ok(ToolSuccessEnvelope {
         status: "ok",
         engine: ENGINE_NAME,
         version: ENGINE_VERSION,
@@ -227,7 +214,7 @@ fn handle_search_pdf(
     })
 }
 
-fn handle_read_pdf(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
+fn handle_read_pdf(input: &serde_json::Value) -> Result<ToolSuccessEnvelope, ErrorEnvelope> {
     let response = read_pdf_from_value(input).map_err(|error| ErrorEnvelope {
         status: "error",
         code: read_pdf_error_code(error.code).into(),
@@ -235,7 +222,7 @@ fn handle_read_pdf(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelop
         next_action: "Provide readable local PDF sources with valid read_pdf options.".into(),
     })?;
 
-    Ok(LegacyToolSuccessEnvelope {
+    Ok(ToolSuccessEnvelope {
         status: "ok",
         engine: ENGINE_NAME,
         version: ENGINE_VERSION,
@@ -244,9 +231,7 @@ fn handle_read_pdf(input: &serde_json::Value) -> Result<LegacyToolSuccessEnvelop
     })
 }
 
-fn handle_pdf_evidence(
-    input: &serde_json::Value,
-) -> Result<LegacyToolSuccessEnvelope, ErrorEnvelope> {
+fn handle_pdf_evidence(input: &serde_json::Value) -> Result<ToolSuccessEnvelope, ErrorEnvelope> {
     let operation = input
         .get("operation")
         .and_then(|value| value.as_str())
@@ -260,12 +245,12 @@ fn handle_pdf_evidence(
     if operation != "inspect" {
         return Err(ErrorEnvelope {
             status: "error",
-            code: "LEGACY_ENGINE_DISABLED".into(),
+            code: "UNSUPPORTED_OPERATION".into(),
             message: format!(
-                "Rust pdf_evidence supports operation=inspect on the default engine path. \
-                 Set PDF_READER_ALLOW_LEGACY_ENGINE=1 to use legacy TypeScript for {operation}."
+                "pdf-reader-cli supports operation=inspect only; operation={operation} belongs to the citra-mcp-server tool surface."
             ),
-            next_action: "Use operation=inspect or export PDF_READER_ALLOW_LEGACY_ENGINE=1.".into(),
+            next_action: "Use operation=inspect or call pdf_evidence through citra-mcp-server."
+                .into(),
         });
     }
 
@@ -325,7 +310,7 @@ fn handle_pdf_evidence(
         "route": READ_PDF_ROUTE,
     });
 
-    Ok(LegacyToolSuccessEnvelope {
+    Ok(ToolSuccessEnvelope {
         status: "ok",
         engine: ENGINE_NAME,
         version: ENGINE_VERSION,

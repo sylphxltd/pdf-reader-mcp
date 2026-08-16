@@ -4,7 +4,7 @@
  *
  * Measures wall-clock latency for the production pure-Rust binary across fixed
  * scenarios. Optionally compares against the legacy TypeScript engine when
- * dist/legacy-engine-runtime.js is present (repo checkout only).
+ * Residual TypeScript sources are differential oracles only and are never invoked.
  *
  * Usage:
  *   bun scripts/benchmark-pure-rust.ts

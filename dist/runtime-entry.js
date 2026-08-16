@@ -73,15 +73,15 @@ var resolveNativeBinary = () => {
     return null;
   const meta = NATIVE_PLATFORM_PACKAGES[platformId];
   const candidates = [
-    join(packageRoot, "node_modules", meta.npmName, "bin", meta.binaryName),
     join(packageRoot, meta.packageDir, "bin", meta.binaryName),
-    join(packageRoot, "bin/native", platformId, meta.binaryName)
+    join(packageRoot, "bin/native", platformId, meta.binaryName),
+    join(packageRoot, "node_modules", meta.npmName, "bin", meta.binaryName)
   ];
   try {
     const pkgJson = require2.resolve(`${meta.npmName}/package.json`, {
-      paths: [packageRoot, process.cwd()]
+      paths: [packageRoot]
     });
-    candidates.unshift(join(dirname(pkgJson), "bin", meta.binaryName));
+    candidates.push(join(dirname(pkgJson), "bin", meta.binaryName));
   } catch {}
   for (const candidate of candidates) {
     if (existsSync(candidate))
@@ -119,9 +119,19 @@ var child = spawn(nativeBinary, process.argv.slice(2), {
     MCP_TRANSPORT: process.env["MCP_TRANSPORT"] || "stdio"
   }
 });
+child.once("error", (error) => {
+  console.error(`[citra] failed to start native server: ${error.message}`);
+  process.exit(1);
+});
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.once(signal, () => {
+    if (!child.killed)
+      child.kill(signal);
+  });
+}
 child.on("exit", (code, signal) => {
   if (signal) {
-    process.kill(process.pid, signal);
+    process.exit(128 + (signal === "SIGINT" ? 2 : signal === "SIGTERM" ? 15 : 1));
     return;
   }
   process.exit(code ?? 1);

@@ -20,7 +20,7 @@ use rmcp::transport::streamable_http_server::{
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
-use crate::PdfReaderMcp;
+use crate::{source_access::SourceAccessPolicy, PdfReaderMcp};
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8080;
@@ -31,6 +31,7 @@ pub struct HttpConfig {
     pub port: u16,
     pub api_key: Option<String>,
     pub cors_origin: Option<String>,
+    pub allow_unauthenticated_remote: bool,
 }
 
 impl HttpConfig {
@@ -55,11 +56,18 @@ impl HttpConfig {
             .ok()
             .filter(|value| !value.is_empty());
 
+        let allow_unauthenticated_remote = std::env::var("MCP_ALLOW_UNAUTHENTICATED_REMOTE")
+            .ok()
+            .is_some_and(|value| {
+                matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true")
+            });
+
         Self {
             host,
             port,
             api_key,
             cors_origin,
+            allow_unauthenticated_remote,
         }
     }
 
@@ -74,6 +82,17 @@ impl HttpConfig {
             || self.host == "::1"
             || self.host == "127.0.0.1"
             || self.host.starts_with("127.")
+    }
+
+    pub fn validate_exposure(&self) -> anyhow::Result<()> {
+        if !self.is_loopback_host() && self.api_key.is_none() && !self.allow_unauthenticated_remote
+        {
+            anyhow::bail!(
+                "Refusing unauthenticated non-loopback MCP bind on {}. Set MCP_API_KEY or explicitly set MCP_ALLOW_UNAUTHENTICATED_REMOTE=true.",
+                self.host
+            );
+        }
+        Ok(())
     }
 
     /// Host authorities accepted by rmcp Streamable HTTP DNS-rebinding protection.
@@ -221,13 +240,17 @@ async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))
 }
 
-pub async fn serve_http(config: HttpConfig) -> anyhow::Result<()> {
+pub async fn serve_http(
+    config: HttpConfig,
+    source_access: SourceAccessPolicy,
+) -> anyhow::Result<()> {
+    config.validate_exposure()?;
     let addr = config.socket_addr()?;
     let shared_config = Arc::new(config);
     let cancellation = tokio_util::sync::CancellationToken::new();
 
     let mcp_service = StreamableHttpService::new(
-        || Ok(PdfReaderMcp::new()),
+        move || Ok(PdfReaderMcp::with_source_access(source_access.clone())),
         LocalSessionManager::default().into(),
         StreamableHttpServerConfig::default()
             .with_cancellation_token(cancellation.child_token())
@@ -254,10 +277,9 @@ pub async fn serve_http(config: HttpConfig) -> anyhow::Result<()> {
     if let Some(api_key) = shared_config.api_key.as_deref() {
         let _ = api_key;
         eprintln!("[pdf-reader-mcp] API key authentication enabled (X-API-Key header)");
-    } else if !shared_config.is_loopback_host() {
+    } else if shared_config.allow_unauthenticated_remote {
         eprintln!(
-            "[pdf-reader-mcp] WARNING: bound to non-loopback host {} with no API key. \
-             Set MCP_API_KEY or bind MCP_HTTP_HOST=127.0.0.1.",
+            "[pdf-reader-mcp] WARNING: explicit unauthenticated remote bind enabled for {}.",
             shared_config.host
         );
     }
@@ -296,6 +318,7 @@ mod tests {
             port: DEFAULT_PORT,
             api_key: None,
             cors_origin: None,
+            allow_unauthenticated_remote: false,
         };
         assert!(config.is_loopback_host());
         assert_eq!(config.socket_addr().expect("addr").port(), 8080);
@@ -308,10 +331,30 @@ mod tests {
             port: 8080,
             api_key: None,
             cors_origin: None,
+            allow_unauthenticated_remote: false,
         };
         let hosts = config.allowed_hosts();
         assert!(hosts.iter().any(|host| host == "127.0.0.1"));
         assert!(hosts.iter().any(|host| host == "localhost"));
         assert!(hosts.iter().any(|host| host == "127.0.0.1:8080"));
+    }
+
+    #[test]
+    fn non_loopback_bind_requires_authentication_or_explicit_break_glass() {
+        let mut config = HttpConfig {
+            host: "0.0.0.0".to_string(),
+            port: 8080,
+            api_key: None,
+            cors_origin: None,
+            allow_unauthenticated_remote: false,
+        };
+        assert!(config.validate_exposure().is_err());
+
+        config.api_key = Some("secret".into());
+        assert!(config.validate_exposure().is_ok());
+
+        config.api_key = None;
+        config.allow_unauthenticated_remote = true;
+        assert!(config.validate_exposure().is_ok());
     }
 }

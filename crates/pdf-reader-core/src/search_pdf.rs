@@ -803,7 +803,7 @@ mod tests {
     }
 
     #[test]
-    fn searches_fixture_without_legacy_runtime() {
+    fn searches_fixture_with_rust_text_index() {
         let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../test/fixtures/sample.pdf");
         if !fixture.is_file() {

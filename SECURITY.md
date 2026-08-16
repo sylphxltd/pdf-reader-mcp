@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes land on the latest published `@sylphx/pdf-reader-mcp` release. We
+Security fixes land on the latest published `@sylphx/citra` release. We
 fix forward — please upgrade to the newest version before reporting.
 
 ## Reporting a vulnerability
@@ -47,10 +47,14 @@ that can reach the port. It is opt-in; the default transport is `stdio`.
   non-loopback host only when you intend remote access.
 - Set `MCP_API_KEY` whenever the server is reachable from another machine.
   Every `/mcp` request must then present a matching `X-API-Key` header;
-  unauthenticated requests get `401`. The server warns at startup if it binds a
-  non-loopback host without a key.
+  unauthenticated requests get `401`. The server refuses a non-loopback bind
+  without a key. `MCP_ALLOW_UNAUTHENTICATED_REMOTE=true` is an explicit
+  break-glass override for isolated trusted networks.
 - Restrict filesystem reach with `--allow-dir=<path>` (repeatable) or
-  `MCP_PDF_ALLOWED_DIRS`. Without an allowlist the process can read any PDF it
-  has OS permission to open.
+  `MCP_PDF_ALLOWED_DIRS`. The environment value uses the operating system path
+  separator (`:` on Unix, `;` on Windows); commas are also accepted. Relative
+  paths resolve from the server startup directory, and symlinks are resolved
+  before component-wise containment checks. Without an allowlist the process
+  can read any PDF it has OS permission to open.
 - URL sources resolving to private/loopback addresses are blocked by default
-  (SSRF guard); only pass `--allow-private-ips` in a trusted network.
+  (SSRF guard). Set `MCP_PDF_ALLOW_PRIVATE_IPS=true` only in a trusted network.

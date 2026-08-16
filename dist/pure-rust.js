@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // src/native/platform-package-map.ts
@@ -81,13 +81,15 @@ var pushPlatformCandidates = (candidates, packageRoot, platformId) => {
   candidates.push(join(packageRoot, nativeBinaryRelativePath(platformId)), join(packageRoot, meta.packageDir, "bin", meta.binaryName), join(packageRoot, "node_modules", meta.npmName, "bin", meta.binaryName));
   try {
     const optionalPkgJson = require2.resolve(`${meta.npmName}/package.json`, {
-      paths: [packageRoot, process.cwd()]
+      paths: [packageRoot]
     });
     candidates.push(join(dirname(optionalPkgJson), "bin", meta.binaryName));
   } catch {}
 };
 var pushFallbackCandidates = (candidates, packageRoot) => {
-  candidates.push(join(packageRoot, "bin/native/citra-mcp-server"), join(packageRoot, "bin/native/citra-mcp-server.exe"), join(packageRoot, "target/release/citra-mcp-server"), join(packageRoot, "target/release/citra-mcp-server.exe"), join(packageRoot, "target/debug/citra-mcp-server"), join(packageRoot, "target/debug/citra-mcp-server.exe"));
+  const cargoTargetDir = process.env["CARGO_TARGET_DIR"]?.trim();
+  const targetDir = cargoTargetDir ? resolve(cargoTargetDir) : join(packageRoot, "target");
+  candidates.push(join(packageRoot, "bin/native/citra-mcp-server"), join(packageRoot, "bin/native/citra-mcp-server.exe"), join(targetDir, "release/citra-mcp-server"), join(targetDir, "release/citra-mcp-server.exe"), join(targetDir, "debug/citra-mcp-server"), join(targetDir, "debug/citra-mcp-server.exe"), join(packageRoot, "target/release/citra-mcp-server"), join(packageRoot, "target/release/citra-mcp-server.exe"), join(packageRoot, "target/debug/citra-mcp-server"), join(packageRoot, "target/debug/citra-mcp-server.exe"));
 };
 var resolvePureRustServerBinary = (options) => {
   const env = options?.env ?? process.env;
@@ -186,13 +188,13 @@ class PureRustClient {
     child.stdout.on("data", (chunk) => {
       buffer = drainStdout(buffer + chunk.toString(), pending);
     });
-    const request = (id, method, params) => new Promise((resolve, reject) => {
+    const request = (id, method, params) => new Promise((resolve2, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`timeout ${method}: ${stderr.slice(-2000)}`));
       }, this.timeoutMs);
       pending.set(id, (value) => {
         clearTimeout(timer);
-        resolve(value);
+        resolve2(value);
       });
       child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}
 `);

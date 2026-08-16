@@ -75,6 +75,7 @@ describe('MCP Server Integration', () => {
         PDF_READER_ENGINE_MODE: 'pure-rust',
         PDF_READER_MCP_TRANSPORT: '',
         MCP_TRANSPORT: '',
+        MCP_PDF_ALLOWED_DIRS: path.join(repoRoot, 'test/fixtures'),
       },
     });
 
@@ -130,6 +131,27 @@ describe('MCP Server Integration', () => {
     expect(toolNames).not.toContain('extract_regions');
     expect(toolNames).not.toContain('analyze_regions');
     expect(toolNames).not.toContain('ocr_pages');
+  });
+
+  mcpIt('should reject local paths outside the native filesystem allowlist', async () => {
+    const callRequest = createRequest(99, 'tools/call', {
+      name: 'read_pdf',
+      arguments: {
+        sources: [{ path: path.join(repoRoot, 'package.json') }],
+      },
+    });
+
+    sendMessage(serverProc, callRequest);
+    const response = (await readResponse(serverProc)) as {
+      id: number;
+      error?: { message?: string };
+      result?: { content?: Array<{ text?: string }>; isError?: boolean };
+    };
+
+    expect(response.id).toBe(99);
+    expect(response.error?.message ?? response.result?.content?.[0]?.text ?? '').toContain(
+      'Access denied'
+    );
   });
 
   mcpIt('should call pdf_evidence inspect operation with a test PDF', async () => {

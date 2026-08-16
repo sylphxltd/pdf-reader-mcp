@@ -106,7 +106,7 @@ fn read_encryption_facts(document: &Document) -> Option<EncryptionFacts> {
         .encryption_state
         .as_ref()
         .map(|state| EncryptionFacts {
-            permissions: Some(state.permissions().p_value() as i64),
+            permissions: Some(state.permissions().bits() as i64),
             filter_name: Some("Standard".to_string()),
         })
 }

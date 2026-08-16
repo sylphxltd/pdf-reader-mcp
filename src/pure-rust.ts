@@ -50,7 +50,7 @@ const pushPlatformCandidates = (
   );
   try {
     const optionalPkgJson = require.resolve(`${meta.npmName}/package.json`, {
-      paths: [packageRoot, process.cwd()],
+      paths: [packageRoot],
     });
     candidates.push(join(dirname(optionalPkgJson), 'bin', meta.binaryName));
   } catch {

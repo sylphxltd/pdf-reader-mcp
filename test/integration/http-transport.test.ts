@@ -151,6 +151,7 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
         MCP_TRANSPORT: 'http',
         MCP_HTTP_PORT: testPort.toString(),
         MCP_HTTP_HOST: TEST_HOST,
+        MCP_PDF_ALLOWED_DIRS: path.join(repoRoot, 'test/fixtures'),
         MCP_PDF_OCR_COMMAND: process.execPath,
         MCP_PDF_OCR_ARGS_JSON: JSON.stringify([ocrProvider, '{input}', '{page}', '{languages}']),
         MCP_PDF_REGION_ANALYSIS_COMMAND: process.execPath,
@@ -215,6 +216,26 @@ describe('MCP Server HTTP Transport Integration (Rust rmcp)', () => {
     expect(toolNames).not.toContain('extract_regions');
     expect(toolNames).not.toContain('analyze_regions');
     expect(toolNames).not.toContain('ocr_pages');
+  });
+
+  it('should reject local paths outside the native filesystem allowlist over HTTP', async () => {
+    const client = createMcpHttpClient();
+    await client.initializeSession();
+    const response = await client.sendRequest(
+      'tools/call',
+      {
+        name: 'read_pdf',
+        arguments: {
+          sources: [{ path: path.join(repoRoot, 'package.json') }],
+        },
+      },
+      99
+    );
+
+    expect(response.id).toBe(99);
+    expect((response.error as { message?: string } | undefined)?.message ?? '').toContain(
+      'Access denied'
+    );
   });
 
   it('should call read_pdf tool over HTTP', async () => {

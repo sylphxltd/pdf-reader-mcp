@@ -6,7 +6,6 @@ mod cos_document;
 pub mod document_twin;
 mod form_attachment_signals;
 mod image_signals;
-pub mod legacy;
 pub mod ocr_fusion;
 pub mod ocr_tables;
 pub mod page_cache;
@@ -103,7 +102,6 @@ pub fn inspect_document_signal_presence(
     ))
 }
 
-pub use legacy::legacy_engine_allowed;
 pub use ocr_fusion::{fuse_ocr_outcomes, OcrPage, OcrWord, SourceOcrOutcome, OCR_STUB_WARNING};
 pub use read_pdf::{
     read_pdf, read_pdf_from_value, ReadPdfError, ReadPdfErrorCode, ReadPdfInput, ReadPdfResponse,

@@ -1858,7 +1858,7 @@ mod tests {
             .expect("parse encrypted fixture");
         assert_eq!(
             parsed.encryption_facts.and_then(|facts| facts.permissions),
-            Some(permissions.p_value() as i64)
+            Some(state.permissions().bits() as i64)
         );
 
         let response = read_pdf(&ReadPdfInput {
