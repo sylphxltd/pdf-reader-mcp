@@ -13,4 +13,4 @@ name = "adobe_cmap_parser"
 path = "src/lib.rs"
 
 [dependencies.pom]
-version = "1.0.1"
+version = "3.4.0"
