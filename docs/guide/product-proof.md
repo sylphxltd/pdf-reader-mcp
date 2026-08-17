@@ -12,7 +12,7 @@ One local MCP server returns structured text, tables, OCR paths, visual evidence
 
 ```bash
 npm install -g @sylphx/citra
-claude mcp add pdf-reader -- npx @sylphx/citra
+claude mcp add citra -- npx -y @sylphx/citra
 ```
 
 ## Three flagship workflows
@@ -21,10 +21,9 @@ claude mcp add pdf-reader -- npx @sylphx/citra
 
 ```json
 {
-  "sources": [{ "path": "/absolute/path/to/10-k.pdf" }],
+  "sources": [{ "path": "/absolute/path/to/10-k.pdf", "pages": [14] }],
   "include_tables": true,
-  "include_markdown": true,
-  "pages": [14]
+  "include_markdown": true
 }
 ```
 

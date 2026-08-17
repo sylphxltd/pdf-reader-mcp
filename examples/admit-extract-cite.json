@@ -1,0 +1,76 @@
+[
+  {
+    "step": 1,
+    "tool": "pdf_evidence",
+    "description": "Admit the local PDF and stop if the route is incomplete.",
+    "arguments": {
+      "operation": "inspect",
+      "sources": [
+        { "path": "/absolute/path/to/report.pdf" }
+      ],
+      "sample_pages": 5
+    },
+    "require": {
+      "status": "ok",
+      "gaps": []
+    }
+  },
+  {
+    "step": 2,
+    "tool": "read_pdf",
+    "description": "Extract the full Agent Document Twin for understanding context.",
+    "arguments": {
+      "sources": [
+        { "path": "/absolute/path/to/report.pdf" }
+      ],
+      "auto": true,
+      "auto_detail": "full"
+    },
+    "consume": ["markdown", "chunks", "elements", "document_map"]
+  },
+  {
+    "step": 3,
+    "tool": "search_pdf",
+    "description": "Find one literal fact and retain its page, text, match ID, and bounding box.",
+    "arguments": {
+      "sources": [
+        { "path": "/absolute/path/to/report.pdf" }
+      ],
+      "query": "warranty period",
+      "max_matches_per_source": 10
+    },
+    "bind": {
+      "match": "results[0].matches[0]"
+    },
+    "require": {
+      "gaps": []
+    }
+  },
+  {
+    "step": 4,
+    "tool": "pdf_evidence",
+    "description": "Crop the exact search match for visual verification and citation.",
+    "arguments": {
+      "operation": "extract_regions",
+      "sources": [
+        {
+          "path": "/absolute/path/to/report.pdf",
+          "regions": [
+            {
+              "id": "${match.id}",
+              "page": "${match.page}",
+              "bounding_box": "${match.bounding_box}"
+            }
+          ]
+        }
+      ],
+      "scale": 2,
+      "max_regions": 1
+    },
+    "require": {
+      "status": "ok",
+      "gaps": []
+    },
+    "cite": ["source.hash", "evidence.locator", "results[0].regions[0].evidence_id"]
+  }
+]

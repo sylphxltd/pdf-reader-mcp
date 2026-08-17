@@ -21,7 +21,7 @@ npx @sylphx/citra
 ```ts
 import { Citra } from '@sylphx/citra/sdk'
 const citra = Citra.create()
-const result = await citra.read({ path: '/abs/doc.pdf' })
+const result = await citra.read({ sources: [{ path: '/abs/doc.pdf' }] })
 ```
 
 ## Rules

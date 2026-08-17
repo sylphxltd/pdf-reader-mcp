@@ -9,6 +9,7 @@ verify, and cite PDF documents with evidence.
 | --- | --- |
 | [`read-pdf-basic.json`](./read-pdf-basic.json) | One-call smart read: `read_pdf` with only `sources` |
 | [`read-pdf-options.json`](./read-pdf-options.json) | Manual extraction with `include_*` flags |
+| [`admit-extract-cite.json`](./admit-extract-cite.json) | Admit, extract, search, and cite one fact with a bounded crop |
 | [`search-then-verify.json`](./search-then-verify.json) | `search_pdf` → `pdf_evidence` workflow |
 | [`evidence-crop.json`](./evidence-crop.json) | Extract a region crop for citation |
 | [`ocr-scanned.json`](./ocr-scanned.json) | OCR path for scanned PDFs |
@@ -19,7 +20,7 @@ verify, and cite PDF documents with evidence.
 ### Claude Code
 
 ```bash
-claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+claude mcp add citra -- npx -y @sylphx/citra
 ```
 
 ### Claude Desktop
@@ -29,7 +30,7 @@ claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["-y", "@sylphx/citra"]
     }
   }
 }
@@ -42,7 +43,7 @@ claude mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["-y", "@sylphx/citra"]
     }
   }
 }
@@ -57,7 +58,7 @@ Add to `.vscode/mcp.json`:
   "servers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["-y", "@sylphx/citra"]
     }
   }
 }
@@ -70,7 +71,7 @@ Add to `.vscode/mcp.json`:
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["-y", "@sylphx/citra"]
     }
   }
 }
@@ -85,7 +86,7 @@ Add to `cline_mcp_settings.json`:
   "mcpServers": {
     "pdf-reader": {
       "command": "npx",
-      "args": ["@sylphx/pdf-reader-mcp"]
+      "args": ["-y", "@sylphx/citra"]
     }
   }
 }
@@ -96,13 +97,13 @@ Add to `cline_mcp_settings.json`:
 ```toml
 [mcp.pdf-reader]
 command = "npx"
-args = ["@sylphx/pdf-reader-mcp"]
+args = ["-y", "@sylphx/citra"]
 ```
 
 ### HTTP Transport (Remote)
 
 ```bash
-MCP_TRANSPORT=http MCP_API_KEY=your-secret npx @sylphx/pdf-reader-mcp
+MCP_TRANSPORT=http MCP_API_KEY=your-secret npx -y @sylphx/citra
 ```
 
 Then connect any MCP client to `http://127.0.0.1:3000/mcp` with header

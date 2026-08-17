@@ -101,6 +101,62 @@ bounding box, and provenance. Search is literal and bounded by `max_pages` and
 `include_ocr_text_layer` because it renders pages and runs the configured OCR
 provider.
 
+### Admit, Extract, and Cite One Fact
+
+For a citation-critical answer, keep one source locator and carry its evidence
+through four bounded calls:
+
+```ts
+const source = { path: "/absolute/path/to/report.pdf" };
+
+const admission = await citra.evidence({
+  operation: "inspect",
+  sources: [source],
+  sample_pages: 5,
+});
+if (admission.isError || admission.payload.status !== "ok" || admission.payload.gaps?.length) {
+  throw new Error("PDF admission did not produce a complete route");
+}
+
+const twin = await citra.read({
+  sources: [source],
+  auto: true,
+  auto_detail: "full",
+});
+
+const matches = await citra.search({
+  sources: [source],
+  query: "warranty period",
+  max_matches_per_source: 10,
+});
+const match = matches.payload.results?.[0]?.matches?.[0];
+if (!match || matches.payload.gaps?.length) {
+  throw new Error("No complete citeable match was returned");
+}
+
+const crop = await citra.evidence({
+  operation: "extract_regions",
+  sources: [{
+    ...source,
+    regions: [{
+      id: match.id,
+      page: match.page,
+      bounding_box: match.bounding_box,
+    }],
+  }],
+  scale: 2,
+  max_regions: 1,
+});
+```
+
+The `read_pdf` twin supplies the understanding context (`markdown`, chunks,
+elements, and the document map). `search_pdf` supplies the literal match,
+page, text-item/word index, bounding box, and match ID. The crop supplies a
+focused visual evidence ID and image content part for human verification.
+For local files, compare `source.hash` across the three successful responses
+before citing; treat a non-empty `gaps` array or an `error` status as an
+incomplete result, not as confirmation.
+
 ### Get Metadata and Page Count
 
 ```json

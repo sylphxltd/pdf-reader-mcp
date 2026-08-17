@@ -8,9 +8,9 @@
         "path": "/absolute/path/to/financial-report.pdf",
         "regions": [
           {
+            "id": "q4-revenue-table",
             "page": 3,
-            "bbox": [72, 400, 540, 520],
-            "label": "Q4 Revenue Table"
+            "bounding_box": { "left": 72, "bottom": 400, "right": 540, "top": 520 }
           }
         ]
       }

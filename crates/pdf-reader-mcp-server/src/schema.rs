@@ -153,6 +153,52 @@ impl ReadPdfArgs {
         validate_u32_range("sample_pages", self.sample_pages, 1, 20)?;
         validate_u32_min("max_visual_enrichments", self.max_visual_enrichments, 1)
     }
+
+    /// Resolve the public smart-read default before crossing the MCP boundary.
+    ///
+    /// `read_pdf` is intentionally a useful one-call default when the caller
+    /// supplies only `sources`. Any explicit include flag (or page selection)
+    /// opts into the caller's narrower request instead.
+    pub fn resolve_auto_default(&mut self) {
+        if self.auto.is_some() {
+            return;
+        }
+        let has_explicit_options = [
+            self.include_full_text,
+            self.include_metadata,
+            self.include_page_count,
+            self.include_images,
+            self.include_tables,
+            self.include_elements,
+            self.include_semantic_hints,
+            self.include_markdown,
+            self.include_html,
+            self.include_chunks,
+            self.include_text_layer,
+            self.include_ocr_text_layer,
+            self.include_outline,
+            self.include_annotations,
+            self.include_page_labels,
+            self.include_page_geometry,
+            self.include_permissions,
+            self.include_form_fields,
+            self.include_attachments,
+            self.include_structure_tree,
+            self.include_safety_findings,
+            self.include_layout_diagnostics,
+            self.include_document_map,
+            self.include_document_ast,
+            self.include_visual_enrichments,
+            self.max_visual_enrichments.map(|_| true),
+            self.include_trust_report,
+            self.trust_report_redaction.as_ref().map(|_| true),
+            self.include_accessibility_report,
+        ]
+        .into_iter()
+        .any(|value| value == Some(true) || value == Some(false));
+        let pages_selected = self.sources.iter().any(|source| source.pages.is_some());
+        self.auto = Some(!has_explicit_options && !pages_selected);
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
@@ -442,6 +488,31 @@ mod tests {
             let actual = accepts(tool, case["args"].clone());
             assert_eq!(actual, expected, "v3.0.14 contract case {id}");
         }
+    }
+
+    #[test]
+    fn smart_read_default_only_applies_without_explicit_surface_options() {
+        let mut minimal: ReadPdfArgs = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": "sample.pdf"}]
+        }))
+        .expect("minimal read args");
+        minimal.resolve_auto_default();
+        assert_eq!(minimal.auto, Some(true));
+
+        let mut explicit: ReadPdfArgs = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": "sample.pdf"}],
+            "include_metadata": true
+        }))
+        .expect("explicit read args");
+        explicit.resolve_auto_default();
+        assert_eq!(explicit.auto, Some(false));
+
+        let mut paged: ReadPdfArgs = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": "sample.pdf", "pages": [1]}]
+        }))
+        .expect("paged read args");
+        paged.resolve_auto_default();
+        assert_eq!(paged.auto, Some(false));
     }
 }
 

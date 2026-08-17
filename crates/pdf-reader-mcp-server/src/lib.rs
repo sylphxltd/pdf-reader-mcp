@@ -89,6 +89,7 @@ impl PdfReaderMcp {
     ) -> Result<rmcp::model::CallToolResult, ErrorData> {
         args.validate()
             .map_err(|message| ErrorData::invalid_params(message, None))?;
+        args.resolve_auto_default();
         self.source_access
             .admit_pdf_sources(&mut args.sources)
             .map_err(|message| ErrorData::invalid_params(message, None))?;
@@ -424,6 +425,45 @@ mod tests {
         assert!(
             !result.content.is_empty(),
             "expected a structured read_pdf result"
+        );
+    }
+
+    #[tokio::test]
+    async fn read_pdf_without_options_uses_the_smart_document_twin_default() {
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/sample.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+
+        let args: crate::schema::ReadPdfArgs = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": fixture}]
+        }))
+        .expect("structurally valid read args");
+        assert_eq!(
+            args.auto, None,
+            "the server must resolve the omitted auto flag"
+        );
+
+        let result = PdfReaderMcp::new()
+            .read_pdf(Parameters(args))
+            .await
+            .expect("read_pdf default");
+        let payload = result
+            .structured_content
+            .expect("structured read_pdf payload");
+        let data = &payload["results"][0]["data"];
+        assert!(
+            data["markdown"].is_string(),
+            "default read must return markdown"
+        );
+        assert!(
+            data["chunks"].is_array(),
+            "default read must return citation chunks"
+        );
+        assert!(
+            data["document_map"].is_object(),
+            "default read must return the Agent Document Map"
         );
     }
 

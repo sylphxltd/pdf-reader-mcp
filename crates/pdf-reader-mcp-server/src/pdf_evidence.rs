@@ -1,11 +1,11 @@
 use pdf_reader_core::text_index::extract_page_texts;
 use pdf_reader_core::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
 use pdf_reader_core::{hash_file, ENGINE_NAME, ENGINE_VERSION};
-use rmcp::model::CallToolResult;
+use rmcp::model::{CallToolResult, Content};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-use crate::evidence::attach_evidence;
+use crate::evidence::{attach_error_envelope, attach_evidence};
 use crate::ocr_evidence;
 use crate::page_selection::selected_pages;
 use crate::region_analysis_evidence;
@@ -14,24 +14,181 @@ use crate::visual_evidence;
 
 const DEFAULT_MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 const INSPECT_ROUTE: &str = "rust-pdf-inspect-v1";
+const RENDER_ROUTE: &str = "rust-pdf-render-v1";
+const REGION_CROP_ROUTE: &str = "rust-pdf-region-crop-v1";
+const OCR_ROUTE: &str = "rust-pdf-ocr-v1";
+const REGION_ANALYSIS_ROUTE: &str = "rust-pdf-region-analysis-v1";
 
 pub fn pdf_evidence(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
     let operation = args
         .get("operation")
         .and_then(Value::as_str)
-        .ok_or_else(|| rmcp::ErrorData::invalid_params("operation is required", None))?;
+        .ok_or_else(|| rmcp::ErrorData::invalid_params("operation is required", None))?
+        .to_string();
 
-    match operation {
+    match operation.as_str() {
         "inspect" => inspect(args),
-        "render_page" => visual_evidence::render_pages(args),
-        "extract_regions" => visual_evidence::extract_regions(args),
-        "ocr_pages" => ocr_evidence::ocr_pages(args),
-        "analyze_regions" => region_analysis_evidence::analyze_regions(args),
+        "render_page" | "extract_regions" | "ocr_pages" | "analyze_regions" => {
+            let original_args = args.clone();
+            let result = match operation.as_str() {
+                "render_page" => visual_evidence::render_pages(args),
+                "extract_regions" => visual_evidence::extract_regions(args),
+                "ocr_pages" => ocr_evidence::ocr_pages(args),
+                "analyze_regions" => region_analysis_evidence::analyze_regions(args),
+                _ => unreachable!("operation matched above"),
+            }?;
+            Ok(attach_operation_evidence(
+                result,
+                operation.as_str(),
+                &original_args,
+            ))
+        }
         other => Err(rmcp::ErrorData::invalid_params(
             format!("Unsupported pdf_evidence operation: {other}"),
             None,
         )),
     }
+}
+
+fn operation_route(operation: &str) -> &'static str {
+    match operation {
+        "render_page" => RENDER_ROUTE,
+        "extract_regions" => REGION_CROP_ROUTE,
+        "ocr_pages" => OCR_ROUTE,
+        "analyze_regions" => REGION_ANALYSIS_ROUTE,
+        _ => "rust-pdf-evidence-v1",
+    }
+}
+
+fn parsed_sources(args: &Value) -> Vec<PdfSource> {
+    args.get("sources")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|source| serde_json::from_value(source.clone()).ok())
+        .map(|source: crate::schema::PdfEvidenceSource| source.as_pdf_source())
+        .collect()
+}
+
+fn local_source_hash(sources: &[PdfSource]) -> Option<String> {
+    sources
+        .iter()
+        .find_map(|source| source.path.as_ref())
+        .and_then(|path| hash_file(PathBuf::from(path).as_path(), DEFAULT_MAX_FILE_BYTES).ok())
+        .map(|hash| hash.source_hash)
+}
+
+fn recovery_messages(payload: &Value) -> (Vec<String>, Vec<String>) {
+    let mut warnings = Vec::new();
+    let mut gaps = Vec::new();
+    let Some(results) = payload.get("results").and_then(Value::as_array) else {
+        return (warnings, gaps);
+    };
+
+    for result in results {
+        let source = result
+            .get("source")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown source");
+        if result.get("success") == Some(&Value::Bool(false)) {
+            let error = result
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("operation failed");
+            gaps.push(format!("{source}: {error}"));
+        }
+        if let Some(source_warnings) = result.get("warnings").and_then(Value::as_array) {
+            warnings.extend(
+                source_warnings
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(ToOwned::to_owned),
+            );
+        }
+    }
+
+    (warnings, gaps)
+}
+
+fn first_text_content(result: &CallToolResult) -> Option<String> {
+    result
+        .content
+        .iter()
+        .find_map(|content| content.as_text().map(|text| text.text.clone()))
+}
+
+fn replace_structured_content(result: &mut CallToolResult, payload: Value) {
+    let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
+    result.structured_content = Some(payload);
+    if let Some(index) = result
+        .content
+        .iter()
+        .position(|content| content.as_text().is_some())
+    {
+        result.content[index] = Content::text(text);
+    } else {
+        result.content.insert(0, Content::text(text));
+    }
+}
+
+fn attach_operation_evidence(
+    mut result: CallToolResult,
+    operation: &str,
+    args: &Value,
+) -> CallToolResult {
+    let sources = parsed_sources(args);
+    let route = operation_route(operation);
+    let source_hash = local_source_hash(&sources);
+
+    let Some(payload) = result.structured_content.take() else {
+        let message = first_text_content(&result)
+            .unwrap_or_else(|| format!("pdf_evidence operation '{operation}' failed."));
+        let mut error = attach_error_envelope(
+            "pdf_evidence",
+            "operation_failed",
+            &message,
+            vec![message.clone()],
+        );
+        error["operation"] = json!(operation);
+        error["route"] = json!({ "engine": "rust-core", "path": route });
+        error["gaps"] = json!([message]);
+        if let Some(source) = sources.first() {
+            let mut source_value = serde_json::Map::new();
+            if let Some(path) = source.path.as_ref() {
+                source_value.insert("path".into(), json!(path));
+            }
+            if let Some(url) = source.url.as_ref() {
+                source_value.insert("url".into(), json!(url));
+            }
+            if let Some(hash) = source_hash {
+                source_value.insert("hash".into(), json!(hash));
+            }
+            if !source_value.is_empty() {
+                error["source"] = Value::Object(source_value);
+            }
+        }
+        replace_structured_content(&mut result, error);
+        return result;
+    };
+
+    let (warnings, gaps) = recovery_messages(&payload);
+    let mut structured = attach_evidence(
+        "pdf_evidence",
+        Some(operation),
+        &sources,
+        route,
+        source_hash,
+        warnings.clone(),
+        payload,
+    );
+    structured["warnings"] = json!(warnings);
+    structured["gaps"] = json!(gaps);
+    if matches!(operation, "ocr_pages" | "analyze_regions") {
+        structured["confidence"] = json!({ "kind": "provider-dependent", "notes": [] });
+        structured["evidence"]["confidence"] = json!("provider-dependent");
+    }
+    replace_structured_content(&mut result, structured);
+    result
 }
 
 fn inspect(args: Value) -> Result<CallToolResult, rmcp::ErrorData> {
@@ -340,5 +497,80 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("10001 selected pages"));
+    }
+
+    #[test]
+    fn visual_follow_up_preserves_family_evidence_and_source_hash() {
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/sample.pdf");
+        if !fixture.is_file() {
+            return;
+        }
+
+        let result = pdf_evidence(json!({
+            "operation": "extract_regions",
+            "sources": [{
+                "path": fixture,
+                "regions": [{
+                    "id": "citation",
+                    "page": 1,
+                    "bounding_box": {"left": 72, "bottom": 650, "right": 230, "top": 688}
+                }]
+            }],
+            "scale": 1,
+            "max_regions": 1
+        }))
+        .expect("region crop");
+        let payload = result
+            .structured_content
+            .as_ref()
+            .expect("structured region crop");
+
+        assert_eq!(payload["status"], "ok");
+        assert_eq!(payload["envelope_version"], "1");
+        assert_eq!(payload["tool"], "pdf_evidence");
+        assert_eq!(payload["operation"], "extract_regions");
+        assert_eq!(payload["route"]["path"], REGION_CROP_ROUTE);
+        assert_eq!(
+            payload["evidence"]["locator"]["operation"],
+            "extract_regions"
+        );
+        assert_eq!(
+            payload["source"]["path"],
+            fixture.to_string_lossy().as_ref()
+        );
+        assert_eq!(payload["source"]["hash"].as_str().map(str::len), Some(64));
+        assert_eq!(payload["results"][0]["regions"][0]["page"], 1);
+        assert_eq!(
+            payload["results"][0]["regions"][0]["evidence_id"],
+            "page-1-citation-crop-scale-1"
+        );
+        let text = result.content[0].as_text().expect("text payload");
+        assert!(text.text.contains("\"envelope_version\": \"1\""));
+        assert_eq!(result.content.len(), 2, "text plus one crop image");
+    }
+
+    #[test]
+    fn visual_follow_up_failure_is_structured_and_truthful() {
+        let missing = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../missing-citra.pdf");
+        let result = pdf_evidence(json!({
+            "operation": "render_page",
+            "sources": [{"path": missing}],
+            "max_pages": 1
+        }))
+        .expect("tool-level failure result");
+        let payload = result
+            .structured_content
+            .as_ref()
+            .expect("structured failure envelope");
+
+        assert_eq!(result.is_error, Some(true));
+        assert_eq!(payload["status"], "error");
+        assert_eq!(payload["operation"], "render_page");
+        assert_eq!(payload["route"]["path"], RENDER_ROUTE);
+        assert_eq!(payload["error"]["code"], "operation_failed");
+        assert_eq!(payload["gaps"].as_array().map(Vec::len), Some(1));
+        let text = result.content[0].as_text().expect("structured error text");
+        assert!(text.text.contains("\"status\": \"error\""));
     }
 }
