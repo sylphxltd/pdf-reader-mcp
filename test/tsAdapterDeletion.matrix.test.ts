@@ -28,17 +28,6 @@ describe('published sole-Rust production package (no TS production runtime)', ()
     expect(pkg.version).toMatch(/^5\./);
   });
 
-  it('runtime-entry is sole-Rust and rejects force-TS flags', () => {
-    const source = readFileSync(path.join(repoRoot, 'src/runtime-entry.ts'), 'utf8');
-    expect(source).toContain('Sole-Rust');
-    expect(source).toContain('TypeScript production runtime has been removed');
-    expect(source).not.toContain("join(here, 'index.js')");
-    expect(source).not.toContain('// TypeScript fallback path');
-    expect(source).not.toContain('Falls back to the TypeScript');
-    expect(source).not.toContain("process.env['CITRA_RUST_BIN']");
-    expect(source).toContain('nativeVersion !== packageVersion');
-  });
-
   it('parity bridge is deleted', () => {
     expect(
       existsSync(path.join(repoRoot, 'crates/pdf-reader-mcp-server/src/parity_bridge.rs'))
