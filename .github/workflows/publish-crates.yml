@@ -35,7 +35,7 @@ jobs:
       - name: Install bun (for optional differential oracle tests)
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.0
 
       - name: Enforce crates non-product-channel gate
         run: |
