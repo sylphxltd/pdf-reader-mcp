@@ -1,7 +1,7 @@
 use pdf_reader_core::text_index::extract_page_texts;
 use pdf_reader_core::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
 use pdf_reader_core::{hash_file, ENGINE_NAME, ENGINE_VERSION};
-use rmcp::model::{CallToolResult, Content};
+use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
@@ -125,9 +125,9 @@ fn replace_structured_content(result: &mut CallToolResult, payload: Value) {
         .iter()
         .position(|content| content.as_text().is_some())
     {
-        result.content[index] = Content::text(text);
+        result.content[index] = ContentBlock::text(text);
     } else {
-        result.content.insert(0, Content::text(text));
+        result.content.insert(0, ContentBlock::text(text));
     }
 }
 
