@@ -16,7 +16,7 @@ categories = ["parsing", "text-processing"]
 path = "src/lib.rs"
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 flate2 = "1"
 hayro = "0.7.1"
 image = { version = "0.25", default-features = false, features = ["png"] }
