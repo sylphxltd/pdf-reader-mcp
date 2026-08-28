@@ -3,7 +3,7 @@ use pdf_reader_core::{
     ReadPdfResponse, ReadPdfSourceResult, SourceVisualOutcome, READ_PDF_ROUTE,
     VISUAL_NO_CANDIDATE_WARNING,
 };
-use rmcp::model::{CallToolResult, Content};
+use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{json, Value};
 
 use crate::evidence::attach_evidence;
@@ -337,7 +337,7 @@ fn append_page_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
         let emit_text = data.markdown.is_none() && data.chunks.is_none();
         for page in data.page_texts.as_deref().unwrap_or(&[]) {
             if emit_text && !page.text.trim().is_empty() {
-                result.content.push(Content::text(format!(
+                result.content.push(ContentBlock::text(format!(
                     "[Page {}]\n{}",
                     page.page, page.text
                 )));
@@ -350,7 +350,7 @@ fn append_page_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
                 };
                 result
                     .content
-                    .push(Content::image(encoded.to_string(), "image/png"));
+                    .push(ContentBlock::image(encoded.to_string(), "image/png"));
                 emitted[index] = true;
             }
         }
@@ -363,7 +363,7 @@ fn append_page_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
             };
             result
                 .content
-                .push(Content::image(encoded.to_string(), "image/png"));
+                .push(ContentBlock::image(encoded.to_string(), "image/png"));
         }
     }
 }
@@ -416,7 +416,7 @@ fn append_table_content(result: &mut CallToolResult, payload: &ReadPdfResponse) 
         }
         sections.push(String::new());
     }
-    result.content.push(Content::text(sections.join("\n")));
+    result.content.push(ContentBlock::text(sections.join("\n")));
 }
 
 fn append_ocr_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
@@ -438,9 +438,9 @@ fn append_ocr_content(result: &mut CallToolResult, payload: &ReadPdfResponse) {
                 continue;
             }
             let page_number = page.get("page").and_then(Value::as_u64).unwrap_or(0);
-            result
-                .content
-                .push(Content::text(format!("[Page {page_number} OCR]\n{text}")));
+            result.content.push(ContentBlock::text(format!(
+                "[Page {page_number} OCR]\n{text}"
+            )));
         }
     }
 }
@@ -471,7 +471,7 @@ mod tests {
             ]
         }));
         let mut result = CallToolResult::structured(json!({"profile":"pdf_read_results"}));
-        result.content.push(Content::text("structured-json"));
+        result.content.push(ContentBlock::text("structured-json"));
         let existing_parts = result.content.len();
 
         append_ocr_content(&mut result, &payload);

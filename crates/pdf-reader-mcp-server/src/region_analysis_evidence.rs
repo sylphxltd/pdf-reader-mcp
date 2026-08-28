@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use rmcp::model::{CallToolResult, Content};
+use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{json, Map, Value};
 use tempfile::TempDir;
 
@@ -1084,13 +1084,13 @@ fn text_result(payload: Value) -> CallToolResult {
     let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
     {
         let mut result = CallToolResult::structured(payload);
-        result.content = vec![Content::text(text)];
+        result.content = vec![ContentBlock::text(text)];
         result
     }
 }
 
 fn error_result(message: String) -> CallToolResult {
-    CallToolResult::error(vec![Content::text(message)])
+    CallToolResult::error(vec![ContentBlock::text(message)])
 }
 
 /// True when a valid region-analysis provider is configured (command, HTTP, or preset).

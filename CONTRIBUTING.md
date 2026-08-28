@@ -24,8 +24,7 @@ This project uses [Bun](https://bun.sh/) and [Biome](https://biomejs.dev/).
 
 ### Prerequisites
 
-- Node.js >= 22.13.0
-- Bun >= 1.3.12
+- Bun >= 1.4.0 (`packageManager` `bun@1.4.0`; install frozen from `bun.lock`)
 
 ### Getting Started
 

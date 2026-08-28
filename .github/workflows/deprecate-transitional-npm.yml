@@ -19,6 +19,7 @@ jobs:
     if: ${{ inputs.confirm == 'DEPRECATE_PDF_READER_MCP' }}
     runs-on: sylphx-linux-standard
     steps:
+      # Node is the npm CLI / customer installer host, not the company TypeScript toolchain.
       - uses: actions/setup-node@v7
         with:
           node-version: '22'

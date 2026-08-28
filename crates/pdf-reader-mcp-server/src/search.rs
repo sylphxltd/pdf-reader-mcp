@@ -2,7 +2,7 @@ use pdf_reader_core::{
     fuse_search_ocr_outcomes, hash_file, search_pdf_from_value, SearchPdfErrorCode,
     SearchPdfResponse, SEARCH_PDF_ROUTE,
 };
-use rmcp::model::{CallToolResult, Content};
+use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
@@ -64,7 +64,7 @@ pub fn search_pdf(args_value: Value) -> Result<CallToolResult, rmcp::ErrorData> 
                 (response, materialized, has_provider_ocr)
             }
             OcrSearchOutcome::AllSourcesFailed(message) => {
-                return Ok(CallToolResult::error(vec![Content::text(message)]));
+                return Ok(CallToolResult::error(vec![ContentBlock::text(message)]));
             }
         }
     } else {

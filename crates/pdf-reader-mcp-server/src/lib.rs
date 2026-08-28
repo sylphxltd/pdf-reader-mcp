@@ -15,8 +15,13 @@ mod visual_evidence;
 
 use rmcp::{
     handler::server::router::tool::ToolRouter,
+    handler::server::tool::ToolCallContext,
     handler::server::wrapper::Parameters,
-    model::{CustomRequest, CustomResult, Implementation, ServerCapabilities, ServerInfo},
+    model::{
+        CacheScope, CallToolResponse, CustomRequest, CustomResult, Implementation, ListToolsResult,
+        MetaObject, PaginatedRequestParams, ProtocolVersion, ResultType, ServerCapabilities,
+        ServerInfo,
+    },
     service::{RequestContext, RoleServer},
     tool, tool_handler, tool_router, ErrorData, ServerHandler,
 };
@@ -28,6 +33,7 @@ use serde_json::Value;
 pub const SERVER_NAME: &str = "citra";
 /// Pure-Rust MCP server version — tracks the published npm product line when default.
 pub const SERVER_VERSION: &str = "5.0.0";
+pub const SERVER_INFO_META_KEY: &str = "io.modelcontextprotocol/serverInfo";
 pub const SERVER_INSTRUCTIONS: &str =
     "@sylphx/citra sole-Rust MCP server (platform native binary). \
 Capability-first semantic compatibility with TypeScript 3.0.14 interface contracts (ADR-0005/0006). \
@@ -76,6 +82,21 @@ impl Default for PdfReaderMcp {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn server_result_meta(implementation: &Implementation) -> MetaObject {
+    let mut meta = MetaObject::new();
+    meta.insert(
+        SERVER_INFO_META_KEY.to_string(),
+        serde_json::to_value(implementation).expect("Implementation serialization cannot fail"),
+    );
+    meta
+}
+
+fn uses_2026_envelope(context: &RequestContext<RoleServer>) -> bool {
+    context
+        .protocol_version()
+        .is_some_and(|version| version >= ProtocolVersion::V_2026_07_28)
 }
 
 #[tool_router]
@@ -190,6 +211,39 @@ impl ServerHandler for PdfReaderMcp {
                     .with_website_url("https://sylphxai.github.io/pdf-reader-mcp/"),
             )
             .with_instructions(SERVER_INSTRUCTIONS)
+    }
+
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<ListToolsResult, ErrorData> {
+        let supports_2026 = uses_2026_envelope(&context);
+        let result = ListToolsResult {
+            result_type: Some(ResultType::COMPLETE),
+            tools: self.tool_router.list_all(),
+            meta: supports_2026.then(|| server_result_meta(&self.get_info().server_info)),
+            next_cursor: None,
+            ttl_ms: supports_2026.then_some(0),
+            cache_scope: supports_2026.then_some(CacheScope::Public),
+        };
+        Ok(result)
+    }
+
+    async fn call_tool(
+        &self,
+        request: rmcp::model::CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResponse, ErrorData> {
+        let supports_2026 = uses_2026_envelope(&context);
+        let tool_context = ToolCallContext::new(self, request, context);
+        let mut response = self.tool_router.call(tool_context).await?;
+        if supports_2026 {
+            if let CallToolResponse::Complete(ref mut result) = response {
+                result.meta = Some(server_result_meta(&self.get_info().server_info));
+            }
+        }
+        Ok(response)
     }
 
     /// Post-init `server/discover` (SEP-2575). Pre-init is handled by
@@ -388,6 +442,26 @@ mod tests {
             !read_json.contains("\"oneOf\""),
             "read_pdf inputSchema must not use oneOf for path|url XOR after #562"
         );
+    }
+
+    #[tokio::test]
+    async fn read_pdf_contains_malformed_cff_custom_encoding_panic() {
+        // Regression for SylphxAI/pdf-reader-mcp#660: the CFF Custom encoding
+        // panic must cross the MCP boundary as ErrorData, not kill the native
+        // server process or leave the tool call timing out.
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+            "../../test/fixtures/differential/v3014-bug660-cff-custom-encoding-short-charset-v1.pdf",
+        );
+        let read = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": fixture}],
+            "include_full_text": true,
+        }))
+        .expect("structurally valid read args");
+        let error = PdfReaderMcp::new()
+            .read_pdf(Parameters(read))
+            .await
+            .expect_err("read_pdf must return a structured MCP error");
+        assert!(error.message.contains("malformed font encoding"));
     }
 
     #[tokio::test]
