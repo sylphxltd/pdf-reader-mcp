@@ -3,6 +3,7 @@
 use crate::pdfjs_text::decode_pdfjs_text_string;
 use std::collections::BTreeMap;
 use std::fs;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 
 use pdf_extract::{
@@ -866,10 +867,24 @@ pub(crate) fn extract_pdf_text_from_document(
     doc: &Document,
 ) -> Result<ExtractedPdfText, TextIndexError> {
     let info = read_pdf_info(doc);
+    extract_output_bounded(doc, info)
+}
+
+/// `pdf-extract` transitively unwraps malformed-font parsing results (including
+/// CFF Custom encodings), so an upstream panic must be contained at this
+/// extraction boundary and reported like any other extraction failure.
+fn extract_output_bounded(
+    doc: &Document,
+    info: PdfInfo,
+) -> Result<ExtractedPdfText, TextIndexError> {
     let mut output = TextItemOutput::default();
-    output_doc(doc, &mut output).map_err(|err| {
-        TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
-    })?;
+    catch_unwind(AssertUnwindSafe(|| output_doc(doc, &mut output)))
+        .map_err(|_| {
+            TextIndexError::extraction_failed("Failed to extract PDF text: malformed font encoding")
+        })?
+        .map_err(|err| {
+            TextIndexError::extraction_failed(format!("Failed to extract PDF text: {err}"))
+        })?;
 
     let pages = if output.pages.is_empty() {
         vec![ExtractedPageText {
@@ -2251,6 +2266,20 @@ mod tests {
         let short_projection = SourceUtf16Projection::new(short);
         let snip2 = build_snippet(short, &short_projection, 0, 5, 10).unwrap();
         assert_eq!(snip2, "short");
+    }
+
+    #[test]
+    fn extraction_contains_cff_custom_encoding_charset_panic() {
+        // Regression for SylphxAI/pdf-reader-mcp#660. pdf-extract unwraps
+        // cff-parser while loading a Type1C font. A malformed Custom encoding
+        // that is longer than its charset used to panic at encoding.rs and
+        // escape as a server/task abort instead of a structured MCP error.
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/differential/v3014-bug660-cff-custom-encoding-short-charset-v1.pdf");
+        let error = extract_pdf_text(&fixture, 256 * 1024 * 1024)
+            .expect_err("CFF Custom encoding panic must be contained");
+        assert_eq!(error.code, TextIndexErrorCode::ExtractionFailed);
+        assert!(error.message.contains("malformed font encoding"));
     }
 
     #[test]

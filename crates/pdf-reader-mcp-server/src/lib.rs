@@ -444,6 +444,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_pdf_contains_malformed_cff_custom_encoding_panic() {
+        // Regression for SylphxAI/pdf-reader-mcp#660: the CFF Custom encoding
+        // panic must cross the MCP boundary as ErrorData, not kill the native
+        // server process or leave the tool call timing out.
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+            "../../test/fixtures/differential/v3014-bug660-cff-custom-encoding-short-charset-v1.pdf",
+        );
+        let read = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": fixture}],
+            "include_full_text": true,
+        }))
+        .expect("structurally valid read args");
+        let error = PdfReaderMcp::new()
+            .read_pdf(Parameters(read))
+            .await
+            .expect_err("read_pdf must return a structured MCP error");
+        assert!(error.message.contains("malformed font encoding"));
+    }
+
+    #[tokio::test]
     async fn search_pdf_handles_malformed_cid_cmap_fixture_without_aborting() {
         // Regression for SylphxAI/pdf-reader-mcp#608: a pdfTeX ToUnicode CMap
         // using 1-byte beginbfrange destinations (like <C5> <D6> <C5>) made the
