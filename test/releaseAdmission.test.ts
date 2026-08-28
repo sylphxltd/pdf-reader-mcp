@@ -3,6 +3,8 @@ import {
   isAdmissionPinPath,
   isPermittedReviewedDescendantPath,
   isReleaseOnlyPath,
+  isServerVersionOnlyPatch,
+  isServerVersionOnlyPath,
 } from '../scripts/release-admission-paths.ts';
 
 describe('Citra release admission', () => {
@@ -12,8 +14,9 @@ describe('Citra release admission', () => {
     expect(isReleaseOnlyPath('.changeset/secure-citra-parser.md')).toBe(true);
     expect(isReleaseOnlyPath('benchmark-artifacts/pdf_sota_release_gate.json')).toBe(true);
     expect(isReleaseOnlyPath('packages/citra-linux-x64-gnu/package.json')).toBe(true);
-    expect(isReleaseOnlyPath('crates/pdf-reader-mcp-server/src/lib.rs')).toBe(true);
+    expect(isReleaseOnlyPath('crates/pdf-reader-mcp-server/src/lib.rs')).toBe(false);
     expect(isPermittedReviewedDescendantPath('package.json')).toBe(true);
+    expect(isServerVersionOnlyPath('crates/pdf-reader-mcp-server/src/lib.rs')).toBe(true);
 
     for (const path of [
       'src/runtime-entry.ts',
@@ -27,6 +30,22 @@ describe('Citra release admission', () => {
     ]) {
       expect(isPermittedReviewedDescendantPath(path)).toBe(false);
     }
+  });
+  test('permits only the generated Rust SERVER_VERSION stamp after review', () => {
+    const versionPatch = [
+      '--- a/crates/pdf-reader-mcp-server/src/lib.rs',
+      '+++ b/crates/pdf-reader-mcp-server/src/lib.rs',
+      '@@ -28 +28 @@',
+      '-pub const SERVER_VERSION: &str = "5.0.0";',
+      '+pub const SERVER_VERSION: &str = "5.1.0";',
+    ].join('\n');
+    expect(isServerVersionOnlyPatch(versionPatch)).toBe(true);
+    expect(
+      isServerVersionOnlyPatch(
+        '+pub const SERVER_VERSION: &str = "5.1.0";\n+use std::process::Command;'
+      )
+    ).toBe(false);
+    expect(isServerVersionOnlyPatch('')).toBe(false);
   });
   test('rejects path traversal rather than treating it as release metadata', () => {
     for (const path of [

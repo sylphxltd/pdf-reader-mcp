@@ -19,7 +19,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { isPermittedReviewedDescendantPath } from './release-admission-paths.ts';
+import {
+  isPermittedReviewedDescendantPath,
+  isServerVersionOnlyPatch,
+  isServerVersionOnlyPath,
+} from './release-admission-paths.ts';
 
 const root = join(import.meta.dirname, '..');
 const failures: string[] = [];
@@ -209,12 +213,30 @@ if (!review.evidence || !existsSync(join(root, review.evidence))) {
             .map((line) => line.trim())
             .filter(Boolean);
           // An exact reviewed source candidate may be followed by admission
-          // metadata pins or the generated release files only. Runtime/source
-          // changes require a new review candidate SHA.
-          const permittedDescendant = changed.every(isPermittedReviewedDescendantPath);
-          if (ancestor.status !== 0 || diff.status !== 0 || !permittedDescendant) {
+          // metadata pins or generated release files only. The release workflow
+          // may rewrite the Rust version stamp, but no other Rust source.
+          const unpermittedPaths: string[] = [];
+          const invalidVersionPatches: string[] = [];
+          for (const relativePath of changed) {
+            if (!isServerVersionOnlyPath(relativePath)) {
+              if (!isPermittedReviewedDescendantPath(relativePath)) unpermittedPaths.push(relativePath);
+              continue;
+            }
+            const versionPatch = spawnSync(
+              'git',
+              ['diff', '--unified=0', candidateSha, headSha, '--', relativePath],
+              { cwd: root, encoding: 'utf8' }
+            );
+            if (
+              versionPatch.status !== 0 ||
+              !isServerVersionOnlyPatch(versionPatch.stdout || '')
+            ) {
+              invalidVersionPatches.push(relativePath);
+            }
+          }
+          if (ancestor.status !== 0 || diff.status !== 0 || unpermittedPaths.length || invalidVersionPatches.length) {
             failures.push(
-              `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a reviewed-metadata/release-only descendant; ancestorStatus=${ancestor.status} diffStatus=${diff.status} changed=${JSON.stringify(changed)} stderr=${JSON.stringify((ancestor.stderr || '') + (diff.stderr || ''))}`
+              `exact-head admission requires git HEAD (${headSha}) == candidate ${candidateSha}, or a reviewed-metadata/release-only descendant; ancestorStatus=${ancestor.status} diffStatus=${diff.status} unpermitted=${JSON.stringify(unpermittedPaths)} invalidVersionPatches=${JSON.stringify(invalidVersionPatches)} stderr=${JSON.stringify((ancestor.stderr || '') + (diff.stderr || ''))}`
             );
           }
         }

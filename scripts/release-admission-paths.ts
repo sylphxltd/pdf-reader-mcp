@@ -13,9 +13,12 @@ const ADMISSION_PIN_EXACT = new Set([
 const RELEASE_ONLY_EXACT = new Set([
   'CHANGELOG.md',
   'bun.lock',
-  'crates/pdf-reader-mcp-server/src/lib.rs',
   'package.json',
   'server.json',
+]);
+
+const SERVER_VERSION_ONLY_EXACT = new Set([
+  'crates/pdf-reader-mcp-server/src/lib.rs',
 ]);
 
 const RELEASE_ONLY_PREFIXES = ['.changeset/', 'benchmark-artifacts/'];
@@ -32,9 +35,27 @@ export const isAdmissionPinPath = (relativePath: string): boolean =>
   isSafeRelativePath(relativePath) &&
   (ADMISSION_PIN_EXACT.has(relativePath) || relativePath.startsWith('verification/'));
 
+/** The only Rust source file the release workflow may rewrite, and only its version stamp. */
+export const isServerVersionOnlyPath = (relativePath: string): boolean =>
+  isSafeRelativePath(relativePath) && SERVER_VERSION_ONLY_EXACT.has(relativePath);
+
+/** Accept only a generated one-line SERVER_VERSION replacement in the release rewrite. */
+export const isServerVersionOnlyPatch = (patch: string): boolean => {
+  let changedLineCount = 0;
+  for (const rawLine of patch.split(/\r?\n/)) {
+    if (rawLine.startsWith('--- ') || rawLine.startsWith('+++ ')) continue;
+    if (!rawLine.startsWith('+') && !rawLine.startsWith('-')) continue;
+    const line = rawLine.slice(1).trim();
+    if (!/^pub const SERVER_VERSION: &str = "[^"\r\n]+";$/.test(line)) return false;
+    changedLineCount += 1;
+  }
+  return changedLineCount > 0;
+};
+
 /** A file emitted by the version/publish workflow after source review. */
 export const isReleaseOnlyPath = (relativePath: string): boolean =>
   isSafeRelativePath(relativePath) &&
+  !SERVER_VERSION_ONLY_EXACT.has(relativePath) &&
   (RELEASE_ONLY_EXACT.has(relativePath) ||
     RELEASE_ONLY_PREFIXES.some((prefix) => relativePath.startsWith(prefix)) ||
     NATIVE_PACKAGE_MANIFEST.test(relativePath));

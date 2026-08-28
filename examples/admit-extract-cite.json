@@ -43,7 +43,8 @@
       "match": "results[0].matches[0]"
     },
     "require": {
-      "gaps": []
+      "gaps": [],
+      "match.bounding_box": "present"
     }
   },
   {

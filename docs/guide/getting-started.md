@@ -133,6 +133,9 @@ const match = matches.payload.results?.[0]?.matches?.[0];
 if (!match || matches.payload.gaps?.length) {
   throw new Error("No complete citeable match was returned");
 }
+if (!match.bounding_box) {
+  throw new Error("Search match has no cropable bounding box");
+}
 
 const crop = await citra.evidence({
   operation: "extract_regions",
@@ -151,8 +154,9 @@ const crop = await citra.evidence({
 
 The `read_pdf` twin supplies the understanding context (`markdown`, chunks,
 elements, and the document map). `search_pdf` supplies the literal match,
-page, text-item/word index, bounding box, and match ID. The crop supplies a
-focused visual evidence ID and image content part for human verification.
+page, match ID, and geometry when the selected search route supports it;
+refuse to crop when `bounding_box` is absent. The crop supplies a focused
+visual evidence ID and image content part for human verification.
 For local files, compare `source.hash` across the three successful responses
 before citing; treat a non-empty `gaps` array or an `error` status as an
 incomplete result, not as confirmation.
