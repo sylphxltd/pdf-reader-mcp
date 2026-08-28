@@ -9,7 +9,7 @@ use pdf_reader_core::render::{
     DEFAULT_MAX_RENDER_OUTPUT_BYTES, DEFAULT_MAX_RENDER_PIXELS, DEFAULT_RENDER_SCALE,
 };
 use pdf_reader_core::url_fetch::{cleanup_temp_file, fetch_url_to_temp_file};
-use rmcp::model::{CallToolResult, Content};
+use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{json, Value};
 
 use crate::page_selection::selected_pages;
@@ -147,11 +147,11 @@ struct ImagePart {
 fn tool_result(payload: Value, images: Vec<ImagePart>) -> CallToolResult {
     let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
     let mut content = Vec::with_capacity(images.len() + 1);
-    content.push(Content::text(text));
+    content.push(ContentBlock::text(text));
     content.extend(
         images
             .into_iter()
-            .map(|image| Content::image(image.data, image.mime_type)),
+            .map(|image| ContentBlock::image(image.data, image.mime_type)),
     );
     {
         let mut result = CallToolResult::structured(payload);
@@ -161,7 +161,7 @@ fn tool_result(payload: Value, images: Vec<ImagePart>) -> CallToolResult {
 }
 
 fn all_failed(message: String) -> CallToolResult {
-    CallToolResult::error(vec![Content::text(message)])
+    CallToolResult::error(vec![ContentBlock::text(message)])
 }
 
 fn parse_args(value: Value) -> Result<PdfEvidenceArgs, rmcp::ErrorData> {

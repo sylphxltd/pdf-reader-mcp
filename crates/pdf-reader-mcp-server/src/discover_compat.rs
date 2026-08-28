@@ -15,8 +15,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use rmcp::model::{
-    ClientJsonRpcMessage, ClientRequest, CustomRequest, CustomResult, ProtocolVersion,
-    ServerJsonRpcMessage, ServerResult, ServerInfo,
+    ClientJsonRpcMessage, ClientRequest, CustomRequest, CustomResult, ProtocolVersion, ServerInfo,
+    ServerJsonRpcMessage, ServerResult,
 };
 use rmcp::service::RoleServer;
 use rmcp::transport::Transport;
@@ -57,6 +57,8 @@ pub fn discover_result_value(info: &ServerInfo) -> Value {
         "resultType": "complete",
         "supportedVersions": supported_versions,
         "capabilities": info.capabilities,
+        "cacheScope": "private",
+        "ttlMs": 3_600_000,
         "_meta": {
             SERVER_INFO_META_KEY: server_info,
         },
@@ -71,11 +73,13 @@ pub fn discover_result_value(info: &ServerInfo) -> Value {
 
 /// True when the client request is SEP-2575 `server/discover`.
 pub fn is_server_discover_request(request: &ClientRequest) -> bool {
-    matches!(
-        request,
-        ClientRequest::CustomRequest(CustomRequest { method, .. })
-            if method == SERVER_DISCOVER_METHOD
-    )
+    match request {
+        ClientRequest::DiscoverRequest(_) => true,
+        ClientRequest::CustomRequest(CustomRequest { method, .. }) => {
+            method == SERVER_DISCOVER_METHOD
+        }
+        _ => false,
+    }
 }
 
 /// Transport wrapper that answers pre-init `server/discover` and keeps the
@@ -168,10 +172,9 @@ mod tests {
             .iter()
             .any(|v| v.as_str() == Some("2026-07-28")));
         assert!(value["capabilities"]["tools"].is_object());
-        assert_eq!(
-            value["_meta"][SERVER_INFO_META_KEY]["name"],
-            "citra"
-        );
+        assert_eq!(value["cacheScope"], "private");
+        assert_eq!(value["ttlMs"], 3_600_000);
+        assert_eq!(value["_meta"][SERVER_INFO_META_KEY]["name"], "citra");
         assert_eq!(value["_meta"][SERVER_INFO_META_KEY]["version"], "5.0.0");
         assert_eq!(value["instructions"], "test instructions");
     }
@@ -182,8 +185,7 @@ mod tests {
             SERVER_DISCOVER_METHOD,
             Some(json!({})),
         ));
-        let other =
-            ClientRequest::CustomRequest(CustomRequest::new("tools/list", Some(json!({}))));
+        let other = ClientRequest::CustomRequest(CustomRequest::new("tools/list", Some(json!({}))));
         assert!(is_server_discover_request(&discover));
         assert!(!is_server_discover_request(&other));
     }
