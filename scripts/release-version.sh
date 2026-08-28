@@ -7,7 +7,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
 echo "[release-version] bump package versions from changesets"
-node node_modules/@changesets/cli/bin.js version
+bun node_modules/@changesets/cli/bin.js version
 
 echo "[release-version] sync native optional package manifests to root version"
 bun run native:sync-manifests
