@@ -1,5 +1,23 @@
 # Changelog
 
+## 5.0.1
+
+### Patch Changes
+
+- [#644](https://github.com/SylphxAI/pdf-reader-mcp/pull/644) [`3324cf8`](https://github.com/SylphxAI/pdf-reader-mcp/commit/3324cf8a31c57754b1ae9b743f6067a1e3e77742) Thanks [@shtse8](https://github.com/shtse8)! - Bind the production launcher to the matching native package version and prove
+  the installed launcher, upgrade, and uninstall customer paths before release
+  closeout.
+
+- [#665](https://github.com/SylphxAI/pdf-reader-mcp/pull/665) [`9409b5b`](https://github.com/SylphxAI/pdf-reader-mcp/commit/9409b5b190d506abb9a68ed26df7d046fc0de39e) Thanks [@shtse8](https://github.com/shtse8)! - Contain malformed CFF Custom-encoding failures in PDF text extraction so a
+  malicious or damaged Type1C font returns a structured extraction error instead
+  of aborting the native server.
+
+- [#666](https://github.com/SylphxAI/pdf-reader-mcp/pull/666) [`abe0702`](https://github.com/SylphxAI/pdf-reader-mcp/commit/abe070293e501370255005462f3e0a293a98cea0) Thanks [@shtse8](https://github.com/shtse8)! - Upgrade rmcp to 3.1.2 and add MCP 2026-07-28 result envelope support (cacheScope, ttlMs, serverInfo \_meta) for tools/list and tools/call.
+
+- [#643](https://github.com/SylphxAI/pdf-reader-mcp/pull/643) [`984d2f9`](https://github.com/SylphxAI/pdf-reader-mcp/commit/984d2f95965300493b893d20feafb9bb1c014541) Thanks [@shtse8](https://github.com/shtse8)! - Enforce the documented native filesystem allowlist for every PDF tool, update
+  the PDF parser dependency chain past RUSTSEC-2026-0187, and retire the unbound
+  Docker publication path.
+
 ## 5.0.0
 
 ### Breaking
@@ -8,7 +26,6 @@
 - Transitional `@sylphx/pdf-reader-mcp` is no longer the install CTA.
 - Family Evidence Envelope v1 adopted as wire law (skills schema).
 - Prism composition product retired; host routes media.
-
 
 ## 4.1.3
 
