@@ -104,12 +104,13 @@ jobs:
         # of an intentional release ref, not ordinary main pushes.
         run: bun scripts/check-verified-candidate-admission.ts
 
-      - name: Normalize tracked dist permissions before version PR
+      - name: Normalize tracked file permissions before version PR
         run: |
           if [ -d dist ]; then
             find dist -type f \( -name '*.js' -o -name '*.mjs' \) -exec chmod a-x {} +
             ls -la dist || true
           fi
+          find packages -name 'citra-mcp-server' -exec chmod a-x {} + 2>/dev/null || true
 
       - name: Create release PR
         id: changesets
@@ -121,7 +122,7 @@ jobs:
           version: bash scripts/release-version.sh
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
-          commitMode: github-api
+          commitMode: git
           github-token: ${{ steps.release-token.outputs.token }}
         env:
           GITHUB_TOKEN: ${{ steps.release-token.outputs.token }}
