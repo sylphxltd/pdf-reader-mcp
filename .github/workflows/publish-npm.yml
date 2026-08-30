@@ -30,16 +30,6 @@ jobs:
             runner: sylphx-linux-standard
             target: aarch64-unknown-linux-gnu
           # Product macOS: Sylphx self-hosted only (no GitHub-hosted macos-*).
-          # darwin-arm64 skipped: self-hosted macOS runner offline
-          - platformId: darwin-arm64
-            runner: [self-hosted, sylphx, macos, standard]
-            target: aarch64-apple-darwin
-            skip: true
-          # darwin-x64 skipped: self-hosted macOS runner offline
-          - platformId: darwin-x64
-            runner: [self-hosted, sylphx, macos, standard]
-            target: x86_64-apple-darwin
-            skip: true
           - platformId: win32-x64-msvc
             runner: sylphx-linux-standard
             target: x86_64-pc-windows-msvc
