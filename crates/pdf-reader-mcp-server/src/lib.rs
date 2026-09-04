@@ -464,6 +464,111 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_pdf_reports_malformed_inline_image_as_error() {
+        // Regression for SylphxAI/pdf-reader-mcp#675: a malformed inline
+        // image (missing `/CS` without `/IM`) panics inside lopdf 0.42's
+        // content parser. It must cross the MCP boundary as ErrorData
+        // naming the page, not kill the native server or time out the call.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("inline-malformed.pdf");
+        let content = b"BI /W 1 /H 1 /BPC 1 ID \x00 EI\n";
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << >> >>"
+                .to_string(),
+            format!(
+                "<< /Length {} >>\nstream\n{}\nendstream",
+                content.len(),
+                String::from_utf8_lossy(content)
+            ),
+        ];
+        let mut pdf = b"%PDF-1.4\n".to_vec();
+        let mut offsets = Vec::new();
+        for (index, object) in objects.iter().enumerate() {
+            offsets.push(pdf.len());
+            pdf.extend_from_slice(format!("{} 0 obj\n{object}\nendobj\n", index + 1).as_bytes());
+        }
+        let xref_offset = pdf.len();
+        pdf.extend_from_slice(format!("xref\n0 {}\n", objects.len() + 1).as_bytes());
+        pdf.extend_from_slice(b"0000000000 65535 f \n");
+        for offset in offsets {
+            pdf.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+        }
+        pdf.extend_from_slice(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n",
+                objects.len() + 1
+            )
+            .as_bytes(),
+        );
+        std::fs::write(&path, pdf).expect("write PDF");
+        let read = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": path}],
+            "include_full_text": true,
+        }))
+        .expect("structurally valid read args");
+        let error = PdfReaderMcp::new()
+            .read_pdf(Parameters(read))
+            .await
+            .expect_err("read_pdf must return a structured MCP error");
+        assert!(
+            error.message.contains("invalid content stream (page 1)"),
+            "unexpected message: {}",
+            error.message
+        );
+    }
+
+    #[tokio::test]
+    async fn read_pdf_survives_wellformed_inline_image() {
+        // The #675 reproducer itself must read cleanly through the tool.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("inline-ok.pdf");
+        let content = b"BI /W 1 /H 1 /IM true /BPC 1 ID \x00 EI\n";
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << >> >>"
+                .to_string(),
+            format!(
+                "<< /Length {} >>\nstream\n{}\nendstream",
+                content.len(),
+                String::from_utf8_lossy(content)
+            ),
+        ];
+        let mut pdf = b"%PDF-1.4\n".to_vec();
+        let mut offsets = Vec::new();
+        for (index, object) in objects.iter().enumerate() {
+            offsets.push(pdf.len());
+            pdf.extend_from_slice(format!("{} 0 obj\n{object}\nendobj\n", index + 1).as_bytes());
+        }
+        let xref_offset = pdf.len();
+        pdf.extend_from_slice(format!("xref\n0 {}\n", objects.len() + 1).as_bytes());
+        pdf.extend_from_slice(b"0000000000 65535 f \n");
+        for offset in offsets {
+            pdf.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+        }
+        pdf.extend_from_slice(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n",
+                objects.len() + 1
+            )
+            .as_bytes(),
+        );
+        std::fs::write(&path, pdf).expect("write PDF");
+        let read = serde_json::from_value(serde_json::json!({
+            "sources": [{"path": path}],
+            "include_full_text": true,
+        }))
+        .expect("structurally valid read args");
+        let result = PdfReaderMcp::new()
+            .read_pdf(Parameters(read))
+            .await
+            .expect("read_pdf must complete on an inline-image PDF");
+        assert!(!result.content.is_empty(), "expected a structured read_pdf result");
+    }
+
+    #[tokio::test]
     async fn search_pdf_handles_malformed_cid_cmap_fixture_without_aborting() {
         // Regression for SylphxAI/pdf-reader-mcp#608: a pdfTeX ToUnicode CMap
         // using 1-byte beginbfrange destinations (like <C5> <D6> <C5>) made the

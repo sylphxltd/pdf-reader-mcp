@@ -873,11 +873,28 @@ pub(crate) fn extract_pdf_text_from_document(
 /// `pdf-extract` transitively unwraps malformed-font parsing results (including
 /// CFF Custom encodings), so an upstream panic must be contained at this
 /// extraction boundary and reported like any other extraction failure.
+///
+/// The same boundary also pre-validates content streams before `output_doc`
+/// runs: lopdf 0.42's inline-image parser `unwrap()`s a missing `/CS` entry
+/// (`parser/mod.rs`, `image_data_stream`), so a `BI ... ID ... EI` construct
+/// without a colorspace (and not an image mask) panics inside
+/// `Content::decode` instead of returning `Parse(InvalidContentStream)`
+/// (SylphxAI/pdf-reader-mcp#675). Pre-validation computes the expected inline
+/// image data length from the inline dict (`/W`, `/H`, `/BPC`, `/CS`, with
+/// `/Width`, `/Height`, `/BitsPerComponent`, `/ColorSpace` and `/IM`,
+/// `/ImageMask`, `/G`, `/RGB`, `/CMYK` abbreviations supported) and verifies
+/// `EI` follows, rather than scanning for a literal `EI` that can match
+/// inside image data. Any page whose content stream fails validation is
+/// reported as a page-level tool error naming the page, never a panic.
 fn extract_output_bounded(
     doc: &Document,
     info: PdfInfo,
 ) -> Result<ExtractedPdfText, TextIndexError> {
+    validate_page_content_streams(doc)?;
     let mut output = TextItemOutput::default();
+    // Defense in depth: pre-validation above rejects the known malformed
+    // inline-image shapes, but any other upstream parse panic (CFF fonts,
+    // future lopdf paths) must still surface as a structured tool error.
     catch_unwind(AssertUnwindSafe(|| output_doc(doc, &mut output)))
         .map_err(|_| {
             TextIndexError::extraction_failed("Failed to extract PDF text: malformed font encoding")
@@ -914,6 +931,270 @@ fn extract_output_bounded(
     };
 
     Ok(ExtractedPdfText { pages, info })
+}
+
+/// Pre-validate every page content stream before `output_doc` parses it.
+///
+/// lopdf's content parser panics (rather than returning
+/// `Parse(InvalidContentStream)`) on inline images whose dict cannot yield an
+/// image length — notably a missing `/CS` entry when `/IM` is not true, which
+/// `unwrap()`s a `DictKey("ColorSpace")` error. A panic inside
+/// `Content::decode` would escape as a worker abort; instead each page is
+/// decoded defensively and inline-image dicts are length-checked up front so
+/// the failure below becomes `Failed to extract PDF text: invalid content
+/// stream (page N)`.
+fn validate_page_content_streams(doc: &Document) -> Result<(), TextIndexError> {
+    for (page_number, object_id) in doc.get_pages() {
+        let content = doc.get_page_content(object_id).map_err(|err| {
+            TextIndexError::extraction_failed(format!(
+                "Failed to extract PDF text: invalid content stream (page {page_number}): {err}"
+            ))
+        })?;
+        validate_inline_images(&content).map_err(|detail| {
+            TextIndexError::extraction_failed(format!(
+                "Failed to extract PDF text: invalid content stream (page {page_number}): {detail}"
+            ))
+        })?;
+        // `Content::decode` itself panics on the shapes above (the `cut`
+        // combinator turns the `unwrap()` into a `Failure`, which the
+        // non-strict entry point still propagates by panic). Run it under
+        // `catch_unwind` so any remaining malformed stream — inline image or
+        // otherwise — is a page-level tool error, never a worker abort.
+        // `Content::decode` takes `&[u8]`; wrap the call so the closure is
+        // `UnwindSafe` without relying on `AssertUnwindSafe`.
+        let decode_result = std::panic::catch_unwind(|| {
+            lopdf::content::Content::decode(&content).map(|_| ())
+        });
+        match decode_result {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => {
+                return Err(TextIndexError::extraction_failed(format!(
+                    "Failed to extract PDF text: invalid content stream (page {page_number}): {err}"
+                )));
+            }
+            Err(_) => {
+                return Err(TextIndexError::extraction_failed(format!(
+                    "Failed to extract PDF text: invalid content stream (page {page_number}): content stream parse failure"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validate `BI ... ID <data> EI` constructs in a raw content stream.
+///
+/// For each inline image, the expected data length is computed from the
+/// inline dict (`/W`+`/H`+`/BPC`, plus `/CS` component count unless
+/// `/IM true`), and `EI` must follow exactly after that many data bytes
+/// (modulo the single whitespace lopdf requires on each side). Shapes that
+/// cannot yield a length — missing `/CS` without `/IM true`, unknown
+/// colorspaces, `/Filter` entries, zero dimensions — are rejected here
+/// instead of reaching lopdf's `unwrap()`. Unknown operators or non-inline
+/// content passes through untouched; only a structurally-invalid inline
+/// image fails validation.
+fn validate_inline_images(content: &[u8]) -> Result<(), String> {
+    let mut cursor = content;
+    while let Some(bi_offset) = find_inline_begin(cursor) {
+        cursor = &cursor[bi_offset + 2..];
+        let after_bi = skip_content_whitespace(cursor);
+        // Parse `key value` pairs until the `ID` operator.
+        let mut dict: Vec<(&[u8], &[u8])> = Vec::new();
+        let mut rest = after_bi;
+        let data_start = loop {
+            rest = skip_content_whitespace(rest);
+            if rest.len() >= 2 && rest[0] == b'I' && rest[1] == b'D' && is_id_terminator(rest.get(2)) {
+                break &rest[2..];
+            }
+            let (key, after_key) = take_inline_name(rest)
+                .ok_or_else(|| "inline image missing ID operator".to_string())?;
+            let after_key = skip_content_whitespace(after_key);
+            let (value, after_value) = take_inline_value(after_key)
+                .ok_or_else(|| "inline image has malformed dict value".to_string())?;
+            dict.push((key, value));
+            rest = after_value;
+        };
+        // lopdf requires exactly one whitespace byte after `ID`.
+        let data = data_start.strip_prefix(b" ")
+            .or_else(|| data_start.strip_prefix(b"\n"))
+            .or_else(|| data_start.strip_prefix(b"\r"))
+            .or_else(|| data_start.strip_prefix(b"\t"))
+            .ok_or_else(|| "inline image ID not followed by whitespace".to_string())?;
+        let expected = inline_image_data_len(&dict)?;
+        let image_data = data.get(..expected).ok_or_else(|| {
+            "inline image data shorter than /W /H /BPC imply".to_string()
+        })?;
+        // Guard the `EI`-in-data trap from the other direction too: image
+        // data containing `EI`-like bytes must not confuse validation, since
+        // the length — not a literal scan — determines where data ends.
+        let _ = image_data;
+        let after_data = &data[expected..];
+        // lopdf reads `EI` as `(content_space, tag(b"EI"), content_space)`:
+        // whitespace is required before `EI` (the data-length computation
+        // consumes the separator) and at least one trailing whitespace byte
+        // must follow for the parse to complete.
+        let ei = after_data.strip_prefix(b" ")
+            .or_else(|| after_data.strip_prefix(b"\n"))
+            .or_else(|| after_data.strip_prefix(b"\r"))
+            .or_else(|| after_data.strip_prefix(b"\t"))
+            .ok_or_else(|| "inline image data not followed by EI".to_string())?;
+        if ei.len() < 2 || ei[0] != b'E' || ei[1] != b'I' {
+            return Err("inline image data not followed by EI".to_string());
+        }
+        if ei.len() < 3 || !is_content_whitespace(ei[2]) {
+            return Err("inline image EI not followed by whitespace".to_string());
+        }
+        cursor = &ei[2..];
+    }
+    Ok(())
+}
+
+/// Length of inline-image data implied by the inline dict entries.
+fn inline_image_data_len(dict: &[(&[u8], &[u8])]) -> Result<usize, String> {
+    let lookup = |abbr: &[u8], full: &[u8]| -> Option<&[u8]> {
+        dict.iter()
+            .find(|(key, _)| *key == abbr || *key == full)
+            .map(|(_, value)| *value)
+    };
+    let parse_int = |raw: &[u8]
+| -> Option<i64> {
+        std::str::from_utf8(raw).ok()?.trim().parse::<i64>().ok()
+    };
+    let width = lookup(b"W", b"Width")
+        .and_then(parse_int)
+        .ok_or_else(|| "inline image missing /W".to_string())?;
+    let height = lookup(b"H", b"Height")
+        .and_then(parse_int)
+        .ok_or_else(|| "inline image missing /H".to_string())?;
+    let bpc = lookup(b"BPC", b"BitsPerComponent")
+        .and_then(parse_int)
+        .ok_or_else(|| "inline image missing /BPC".to_string())?;
+    if width <= 0 || height <= 0 || bpc <= 0 {
+        return Err("inline image has non-positive /W /H /BPC".to_string());
+    }
+    if lookup(b"F", b"Filter").is_some() {
+        return Err("filtered inline images are unsupported".to_string());
+    }
+    let is_mask = lookup(b"IM", b"ImageMask").is_some_and(|raw| raw == b"true");
+    let components: usize = if is_mask {
+        1
+    } else {
+        let cs = lookup(b"CS", b"ColorSpace")
+            .ok_or_else(|| "inline image missing /CS".to_string())?;
+        match cs {
+            b"G" | b"DeviceGray" | b"Gray" => 1,
+            b"RGB" | b"DeviceRGB" => 3,
+            b"CMYK" | b"DeviceCMYK" => 4,
+            _ => return Err("inline image has unsupported colorspace".to_string()),
+        }
+    };
+    let width = width as usize;
+    let height = height as usize;
+    let bpc = bpc as usize;
+    let row_bits = width.checked_mul(components.checked_mul(bpc).ok_or_else(|| {
+        "inline image dimensions overflow".to_string()
+    })?).ok_or_else(|| "inline image dimensions overflow".to_string())?;
+    let stride = row_bits.div_ceil(8);
+    height.checked_mul(stride).ok_or_else(|| {
+        "inline image dimensions overflow".to_string()
+    })
+}
+
+fn is_content_whitespace(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\t' | b'\n' | b'\r')
+}
+
+fn skip_content_whitespace(mut input: &[u8]) -> &[u8] {
+    while input.first().is_some_and(|byte| is_content_whitespace(*byte)) {
+        input = &input[1..];
+    }
+    input
+}
+
+/// `ID` ends the inline dict only when followed by whitespace; `ID` glued to
+/// data (e.g. `ID\x00`) belongs to the data run, matching lopdf which parses
+/// `pair(tag(b"ID"), content_space)`.
+fn is_id_terminator(next: Option<&u8>) -> bool {
+    next.is_some_and(|byte| is_content_whitespace(*byte))
+}
+
+/// Find a `BI` operator token (not a prefix of a longer operator such as
+/// `BIT`).
+fn find_inline_begin(content: &[u8]) -> Option<usize> {
+    let mut index = 0;
+    while index + 2 <= content.len() {
+        if content[index] == b'B' && content[index + 1] == b'I' {
+            let prev_ok = index == 0 || is_content_whitespace(content[index - 1]);
+            let next = content.get(index + 2);
+            let next_ok = next.is_none_or(|byte| is_content_whitespace(*byte));
+            if prev_ok && next_ok {
+                return Some(index);
+            }
+        }
+        index += 1;
+    }
+    None
+}
+
+/// Take a `/Name` (without the leading slash) from an inline dict.
+fn take_inline_name(input: &[u8]) -> Option<(&[u8], &[u8])> {
+    let rest = input.strip_prefix(b"/")?;
+    let end = rest
+        .iter()
+        .position(|byte| !byte.is_ascii_alphanumeric() && !matches!(byte, b'*' | b'\'' | b'"' | b'_' | b'.' | b'-'))?;
+    if end == 0 {
+        return None;
+    }
+    Some((&rest[..end], &rest[end..]))
+}
+
+/// Take one inline-dict value: boolean, number, `/Name`, `[array]`, or
+/// `(string)`. Returns the raw bytes and the remainder.
+fn take_inline_value(input: &[u8]) -> Option<(&[u8], &[u8])> {
+    let first = *input.first()?;
+    if first == b'/' {
+        let (name, rest) = take_inline_name(input)?;
+        // Reconstruct the `/Name` span length from the remainder pointers.
+        let consumed = input.len() - rest.len();
+        let _ = name;
+        return Some((&input[1..consumed], rest));
+    }
+    if first == b'[' {
+        let end = input.iter().position(|byte| *byte == b']')?;
+        return Some((&input[..end + 1], &input[end + 1..]));
+    }
+    if first == b'(' {
+        // Literal string with nesting/escapes.
+        let mut depth = 0usize;
+        let mut index = 0usize;
+        let mut escaped = false;
+        while index < input.len() {
+            let byte = input[index];
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'(' {
+                depth += 1;
+            } else if byte == b')' {
+                depth -= 1;
+                if depth == 0 {
+                    return Some((&input[..index + 1], &input[index + 1..]));
+                }
+            }
+            index += 1;
+        }
+        return None;
+    }
+    // Boolean, number, or bare keyword: run to the next whitespace.
+    let end = input
+        .iter()
+        .position(|byte| is_content_whitespace(*byte))
+        .unwrap_or(input.len());
+    if end == 0 {
+        return None;
+    }
+    Some((&input[..end], &input[end..]))
 }
 
 pub fn extract_page_texts(path: &Path, max_file_bytes: u64) -> Result<Vec<String>, TextIndexError> {
@@ -2280,6 +2561,107 @@ mod tests {
             .expect_err("CFF Custom encoding panic must be contained");
         assert_eq!(error.code, TextIndexErrorCode::ExtractionFailed);
         assert!(error.message.contains("malformed font encoding"));
+    }
+
+    fn inline_image_pdf(content: &[u8]) -> Vec<u8> {
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << >> >>"
+                .to_string(),
+            format!(
+                "<< /Length {} >>\nstream\n{}\nendstream",
+                content.len(),
+                String::from_utf8_lossy(content)
+            ),
+        ];
+        let mut pdf = b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n".to_vec();
+        let mut offsets = Vec::with_capacity(objects.len());
+        for (index, object) in objects.iter().enumerate() {
+            offsets.push(pdf.len());
+            pdf.extend_from_slice(format!("{} 0 obj\n{object}\nendobj\n", index + 1).as_bytes());
+        }
+        let xref_offset = pdf.len();
+        pdf.extend_from_slice(format!("xref\n0 {}\n", objects.len() + 1).as_bytes());
+        pdf.extend_from_slice(b"0000000000 65535 f \n");
+        for offset in offsets {
+            pdf.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+        }
+        pdf.extend_from_slice(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n",
+                objects.len() + 1
+            )
+            .as_bytes(),
+        );
+        pdf
+    }
+
+    fn write_inline_pdf(content: &[u8]) -> tempfile::TempDir {
+        let temp = tempfile::tempdir().expect("tempdir");
+        std::fs::write(temp.path().join("inline.pdf"), inline_image_pdf(content))
+            .expect("write PDF");
+        temp
+    }
+
+    #[test]
+    fn extraction_survives_wellformed_inline_images() {
+        // Regression for SylphxAI/pdf-reader-mcp#675: the issue's reproducer
+        // (`BI /W 1 /H 1 /IM true /BPC 1 ID <0x00> EI`) and its variant table
+        // (grey colorspace, full key names, 8x8 data, `q..Q` wrapping, 0xFF
+        // data byte, `EI`-like bytes in data) must extract without panicking.
+        let variants: &[&[u8]] = &[
+            b"BI /W 1 /H 1 /IM true /BPC 1 ID \x00 EI\n",
+            b"BI /W 1 /H 1 /CS /G /BPC 8 ID \x00 EI\n",
+            b"BI /W 8 /H 8 /IM true /BPC 1 ID \x00\x00\x00\x00\x00\x00\x00\x00 EI\n",
+            b"BI /Width 1 /Height 1 /ImageMask true /BitsPerComponent 1 ID \x00 EI\n",
+            b"q BI /W 1 /H 1 /IM true /BPC 1 ID \x00 EI Q\n",
+            b"BI /W 1 /H 1 /IM true /BPC 1 ID \xFF EI\n",
+            b"BI /W 16 /H 1 /IM true /BPC 1 ID EI EI\n",
+            b"BI /W 1 /H 1 /CS /DeviceGray /BPC 8 ID \x00 EI\n",
+        ];
+        for (index, content) in variants.iter().enumerate() {
+            let temp = write_inline_pdf(content);
+            let extracted = extract_pdf_text(&temp.path().join("inline.pdf"), 256 * 1024 * 1024)
+                .unwrap_or_else(|err| panic!("variant {index} must extract: {}", err.message));
+            assert_eq!(extracted.pages.len(), 1, "variant {index}");
+        }
+    }
+
+    #[test]
+    fn extraction_reports_malformed_inline_image_as_page_error() {
+        // Regression for SylphxAI/pdf-reader-mcp#675 request 1: a malformed
+        // content stream must surface as a page-level tool error naming the
+        // page — never a panicked worker. A missing `/CS` (without `/IM`)
+        // panics inside lopdf 0.42's inline-image parser (`unwrap()` of
+        // `DictKey("ColorSpace")`); it must arrive here as
+        // `invalid content stream (page 1)`.
+        let malformed: &[u8] = b"BI /W 1 /H 1 /BPC 1 ID \x00 EI\n";
+        let temp = write_inline_pdf(malformed);
+        let error = extract_pdf_text(&temp.path().join("inline.pdf"), 256 * 1024 * 1024)
+            .expect_err("malformed inline image must be a structured error");
+        assert_eq!(error.code, TextIndexErrorCode::ExtractionFailed);
+        assert!(
+            error.message.contains("invalid content stream (page 1)"),
+            "unexpected message: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn extraction_rejects_truncated_inline_image_data() {
+        // An 8x8 1-bit mask needs 8 data bytes; 2 bytes must fail as a
+        // page-level error rather than a literal-`EI` scan or a panic.
+        let truncated: &[u8] = b"BI /W 8 /H 8 /IM true /BPC 1 ID \x00\x00 EI\n";
+        let temp = write_inline_pdf(truncated);
+        let error = extract_pdf_text(&temp.path().join("inline.pdf"), 256 * 1024 * 1024)
+            .expect_err("truncated inline image must be a structured error");
+        assert_eq!(error.code, TextIndexErrorCode::ExtractionFailed);
+        assert!(
+            error.message.contains("invalid content stream (page 1)"),
+            "unexpected message: {}",
+            error.message
+        );
     }
 
     #[test]
